@@ -440,6 +440,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                     <thead>
                       <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="pb-2 text-left font-medium">Descrição</th>
+                        <th className="pb-2 text-left font-medium">Especificação</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
                         <th className="pb-2 text-right font-medium">IVA</th>
                         <th className="pb-2 text-right font-medium">Valor</th>
