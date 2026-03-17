@@ -17,6 +17,7 @@ const statusMap: Record<ListStatus, { label: string; variant: "default" | "secon
   draft: { label: "Rascunho", variant: "secondary" },
   pending_approval: { label: "Aguardando Aprovação", variant: "outline" },
   approved: { label: "Aprovada", variant: "default" },
+  partially_approved: { label: "Parcialmente Aprovada", variant: "outline" },
   rejected: { label: "Rejeitada", variant: "destructive" },
   revision: { label: "Em Revisão", variant: "outline" },
 };
