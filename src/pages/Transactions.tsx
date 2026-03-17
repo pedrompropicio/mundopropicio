@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatCurrencyDecimal, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, X } from "lucide-react";
+import { Plus, X, CreditCard } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface TransactionForm {
@@ -13,6 +13,7 @@ interface TransactionForm {
   iva_rate: IvaRate;
   event_id: string;
   category_id: string;
+  supplier_id: string;
   date: string;
   status: "pending" | "paid" | "overdue";
 }
@@ -24,6 +25,7 @@ const emptyForm: TransactionForm = {
   iva_rate: 23,
   event_id: "",
   category_id: "",
+  supplier_id: "",
   date: new Date().toISOString().split("T")[0],
   status: "pending",
 };
@@ -31,6 +33,8 @@ const emptyForm: TransactionForm = {
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [showForm, setShowForm] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const queryClient = useQueryClient();
 
@@ -39,7 +43,7 @@ export default function Transactions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), account_categories(name)")
+        .select("*, events(name), account_categories(name), suppliers(name)")
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
@@ -64,6 +68,15 @@ export default function Transactions() {
     },
   });
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
       const { error } = await supabase.from("transactions").insert({
@@ -73,8 +86,10 @@ export default function Transactions() {
         iva_rate: data.iva_rate,
         event_id: data.event_id,
         category_id: data.category_id || null,
+        supplier_id: data.supplier_id || null,
         date: data.date,
         status: data.status,
+        paid_amount: data.status === "paid" ? parseFloat(data.amount) : 0,
       });
       if (error) throw error;
     },
@@ -89,6 +104,26 @@ export default function Transactions() {
     },
   });
 
+  const paymentMutation = useMutation({
+    mutationFn: async ({ id, newPaidAmount, totalAmount }: { id: string; newPaidAmount: number; totalAmount: number }) => {
+      const newStatus = newPaidAmount >= totalAmount ? "paid" : "pending";
+      const { error } = await supabase
+        .from("transactions")
+        .update({ paid_amount: newPaidAmount, status: newStatus })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setShowPaymentModal(null);
+      setPaymentAmount("");
+      toast({ title: "Pagamento registado com sucesso!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao registar pagamento", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.description || !form.amount || !form.event_id) {
@@ -98,11 +133,29 @@ export default function Transactions() {
     createMutation.mutate(form);
   };
 
+  const handlePayment = (transaction: any) => {
+    const amount = Number(transaction.amount);
+    const currentPaid = Number(transaction.paid_amount ?? 0);
+    const addAmount = parseFloat(paymentAmount);
+    if (!addAmount || addAmount <= 0) {
+      toast({ title: "Insira um valor válido", variant: "destructive" });
+      return;
+    }
+    const newPaid = currentPaid + addAmount;
+    if (newPaid > amount) {
+      toast({ title: "O valor excede o saldo em aberto", variant: "destructive" });
+      return;
+    }
+    paymentMutation.mutate({ id: transaction.id, newPaidAmount: newPaid, totalAmount: amount });
+  };
+
   const filtered = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
 
   const filteredCategories = categories.filter((c) =>
     form.type === "income" ? c.type === "income" : c.type === "expense"
   );
+
+  const paymentTransaction = transactions.find((t) => t.id === showPaymentModal);
 
   return (
     <div className="space-y-6">
@@ -123,7 +176,7 @@ export default function Transactions() {
       {/* Creation Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
-          <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">Nova Transação</h2>
               <button onClick={() => setShowForm(false)} className="rounded-lg p-1 hover:bg-secondary">
@@ -138,7 +191,7 @@ export default function Transactions() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setForm({ ...form, type: t, category_id: "" })}
+                    onClick={() => setForm({ ...form, type: t, category_id: "", supplier_id: "" })}
                     className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                       form.type === t
                         ? t === "income"
@@ -222,6 +275,23 @@ export default function Transactions() {
                 </div>
               </div>
 
+              {/* Supplier (only for expenses) */}
+              {form.type === "expense" && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
+                  <select
+                    value={form.supplier_id}
+                    onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="">Sem fornecedor</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Date + Status */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -259,6 +329,60 @@ export default function Transactions() {
         </div>
       )}
 
+      {/* Partial Payment Modal */}
+      {showPaymentModal && paymentTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setShowPaymentModal(null); setPaymentAmount(""); }}>
+          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Registar Pagamento</h2>
+              <button onClick={() => { setShowPaymentModal(null); setPaymentAmount(""); }} className="rounded-lg p-1 hover:bg-secondary">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <p className="text-muted-foreground">{paymentTransaction.description}</p>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valor total:</span>
+                <span className="font-semibold">{formatCurrency(Number(paymentTransaction.amount))}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Já pago:</span>
+                <span className="font-semibold text-success">{formatCurrency(Number(paymentTransaction.paid_amount ?? 0))}</span>
+              </div>
+              <div className="flex justify-between border-t border-border/50 pt-2">
+                <span className="text-muted-foreground">Saldo em aberto:</span>
+                <span className="font-bold text-warning">
+                  {formatCurrency(Number(paymentTransaction.amount) - Number(paymentTransaction.paid_amount ?? 0))}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a pagar (€)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max={Number(paymentTransaction.amount) - Number(paymentTransaction.paid_amount ?? 0)}
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="0.00"
+              />
+            </div>
+
+            <button
+              onClick={() => handlePayment(paymentTransaction)}
+              disabled={paymentMutation.isPending}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+            >
+              {paymentMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-2">
         {(["all", "income", "expense"] as const).map((f) => (
@@ -287,20 +411,24 @@ export default function Transactions() {
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="pb-3 text-left font-medium">Descrição</th>
                   <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
-                  <th className="hidden pb-3 text-left font-medium md:table-cell">Categoria</th>
+                  <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
                   <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
                   <th className="pb-3 text-left font-medium">Data</th>
-                  <th className="pb-3 text-right font-medium">Valor s/IVA</th>
+                  <th className="pb-3 text-right font-medium">Pago</th>
                   <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                  <th className="pb-3 text-center font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {filtered.map((t) => {
                   const eventName = (t.events as any)?.name ?? "—";
-                  const categoryName = (t.account_categories as any)?.name ?? "—";
+                  const supplierName = (t.suppliers as any)?.name ?? "—";
                   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
                   const amount = Number(t.amount);
+                  const paidAmount = Number((t as any).paid_amount ?? 0);
+                  const balance = amount - paidAmount;
+                  const isExpense = t.type === "expense";
 
                   return (
                     <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
@@ -309,7 +437,7 @@ export default function Transactions() {
                         <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
                       </td>
                       <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{eventName}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{categoryName}</td>
+                      <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{supplierName}</td>
                       <td className="hidden py-3 pr-4 text-center lg:table-cell">
                         <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{ivaRate}%</span>
                       </td>
@@ -319,13 +447,30 @@ export default function Transactions() {
                         }`}>
                           {t.status === "paid" ? "Pago" : t.status === "pending" ? "Pendente" : "Atrasado"}
                         </span>
+                        {isExpense && balance > 0 && t.status !== "paid" && (
+                          <p className="mt-0.5 text-[10px] text-warning">
+                            Aberto: {formatCurrency(balance)}
+                          </p>
+                        )}
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
                       <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
-                        {formatCurrencyDecimal(amount - calcIvaAmount(amount, ivaRate))}
+                        {formatCurrency(paidAmount)}
                       </td>
-                      <td className={`py-3 text-right font-mono font-semibold whitespace-nowrap ${t.type === "income" ? "text-success" : "text-warning"}`}>
-                        {t.type === "income" ? "+" : "-"}{formatCurrency(amount)}
+                      <td className={`py-3 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
+                        {isExpense ? "-" : "+"}{formatCurrency(amount)}
+                      </td>
+                      <td className="py-3 text-center">
+                        {isExpense && balance > 0 && t.status !== "paid" && (
+                          <button
+                            onClick={() => setShowPaymentModal(t.id)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-success/15 px-2 py-1 text-xs font-medium text-success hover:bg-success/25 transition-colors"
+                            title="Registar pagamento parcial"
+                          >
+                            <CreditCard className="h-3 w-3" />
+                            Pagar
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
