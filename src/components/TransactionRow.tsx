@@ -86,17 +86,17 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
         </td>
         <td className="py-3">
           <div className="flex items-center justify-center gap-1">
-            {!isApproved && (
+            {computedStatus !== "paid" && (
               <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             )}
-            {isAdmin && !isApproved && t.status !== "paid" && (
+            {isAdmin && computedStatus === "pending" && (
               <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </button>
             )}
-            {isExpense && balance > 0 && !isApproved && t.status !== "paid" && (
+            {isExpense && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
               <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Registar pagamento">
                 <CreditCard className="h-3.5 w-3.5" />
               </button>
