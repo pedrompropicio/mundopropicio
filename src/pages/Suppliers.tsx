@@ -64,6 +64,7 @@ export default function Suppliers() {
       phone: (fd.get("phone") as string) || undefined,
       address: (fd.get("address") as string) || undefined,
       iban: (fd.get("iban") as string) || undefined,
+      swift_bic: (fd.get("swift_bic") as string) || undefined,
       payment_terms: (fd.get("payment_terms") as string) || undefined,
       category: (fd.get("category") as string) || undefined,
       notes: (fd.get("notes") as string) || undefined,
