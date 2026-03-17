@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, X, CreditCard, Pencil, ShieldCheck, History } from "lucide-react";
+import { Plus, X, CreditCard, Pencil, ShieldCheck, History, Paperclip } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
@@ -17,6 +18,7 @@ export default function Transactions() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
+  const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
 
@@ -100,6 +102,14 @@ export default function Transactions() {
         <TransactionAuditModal
           transactionId={showAuditId}
           onClose={() => setShowAuditId(null)}
+        />
+      )}
+
+      {showDocsId && (
+        <TransactionDocumentsModal
+          transactionId={showDocsId}
+          transactionDescription={transactions.find((t) => t.id === showDocsId)?.description ?? ""}
+          onClose={() => setShowDocsId(null)}
         />
       )}
 
@@ -221,6 +231,14 @@ export default function Transactions() {
                               <CreditCard className="h-3.5 w-3.5" />
                             </button>
                           )}
+                          {/* Documents */}
+                          <button
+                            onClick={() => setShowDocsId(t.id)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                            title="Documentos"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </button>
                           {/* Audit log */}
                           <button
                             onClick={() => setShowAuditId(t.id)}

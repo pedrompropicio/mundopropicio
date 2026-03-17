@@ -302,6 +302,44 @@ export type Database = {
           },
         ]
       }
+      transaction_documents: {
+        Row: {
+          doc_type: string
+          file_url: string
+          id: string
+          name: string
+          transaction_id: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          doc_type?: string
+          file_url: string
+          id?: string
+          name: string
+          transaction_id: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Update: {
+          doc_type?: string
+          file_url?: string
+          id?: string
+          name?: string
+          transaction_id?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_documents_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
