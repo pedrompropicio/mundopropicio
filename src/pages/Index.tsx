@@ -11,7 +11,7 @@ import { Link } from "react-router-dom";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
-import { events, transactions, monthlyData, formatCurrency, formatDate, categoryLabels } from "@/lib/mock-data";
+import { events, transactions, monthlyData, formatCurrency, formatDate, categoryLabels, calcIvaAmount } from "@/lib/mock-data";
 
 const totalIncome = events.reduce((s, e) => s + e.totalIncome, 0);
 const totalExpenses = events.reduce((s, e) => s + e.totalExpenses, 0);
