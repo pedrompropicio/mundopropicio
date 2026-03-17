@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 
 interface DRELine {
