@@ -14,6 +14,7 @@ interface TransactionForm {
   category_id: string;
   supplier_id: string;
   date: string;
+  due_date: string;
   status: "pending" | "paid" | "overdue";
 }
 
@@ -26,6 +27,7 @@ const emptyForm: TransactionForm = {
   category_id: "",
   supplier_id: "",
   date: new Date().toISOString().split("T")[0],
+  due_date: "",
   status: "pending",
 };
 
@@ -71,6 +73,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         category_id: data.category_id || null,
         supplier_id: data.supplier_id || null,
         date: data.date,
+        due_date: data.due_date || null,
         status: data.status,
         paid_amount: data.status === "paid" ? parseFloat(data.amount) : 0,
       });
@@ -185,15 +188,23 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="pending">Pendente</option>
-                <option value="paid">Pago</option>
-                <option value="overdue">Atrasado</option>
-              </select>
-            </div>
+            {form.type === "expense" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Vencimento</label>
+                <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+            )}
+            {form.type !== "expense" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as any })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="pending">Pendente</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={createMutation.isPending}

@@ -39,11 +39,29 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
   const paidAmount = Number(t.paid_amount ?? 0);
   const balance = amount - paidAmount;
   const isExpense = t.type === "expense";
-  const isApproved = t.status === "approved";
+
+  // Compute effective status for expenses
+  const computedStatus = (() => {
+    if (t.status === "paid" || paidAmount >= amount) return "paid";
+    if (t.status === "approved") return "approved"; // A Pagar
+    if (isExpense && t.due_date && new Date(t.due_date) < new Date() && t.status !== "paid") return "overdue";
+    return "pending"; // Aguardando
+  })();
+
+  const statusLabel = isExpense
+    ? { pending: "Aguardando", approved: "A Pagar", paid: "Pago", overdue: "Atrasado" }[computedStatus] ?? computedStatus
+    : { pending: "Pendente", approved: "Aprovado", paid: "Pago", overdue: "Atrasado" }[computedStatus] ?? computedStatus;
+
+  const statusClass = {
+    pending: "bg-warning/15 text-warning",
+    approved: "bg-blue-500/15 text-blue-400",
+    paid: "bg-success/15 text-success",
+    overdue: "bg-destructive/15 text-destructive",
+  }[computedStatus] ?? "bg-secondary text-muted-foreground";
 
   return (
     <>
-      <tr className={`hover:bg-secondary/20 transition-colors ${isApproved ? "opacity-80" : ""}`}>
+      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""}`}>
         <td className="py-3 pr-4">
           <div className="flex items-center gap-1.5">
             <button
@@ -65,19 +83,16 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
           <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{ivaRate}%</span>
         </td>
         <td className="py-3 pr-4">
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-            isApproved
-              ? "bg-blue-500/15 text-blue-400"
-              : t.status === "paid"
-              ? "bg-success/15 text-success"
-              : t.status === "pending"
-              ? "bg-warning/15 text-warning"
-              : "bg-destructive/15 text-destructive"
-          }`}>
-            {isApproved ? "Aprovado" : t.status === "paid" ? "Pago" : t.status === "pending" ? "Pendente" : "Atrasado"}
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+            {statusLabel}
           </span>
-          {isExpense && balance > 0 && !isApproved && t.status !== "paid" && (
+          {isExpense && balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
+          )}
+          {t.due_date && computedStatus !== "paid" && (
+            <p className={`mt-0.5 text-[10px] ${computedStatus === "overdue" ? "text-destructive" : "text-muted-foreground"}`}>
+              Venc: {new Date(t.due_date).toLocaleDateString("pt-PT")}
+            </p>
           )}
         </td>
         <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
@@ -89,17 +104,17 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
         </td>
         <td className="py-3">
           <div className="flex items-center justify-center gap-1">
-            {!isApproved && (
+            {computedStatus !== "paid" && (
               <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             )}
-            {isAdmin && !isApproved && t.status !== "paid" && (
+            {isAdmin && computedStatus === "pending" && (
               <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </button>
             )}
-            {isExpense && balance > 0 && !isApproved && t.status !== "paid" && (
+            {isExpense && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
               <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Registar pagamento">
                 <CreditCard className="h-3.5 w-3.5" />
               </button>
@@ -118,12 +133,10 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
           <td colSpan={9} className="px-4 pb-3 pt-0">
             <div className="ml-6 rounded-lg border border-border/40 bg-secondary/30 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Movimentos</p>
-              {/* Fallback: show creation + known paid amount if no audit entries */}
               {movements.length === 0 && paidAmount === 0 ? (
                 <p className="text-xs text-muted-foreground">Sem movimentos registados para este lançamento.</p>
               ) : (
                 <div className="space-y-1.5">
-                  {/* Show creation entry */}
                   <div className="flex items-center gap-3 text-xs">
                     <span className="whitespace-nowrap font-mono text-muted-foreground">
                       {new Date(t.created_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
@@ -137,7 +150,6 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
                       Lançamento criado — {formatCurrency(amount)}
                     </span>
                   </div>
-                  {/* If paid but no audit log entries, show summary */}
                   {movements.length === 0 && paidAmount > 0 && (
                     <div className="flex items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
@@ -153,7 +165,6 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
                       </span>
                     </div>
                   )}
-                  {/* Audit log entries */}
                   {movements.map((m) => (
                     <div key={m.id} className="flex items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">

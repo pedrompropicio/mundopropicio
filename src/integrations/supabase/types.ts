@@ -350,6 +350,7 @@ export type Database = {
           created_at: string
           date: string
           description: string
+          due_date: string | null
           event_id: string
           id: string
           iva_rate: number
@@ -365,6 +366,7 @@ export type Database = {
           created_at?: string
           date: string
           description: string
+          due_date?: string | null
           event_id: string
           id?: string
           iva_rate?: number
@@ -380,6 +382,7 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string
+          due_date?: string | null
           event_id?: string
           id?: string
           iva_rate?: number
