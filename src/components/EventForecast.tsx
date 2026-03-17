@@ -145,6 +145,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
           amount: Number(forecast.amount),
           iva_rate: forecast.iva_rate,
           category_id: forecast.category_id || null,
+          specification: forecast.specification || null,
           date: eventDate,
           status: "pending",
         })
