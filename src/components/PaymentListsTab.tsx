@@ -437,7 +437,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             <h2 className="text-xl font-bold">{list?.title ?? "Lista de Pagamentos"}</h2>
             <p className="text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
           </div>
-          {list?.status === "approved" && (
+          {(list?.status === "approved" || list?.status === "partially_approved") && (
             <div className="flex gap-2">
               <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 rounded-lg bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">
                 <FileText className="h-4 w-4" /> PDF
