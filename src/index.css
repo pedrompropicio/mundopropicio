@@ -82,15 +82,15 @@
   }
 
   .glow-primary {
-    box-shadow: 0 0 20px -5px hsl(262 80% 60% / 0.3);
+    box-shadow: 0 0 20px -5px hsl(210 70% 42% / 0.3);
   }
 
   .glow-accent {
-    box-shadow: 0 0 20px -5px hsl(170 70% 45% / 0.3);
+    box-shadow: 0 0 20px -5px hsl(72 65% 50% / 0.3);
   }
 
   .text-gradient-primary {
-    background: linear-gradient(135deg, hsl(262 80% 60%), hsl(280 70% 65%));
+    background: linear-gradient(135deg, hsl(210 70% 42%), hsl(200 75% 50%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
