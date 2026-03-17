@@ -91,11 +91,11 @@ export function exportDREToExcel(
     const expInc = evtTx.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
     gIncEx += incEx; gIncInc += incInc; gExpEx += expEx; gExpInc += expInc;
 
-    summaryRows.push([evt.name, evtTx.length, incEx, incInc, expEx, expInc, incEx - expEx, incInc - expInc]);
+    summaryRows.push([evt.name, evtTx.length, incEx, incInc - incEx, incInc, expEx, expInc - expEx, expInc, incEx - expEx, incInc - expInc]);
   });
 
   summaryRows.push([]);
-  summaryRows.push(["TOTAL", "", gIncEx, gIncInc, gExpEx, gExpInc, gIncEx - gExpEx, gIncInc - gExpInc]);
+  summaryRows.push(["TOTAL", "", gIncEx, gIncInc - gIncEx, gIncInc, gExpEx, gExpInc - gExpEx, gExpInc, gIncEx - gExpEx, gIncInc - gExpInc]);
 
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
   summaryWs["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
