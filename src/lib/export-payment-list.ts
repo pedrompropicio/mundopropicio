@@ -62,7 +62,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   });
 
   rows.push([]);
-  rows.push(["", "TOTAL", "", "", "", "", totalWithIva, totalPaid, totalWithIva - totalPaid, ""]);
+  rows.push(["", "", "TOTAL", "", "", "", "", totalWithIva, totalPaid, totalWithIva - totalPaid, ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
