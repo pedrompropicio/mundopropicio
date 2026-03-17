@@ -534,8 +534,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
-  item: any; colorClass: string;
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
+  item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
 }) {
@@ -562,6 +562,11 @@ function ForecastRow({ item, colorClass, onEdit, onDelete, onApprove, isAdmin, i
           </div>
         </div>
       </td>
+      {isExpense && (
+        <td className="py-2.5 pr-3 text-muted-foreground text-xs">
+          {item.specification || "—"}
+        </td>
+      )}
       <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
         {item.account_categories ? `${item.account_categories.code} - ${item.account_categories.name}` : "—"}
       </td>
