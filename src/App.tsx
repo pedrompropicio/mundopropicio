@@ -14,7 +14,6 @@ import IvaManagement from "./pages/IvaManagement";
 import Suppliers from "./pages/Suppliers";
 import Quotations from "./pages/Quotations";
 import AccountCategories from "./pages/AccountCategories";
-import PaymentLists from "./pages/PaymentLists";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
