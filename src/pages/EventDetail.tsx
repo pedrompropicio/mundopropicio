@@ -203,6 +203,10 @@ export default function EventDetail() {
           </div>
         </TabsContent>
 
+        <TabsContent value="ticketing">
+          <EventTicketing eventId={event.id} />
+        </TabsContent>
+
         <TabsContent value="forecast">
           <EventForecast eventId={event.id} eventDate={event.date} />
         </TabsContent>
