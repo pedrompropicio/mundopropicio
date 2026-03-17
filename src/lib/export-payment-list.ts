@@ -89,10 +89,10 @@ export async function exportPaymentListToPDF(data: PaymentListExport) {
       logoImg.onerror = reject;
       logoImg.src = "/logo-mundo-propicio.png";
     });
-    const logoHeight = 12;
-    const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+    const logoHeight = 22;
+    const logoWidth = (logoImg.naturalWidth / logoImg.naturalHeight) * logoHeight;
     doc.addImage(logoImg, "PNG", marginLeft, y, logoWidth, logoHeight);
-    y += logoHeight + 4;
+    y += logoHeight + 6;
   } catch {
     y += 4;
   }
