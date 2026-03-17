@@ -65,19 +65,16 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
           <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{ivaRate}%</span>
         </td>
         <td className="py-3 pr-4">
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-            isApproved
-              ? "bg-blue-500/15 text-blue-400"
-              : t.status === "paid"
-              ? "bg-success/15 text-success"
-              : t.status === "pending"
-              ? "bg-warning/15 text-warning"
-              : "bg-destructive/15 text-destructive"
-          }`}>
-            {isApproved ? "Aprovado" : t.status === "paid" ? "Pago" : t.status === "pending" ? "Pendente" : "Atrasado"}
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+            {statusLabel}
           </span>
-          {isExpense && balance > 0 && !isApproved && t.status !== "paid" && (
+          {isExpense && balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
+          )}
+          {t.due_date && computedStatus !== "paid" && (
+            <p className={`mt-0.5 text-[10px] ${computedStatus === "overdue" ? "text-destructive" : "text-muted-foreground"}`}>
+              Venc: {new Date(t.due_date).toLocaleDateString("pt-PT")}
+            </p>
           )}
         </td>
         <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
