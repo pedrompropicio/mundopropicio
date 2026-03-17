@@ -66,7 +66,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
-    { wch: 4 }, { wch: 30 }, { wch: 22 }, { wch: 20 },
+    { wch: 4 }, { wch: 22 }, { wch: 30 }, { wch: 20 }, { wch: 28 },
     { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
   ];
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
