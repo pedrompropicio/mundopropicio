@@ -186,6 +186,8 @@ export default function Suppliers() {
                 {s.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {s.email}</p>}
                 {s.phone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {s.phone}</p>}
                 {s.contact_name && <p className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> {s.contact_name}</p>}
+                {s.iban && <p className="text-xs truncate">IBAN: {s.iban}</p>}
+                {(s as any).swift_bic && <p className="text-xs">SWIFT: {(s as any).swift_bic}</p>}
               </div>
               {s.payment_terms && (
                 <p className="text-xs text-muted-foreground">Pagamento: {s.payment_terms}</p>
