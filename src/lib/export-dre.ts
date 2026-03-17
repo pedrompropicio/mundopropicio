@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/mock-data";
 interface DRELine {
   label: string;
   amountExIva: number;
+  ivaAmount: number;
   amountIncIva: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
