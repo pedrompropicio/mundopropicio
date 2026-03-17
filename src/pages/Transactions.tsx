@@ -197,8 +197,8 @@ export default function Transactions() {
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {/* Approve */}
-                          {!isApproved && t.status !== "paid" && (
+                          {/* Approve - admin only */}
+                          {isAdmin && !isApproved && t.status !== "paid" && (
                             <button
                               onClick={() => {
                                 if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {
