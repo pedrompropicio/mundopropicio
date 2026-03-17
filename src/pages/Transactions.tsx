@@ -1,41 +1,21 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency, formatCurrencyDecimal, formatDate, calcIvaAmount } from "@/lib/mock-data";
+import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, X, CreditCard } from "lucide-react";
+import { Plus, X, CreditCard, Pencil, ShieldCheck, History } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-interface TransactionForm {
-  description: string;
-  type: "income" | "expense";
-  amount: string;
-  iva_rate: IvaRate;
-  event_id: string;
-  category_id: string;
-  supplier_id: string;
-  date: string;
-  status: "pending" | "paid" | "overdue";
-}
-
-const emptyForm: TransactionForm = {
-  description: "",
-  type: "income",
-  amount: "",
-  iva_rate: 23,
-  event_id: "",
-  category_id: "",
-  supplier_id: "",
-  date: new Date().toISOString().split("T")[0],
-  status: "pending",
-};
+import { TransactionFormModal } from "@/components/TransactionFormModal";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
+import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
+import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [showForm, setShowForm] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState<string | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [form, setForm] = useState<TransactionForm>(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
+  const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: transactions = [], isLoading } = useQuery({
@@ -50,112 +30,35 @@ export default function Transactions() {
     },
   });
 
-  const { data: events = [] } = useQuery({
-    queryKey: ["events"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name").order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ["account_categories"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, type").eq("is_active", true).order("code");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: suppliers = [] } = useQuery({
-    queryKey: ["suppliers"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: TransactionForm) => {
-      const { error } = await supabase.from("transactions").insert({
-        description: data.description,
-        type: data.type,
-        amount: parseFloat(data.amount),
-        iva_rate: data.iva_rate,
-        event_id: data.event_id,
-        category_id: data.category_id || null,
-        supplier_id: data.supplier_id || null,
-        date: data.date,
-        status: data.status,
-        paid_amount: data.status === "paid" ? parseFloat(data.amount) : 0,
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Log the status change
+      await supabase.from("transaction_audit_log").insert({
+        transaction_id: id,
+        changed_by: "utilizador",
+        field_name: "status",
+        old_value: "pending",
+        new_value: "approved",
       });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      setShowForm(false);
-      setForm(emptyForm);
-      toast({ title: "Transação criada com sucesso!" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const paymentMutation = useMutation({
-    mutationFn: async ({ id, newPaidAmount, totalAmount }: { id: string; newPaidAmount: number; totalAmount: number }) => {
-      const newStatus = newPaidAmount >= totalAmount ? "paid" : "pending";
       const { error } = await supabase
         .from("transactions")
-        .update({ paid_amount: newPaidAmount, status: newStatus })
+        .update({ status: "approved" })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      setShowPaymentModal(null);
-      setPaymentAmount("");
-      toast({ title: "Pagamento registado com sucesso!" });
+      toast({ title: "Transação aprovada!" });
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao registar pagamento", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.description || !form.amount || !form.event_id) {
-      toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
-      return;
-    }
-    createMutation.mutate(form);
-  };
-
-  const handlePayment = (transaction: any) => {
-    const amount = Number(transaction.amount);
-    const currentPaid = Number(transaction.paid_amount ?? 0);
-    const addAmount = parseFloat(paymentAmount);
-    if (!addAmount || addAmount <= 0) {
-      toast({ title: "Insira um valor válido", variant: "destructive" });
-      return;
-    }
-    const newPaid = currentPaid + addAmount;
-    if (newPaid > amount) {
-      toast({ title: "O valor excede o saldo em aberto", variant: "destructive" });
-      return;
-    }
-    paymentMutation.mutate({ id: transaction.id, newPaidAmount: newPaid, totalAmount: amount });
-  };
-
   const filtered = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
 
-  const filteredCategories = categories.filter((c) =>
-    form.type === "income" ? c.type === "income" : c.type === "expense"
-  );
-
-  const paymentTransaction = transactions.find((t) => t.id === showPaymentModal);
+  const editingTransaction = transactions.find((t) => t.id === editingId);
+  const paymentTransaction = transactions.find((t) => t.id === showPaymentId);
 
   return (
     <div className="space-y-6">
@@ -173,214 +76,29 @@ export default function Transactions() {
         </button>
       </div>
 
-      {/* Creation Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
-          <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Nova Transação</h2>
-              <button onClick={() => setShowForm(false)} className="rounded-lg p-1 hover:bg-secondary">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Type toggle */}
-              <div className="flex gap-2">
-                {(["income", "expense"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setForm({ ...form, type: t, category_id: "", supplier_id: "" })}
-                    className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                      form.type === t
-                        ? t === "income"
-                          ? "bg-success/20 text-success ring-1 ring-success/40"
-                          : "bg-warning/20 text-warning ring-1 ring-warning/40"
-                        : "bg-secondary text-secondary-foreground"
-                    }`}
-                  >
-                    {t === "income" ? "Receita" : "Despesa"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
-                <input
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Ex: Venda de bilhetes"
-                />
-              </div>
-
-              {/* Amount + IVA */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor c/IVA (€) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                  <select
-                    value={form.iva_rate}
-                    onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value={23}>23% - Normal</option>
-                    <option value={13}>13% - Intermédia</option>
-                    <option value={6}>6% - Reduzida</option>
-                    <option value={0}>0% - Isento</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Event + Category */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento *</label>
-                  <select
-                    value={form.event_id}
-                    onChange={(e) => setForm({ ...form, event_id: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">Selecionar…</option>
-                    {events.map((ev) => (
-                      <option key={ev.id} value={ev.id}>{ev.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-                  <select
-                    value={form.category_id}
-                    onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">Sem categoria</option>
-                    {filteredCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Supplier (only for expenses) */}
-              {form.type === "expense" && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
-                  <select
-                    value={form.supplier_id}
-                    onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">Sem fornecedor</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Date + Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="pending">Pendente</option>
-                    <option value="paid">Pago</option>
-                    <option value="overdue">Atrasado</option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
-              >
-                {createMutation.isPending ? "A guardar…" : "Criar Transação"}
-              </button>
-            </form>
-          </div>
-        </div>
+        <TransactionFormModal onClose={() => setShowForm(false)} />
       )}
 
-      {/* Partial Payment Modal */}
-      {showPaymentModal && paymentTransaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setShowPaymentModal(null); setPaymentAmount(""); }}>
-          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Registar Pagamento</h2>
-              <button onClick={() => { setShowPaymentModal(null); setPaymentAmount(""); }} className="rounded-lg p-1 hover:bg-secondary">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {editingTransaction && (
+        <TransactionEditModal
+          transaction={editingTransaction}
+          onClose={() => setEditingId(null)}
+        />
+      )}
 
-            <div className="space-y-2 text-sm">
-              <p className="text-muted-foreground">{paymentTransaction.description}</p>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor total:</span>
-                <span className="font-semibold">{formatCurrency(Number(paymentTransaction.amount))}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Já pago:</span>
-                <span className="font-semibold text-success">{formatCurrency(Number(paymentTransaction.paid_amount ?? 0))}</span>
-              </div>
-              <div className="flex justify-between border-t border-border/50 pt-2">
-                <span className="text-muted-foreground">Saldo em aberto:</span>
-                <span className="font-bold text-warning">
-                  {formatCurrency(Number(paymentTransaction.amount) - Number(paymentTransaction.paid_amount ?? 0))}
-                </span>
-              </div>
-            </div>
+      {paymentTransaction && (
+        <TransactionPaymentModal
+          transaction={paymentTransaction}
+          onClose={() => setShowPaymentId(null)}
+        />
+      )}
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a pagar (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={Number(paymentTransaction.amount) - Number(paymentTransaction.paid_amount ?? 0)}
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="0.00"
-              />
-            </div>
-
-            <button
-              onClick={() => handlePayment(paymentTransaction)}
-              disabled={paymentMutation.isPending}
-              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
-            >
-              {paymentMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
-            </button>
-          </div>
-        </div>
+      {showAuditId && (
+        <TransactionAuditModal
+          transactionId={showAuditId}
+          onClose={() => setShowAuditId(null)}
+        />
       )}
 
       {/* Filters */}
@@ -403,7 +121,7 @@ export default function Transactions() {
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar transações…</p>
         ) : filtered.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">Sem transações registadas. Clique em "Nova Transação" para começar.</p>
+          <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -429,9 +147,10 @@ export default function Transactions() {
                   const paidAmount = Number((t as any).paid_amount ?? 0);
                   const balance = amount - paidAmount;
                   const isExpense = t.type === "expense";
+                  const isApproved = t.status === "approved";
 
                   return (
-                    <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
+                    <tr key={t.id} className={`hover:bg-secondary/20 transition-colors ${isApproved ? "opacity-80" : ""}`}>
                       <td className="py-3 pr-4">
                         <p className="font-medium">{t.description}</p>
                         <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
@@ -443,14 +162,18 @@ export default function Transactions() {
                       </td>
                       <td className="py-3 pr-4">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                          t.status === "paid" ? "bg-success/15 text-success" : t.status === "pending" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
+                          isApproved
+                            ? "bg-blue-500/15 text-blue-400"
+                            : t.status === "paid"
+                            ? "bg-success/15 text-success"
+                            : t.status === "pending"
+                            ? "bg-warning/15 text-warning"
+                            : "bg-destructive/15 text-destructive"
                         }`}>
-                          {t.status === "paid" ? "Pago" : t.status === "pending" ? "Pendente" : "Atrasado"}
+                          {isApproved ? "Aprovado" : t.status === "paid" ? "Pago" : t.status === "pending" ? "Pendente" : "Atrasado"}
                         </span>
-                        {isExpense && balance > 0 && t.status !== "paid" && (
-                          <p className="mt-0.5 text-[10px] text-warning">
-                            Aberto: {formatCurrency(balance)}
-                          </p>
+                        {isExpense && balance > 0 && !isApproved && t.status !== "paid" && (
+                          <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
                         )}
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
@@ -460,17 +183,51 @@ export default function Transactions() {
                       <td className={`py-3 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
                         {isExpense ? "-" : "+"}{formatCurrency(amount)}
                       </td>
-                      <td className="py-3 text-center">
-                        {isExpense && balance > 0 && t.status !== "paid" && (
+                      <td className="py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Edit */}
+                          {!isApproved && (
+                            <button
+                              onClick={() => setEditingId(t.id)}
+                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {/* Approve */}
+                          {!isApproved && t.status !== "paid" && (
+                            <button
+                              onClick={() => {
+                                if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {
+                                  approveMutation.mutate(t.id);
+                                }
+                              }}
+                              className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors"
+                              title="Aprovar"
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {/* Partial payment */}
+                          {isExpense && balance > 0 && !isApproved && t.status !== "paid" && (
+                            <button
+                              onClick={() => setShowPaymentId(t.id)}
+                              className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors"
+                              title="Registar pagamento"
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {/* Audit log */}
                           <button
-                            onClick={() => setShowPaymentModal(t.id)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-success/15 px-2 py-1 text-xs font-medium text-success hover:bg-success/25 transition-colors"
-                            title="Registar pagamento parcial"
+                            onClick={() => setShowAuditId(t.id)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                            title="Histórico de alterações"
                           >
-                            <CreditCard className="h-3 w-3" />
-                            Pagar
+                            <History className="h-3.5 w-3.5" />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
