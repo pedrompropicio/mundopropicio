@@ -17,6 +17,7 @@ interface Props {
   onPayment: (id: string) => void;
   onDocs: (id: string) => void;
   onAudit: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, onEdit, onApprove, onPayment, onDocs, onAudit }: Props) {
