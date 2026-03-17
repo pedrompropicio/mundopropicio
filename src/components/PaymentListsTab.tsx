@@ -489,6 +489,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                 </div>
               );
             })}
+          </div>
         )}
 
         <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
