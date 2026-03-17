@@ -12,7 +12,7 @@ interface Props {
   isAdmin: boolean;
 }
 
-export function TransactionEditModal({ transaction, onClose }: Props) {
+export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const [form, setForm] = useState({
     description: transaction.description,
     amount: String(transaction.amount),
