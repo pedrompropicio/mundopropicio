@@ -107,7 +107,6 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
           supplier_id: form.supplier_id || null,
           date: form.date,
           due_date: form.due_date || null,
-          status: form.status,
         })
         .eq("id", transaction.id);
       if (error) throw error;
