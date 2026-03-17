@@ -140,6 +140,17 @@ export default function PaymentListsTab() {
         />
       )}
 
+      {approveListId && (
+        <ApproveModal
+          listId={approveListId}
+          onClose={() => setApproveListId(null)}
+          onApproved={() => {
+            setApproveListId(null);
+            queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+          }}
+        />
+      )}
+
       <div className="glass rounded-xl p-5">
         {listsLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
