@@ -9,6 +9,7 @@ import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
+import IvaManagement from "./pages/IvaManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
