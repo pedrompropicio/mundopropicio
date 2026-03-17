@@ -498,7 +498,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                     {(expenseForecasts.length > 0 || addingType === "expense") && (
                       <tfoot>
                         <tr className="border-t border-border/50">
-                          <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
                           <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpense)}</td>
                           <td />
                         </tr>
