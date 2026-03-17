@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, Download } from "lucide-react";
-import { exportDREToExcel } from "@/lib/export-dre";
+import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 
 interface DRELine {
   label: string;
@@ -110,7 +110,15 @@ export default function ReportDRE() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={() => exportDREToPDF(events, transactions, categories)}
+          disabled={events.length === 0}
+          className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">Exportar PDF</span>
+        </button>
         <button
           onClick={() => exportDREToExcel(events, transactions, categories)}
           disabled={events.length === 0}
