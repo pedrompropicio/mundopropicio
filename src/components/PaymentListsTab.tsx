@@ -26,6 +26,7 @@ export default function PaymentListsTab() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [viewListId, setViewListId] = useState<string | null>(null);
+  const [revisionListId, setRevisionListId] = useState<string | null>(null);
 
   const { data: lists = [], isLoading: listsLoading } = useQuery({
     queryKey: ["payment-lists"],
