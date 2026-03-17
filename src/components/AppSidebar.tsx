@@ -11,7 +11,6 @@ import {
   BookOpen,
   ShieldCheck,
   LogOut,
-  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +19,6 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/eventos", icon: Calendar, label: "Eventos" },
   { to: "/transacoes", icon: ArrowUpDown, label: "Transações" },
-  { to: "/contas-pagar", icon: ClipboardList, label: "Contas a Pagar" },
   { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas" },
   { to: "/fornecedores", icon: Users, label: "Fornecedores" },
   { to: "/cotacoes", icon: FileCheck, label: "Cotações" },

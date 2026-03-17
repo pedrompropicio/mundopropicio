@@ -20,13 +20,12 @@ const statusMap: Record<ListStatus, { label: string; variant: "default" | "secon
   rejected: { label: "Rejeitada", variant: "destructive" },
 };
 
-export default function PaymentLists() {
+export default function PaymentListsTab() {
   const { isAdmin, user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [viewListId, setViewListId] = useState<string | null>(null);
 
-  // Fetch all payment lists
   const { data: lists = [], isLoading: listsLoading } = useQuery({
     queryKey: ["payment-lists"],
     queryFn: async () => {
@@ -39,7 +38,6 @@ export default function PaymentLists() {
     },
   });
 
-  // Delete list
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("payment_lists").delete().eq("id", id);
@@ -51,7 +49,6 @@ export default function PaymentLists() {
     },
   });
 
-  // Approve / Reject
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "approved" | "rejected" }) => {
       const { error } = await supabase
@@ -71,12 +68,9 @@ export default function PaymentLists() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Contas a Pagar do Dia</h1>
-          <p className="text-sm text-muted-foreground">Crie listas de pagamentos diários e envie para aprovação</p>
-        </div>
+        <p className="text-sm text-muted-foreground">Crie listas de pagamentos diários e envie para aprovação do admin</p>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
@@ -97,18 +91,14 @@ export default function PaymentLists() {
       )}
 
       {viewListId && (
-        <ViewPaymentList
-          listId={viewListId}
-          onClose={() => setViewListId(null)}
-        />
+        <ViewPaymentList listId={viewListId} onClose={() => setViewListId(null)} />
       )}
 
-      {/* Lists table */}
       <div className="glass rounded-xl p-5">
         {listsLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
         ) : lists.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">Nenhuma lista criada.</p>
+          <p className="py-8 text-center text-muted-foreground">Nenhuma lista criada. Clique em "Nova Lista" para começar.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -117,7 +107,7 @@ export default function PaymentLists() {
                   <th className="pb-3 text-left font-medium">Título</th>
                   <th className="pb-3 text-left font-medium">Data Pagamento</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
-                  <th className="pb-3 text-left font-medium">Criado por</th>
+                  <th className="pb-3 text-left font-medium hidden sm:table-cell">Criado por</th>
                   <th className="pb-3 text-center font-medium">Ações</th>
                 </tr>
               </thead>
@@ -128,16 +118,13 @@ export default function PaymentLists() {
                     <tr key={list.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-3 font-medium">{list.title}</td>
                       <td className="py-3">{formatDate(list.payment_date)}</td>
-                      <td className="py-3">
-                        <Badge variant={st.variant}>{st.label}</Badge>
-                      </td>
-                      <td className="py-3 text-muted-foreground">{list.created_by}</td>
+                      <td className="py-3"><Badge variant={st.variant}>{st.label}</Badge></td>
+                      <td className="py-3 text-muted-foreground hidden sm:table-cell">{list.created_by}</td>
                       <td className="py-3">
                         <div className="flex items-center justify-center gap-1">
                           <button onClick={() => setViewListId(list.id)} className="rounded p-1.5 hover:bg-muted" title="Ver detalhes">
                             <Eye className="h-4 w-4" />
                           </button>
-
                           {isAdmin && list.status === "pending_approval" && (
                             <>
                               <button
@@ -156,12 +143,9 @@ export default function PaymentLists() {
                               </button>
                             </>
                           )}
-
                           {(list.status === "draft" || list.status === "rejected") && (
                             <button
-                              onClick={() => {
-                                if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id);
-                              }}
+                              onClick={() => { if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id); }}
                               className="rounded p-1.5 text-destructive hover:bg-destructive/10"
                               title="Eliminar"
                             >
@@ -190,7 +174,6 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch approved transactions (status = "approved")
   const { data: approvedTx = [], isLoading } = useQuery({
     queryKey: ["approved-transactions-for-list"],
     queryFn: async () => {
@@ -208,18 +191,14 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   const toggleId = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
 
   const toggleAll = () => {
-    if (selectedIds.size === approvedTx.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(approvedTx.map((t: any) => t.id)));
-    }
+    if (selectedIds.size === approvedTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(approvedTx.map((t: any) => t.id)));
   };
 
   const handleSubmit = async (asDraft: boolean) => {
@@ -231,20 +210,12 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     try {
       const { data: list, error: listErr } = await supabase
         .from("payment_lists")
-        .insert({
-          title,
-          payment_date: paymentDate,
-          status: asDraft ? "draft" : "pending_approval",
-          created_by: user?.email ?? "sistema",
-        })
+        .insert({ title, payment_date: paymentDate, status: asDraft ? "draft" : "pending_approval", created_by: user?.email ?? "sistema" })
         .select("id")
         .single();
       if (listErr) throw listErr;
 
-      const items = [...selectedIds].map((txId) => ({
-        payment_list_id: list.id,
-        transaction_id: txId,
-      }));
+      const items = [...selectedIds].map((txId) => ({ payment_list_id: list.id, transaction_id: txId }));
       const { error: itemsErr } = await supabase.from("payment_list_items").insert(items);
       if (itemsErr) throw itemsErr;
 
@@ -265,20 +236,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground">Título</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Data de Pagamento</label>
-            <input
-              type="date"
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
+            <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
           </div>
         </div>
 
@@ -289,44 +251,35 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar…</p>
         ) : approvedTx.length === 0 ? (
-          <p className="py-4 text-center text-muted-foreground">Nenhuma transação aprovada disponível.</p>
+          <p className="py-4 text-center text-muted-foreground">Nenhuma transação aprovada (A Pagar) disponível.</p>
         ) : (
           <div className="overflow-x-auto max-h-[40vh] overflow-y-auto border border-border/50 rounded-lg">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-center w-8">
-                    <Checkbox
-                      checked={selectedIds.size === approvedTx.length && approvedTx.length > 0}
-                      onCheckedChange={toggleAll}
-                    />
+                    <Checkbox checked={selectedIds.size === approvedTx.length && approvedTx.length > 0} onCheckedChange={toggleAll} />
                   </th>
                   <th className="p-2 text-left font-medium">Descrição</th>
-                  <th className="p-2 text-left font-medium">Evento</th>
-                  <th className="p-2 text-left font-medium">Fornecedor</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
-                  <th className="p-2 text-right font-medium">Já Pago</th>
-                  <th className="p-2 text-left font-medium">Vencimento</th>
+                  <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
+                  <th className="p-2 text-left font-medium hidden lg:table-cell">Vencimento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {approvedTx.map((t: any) => {
                   const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
                   return (
-                    <tr
-                      key={t.id}
-                      className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
-                      onClick={() => toggleId(t.id)}
-                    >
-                      <td className="p-2 text-center">
-                        <Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} />
-                      </td>
+                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleId(t.id)}>
+                      <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
                       <td className="p-2 font-medium">{t.description}</td>
-                      <td className="p-2 text-muted-foreground">{t.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground">{t.suppliers?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(Number(t.paid_amount))}</td>
-                      <td className="p-2">{t.due_date ? formatDate(t.due_date) : "-"}</td>
+                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(Number(t.paid_amount))}</td>
+                      <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
                     </tr>
                   );
                 })}
@@ -335,26 +288,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
+        <div className="flex flex-wrap items-center justify-between mt-4 pt-4 border-t border-border/50 gap-2">
           <span className="text-sm text-muted-foreground">{selectedIds.size} selecionada(s)</span>
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">
-              Cancelar
-            </button>
-            <button
-              onClick={() => handleSubmit(true)}
-              disabled={submitting}
-              className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
-            >
-              Guardar Rascunho
-            </button>
-            <button
-              onClick={() => handleSubmit(false)}
-              disabled={submitting}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              <CheckSquare className="h-4 w-4" />
-              Enviar para Aprovação
+            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Cancelar</button>
+            <button onClick={() => handleSubmit(true)} disabled={submitting} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50">Guardar Rascunho</button>
+            <button onClick={() => handleSubmit(false)} disabled={submitting} className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+              <CheckSquare className="h-4 w-4" /> Enviar para Aprovação
             </button>
           </div>
         </div>
@@ -418,16 +358,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           </div>
           {list?.status === "approved" && (
             <div className="flex gap-2">
-              <button
-                onClick={() => handleExport("pdf")}
-                className="flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-              >
+              <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 rounded-lg bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">
                 <FileText className="h-4 w-4" /> PDF
               </button>
-              <button
-                onClick={() => handleExport("excel")}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-              >
+              <button onClick={() => handleExport("excel")} className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
                 <FileSpreadsheet className="h-4 w-4" /> Excel
               </button>
             </div>
@@ -452,10 +386,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground bg-muted">
                   <th className="p-2 text-left font-medium">#</th>
                   <th className="p-2 text-left font-medium">Descrição</th>
-                  <th className="p-2 text-left font-medium">Evento</th>
-                  <th className="p-2 text-left font-medium">Fornecedor</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
-                  <th className="p-2 text-right font-medium">Já Pago</th>
+                  <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
                   <th className="p-2 text-right font-medium">Saldo</th>
                 </tr>
               </thead>
@@ -468,10 +402,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     <tr key={item.id} className="hover:bg-muted/30">
                       <td className="p-2">{i + 1}</td>
                       <td className="p-2 font-medium">{tx?.description}</td>
-                      <td className="p-2 text-muted-foreground">{tx?.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground">{tx?.suppliers?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(paid)}</td>
+                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paid)}</td>
                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
                     </tr>
                   );
@@ -482,9 +416,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         )}
 
         <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">
-            Fechar
-          </button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
         </div>
       </div>
     </div>
