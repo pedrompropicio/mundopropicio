@@ -179,6 +179,7 @@ export default function Transactions() {
         <TransactionEditModal
           transaction={editingTransaction}
           onClose={() => setEditingId(null)}
+          isAdmin={isAdmin}
         />
       )}
 
