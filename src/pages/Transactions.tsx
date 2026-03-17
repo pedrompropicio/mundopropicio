@@ -282,6 +282,11 @@ export default function Transactions() {
                     onPayment={(id) => setShowPaymentId(id)}
                     onDocs={(id) => setShowDocsId(id)}
                     onAudit={(id) => setShowAuditId(id)}
+                    onDelete={(id) => {
+                      if (confirm("Eliminar esta transação? Esta ação não pode ser desfeita.")) {
+                        deleteMutation.mutate(id);
+                      }
+                    }}
                   />
                 ))}
               </tbody>
