@@ -78,7 +78,7 @@ export function exportDREToExcel(
   const summaryRows: any[][] = [
     ["RELATÓRIO DRE - RESUMO GERAL"],
     [],
-    ["Evento", "Transações", "Receitas S/IVA", "Receitas C/IVA", "Despesas S/IVA", "Despesas C/IVA", "Resultado S/IVA", "Resultado C/IVA"],
+    ["Evento", "Transações", "Receitas S/IVA", "IVA Receitas", "Receitas C/IVA", "Despesas S/IVA", "IVA Despesas", "Despesas C/IVA", "Resultado S/IVA", "Resultado C/IVA"],
   ];
 
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
