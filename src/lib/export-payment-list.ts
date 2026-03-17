@@ -48,9 +48,10 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     totalPaid += item.paid_amount;
     rows.push([
       i + 1,
-      item.description,
       item.event_name,
+      item.description,
       item.supplier_name,
+      item.iban,
       item.amount,
       `${item.iva_rate}%`,
       withIva,
