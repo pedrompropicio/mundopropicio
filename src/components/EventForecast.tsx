@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, X, TrendingUp, TrendingDown, BarChart3, Trash2, Edit2, Check } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Plus, X, TrendingUp, TrendingDown, BarChart3, Trash2, Edit2, CheckCircle2, Clock, Link2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,13 +27,15 @@ const emptyForm: ForecastForm = {
 
 interface Props {
   eventId: string;
+  eventDate: string;
 }
 
-export function EventForecast({ eventId }: Props) {
+export function EventForecast({ eventId, eventDate }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ForecastForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { isAdmin, user } = useAuth();
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
@@ -115,6 +118,49 @@ export function EventForecast({ eventId }: Props) {
     },
   });
 
+  const approveMutation = useMutation({
+    mutationFn: async (forecast: any) => {
+      // 1. Create the transaction from the forecast
+      const { data: txn, error: txnError } = await supabase
+        .from("transactions")
+        .insert({
+          event_id: eventId,
+          type: forecast.type,
+          description: forecast.description,
+          amount: Number(forecast.amount),
+          iva_rate: forecast.iva_rate,
+          category_id: forecast.category_id || null,
+          date: eventDate,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (txnError) throw txnError;
+
+      // 2. Update the forecast as approved with link to transaction
+      const { error: updateError } = await supabase
+        .from("event_forecasts")
+        .update({
+          status: "approved",
+          approved_at: new Date().toISOString(),
+          approved_by: user?.email || "admin",
+          transaction_id: txn.id,
+        })
+        .eq("id", forecast.id);
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
+      toast({ title: "Previsão aprovada e transação criada!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.description || !form.amount) {
@@ -147,17 +193,19 @@ export function EventForecast({ eventId }: Props) {
   const totalActualExpense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const actualProfit = totalActualIncome - totalActualExpense;
 
-  // Build comparison by category
   const comparisonData = buildComparison(forecasts, transactions, categories);
 
   const filteredCategories = categories.filter((c) =>
     form.type === "income" ? c.type === "income" : c.type === "expense"
   );
 
+  const draftCount = forecasts.filter((f) => f.status === "draft").length;
+  const approvedCount = forecasts.filter((f) => f.status === "approved").length;
+
   return (
     <div className="space-y-6">
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard
           label="Receitas"
           forecast={totalForecastIncome}
@@ -177,6 +225,22 @@ export function EventForecast({ eventId }: Props) {
           icon={<BarChart3 className="h-4 w-4 text-primary" />}
           isProfit
         />
+        <div className="glass rounded-xl p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            Estado do P&L
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-muted-foreground">Pendentes</span>
+              <p className="font-mono font-bold text-sm text-warning">{draftCount}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Aprovadas</span>
+              <p className="font-mono font-bold text-sm text-success">{approvedCount}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Tabs defaultValue="forecasts" className="space-y-4">
@@ -209,6 +273,9 @@ export function EventForecast({ eventId }: Props) {
                   colorClass="text-success"
                   onEdit={startEdit}
                   onDelete={(id) => deleteMutation.mutate(id)}
+                  onApprove={(f) => approveMutation.mutate(f)}
+                  isAdmin={isAdmin}
+                  isApproving={approveMutation.isPending}
                 />
               )}
               {expenseForecasts.length > 0 && (
@@ -219,6 +286,9 @@ export function EventForecast({ eventId }: Props) {
                   colorClass="text-warning"
                   onEdit={startEdit}
                   onDelete={(id) => deleteMutation.mutate(id)}
+                  onApprove={(f) => approveMutation.mutate(f)}
+                  isAdmin={isAdmin}
+                  isApproving={approveMutation.isPending}
                 />
               )}
             </div>
@@ -364,9 +434,25 @@ function SummaryCard({ label, forecast, actual, icon, isProfit }: {
   );
 }
 
-function ForecastSection({ title, items, total, colorClass, onEdit, onDelete }: {
+function ForecastStatusBadge({ status }: { status: string }) {
+  if (status === "approved") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
+        <CheckCircle2 className="h-3 w-3" /> Aprovada
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+      <Clock className="h-3 w-3" /> Pendente
+    </span>
+  );
+}
+
+function ForecastSection({ title, items, total, colorClass, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
   title: string; items: any[]; total: number; colorClass: string;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
+  onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
 }) {
   return (
     <div className="glass rounded-xl p-5">
@@ -377,41 +463,68 @@ function ForecastSection({ title, items, total, colorClass, onEdit, onDelete }: 
             <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
               <th className="pb-2 text-left font-medium">Descrição</th>
               <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
+              <th className="pb-2 text-center font-medium">Estado</th>
               <th className="pb-2 text-right font-medium">IVA</th>
               <th className="pb-2 text-right font-medium">Valor</th>
-              <th className="pb-2 text-right font-medium w-20">Ações</th>
+              <th className="pb-2 text-right font-medium w-28">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/30">
-            {items.map((f) => (
-              <tr key={f.id}>
-                <td className="py-2.5 pr-3">
-                  <p className="font-medium">{f.description}</p>
-                  {f.notes && <p className="text-xs text-muted-foreground">{f.notes}</p>}
-                </td>
-                <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell">
-                  {f.account_categories ? `${f.account_categories.code} - ${f.account_categories.name}` : "—"}
-                </td>
-                <td className="py-2.5 text-right text-muted-foreground">{f.iva_rate}%</td>
-                <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-                  {formatCurrency(Number(f.amount))}
-                </td>
-                <td className="py-2.5 text-right">
-                  <div className="flex justify-end gap-1">
-                    <button onClick={() => onEdit(f)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                      <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                    <button onClick={() => onDelete(f.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {items.map((f) => {
+              const isDraft = f.status === "draft";
+              const isApproved = f.status === "approved";
+              return (
+                <tr key={f.id} className={isApproved ? "opacity-75" : ""}>
+                  <td className="py-2.5 pr-3">
+                    <p className="font-medium">{f.description}</p>
+                    {f.notes && <p className="text-xs text-muted-foreground">{f.notes}</p>}
+                    {isApproved && f.transaction_id && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Link2 className="h-3 w-3" /> Transação criada
+                      </p>
+                    )}
+                  </td>
+                  <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell">
+                    {f.account_categories ? `${f.account_categories.code} - ${f.account_categories.name}` : "—"}
+                  </td>
+                  <td className="py-2.5 text-center">
+                    <ForecastStatusBadge status={f.status} />
+                  </td>
+                  <td className="py-2.5 text-right text-muted-foreground">{f.iva_rate}%</td>
+                  <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+                    {formatCurrency(Number(f.amount))}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <div className="flex justify-end gap-1">
+                      {isDraft && isAdmin && (
+                        <button
+                          onClick={() => onApprove(f)}
+                          disabled={isApproving}
+                          className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+                          title="Aprovar e criar transação"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {isDraft && (
+                        <>
+                          <button onClick={() => onEdit(f)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                            <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          <button onClick={() => onDelete(f.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t border-border/50">
-              <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+              <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
               <td className={`py-2.5 text-right font-mono font-bold ${colorClass}`}>{formatCurrency(total)}</td>
               <td />
             </tr>
@@ -491,47 +604,30 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
         <tbody>
           {incomeRows.length > 0 && (
             <>
-              <tr>
-                <td colSpan={5} className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-success">Receitas</td>
-              </tr>
-              {incomeRows.map((r) => (
-                <ComparisonRowItem key={`i-${r.categoryCode}`} row={r} isIncome />
-              ))}
+              <tr><td colSpan={5} className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-success">Receitas</td></tr>
+              {incomeRows.map((r) => <ComparisonRowItem key={`i-${r.categoryCode}`} row={r} isIncome />)}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Receitas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFI)}</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalAI)}</td>
-                <td className={`py-2 text-right font-mono ${totalAI - totalFI >= 0 ? "text-success" : "text-destructive"}`}>
-                  {formatCurrency(totalAI - totalFI)}
-                </td>
-                <td className="py-2 text-right text-xs">
-                  {totalFI > 0 ? `${(((totalAI - totalFI) / totalFI) * 100).toFixed(1)}%` : "—"}
-                </td>
+                <td className={`py-2 text-right font-mono ${totalAI - totalFI >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(totalAI - totalFI)}</td>
+                <td className="py-2 text-right text-xs">{totalFI > 0 ? `${(((totalAI - totalFI) / totalFI) * 100).toFixed(1)}%` : "—"}</td>
               </tr>
             </>
           )}
           {expenseRows.length > 0 && (
             <>
-              <tr>
-                <td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td>
-              </tr>
-              {expenseRows.map((r) => (
-                <ComparisonRowItem key={`e-${r.categoryCode}`} row={r} />
-              ))}
+              <tr><td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td></tr>
+              {expenseRows.map((r) => <ComparisonRowItem key={`e-${r.categoryCode}`} row={r} />)}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Despesas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFE)}</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalAE)}</td>
-                <td className={`py-2 text-right font-mono ${totalAE - totalFE <= 0 ? "text-success" : "text-destructive"}`}>
-                  {formatCurrency(totalAE - totalFE)}
-                </td>
-                <td className="py-2 text-right text-xs">
-                  {totalFE > 0 ? `${(((totalAE - totalFE) / totalFE) * 100).toFixed(1)}%` : "—"}
-                </td>
+                <td className={`py-2 text-right font-mono ${totalAE - totalFE <= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(totalAE - totalFE)}</td>
+                <td className="py-2 text-right text-xs">{totalFE > 0 ? `${(((totalAE - totalFE) / totalFE) * 100).toFixed(1)}%` : "—"}</td>
               </tr>
             </>
           )}
-          {/* Net result */}
           <tr className="border-t-2 border-primary/30 font-bold">
             <td className="py-3 text-sm">Resultado Líquido</td>
             <td className="py-3 text-right font-mono">{formatCurrency(totalFI - totalFE)}</td>

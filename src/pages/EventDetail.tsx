@@ -202,7 +202,7 @@ export default function EventDetail() {
         </TabsContent>
 
         <TabsContent value="forecast">
-          <EventForecast eventId={event.id} />
+          <EventForecast eventId={event.id} eventDate={event.date} />
         </TabsContent>
       </Tabs>
     </div>

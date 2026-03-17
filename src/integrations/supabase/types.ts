@@ -58,6 +58,8 @@ export type Database = {
       event_forecasts: {
         Row: {
           amount: number
+          approved_at: string | null
+          approved_by: string | null
           category_id: string | null
           created_at: string
           description: string
@@ -65,11 +67,15 @@ export type Database = {
           id: string
           iva_rate: number
           notes: string | null
+          status: string
+          transaction_id: string | null
           type: string
           updated_at: string
         }
         Insert: {
           amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
           category_id?: string | null
           created_at?: string
           description: string
@@ -77,11 +83,15 @@ export type Database = {
           id?: string
           iva_rate?: number
           notes?: string | null
+          status?: string
+          transaction_id?: string | null
           type: string
           updated_at?: string
         }
         Update: {
           amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
           category_id?: string | null
           created_at?: string
           description?: string
@@ -89,6 +99,8 @@ export type Database = {
           id?: string
           iva_rate?: number
           notes?: string | null
+          status?: string
+          transaction_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -105,6 +117,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
