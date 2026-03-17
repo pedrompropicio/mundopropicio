@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
 import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   transaction: any;
