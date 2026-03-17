@@ -89,9 +89,10 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     const balance = withIva - item.paid_amount;
     return [
       i + 1,
-      item.description,
       item.event_name,
+      item.description,
       item.supplier_name,
+      item.iban,
       formatCurrencyDecimal(item.amount),
       `${item.iva_rate}%`,
       formatCurrencyDecimal(withIva),
