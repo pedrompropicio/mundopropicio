@@ -15,7 +15,6 @@ interface TransactionForm {
   supplier_id: string;
   date: string;
   due_date: string;
-  status: "pending" | "paid" | "overdue";
 }
 
 const emptyForm: TransactionForm = {
@@ -28,7 +27,6 @@ const emptyForm: TransactionForm = {
   supplier_id: "",
   date: new Date().toISOString().split("T")[0],
   due_date: "",
-  status: "pending",
 };
 
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
