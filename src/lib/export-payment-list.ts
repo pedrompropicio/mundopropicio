@@ -74,57 +74,94 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
 }
 
 export function exportPaymentListToPDF(data: PaymentListExport) {
-  const doc = new jsPDF({ orientation: "landscape" });
+  const doc = new jsPDF({ orientation: "portrait" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 14;
+  const lineHeight = 6;
+  let y = 18;
 
   doc.setFontSize(16);
-  doc.text(`Contas a Pagar do Dia - ${data.title}`, 14, 18);
+  doc.text(`Contas a Pagar do Dia - ${data.title}`, marginLeft, y);
+  y += 10;
   doc.setFontSize(10);
-  doc.text(`Data: ${formatDate(data.payment_date)}`, 14, 26);
+  doc.text(`Data: ${formatDate(data.payment_date)}`, marginLeft, y);
+  y += 6;
   if (data.approved_by) {
-    doc.text(`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`, 14, 32);
+    doc.text(`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`, marginLeft, y);
+    y += 6;
   }
+  y += 4;
 
-  const tableData = data.items.map((item, i) => {
+  let totalValue = 0;
+
+  data.items.forEach((item, i) => {
     const withIva = calcWithIva(item.amount, item.iva_rate);
-    const balance = withIva - item.paid_amount;
-    return [
-      i + 1,
-      item.event_name,
-      item.description,
-      item.supplier_name,
-      item.iban,
-      formatCurrencyDecimal(item.amount),
-      `${item.iva_rate}%`,
-      formatCurrencyDecimal(withIva),
-      formatCurrencyDecimal(item.paid_amount),
-      formatCurrencyDecimal(balance),
-      item.due_date ? formatDate(item.due_date) : "-",
-    ];
+    totalValue += withIva;
+
+    // Check if we need a new page
+    if (y + lineHeight * 6 > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = 18;
+    }
+
+    // Separator line
+    if (i > 0) {
+      doc.setDrawColor(200, 200, 200);
+      doc.line(marginLeft, y - 2, pageWidth - marginLeft, y - 2);
+      y += 2;
+    }
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${i + 1}.`, marginLeft, y);
+    doc.setFont("helvetica", "normal");
+
+    const labelX = marginLeft + 8;
+    const valueX = marginLeft + 38;
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text("Evento:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.event_name, valueX, y);
+    y += lineHeight;
+
+    doc.setTextColor(120, 120, 120);
+    doc.text("IBAN:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.iban || "-", valueX, y);
+    y += lineHeight;
+
+    doc.setTextColor(120, 120, 120);
+    doc.text("Fornecedor:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.supplier_name, valueX, y);
+    y += lineHeight;
+
+    doc.setTextColor(120, 120, 120);
+    doc.text("Descrição:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text(item.description, valueX, y);
+    doc.setFont("helvetica", "normal");
+    y += lineHeight;
+
+    doc.setTextColor(120, 120, 120);
+    doc.text("Valor:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text(formatCurrencyDecimal(withIva), valueX, y);
+    doc.setFont("helvetica", "normal");
+    y += lineHeight + 4;
   });
 
-  let totalWithIva = 0;
-  let totalPaid = 0;
-  data.items.forEach((item) => {
-    const withIva = calcWithIva(item.amount, item.iva_rate);
-    totalWithIva += withIva;
-    totalPaid += item.paid_amount;
-  });
-
-  tableData.push([
-    "", "", "TOTAL", "", "",  "", "",
-    formatCurrencyDecimal(totalWithIva),
-    formatCurrencyDecimal(totalPaid),
-    formatCurrencyDecimal(totalWithIva - totalPaid),
-    "",
-  ]);
-
-  autoTable(doc, {
-    startY: data.approved_by ? 38 : 32,
-    head: [["#", "Evento", "Descrição", "Fornecedor", "IBAN", "Base (€)", "IVA", "c/IVA (€)", "Pago (€)", "Saldo (€)", "Venc."]],
-    body: tableData,
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [41, 65, 148] },
-  });
+  // Total
+  doc.setDrawColor(100, 100, 100);
+  doc.line(marginLeft, y - 2, pageWidth - marginLeft, y - 2);
+  y += 4;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Total: ${formatCurrencyDecimal(totalValue)}`, marginLeft, y);
 
   doc.save(`Contas_Pagar_${data.payment_date}.pdf`);
 }
