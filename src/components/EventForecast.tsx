@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, X, TrendingUp, TrendingDown, BarChart3, Trash2, Edit2, CheckCircle2, Clock, Link2 } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface ForecastForm {
+interface InlineForm {
   type: string;
   description: string;
   amount: string;
@@ -16,7 +16,7 @@ interface ForecastForm {
   notes: string;
 }
 
-const emptyForm: ForecastForm = {
+const emptyInline: InlineForm = {
   type: "expense",
   description: "",
   amount: "",
@@ -31,11 +31,18 @@ interface Props {
 }
 
 export function EventForecast({ eventId, eventDate }: Props) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<ForecastForm>(emptyForm);
+  const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
+  const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+
+  useEffect(() => {
+    if ((addingType || editingId) && descRef.current) {
+      descRef.current.focus();
+    }
+  }, [addingType, editingId]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
@@ -76,31 +83,37 @@ export function EventForecast({ eventId, eventDate }: Props) {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: ForecastForm) => {
+  const saveMutation = useMutation({
+    mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
       const payload = {
         event_id: eventId,
-        type: data.type,
-        description: data.description,
-        amount: parseFloat(data.amount) || 0,
-        iva_rate: parseInt(data.iva_rate) || 23,
-        category_id: data.category_id || null,
-        notes: data.notes || null,
+        type: form.type,
+        description: form.description,
+        amount: parseFloat(form.amount) || 0,
+        iva_rate: parseInt(form.iva_rate) || 23,
+        category_id: form.category_id || null,
+        notes: form.notes || null,
       };
-      if (editingId) {
-        const { error } = await supabase.from("event_forecasts").update(payload).eq("id", editingId);
+      if (id) {
+        const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("event_forecasts").insert(payload);
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-      setShowForm(false);
-      setForm(emptyForm);
-      setEditingId(null);
-      toast({ title: editingId ? "Previsão atualizada!" : "Previsão adicionada!" });
+      toast({ title: vars.id ? "Previsão atualizada!" : "Previsão adicionada!" });
+      if (!vars.id && addingType) {
+        // Keep adding mode open for rapid entry, reset form
+        setInlineForm({ ...emptyInline, type: addingType });
+        setTimeout(() => descRef.current?.focus(), 50);
+      } else {
+        setAddingType(null);
+        setEditingId(null);
+        setInlineForm(emptyInline);
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -120,7 +133,6 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const approveMutation = useMutation({
     mutationFn: async (forecast: any) => {
-      // 1. Create the transaction from the forecast
       const { data: txn, error: txnError } = await supabase
         .from("transactions")
         .insert({
@@ -137,7 +149,6 @@ export function EventForecast({ eventId, eventDate }: Props) {
         .single();
       if (txnError) throw txnError;
 
-      // 2. Update the forecast as approved with link to transaction
       const { error: updateError } = await supabase
         .from("event_forecasts")
         .update({
@@ -161,17 +172,27 @@ export function EventForecast({ eventId, eventDate }: Props) {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.description || !form.amount) {
+  const handleInlineSave = () => {
+    if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
       return;
     }
-    createMutation.mutate(form);
+    saveMutation.mutate({ form: inlineForm, id: editingId });
+  };
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleInlineSave();
+    } else if (e.key === "Escape") {
+      setAddingType(null);
+      setEditingId(null);
+      setInlineForm(emptyInline);
+    }
   };
 
   const startEdit = (f: any) => {
-    setForm({
+    setInlineForm({
       type: f.type,
       description: f.description,
       amount: String(f.amount),
@@ -180,7 +201,19 @@ export function EventForecast({ eventId, eventDate }: Props) {
       notes: f.notes || "",
     });
     setEditingId(f.id);
-    setShowForm(true);
+    setAddingType(null);
+  };
+
+  const startAdding = (type: "income" | "expense") => {
+    setAddingType(type);
+    setEditingId(null);
+    setInlineForm({ ...emptyInline, type });
+  };
+
+  const cancelInline = () => {
+    setAddingType(null);
+    setEditingId(null);
+    setInlineForm(emptyInline);
   };
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income");
@@ -195,36 +228,94 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const comparisonData = buildComparison(forecasts, transactions, categories);
 
-  const filteredCategories = categories.filter((c) =>
-    form.type === "income" ? c.type === "income" : c.type === "expense"
-  );
-
   const draftCount = forecasts.filter((f) => f.status === "draft").length;
   const approvedCount = forecasts.filter((f) => f.status === "approved").length;
+
+  const incomeCategories = categories.filter((c) => c.type === "income");
+  const expenseCategories = categories.filter((c) => c.type === "expense");
+
+  const inputClass = "w-full rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50";
+
+  const renderInlineRow = (type: "income" | "expense") => {
+    const cats = type === "income" ? incomeCategories : expenseCategories;
+    return (
+      <tr className="bg-primary/5 animate-fade-in" onKeyDown={handleInlineKeyDown}>
+        <td className="py-1.5 pr-2">
+          <input
+            ref={descRef}
+            value={inlineForm.description}
+            onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })}
+            className={inputClass}
+            placeholder="Descrição…"
+            autoFocus
+          />
+        </td>
+        <td className="hidden py-1.5 pr-2 sm:table-cell">
+          <select
+            value={inlineForm.category_id}
+            onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })}
+            className={inputClass}
+          >
+            <option value="">—</option>
+            {cats.map((c) => (
+              <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+            ))}
+          </select>
+        </td>
+        <td className="py-1.5 pr-2">
+          <select
+            value={inlineForm.iva_rate}
+            onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })}
+            className={`${inputClass} w-20`}
+          >
+            <option value="23">23%</option>
+            <option value="13">13%</option>
+            <option value="6">6%</option>
+            <option value="0">0%</option>
+          </select>
+        </td>
+        <td className="py-1.5 pr-2">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={inlineForm.amount}
+            onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
+            className={`${inputClass} w-28 text-right font-mono`}
+            placeholder="0,00"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
+          />
+        </td>
+        <td className="py-1.5 text-right">
+          <div className="flex justify-end gap-1">
+            <button
+              onClick={handleInlineSave}
+              disabled={saveMutation.isPending}
+              className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+              title="Guardar (Enter)"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={cancelInline}
+              className="rounded p-1.5 hover:bg-secondary transition-colors"
+              title="Cancelar (Esc)"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          label="Receitas"
-          forecast={totalForecastIncome}
-          actual={totalActualIncome}
-          icon={<TrendingUp className="h-4 w-4 text-success" />}
-        />
-        <SummaryCard
-          label="Despesas"
-          forecast={totalForecastExpense}
-          actual={totalActualExpense}
-          icon={<TrendingDown className="h-4 w-4 text-warning" />}
-        />
-        <SummaryCard
-          label="Resultado"
-          forecast={forecastProfit}
-          actual={actualProfit}
-          icon={<BarChart3 className="h-4 w-4 text-primary" />}
-          isProfit
-        />
+        <SummaryCard label="Receitas" forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />
+        <SummaryCard label="Despesas" forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />
+        <SummaryCard label="Resultado" forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -244,52 +335,170 @@ export function EventForecast({ eventId, eventDate }: Props) {
       </div>
 
       <Tabs defaultValue="forecasts" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="forecasts">Previsões</TabsTrigger>
-            <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
-          </TabsList>
-          <button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm); }}
-            className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Nova Previsão</span>
-          </button>
-        </div>
+        <TabsList>
+          <TabsTrigger value="forecasts">Previsões</TabsTrigger>
+          <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="forecasts">
           {isLoading ? (
             <p className="py-8 text-center text-muted-foreground">A carregar…</p>
-          ) : forecasts.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">Sem previsões registadas. Adicione receitas e despesas previstas para este evento.</p>
           ) : (
             <div className="space-y-6">
-              {incomeForecasts.length > 0 && (
-                <ForecastSection
-                  title="Receitas Previstas"
-                  items={incomeForecasts}
-                  total={totalForecastIncome}
-                  colorClass="text-success"
-                  onEdit={startEdit}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                  onApprove={(f) => approveMutation.mutate(f)}
-                  isAdmin={isAdmin}
-                  isApproving={approveMutation.isPending}
-                />
-              )}
-              {expenseForecasts.length > 0 && (
-                <ForecastSection
-                  title="Despesas Previstas"
-                  items={expenseForecasts}
-                  total={totalForecastExpense}
-                  colorClass="text-warning"
-                  onEdit={startEdit}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                  onApprove={(f) => approveMutation.mutate(f)}
-                  isAdmin={isAdmin}
-                  isApproving={approveMutation.isPending}
-                />
+              {/* Income section */}
+              <div className="glass rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
+                  <button
+                    onClick={() => startAdding("income")}
+                    disabled={addingType === "income"}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Adicionar
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                        <th className="pb-2 text-left font-medium">Descrição</th>
+                        <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
+                        <th className="pb-2 text-right font-medium">IVA</th>
+                        <th className="pb-2 text-right font-medium">Valor</th>
+                        <th className="pb-2 text-right font-medium w-28">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {incomeForecasts.map((f) => (
+                        editingId === f.id ? (
+                          <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
+                            <td className="py-1.5 pr-2">
+                              <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
+                            </td>
+                            <td className="hidden py-1.5 pr-2 sm:table-cell">
+                              <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
+                                <option value="">—</option>
+                                {incomeCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+                              </select>
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
+                                <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
+                              </select>
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                            </td>
+                            <td className="py-1.5 text-right">
+                              <div className="flex justify-end gap-1">
+                                <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+                                <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} />
+                        )
+                      ))}
+                      {addingType === "income" && renderInlineRow("income")}
+                    </tbody>
+                    {(incomeForecasts.length > 0 || addingType === "income") && (
+                      <tfoot>
+                        <tr className="border-t border-border/50">
+                          <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncome)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                  {incomeForecasts.length === 0 && addingType !== "income" && (
+                    <p className="py-4 text-center text-xs text-muted-foreground">Sem receitas previstas</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Expense section */}
+              <div className="glass rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
+                  <button
+                    onClick={() => startAdding("expense")}
+                    disabled={addingType === "expense"}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Adicionar
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                        <th className="pb-2 text-left font-medium">Descrição</th>
+                        <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
+                        <th className="pb-2 text-right font-medium">IVA</th>
+                        <th className="pb-2 text-right font-medium">Valor</th>
+                        <th className="pb-2 text-right font-medium w-28">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {expenseForecasts.map((f) => (
+                        editingId === f.id ? (
+                          <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
+                            <td className="py-1.5 pr-2">
+                              <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
+                            </td>
+                            <td className="hidden py-1.5 pr-2 sm:table-cell">
+                              <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
+                                <option value="">—</option>
+                                {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+                              </select>
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
+                                <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
+                              </select>
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                            </td>
+                            <td className="py-1.5 text-right">
+                              <div className="flex justify-end gap-1">
+                                <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+                                <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          <ForecastRow key={f.id} item={f} colorClass="text-warning" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} />
+                        )
+                      ))}
+                      {addingType === "expense" && renderInlineRow("expense")}
+                    </tbody>
+                    {(expenseForecasts.length > 0 || addingType === "expense") && (
+                      <tfoot>
+                        <tr className="border-t border-border/50">
+                          <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpense)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                  {expenseForecasts.length === 0 && addingType !== "expense" && (
+                    <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
+                  )}
+                </div>
+              </div>
+
+              {/* P&L summary row */}
+              {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
+                <div className="glass rounded-xl p-4 flex items-center justify-between">
+                  <span className="text-sm font-semibold">Resultado Previsto</span>
+                  <span className={`font-mono text-lg font-bold ${forecastProfit >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatCurrency(forecastProfit)}
+                  </span>
+                </div>
               )}
             </div>
           )}
@@ -299,106 +508,72 @@ export function EventForecast({ eventId, eventDate }: Props) {
           <ComparisonTable data={comparisonData} />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
 
-      {/* Form modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setShowForm(false); setEditingId(null); }}>
-          <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">{editingId ? "Editar Previsão" : "Nova Previsão"}</h2>
-              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="rounded-lg p-1 hover:bg-secondary">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+/* ── Sub-components ── */
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo *</label>
-                  <select
-                    value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value, category_id: "" })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="income">Receita</option>
-                    <option value="expense">Despesa</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                  <select
-                    value={form.iva_rate}
-                    onChange={(e) => setForm({ ...form, iva_rate: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="23">23% - Normal</option>
-                    <option value="13">13% - Intermédia</option>
-                    <option value="6">6% - Reduzida</option>
-                    <option value="0">0% - Isento</option>
-                  </select>
-                </div>
-              </div>
+function ForecastRow({ item, colorClass, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
+  item: any; colorClass: string;
+  onEdit: (item: any) => void; onDelete: (id: string) => void;
+  onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
+}) {
+  const isDraft = item.status === "draft";
+  const isApproved = item.status === "approved";
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-                <select
-                  value={form.category_id}
-                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="">Sem categoria</option>
-                  {filteredCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
-                <input
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Ex: Patrocínio principal"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor (€) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Notas</label>
-                  <input
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="Opcional"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
-              >
-                {createMutation.isPending ? "A guardar…" : editingId ? "Atualizar" : "Adicionar Previsão"}
-              </button>
-            </form>
+  return (
+    <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
+      <td className="py-2.5 pr-3">
+        <div className="flex items-center gap-2">
+          {isApproved ? (
+            <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+          ) : (
+            <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
+          )}
+          <div>
+            <p className="font-medium">{item.description}</p>
+            {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+            {isApproved && item.transaction_id && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Link2 className="h-3 w-3" /> Transação criada
+              </p>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </td>
+      <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
+        {item.account_categories ? `${item.account_categories.code} - ${item.account_categories.name}` : "—"}
+      </td>
+      <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
+      <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+        {formatCurrency(Number(item.amount))}
+      </td>
+      <td className="py-2.5 text-right">
+        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isDraft && isAdmin && (
+            <button
+              onClick={() => onApprove(item)}
+              disabled={isApproving}
+              className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+              title="Aprovar e criar transação"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isDraft && (
+            <>
+              <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              </button>
+              <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </button>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -411,10 +586,7 @@ function SummaryCard({ label, forecast, actual, icon, isProfit }: {
 
   return (
     <div className="glass rounded-xl p-4 space-y-2">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        {icon}
-        {label}
-      </div>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">{icon}{label}</div>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <span className="text-muted-foreground">Previsão</span>
@@ -434,106 +606,7 @@ function SummaryCard({ label, forecast, actual, icon, isProfit }: {
   );
 }
 
-function ForecastStatusBadge({ status }: { status: string }) {
-  if (status === "approved") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
-        <CheckCircle2 className="h-3 w-3" /> Aprovada
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
-      <Clock className="h-3 w-3" /> Pendente
-    </span>
-  );
-}
-
-function ForecastSection({ title, items, total, colorClass, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
-  title: string; items: any[]; total: number; colorClass: string;
-  onEdit: (item: any) => void; onDelete: (id: string) => void;
-  onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
-}) {
-  return (
-    <div className="glass rounded-xl p-5">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="pb-2 text-left font-medium">Descrição</th>
-              <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
-              <th className="pb-2 text-center font-medium">Estado</th>
-              <th className="pb-2 text-right font-medium">IVA</th>
-              <th className="pb-2 text-right font-medium">Valor</th>
-              <th className="pb-2 text-right font-medium w-28">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/30">
-            {items.map((f) => {
-              const isDraft = f.status === "draft";
-              const isApproved = f.status === "approved";
-              return (
-                <tr key={f.id} className={isApproved ? "opacity-75" : ""}>
-                  <td className="py-2.5 pr-3">
-                    <p className="font-medium">{f.description}</p>
-                    {f.notes && <p className="text-xs text-muted-foreground">{f.notes}</p>}
-                    {isApproved && f.transaction_id && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Link2 className="h-3 w-3" /> Transação criada
-                      </p>
-                    )}
-                  </td>
-                  <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell">
-                    {f.account_categories ? `${f.account_categories.code} - ${f.account_categories.name}` : "—"}
-                  </td>
-                  <td className="py-2.5 text-center">
-                    <ForecastStatusBadge status={f.status} />
-                  </td>
-                  <td className="py-2.5 text-right text-muted-foreground">{f.iva_rate}%</td>
-                  <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-                    {formatCurrency(Number(f.amount))}
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <div className="flex justify-end gap-1">
-                      {isDraft && isAdmin && (
-                        <button
-                          onClick={() => onApprove(f)}
-                          disabled={isApproving}
-                          className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
-                          title="Aprovar e criar transação"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {isDraft && (
-                        <>
-                          <button onClick={() => onEdit(f)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                            <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                          <button onClick={() => onDelete(f.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-border/50">
-              <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
-              <td className={`py-2.5 text-right font-mono font-bold ${colorClass}`}>{formatCurrency(total)}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-  );
-}
+/* ── Comparison ── */
 
 interface ComparisonRow {
   categoryCode: string;
@@ -546,7 +619,6 @@ interface ComparisonRow {
 
 function buildComparison(forecasts: any[], transactions: any[], categories: any[]): ComparisonRow[] {
   const map: Record<string, ComparisonRow> = {};
-
   const getKey = (type: string, catId: string | null) => `${type}_${catId || "none"}`;
   const getCatInfo = (catId: string | null, cats: any[]) => {
     if (!catId) return { code: "—", name: "Sem categoria" };
@@ -560,7 +632,6 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, type: f.type, forecast: 0, actual: 0, variance: 0 };
     map[key].forecast += Number(f.amount);
   });
-
   transactions.forEach((t) => {
     const key = getKey(t.type, t.category_id);
     const cat = getCatInfo(t.category_id, categories);
@@ -570,24 +641,18 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
 
   return Object.values(map)
     .map((r) => ({ ...r, variance: r.actual - r.forecast }))
-    .sort((a, b) => {
-      if (a.type !== b.type) return a.type === "income" ? -1 : 1;
-      return a.categoryCode.localeCompare(b.categoryCode);
-    });
+    .sort((a, b) => { if (a.type !== b.type) return a.type === "income" ? -1 : 1; return a.categoryCode.localeCompare(b.categoryCode); });
 }
 
 function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
-
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
   const totalAI = incomeRows.reduce((s, r) => s + r.actual, 0);
   const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0);
   const totalAE = expenseRows.reduce((s, r) => s + r.actual, 0);
 
-  if (data.length === 0) {
-    return <p className="py-8 text-center text-muted-foreground">Adicione previsões e transações para ver a comparação.</p>;
-  }
+  if (data.length === 0) return <p className="py-8 text-center text-muted-foreground">Adicione previsões e transações para ver a comparação.</p>;
 
   return (
     <div className="glass rounded-xl p-5 overflow-x-auto">
@@ -646,21 +711,13 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
 function ComparisonRowItem({ row, isIncome }: { row: ComparisonRow; isIncome?: boolean }) {
   const variancePct = row.forecast > 0 ? (row.variance / row.forecast) * 100 : 0;
   const isPositive = isIncome ? row.variance >= 0 : row.variance <= 0;
-
   return (
     <tr className="border-b border-border/20">
-      <td className="py-2 pr-3">
-        <span className="text-xs text-muted-foreground mr-1.5">{row.categoryCode}</span>
-        {row.categoryName}
-      </td>
+      <td className="py-2 pr-3"><span className="text-xs text-muted-foreground mr-1.5">{row.categoryCode}</span>{row.categoryName}</td>
       <td className="py-2 text-right font-mono">{formatCurrency(row.forecast)}</td>
       <td className="py-2 text-right font-mono">{formatCurrency(row.actual)}</td>
-      <td className={`py-2 text-right font-mono ${isPositive ? "text-success" : "text-destructive"}`}>
-        {row.variance >= 0 ? "+" : ""}{formatCurrency(row.variance)}
-      </td>
-      <td className={`py-2 text-right text-xs ${isPositive ? "text-success" : "text-destructive"}`}>
-        {row.forecast > 0 ? `${variancePct >= 0 ? "+" : ""}${variancePct.toFixed(1)}%` : "—"}
-      </td>
+      <td className={`py-2 text-right font-mono ${isPositive ? "text-success" : "text-destructive"}`}>{row.variance >= 0 ? "+" : ""}{formatCurrency(row.variance)}</td>
+      <td className={`py-2 text-right text-xs ${isPositive ? "text-success" : "text-destructive"}`}>{row.forecast > 0 ? `${variancePct >= 0 ? "+" : ""}${variancePct.toFixed(1)}%` : "—"}</td>
     </tr>
   );
 }
