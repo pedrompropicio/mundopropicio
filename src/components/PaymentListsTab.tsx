@@ -11,7 +11,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
-type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision";
+type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
 const statusMap: Record<ListStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Rascunho", variant: "secondary" },
