@@ -47,7 +47,6 @@ function ProtectedLayout() {
             <Route path="/eventos/:id" element={<EventDetail />} />
             <Route path="/transacoes" element={<Transactions />} />
             <Route path="/plano-contas" element={<AccountCategories />} />
-            <Route path="/contas-pagar" element={<PaymentLists />} />
             <Route path="/fornecedores" element={<Suppliers />} />
             <Route path="/cotacoes" element={<Quotations />} />
             <Route path="/relatorios" element={<Reports />} />
