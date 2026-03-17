@@ -14,6 +14,7 @@ interface InlineForm {
   iva_rate: string;
   category_id: string;
   notes: string;
+  specification: string;
 }
 
 const emptyInline: InlineForm = {
@@ -23,6 +24,7 @@ const emptyInline: InlineForm = {
   iva_rate: "23",
   category_id: "",
   notes: "",
+  specification: "",
 };
 
 interface Props {
