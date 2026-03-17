@@ -6,18 +6,19 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF } from "@/lib/export-payment-list";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, RotateCcw, MessageSquare, Send,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
-type ListStatus = "draft" | "pending_approval" | "approved" | "rejected";
+type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision";
 
 const statusMap: Record<ListStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Rascunho", variant: "secondary" },
   pending_approval: { label: "Aguardando Aprovação", variant: "outline" },
   approved: { label: "Aprovada", variant: "default" },
   rejected: { label: "Rejeitada", variant: "destructive" },
+  revision: { label: "Em Revisão", variant: "outline" },
 };
 
 export default function PaymentListsTab() {
@@ -25,6 +26,7 @@ export default function PaymentListsTab() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [viewListId, setViewListId] = useState<string | null>(null);
+  const [revisionListId, setRevisionListId] = useState<string | null>(null);
 
   const { data: lists = [], isLoading: listsLoading } = useQuery({
     queryKey: ["payment-lists"],
@@ -67,6 +69,40 @@ export default function PaymentListsTab() {
     },
   });
 
+  const revisionMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from("payment_lists")
+        .update({
+          status: "revision",
+          revision_notes: notes,
+          approved_by: user?.email ?? null,
+          approved_at: null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      setRevisionListId(null);
+      toast({ title: "Lista enviada para revisão." });
+    },
+  });
+
+  const resubmitMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("payment_lists")
+        .update({ status: "pending_approval", revision_notes: null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      toast({ title: "Lista reenviada para aprovação!" });
+    },
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -94,6 +130,15 @@ export default function PaymentListsTab() {
         <ViewPaymentList listId={viewListId} onClose={() => setViewListId(null)} />
       )}
 
+      {revisionListId && (
+        <RevisionModal
+          listId={revisionListId}
+          onClose={() => setRevisionListId(null)}
+          onSubmit={(notes) => revisionMutation.mutate({ id: revisionListId, notes })}
+          isPending={revisionMutation.isPending}
+        />
+      )}
+
       <div className="glass rounded-xl p-5">
         {listsLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
@@ -116,7 +161,15 @@ export default function PaymentListsTab() {
                   const st = statusMap[list.status as ListStatus] ?? statusMap.draft;
                   return (
                     <tr key={list.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3 font-medium">{list.title}</td>
+                      <td className="py-3">
+                        <span className="font-medium">{list.title}</span>
+                        {list.status === "revision" && list.revision_notes && (
+                          <div className="mt-1 flex items-start gap-1.5 rounded-md bg-accent/50 px-2 py-1.5 text-xs text-muted-foreground">
+                            <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>{list.revision_notes}</span>
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3">{formatDate(list.payment_date)}</td>
                       <td className="py-3"><Badge variant={st.variant}>{st.label}</Badge></td>
                       <td className="py-3 text-muted-foreground hidden sm:table-cell">{list.created_by}</td>
@@ -135,6 +188,13 @@ export default function PaymentListsTab() {
                                 <ShieldCheck className="h-4 w-4" />
                               </button>
                               <button
+                                onClick={() => setRevisionListId(list.id)}
+                                className="rounded p-1.5 text-amber-500 hover:bg-amber-500/10"
+                                title="Enviar para revisão"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                              <button
                                 onClick={() => statusMutation.mutate({ id: list.id, status: "rejected" })}
                                 className="rounded p-1.5 text-destructive hover:bg-destructive/10"
                                 title="Rejeitar"
@@ -143,7 +203,16 @@ export default function PaymentListsTab() {
                               </button>
                             </>
                           )}
-                          {(list.status === "draft" || list.status === "rejected") && (
+                          {list.status === "revision" && (
+                            <button
+                              onClick={() => resubmitMutation.mutate(list.id)}
+                              className="rounded p-1.5 text-primary hover:bg-primary/10"
+                              title="Reenviar para aprovação"
+                            >
+                              <Send className="h-4 w-4" />
+                            </button>
+                          )}
+                          {(list.status === "draft" || list.status === "rejected" || list.status === "revision") && (
                             <button
                               onClick={() => { if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id); }}
                               className="rounded p-1.5 text-destructive hover:bg-destructive/10"
@@ -417,6 +486,60 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
         <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Revision Modal ─── */
+function RevisionModal({
+  listId,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  listId: string;
+  onClose: () => void;
+  onSubmit: (notes: string) => void;
+  isPending: boolean;
+}) {
+  const [notes, setNotes] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="glass w-full max-w-md rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-4">
+          <RotateCcw className="h-5 w-5 text-amber-500" />
+          <h2 className="text-lg font-bold">Enviar para Revisão</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          Adicione comentários sobre o que precisa ser corrigido na lista antes de reenviá-la.
+        </p>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Descreva o que precisa ser revisto…"
+          rows={4}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">
+            Cancelar
+          </button>
+          <button
+            onClick={() => {
+              if (!notes.trim()) {
+                return;
+              }
+              onSubmit(notes.trim());
+            }}
+            disabled={isPending || !notes.trim()}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Enviar para Revisão
+          </button>
         </div>
       </div>
     </div>
