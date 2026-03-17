@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, TrendingUp, TrendingDown, ToggleLeft, ToggleRight, ChevronRight, ChevronDown } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Plus, TrendingUp, TrendingDown, ToggleLeft, ToggleRight, ChevronRight, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -39,13 +41,19 @@ function buildTree(categories: Category[]): Category[] {
 function CategoryRow({
   cat,
   level,
+  isAdmin,
   toggleActive,
+  onEdit,
+  onDelete,
   expanded,
   onToggleExpand,
 }: {
   cat: Category;
   level: number;
+  isAdmin: boolean;
   toggleActive: (args: { id: string; is_active: boolean }) => void;
+  onEdit: (cat: Category) => void;
+  onDelete: (cat: Category) => void;
   expanded: Set<string>;
   onToggleExpand: (id: string) => void;
 }) {
@@ -87,15 +95,37 @@ function CategoryRow({
         </td>
         <td className="py-2.5 text-center text-xs">{cat.is_active ? "Ativa" : "Inativa"}</td>
         <td className="py-2.5 text-center">
-          {isLeaf && (
-            <button
-              onClick={() => toggleActive({ id: cat.id, is_active: !cat.is_active })}
-              className="rounded p-1 hover:bg-secondary text-muted-foreground"
-              title={cat.is_active ? "Desativar" : "Ativar"}
-            >
-              {cat.is_active ? <ToggleRight className="h-4 w-4 text-success" /> : <ToggleLeft className="h-4 w-4" />}
-            </button>
-          )}
+          <div className="flex items-center justify-center gap-1">
+            {isLeaf && (
+              <button
+                onClick={() => toggleActive({ id: cat.id, is_active: !cat.is_active })}
+                className="rounded p-1 hover:bg-secondary text-muted-foreground"
+                title={cat.is_active ? "Desativar" : "Ativar"}
+              >
+                {cat.is_active ? <ToggleRight className="h-4 w-4 text-success" /> : <ToggleLeft className="h-4 w-4" />}
+              </button>
+            )}
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => onEdit(cat)}
+                  className="rounded p-1 hover:bg-secondary text-muted-foreground"
+                  title="Editar"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                {isLeaf && (
+                  <button
+                    onClick={() => onDelete(cat)}
+                    className="rounded p-1 hover:bg-secondary text-destructive/70 hover:text-destructive"
+                    title="Excluir"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </td>
       </tr>
       {hasChildren && isExpanded &&
@@ -104,7 +134,10 @@ function CategoryRow({
             key={child.id}
             cat={child}
             level={level + 1}
+            isAdmin={isAdmin}
             toggleActive={toggleActive}
+            onEdit={onEdit}
+            onDelete={onDelete}
             expanded={expanded}
             onToggleExpand={onToggleExpand}
           />
@@ -115,10 +148,15 @@ function CategoryRow({
 }
 
 export default function AccountCategories() {
+  const { isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [deletingCat, setDeletingCat] = useState<Category | null>(null);
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["account-categories"] });
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["account-categories"],
@@ -148,11 +186,40 @@ export default function AccountCategories() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["account-categories"] });
+      invalidate();
       setIsOpen(false);
       toast.success("Conta criada com sucesso");
     },
     onError: () => toast.error("Erro ao criar conta"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, code, name }: { id: string; code: string; name: string }) => {
+      const { error } = await supabase.from("account_categories").update({ code, name }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      setEditingCat(null);
+      toast.success("Conta atualizada com sucesso");
+    },
+    onError: () => toast.error("Erro ao atualizar conta"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // First nullify any transaction/forecast references
+      await supabase.from("transactions").update({ category_id: null }).eq("category_id", id);
+      await supabase.from("event_forecasts").update({ category_id: null }).eq("category_id", id);
+      const { error } = await supabase.from("account_categories").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      setDeletingCat(null);
+      toast.success("Conta excluída com sucesso");
+    },
+    onError: (err: any) => toast.error("Erro ao excluir conta", { description: err.message }),
   });
 
   const toggleActive = useMutation({
@@ -160,7 +227,7 @@ export default function AccountCategories() {
       const { error } = await supabase.from("account_categories").update({ is_active }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["account-categories"] }),
+    onSuccess: () => invalidate(),
   });
 
   const onToggleExpand = (id: string) => {
@@ -172,19 +239,13 @@ export default function AccountCategories() {
     });
   };
 
-  const expandAll = () => {
-    setExpanded(new Set(categories.map((c) => c.id)));
-  };
-
-  const collapseAll = () => {
-    setExpanded(new Set());
-  };
+  const expandAll = () => setExpanded(new Set(categories.map((c) => c.id)));
+  const collapseAll = () => setExpanded(new Set());
 
   const incomeCount = categories.filter((c) => c.type === "income").length;
   const expenseCount = categories.filter((c) => c.type === "expense").length;
   const leafCount = categories.filter((c) => !categories.some((child) => child.parent_id === c.id)).length;
 
-  // Get parent categories (level 1 and 2) for the create form
   const parentOptions = categories.filter((c) => {
     const depth = c.code.split(".").length;
     return depth <= 2;
@@ -202,6 +263,17 @@ export default function AccountCategories() {
     });
   };
 
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingCat) return;
+    const fd = new FormData(e.currentTarget);
+    updateMutation.mutate({
+      id: editingCat.id,
+      code: fd.get("code") as string,
+      name: fd.get("name") as string,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -209,58 +281,60 @@ export default function AccountCategories() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Plano de Contas</h1>
           <p className="text-sm text-muted-foreground">Estrutura hierárquica de 3 níveis · {leafCount} contas de detalhe</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary">
-              <Plus className="h-4 w-4" /> Nova Conta
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Nova Conta</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="code">Código *</Label>
-                  <Input id="code" name="code" placeholder="2.3.05" required />
-                </div>
-                <div className="col-span-2 grid gap-2">
-                  <Label htmlFor="name">Descrição *</Label>
-                  <Input id="name" name="name" required />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Tipo *</Label>
-                  <Select name="type" required>
-                    <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">Receita</SelectItem>
-                      <SelectItem value="expense">Despesa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Conta-Pai</Label>
-                  <Select name="parent_id">
-                    <SelectTrigger><SelectValue placeholder="Nenhuma (raiz)" /></SelectTrigger>
-                    <SelectContent>
-                      {parentOptions.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.code} - {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <button type="submit" className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground">
-                Criar Conta
+        {isAdmin && (
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary">
+                <Plus className="h-4 w-4" /> Nova Conta
               </button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Nova Conta</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="grid gap-4 py-2">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="code">Código *</Label>
+                    <Input id="code" name="code" placeholder="2.3.05" required />
+                  </div>
+                  <div className="col-span-2 grid gap-2">
+                    <Label htmlFor="name">Descrição *</Label>
+                    <Input id="name" name="name" required />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Tipo *</Label>
+                    <Select name="type" required>
+                      <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="income">Receita</SelectItem>
+                        <SelectItem value="expense">Despesa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Conta-Pai</Label>
+                    <Select name="parent_id">
+                      <SelectTrigger><SelectValue placeholder="Nenhuma (raiz)" /></SelectTrigger>
+                      <SelectContent>
+                        {parentOptions.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.code} - {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <button type="submit" className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground">
+                  Criar Conta
+                </button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Summary */}
@@ -326,7 +400,10 @@ export default function AccountCategories() {
                   key={cat.id}
                   cat={cat}
                   level={0}
+                  isAdmin={isAdmin}
                   toggleActive={toggleActive.mutate}
+                  onEdit={setEditingCat}
+                  onDelete={setDeletingCat}
                   expanded={expanded}
                   onToggleExpand={onToggleExpand}
                 />
@@ -335,6 +412,58 @@ export default function AccountCategories() {
           </table>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingCat} onOpenChange={(open) => !open && setEditingCat(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Conta</DialogTitle>
+          </DialogHeader>
+          {editingCat && (
+            <form onSubmit={handleEditSubmit} className="grid gap-4 py-2">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-code">Código *</Label>
+                  <Input id="edit-code" name="code" defaultValue={editingCat.code} required />
+                </div>
+                <div className="col-span-2 grid gap-2">
+                  <Label htmlFor="edit-name">Descrição *</Label>
+                  <Input id="edit-name" name="name" defaultValue={editingCat.name} required />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {updateMutation.isPending ? "A guardar…" : "Guardar Alterações"}
+              </button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingCat} onOpenChange={(open) => !open && setDeletingCat(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir conta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza que deseja excluir a conta <strong>{deletingCat?.code} - {deletingCat?.name}</strong>?
+              Transações associadas perderão a referência a esta categoria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingCat && deleteMutation.mutate(deletingCat.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "A excluir…" : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
