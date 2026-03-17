@@ -409,25 +409,30 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
   const handleExport = (format: "pdf" | "excel") => {
     if (!list || items.length === 0) return;
-    const exportData = {
-      title: list.title,
-      payment_date: list.payment_date,
-      approved_by: list.approved_by,
-      approved_at: list.approved_at,
-      items: items.map((item: any) => ({
-        description: item.transactions?.description ?? "",
-        event_name: item.transactions?.events?.name ?? "-",
-        supplier_name: item.transactions?.suppliers?.name ?? "-",
-        iban: item.transactions?.suppliers?.iban ?? "-",
-        amount: Number(item.transactions?.amount ?? 0),
-        iva_rate: Number(item.transactions?.iva_rate ?? 23),
-        paid_amount: Number(item.transactions?.paid_amount ?? 0),
-        due_date: item.transactions?.due_date,
-        date: item.transactions?.date,
-      })),
-    };
-    if (format === "pdf") exportPaymentListToPDF(exportData);
-    else exportPaymentListToExcel(exportData);
+    try {
+      const exportData = {
+        title: list.title,
+        payment_date: list.payment_date,
+        approved_by: list.approved_by,
+        approved_at: list.approved_at,
+        items: items.map((item: any) => ({
+          description: item.transactions?.description ?? "",
+          event_name: item.transactions?.events?.name ?? "-",
+          supplier_name: item.transactions?.suppliers?.name ?? "-",
+          iban: item.transactions?.suppliers?.iban ?? "-",
+          amount: Number(item.transactions?.amount ?? 0),
+          iva_rate: Number(item.transactions?.iva_rate ?? 23),
+          paid_amount: Number(item.transactions?.paid_amount ?? 0),
+          due_date: item.transactions?.due_date,
+          date: item.transactions?.date ?? "",
+        })),
+      };
+      if (format === "pdf") exportPaymentListToPDF(exportData);
+      else exportPaymentListToExcel(exportData);
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast({ title: "Erro ao exportar", description: err.message, variant: "destructive" });
+    }
   };
 
   return (
