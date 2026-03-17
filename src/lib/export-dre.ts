@@ -31,14 +31,16 @@ function buildDREForExport(transactions: any[], categories: any[]): DRELine[] {
   const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
 
   const aggregate = (txs: any[]) => {
-    const byCat: Record<string, { exIva: number; incIva: number }> = {};
+    const byCat: Record<string, { exIva: number; iva: number; incIva: number }> = {};
     txs.forEach((t) => {
       const name = catMap[t.category_id] ?? "Sem categoria";
       const amt = Number(t.amount);
       const iva = Number(t.iva_rate ?? 23);
-      if (!byCat[name]) byCat[name] = { exIva: 0, incIva: 0 };
+      const withIva = calcAmountWithIva(amt, iva);
+      if (!byCat[name]) byCat[name] = { exIva: 0, iva: 0, incIva: 0 };
       byCat[name].exIva += amt;
-      byCat[name].incIva += calcAmountWithIva(amt, iva);
+      byCat[name].iva += withIva - amt;
+      byCat[name].incIva += withIva;
     });
     return byCat;
   };
@@ -51,13 +53,15 @@ function buildDREForExport(transactions: any[], categories: any[]): DRELine[] {
   const totalExpInc = expenses.reduce((s, t) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
 
   const lines: DRELine[] = [];
-  lines.push({ label: "RECEITAS", amountExIva: totalIncEx, amountIncIva: totalIncInc, isTotal: true });
+  lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncInc - totalIncEx, amountIncIva: totalIncInc, isTotal: true });
   Object.entries(incByCat).sort((a, b) => b[1].exIva - a[1].exIva)
-    .forEach(([name, val]) => lines.push({ label: name, amountExIva: val.exIva, amountIncIva: val.incIva, indent: true }));
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, amountIncIva: totalExpInc, isTotal: true });
+    .forEach(([name, val]) => lines.push({ label: name, amountExIva: val.exIva, ivaAmount: val.iva, amountIncIva: val.incIva, indent: true }));
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpInc - totalExpEx, amountIncIva: totalExpInc, isTotal: true });
   Object.entries(expByCat).sort((a, b) => b[1].exIva - a[1].exIva)
-    .forEach(([name, val]) => lines.push({ label: name, amountExIva: val.exIva, amountIncIva: val.incIva, indent: true }));
-  lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: totalIncEx - totalExpEx, amountIncIva: totalIncInc - totalExpInc, isGrandTotal: true });
+    .forEach(([name, val]) => lines.push({ label: name, amountExIva: val.exIva, ivaAmount: val.iva, amountIncIva: val.incIva, indent: true }));
+  const resEx = totalIncEx - totalExpEx;
+  const resInc = totalIncInc - totalExpInc;
+  lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
 
   return lines;
 }
