@@ -307,7 +307,7 @@ export function EventTicketing({ eventId }: Props) {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{zone.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {zoneLots.length} lote{zoneLots.length !== 1 ? "s" : ""} · {zoneTotalTickets.toLocaleString()} bilhetes · Capacidade: {zone.total_capacity.toLocaleString()}
+                          {zoneLots.length} lote{zoneLots.length !== 1 ? "s" : ""} · {zoneTotalTickets.toLocaleString()} bilhetes · Capacidade: {(zone.total_capacity ?? 0).toLocaleString()}
                         </p>
                       </div>
                       <span className="font-mono font-semibold text-success text-sm whitespace-nowrap">{formatCurrency(zoneRevenue)}</span>
