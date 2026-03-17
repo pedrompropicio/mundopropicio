@@ -109,14 +109,14 @@ export function exportDREToExcel(
     const rows: any[][] = [
       [`DRE - ${evt.name}`],
       [],
-      ["Rubrica", "Valor S/IVA (€)", "Valor C/IVA (€)"],
+      ["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"],
     ];
     dre.forEach((line) => {
-      rows.push([line.indent ? `  ${line.label}` : line.label, line.amountExIva, line.amountIncIva]);
+      rows.push([line.indent ? `  ${line.label}` : line.label, line.amountExIva, line.ivaAmount, line.amountIncIva]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
