@@ -9,9 +9,10 @@ import { useAuth } from "@/contexts/AuthContext";
 interface Props {
   transaction: any;
   onClose: () => void;
+  isAdmin: boolean;
 }
 
-export function TransactionEditModal({ transaction, onClose }: Props) {
+export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const [form, setForm] = useState({
     description: transaction.description,
     amount: String(transaction.amount),
@@ -135,6 +136,8 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
   );
 
   const isExpense = transaction.type === "expense";
+  const isApproved = transaction.status === "approved";
+  const valueLocked = isApproved && !isAdmin;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -157,17 +160,25 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
 
+          {valueLocked && (
+            <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
+              Transação aprovada — apenas o administrador pode alterar valor e IVA.
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor c/IVA (€) *</label>
               <input type="number" step="0.01" min="0" value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                disabled={valueLocked}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
               <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                disabled={valueLocked}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed">
                 <option value={23}>23% - Normal</option>
                 <option value={13}>13% - Intermédia</option>
                 <option value={6}>6% - Reduzida</option>

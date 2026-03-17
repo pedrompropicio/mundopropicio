@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 
 interface Props {
   transaction: any;
@@ -17,9 +17,10 @@ interface Props {
   onPayment: (id: string) => void;
   onDocs: (id: string) => void;
   onAudit: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, onEdit, onApprove, onPayment, onDocs, onAudit }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: movements = [] } = useQuery({
@@ -120,19 +121,28 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         </td>
         <td className="py-3">
           <div className="flex items-center justify-center gap-1">
+            {/* Edit: always available except when paid; for approved, anyone can edit non-value fields */}
             {computedStatus !== "paid" && (
               <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             )}
+            {/* Approve: admin only, pending only */}
             {isAdmin && computedStatus === "pending" && (
               <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </button>
             )}
+            {/* Payment: only after approved, never on pending */}
             {isExpense && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
               <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Registar pagamento">
                 <CreditCard className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {/* Delete: pending=anyone; approved=admin only; paid=no one */}
+            {(computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue"))) && (
+              <button onClick={() => onDelete(t.id)} className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors" title="Eliminar">
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
             <button onClick={() => onDocs(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Documentos">
