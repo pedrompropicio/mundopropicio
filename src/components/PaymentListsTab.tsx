@@ -491,3 +491,57 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     </div>
   );
 }
+
+/* ─── Revision Modal ─── */
+function RevisionModal({
+  listId,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  listId: string;
+  onClose: () => void;
+  onSubmit: (notes: string) => void;
+  isPending: boolean;
+}) {
+  const [notes, setNotes] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="glass w-full max-w-md rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-4">
+          <RotateCcw className="h-5 w-5 text-amber-500" />
+          <h2 className="text-lg font-bold">Enviar para Revisão</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          Adicione comentários sobre o que precisa ser corrigido na lista antes de reenviá-la.
+        </p>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Descreva o que precisa ser revisto…"
+          rows={4}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">
+            Cancelar
+          </button>
+          <button
+            onClick={() => {
+              if (!notes.trim()) {
+                return;
+              }
+              onSubmit(notes.trim());
+            }}
+            disabled={isPending || !notes.trim()}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Enviar para Revisão
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
