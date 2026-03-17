@@ -69,6 +69,40 @@ export default function PaymentListsTab() {
     },
   });
 
+  const revisionMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from("payment_lists")
+        .update({
+          status: "revision",
+          revision_notes: notes,
+          approved_by: user?.email ?? null,
+          approved_at: null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      setRevisionListId(null);
+      toast({ title: "Lista enviada para revisão." });
+    },
+  });
+
+  const resubmitMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("payment_lists")
+        .update({ status: "pending_approval", revision_notes: null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      toast({ title: "Lista reenviada para aprovação!" });
+    },
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
