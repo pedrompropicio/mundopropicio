@@ -400,7 +400,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name))")
+        .select("*, transactions(*, events(name), suppliers(name, iban))")
         .eq("payment_list_id", listId);
       if (error) throw error;
       return data;
@@ -418,6 +418,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         description: item.transactions?.description ?? "",
         event_name: item.transactions?.events?.name ?? "-",
         supplier_name: item.transactions?.suppliers?.name ?? "-",
+        iban: item.transactions?.suppliers?.iban ?? "-",
         amount: Number(item.transactions?.amount ?? 0),
         iva_rate: Number(item.transactions?.iva_rate ?? 23),
         paid_amount: Number(item.transactions?.paid_amount ?? 0),
@@ -466,9 +467,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground bg-muted">
                   <th className="p-2 text-left font-medium">#</th>
+                  <th className="p-2 text-left font-medium">Evento</th>
                   <th className="p-2 text-left font-medium">Descrição</th>
-                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                  <th className="p-2 text-left font-medium hidden lg:table-cell">IBAN</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
                   <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
                   <th className="p-2 text-right font-medium">Saldo</th>
@@ -482,9 +484,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   return (
                     <tr key={item.id} className="hover:bg-muted/30">
                       <td className="p-2">{i + 1}</td>
+                      <td className="p-2 text-muted-foreground">{tx?.events?.name ?? "-"}</td>
                       <td className="p-2 font-medium">{tx?.description}</td>
-                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground font-mono text-xs hidden lg:table-cell">{tx?.suppliers?.iban ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                       <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paid)}</td>
                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>

@@ -7,6 +7,7 @@ interface PaymentItem {
   description: string;
   event_name: string;
   supplier_name: string;
+  iban: string;
   amount: number;
   iva_rate: number;
   paid_amount: number;
@@ -34,7 +35,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Descrição", "Evento", "Fornecedor", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Descrição", "Fornecedor", "IBAN", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
 
   let totalWithIva = 0;
@@ -47,9 +48,10 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     totalPaid += item.paid_amount;
     rows.push([
       i + 1,
-      item.description,
       item.event_name,
+      item.description,
       item.supplier_name,
+      item.iban,
       item.amount,
       `${item.iva_rate}%`,
       withIva,
@@ -60,11 +62,11 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   });
 
   rows.push([]);
-  rows.push(["", "TOTAL", "", "", "", "", totalWithIva, totalPaid, totalWithIva - totalPaid, ""]);
+  rows.push(["", "", "TOTAL", "", "", "", "", totalWithIva, totalPaid, totalWithIva - totalPaid, ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
-    { wch: 4 }, { wch: 30 }, { wch: 22 }, { wch: 20 },
+    { wch: 4 }, { wch: 22 }, { wch: 30 }, { wch: 20 }, { wch: 28 },
     { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
   ];
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
@@ -87,9 +89,10 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     const balance = withIva - item.paid_amount;
     return [
       i + 1,
-      item.description,
       item.event_name,
+      item.description,
       item.supplier_name,
+      item.iban,
       formatCurrencyDecimal(item.amount),
       `${item.iva_rate}%`,
       formatCurrencyDecimal(withIva),
@@ -108,7 +111,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
   });
 
   tableData.push([
-    "", "TOTAL", "", "", "",  "",
+    "", "", "TOTAL", "", "",  "", "",
     formatCurrencyDecimal(totalWithIva),
     formatCurrencyDecimal(totalPaid),
     formatCurrencyDecimal(totalWithIva - totalPaid),
@@ -117,7 +120,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
 
   autoTable(doc, {
     startY: data.approved_by ? 38 : 32,
-    head: [["#", "Descrição", "Evento", "Fornecedor", "Base (€)", "IVA", "c/IVA (€)", "Pago (€)", "Saldo (€)", "Venc."]],
+    head: [["#", "Evento", "Descrição", "Fornecedor", "IBAN", "Base (€)", "IVA", "c/IVA (€)", "Pago (€)", "Saldo (€)", "Venc."]],
     body: tableData,
     styles: { fontSize: 8 },
     headStyles: { fillColor: [41, 65, 148] },
