@@ -123,9 +123,19 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Relatório DRE</h1>
-        <p className="text-sm text-muted-foreground">Demonstração do Resultado do Exercício por evento</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Relatório DRE</h1>
+          <p className="text-sm text-muted-foreground">Demonstração do Resultado do Exercício por evento</p>
+        </div>
+        <button
+          onClick={() => exportDREToExcel(events, transactions, categories)}
+          disabled={events.length === 0}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">Exportar Excel</span>
+        </button>
       </div>
 
       {/* Global summary */}
