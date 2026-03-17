@@ -52,21 +52,21 @@ export default function PaymentListsTab() {
     },
   });
 
-  const statusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "approved" | "rejected" }) => {
+  const rejectMutation = useMutation({
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("payment_lists")
         .update({
-          status,
+          status: "rejected",
           approved_by: user?.email ?? null,
           approved_at: new Date().toISOString(),
         })
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_, { status }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
-      toast({ title: status === "approved" ? "Lista aprovada!" : "Lista rejeitada." });
+      toast({ title: "Lista rejeitada." });
     },
   });
 
