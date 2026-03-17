@@ -3,6 +3,7 @@ import {
   TrendingDown,
   Wallet,
   Calendar,
+  Receipt,
   Ticket,
   ArrowRight,
 } from "lucide-react";
