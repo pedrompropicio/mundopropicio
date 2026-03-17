@@ -21,7 +21,6 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
     supplier_id: transaction.supplier_id ?? "",
     date: transaction.date,
     due_date: transaction.due_date ?? "",
-    status: transaction.status,
   });
   const queryClient = useQueryClient();
   const { user } = useAuth();
