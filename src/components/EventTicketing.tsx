@@ -213,7 +213,7 @@ export function EventTicketing({ eventId }: Props) {
         const remaining = zone.total_capacity - existingTotal;
         toast({
           title: "Capacidade excedida",
-          description: `A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`,
+          description: `A zona "${zone.name}" tem capacidade para ${(zone.total_capacity ?? 0).toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`,
           variant: "destructive",
         });
         return;
