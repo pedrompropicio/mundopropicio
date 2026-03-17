@@ -87,7 +87,7 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
       const { error: logError } = await supabase.from("transaction_audit_log").insert(
         changes.map((c) => ({
           transaction_id: transaction.id,
-          changed_by: "utilizador",
+          changed_by: user?.email ?? "sistema",
           field_name: c.field_name,
           old_value: c.old_value,
           new_value: c.new_value,
