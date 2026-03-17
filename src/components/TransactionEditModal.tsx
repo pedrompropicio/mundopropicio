@@ -65,7 +65,6 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
         supplier_id: "Fornecedor",
         date: "Data",
         due_date: "Data Vencimento",
-        status: "Estado",
       };
 
       for (const key of Object.keys(fieldLabels)) {
