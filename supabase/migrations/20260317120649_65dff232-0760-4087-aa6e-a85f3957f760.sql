@@ -1,0 +1,1 @@
+ALTER TABLE public.transactions ADD COLUMN paid_amount numeric NOT NULL DEFAULT 0;
