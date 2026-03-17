@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import logoMundoPropicio from "@/assets/logo-mundo-propicio.png";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,25 +38,34 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <AppSidebar />
-      <main className="flex-1 pl-16 lg:pl-56">
-        <div className="mx-auto max-w-7xl p-4 lg:p-6">
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/eventos" element={<Events />} />
-            <Route path="/eventos/:id" element={<EventDetail />} />
-            <Route path="/transacoes" element={<Transactions />} />
-            <Route path="/plano-contas" element={<AccountCategories />} />
-            <Route path="/fornecedores" element={<Suppliers />} />
-            <Route path="/cotacoes" element={<Quotations />} />
-            <Route path="/relatorios" element={<Reports />} />
-            <Route path="/iva" element={<IvaManagement />} />
-            <Route path="/utilizadores" element={<UserManagement />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
-      </main>
+    <div className="flex min-h-screen flex-col">
+      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center border-b border-border bg-sidebar px-4 lg:px-6">
+        <img
+          src={logoMundoPropicio}
+          alt="Mundo Propício Entretenimento"
+          className="h-9 object-contain"
+        />
+      </header>
+      <div className="flex pt-14">
+        <AppSidebar />
+        <main className="flex-1 pl-16 lg:pl-56">
+          <div className="mx-auto max-w-7xl p-4 lg:p-6">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/eventos" element={<Events />} />
+              <Route path="/eventos/:id" element={<EventDetail />} />
+              <Route path="/transacoes" element={<Transactions />} />
+              <Route path="/plano-contas" element={<AccountCategories />} />
+              <Route path="/fornecedores" element={<Suppliers />} />
+              <Route path="/cotacoes" element={<Quotations />} />
+              <Route path="/relatorios" element={<Reports />} />
+              <Route path="/iva" element={<IvaManagement />} />
+              <Route path="/utilizadores" element={<UserManagement />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
