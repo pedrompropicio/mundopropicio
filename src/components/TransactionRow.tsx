@@ -65,7 +65,19 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   return (
     <>
-      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""}`}>
+      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""}`}>
+        {showSelectColumn && (
+          <td className="py-3 pr-2 text-center w-8">
+            {selectable ? (
+              <input
+                type="checkbox"
+                checked={!!selected}
+                onChange={onToggleSelect}
+                className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+              />
+            ) : null}
+          </td>
+        )}
         <td className="py-3 pr-4">
           <div className="flex items-center gap-1.5">
             <button
