@@ -85,6 +85,30 @@ export function EventForecast({ eventId, eventDate }: Props) {
     },
   });
 
+  // Fetch ticket zones and lots for auto-calculated ticket revenue
+  const { data: ticketZones = [] } = useQuery({
+    queryKey: ["event_ticket_zones", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["event_ticket_lots_for_pl", eventId],
+    queryFn: async () => {
+      const zoneIds = ticketZones.map((z) => z.id);
+      if (zoneIds.length === 0) return [];
+      const { data, error } = await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: ticketZones.length > 0,
+  });
+
+  const ticketRevenue = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
+
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
       const payload = {
