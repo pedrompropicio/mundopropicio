@@ -32,11 +32,11 @@ export function AppSidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col items-center border-r border-border bg-sidebar py-6 lg:w-56">
-      <div className="mb-8 flex items-center justify-center px-2 lg:px-4">
+      <div className="mb-8 flex items-center justify-center px-1 lg:px-3">
         <img
           src={logoMundoPropicio}
           alt="Mundo Propício Entretenimento"
-          className="h-10 w-10 object-contain lg:h-auto lg:w-full lg:max-h-14"
+          className="h-12 w-12 object-contain lg:h-auto lg:w-full lg:max-h-20"
         />
       </div>
 
