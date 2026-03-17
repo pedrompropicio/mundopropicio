@@ -73,12 +73,29 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   XLSX.writeFile(wb, `Contas_Pagar_${data.payment_date}.xlsx`);
 }
 
-export function exportPaymentListToPDF(data: PaymentListExport) {
+export async function exportPaymentListToPDF(data: PaymentListExport) {
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 14;
   const lineHeight = 6;
-  let y = 18;
+  let y = 14;
+
+  // Add logo
+  try {
+    const logoImg = new Image();
+    logoImg.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = reject;
+      logoImg.src = "/logo-mundo-propicio.png";
+    });
+    const logoHeight = 12;
+    const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+    doc.addImage(logoImg, "PNG", marginLeft, y, logoWidth, logoHeight);
+    y += logoHeight + 4;
+  } catch {
+    y += 4;
+  }
 
   doc.setFontSize(16);
   doc.text(`Contas a Pagar do Dia - ${data.title}`, marginLeft, y);

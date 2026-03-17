@@ -407,7 +407,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     },
   });
 
-  const handleExport = (format: "pdf" | "excel") => {
+  const handleExport = async (format: "pdf" | "excel") => {
     if (!list || items.length === 0) return;
     try {
       const exportData = {
@@ -427,7 +427,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           date: item.transactions?.date ?? "",
         })),
       };
-      if (format === "pdf") exportPaymentListToPDF(exportData);
+      if (format === "pdf") await exportPaymentListToPDF(exportData);
       else exportPaymentListToExcel(exportData);
     } catch (err: any) {
       console.error("Export error:", err);
