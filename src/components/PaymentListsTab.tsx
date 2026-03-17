@@ -407,7 +407,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     },
   });
 
-  const handleExport = (format: "pdf" | "excel") => {
+  const handleExport = async (format: "pdf" | "excel") => {
     if (!list || items.length === 0) return;
     try {
       const exportData = {
