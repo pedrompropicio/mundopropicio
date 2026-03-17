@@ -72,8 +72,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         supplier_id: data.supplier_id || null,
         date: data.date,
         due_date: data.due_date || null,
-        status: data.status,
-        paid_amount: data.status === "paid" ? parseFloat(data.amount) : 0,
+        status: "pending",
+        paid_amount: 0,
       });
       if (error) throw error;
     },
