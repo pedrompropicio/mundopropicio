@@ -14,6 +14,7 @@ import IvaManagement from "./pages/IvaManagement";
 import Suppliers from "./pages/Suppliers";
 import Quotations from "./pages/Quotations";
 import AccountCategories from "./pages/AccountCategories";
+import PaymentLists from "./pages/PaymentLists";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -47,6 +48,7 @@ function ProtectedLayout() {
             <Route path="/eventos/:id" element={<EventDetail />} />
             <Route path="/transacoes" element={<Transactions />} />
             <Route path="/plano-contas" element={<AccountCategories />} />
+            <Route path="/contas-pagar" element={<PaymentLists />} />
             <Route path="/fornecedores" element={<Suppliers />} />
             <Route path="/cotacoes" element={<Quotations />} />
             <Route path="/relatorios" element={<Reports />} />

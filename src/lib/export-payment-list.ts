@@ -1,0 +1,127 @@
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { formatCurrency, formatCurrencyDecimal, formatDate } from "@/lib/mock-data";
+
+interface PaymentItem {
+  description: string;
+  event_name: string;
+  supplier_name: string;
+  amount: number;
+  iva_rate: number;
+  paid_amount: number;
+  due_date: string | null;
+  date: string;
+}
+
+interface PaymentListExport {
+  title: string;
+  payment_date: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  items: PaymentItem[];
+}
+
+function calcWithIva(amount: number, ivaRate: number): number {
+  return amount * (1 + ivaRate / 100);
+}
+
+export function exportPaymentListToExcel(data: PaymentListExport) {
+  const wb = XLSX.utils.book_new();
+
+  const rows: any[][] = [
+    [`CONTAS A PAGAR DO DIA - ${data.title}`],
+    [`Data: ${formatDate(data.payment_date)}`],
+    ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
+    [],
+    ["#", "Descrição", "Evento", "Fornecedor", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+  ];
+
+  let totalWithIva = 0;
+  let totalPaid = 0;
+
+  data.items.forEach((item, i) => {
+    const withIva = calcWithIva(item.amount, item.iva_rate);
+    const balance = withIva - item.paid_amount;
+    totalWithIva += withIva;
+    totalPaid += item.paid_amount;
+    rows.push([
+      i + 1,
+      item.description,
+      item.event_name,
+      item.supplier_name,
+      item.amount,
+      `${item.iva_rate}%`,
+      withIva,
+      item.paid_amount,
+      balance,
+      item.due_date ? formatDate(item.due_date) : "-",
+    ]);
+  });
+
+  rows.push([]);
+  rows.push(["", "TOTAL", "", "", "", "", totalWithIva, totalPaid, totalWithIva - totalPaid, ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = [
+    { wch: 4 }, { wch: 30 }, { wch: 22 }, { wch: 20 },
+    { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
+  XLSX.writeFile(wb, `Contas_Pagar_${data.payment_date}.xlsx`);
+}
+
+export function exportPaymentListToPDF(data: PaymentListExport) {
+  const doc = new jsPDF({ orientation: "landscape" });
+
+  doc.setFontSize(16);
+  doc.text(`Contas a Pagar do Dia - ${data.title}`, 14, 18);
+  doc.setFontSize(10);
+  doc.text(`Data: ${formatDate(data.payment_date)}`, 14, 26);
+  if (data.approved_by) {
+    doc.text(`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`, 14, 32);
+  }
+
+  const tableData = data.items.map((item, i) => {
+    const withIva = calcWithIva(item.amount, item.iva_rate);
+    const balance = withIva - item.paid_amount;
+    return [
+      i + 1,
+      item.description,
+      item.event_name,
+      item.supplier_name,
+      formatCurrencyDecimal(item.amount),
+      `${item.iva_rate}%`,
+      formatCurrencyDecimal(withIva),
+      formatCurrencyDecimal(item.paid_amount),
+      formatCurrencyDecimal(balance),
+      item.due_date ? formatDate(item.due_date) : "-",
+    ];
+  });
+
+  let totalWithIva = 0;
+  let totalPaid = 0;
+  data.items.forEach((item) => {
+    const withIva = calcWithIva(item.amount, item.iva_rate);
+    totalWithIva += withIva;
+    totalPaid += item.paid_amount;
+  });
+
+  tableData.push([
+    "", "TOTAL", "", "", "",  "",
+    formatCurrencyDecimal(totalWithIva),
+    formatCurrencyDecimal(totalPaid),
+    formatCurrencyDecimal(totalWithIva - totalPaid),
+    "",
+  ]);
+
+  autoTable(doc, {
+    startY: data.approved_by ? 38 : 32,
+    head: [["#", "Descrição", "Evento", "Fornecedor", "Base (€)", "IVA", "c/IVA (€)", "Pago (€)", "Saldo (€)", "Venc."]],
+    body: tableData,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [41, 65, 148] },
+  });
+
+  doc.save(`Contas_Pagar_${data.payment_date}.pdf`);
+}
