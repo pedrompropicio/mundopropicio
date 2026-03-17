@@ -72,6 +72,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         event_id: data.event_id,
         category_id: data.category_id || null,
         supplier_id: data.supplier_id || null,
+        specification: data.type === "expense" ? (data.specification || null) : null,
         date: data.date,
         due_date: data.due_date || null,
         status: "pending",
