@@ -250,6 +250,7 @@ export type Database = {
           event_id: string
           id: string
           iva_rate: number
+          paid_amount: number
           status: string
           supplier_id: string | null
           type: string
@@ -264,6 +265,7 @@ export type Database = {
           event_id: string
           id?: string
           iva_rate?: number
+          paid_amount?: number
           status?: string
           supplier_id?: string | null
           type: string
@@ -278,6 +280,7 @@ export type Database = {
           event_id?: string
           id?: string
           iva_rate?: number
+          paid_amount?: number
           status?: string
           supplier_id?: string | null
           type?: string
