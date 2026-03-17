@@ -92,6 +92,23 @@ export default function Transactions() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: "Transação eliminada!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao eliminar", description: err.message, variant: "destructive" });
+    },
+  });
+
   const filtered = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
 
   // Pending transactions in current filtered view
