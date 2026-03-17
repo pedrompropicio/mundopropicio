@@ -18,6 +18,9 @@ const totalExpenses = events.reduce((s, e) => s + e.totalExpenses, 0);
 const profit = totalIncome - totalExpenses;
 const upcomingEvents = events.filter((e) => e.status === "planning" || e.status === "active");
 const recentTransactions = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+const totalIvaLiquidado = transactions.filter(t => t.type === "income").reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0);
+const totalIvaDedutivel = transactions.filter(t => t.type === "expense").reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0);
+const ivaSaldo = totalIvaLiquidado - totalIvaDedutivel;
 
 export default function Dashboard() {
   return (
