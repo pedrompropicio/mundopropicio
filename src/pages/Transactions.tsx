@@ -37,7 +37,7 @@ export default function Transactions() {
       // Log the status change
       await supabase.from("transaction_audit_log").insert({
         transaction_id: id,
-        changed_by: "utilizador",
+        changed_by: user?.email ?? "sistema",
         field_name: "status",
         old_value: "pending",
         new_value: "approved",
