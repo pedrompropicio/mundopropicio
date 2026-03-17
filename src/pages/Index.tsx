@@ -3,6 +3,7 @@ import {
   TrendingDown,
   Wallet,
   Calendar,
+  Receipt,
   Ticket,
   ArrowRight,
 } from "lucide-react";
@@ -10,13 +11,16 @@ import { Link } from "react-router-dom";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
-import { events, transactions, monthlyData, formatCurrency, formatDate, categoryLabels } from "@/lib/mock-data";
+import { events, transactions, monthlyData, formatCurrency, formatDate, categoryLabels, calcIvaAmount } from "@/lib/mock-data";
 
 const totalIncome = events.reduce((s, e) => s + e.totalIncome, 0);
 const totalExpenses = events.reduce((s, e) => s + e.totalExpenses, 0);
 const profit = totalIncome - totalExpenses;
 const upcomingEvents = events.filter((e) => e.status === "planning" || e.status === "active");
 const recentTransactions = [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+const totalIvaLiquidado = transactions.filter(t => t.type === "income").reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0);
+const totalIvaDedutivel = transactions.filter(t => t.type === "expense").reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0);
+const ivaSaldo = totalIvaLiquidado - totalIvaDedutivel;
 
 export default function Dashboard() {
   return (
@@ -27,7 +31,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Receitas Totais"
           value={formatCurrency(totalIncome)}
@@ -54,6 +58,14 @@ export default function Dashboard() {
           icon={Calendar}
           subtitle={`${events.filter((e) => e.status === "completed").length} concluídos`}
         />
+        <Link to="/iva" className="contents">
+          <StatCard
+            title={ivaSaldo >= 0 ? "IVA a Entregar" : "IVA a Recuperar"}
+            value={formatCurrency(Math.abs(ivaSaldo))}
+            icon={Receipt}
+            subtitle="Ver gestão de IVA →"
+          />
+        </Link>
       </div>
 
       {/* Chart + Recent */}

@@ -4,6 +4,7 @@ import {
   Calendar,
   ArrowUpDown,
   BarChart3,
+  Receipt,
   Music2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/eventos", icon: Calendar, label: "Eventos" },
   { to: "/transacoes", icon: ArrowUpDown, label: "Transações" },
+  { to: "/iva", icon: Receipt, label: "Gestão IVA" },
   { to: "/relatorios", icon: BarChart3, label: "Relatórios" },
 ];
 

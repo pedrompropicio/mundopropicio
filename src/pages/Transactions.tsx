@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { transactions, formatCurrency, formatDate, categoryLabels } from "@/lib/mock-data";
+import { transactions, formatCurrency, formatCurrencyDecimal, formatDate, categoryLabels, calcIvaAmount } from "@/lib/mock-data";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
@@ -38,9 +38,11 @@ export default function Transactions() {
                 <th className="pb-3 text-left font-medium">Descrição</th>
                 <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
                 <th className="hidden pb-3 text-left font-medium md:table-cell">Categoria</th>
+                <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
                 <th className="pb-3 text-left font-medium">Estado</th>
                 <th className="pb-3 text-left font-medium">Data</th>
-                <th className="pb-3 text-right font-medium">Valor</th>
+                <th className="pb-3 text-right font-medium">Valor s/IVA</th>
+                <th className="pb-3 text-right font-medium">Valor c/IVA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
@@ -52,6 +54,9 @@ export default function Transactions() {
                   </td>
                   <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{t.eventName}</td>
                   <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{categoryLabels[t.category]}</td>
+                  <td className="hidden py-3 pr-4 text-center lg:table-cell">
+                    <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{t.ivaRate}%</span>
+                  </td>
                   <td className="py-3 pr-4">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                       t.status === "paid" ? "bg-success/15 text-success" : t.status === "pending" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
@@ -60,6 +65,9 @@ export default function Transactions() {
                     </span>
                   </td>
                   <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
+                  <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
+                    {formatCurrencyDecimal(t.amount - calcIvaAmount(t.amount, t.ivaRate))}
+                  </td>
                   <td className={`py-3 text-right font-mono font-semibold whitespace-nowrap ${t.type === "income" ? "text-success" : "text-warning"}`}>
                     {t.type === "income" ? "+" : "-"}{formatCurrency(t.amount)}
                   </td>
