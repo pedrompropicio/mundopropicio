@@ -231,6 +231,14 @@ export default function Transactions() {
                               <CreditCard className="h-3.5 w-3.5" />
                             </button>
                           )}
+                          {/* Documents */}
+                          <button
+                            onClick={() => setShowDocsId(t.id)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                            title="Documentos"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </button>
                           {/* Audit log */}
                           <button
                             onClick={() => setShowAuditId(t.id)}
