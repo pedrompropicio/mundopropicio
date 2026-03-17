@@ -200,6 +200,26 @@ export function EventTicketing({ eventId }: Props) {
     if (!lotForm.name || !lotForm.quantity || !lotForm.price) {
       toast({ title: "Preencha todos os campos do lote", variant: "destructive" }); return;
     }
+
+    // Validate capacity
+    const zone = zones.find((z) => z.id === zoneId);
+    if (zone && zone.total_capacity > 0) {
+      const currentLots = allLots.filter((l) => l.zone_id === zoneId);
+      const existingTotal = currentLots
+        .filter((l) => l.id !== editingLotId) // exclude lot being edited
+        .reduce((s, l) => s + l.quantity, 0);
+      const newQty = parseInt(lotForm.quantity) || 0;
+      if (existingTotal + newQty > zone.total_capacity) {
+        const remaining = zone.total_capacity - existingTotal;
+        toast({
+          title: "Capacidade excedida",
+          description: `A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     saveLotMutation.mutate({ form: lotForm, zoneId, id: editingLotId });
   };
 
