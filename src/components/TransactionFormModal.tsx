@@ -14,6 +14,7 @@ interface TransactionForm {
   category_id: string;
   supplier_id: string;
   date: string;
+  due_date: string;
   status: "pending" | "paid" | "overdue";
 }
 
@@ -26,6 +27,7 @@ const emptyForm: TransactionForm = {
   category_id: "",
   supplier_id: "",
   date: new Date().toISOString().split("T")[0],
+  due_date: "",
   status: "pending",
 };
 
