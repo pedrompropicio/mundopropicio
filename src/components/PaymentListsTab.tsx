@@ -193,9 +193,9 @@ export default function PaymentListsTab() {
                           {isAdmin && list.status === "pending_approval" && (
                             <>
                               <button
-                                onClick={() => statusMutation.mutate({ id: list.id, status: "approved" })}
+                                onClick={() => setApproveListId(list.id)}
                                 className="rounded p-1.5 text-emerald-500 hover:bg-emerald-500/10"
-                                title="Aprovar"
+                                title="Aprovar (total ou parcial)"
                               >
                                 <ShieldCheck className="h-4 w-4" />
                               </button>
@@ -207,7 +207,7 @@ export default function PaymentListsTab() {
                                 <RotateCcw className="h-4 w-4" />
                               </button>
                               <button
-                                onClick={() => statusMutation.mutate({ id: list.id, status: "rejected" })}
+                                onClick={() => rejectMutation.mutate(list.id)}
                                 className="rounded p-1.5 text-destructive hover:bg-destructive/10"
                                 title="Rejeitar"
                               >
