@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { transactions, formatCurrency, formatDate, categoryLabels } from "@/lib/mock-data";
+import { transactions, formatCurrency, formatCurrencyDecimal, formatDate, categoryLabels, calcIvaAmount } from "@/lib/mock-data";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
