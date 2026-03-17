@@ -19,7 +19,7 @@ interface Props {
   onAudit: (id: string) => void;
 }
 
-export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onPayment, onDocs, onAudit }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, onEdit, onApprove, onPayment, onDocs, onAudit }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: movements = [] } = useQuery({
