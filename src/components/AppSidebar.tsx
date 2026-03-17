@@ -30,14 +30,7 @@ export function AppSidebar() {
   const { isAdmin, user, signOut } = useAuth();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col items-center border-r border-border bg-sidebar py-6 lg:w-56">
-      <div className="mb-8 flex items-center justify-center px-1 py-3 lg:px-3 lg:py-4">
-        <img
-          src={logoMundoPropicio}
-          alt="Mundo Propício Entretenimento"
-          className="h-12 w-12 object-contain lg:h-auto lg:w-full lg:max-h-24"
-        />
-      </div>
+    <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
         {navItems.map((item) => {
