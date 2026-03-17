@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 interface Props {
   transaction: any;
   onClose: () => void;
+  isAdmin: boolean;
 }
 
 export function TransactionEditModal({ transaction, onClose }: Props) {
