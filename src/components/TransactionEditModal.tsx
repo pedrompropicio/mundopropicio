@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
 import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   transaction: any;
@@ -22,6 +23,7 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
     status: transaction.status,
   });
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -85,7 +87,7 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
       const { error: logError } = await supabase.from("transaction_audit_log").insert(
         changes.map((c) => ({
           transaction_id: transaction.id,
-          changed_by: "utilizador",
+          changed_by: user?.email ?? "sistema",
           field_name: c.field_name,
           old_value: c.old_value,
           new_value: c.new_value,

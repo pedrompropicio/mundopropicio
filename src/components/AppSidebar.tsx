@@ -9,8 +9,11 @@ import {
   Users,
   FileCheck,
   BookOpen,
+  ShieldCheck,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -25,6 +28,7 @@ const navItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const { isAdmin, user, signOut } = useAuth();
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col items-center border-r border-border bg-sidebar py-6 lg:w-56">
@@ -58,7 +62,36 @@ export function AppSidebar() {
             </NavLink>
           );
         })}
+
+        {isAdmin && (
+          <NavLink
+            to="/utilizadores"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              location.pathname === "/utilizadores"
+                ? "bg-sidebar-accent text-foreground glow-primary"
+                : "text-sidebar-foreground"
+            )}
+          >
+            <ShieldCheck className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:block">Utilizadores</span>
+          </NavLink>
+        )}
       </nav>
+
+      <div className="mt-auto w-full px-2 lg:px-3">
+        <div className="hidden lg:block mb-2 px-3 truncate text-xs text-muted-foreground">
+          {user?.email}
+        </div>
+        <button
+          onClick={signOut}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          <span className="hidden lg:block">Sair</span>
+        </button>
+      </div>
     </aside>
   );
 }

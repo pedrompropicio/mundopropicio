@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { Plus, X, CreditCard, Pencil, ShieldCheck, History } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
@@ -17,6 +18,7 @@ export default function Transactions() {
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { isAdmin, user } = useAuth();
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
@@ -35,7 +37,7 @@ export default function Transactions() {
       // Log the status change
       await supabase.from("transaction_audit_log").insert({
         transaction_id: id,
-        changed_by: "utilizador",
+        changed_by: user?.email ?? "sistema",
         field_name: "status",
         old_value: "pending",
         new_value: "approved",
@@ -195,8 +197,8 @@ export default function Transactions() {
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {/* Approve */}
-                          {!isApproved && t.status !== "paid" && (
+                          {/* Approve - admin only */}
+                          {isAdmin && !isApproved && t.status !== "paid" && (
                             <button
                               onClick={() => {
                                 if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {
