@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, Download } from "lucide-react";
-import { exportDREToExcel } from "@/lib/export-dre";
+import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 
 interface DRELine {
   label: string;
