@@ -90,6 +90,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             </button>
             <div>
               <p className="font-medium">{t.description}</p>
+              {isExpense && t.specification && (
+                <p className="text-xs text-muted-foreground">{t.specification}</p>
+              )}
               <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
             </div>
           </div>

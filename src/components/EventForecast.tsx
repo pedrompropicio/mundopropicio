@@ -14,6 +14,7 @@ interface InlineForm {
   iva_rate: string;
   category_id: string;
   notes: string;
+  specification: string;
 }
 
 const emptyInline: InlineForm = {
@@ -23,6 +24,7 @@ const emptyInline: InlineForm = {
   iva_rate: "23",
   category_id: "",
   notes: "",
+  specification: "",
 };
 
 interface Props {
@@ -93,6 +95,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
         iva_rate: parseInt(form.iva_rate) || 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
+        specification: form.type === "expense" ? (form.specification || null) : null,
       };
       if (id) {
         const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
@@ -142,6 +145,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
           amount: Number(forecast.amount),
           iva_rate: forecast.iva_rate,
           category_id: forecast.category_id || null,
+          specification: forecast.specification || null,
           date: eventDate,
           status: "pending",
         })
@@ -199,6 +203,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
       iva_rate: String(f.iva_rate),
       category_id: f.category_id || "",
       notes: f.notes || "",
+      specification: f.specification || "",
     });
     setEditingId(f.id);
     setAddingType(null);
@@ -238,6 +243,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const renderInlineRow = (type: "income" | "expense") => {
     const cats = type === "income" ? incomeCategories : expenseCategories;
+    const isExpenseType = type === "expense";
     return (
       <tr className="bg-primary/5 animate-fade-in" onKeyDown={handleInlineKeyDown}>
         <td className="py-1.5 pr-2">
@@ -250,6 +256,16 @@ export function EventForecast({ eventId, eventDate }: Props) {
             autoFocus
           />
         </td>
+        {isExpenseType && (
+          <td className="py-1.5 pr-2">
+            <input
+              value={inlineForm.specification}
+              onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })}
+              className={inputClass}
+              placeholder="Especificação…"
+            />
+          </td>
+        )}
         <td className="hidden py-1.5 pr-2 sm:table-cell">
           <select
             value={inlineForm.category_id}
@@ -435,6 +451,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                     <thead>
                       <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="pb-2 text-left font-medium">Descrição</th>
+                        <th className="pb-2 text-left font-medium">Especificação</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
                         <th className="pb-2 text-right font-medium">IVA</th>
                         <th className="pb-2 text-right font-medium">Valor</th>
@@ -447,6 +464,9 @@ export function EventForecast({ eventId, eventDate }: Props) {
                           <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                             <td className="py-1.5 pr-2">
                               <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
                             </td>
                             <td className="hidden py-1.5 pr-2 sm:table-cell">
                               <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
@@ -470,7 +490,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                             </td>
                           </tr>
                         ) : (
-                          <ForecastRow key={f.id} item={f} colorClass="text-warning" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} />
+                          <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} />
                         )
                       ))}
                       {addingType === "expense" && renderInlineRow("expense")}
@@ -478,7 +498,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                     {(expenseForecasts.length > 0 || addingType === "expense") && (
                       <tfoot>
                         <tr className="border-t border-border/50">
-                          <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
                           <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpense)}</td>
                           <td />
                         </tr>
@@ -514,8 +534,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
-  item: any; colorClass: string;
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
+  item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
 }) {
@@ -542,6 +562,11 @@ function ForecastRow({ item, colorClass, onEdit, onDelete, onApprove, isAdmin, i
           </div>
         </div>
       </td>
+      {isExpense && (
+        <td className="py-2.5 pr-3 text-muted-foreground text-xs">
+          {item.specification || "—"}
+        </td>
+      )}
       <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
         {item.account_categories ? `${item.account_categories.code} - ${item.account_categories.name}` : "—"}
       </td>
