@@ -120,7 +120,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
 
   autoTable(doc, {
     startY: data.approved_by ? 38 : 32,
-    head: [["#", "Descrição", "Evento", "Fornecedor", "Base (€)", "IVA", "c/IVA (€)", "Pago (€)", "Saldo (€)", "Venc."]],
+    head: [["#", "Evento", "Descrição", "Fornecedor", "IBAN", "Base (€)", "IVA", "c/IVA (€)", "Pago (€)", "Saldo (€)", "Venc."]],
     body: tableData,
     styles: { fontSize: 8 },
     headStyles: { fillColor: [41, 65, 148] },
