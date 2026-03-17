@@ -6,7 +6,6 @@ import {
   ArrowUpDown,
   BarChart3,
   Receipt,
-  Receipt,
   Users,
   FileCheck,
   BookOpen,
