@@ -8,6 +8,10 @@ import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, Chevr
 interface Props {
   transaction: any;
   isAdmin: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  showSelectColumn?: boolean;
   onEdit: (id: string) => void;
   onApprove: (id: string) => void;
   onPayment: (id: string) => void;
@@ -15,7 +19,7 @@ interface Props {
   onAudit: (id: string) => void;
 }
 
-export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onPayment, onDocs, onAudit }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, onEdit, onApprove, onPayment, onDocs, onAudit }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: movements = [] } = useQuery({
@@ -61,7 +65,19 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
 
   return (
     <>
-      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""}`}>
+      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""}`}>
+        {showSelectColumn && (
+          <td className="py-3 pr-2 text-center w-8">
+            {selectable ? (
+              <input
+                type="checkbox"
+                checked={!!selected}
+                onChange={onToggleSelect}
+                className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+              />
+            ) : null}
+          </td>
+        )}
         <td className="py-3 pr-4">
           <div className="flex items-center gap-1.5">
             <button
@@ -130,7 +146,7 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="px-4 pb-3 pt-0">
+          <td colSpan={showSelectColumn ? 10 : 9} className="px-4 pb-3 pt-0">
             <div className="ml-6 rounded-lg border border-border/40 bg-secondary/30 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Movimentos</p>
               {movements.length === 0 && paidAmount === 0 ? (
