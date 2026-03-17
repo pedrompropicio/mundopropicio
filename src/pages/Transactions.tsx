@@ -38,9 +38,11 @@ export default function Transactions() {
                 <th className="pb-3 text-left font-medium">Descrição</th>
                 <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
                 <th className="hidden pb-3 text-left font-medium md:table-cell">Categoria</th>
+                <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
                 <th className="pb-3 text-left font-medium">Estado</th>
                 <th className="pb-3 text-left font-medium">Data</th>
-                <th className="pb-3 text-right font-medium">Valor</th>
+                <th className="pb-3 text-right font-medium">Valor s/IVA</th>
+                <th className="pb-3 text-right font-medium">Valor c/IVA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
