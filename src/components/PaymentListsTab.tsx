@@ -557,3 +557,186 @@ function RevisionModal({
     </div>
   );
 }
+
+/* ─── Approve Modal (partial / full) ─── */
+function ApproveModal({
+  listId,
+  onClose,
+  onApproved,
+}: {
+  listId: string;
+  onClose: () => void;
+  onApproved: () => void;
+}) {
+  const { user } = useAuth();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["payment-list-items-approve", listId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_list_items")
+        .select("*, transactions(*, events(name), suppliers(name))")
+        .eq("payment_list_id", listId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Select all by default on load
+  useState(() => {
+    // handled via effect below
+  });
+
+  // Auto-select all when items load
+  const allIds = items.map((item: any) => item.id);
+  if (allIds.length > 0 && selectedIds.size === 0 && !isLoading) {
+    // Initial selection: all items
+    const initSet = new Set<string>(allIds);
+    if (initSet.size !== selectedIds.size) {
+      setTimeout(() => setSelectedIds(initSet), 0);
+    }
+  }
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map((i: any) => i.id)));
+  };
+
+  const handleApprove = async () => {
+    if (selectedIds.size === 0) {
+      toast({ title: "Selecione pelo menos uma conta.", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const isPartial = selectedIds.size < items.length;
+
+      if (isPartial) {
+        // Remove unselected items from this list
+        const removeIds = items.filter((i: any) => !selectedIds.has(i.id)).map((i: any) => i.id);
+        if (removeIds.length > 0) {
+          const { error: delErr } = await supabase
+            .from("payment_list_items")
+            .delete()
+            .in("id", removeIds);
+          if (delErr) throw delErr;
+        }
+      }
+
+      // Mark list as approved (or partially_approved)
+      const { error } = await supabase
+        .from("payment_lists")
+        .update({
+          status: isPartial ? "partially_approved" : "approved",
+          approved_by: user?.email ?? null,
+          approved_at: new Date().toISOString(),
+        })
+        .eq("id", listId);
+      if (error) throw error;
+
+      toast({
+        title: isPartial
+          ? `Lista parcialmente aprovada (${selectedIds.size} de ${items.length} contas).`
+          : "Lista totalmente aprovada!",
+      });
+      onApproved();
+    } catch (err: any) {
+      toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="h-5 w-5 text-emerald-500" />
+          <h2 className="text-lg font-bold">Aprovar Lista de Pagamentos</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          Selecione as contas que deseja aprovar. Pode aprovar todas (completa) ou apenas algumas (parcial).
+        </p>
+
+        {isLoading ? (
+          <p className="py-4 text-center text-muted-foreground">A carregar itens…</p>
+        ) : (
+          <div className="overflow-x-auto max-h-[50vh] overflow-y-auto border border-border/50 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted">
+                <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="p-2 text-center w-8">
+                    <Checkbox checked={selectedIds.size === items.length && items.length > 0} onCheckedChange={toggleAll} />
+                  </th>
+                  <th className="p-2 text-left font-medium">Descrição</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                  <th className="p-2 text-right font-medium">Saldo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {items.map((item: any) => {
+                  const tx = item.transactions;
+                  const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
+                  const paid = Number(tx?.paid_amount ?? 0);
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                      onClick={() => toggleId(item.id)}
+                    >
+                      <td className="p-2 text-center">
+                        <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} />
+                      </td>
+                      <td className="p-2 font-medium">{tx?.description}</td>
+                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
+                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between mt-4 pt-4 border-t border-border/50 gap-2">
+          <span className="text-sm text-muted-foreground">
+            {selectedIds.size} de {items.length} selecionada(s)
+            {selectedIds.size > 0 && selectedIds.size < items.length && (
+              <Badge variant="outline" className="ml-2">Aprovação Parcial</Badge>
+            )}
+            {selectedIds.size === items.length && items.length > 0 && (
+              <Badge variant="default" className="ml-2">Aprovação Completa</Badge>
+            )}
+          </span>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">
+              Cancelar
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={submitting || selectedIds.size === 0}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              {selectedIds.size < items.length && selectedIds.size > 0 ? "Aprovar Selecionadas" : "Aprovar Todas"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
