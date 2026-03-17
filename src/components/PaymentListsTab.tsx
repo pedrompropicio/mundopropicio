@@ -130,6 +130,15 @@ export default function PaymentListsTab() {
         <ViewPaymentList listId={viewListId} onClose={() => setViewListId(null)} />
       )}
 
+      {revisionListId && (
+        <RevisionModal
+          listId={revisionListId}
+          onClose={() => setRevisionListId(null)}
+          onSubmit={(notes) => revisionMutation.mutate({ id: revisionListId, notes })}
+          isPending={revisionMutation.isPending}
+        />
+      )}
+
       <div className="glass rounded-xl p-5">
         {listsLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
