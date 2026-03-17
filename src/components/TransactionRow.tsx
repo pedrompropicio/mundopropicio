@@ -140,7 +140,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               </button>
             )}
             {/* Delete: pending=anyone; approved=admin only; paid=no one */}
-            {(computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue"))) && computedStatus !== "paid" && (
+            {(computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue"))) && (
               <button onClick={() => onDelete(t.id)} className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors" title="Eliminar">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
