@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 
 interface Props {
   transaction: any;
