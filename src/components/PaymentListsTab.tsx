@@ -418,6 +418,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         description: item.transactions?.description ?? "",
         event_name: item.transactions?.events?.name ?? "-",
         supplier_name: item.transactions?.suppliers?.name ?? "-",
+        iban: item.transactions?.suppliers?.iban ?? "-",
         amount: Number(item.transactions?.amount ?? 0),
         iva_rate: Number(item.transactions?.iva_rate ?? 23),
         paid_amount: Number(item.transactions?.paid_amount ?? 0),
