@@ -23,6 +23,7 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
     status: transaction.status,
   });
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
