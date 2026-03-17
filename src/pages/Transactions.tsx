@@ -18,6 +18,7 @@ export default function Transactions() {
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { isAdmin, user } = useAuth();
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
