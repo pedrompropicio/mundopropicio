@@ -146,7 +146,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="px-4 pb-3 pt-0">
+          <td colSpan={showSelectColumn ? 10 : 9} className="px-4 pb-3 pt-0">
             <div className="ml-6 rounded-lg border border-border/40 bg-secondary/30 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Movimentos</p>
               {movements.length === 0 && paidAmount === 0 ? (
