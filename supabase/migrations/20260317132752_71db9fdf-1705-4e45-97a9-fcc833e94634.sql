@@ -1,0 +1,1 @@
+ALTER TABLE public.suppliers ADD COLUMN swift_bic text DEFAULT NULL;
