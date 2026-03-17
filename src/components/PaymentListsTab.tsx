@@ -462,43 +462,33 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         ) : items.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">Sem itens nesta lista.</p>
         ) : (
-          <div className="overflow-x-auto border border-border/50 rounded-lg">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground bg-muted">
-                  <th className="p-2 text-left font-medium">#</th>
-                  <th className="p-2 text-left font-medium">Evento</th>
-                  <th className="p-2 text-left font-medium">Descrição</th>
-                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
-                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
-                  <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
-                  <th className="p-2 text-right font-medium">Saldo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {items.map((item: any, i: number) => {
-                  const tx = item.transactions;
-                  const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
-                  const paid = Number(tx?.paid_amount ?? 0);
-                  return (
-                    <tr key={item.id} className="hover:bg-muted/30">
-                      <td className="p-2">{i + 1}</td>
-                      <td className="p-2 text-muted-foreground">{tx?.events?.name ?? "-"}</td>
-                      <td className="p-2 font-medium">{tx?.description}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">
-                        <div className="flex flex-col gap-0.5">
-                          <span>{tx?.suppliers?.name ?? "-"}</span>
-                          <span className="font-mono text-xs">IBAN: {tx?.suppliers?.iban ?? "-"}</span>
-                        </div>
-                      </td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paid)}</td>
-                      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {items.map((item: any, i: number) => {
+              const tx = item.transactions;
+              const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
+              const paid = Number(tx?.paid_amount ?? 0);
+              const balance = withIva - paid;
+              return (
+                <div key={item.id} className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-baseline gap-3 min-w-0">
+                      <span className="text-xs font-bold text-muted-foreground">{i + 1}.</span>
+                      <div className="min-w-0">
+                        <p className="font-semibold truncate">{tx?.description}</p>
+                        <p className="text-sm text-muted-foreground">{tx?.events?.name ?? "-"}</p>
+                      </div>
+                    </div>
+                    <span className="font-mono text-base font-bold whitespace-nowrap">{formatCurrency(balance)}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                    <span><span className="font-medium text-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</span>
+                    <span><span className="font-medium text-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></span>
+                    <span><span className="font-medium text-foreground">Valor c/IVA:</span> <span className="font-mono">{formatCurrency(withIva)}</span></span>
+                    <span><span className="font-medium text-foreground">Já Pago:</span> <span className="font-mono">{formatCurrency(paid)}</span></span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
