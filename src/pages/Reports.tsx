@@ -9,6 +9,7 @@ import { exportDREToExcel } from "@/lib/export-dre";
 interface DRELine {
   label: string;
   amountExIva: number;
+  ivaAmount: number;
   amountIncIva: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
