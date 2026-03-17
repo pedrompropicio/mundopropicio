@@ -15,6 +15,7 @@ interface TransactionForm {
   supplier_id: string;
   date: string;
   due_date: string;
+  specification: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -27,6 +28,7 @@ const emptyForm: TransactionForm = {
   supplier_id: "",
   date: new Date().toISOString().split("T")[0],
   due_date: "",
+  specification: "",
 };
 
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
