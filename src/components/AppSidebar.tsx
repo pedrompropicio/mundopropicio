@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from "react-router-dom";
-import logoMundoPropicio from "@/assets/logo-mundo-propicio.png";
 import {
   LayoutDashboard,
   Calendar,
