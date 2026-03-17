@@ -584,20 +584,12 @@ function ApproveModal({
     },
   });
 
-  // Select all by default on load
-  useState(() => {
-    // handled via effect below
-  });
-
   // Auto-select all when items load
-  const allIds = items.map((item: any) => item.id);
-  if (allIds.length > 0 && selectedIds.size === 0 && !isLoading) {
-    // Initial selection: all items
-    const initSet = new Set<string>(allIds);
-    if (initSet.size !== selectedIds.size) {
-      setTimeout(() => setSelectedIds(initSet), 0);
+  useEffect(() => {
+    if (items.length > 0) {
+      setSelectedIds(new Set(items.map((item: any) => item.id)));
     }
-  }
+  }, [items.length]);
 
   const toggleId = (id: string) => {
     setSelectedIds((prev) => {
