@@ -209,52 +209,43 @@ export default function Reports() {
                         <TableRow>
                           <TableHead>Rubrica</TableHead>
                           <TableHead className="text-right">S/ IVA (€)</TableHead>
+                          <TableHead className="text-right">IVA (€)</TableHead>
                           <TableHead className="text-right">C/ IVA (€)</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {dre.map((line, i) => (
-                          <TableRow
-                            key={i}
-                            className={
+                        {dre.map((line, i) => {
+                          const rowClass = line.isGrandTotal
+                            ? "border-t-2 border-primary/30 bg-primary/5"
+                            : line.isTotal
+                            ? "bg-secondary/20"
+                            : "";
+                          const labelClass = `${line.indent ? "pl-8" : ""} ${
+                            line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"
+                          }`;
+                          const valClass = (amt: number) =>
+                            `text-right font-mono ${
                               line.isGrandTotal
-                                ? "border-t-2 border-primary/30 bg-primary/5"
+                                ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}`
                                 : line.isTotal
-                                ? "bg-secondary/20"
-                                : ""
-                            }
-                          >
-                            <TableCell
-                              className={`${line.indent ? "pl-8" : ""} ${
-                                line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"
-                              }`}
-                            >
-                              {line.label}
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-mono ${
-                                line.isGrandTotal
-                                  ? `text-base font-bold ${line.amountExIva >= 0 ? "text-success" : "text-destructive"}`
-                                  : line.isTotal
-                                  ? "font-semibold"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {formatCurrency(Math.abs(line.amountExIva))}
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-mono ${
-                                line.isGrandTotal
-                                  ? `text-base font-bold ${line.amountIncIva >= 0 ? "text-success" : "text-destructive"}`
-                                  : line.isTotal
-                                  ? "font-semibold"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {formatCurrency(Math.abs(line.amountIncIva))}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                ? "font-semibold"
+                                : "text-muted-foreground"
+                            }`;
+                          return (
+                            <TableRow key={i} className={rowClass}>
+                              <TableCell className={labelClass}>{line.label}</TableCell>
+                              <TableCell className={valClass(line.amountExIva)}>
+                                {formatCurrency(Math.abs(line.amountExIva))}
+                              </TableCell>
+                              <TableCell className={valClass(line.ivaAmount)}>
+                                {formatCurrency(Math.abs(line.ivaAmount))}
+                              </TableCell>
+                              <TableCell className={valClass(line.amountIncIva)}>
+                                {formatCurrency(Math.abs(line.amountIncIva))}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   )}
