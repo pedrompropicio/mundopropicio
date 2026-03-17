@@ -18,6 +18,7 @@ export default function Transactions() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
+  const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
 
