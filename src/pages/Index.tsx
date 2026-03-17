@@ -58,6 +58,14 @@ export default function Dashboard() {
           icon={Calendar}
           subtitle={`${events.filter((e) => e.status === "completed").length} concluídos`}
         />
+        <Link to="/iva" className="contents">
+          <StatCard
+            title={ivaSaldo >= 0 ? "IVA a Entregar" : "IVA a Recuperar"}
+            value={formatCurrency(Math.abs(ivaSaldo))}
+            icon={Receipt}
+            subtitle="Ver gestão de IVA →"
+          />
+        </Link>
       </div>
 
       {/* Chart + Recent */}
