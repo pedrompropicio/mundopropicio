@@ -473,7 +473,7 @@ export function EventTicketing({ eventId }: Props) {
                   <tr key={z.id}>
                     <td className="py-2.5 font-medium">{z.name}</td>
                     <td className="py-2.5 text-right font-mono">{tix.toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono text-muted-foreground">{z.total_capacity.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground">{(z.total_capacity ?? 0).toLocaleString()}</td>
                     <td className="py-2.5 text-right font-mono text-muted-foreground">{tix > 0 ? formatCurrency(rev / tix) : "—"}</td>
                     <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(rev)}</td>
                   </tr>
