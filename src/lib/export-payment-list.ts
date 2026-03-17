@@ -32,7 +32,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   const rows: any[][] = [
     [`CONTAS A PAGAR DO DIA - ${data.title}`],
     [`Data: ${formatDate(data.payment_date)}`],
-    ...(data.approved_by ? [`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`] : []),
+    ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
     ["#", "Descrição", "Evento", "Fornecedor", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
