@@ -111,7 +111,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
   });
 
   tableData.push([
-    "", "TOTAL", "", "", "",  "",
+    "", "", "TOTAL", "", "",  "", "",
     formatCurrencyDecimal(totalWithIva),
     formatCurrencyDecimal(totalPaid),
     formatCurrencyDecimal(totalWithIva - totalPaid),
