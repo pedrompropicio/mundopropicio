@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -84,6 +84,30 @@ export function EventForecast({ eventId, eventDate }: Props) {
       return data;
     },
   });
+
+  // Fetch ticket zones and lots for auto-calculated ticket revenue
+  const { data: ticketZones = [] } = useQuery({
+    queryKey: ["event_ticket_zones", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["event_ticket_lots_for_pl", eventId],
+    queryFn: async () => {
+      const zoneIds = ticketZones.map((z) => z.id);
+      if (zoneIds.length === 0) return [];
+      const { data, error } = await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: ticketZones.length > 0,
+  });
+
+  const ticketRevenue = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
@@ -223,7 +247,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income");
   const expenseForecasts = forecasts.filter((f) => f.type === "expense");
-  const totalForecastIncome = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastIncome = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastExpense = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
@@ -417,8 +441,25 @@ export function EventForecast({ eventId, eventDate }: Props) {
                         )
                       ))}
                       {addingType === "income" && renderInlineRow("income")}
+                      {ticketRevenue > 0 && (
+                        <tr className="bg-success/5 border-t border-border/30">
+                          <td className="py-2.5 pr-3">
+                            <div className="flex items-center gap-2">
+                              <Ticket className="h-3.5 w-3.5 text-success shrink-0" />
+                              <div>
+                                <p className="font-medium text-success/80">Venda de Bilhetes</p>
+                                <p className="text-xs text-muted-foreground">Calculado automaticamente da Bilheteira</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">R01 - Venda de Bilhetes</td>
+                          <td className="py-2.5 text-right text-muted-foreground text-xs">—</td>
+                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenue)}</td>
+                          <td />
+                        </tr>
+                      )}
                     </tbody>
-                    {(incomeForecasts.length > 0 || addingType === "income") && (
+                    {(incomeForecasts.length > 0 || addingType === "income" || ticketRevenue > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>

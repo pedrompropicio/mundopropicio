@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
+import { EventTicketing } from "@/components/EventTicketing";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -120,6 +121,7 @@ export default function EventDetail() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
+          <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
           <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
         </TabsList>
 
@@ -199,6 +201,10 @@ export default function EventDetail() {
               )}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="ticketing">
+          <EventTicketing eventId={event.id} />
         </TabsContent>
 
         <TabsContent value="forecast">

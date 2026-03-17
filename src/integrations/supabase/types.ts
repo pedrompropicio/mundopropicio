@@ -131,6 +131,79 @@ export type Database = {
           },
         ]
       }
+      event_ticket_lots: {
+        Row: {
+          created_at: string
+          id: string
+          lot_number: number
+          name: string
+          price: number
+          quantity: number
+          zone_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lot_number?: number
+          name?: string
+          price?: number
+          quantity?: number
+          zone_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lot_number?: number
+          name?: string
+          price?: number
+          quantity?: number
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_lots_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_ticket_zones: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          total_capacity: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          total_capacity?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          total_capacity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_zones_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           budget: number
