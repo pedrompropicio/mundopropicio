@@ -1,83 +1,222 @@
-import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
-import { events, transactions, formatCurrency, categoryLabels } from "@/lib/mock-data";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { formatCurrency } from "@/lib/mock-data";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 
-const PIE_COLORS = ["hsl(262 80% 60%)", "hsl(170 70% 45%)", "hsl(38 90% 55%)", "hsl(0 72% 55%)", "hsl(210 70% 55%)", "hsl(300 60% 55%)"];
+interface DRELine {
+  label: string;
+  amount: number;
+  isTotal?: boolean;
+  isGrandTotal?: boolean;
+  indent?: boolean;
+}
 
-export default function Reports() {
-  // Revenue by event
-  const eventProfitData = events.map((e) => ({
-    name: e.name.length > 18 ? e.name.slice(0, 18) + "…" : e.name,
-    receitas: e.totalIncome,
-    despesas: e.totalExpenses,
-    lucro: e.totalIncome - e.totalExpenses,
-  }));
+function buildDRE(
+  transactions: any[],
+  categories: any[]
+): DRELine[] {
+  const incomes = transactions.filter((t) => t.type === "income");
+  const expenses = transactions.filter((t) => t.type === "expense");
 
-  // Income by category
-  const incomeByCategory: Record<string, number> = {};
-  const expenseByCategory: Record<string, number> = {};
-  transactions.forEach((t) => {
-    if (t.type === "income") incomeByCategory[t.category] = (incomeByCategory[t.category] || 0) + t.amount;
-    else expenseByCategory[t.category] = (expenseByCategory[t.category] || 0) + t.amount;
+  const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+
+  // Group incomes by category
+  const incByCat: Record<string, number> = {};
+  incomes.forEach((t) => {
+    const name = catMap[t.category_id] ?? "Sem categoria";
+    incByCat[name] = (incByCat[name] || 0) + Number(t.amount);
   });
 
-  const incomePie = Object.entries(incomeByCategory).map(([k, v]) => ({ name: categoryLabels[k as keyof typeof categoryLabels], value: v }));
-  const expensePie = Object.entries(expenseByCategory).map(([k, v]) => ({ name: categoryLabels[k as keyof typeof categoryLabels], value: v }));
+  // Group expenses by category
+  const expByCat: Record<string, number> = {};
+  expenses.forEach((t) => {
+    const name = catMap[t.category_id] ?? "Sem categoria";
+    expByCat[name] = (expByCat[name] || 0) + Number(t.amount);
+  });
+
+  const totalIncome = incomes.reduce((s, t) => s + Number(t.amount), 0);
+  const totalExpense = expenses.reduce((s, t) => s + Number(t.amount), 0);
+  const result = totalIncome - totalExpense;
+
+  const lines: DRELine[] = [];
+
+  // Receitas
+  lines.push({ label: "RECEITAS", amount: totalIncome, isTotal: true });
+  Object.entries(incByCat)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([name, val]) => lines.push({ label: name, amount: val, indent: true }));
+
+  // Despesas
+  lines.push({ label: "DESPESAS", amount: totalExpense, isTotal: true });
+  Object.entries(expByCat)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([name, val]) => lines.push({ label: name, amount: val, indent: true }));
+
+  // Resultado
+  lines.push({ label: "RESULTADO LÍQUIDO", amount: result, isGrandTotal: true });
+
+  return lines;
+}
+
+export default function Reports() {
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["events"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["transactions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("transactions").select("*").order("date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["account-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("account_categories").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Summary per event
+  const eventSummaries = events.map((e) => {
+    const evtTx = transactions.filter((t) => t.event_id === e.id);
+    const totalIncome = evtTx.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+    const totalExpense = evtTx.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    return { ...e, totalIncome, totalExpense, result: totalIncome - totalExpense, txCount: evtTx.length };
+  });
+
+  // Global totals
+  const globalIncome = eventSummaries.reduce((s, e) => s + e.totalIncome, 0);
+  const globalExpense = eventSummaries.reduce((s, e) => s + e.totalExpense, 0);
+  const globalResult = globalIncome - globalExpense;
+
+  const toggle = (id: string) => setExpandedEvent((prev) => (prev === id ? null : id));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Relatórios</h1>
-        <p className="text-sm text-muted-foreground">Análise financeira detalhada</p>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Relatório DRE</h1>
+        <p className="text-sm text-muted-foreground">Demonstração do Resultado do Exercício por evento</p>
       </div>
 
-      {/* Profit by event */}
-      <div className="glass rounded-xl p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Lucro por Evento</h2>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={eventProfitData} layout="vertical" margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(225 12% 16%)" horizontal={false} />
-              <XAxis type="number" tick={{ fill: "hsl(215 12% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="name" tick={{ fill: "hsl(215 12% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
-              <Tooltip contentStyle={{ background: "hsl(225 15% 10%)", border: "1px solid hsl(225 12% 16%)", borderRadius: 8, fontSize: 12 }} formatter={(value: number) => formatCurrency(value)} />
-              <Bar dataKey="receitas" fill="hsl(170 70% 45%)" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="despesas" fill="hsl(38 90% 55%)" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* Global summary */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Receitas</p>
+          <p className="mt-1 text-xl font-bold text-success">{formatCurrency(globalIncome)}</p>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Despesas</p>
+          <p className="mt-1 text-xl font-bold text-warning">{formatCurrency(globalExpense)}</p>
+        </div>
+        <div className="glass rounded-xl p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Líquido</p>
+          <p className={`mt-1 text-xl font-bold ${globalResult >= 0 ? "text-success" : "text-destructive"}`}>
+            {formatCurrency(globalResult)}
+          </p>
         </div>
       </div>
 
-      {/* Pie charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {[
-          { title: "Receitas por Categoria", data: incomePie },
-          { title: "Despesas por Categoria", data: expensePie },
-        ].map(({ title, data }) => (
-          <div key={title} className="glass rounded-xl p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value">
-                    {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: "hsl(225 15% 10%)", border: "1px solid hsl(225 12% 16%)", borderRadius: 8, fontSize: 12 }} formatter={(value: number) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-2 space-y-1.5">
-              {data.map((d, i) => (
-                <div key={d.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-sm" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                    <span className="text-muted-foreground">{d.name}</span>
-                  </div>
-                  <span className="font-mono font-medium">{formatCurrency(d.value)}</span>
+      {/* DRE per event */}
+      <div className="space-y-3">
+        {eventSummaries.map((evt) => {
+          const isOpen = expandedEvent === evt.id;
+          const evtTx = transactions.filter((t) => t.event_id === evt.id);
+          const dre = isOpen ? buildDRE(evtTx, categories) : [];
+
+          return (
+            <div key={evt.id} className="glass rounded-xl overflow-hidden">
+              {/* Header row */}
+              <button
+                onClick={() => toggle(evt.id)}
+                className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-secondary/30"
+              >
+                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                <FileText className="h-4 w-4 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{evt.name}</p>
+                  <p className="text-xs text-muted-foreground">{evt.txCount} transações</p>
                 </div>
-              ))}
+                <div className="hidden sm:flex items-center gap-6 text-sm">
+                  <span className="text-success font-mono">{formatCurrency(evt.totalIncome)}</span>
+                  <span className="text-warning font-mono">{formatCurrency(evt.totalExpense)}</span>
+                  <span className={`font-mono font-bold ${evt.result >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatCurrency(evt.result)}
+                  </span>
+                </div>
+              </button>
+
+              {/* DRE table */}
+              {isOpen && (
+                <div className="border-t border-border/30 px-4 pb-4">
+                  {evtTx.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">Sem transações para este evento.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Rubrica</TableHead>
+                          <TableHead className="text-right">Valor (€)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dre.map((line, i) => (
+                          <TableRow
+                            key={i}
+                            className={
+                              line.isGrandTotal
+                                ? "border-t-2 border-primary/30 bg-primary/5"
+                                : line.isTotal
+                                ? "bg-secondary/20"
+                                : ""
+                            }
+                          >
+                            <TableCell
+                              className={`${line.indent ? "pl-8" : ""} ${
+                                line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"
+                              }`}
+                            >
+                              {line.label}
+                            </TableCell>
+                            <TableCell
+                              className={`text-right font-mono ${
+                                line.isGrandTotal
+                                  ? `text-base font-bold ${line.amount >= 0 ? "text-success" : "text-destructive"}`
+                                  : line.isTotal
+                                  ? "font-semibold"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {line.isGrandTotal && line.amount < 0 ? "-" : ""}
+                              {formatCurrency(Math.abs(line.amount))}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
+
+        {eventSummaries.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">Sem eventos registados.</p>
+        )}
       </div>
     </div>
   );
