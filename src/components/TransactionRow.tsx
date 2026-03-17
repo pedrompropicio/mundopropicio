@@ -118,10 +118,42 @@ export function TransactionRow({ transaction: t, isAdmin, onEdit, onApprove, onP
           <td colSpan={9} className="px-4 pb-3 pt-0">
             <div className="ml-6 rounded-lg border border-border/40 bg-secondary/30 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Movimentos</p>
-              {movements.length === 0 ? (
+              {/* Fallback: show creation + known paid amount if no audit entries */}
+              {movements.length === 0 && paidAmount === 0 ? (
                 <p className="text-xs text-muted-foreground">Sem movimentos registados para este lançamento.</p>
               ) : (
                 <div className="space-y-1.5">
+                  {/* Show creation entry */}
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="whitespace-nowrap font-mono text-muted-foreground">
+                      {new Date(t.created_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {" "}
+                      {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-secondary text-muted-foreground">
+                      Criação
+                    </span>
+                    <span className="text-muted-foreground">
+                      Lançamento criado — {formatCurrency(amount)}
+                    </span>
+                  </div>
+                  {/* If paid but no audit log entries, show summary */}
+                  {movements.length === 0 && paidAmount > 0 && (
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="whitespace-nowrap font-mono text-muted-foreground">
+                        {new Date(t.updated_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {" "}
+                        {new Date(t.updated_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-success/15 text-success">
+                        Pagamento
+                      </span>
+                      <span className="text-muted-foreground">
+                        Pago: {formatCurrency(paidAmount)} de {formatCurrency(amount)}
+                      </span>
+                    </div>
+                  )}
+                  {/* Audit log entries */}
                   {movements.map((m) => (
                     <div key={m.id} className="flex items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">

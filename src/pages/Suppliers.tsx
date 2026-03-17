@@ -33,8 +33,8 @@ export default function Suppliers() {
   const createMutation = useMutation({
     mutationFn: async (supplier: {
       name: string; nif?: string; contact_name?: string; email?: string;
-      phone?: string; address?: string; iban?: string; payment_terms?: string;
-      category?: string; notes?: string;
+      phone?: string; address?: string; iban?: string; swift_bic?: string;
+      payment_terms?: string; category?: string; notes?: string;
     }) => {
       const { error } = await supabase.from("suppliers").insert(supplier);
       if (error) throw error;
@@ -64,6 +64,7 @@ export default function Suppliers() {
       phone: (fd.get("phone") as string) || undefined,
       address: (fd.get("address") as string) || undefined,
       iban: (fd.get("iban") as string) || undefined,
+      swift_bic: (fd.get("swift_bic") as string) || undefined,
       payment_terms: (fd.get("payment_terms") as string) || undefined,
       category: (fd.get("category") as string) || undefined,
       notes: (fd.get("notes") as string) || undefined,
@@ -133,9 +134,15 @@ export default function Suppliers() {
                 <Label htmlFor="address">Morada</Label>
                 <Input id="address" name="address" />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="iban">IBAN</Label>
-                <Input id="iban" name="iban" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="iban">IBAN</Label>
+                  <Input id="iban" name="iban" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="swift_bic">SWIFT/BIC</Label>
+                  <Input id="swift_bic" name="swift_bic" placeholder="ex: CGDIPTPL" />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="notes">Notas</Label>
@@ -179,6 +186,8 @@ export default function Suppliers() {
                 {s.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {s.email}</p>}
                 {s.phone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {s.phone}</p>}
                 {s.contact_name && <p className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> {s.contact_name}</p>}
+                {s.iban && <p className="text-xs truncate">IBAN: {s.iban}</p>}
+                {(s as any).swift_bic && <p className="text-xs">SWIFT: {(s as any).swift_bic}</p>}
               </div>
               {s.payment_terms && (
                 <p className="text-xs text-muted-foreground">Pagamento: {s.payment_terms}</p>

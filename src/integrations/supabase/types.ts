@@ -226,6 +226,7 @@ export type Database = {
           payment_terms: string | null
           phone: string | null
           rating: number | null
+          swift_bic: string | null
           updated_at: string
         }
         Insert: {
@@ -243,6 +244,7 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           rating?: number | null
+          swift_bic?: string | null
           updated_at?: string
         }
         Update: {
@@ -260,6 +262,7 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           rating?: number | null
+          swift_bic?: string | null
           updated_at?: string
         }
         Relationships: []
