@@ -67,6 +67,7 @@ export type Database = {
           id: string
           iva_rate: number
           notes: string | null
+          specification: string | null
           status: string
           transaction_id: string | null
           type: string
@@ -83,6 +84,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           notes?: string | null
+          specification?: string | null
           status?: string
           transaction_id?: string | null
           type: string
@@ -99,6 +101,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           notes?: string | null
+          specification?: string | null
           status?: string
           transaction_id?: string | null
           type?: string
@@ -506,6 +509,7 @@ export type Database = {
           id: string
           iva_rate: number
           paid_amount: number
+          specification: string | null
           status: string
           supplier_id: string | null
           type: string
@@ -522,6 +526,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           paid_amount?: number
+          specification?: string | null
           status?: string
           supplier_id?: string | null
           type: string
@@ -538,6 +543,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           paid_amount?: number
+          specification?: string | null
           status?: string
           supplier_id?: string | null
           type?: string
