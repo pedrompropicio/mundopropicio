@@ -7,6 +7,7 @@ interface PaymentItem {
   description: string;
   event_name: string;
   supplier_name: string;
+  iban: string;
   amount: number;
   iva_rate: number;
   paid_amount: number;
