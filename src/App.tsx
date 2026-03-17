@@ -16,6 +16,7 @@ import Quotations from "./pages/Quotations";
 import AccountCategories from "./pages/AccountCategories";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<AuthRoute />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
         </BrowserRouter>
