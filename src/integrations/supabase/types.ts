@@ -94,6 +94,81 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_list_items: {
+        Row: {
+          created_at: string
+          id: string
+          payment_list_id: string
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payment_list_id: string
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payment_list_id?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_list_items_payment_list_id_fkey"
+            columns: ["payment_list_id"]
+            isOneToOne: false
+            referencedRelation: "payment_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_list_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_lists: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          payment_date: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
