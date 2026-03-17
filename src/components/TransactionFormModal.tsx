@@ -135,6 +135,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Venda de bilhetes" />
           </div>
 
+          {form.type === "expense" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
+              <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Detalhes adicionais da despesa" />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor c/IVA (€) *</label>
@@ -181,11 +189,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   <option value="">Sem fornecedor</option>
                   {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
-                <input value={form.specification} onChange={(e) => setForm({ ...form, specification: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Detalhes adicionais da despesa" />
               </div>
             </>
           )}
