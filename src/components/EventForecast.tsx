@@ -243,6 +243,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const renderInlineRow = (type: "income" | "expense") => {
     const cats = type === "income" ? incomeCategories : expenseCategories;
+    const isExpenseType = type === "expense";
     return (
       <tr className="bg-primary/5 animate-fade-in" onKeyDown={handleInlineKeyDown}>
         <td className="py-1.5 pr-2">
@@ -255,6 +256,16 @@ export function EventForecast({ eventId, eventDate }: Props) {
             autoFocus
           />
         </td>
+        {isExpenseType && (
+          <td className="py-1.5 pr-2">
+            <input
+              value={inlineForm.specification}
+              onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })}
+              className={inputClass}
+              placeholder="Especificação…"
+            />
+          </td>
+        )}
         <td className="hidden py-1.5 pr-2 sm:table-cell">
           <select
             value={inlineForm.category_id}
