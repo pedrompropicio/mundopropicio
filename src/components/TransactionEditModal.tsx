@@ -214,15 +214,23 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
               <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="pending">Pendente</option>
-                <option value="paid">Pago</option>
-                <option value="overdue">Atrasado</option>
-              </select>
-            </div>
+            {isExpense && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Vencimento</label>
+                <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+            )}
+            {!isExpense && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="pending">Pendente</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={editMutation.isPending}
