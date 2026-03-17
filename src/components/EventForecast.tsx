@@ -441,8 +441,25 @@ export function EventForecast({ eventId, eventDate }: Props) {
                         )
                       ))}
                       {addingType === "income" && renderInlineRow("income")}
+                      {ticketRevenue > 0 && (
+                        <tr className="bg-success/5 border-t border-border/30">
+                          <td className="py-2.5 pr-3">
+                            <div className="flex items-center gap-2">
+                              <Ticket className="h-3.5 w-3.5 text-success shrink-0" />
+                              <div>
+                                <p className="font-medium text-success/80">Venda de Bilhetes</p>
+                                <p className="text-xs text-muted-foreground">Calculado automaticamente da Bilheteira</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">R01 - Venda de Bilhetes</td>
+                          <td className="py-2.5 text-right text-muted-foreground text-xs">—</td>
+                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenue)}</td>
+                          <td />
+                        </tr>
+                      )}
                     </tbody>
-                    {(incomeForecasts.length > 0 || addingType === "income") && (
+                    {(incomeForecasts.length > 0 || addingType === "income" || ticketRevenue > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
