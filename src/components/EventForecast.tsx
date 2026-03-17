@@ -454,6 +454,9 @@ export function EventForecast({ eventId, eventDate }: Props) {
                             <td className="py-1.5 pr-2">
                               <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
                             </td>
+                            <td className="py-1.5 pr-2">
+                              <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
+                            </td>
                             <td className="hidden py-1.5 pr-2 sm:table-cell">
                               <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
                                 <option value="">—</option>
