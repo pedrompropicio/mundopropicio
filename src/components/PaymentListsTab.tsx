@@ -11,13 +11,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
-type ListStatus = "draft" | "pending_approval" | "approved" | "rejected";
+type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision";
 
 const statusMap: Record<ListStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Rascunho", variant: "secondary" },
   pending_approval: { label: "Aguardando Aprovação", variant: "outline" },
   approved: { label: "Aprovada", variant: "default" },
   rejected: { label: "Rejeitada", variant: "destructive" },
+  revision: { label: "Em Revisão", variant: "outline" },
 };
 
 export default function PaymentListsTab() {
