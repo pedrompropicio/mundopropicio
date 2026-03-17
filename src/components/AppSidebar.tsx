@@ -33,11 +33,12 @@ export function AppSidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col items-center border-r border-border bg-sidebar py-6 lg:w-56">
-      <div className="mb-8 flex items-center gap-2 px-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary glow-primary">
-          <Music2 className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="hidden text-lg font-bold text-foreground lg:block">EventFin</span>
+      <div className="mb-8 flex items-center justify-center px-2 lg:px-4">
+        <img
+          src={logoMundoPropicio}
+          alt="Mundo Propício Entretenimento"
+          className="h-10 w-10 object-contain lg:h-auto lg:w-full lg:max-h-14"
+        />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
