@@ -10,6 +10,7 @@ import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
