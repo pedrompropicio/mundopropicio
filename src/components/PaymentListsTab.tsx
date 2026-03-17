@@ -161,7 +161,15 @@ export default function PaymentListsTab() {
                   const st = statusMap[list.status as ListStatus] ?? statusMap.draft;
                   return (
                     <tr key={list.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3 font-medium">{list.title}</td>
+                      <td className="py-3">
+                        <span className="font-medium">{list.title}</span>
+                        {list.status === "revision" && list.revision_notes && (
+                          <div className="mt-1 flex items-start gap-1.5 rounded-md bg-accent/50 px-2 py-1.5 text-xs text-muted-foreground">
+                            <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>{list.revision_notes}</span>
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3">{formatDate(list.payment_date)}</td>
                       <td className="py-3"><Badge variant={st.variant}>{st.label}</Badge></td>
                       <td className="py-3 text-muted-foreground hidden sm:table-cell">{list.created_by}</td>
@@ -180,6 +188,13 @@ export default function PaymentListsTab() {
                                 <ShieldCheck className="h-4 w-4" />
                               </button>
                               <button
+                                onClick={() => setRevisionListId(list.id)}
+                                className="rounded p-1.5 text-amber-500 hover:bg-amber-500/10"
+                                title="Enviar para revisão"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                              <button
                                 onClick={() => statusMutation.mutate({ id: list.id, status: "rejected" })}
                                 className="rounded p-1.5 text-destructive hover:bg-destructive/10"
                                 title="Rejeitar"
@@ -188,7 +203,16 @@ export default function PaymentListsTab() {
                               </button>
                             </>
                           )}
-                          {(list.status === "draft" || list.status === "rejected") && (
+                          {list.status === "revision" && (
+                            <button
+                              onClick={() => resubmitMutation.mutate(list.id)}
+                              className="rounded p-1.5 text-primary hover:bg-primary/10"
+                              title="Reenviar para aprovação"
+                            >
+                              <Send className="h-4 w-4" />
+                            </button>
+                          )}
+                          {(list.status === "draft" || list.status === "rejected" || list.status === "revision") && (
                             <button
                               onClick={() => { if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id); }}
                               className="rounded p-1.5 text-destructive hover:bg-destructive/10"
