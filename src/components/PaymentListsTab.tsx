@@ -470,7 +470,6 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   <th className="p-2 text-left font-medium">Evento</th>
                   <th className="p-2 text-left font-medium">Descrição</th>
                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
-                  <th className="p-2 text-left font-medium hidden lg:table-cell">IBAN</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
                   <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
                   <th className="p-2 text-right font-medium">Saldo</th>
@@ -486,8 +485,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <td className="p-2">{i + 1}</td>
                       <td className="p-2 text-muted-foreground">{tx?.events?.name ?? "-"}</td>
                       <td className="p-2 font-medium">{tx?.description}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground font-mono text-xs hidden lg:table-cell">{tx?.suppliers?.iban ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">
+                        <div className="flex flex-col gap-0.5">
+                          <span>{tx?.suppliers?.name ?? "-"}</span>
+                          <span className="font-mono text-xs">IBAN: {tx?.suppliers?.iban ?? "-"}</span>
+                        </div>
+                      </td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                       <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paid)}</td>
                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
