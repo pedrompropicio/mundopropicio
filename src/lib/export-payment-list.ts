@@ -87,7 +87,7 @@ export async function exportPaymentListToPDF(data: PaymentListExport) {
     await new Promise<void>((resolve, reject) => {
       logoImg.onload = () => resolve();
       logoImg.onerror = reject;
-      logoImg.src = "/logo-mundo-propicio.png";
+      logoImg.src = "/logo-horizontal.png";
     });
     const logoHeight = 22;
     const logoWidth = (logoImg.naturalWidth / logoImg.naturalHeight) * logoHeight;
