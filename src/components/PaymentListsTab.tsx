@@ -427,7 +427,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           date: item.transactions?.date ?? "",
         })),
       };
-      if (format === "pdf") exportPaymentListToPDF(exportData);
+      if (format === "pdf") await exportPaymentListToPDF(exportData);
       else exportPaymentListToExcel(exportData);
     } catch (err: any) {
       console.error("Export error:", err);
