@@ -8,6 +8,10 @@ import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, Chevr
 interface Props {
   transaction: any;
   isAdmin: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  showSelectColumn?: boolean;
   onEdit: (id: string) => void;
   onApprove: (id: string) => void;
   onPayment: (id: string) => void;
