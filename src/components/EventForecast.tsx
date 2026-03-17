@@ -95,6 +95,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
         iva_rate: parseInt(form.iva_rate) || 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
+        specification: form.type === "expense" ? (form.specification || null) : null,
       };
       if (id) {
         const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
