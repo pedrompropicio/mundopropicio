@@ -400,7 +400,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name))")
+        .select("*, transactions(*, events(name), suppliers(name, iban))")
         .eq("payment_list_id", listId);
       if (error) throw error;
       return data;
