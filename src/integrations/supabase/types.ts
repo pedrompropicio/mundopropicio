@@ -55,6 +55,60 @@ export type Database = {
           },
         ]
       }
+      event_forecasts: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string
+          description: string
+          event_id: string
+          id: string
+          iva_rate: number
+          notes: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description: string
+          event_id: string
+          id?: string
+          iva_rate?: number
+          notes?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          description?: string
+          event_id?: string
+          id?: string
+          iva_rate?: number
+          notes?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_forecasts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           budget: number
