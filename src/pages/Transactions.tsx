@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, X, CreditCard, Pencil, ShieldCheck, History, Paperclip } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
@@ -11,6 +11,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { TransactionRow } from "@/components/TransactionRow";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
