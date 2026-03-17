@@ -469,9 +469,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               return (
                 <div key={item.id} className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 space-y-1 text-sm">
                   <p><span className="font-medium text-muted-foreground">Evento:</span> {tx?.events?.name ?? "-"}</p>
-                  <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
-                  <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
                   <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
+                  <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
+                  <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
                   <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
                 </div>
               );
