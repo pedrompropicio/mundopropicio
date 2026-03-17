@@ -134,9 +134,15 @@ export default function Suppliers() {
                 <Label htmlFor="address">Morada</Label>
                 <Input id="address" name="address" />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="iban">IBAN</Label>
-                <Input id="iban" name="iban" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="iban">IBAN</Label>
+                  <Input id="iban" name="iban" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="swift_bic">SWIFT/BIC</Label>
+                  <Input id="swift_bic" name="swift_bic" placeholder="ex: CGDIPTPL" />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="notes">Notas</Label>
