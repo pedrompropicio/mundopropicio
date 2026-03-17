@@ -203,6 +203,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
       iva_rate: String(f.iva_rate),
       category_id: f.category_id || "",
       notes: f.notes || "",
+      specification: f.specification || "",
     });
     setEditingId(f.id);
     setAddingType(null);
