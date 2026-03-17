@@ -10,6 +10,9 @@ import EventDetail from "./pages/EventDetail";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import IvaManagement from "./pages/IvaManagement";
+import Suppliers from "./pages/Suppliers";
+import Quotations from "./pages/Quotations";
+import AccountCategories from "./pages/AccountCategories";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +32,9 @@ const App = () => (
                 <Route path="/eventos" element={<Events />} />
                 <Route path="/eventos/:id" element={<EventDetail />} />
                 <Route path="/transacoes" element={<Transactions />} />
+                <Route path="/plano-contas" element={<AccountCategories />} />
+                <Route path="/fornecedores" element={<Suppliers />} />
+                <Route path="/cotacoes" element={<Quotations />} />
                 <Route path="/relatorios" element={<Reports />} />
                 <Route path="/iva" element={<IvaManagement />} />
                 <Route path="*" element={<NotFound />} />
