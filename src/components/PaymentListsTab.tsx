@@ -466,26 +466,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             {items.map((item: any, i: number) => {
               const tx = item.transactions;
               const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
-              const paid = Number(tx?.paid_amount ?? 0);
-              const balance = withIva - paid;
               return (
-                <div key={item.id} className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="flex items-baseline gap-3 min-w-0">
-                      <span className="text-xs font-bold text-muted-foreground">{i + 1}.</span>
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{tx?.description}</p>
-                        <p className="text-sm text-muted-foreground">{tx?.events?.name ?? "-"}</p>
-                      </div>
-                    </div>
-                    <span className="font-mono text-base font-bold whitespace-nowrap">{formatCurrency(balance)}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
-                    <span><span className="font-medium text-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</span>
-                    <span><span className="font-medium text-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></span>
-                    <span><span className="font-medium text-foreground">Valor c/IVA:</span> <span className="font-mono">{formatCurrency(withIva)}</span></span>
-                    <span><span className="font-medium text-foreground">Já Pago:</span> <span className="font-mono">{formatCurrency(paid)}</span></span>
-                  </div>
+                <div key={item.id} className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 space-y-1 text-sm">
+                  <p><span className="font-medium text-muted-foreground">Evento:</span> {tx?.events?.name ?? "-"}</p>
+                  <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
+                  <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
+                  <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
+                  <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
                 </div>
               );
             })}
