@@ -65,6 +65,7 @@ export function TransactionEditModal({ transaction, onClose }: Props) {
         category_id: "Categoria",
         supplier_id: "Fornecedor",
         date: "Data",
+        due_date: "Data Vencimento",
         status: "Estado",
       };
 
