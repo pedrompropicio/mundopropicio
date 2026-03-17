@@ -213,7 +213,7 @@ export function EventTicketing({ eventId }: Props) {
         const remaining = zone.total_capacity - existingTotal;
         toast({
           title: "Capacidade excedida",
-          description: `A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`,
+          description: `A zona "${zone.name}" tem capacidade para ${(zone.total_capacity ?? 0).toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`,
           variant: "destructive",
         });
         return;
@@ -307,7 +307,7 @@ export function EventTicketing({ eventId }: Props) {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{zone.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {zoneLots.length} lote{zoneLots.length !== 1 ? "s" : ""} · {zoneTotalTickets.toLocaleString()} bilhetes · Capacidade: {zone.total_capacity.toLocaleString()}
+                          {zoneLots.length} lote{zoneLots.length !== 1 ? "s" : ""} · {zoneTotalTickets.toLocaleString()} bilhetes · Capacidade: {(zone.total_capacity ?? 0).toLocaleString()}
                         </p>
                       </div>
                       <span className="font-mono font-semibold text-success text-sm whitespace-nowrap">{formatCurrency(zoneRevenue)}</span>
@@ -473,7 +473,7 @@ export function EventTicketing({ eventId }: Props) {
                   <tr key={z.id}>
                     <td className="py-2.5 font-medium">{z.name}</td>
                     <td className="py-2.5 text-right font-mono">{tix.toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono text-muted-foreground">{z.total_capacity.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground">{(z.total_capacity ?? 0).toLocaleString()}</td>
                     <td className="py-2.5 text-right font-mono text-muted-foreground">{tix > 0 ? formatCurrency(rev / tix) : "—"}</td>
                     <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(rev)}</td>
                   </tr>
