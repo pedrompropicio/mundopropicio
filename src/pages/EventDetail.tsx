@@ -121,6 +121,7 @@ export default function EventDetail() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
+          <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
           <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
         </TabsList>
 
