@@ -105,6 +105,14 @@ export default function Transactions() {
         />
       )}
 
+      {showDocsId && (
+        <TransactionDocumentsModal
+          transactionId={showDocsId}
+          transactionDescription={transactions.find((t) => t.id === showDocsId)?.description ?? ""}
+          onClose={() => setShowDocsId(null)}
+        />
+      )}
+
       {/* Filters */}
       <div className="flex gap-2">
         {(["all", "income", "expense"] as const).map((f) => (
