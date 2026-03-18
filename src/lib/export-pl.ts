@@ -111,6 +111,8 @@ function buildPLForExport(
         ticketLines.push(pl({
           label: `${zone.name} — ${lot.name}`,
           forecast: lotNet, actual: lotSoldNet, variance: lotSoldNet - lotNet,
+          forecastIva: lotIva, forecastTotal: lotNet + lotIva,
+          actualIva: lotSoldIva, actualTotal: lotSoldNet + lotSoldIva,
           subIndent: true, quantity: qty, unitPrice: netPrice,
         }));
       });
@@ -118,6 +120,8 @@ function buildPLForExport(
       ticketLines.push(pl({
         label: `Subtotal ${zone.name}`,
         forecast: zoneNet, actual: zoneActualNet, variance: zoneActualNet - zoneNet,
+        forecastIva: zoneIva, forecastTotal: zoneNet + zoneIva,
+        actualIva: zoneActualIva, actualTotal: zoneActualNet + zoneActualIva,
         subIndent: true, isSubTotal: true, quantity: zoneQty,
       }));
     });
@@ -125,6 +129,8 @@ function buildPLForExport(
       label: `Total Bilheteira`,
       forecast: ticketForecastNet, actual: totalTicketActualNet,
       variance: totalTicketActualNet - ticketForecastNet,
+      forecastIva: ticketForecastIva, forecastTotal: ticketForecastNet + ticketForecastIva,
+      actualIva: totalTicketActualIva, actualTotal: totalTicketActualNet + totalTicketActualIva,
       subIndent: true, isSubTotal: true, quantity: totalTicketQty,
     }));
   }
@@ -323,12 +329,12 @@ export function exportPLToExcel(
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
-          line.subIndent ? "" : line.forecastIva,
-          line.subIndent ? "" : line.forecastTotal,
-          line.subIndent ? "" : line.actual,
-          line.subIndent ? "" : line.actualIva,
-          line.subIndent ? "" : line.actualTotal,
-          line.subIndent ? "" : line.variance,
+          line.forecastIva,
+          line.forecastTotal,
+          line.actual,
+          line.actualIva,
+          line.actualTotal,
+          line.variance,
         ]);
       } else {
         rows.push([
@@ -336,8 +342,8 @@ export function exportPLToExcel(
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
-          line.subIndent ? "" : line.forecastIva,
-          line.subIndent ? "" : line.forecastTotal,
+          line.forecastIva,
+          line.forecastTotal,
         ]);
       }
     });
@@ -502,7 +508,7 @@ export function exportPLToPDF(
       doc.text(fmtVal(showAbs ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
       // Forecast IVA & Total columns
-      if (line.subIndent && !line.isSubTotal) {
+      if (!line.subIndent && !line.isSubTotal && !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.indent) {
         doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       } else {
@@ -511,12 +517,6 @@ export function exportPLToPDF(
       }
 
       if (isComparison) {
-        if (line.subIndent) {
-          doc.text("—", colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
-        } else {
           doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
           doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
           doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
@@ -525,7 +525,6 @@ export function exportPLToPDF(
             doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
           }
           doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
-        }
       }
       doc.setTextColor(0, 0, 0);
 

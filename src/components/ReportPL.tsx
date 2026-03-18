@@ -120,6 +120,8 @@ function buildPL(
         ticketLines.push(plLine({
           label: `${zone.name} — ${lot.name}`,
           forecast: lotNet, actual: lotSoldNet, variance: lotSoldNet - lotNet,
+          forecastIva: lotIva, forecastTotal: lotNet + lotIva,
+          actualIva: lotSoldIva, actualTotal: lotSoldNet + lotSoldIva,
           subIndent: true, quantity: qty, unitPrice: netPrice,
         }));
       });
@@ -127,6 +129,8 @@ function buildPL(
       ticketLines.push(plLine({
         label: `Subtotal ${zone.name}`,
         forecast: zoneNet, actual: zoneActualNet, variance: zoneActualNet - zoneNet,
+        forecastIva: zoneIva, forecastTotal: zoneNet + zoneIva,
+        actualIva: zoneActualIva, actualTotal: zoneActualNet + zoneActualIva,
         subIndent: true, isSubTotal: true, quantity: zoneQty,
       }));
     });
@@ -134,6 +138,8 @@ function buildPL(
       label: `Total Bilheteira`,
       forecast: ticketForecastNet, actual: totalTicketActualNet,
       variance: totalTicketActualNet - ticketForecastNet,
+      forecastIva: ticketForecastIva, forecastTotal: ticketForecastNet + ticketForecastIva,
+      actualIva: totalTicketActualIva, actualTotal: totalTicketActualNet + totalTicketActualIva,
       subIndent: true, isSubTotal: true, quantity: totalTicketQty,
     }));
   }
