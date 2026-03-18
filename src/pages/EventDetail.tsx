@@ -352,6 +352,7 @@ export default function EventDetail() {
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
+          <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
         </TabsList>
 
