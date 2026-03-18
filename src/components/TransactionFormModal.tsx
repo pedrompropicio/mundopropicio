@@ -230,11 +230,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {form.type === "expense" && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor {rootFlags.supplier_required ? "*" : ""}</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
               <div className="flex gap-2">
                 <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">{rootFlags.supplier_required ? "Selecionar…" : "Sem fornecedor"}</option>
+                  <option value="">Sem fornecedor</option>
                   {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <button

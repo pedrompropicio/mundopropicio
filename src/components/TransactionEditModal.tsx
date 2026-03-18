@@ -253,10 +253,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
           {isExpense && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor {rootFlags.supplier_required ? "*" : ""}</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
               <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">{rootFlags.supplier_required ? "Selecionar…" : "Sem fornecedor"}</option>
+                <option value="">Sem fornecedor</option>
                 {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
