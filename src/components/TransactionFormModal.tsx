@@ -14,6 +14,7 @@ interface TransactionForm {
   event_id: string;
   category_id: string;
   supplier_id: string;
+  account_id: string;
   date: string;
   due_date: string;
   specification: string;
@@ -27,6 +28,7 @@ const emptyForm: TransactionForm = {
   event_id: "",
   category_id: "",
   supplier_id: "",
+  account_id: "",
   date: new Date().toISOString().split("T")[0],
   due_date: "",
   specification: "",
@@ -64,6 +66,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
+  const { data: financialAccounts = [] } = useQuery({
+    queryKey: ["financial-accounts-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
@@ -75,6 +86,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         event_id: data.event_id,
         category_id: data.category_id || null,
         supplier_id: data.supplier_id || null,
+        account_id: data.account_id || null,
         specification: data.type === "expense" ? (data.specification || null) : null,
         date: data.date,
         due_date: data.due_date || null,
@@ -181,6 +193,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta</label>
+            <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="">Sem conta</option>
+              {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
           </div>
 
           {form.type === "expense" && (

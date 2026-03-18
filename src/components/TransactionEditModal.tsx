@@ -20,6 +20,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     event_id: transaction.event_id,
     category_id: transaction.category_id ?? "",
     supplier_id: transaction.supplier_id ?? "",
+    account_id: transaction.account_id ?? "",
     date: transaction.date,
     due_date: transaction.due_date ?? "",
     specification: transaction.specification ?? "",
@@ -54,6 +55,15 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
+  const { data: financialAccounts = [] } = useQuery({
+    queryKey: ["financial-accounts-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const editMutation = useMutation({
     mutationFn: async () => {
       // Build audit log entries for changed fields
@@ -65,6 +75,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: "Evento",
         category_id: "Categoria",
         supplier_id: "Fornecedor",
+        account_id: "Conta",
         specification: "Especificação",
         date: "Data",
         due_date: "Data Vencimento",
@@ -108,6 +119,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           event_id: form.event_id,
           category_id: form.category_id || null,
           supplier_id: form.supplier_id || null,
+          account_id: form.account_id || null,
           specification: transaction.type === "expense" ? (form.specification || null) : null,
           date: form.date,
           due_date: form.due_date || null,
@@ -229,6 +241,15 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               </div>
             </>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta</label>
+            <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="">Sem conta</option>
+              {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>

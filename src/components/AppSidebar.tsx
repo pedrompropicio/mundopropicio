@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   LogOut,
   Ticket,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/eventos", icon: Calendar, label: "Eventos" },
   { to: "/transacoes", icon: ArrowUpDown, label: "Transações" },
   { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas" },
+  { to: "/contas", icon: Landmark, label: "Contas" },
   { to: "/fornecedores", icon: Users, label: "Fornecedores" },
   { to: "/cotacoes", icon: FileCheck, label: "Cotações" },
   { to: "/iva", icon: Receipt, label: "Gestão IVA" },
