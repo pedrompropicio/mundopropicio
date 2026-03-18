@@ -126,6 +126,46 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     enabled: ticketLots.length > 0,
   });
 
+  // Fetch cache configs for this event
+  const { data: cacheConfigs = [] } = useQuery({
+    queryKey: ["event_cache_configs", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_cache_configs")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("created_at");
+      if (error) throw error;
+      return data as unknown as CacheConfig[];
+    },
+  });
+
+  const cacheConfigIds = cacheConfigs.map((c) => c.id);
+  const { data: cacheDeductions = [] } = useQuery({
+    queryKey: ["event_cache_deductions", cacheConfigIds.join(",")],
+    queryFn: async () => {
+      if (cacheConfigIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_cache_deductions")
+        .select("*")
+        .in("cache_config_id", cacheConfigIds);
+      if (error) throw error;
+      return data as unknown as CacheDeduction[];
+    },
+    enabled: cacheConfigIds.length > 0,
+  });
+
+  // Calculate cache lines
+  const cacheLines = useMemo(() => {
+    return calculateCacheLinesForPL(
+      cacheConfigs,
+      cacheDeductions,
+      ticketRevenueNet,
+      forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, forecasts]);
+  const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
+
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const ticketRevenueNet = ticketLots.reduce((s, l) => {
