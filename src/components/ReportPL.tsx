@@ -16,6 +16,7 @@ interface PLLine {
   isGrandTotal?: boolean;
   indent?: boolean;
   subIndent?: boolean;
+  isSubTotal?: boolean;
   quantity?: number;
   unitPrice?: number;
 }
@@ -39,22 +40,49 @@ function buildPL(
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
   let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
+  let totalTicketQty = 0;
   if (evtZones.length > 0) {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      let zoneRevenue = 0;
+      let zoneQty = 0;
       zoneLots.forEach((lot: any) => {
         const lotRevenue = Number(lot.price) * Number(lot.quantity);
+        const qty = Number(lot.quantity);
         ticketForecastRevenue += lotRevenue;
+        zoneRevenue += lotRevenue;
+        zoneQty += qty;
         ticketLines.push({
           label: `${zone.name} — ${lot.name}`,
           forecast: lotRevenue,
           actual: 0,
           variance: -lotRevenue,
           subIndent: true,
-          quantity: Number(lot.quantity),
+          quantity: qty,
           unitPrice: Number(lot.price),
         });
       });
+      totalTicketQty += zoneQty;
+      // Zone subtotal
+      ticketLines.push({
+        label: `Subtotal ${zone.name}`,
+        forecast: zoneRevenue,
+        actual: 0,
+        variance: -zoneRevenue,
+        subIndent: true,
+        isSubTotal: true,
+        quantity: zoneQty,
+      });
+    });
+    // Grand total tickets
+    ticketLines.push({
+      label: `Total Bilheteira`,
+      forecast: ticketForecastRevenue,
+      actual: 0,
+      variance: -ticketForecastRevenue,
+      subIndent: true,
+      isSubTotal: true,
+      quantity: totalTicketQty,
     });
   }
 
@@ -333,22 +361,23 @@ export default function ReportPL() {
                           const rowClass = line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
+                            : line.isSubTotal ? "bg-muted/20 border-t border-border/20"
                             : line.subIndent ? "bg-muted/10" : "";
-                          const labelClass = `${line.subIndent ? "pl-12 text-xs italic" : line.indent ? "pl-8" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"}`;
-                          const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
+                          const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-8" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"}`;
+                          const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
 
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
-                              <TableCell className={`text-right font-mono ${line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
+                              <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.quantity != null ? line.quantity.toLocaleString("pt-PT") : ""}
                               </TableCell>
-                              <TableCell className={`text-right font-mono ${line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
+                              <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
                               </TableCell>
                               <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(Math.abs(line.forecast))}</TableCell>
                               <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : formatCurrency(Math.abs(line.actual))}</TableCell>
-                              <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
+                              <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
                                 {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
                               </TableCell>
                             </TableRow>
