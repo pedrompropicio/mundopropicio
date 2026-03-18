@@ -55,6 +55,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
+  const { data: financialAccounts = [] } = useQuery({
+    queryKey: ["financial-accounts-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const editMutation = useMutation({
     mutationFn: async () => {
@@ -133,6 +141,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     e.preventDefault();
     if (!form.description || !form.amount || !form.event_id) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    if (!isExpense && !form.account_id) {
+      toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
     editMutation.mutate();
@@ -234,6 +246,16 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </>
           )}
 
+          {!isExpense && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
+              <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">Selecionar conta…</option>
+                {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
