@@ -267,16 +267,21 @@ export function exportPLToExcel(
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
-    let ticketActualRev = 0;
+    let ticketActualNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
-        fInc += Number(lot.price) * Number(lot.quantity);
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+        fInc += netPrice * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualRev += lotSales.reduce((sum: number, sl: any) => sum + Number(sl.quantity) * Number(sl.unit_price), 0);
+        ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return sum + Number(sl.quantity) * saleNet;
+        }, 0);
       });
     });
-    const totalTInc = tInc + ticketActualRev;
+    const totalTInc = tInc + ticketActualNet;
     gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
     if (isComparison) {
       summaryRows.push([evt.name, fInc, totalTInc, fExp, tExp, fInc - fExp, totalTInc - tExp, (totalTInc - tExp) - (fInc - fExp)]);
@@ -534,13 +539,6 @@ export function exportPLToPDF(
   doc.addPage();
   y = 14;
 
-  try {
-    doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
-    y += 22;
-  } catch {
-    y += 4;
-  }
-
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("Resumo Geral", marginLeft, y);
@@ -552,18 +550,23 @@ export function exportPLToPDF(
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
-    let ticketActualRev = 0;
+    let ticketActualRevNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
-        evtFInc += Number(lot.price) * Number(lot.quantity);
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+        evtFInc += netPrice * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualRev += lotSales.reduce((sum: number, sl: any) => sum + Number(sl.quantity) * Number(sl.unit_price), 0);
+        ticketActualRevNet += lotSales.reduce((sum: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return sum + Number(sl.quantity) * saleNet;
+        }, 0);
       });
     });
     gFInc += evtFInc;
     gFExp += evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0) + ticketActualRev;
+    gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0) + ticketActualRevNet;
     gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
   });
 
@@ -592,12 +595,22 @@ export function exportPLToPDF(
     const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    let ticketActualNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => { evtFInc += Number(lot.price) * Number(lot.quantity); });
+      zoneLots.forEach((lot: any) => {
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+        evtFInc += netPrice * Number(lot.quantity);
+        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+        ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return sum + Number(sl.quantity) * saleNet;
+        }, 0);
+      });
     });
     const fResult = evtFInc - evtFExp;
-    const tResult = evtTInc - evtTExp;
+    const tResult = (evtTInc + ticketActualNet) - evtTExp;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
