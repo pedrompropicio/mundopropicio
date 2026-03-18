@@ -225,10 +225,14 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                         {m.field_name === "Pagamento parcial" ? (
                           <>
                             Pago: {formatCurrency(Number(m.new_value ?? 0) - Number(m.old_value ?? 0))}
-                            {" "}
-                            <span className="text-muted-foreground/60">
-                              (Total: {formatCurrency(Number(m.old_value ?? 0))} → {formatCurrency(Number(m.new_value ?? 0))})
-                            </span>
+                            {t.payment_date && (
+                              <span className="text-muted-foreground/70 ml-1">
+                                — Dt. pgto: {new Date(t.payment_date).toLocaleDateString("pt-PT")}
+                              </span>
+                            )}
+                            {t.invoice_ref && (
+                              <span className="ml-1">📄 {t.invoice_ref}</span>
+                            )}
                           </>
                         ) : (
                           <>
