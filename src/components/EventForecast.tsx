@@ -578,14 +578,38 @@ export function EventForecast({ eventId, eventDate }: Props) {
               {/* Expense section */}
               <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
-                  <button
-                    onClick={() => startAdding("expense")}
-                    disabled={addingType === "expense"}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Adicionar
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
+                    {isAdmin && expenseForecasts.some((f) => f.status === "draft") && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={expenseForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllDrafts("expense")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
+                      <button
+                        onClick={handleBulkApprove}
+                        disabled={bulkApproveMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/15 hover:bg-success/25 transition-colors disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Aprovar ({expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => startAdding("expense")}
+                      disabled={addingType === "expense"}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Adicionar
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
