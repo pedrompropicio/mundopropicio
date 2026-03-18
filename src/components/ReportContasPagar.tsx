@@ -324,8 +324,7 @@ export default function ReportContasPagar() {
                           {statusLabel[cs] ?? cs}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground whitespace-nowrap lg:table-cell">
+                      <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
                         {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}
                       </td>
                       <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(paid)}</td>
