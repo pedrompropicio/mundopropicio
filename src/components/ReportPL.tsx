@@ -33,6 +33,27 @@ function buildPL(
     return byCat;
   };
 
+  // Calculate ticket lot revenue for this event
+  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  let ticketForecastRevenue = 0;
+  const ticketLines: PLLine[] = [];
+  if (evtZones.length > 0) {
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => {
+        const lotRevenue = Number(lot.price) * Number(lot.quantity);
+        ticketForecastRevenue += lotRevenue;
+        ticketLines.push({
+          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${formatCurrency(Number(lot.price))})`,
+          forecast: lotRevenue,
+          actual: 0,
+          variance: -lotRevenue,
+          subIndent: true,
+        });
+      });
+    });
+  }
+
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
   const tInc = transactions.filter((t) => t.type === "income");
@@ -43,7 +64,13 @@ function buildPL(
   const tIncByCat = aggregate(tInc);
   const tExpByCat = aggregate(tExp);
 
-  const totalFInc = fInc.reduce((s, f) => s + Number(f.amount), 0);
+  // Add ticket lot revenue to Bilheteira category forecast
+  if (ticketForecastRevenue > 0) {
+    const bilheteiraKey = "Bilheteira";
+    fIncByCat[bilheteiraKey] = (fIncByCat[bilheteiraKey] ?? 0) + ticketForecastRevenue;
+  }
+
+  const totalFInc = Object.values(fIncByCat).reduce((s, v) => s + v, 0);
   const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
   const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0);
   const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
