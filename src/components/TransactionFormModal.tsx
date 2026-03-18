@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
+import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 
 interface TransactionForm {
   description: string;
@@ -143,6 +144,65 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       return data;
     },
     enabled: !!form.event_id && hasPL,
+  });
+
+  // Fetch cache configs for this event
+  const { data: cacheConfigs = [] } = useQuery({
+    queryKey: ["event_cache_configs_form", form.event_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_cache_configs")
+        .select("*")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data as CacheConfig[];
+    },
+    enabled: !!form.event_id && hasPL,
+  });
+
+  const { data: cacheDeductions = [] } = useQuery({
+    queryKey: ["event_cache_deductions_form", form.event_id],
+    queryFn: async () => {
+      if (cacheConfigs.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_cache_deductions")
+        .select("*")
+        .in("cache_config_id", cacheConfigs.map(c => c.id));
+      if (error) throw error;
+      return data as CacheDeduction[];
+    },
+    enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
+  });
+
+  // Fetch ticket revenue for cachê calculation
+  const { data: ticketRevenue = 0 } = useQuery({
+    queryKey: ["ticket_revenue_form", form.event_id],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", form.event_id);
+      if (!zones || zones.length === 0) return 0;
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, price, iva_rate")
+        .in("zone_id", zones.map(z => z.id));
+      if (!lots || lots.length === 0) return 0;
+      const { data: sales } = await supabase
+        .from("ticket_sales")
+        .select("lot_id, quantity, unit_price")
+        .in("lot_id", lots.map(l => l.id));
+      if (!sales) return 0;
+      let totalNet = 0;
+      sales.forEach(s => {
+        const lot = lots.find(l => l.id === s.lot_id);
+        const ivaRate = lot?.iva_rate ?? 6;
+        const gross = Number(s.quantity) * Number(s.unit_price);
+        totalNet += gross / (1 + ivaRate / 100);
+      });
+      return totalNet;
+    },
+    enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
   });
 
   const forecastBudgetByCategory = hasPL
@@ -309,7 +369,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* P&L forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
-            if (typeForecasts.length === 0) return null;
+
+            // Calculate cachê lines for expense view
+            const cacheLines = form.type === "expense" && cacheConfigs.length > 0
+              ? calculateCacheLinesForPL(
+                  cacheConfigs,
+                  cacheDeductions,
+                  ticketRevenue,
+                  eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+                )
+              : [];
+            const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
+
+            if (typeForecasts.length === 0 && cacheLines.length === 0) return null;
 
             // Build hierarchy using category lookup
             const catLookup = buildCategoryLookup(categories);
@@ -367,6 +439,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 }
               }
             });
+
+            // Inject cachê lines into Artístico group (2.1)
+            if (totalCache > 0) {
+              if (!groupMap["2.1"]) {
+                groupMap["2.1"] = { groupName: "Artístico", groupCode: "2.1", totalForecast: 0, totalUsed: 0, details: [] };
+              }
+              const artGroup = groupMap["2.1"];
+              // Add or merge cachê detail line under 2.1.01
+              let cacheDetail = artGroup.details.find(d => d.catCode === "2.1.01");
+              if (!cacheDetail) {
+                cacheDetail = { catId: "cache-auto", catName: "Cachês (auto)", catCode: "2.1.01", forecast: 0, used: 0, lines: [] };
+                artGroup.details.push(cacheDetail);
+              }
+              cacheDetail.forecast += totalCache;
+              artGroup.totalForecast += totalCache;
+            }
 
             const groups = Object.values(groupMap)
               .map(g => ({ ...g, details: g.details.sort((a, b) => a.catCode.localeCompare(b.catCode)) }))
