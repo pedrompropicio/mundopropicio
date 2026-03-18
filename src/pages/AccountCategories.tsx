@@ -17,6 +17,8 @@ interface Category {
   type: string;
   parent_id: string | null;
   is_active: boolean;
+  event_required: boolean;
+  supplier_required: boolean;
   children?: Category[];
 }
 
