@@ -146,11 +146,17 @@ export function exportPLToExcel(
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    let ticketActualRev = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => { fInc += Number(lot.price) * Number(lot.quantity); });
+      zoneLots.forEach((lot: any) => {
+        fInc += Number(lot.price) * Number(lot.quantity);
+        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+        ticketActualRev += lotSales.reduce((sum: number, sl: any) => sum + Number(sl.quantity) * Number(sl.unit_price), 0);
+      });
     });
-    gFInc += fInc; gFExp += fExp; gTInc += tInc; gTExp += tExp;
+    const totalTInc = tInc + ticketActualRev;
+    gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
     if (isComparison) {
       summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
     } else {
