@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/mock-data";
 
 export default function ReportAccountCategoriesPage() {
   const { data: categories = [], isLoading } = useQuery({
@@ -15,42 +14,14 @@ export default function ReportAccountCategoriesPage() {
     },
   });
 
-  const { data: transactions = [] } = useQuery({
-    queryKey: ["report-categories-transactions"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("category_id, amount, paid_amount, type, status");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Build hierarchy
   const level1 = categories.filter((c) => !c.parent_id);
   const getChildren = (parentId: string) => categories.filter((c) => c.parent_id === parentId);
-
-  const getCategoryTotals = (categoryId: string) => {
-    // Include self + all descendants
-    const ids = new Set<string>();
-    const collect = (id: string) => {
-      ids.add(id);
-      getChildren(id).forEach((c) => collect(c.id));
-    };
-    collect(categoryId);
-
-    const txs = transactions.filter((t) => t.category_id && ids.has(t.category_id));
-    const totalAmount = txs.reduce((sum, t) => sum + Number(t.amount), 0);
-    const totalPaid = txs.reduce((sum, t) => sum + Number(t.paid_amount ?? 0), 0);
-    const txCount = txs.length;
-    return { totalAmount, totalPaid, txCount };
-  };
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold tracking-tight lg:text-2xl">Relatório do Plano de Contas</h1>
-        <p className="text-sm text-muted-foreground">Visão hierárquica com totais por categoria</p>
+        <p className="text-sm text-muted-foreground">Visão hierárquica do plano de contas</p>
       </div>
 
       {isLoading ? (
@@ -63,31 +34,21 @@ export default function ReportAccountCategoriesPage() {
                 <th className="pb-3 text-left font-medium">Código</th>
                 <th className="pb-3 text-left font-medium">Categoria</th>
                 <th className="pb-3 text-center font-medium">Tipo</th>
-                <th className="pb-3 text-center font-medium">Transações</th>
-                <th className="pb-3 text-right font-medium">Total</th>
-                <th className="pb-3 text-right font-medium">Pago</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
               {level1.map((l1) => {
-                const l1Totals = getCategoryTotals(l1.id);
                 const l2Items = getChildren(l1.id);
                 return (
                   <GroupBlock key={l1.id}>
-                    {/* Level 1 */}
                     <tr className="bg-secondary/40 font-semibold">
                       <td className="py-2.5 pr-2 pl-2">{l1.code}</td>
                       <td className="py-2.5 pr-4">{l1.name}</td>
                       <td className="py-2.5 text-center">
                         <TypeBadge type={l1.type} />
                       </td>
-                      <td className="py-2.5 text-center text-muted-foreground">{l1Totals.txCount || "—"}</td>
-                      <td className="py-2.5 text-right font-mono whitespace-nowrap">{l1Totals.totalAmount > 0 ? formatCurrency(l1Totals.totalAmount) : "—"}</td>
-                      <td className="py-2.5 text-right font-mono whitespace-nowrap">{l1Totals.totalPaid > 0 ? formatCurrency(l1Totals.totalPaid) : "—"}</td>
                     </tr>
-                    {/* Level 2 */}
                     {l2Items.map((l2) => {
-                      const l2Totals = getCategoryTotals(l2.id);
                       const l3Items = getChildren(l2.id);
                       return (
                         <GroupBlock key={l2.id}>
@@ -97,26 +58,16 @@ export default function ReportAccountCategoriesPage() {
                             <td className="py-2 text-center">
                               <TypeBadge type={l2.type} />
                             </td>
-                            <td className="py-2 text-center text-muted-foreground">{l2Totals.txCount || "—"}</td>
-                            <td className="py-2 text-right font-mono whitespace-nowrap">{l2Totals.totalAmount > 0 ? formatCurrency(l2Totals.totalAmount) : "—"}</td>
-                            <td className="py-2 text-right font-mono whitespace-nowrap">{l2Totals.totalPaid > 0 ? formatCurrency(l2Totals.totalPaid) : "—"}</td>
                           </tr>
-                          {/* Level 3 */}
-                          {l3Items.map((l3) => {
-                            const l3Totals = getCategoryTotals(l3.id);
-                            return (
-                              <tr key={l3.id} className="hover:bg-secondary/10 transition-colors">
-                                <td className="py-1.5 pr-2 pl-10 text-muted-foreground text-xs">{l3.code}</td>
-                                <td className="py-1.5 pr-4 text-muted-foreground">{l3.name}</td>
-                                <td className="py-1.5 text-center">
-                                  <TypeBadge type={l3.type} small />
-                                </td>
-                                <td className="py-1.5 text-center text-muted-foreground">{l3Totals.txCount || "—"}</td>
-                                <td className="py-1.5 text-right font-mono text-muted-foreground whitespace-nowrap">{l3Totals.totalAmount > 0 ? formatCurrency(l3Totals.totalAmount) : "—"}</td>
-                                <td className="py-1.5 text-right font-mono text-muted-foreground whitespace-nowrap">{l3Totals.totalPaid > 0 ? formatCurrency(l3Totals.totalPaid) : "—"}</td>
-                              </tr>
-                            );
-                          })}
+                          {l3Items.map((l3) => (
+                            <tr key={l3.id} className="hover:bg-secondary/10 transition-colors">
+                              <td className="py-1.5 pr-2 pl-10 text-muted-foreground text-xs">{l3.code}</td>
+                              <td className="py-1.5 pr-4 text-muted-foreground">{l3.name}</td>
+                              <td className="py-1.5 text-center">
+                                <TypeBadge type={l3.type} small />
+                              </td>
+                            </tr>
+                          ))}
                         </GroupBlock>
                       );
                     })}
