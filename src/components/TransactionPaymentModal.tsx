@@ -22,6 +22,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [invoiceRef, setInvoiceRef] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: financialAccounts = [] } = useQuery({
