@@ -42,7 +42,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: events = [] } = useQuery({
     queryKey: ["events-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name, pl_mode" as any).eq("status", "active").order("name");
+      const { data, error } = await supabase.from("events").select("id, name, pl_mode" as any).in("status", ["planning", "active", "confirmed"]).order("name");
       if (error) throw error;
       return data as any[];
     },
