@@ -40,22 +40,49 @@ function buildPL(
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
   let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
+  let totalTicketQty = 0;
   if (evtZones.length > 0) {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      let zoneRevenue = 0;
+      let zoneQty = 0;
       zoneLots.forEach((lot: any) => {
         const lotRevenue = Number(lot.price) * Number(lot.quantity);
+        const qty = Number(lot.quantity);
         ticketForecastRevenue += lotRevenue;
+        zoneRevenue += lotRevenue;
+        zoneQty += qty;
         ticketLines.push({
           label: `${zone.name} — ${lot.name}`,
           forecast: lotRevenue,
           actual: 0,
           variance: -lotRevenue,
           subIndent: true,
-          quantity: Number(lot.quantity),
+          quantity: qty,
           unitPrice: Number(lot.price),
         });
       });
+      totalTicketQty += zoneQty;
+      // Zone subtotal
+      ticketLines.push({
+        label: `Subtotal ${zone.name}`,
+        forecast: zoneRevenue,
+        actual: 0,
+        variance: -zoneRevenue,
+        subIndent: true,
+        isSubTotal: true,
+        quantity: zoneQty,
+      });
+    });
+    // Grand total tickets
+    ticketLines.push({
+      label: `Total Bilheteira`,
+      forecast: ticketForecastRevenue,
+      actual: 0,
+      variance: -ticketForecastRevenue,
+      subIndent: true,
+      isSubTotal: true,
+      quantity: totalTicketQty,
     });
   }
 
