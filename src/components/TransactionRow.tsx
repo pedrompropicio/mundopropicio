@@ -183,9 +183,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   {paidAmount > 0 && (
                     <div className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
-                        {t.payment_date
-                          ? new Date(t.payment_date).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })
-                          : new Date(t.updated_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {new Date(t.updated_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {" "}
+                        {new Date(t.updated_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-success/15 text-success">
                         Pagamento
@@ -193,6 +193,11 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       <span className="text-muted-foreground">
                         Pago: {formatCurrency(paidAmount)} de {formatCurrency(amount)}
                       </span>
+                      {t.payment_date && (
+                        <span className="text-muted-foreground/70">
+                          Dt. pgto: {new Date(t.payment_date).toLocaleDateString("pt-PT")}
+                        </span>
+                      )}
                       {t.invoice_ref && (
                         <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                           📄 {t.invoice_ref}
