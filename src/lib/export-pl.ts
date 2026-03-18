@@ -329,12 +329,12 @@ export function exportPLToExcel(
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
-          line.subIndent ? "" : line.forecastIva,
-          line.subIndent ? "" : line.forecastTotal,
-          line.subIndent ? "" : line.actual,
-          line.subIndent ? "" : line.actualIva,
-          line.subIndent ? "" : line.actualTotal,
-          line.subIndent ? "" : line.variance,
+          line.forecastIva,
+          line.forecastTotal,
+          line.actual,
+          line.actualIva,
+          line.actualTotal,
+          line.variance,
         ]);
       } else {
         rows.push([
