@@ -62,6 +62,7 @@ function ProtectedLayout() {
           <div className="mx-auto max-w-7xl p-4 lg:p-6">
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
               <Route path="/transacoes" element={<Transactions />} />
