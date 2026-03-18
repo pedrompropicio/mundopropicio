@@ -67,9 +67,15 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
           <DialogTitle>Novo Fornecedor</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="sup-name">Nome *</Label>
-            <Input id="sup-name" name="name" required />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="sup-name">Nome da Entidade *</Label>
+              <Input id="sup-name" name="name" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sup-trade-name">Nome Fantasia</Label>
+              <Input id="sup-trade-name" name="trade_name" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
