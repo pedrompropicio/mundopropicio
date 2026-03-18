@@ -402,10 +402,14 @@ export default function ReportPL() {
                                 {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
                               </TableCell>
                               <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : (line.isGrandTotal ? formatCurrency(line.forecast) : formatCurrency(Math.abs(line.forecast)))}</TableCell>
-                              <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
-                              <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
-                                {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
-                              </TableCell>
+                              {mode === "comparison" && (
+                                <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
+                              )}
+                              {mode === "comparison" && (
+                                <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
+                                  {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
+                                </TableCell>
+                              )}
                             </TableRow>
                           );
                         })}
