@@ -38,6 +38,7 @@ interface EventForm {
   tickets_total: string;
   status: string;
   event_type: EventType;
+  pl_mode: "active" | "passive";
   festival_dates: string[];
   sub_events: SubEventForm[];
 }
@@ -51,6 +52,7 @@ const emptyForm: EventForm = {
   tickets_total: "",
   status: "planning",
   event_type: "simple",
+  pl_mode: "passive",
   festival_dates: [],
   sub_events: [{ name: "", date: "", city_id: "", venue_id: "" }],
 };
