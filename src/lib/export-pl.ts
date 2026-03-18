@@ -173,21 +173,34 @@ export function exportPLToExcel(
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
-      ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"],
+      isComparison
+        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"]
+        : ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)"],
     ];
     pl.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
-      rows.push([
-        prefix + line.label,
-        line.quantity != null ? line.quantity : "",
-        line.unitPrice != null ? line.unitPrice : "",
-        line.forecast,
-        line.subIndent ? "" : line.actual,
-        line.subIndent ? "" : line.variance,
-      ]);
+      if (isComparison) {
+        rows.push([
+          prefix + line.label,
+          line.quantity != null ? line.quantity : "",
+          line.unitPrice != null ? line.unitPrice : "",
+          line.forecast,
+          line.subIndent ? "" : line.actual,
+          line.subIndent ? "" : line.variance,
+        ]);
+      } else {
+        rows.push([
+          prefix + line.label,
+          line.quantity != null ? line.quantity : "",
+          line.unitPrice != null ? line.unitPrice : "",
+          line.forecast,
+        ]);
+      }
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = isComparison
+      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
+      : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
