@@ -208,6 +208,15 @@ export default function ReportPL() {
     },
   });
 
+  const { data: ticketSales = [] } = useQuery({
+    queryKey: ["all-ticket-sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ticket_sales").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const toggleEvent = (id: string) => {
     setSelectedEventIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
