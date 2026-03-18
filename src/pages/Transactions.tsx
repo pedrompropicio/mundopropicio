@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck, Filter } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
@@ -12,9 +12,13 @@ import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionRow } from "@/components/TransactionRow";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
@@ -23,6 +27,29 @@ export default function Transactions() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["events-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const toggleEvent = (id: string) => {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllEvents = () => {
+    if (selectedEventIds.size === events.length) setSelectedEventIds(new Set());
+    else setSelectedEventIds(new Set(events.map((e: any) => e.id)));
+  };
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
@@ -109,7 +136,8 @@ export default function Transactions() {
     },
   });
 
-  const filtered = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
+  const filtered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id));
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -218,6 +246,37 @@ export default function Transactions() {
             {f === "all" ? "Todas" : f === "income" ? "Receitas" : "Despesas"}
           </button>
         ))}
+
+        {/* Event multi-select filter */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm font-normal">
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
+              {selectedEventIds.size === 0
+                ? "Todos os eventos"
+                : `${selectedEventIds.size} evento(s)`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
+              <Checkbox
+                checked={selectedEventIds.size === events.length && events.length > 0}
+                onCheckedChange={toggleAllEvents}
+              />
+              <span className="text-sm font-medium">Selecionar todos</span>
+            </div>
+            {events.map((e: any) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
+                onClick={() => toggleEvent(e.id)}
+              >
+                <Checkbox checked={selectedEventIds.has(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
+                <span className="text-sm">{e.name}</span>
+              </div>
+            ))}
+          </PopoverContent>
+        </Popover>
 
         {isAdmin && selectedPendingCount > 0 && (
           <button
