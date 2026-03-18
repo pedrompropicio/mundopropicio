@@ -165,10 +165,6 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
-    if (isExpense && rootFlags.supplier_required && !form.supplier_id) {
-      toast({ title: "Selecione o fornecedor (obrigatório para esta categoria)", variant: "destructive" });
-      return;
-    }
     if (!isExpense && !form.account_id) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
