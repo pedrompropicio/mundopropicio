@@ -12,28 +12,57 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    let isMounted = true;
+
+    const hasRecoveryContext = () => {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const queryParams = new URLSearchParams(window.location.search);
+
+      return (
+        hashParams.get("type") === "recovery" ||
+        queryParams.get("type") === "recovery" ||
+        hashParams.has("access_token") ||
+        hashParams.has("refresh_token") ||
+        queryParams.has("code") ||
+        queryParams.has("token") ||
+        queryParams.has("token_hash")
+      );
+    };
+
+    const syncRecoveryState = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!isMounted) return;
+      if (session || hasRecoveryContext()) {
+        setReady(true);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        event === "PASSWORD_RECOVERY" ||
+        ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && (session || hasRecoveryContext()))
+      ) {
         setReady(true);
       }
     });
 
-    // Check hash for recovery type
-    if (window.location.hash.includes("type=recovery")) {
+    if (hasRecoveryContext()) {
       setReady(true);
     }
 
-    // If there's already a session when this page loads, the user likely
-    // arrived via recovery link and the PASSWORD_RECOVERY event already fired
-    // before this component mounted.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setReady(true);
-      }
-    });
+    void syncRecoveryState();
+    const retryTimers = [250, 1000].map((delay) =>
+      window.setTimeout(() => {
+        void syncRecoveryState();
+      }, delay)
+    );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      retryTimers.forEach((timer) => window.clearTimeout(timer));
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,7 +71,20 @@ export default function ResetPassword() {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
+
     setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      toast({
+        title: "Link inválido ou expirado",
+        description: "Abra novamente o link do email para definir a senha.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
