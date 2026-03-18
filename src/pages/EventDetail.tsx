@@ -297,6 +297,10 @@ export default function EventDetail() {
         />
       </div>
 
+      {showEditModal && (
+        <EventEditModal event={event} onClose={() => setShowEditModal(false)} />
+      )}
+
       {/* Main tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
