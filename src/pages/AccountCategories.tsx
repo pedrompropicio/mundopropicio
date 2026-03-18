@@ -95,6 +95,13 @@ function CategoryRow({
             {cat.type === "income" ? "Receita" : "Despesa"}
           </span>
         </td>
+        {level === 0 && (
+          <td className="py-2.5 text-center text-xs space-x-2">
+            <span className={cat.event_required ? "text-success" : "text-muted-foreground"}>{cat.event_required ? "Evento ✓" : "Evento ✗"}</span>
+            <span className={cat.supplier_required ? "text-success" : "text-muted-foreground"}>{cat.supplier_required ? "Fornec. ✓" : "Fornec. ✗"}</span>
+          </td>
+        )}
+        {level > 0 && <td className="py-2.5" />}
         <td className="py-2.5 text-center text-xs">{cat.is_active ? "Ativa" : "Inativa"}</td>
         <td className="py-2.5 text-center">
           <div className="flex items-center justify-center gap-1">
