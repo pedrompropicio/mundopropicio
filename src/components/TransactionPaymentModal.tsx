@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { X } from "lucide-react";
@@ -12,7 +12,17 @@ interface Props {
 
 export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const queryClient = useQueryClient();
+
+  const { data: financialAccounts = [] } = useQuery({
+    queryKey: ["financial-accounts-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const amount = Number(transaction.amount);
   const currentPaid = Number(transaction.paid_amount ?? 0);
@@ -22,6 +32,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     mutationFn: async () => {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
+      if (!accountId) throw new Error("Selecione a conta de origem/destino");
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
@@ -37,7 +48,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const newStatus = newPaid >= amount ? "paid" : "approved";
       const { error } = await supabase
         .from("transactions")
-        .update({ paid_amount: newPaid, status: newStatus })
+        .update({ paid_amount: newPaid, status: newStatus, account_id: accountId })
         .eq("id", transaction.id);
       if (error) throw error;
     },
@@ -73,6 +84,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             <span className="text-muted-foreground">Saldo em aberto:</span>
             <span className="font-bold text-warning">{formatCurrency(balance)}</span>
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta de origem/destino *</label>
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+            <option value="">Selecionar conta…</option>
+            {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
         </div>
 
         <div>
