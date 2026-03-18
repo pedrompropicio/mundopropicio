@@ -78,24 +78,6 @@ function buildPL(
   const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
   const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
 
-  // Build ticket lot lines for this event
-  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
-  const ticketLines: PLLine[] = [];
-  if (evtZones.length > 0) {
-    evtZones.forEach((zone: any) => {
-      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => {
-        const lotRevenue = Number(lot.price) * Number(lot.quantity);
-        ticketLines.push({
-          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${formatCurrency(Number(lot.price))})`,
-          forecast: lotRevenue,
-          actual: 0,
-          variance: -lotRevenue,
-          subIndent: true,
-        });
-      });
-    });
-  }
 
   const lines: PLLine[] = [];
 
