@@ -11,6 +11,8 @@ interface PLLine {
   forecastIva: number;
   forecastTotal: number;
   actual: number;
+  actualIva: number;
+  actualTotal: number;
   variance: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
@@ -22,11 +24,13 @@ interface PLLine {
   unitPrice?: number;
 }
 
-function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal'> & { forecastIva?: number; forecastTotal?: number }): PLLine {
+function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
   return {
     ...base,
     forecastIva: base.forecastIva ?? 0,
     forecastTotal: base.forecastTotal ?? base.forecast,
+    actualIva: base.actualIva ?? 0,
+    actualTotal: base.actualTotal ?? base.actual,
   };
 }
 
@@ -67,43 +71,61 @@ function buildPLForExport(
   const lookup = buildCategoryLookup(categories);
 
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
-  let ticketForecastRevenue = 0;
+  let ticketForecastNet = 0;
+  let ticketForecastIva = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
-  let totalTicketActualRevenue = 0;
+  let totalTicketActualNet = 0;
+  let totalTicketActualIva = 0;
   if (evtZones.length > 0) {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      let zoneRevenue = 0;
+      let zoneNet = 0;
+      let zoneIva = 0;
       let zoneQty = 0;
-      let zoneActualRevenue = 0;
+      let zoneActualNet = 0;
+      let zoneActualIva = 0;
       zoneLots.forEach((lot: any) => {
-        const lotRevenue = Number(lot.price) * Number(lot.quantity);
         const qty = Number(lot.quantity);
-        ticketForecastRevenue += lotRevenue;
-        zoneRevenue += lotRevenue;
+        const grossPrice = Number(lot.price);
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = grossPrice / (1 + ivaRate / 100);
+        const lotNet = netPrice * qty;
+        const lotIva = (grossPrice - netPrice) * qty;
+        ticketForecastNet += lotNet;
+        ticketForecastIva += lotIva;
+        zoneNet += lotNet;
+        zoneIva += lotIva;
         zoneQty += qty;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        const lotSoldRevenue = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
-        zoneActualRevenue += lotSoldRevenue;
-        totalTicketActualRevenue += lotSoldRevenue;
+        const lotSoldNet = lotSales.reduce((s: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return s + Number(sl.quantity) * saleNet;
+        }, 0);
+        const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+        const lotSoldIva = lotSoldGross - lotSoldNet;
+        zoneActualNet += lotSoldNet;
+        zoneActualIva += lotSoldIva;
+        totalTicketActualNet += lotSoldNet;
+        totalTicketActualIva += lotSoldIva;
         ticketLines.push(pl({
           label: `${zone.name} — ${lot.name}`,
-          forecast: lotRevenue, actual: lotSoldRevenue, variance: lotSoldRevenue - lotRevenue, subIndent: true,
-          quantity: qty, unitPrice: Number(lot.price),
+          forecast: lotNet, actual: lotSoldNet, variance: lotSoldNet - lotNet,
+          subIndent: true, quantity: qty, unitPrice: netPrice,
         }));
       });
       totalTicketQty += zoneQty;
       ticketLines.push(pl({
         label: `Subtotal ${zone.name}`,
-        forecast: zoneRevenue, actual: zoneActualRevenue, variance: zoneActualRevenue - zoneRevenue, subIndent: true, isSubTotal: true,
-        quantity: zoneQty,
+        forecast: zoneNet, actual: zoneActualNet, variance: zoneActualNet - zoneNet,
+        subIndent: true, isSubTotal: true, quantity: zoneQty,
       }));
     });
     ticketLines.push(pl({
       label: `Total Bilheteira`,
-      forecast: ticketForecastRevenue, actual: totalTicketActualRevenue, variance: totalTicketActualRevenue - ticketForecastRevenue, subIndent: true, isSubTotal: true,
-      quantity: totalTicketQty,
+      forecast: ticketForecastNet, actual: totalTicketActualNet,
+      variance: totalTicketActualNet - ticketForecastNet,
+      subIndent: true, isSubTotal: true, quantity: totalTicketQty,
     }));
   }
 
@@ -117,17 +139,21 @@ function buildPLForExport(
   const tIncGroups = aggregateByHierarchy(tInc, lookup);
   const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
-  if (ticketForecastRevenue > 0) {
+  if (ticketForecastNet > 0) {
     const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
     if (bilhGroup) {
       const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
-      if (bilhDetail) bilhDetail.base += ticketForecastRevenue;
-      bilhGroup.totalBase += ticketForecastRevenue;
+      if (bilhDetail) {
+        bilhDetail.base += ticketForecastNet;
+        bilhDetail.iva += ticketForecastIva;
+      }
+      bilhGroup.totalBase += ticketForecastNet;
+      bilhGroup.totalIva += ticketForecastIva;
     } else {
       fIncGroups.push({
         groupName: "Bilheteira", groupCode: "0.0",
-        totalBase: ticketForecastRevenue, totalIva: 0,
-        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastRevenue, iva: 0 }],
+        totalBase: ticketForecastNet, totalIva: ticketForecastIva,
+        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastNet, iva: ticketForecastIva }],
       });
     }
   }
@@ -139,13 +165,16 @@ function buildPLForExport(
   const totalFIncIva = mergedInc.reduce((s, g) => s + g.fIva, 0);
   const totalFExpBase = mergedExp.reduce((s, g) => s + g.fBase, 0);
   const totalFExpIva = mergedExp.reduce((s, g) => s + g.fIva, 0);
-  const totalTInc = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualRevenue;
-  const totalTExp = mergedExp.reduce((s, g) => s + g.tBase, 0);
+  const totalTIncBase = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualNet;
+  const totalTIncIva = mergedInc.reduce((s, g) => s + g.tIva, 0) + totalTicketActualIva;
+  const totalTExpBase = mergedExp.reduce((s, g) => s + g.tBase, 0);
+  const totalTExpIva = mergedExp.reduce((s, g) => s + g.tIva, 0);
 
   const lines: PLLine[] = [];
   lines.push(pl({
-    label: "RECEITAS", forecast: totalFIncBase, actual: totalTInc, variance: totalTInc - totalFIncBase, isTotal: true,
+    label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
     forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
+    actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
   }));
   mergedInc.forEach((group) => {
     const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
@@ -153,11 +182,13 @@ function buildPLForExport(
       lines.push(pl({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
         lines.push(pl({
           label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
@@ -167,12 +198,14 @@ function buildPLForExport(
       lines.push(pl({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
     }
   });
   lines.push(pl({
-    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExp, variance: totalTExp - totalFExpBase, isTotal: true,
+    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
     forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+    actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
   mergedExp.forEach((group) => {
     const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
@@ -180,26 +213,31 @@ function buildPLForExport(
       lines.push(pl({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
         lines.push(pl({
           label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }));
       });
     } else {
       lines.push(pl({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
     }
   });
   const fResBase = totalFIncBase - totalFExpBase;
   const fResIva = totalFIncIva - totalFExpIva;
-  const tRes = totalTInc - totalTExp;
+  const tResBase = totalTIncBase - totalTExpBase;
+  const tResIva = totalTIncIva - totalTExpIva;
   lines.push(pl({
-    label: "RESULTADO LÍQUIDO", forecast: fResBase, actual: tRes, variance: tRes - fResBase, isGrandTotal: true,
+    label: "RESULTADO LÍQUIDO", forecast: fResBase, actual: tResBase, variance: tResBase - fResBase, isGrandTotal: true,
     forecastIva: fResIva, forecastTotal: fResBase + fResIva,
+    actualIva: tResIva, actualTotal: tResBase + tResIva,
   }));
   return lines;
 }
@@ -269,7 +307,7 @@ export function exportPLToExcel(
       [`P&L - ${evt.name}`],
       [],
       isComparison
-        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)", "Real (€)", "Variação (€)"]
+        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)", "Real s/ IVA (€)", "IVA Real (€)", "Total Real (€)", "Variação (€)"]
         : ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)"],
     ];
     plLines.forEach((line) => {
@@ -283,6 +321,8 @@ export function exportPLToExcel(
           line.subIndent ? "" : line.forecastIva,
           line.subIndent ? "" : line.forecastTotal,
           line.subIndent ? "" : line.actual,
+          line.subIndent ? "" : line.actualIva,
+          line.subIndent ? "" : line.actualTotal,
           line.subIndent ? "" : line.variance,
         ]);
       } else {
@@ -298,7 +338,7 @@ export function exportPLToExcel(
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = isComparison
-      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
+      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }]
       : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -320,8 +360,9 @@ export function exportPLToPDF(
   let y = 14;
   const isComparison = mode === "comparison";
 
+  // Columns: Rubrica | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | [Real s/IVA | IVA Real | Total Real | Variação]
   const colWidths = isComparison
-    ? [contentWidth * 0.22, contentWidth * 0.07, contentWidth * 0.10, contentWidth * 0.13, contentWidth * 0.10, contentWidth * 0.13, contentWidth * 0.13, contentWidth * 0.12]
+    ? [contentWidth * 0.18, contentWidth * 0.06, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.11, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.08]
     : [contentWidth * 0.30, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.18, contentWidth * 0.12, contentWidth * 0.16];
   const colX = [marginLeft];
   for (let i = 1; i < colWidths.length; i++) colX.push(colX[i - 1] + colWidths[i - 1]);
@@ -336,7 +377,7 @@ export function exportPLToPDF(
   function drawTableHeader() {
     doc.setFillColor(30, 30, 40);
     doc.rect(marginLeft, y, contentWidth, 8, "F");
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Rubrica", colX[0] + 2, y + 5.5);
@@ -346,8 +387,10 @@ export function exportPLToPDF(
     doc.text("IVA (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
     doc.text("Total (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
     if (isComparison) {
-      doc.text("Real (€)", colX[6] + colWidths[6] - 2, y + 5.5, { align: "right" });
-      doc.text("Variação (€)", colX[7] + colWidths[7] - 2, y + 5.5, { align: "right" });
+      doc.text("Real s/ IVA", colX[6] + colWidths[6] - 2, y + 5.5, { align: "right" });
+      doc.text("IVA Real", colX[7] + colWidths[7] - 2, y + 5.5, { align: "right" });
+      doc.text("Total Real", colX[8] + colWidths[8] - 2, y + 5.5, { align: "right" });
+      doc.text("Variação", colX[9] + colWidths[9] - 2, y + 5.5, { align: "right" });
     }
     doc.setTextColor(0, 0, 0);
     y += 10;
@@ -357,7 +400,7 @@ export function exportPLToPDF(
     return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
   }
 
-  // Logo + title
+  // Logo + title (only once at the top of the first page)
   try {
     doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
     y += 28;
@@ -389,13 +432,7 @@ export function exportPLToPDF(
       y = 14;
     }
 
-    try {
-      doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
-      y += 22;
-    } catch {
-      y += 4;
-    }
-
+    // Event header bar (no duplicate logo)
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
@@ -418,32 +455,32 @@ export function exportPLToPDF(
         doc.setFillColor(230, 240, 255);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
+        doc.setFontSize(7);
       } else if (line.isTotal) {
         doc.setFillColor(240, 240, 245);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
       } else if (line.isGroupHeader) {
         doc.setFillColor(245, 245, 250);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
       } else if (line.isSubTotal) {
         doc.setFillColor(242, 242, 248);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
+        doc.setFontSize(6);
         doc.setTextColor(80, 80, 80);
       } else if (line.subIndent) {
         doc.setFillColor(248, 248, 252);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "italic");
-        doc.setFontSize(6.5);
+        doc.setFontSize(6);
         doc.setTextColor(120, 120, 120);
       } else {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
       }
 
       const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
@@ -456,30 +493,33 @@ export function exportPLToPDF(
         doc.text(fmtVal(line.unitPrice), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
       }
 
-      const showAbsForecast = !line.isGrandTotal;
-      doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      const showAbs = !line.isGrandTotal;
+      doc.text(fmtVal(showAbs ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
-      // IVA column
+      // Forecast IVA & Total columns
       if (line.subIndent && !line.isSubTotal) {
         doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       } else {
-        doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecastIva) : line.forecastIva), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecastTotal) : line.forecastTotal), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.forecastIva) : line.forecastIva), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.forecastTotal) : line.forecastTotal), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       }
 
       if (isComparison) {
         if (line.subIndent) {
           doc.text("—", colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
           doc.text("—", colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
+          doc.text("—", colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
+          doc.text("—", colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
         } else {
-          const showAbsActual = !line.isGrandTotal;
-          doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
+          doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
+          doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
+          doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
           const v = line.variance;
           if (line.isGrandTotal || line.isTotal) {
             doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
           }
-          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
+          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
         }
       }
       doc.setTextColor(0, 0, 0);
