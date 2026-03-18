@@ -319,8 +319,10 @@ export default function ReportPL() {
                   ) : (
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                         <TableRow>
                           <TableHead>Rubrica</TableHead>
+                          <TableHead className="text-right">Qtd</TableHead>
+                          <TableHead className="text-right">Preço Unit. (€)</TableHead>
                           <TableHead className="text-right">Previsto (€)</TableHead>
                           <TableHead className="text-right">Real (€)</TableHead>
                           <TableHead className="text-right">Variação (€)</TableHead>
@@ -338,6 +340,12 @@ export default function ReportPL() {
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
+                              <TableCell className={`text-right font-mono ${line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
+                                {line.quantity != null ? line.quantity.toLocaleString("pt-PT") : ""}
+                              </TableCell>
+                              <TableCell className={`text-right font-mono ${line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
+                                {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
+                              </TableCell>
                               <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(Math.abs(line.forecast))}</TableCell>
                               <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : formatCurrency(Math.abs(line.actual))}</TableCell>
                               <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
