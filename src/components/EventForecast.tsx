@@ -802,7 +802,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
   return (
     <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
-      <td className="py-2.5 pr-3">
+      <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
         <div className="flex items-center gap-2">
           {isDraft && isAdmin && onToggleSelect ? (
             <Checkbox
