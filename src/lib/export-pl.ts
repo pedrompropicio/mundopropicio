@@ -343,6 +343,98 @@ export function exportPLToPDF(
     y += 8;
   });
 
+  // Global summary page at the end
+  doc.addPage();
+  y = 14;
+
+  try {
+    doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
+    y += 22;
+  } catch {
+    y += 4;
+  }
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("Resumo Geral", marginLeft, y);
+  y += 10;
+
+  let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
+  events.forEach((evt) => {
+    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
+    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => { evtFInc += Number(lot.price) * Number(lot.quantity); });
+    });
+    gFInc += evtFInc;
+    gFExp += evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  });
+
+  // Summary table per event
+  doc.setFillColor(30, 30, 40);
+  doc.rect(marginLeft, y, contentWidth, 8, "F");
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  const sumColW = contentWidth / 5;
+  doc.text("Evento", marginLeft + 2, y + 5.5);
+  doc.text("Receitas Prev.", marginLeft + sumColW + sumColW - 2, y + 5.5, { align: "right" });
+  doc.text("Despesas Prev.", marginLeft + sumColW * 3 - 2, y + 5.5, { align: "right" });
+  doc.text("Resultado Prev.", marginLeft + sumColW * 4 - 2, y + 5.5, { align: "right" });
+  doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  y += 10;
+
+  events.forEach((evt) => {
+    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
+    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtFExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => { evtFInc += Number(lot.price) * Number(lot.quantity); });
+    });
+    const fResult = evtFInc - evtFExp;
+    const tResult = evtTInc - evtTExp;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(evt.name, marginLeft + 2, y + 4);
+    doc.text(fmtVal(evtFInc), marginLeft + sumColW * 2 - 2, y + 4, { align: "right" });
+    doc.text(fmtVal(evtFExp), marginLeft + sumColW * 3 - 2, y + 4, { align: "right" });
+    doc.setTextColor(fResult >= 0 ? 34 : 200, fResult >= 0 ? 139 : 50, fResult >= 0 ? 34 : 50);
+    doc.text(fmtVal(fResult), marginLeft + sumColW * 4 - 2, y + 4, { align: "right" });
+    doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
+    doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y += 7;
+  });
+
+  // Totals row
+  y += 2;
+  doc.setFillColor(230, 240, 255);
+  doc.rect(marginLeft, y - 1, contentWidth, 9, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("TOTAL", marginLeft + 2, y + 5);
+  doc.text(fmtVal(gFInc), marginLeft + sumColW * 2 - 2, y + 5, { align: "right" });
+  doc.text(fmtVal(gFExp), marginLeft + sumColW * 3 - 2, y + 5, { align: "right" });
+  const gFRes = gFInc - gFExp;
+  const gTRes = gTInc - gTExp;
+  doc.setTextColor(gFRes >= 0 ? 34 : 200, gFRes >= 0 ? 139 : 50, gFRes >= 0 ? 34 : 50);
+  doc.text(fmtVal(gFRes), marginLeft + sumColW * 4 - 2, y + 5, { align: "right" });
+  doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
+  doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+
   // Footer
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
