@@ -93,7 +93,7 @@ function buildPLForExport(
 
   const totalFInc = Object.values(fIncByCat).reduce((s, v) => s + v, 0);
   const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
-  const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0);
+  const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0) + totalTicketActualRevenue;
   const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
 
   const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
