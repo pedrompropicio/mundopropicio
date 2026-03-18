@@ -277,7 +277,6 @@ export default function AccountCategories() {
       type: fd.get("type") as string,
       parent_id: parentId || undefined,
       event_required: isRoot ? fd.get("event_required") === "on" : true,
-      supplier_required: isRoot ? fd.get("supplier_required") === "on" : true,
     });
   };
 
