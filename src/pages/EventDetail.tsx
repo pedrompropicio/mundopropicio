@@ -29,6 +29,46 @@ const eventTypeLabels: Record<string, string> = {
   multi_day: "Múltiplos Dias / Turnê",
 };
 
+function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
+  label: string;
+  currentId: string;
+  subEvents: any[];
+  onCopy: (sourceId: string) => Promise<void>;
+}) {
+  const [copying, setCopying] = useState(false);
+  const others = subEvents.filter((s: any) => s.id !== currentId);
+  if (others.length === 0) return null;
+
+  const handleCopy = async (sourceId: string) => {
+    if (!confirm("Isto irá copiar os dados para esta data. Deseja continuar?")) return;
+    setCopying(true);
+    try {
+      await onCopy(sourceId);
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  return (
+    <div className="glass rounded-xl p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Copy className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground">{label}:</span>
+        {others.map((sub: any) => (
+          <button
+            key={sub.id}
+            onClick={() => handleCopy(sub.id)}
+            disabled={copying}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+          >
+            {sub.name} ({formatDate(sub.date)})
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EventDetail() {
   const { id } = useParams();
   const { isAdmin } = useAuth();
