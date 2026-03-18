@@ -130,6 +130,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
+    if (form.type === "expense" && rootFlags.supplier_required && !form.supplier_id) {
+      toast({ title: "Selecione o fornecedor (obrigatório para esta categoria)", variant: "destructive" });
+      return;
+    }
     if (form.type === "income" && !form.account_id) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
