@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
+import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 
 interface InlineForm {
   type: string;
@@ -125,6 +126,36 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     enabled: ticketLots.length > 0,
   });
 
+  // Fetch cache configs for this event
+  const { data: cacheConfigs = [] } = useQuery({
+    queryKey: ["event_cache_configs", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_cache_configs")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("created_at");
+      if (error) throw error;
+      return data as unknown as CacheConfig[];
+    },
+  });
+
+  const cacheConfigIds = cacheConfigs.map((c) => c.id);
+  const { data: cacheDeductions = [] } = useQuery({
+    queryKey: ["event_cache_deductions", cacheConfigIds.join(",")],
+    queryFn: async () => {
+      if (cacheConfigIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_cache_deductions")
+        .select("*")
+        .in("cache_config_id", cacheConfigIds);
+      if (error) throw error;
+      return data as unknown as CacheDeduction[];
+    },
+    enabled: cacheConfigIds.length > 0,
+  });
+
+
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const ticketRevenueNet = ticketLots.reduce((s, l) => {
@@ -143,6 +174,17 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     return s + Number(sl.quantity) * (Number(sl.unit_price) / (1 + rate / 100));
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
+
+  // Calculate cache lines (after ticketRevenueNet is available)
+  const cacheLines = useMemo(() => {
+    return calculateCacheLinesForPL(
+      cacheConfigs,
+      cacheDeductions,
+      ticketRevenueNet,
+      forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, forecasts]);
+  const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
@@ -399,7 +441,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
-  const totalForecastExpenseBase = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount;
   const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
@@ -798,8 +841,40 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                         );
                       })}
                       {addingType === "expense" && renderInlineRow("expense")}
+                      {/* Cachê lines */}
+                      {cacheLines.length > 0 && (
+                        <>
+                          <tr className="bg-secondary/10 border-t border-border/30">
+                            <td colSpan={8} className="py-2 pl-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <Music className="h-3.5 w-3.5" />
+                                Cachê das Atrações
+                              </div>
+                            </td>
+                          </tr>
+                          {cacheLines.map((cl, idx) => {
+                            const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
+                            return (
+                              <tr key={`cache-${idx}`} className="border-b border-border/10">
+                                <td className="py-2.5 pr-3 pl-4" colSpan={2}>
+                                  <div className="flex items-center gap-2">
+                                    <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
+                                  </div>
+                                </td>
+                                <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">Cachê</td>
+                                <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
+                                <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
+                                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
+                                <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
+                                <td />
+                              </tr>
+                            );
+                          })}
+                        </>
+                      )}
                     </tbody>
-                    {(expenseForecasts.length > 0 || addingType === "expense") && (
+                    {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
@@ -831,7 +906,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
         </TabsContent>
 
         <TabsContent value="comparison">
-          <ComparisonTable data={comparisonData} />
+          <ComparisonTable data={comparisonData} cacheLines={cacheLines} />
         </TabsContent>
       </Tabs>
     </div>
@@ -992,12 +1067,13 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     .sort((a, b) => { if (a.type !== b.type) return a.type === "income" ? -1 : 1; return a.groupCode.localeCompare(b.groupCode) || a.categoryCode.localeCompare(b.categoryCode); });
 }
 
-function ComparisonTable({ data }: { data: ComparisonRow[] }) {
+function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cacheLines?: CachePLLine[] }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
+  const totalCacheF = cacheLines.reduce((s, c) => s + c.amount, 0);
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
   const totalAI = incomeRows.reduce((s, r) => s + r.actual, 0);
-  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0);
+  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0) + totalCacheF;
   const totalAE = expenseRows.reduce((s, r) => s + r.actual, 0);
 
   // Group rows by L2 parent
@@ -1069,10 +1145,33 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
               </tr>
             </>
           )}
-          {expenseRows.length > 0 && (
+          {(expenseRows.length > 0 || cacheLines.length > 0) && (
             <>
               <tr><td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td></tr>
               {renderGroupedRows(expenseGroups, false)}
+              {cacheLines.length > 0 && (
+                <>
+                  <tr className="bg-secondary/10 border-t border-border/30">
+                    <td className="py-1.5 pl-2 text-xs font-semibold">Cachê das Atrações</td>
+                    <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(totalCacheF)}</td>
+                    <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(0)}</td>
+                    <td className={`py-1.5 text-right font-mono text-xs font-semibold text-destructive`}>{formatCurrency(0 - totalCacheF)}</td>
+                    <td />
+                  </tr>
+                  {cacheLines.map((cl, idx) => {
+                    const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Var.)";
+                    return (
+                      <tr key={`cache-cmp-${idx}`} className="border-b border-border/20">
+                        <td className="py-2 pr-3 pl-4">{cl.artistName} <span className="text-xs text-muted-foreground">{typeLabel}</span></td>
+                        <td className="py-2 text-right font-mono">{formatCurrency(cl.amount)}</td>
+                        <td className="py-2 text-right font-mono">{formatCurrency(0)}</td>
+                        <td className="py-2 text-right font-mono text-destructive">{formatCurrency(0 - cl.amount)}</td>
+                        <td className="py-2 text-right text-xs">—</td>
+                      </tr>
+                    );
+                  })}
+                </>
+              )}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Despesas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFE)}</td>
