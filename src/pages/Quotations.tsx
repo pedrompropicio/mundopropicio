@@ -13,6 +13,8 @@ import { SupplierFormModal } from "@/components/SupplierFormModal";
 
 export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSupplierOpen, setIsSupplierOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const queryClient = useQueryClient();
 
