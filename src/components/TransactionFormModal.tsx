@@ -225,6 +225,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
 
+    // Multi-day parent proration confirmation
+    if (isParentMultiDay && !showProrationConfirm) {
+      setShowProrationConfirm(true);
+      return;
+    }
+
+    setShowProrationConfirm(false);
     createMutation.mutate(form);
   };
 
