@@ -7,6 +7,8 @@ import type { PLMode } from "@/components/ReportPL";
 interface PLLine {
   label: string;
   forecast: number;
+  forecastIva: number;
+  forecastTotal: number;
   actual: number;
   variance: number;
   isTotal?: boolean;
