@@ -867,6 +867,9 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                               );
                             })}
                           </React.Fragment>
+                        );
+                      })}
+                      {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
                     {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
                       <tfoot>
