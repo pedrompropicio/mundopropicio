@@ -6,6 +6,7 @@ import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route } from "lu
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
+import { CityVenueSelector } from "@/components/CityVenueSelector";
 
 type EventType = "simple" | "festival" | "multi_day";
 
@@ -21,30 +22,37 @@ const eventTypeIcons: Record<EventType, typeof Calendar> = {
   multi_day: Route,
 };
 
+interface SubEventForm {
+  name: string;
+  date: string;
+  city_id: string;
+  venue_id: string;
+}
+
 interface EventForm {
   name: string;
   date: string;
-  location: string;
+  city_id: string;
+  venue_id: string;
   budget: string;
   tickets_total: string;
   status: string;
   event_type: EventType;
-  // Festival dates
   festival_dates: string[];
-  // Multi-day sub-events
-  sub_events: { name: string; date: string; location: string }[];
+  sub_events: SubEventForm[];
 }
 
 const emptyForm: EventForm = {
   name: "",
   date: new Date().toISOString().split("T")[0],
-  location: "",
+  city_id: "",
+  venue_id: "",
   budget: "",
   tickets_total: "",
   status: "planning",
   event_type: "simple",
   festival_dates: [],
-  sub_events: [{ name: "", date: "", location: "" }],
+  sub_events: [{ name: "", date: "", city_id: "", venue_id: "" }],
 };
 
 export default function Events() {
@@ -53,10 +61,30 @@ export default function Events() {
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const queryClient = useQueryClient();
 
+  // Fetch cities and venues for display on cards
+  const { data: citiesMap = {} } = useQuery({
+    queryKey: ["cities_map"],
+    queryFn: async () => {
+      const { data } = await supabase.from("cities" as any).select("*");
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((c: any) => { map[c.id] = c.name; });
+      return map;
+    },
+  });
+
+  const { data: venuesMap = {} } = useQuery({
+    queryKey: ["venues_map"],
+    queryFn: async () => {
+      const { data } = await supabase.from("venues" as any).select("*");
+      const map: Record<string, any> = {};
+      (data ?? []).forEach((v: any) => { map[v.id] = v; });
+      return map;
+    },
+  });
+
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["events_full"],
     queryFn: async () => {
-      // Only fetch top-level events (no sub-events)
       const { data: evts, error } = await (supabase
         .from("events")
         .select("*") as any)
@@ -64,22 +92,19 @@ export default function Events() {
         .order("date", { ascending: false });
       if (error) throw error;
 
-      // Fetch sub-events
-      const parentIds = evts.filter(e => (e as any).event_type === "multi_day").map(e => e.id);
+      const parentIds = (evts ?? []).filter((e: any) => e.event_type === "multi_day").map((e: any) => e.id);
       let subEventsMap: Record<string, any[]> = {};
       if (parentIds.length > 0) {
-        const { data: subs } = await supabase
+        const { data: subs } = await (supabase
           .from("events")
-          .select("*")
+          .select("*") as any)
           .in("parent_event_id", parentIds);
-        (subs ?? []).forEach(s => {
-          const pid = (s as any).parent_event_id;
-          if (!subEventsMap[pid]) subEventsMap[pid] = [];
-          subEventsMap[pid].push(s);
+        (subs ?? []).forEach((s: any) => {
+          if (!subEventsMap[s.parent_event_id]) subEventsMap[s.parent_event_id] = [];
+          subEventsMap[s.parent_event_id].push(s);
         });
       }
 
-      // Fetch transaction totals per event (including sub-events)
       const { data: txns } = await supabase
         .from("transactions")
         .select("event_id, type, amount");
@@ -92,12 +117,11 @@ export default function Events() {
         else totals[t.event_id].expense += Number(t.amount);
       });
 
-      return evts.map((e) => {
-        const eventType = (e as any).event_type || "simple";
+      return (evts ?? []).map((e: any) => {
+        const eventType = e.event_type || "simple";
         let totalIncome = totals[e.id]?.income ?? 0;
         let totalExpenses = totals[e.id]?.expense ?? 0;
 
-        // For multi-day, aggregate sub-events
         if (eventType === "multi_day" && subEventsMap[e.id]) {
           subEventsMap[e.id].forEach(sub => {
             totalIncome += totals[sub.id]?.income ?? 0;
@@ -118,21 +142,25 @@ export default function Events() {
 
   const createMutation = useMutation({
     mutationFn: async (data: EventForm) => {
-      // Create main event
+      const venueName = data.venue_id ? (venuesMap as any)[data.venue_id]?.name : null;
+      const cityName = data.city_id ? (citiesMap as any)[data.city_id] : null;
+      const locationStr = [venueName, cityName].filter(Boolean).join(", ");
+
       const { data: newEvent, error } = await supabase.from("events").insert({
         name: data.name,
         date: data.date,
-        location: data.location || null,
+        location: locationStr || null,
         budget: parseFloat(data.budget) || 0,
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
         event_type: data.event_type,
+        city_id: data.city_id || null,
+        venue_id: data.venue_id || null,
       } as any).select().single();
       if (error) throw error;
 
       const parentId = (newEvent as any).id;
 
-      // For festival, save extra dates
       if (data.event_type === "festival" && data.festival_dates.length > 0) {
         const datesToInsert = data.festival_dates.map(d => ({
           event_id: parentId,
@@ -142,20 +170,26 @@ export default function Events() {
         if (dErr) throw dErr;
       }
 
-      // For multi-day, create sub-events
       if (data.event_type === "multi_day") {
         const validSubs = data.sub_events.filter(s => s.name && s.date);
         if (validSubs.length > 0) {
-          const subsToInsert = validSubs.map(s => ({
-            name: s.name,
-            date: s.date,
-            location: s.location || null,
-            status: data.status,
-            event_type: "simple",
-            parent_event_id: parentId,
-            budget: 0,
-            tickets_total: 0,
-          }));
+          const subsToInsert = validSubs.map(s => {
+            const subVenue = s.venue_id ? (venuesMap as any)[s.venue_id]?.name : null;
+            const subCity = s.city_id ? (citiesMap as any)[s.city_id] : null;
+            const subLocation = [subVenue, subCity].filter(Boolean).join(", ");
+            return {
+              name: s.name,
+              date: s.date,
+              location: subLocation || null,
+              city_id: s.city_id || null,
+              venue_id: s.venue_id || null,
+              status: data.status,
+              event_type: "simple",
+              parent_event_id: parentId,
+              budget: 0,
+              tickets_total: 0,
+            };
+          });
           const { error: sErr } = await supabase.from("events").insert(subsToInsert as any);
           if (sErr) throw sErr;
         }
@@ -164,6 +198,8 @@ export default function Events() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events_full"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["cities_map"] });
+      queryClient.invalidateQueries({ queryKey: ["venues_map"] });
       setShowForm(false);
       setForm({ ...emptyForm });
       toast({ title: "Evento criado com sucesso!" });
@@ -190,7 +226,7 @@ export default function Events() {
   };
 
   const addSubEvent = () => {
-    setForm({ ...form, sub_events: [...form.sub_events, { name: "", date: "", location: "" }] });
+    setForm({ ...form, sub_events: [...form.sub_events, { name: "", date: "", city_id: "", venue_id: "" }] });
   };
 
   const removeSubEvent = (idx: number) => {
@@ -200,6 +236,7 @@ export default function Events() {
   const updateSubEvent = (idx: number, field: string, value: string) => {
     const updated = [...form.sub_events];
     updated[idx] = { ...updated[idx], [field]: value };
+    if (field === "city_id") updated[idx].venue_id = "";
     setForm({ ...form, sub_events: updated });
   };
 
@@ -227,6 +264,15 @@ export default function Events() {
         {eventTypeLabels[type]}
       </span>
     );
+  };
+
+  const getLocationDisplay = (event: any) => {
+    if (event.venue_id && venuesMap[event.venue_id]) {
+      const venue = venuesMap[event.venue_id];
+      const city = event.city_id ? citiesMap[event.city_id] : null;
+      return [venue.name, city].filter(Boolean).join(", ");
+    }
+    return event.location;
   };
 
   return (
@@ -322,6 +368,16 @@ export default function Events() {
                 </div>
               </div>
 
+              {/* City / Venue for simple and festival */}
+              {form.event_type !== "multi_day" && (
+                <CityVenueSelector
+                  cityId={form.city_id}
+                  venueId={form.venue_id}
+                  onCityChange={(id) => setForm({ ...form, city_id: id, venue_id: "" })}
+                  onVenueChange={(id) => setForm({ ...form, venue_id: id })}
+                />
+              )}
+
               {/* Festival: Additional Dates */}
               {form.event_type === "festival" && (
                 <div>
@@ -356,11 +412,11 @@ export default function Events() {
                 </div>
               )}
 
-              {/* Multi-day: Sub-events */}
+              {/* Multi-day: Sub-events with city/venue */}
               {form.event_type === "multi_day" && (
                 <div>
                   <label className="mb-2 block text-xs font-medium text-muted-foreground">Datas / Locais da Turnê</label>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {form.sub_events.map((sub, idx) => (
                       <div key={idx} className="rounded-lg border border-border/50 p-3 space-y-2">
                         <div className="flex items-center justify-between">
@@ -371,26 +427,27 @@ export default function Events() {
                             </button>
                           )}
                         </div>
-                        <input
-                          value={sub.name}
-                          onChange={(e) => updateSubEvent(idx, "name", e.target.value)}
-                          className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          placeholder="Nome da data (ex: Lisboa)"
-                        />
                         <div className="grid grid-cols-2 gap-2">
+                          <input
+                            value={sub.name}
+                            onChange={(e) => updateSubEvent(idx, "name", e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="Nome (ex: Lisboa)"
+                          />
                           <input
                             type="date"
                             value={sub.date}
                             onChange={(e) => updateSubEvent(idx, "date", e.target.value)}
                             className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                           />
-                          <input
-                            value={sub.location}
-                            onChange={(e) => updateSubEvent(idx, "location", e.target.value)}
-                            className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            placeholder="Local"
-                          />
                         </div>
+                        <CityVenueSelector
+                          cityId={sub.city_id}
+                          venueId={sub.venue_id}
+                          onCityChange={(id) => updateSubEvent(idx, "city_id", id)}
+                          onVenueChange={(id) => updateSubEvent(idx, "venue_id", id)}
+                          compact
+                        />
                       </div>
                     ))}
                   </div>
@@ -403,16 +460,6 @@ export default function Events() {
                   </button>
                 </div>
               )}
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Localização</label>
-                <input
-                  value={form.location}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder={form.event_type === "multi_day" ? "Local principal" : "Ex: Altice Arena, Lisboa"}
-                />
-              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -462,6 +509,7 @@ export default function Events() {
             const profit = event.totalIncome - event.totalExpenses;
             const budgetUsed = event.budget > 0 ? (event.totalExpenses / event.budget) * 100 : 0;
             const eventType = event.event_type as EventType;
+            const locationDisplay = getLocationDisplay(event);
             return (
               <Link
                 key={event.id}
@@ -483,10 +531,10 @@ export default function Events() {
                   )}
                 </div>
 
-                {event.location && (
+                {locationDisplay && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
                     <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{event.location}</span>
+                    <span className="truncate">{locationDisplay}</span>
                   </div>
                 )}
 
