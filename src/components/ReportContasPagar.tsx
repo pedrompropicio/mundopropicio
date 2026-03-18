@@ -73,24 +73,31 @@ export default function ReportContasPagar() {
   };
 
   const filtered = useMemo(() => {
+    if (!hasSearched) return [];
     let result = transactions;
 
-    if (selectedEventIds.size > 0) {
-      result = result.filter((t: any) => selectedEventIds.has(t.event_id));
+    if (appliedEventIds.size > 0) {
+      result = result.filter((t: any) => appliedEventIds.has(t.event_id));
     }
 
-    if (dateFrom) {
-      const from = dateFrom.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.due_date && t.due_date >= from);
+    if (appliedDateFrom) {
+      const from = appliedDateFrom.toISOString().slice(0, 10);
+      result = result.filter((t: any) => {
+        const d = t.due_date ?? t.date;
+        return d && d >= from;
+      });
     }
 
-    if (dateTo) {
-      const to = dateTo.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.due_date && t.due_date <= to);
+    if (appliedDateTo) {
+      const to = appliedDateTo.toISOString().slice(0, 10);
+      result = result.filter((t: any) => {
+        const d = t.due_date ?? t.date;
+        return d && d <= to;
+      });
     }
 
     return result;
-  }, [transactions, selectedEventIds, dateFrom, dateTo]);
+  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, hasSearched]);
 
   // Compute status
   const getStatus = (t: any) => {
