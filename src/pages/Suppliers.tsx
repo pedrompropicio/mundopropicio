@@ -35,82 +35,13 @@ export default function Suppliers() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Fornecedores</h1>
           <p className="text-sm text-muted-foreground">Gestão de fornecedores e parceiros</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary">
-              <Plus className="h-4 w-4" /> Novo Fornecedor
-            </button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Novo Fornecedor</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nome *</Label>
-                <Input id="name" name="name" required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="nif">NIF</Label>
-                  <Input id="nif" name="nif" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select name="category">
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      {supplierCategories.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="contact_name">Pessoa de contacto</Label>
-                  <Input id="contact_name" name="contact_name" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input id="phone" name="phone" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="payment_terms">Condições pgto</Label>
-                  <Input id="payment_terms" name="payment_terms" placeholder="ex: 30 dias" />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="address">Morada</Label>
-                <Input id="address" name="address" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="iban">IBAN</Label>
-                  <Input id="iban" name="iban" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="swift_bic">SWIFT/BIC</Label>
-                  <Input id="swift_bic" name="swift_bic" placeholder="ex: CGDIPTPL" />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="notes">Notas</Label>
-                <Textarea id="notes" name="notes" rows={2} />
-              </div>
-              <button type="submit" className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground">
-                Criar Fornecedor
-              </button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <button
+          onClick={() => setIsOpen(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
+        >
+          <Plus className="h-4 w-4" /> Novo Fornecedor
+        </button>
+        <SupplierFormModal open={isOpen} onOpenChange={setIsOpen} />
       </div>
 
       <div className="relative">
