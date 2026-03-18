@@ -130,8 +130,8 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             )}
-            {/* Approve: admin only, pending only, not completed */}
-            {!eventCompleted && isAdmin && computedStatus === "pending" && (
+            {/* Approve: admin only, pending/overdue only, not completed */}
+            {!eventCompleted && isAdmin && (computedStatus === "pending" || computedStatus === "overdue") && (
               <button onClick={() => onApprove(t.id)} className="rounded-lg p-1.5 text-blue-400 hover:bg-blue-500/15 transition-colors" title="Aprovar">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </button>
