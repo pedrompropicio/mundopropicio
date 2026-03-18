@@ -50,7 +50,6 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
   const venueOptions = filteredVenues.map((v) => ({ value: v.id, label: v.name }));
 
   const handleSave = async () => {
-    if (!name.trim()) { toast.error("Preencha o nome do evento"); return; }
     if (!date) { toast.error("Selecione uma data"); return; }
     if (!venueId) { toast.error("Selecione uma sala"); return; }
 
