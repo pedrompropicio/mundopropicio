@@ -107,14 +107,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   // Find root category flags for selected category
   const getRootFlags = (categoryId: string) => {
-    if (!categoryId) return { event_required: true, supplier_required: true };
+    if (!categoryId) return { event_required: true };
     let cat = categories.find((c: any) => c.id === categoryId);
     while (cat && cat.parent_id) {
       cat = categories.find((c: any) => c.id === cat!.parent_id);
     }
     return {
       event_required: cat?.event_required ?? true,
-      supplier_required: cat?.supplier_required ?? true,
     };
   };
 
