@@ -27,23 +27,6 @@ export default function Suppliers() {
     (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    createMutation.mutate({
-      name: fd.get("name") as string,
-      nif: (fd.get("nif") as string) || undefined,
-      contact_name: (fd.get("contact_name") as string) || undefined,
-      email: (fd.get("email") as string) || undefined,
-      phone: (fd.get("phone") as string) || undefined,
-      address: (fd.get("address") as string) || undefined,
-      iban: (fd.get("iban") as string) || undefined,
-      swift_bic: (fd.get("swift_bic") as string) || undefined,
-      payment_terms: (fd.get("payment_terms") as string) || undefined,
-      category: (fd.get("category") as string) || undefined,
-      notes: (fd.get("notes") as string) || undefined,
-    });
-  };
 
   return (
     <div className="space-y-6">
