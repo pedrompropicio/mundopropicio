@@ -77,47 +77,63 @@ function buildPL(
   const lookup = buildCategoryLookup(categories);
 
   // Calculate ticket lot revenue for this event
+  // Prices include IVA ("por dentro") — extract net values
   const evtZones = ticketZones; // Already filtered by caller
-  let ticketForecastRevenue = 0;
+  let ticketForecastNet = 0;
+  let ticketForecastIva = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
-  let totalTicketActualRevenue = 0;
+  let totalTicketActualNet = 0;
+  let totalTicketActualIva = 0;
   if (evtZones.length > 0) {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      let zoneRevenue = 0;
+      let zoneNet = 0;
+      let zoneIva = 0;
       let zoneQty = 0;
-      let zoneActualRevenue = 0;
-      let zoneActualQty = 0;
+      let zoneActualNet = 0;
+      let zoneActualIva = 0;
       zoneLots.forEach((lot: any) => {
-        const lotRevenue = Number(lot.price) * Number(lot.quantity);
         const qty = Number(lot.quantity);
-        ticketForecastRevenue += lotRevenue;
-        zoneRevenue += lotRevenue;
+        const grossPrice = Number(lot.price);
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = grossPrice / (1 + ivaRate / 100);
+        const lotNet = netPrice * qty;
+        const lotIva = (grossPrice - netPrice) * qty;
+        ticketForecastNet += lotNet;
+        ticketForecastIva += lotIva;
+        zoneNet += lotNet;
+        zoneIva += lotIva;
         zoneQty += qty;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         const lotSoldQty = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity), 0);
-        const lotSoldRevenue = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
-        zoneActualRevenue += lotSoldRevenue;
-        zoneActualQty += lotSoldQty;
-        totalTicketActualRevenue += lotSoldRevenue;
+        const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+        const lotSoldNet = lotSales.reduce((s: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return s + Number(sl.quantity) * saleNet;
+        }, 0);
+        const lotSoldIva = lotSoldGross - lotSoldNet;
+        zoneActualNet += lotSoldNet;
+        zoneActualIva += lotSoldIva;
+        totalTicketActualNet += lotSoldNet;
+        totalTicketActualIva += lotSoldIva;
         ticketLines.push(plLine({
           label: `${zone.name} — ${lot.name}`,
-          forecast: lotRevenue, actual: lotSoldRevenue, variance: lotSoldRevenue - lotRevenue,
-          subIndent: true, quantity: qty, unitPrice: Number(lot.price),
+          forecast: lotNet, actual: lotSoldNet, variance: lotSoldNet - lotNet,
+          subIndent: true, quantity: qty, unitPrice: netPrice,
         }));
       });
       totalTicketQty += zoneQty;
       ticketLines.push(plLine({
         label: `Subtotal ${zone.name}`,
-        forecast: zoneRevenue, actual: zoneActualRevenue, variance: zoneActualRevenue - zoneRevenue,
+        forecast: zoneNet, actual: zoneActualNet, variance: zoneActualNet - zoneNet,
         subIndent: true, isSubTotal: true, quantity: zoneQty,
       }));
     });
     ticketLines.push(plLine({
       label: `Total Bilheteira`,
-      forecast: ticketForecastRevenue, actual: totalTicketActualRevenue,
-      variance: totalTicketActualRevenue - ticketForecastRevenue,
+      forecast: ticketForecastNet, actual: totalTicketActualNet,
+      variance: totalTicketActualNet - ticketForecastNet,
       subIndent: true, isSubTotal: true, quantity: totalTicketQty,
     }));
   }
@@ -132,18 +148,22 @@ function buildPL(
   const tIncGroups = aggregateByHierarchy(tInc, lookup);
   const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
-  // Add ticket lot revenue to forecast Bilheteira
-  if (ticketForecastRevenue > 0) {
+  // Add ticket lot net revenue to forecast Bilheteira
+  if (ticketForecastNet > 0) {
     const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
     if (bilhGroup) {
       const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
-      if (bilhDetail) bilhDetail.base += ticketForecastRevenue;
-      bilhGroup.totalBase += ticketForecastRevenue;
+      if (bilhDetail) {
+        bilhDetail.base += ticketForecastNet;
+        bilhDetail.iva += ticketForecastIva;
+      }
+      bilhGroup.totalBase += ticketForecastNet;
+      bilhGroup.totalIva += ticketForecastIva;
     } else {
       fIncGroups.push({
         groupName: "Bilheteira", groupCode: "0.0",
-        totalBase: ticketForecastRevenue, totalIva: 0,
-        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastRevenue, iva: 0 }],
+        totalBase: ticketForecastNet, totalIva: ticketForecastIva,
+        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastNet, iva: ticketForecastIva }],
       });
     }
   }
@@ -155,8 +175,8 @@ function buildPL(
   const totalFIncIva = mergedInc.reduce((s, g) => s + g.fIva, 0);
   const totalFExpBase = mergedExp.reduce((s, g) => s + g.fBase, 0);
   const totalFExpIva = mergedExp.reduce((s, g) => s + g.fIva, 0);
-  const totalTIncBase = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualRevenue;
-  const totalTIncIva = mergedInc.reduce((s, g) => s + g.tIva, 0);
+  const totalTIncBase = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualNet;
+  const totalTIncIva = mergedInc.reduce((s, g) => s + g.tIva, 0) + totalTicketActualIva;
   const totalTExpBase = mergedExp.reduce((s, g) => s + g.tBase, 0);
   const totalTExpIva = mergedExp.reduce((s, g) => s + g.tIva, 0);
 
