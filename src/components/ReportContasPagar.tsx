@@ -123,10 +123,23 @@ export default function ReportContasPagar() {
     overdue: "bg-destructive/15 text-destructive",
   };
 
-  const totalAmount = filtered.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
   const totalWithIva = filtered.reduce((sum: number, t: any) => sum + Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100), 0);
   const totalPaid = filtered.reduce((sum: number, t: any) => sum + Number(t.paid_amount ?? 0), 0);
   const totalBalance = totalWithIva - totalPaid;
+
+  // Group by event when multiple events
+  const groupedByEvent = useMemo(() => {
+    if (appliedEventIds.size <= 1 && filtered.length > 0) {
+      return [{ eventName: null, items: filtered }];
+    }
+    const map = new Map<string, { eventName: string; items: any[] }>();
+    for (const t of filtered) {
+      const eName = (t.events as any)?.name ?? "Sem evento";
+      if (!map.has(eName)) map.set(eName, { eventName: eName, items: [] });
+      map.get(eName)!.items.push(t);
+    }
+    return Array.from(map.values()).sort((a, b) => a.eventName.localeCompare(b.eventName));
+  }, [filtered, appliedEventIds]);
 
   const handleExportExcel = () => {
     exportContasPagarToExcel({
