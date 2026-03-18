@@ -86,12 +86,8 @@ Deno.serve(async (req) => {
     }
 
     // Send password reset email so user can set their own password
-    const { error: resetError } = await adminClient.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: {
-        redirectTo: `${req.headers.get("origin") || supabaseUrl}/login`,
-      },
+    const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${req.headers.get("origin") || supabaseUrl}/reset-password`,
     });
 
     // Even if reset email fails, user was created
