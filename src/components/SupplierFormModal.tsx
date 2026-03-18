@@ -98,15 +98,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
               <Input id="sup-nif" name="nif" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="sup-category">Categoria</Label>
-              <Select name="category">
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                <SelectContent>
-                  {supplierCategories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Categoria</Label>
+              <SearchableSelect
+                options={categoryOptions}
+                value={categoryValue}
+                onValueChange={setCategoryValue}
+                placeholder="Selecionar categoria…"
+                searchPlaceholder="Pesquisar no plano de contas…"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
