@@ -245,26 +245,40 @@ export default function ReportPL() {
 
   return (
     <div className="space-y-6">
-      {/* Event selector */}
-      <div className="glass rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Selecionar Eventos</p>
-          <button onClick={toggleAll} className="text-xs text-primary hover:underline">
-            {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
-          </button>
+      {/* Mode selector + Event selector */}
+      <div className="glass rounded-xl p-4 space-y-4">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium whitespace-nowrap">Tipo de Relatório</label>
+          <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
+            <SelectTrigger className="w-[260px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="forecast">Apenas Previsão</SelectItem>
+              <SelectItem value="comparison">Previsão vs Realizado</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {events.map((e) => (
-            <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
-              <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
-              <span>{e.name}</span>
-            </label>
-          ))}
-          {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+        <div className="border-t border-border/30 pt-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Selecionar Eventos</p>
+            <button onClick={toggleAll} className="text-xs text-primary hover:underline">
+              {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {events.map((e) => (
+              <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
+                <span>{e.name}</span>
+              </label>
+            ))}
+            {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+          </div>
+          {selectedEventIds.length === 0 && events.length > 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
+          )}
         </div>
-        {selectedEventIds.length === 0 && events.length > 0 && (
-          <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
-        )}
       </div>
 
       <div className="flex items-center justify-end gap-2">
