@@ -198,7 +198,14 @@ export default function Quotations() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        <SupplierFormModal
+          open={isSupplierOpen}
+          onOpenChange={setIsSupplierOpen}
+          onCreated={(id) => {
+            setSelectedSupplier(id);
+            queryClient.invalidateQueries({ queryKey: ["suppliers-list"] });
+          }}
+        />
 
       <div className="flex gap-2">
         {(["all", "pending", "approved", "rejected"] as const).map((f) => (
