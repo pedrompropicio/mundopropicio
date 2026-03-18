@@ -329,12 +329,17 @@ export function exportDREToPDF(
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
+      } else if (line.isGroupHeader) {
+        doc.setFillColor(245, 245, 250);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
       }
 
-      const label = line.indent ? `    ${line.label}` : line.label;
+      const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
       doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
       doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
