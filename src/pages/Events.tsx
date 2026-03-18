@@ -58,9 +58,11 @@ const emptyForm: EventForm = {
 };
 
 export default function Events() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
+  const [reservationId, setReservationId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch cities and venues for display on cards
