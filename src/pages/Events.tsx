@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route } from "lucide-react";
@@ -58,9 +58,11 @@ const emptyForm: EventForm = {
 };
 
 export default function Events() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
+  const [reservationId, setReservationId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch cities and venues for display on cards
@@ -142,6 +144,39 @@ export default function Events() {
     },
   });
 
+  // Handle from_reservation query param
+  const fromReservationId = searchParams.get("from_reservation");
+  const { data: reservationData } = useQuery({
+    queryKey: ["reservation-prefill", fromReservationId],
+    queryFn: async () => {
+      if (!fromReservationId) return null;
+      const { data, error } = await supabase
+        .from("venue_reservations")
+        .select("id, date, venue_id, city_id, notes")
+        .eq("id", fromReservationId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!fromReservationId,
+  });
+
+  useEffect(() => {
+    if (reservationData) {
+      const venue = (venuesMap as any)[reservationData.venue_id];
+      setForm({
+        ...emptyForm,
+        name: reservationData.notes || "",
+        date: reservationData.date,
+        venue_id: reservationData.venue_id || "",
+        city_id: reservationData.city_id || venue?.city_id || "",
+      });
+      setReservationId(reservationData.id);
+      setShowForm(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [reservationData, venuesMap]);
+
   const createMutation = useMutation({
     mutationFn: async (data: EventForm) => {
       const venueName = data.venue_id ? (venuesMap as any)[data.venue_id]?.name : null;
@@ -198,14 +233,23 @@ export default function Events() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // If created from a reservation, delete the reservation
+      if (reservationId) {
+        await supabase.from("venue_reservations").delete().eq("id", reservationId);
+        queryClient.invalidateQueries({ queryKey: ["venue-reservations"] });
+        setReservationId(null);
+        toast({ title: "Evento criado e reserva convertida com sucesso!" });
+      } else {
+        toast({ title: "Evento criado com sucesso!" });
+      }
       queryClient.invalidateQueries({ queryKey: ["events_full"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
       queryClient.invalidateQueries({ queryKey: ["cities_map"] });
       queryClient.invalidateQueries({ queryKey: ["venues_map"] });
       setShowForm(false);
       setForm({ ...emptyForm });
-      toast({ title: "Evento criado com sucesso!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar evento", description: err.message, variant: "destructive" });

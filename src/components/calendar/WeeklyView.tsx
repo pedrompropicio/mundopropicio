@@ -102,7 +102,13 @@ export function WeeklyView({ events, weekStart, onPrevWeek, onNextWeek, onGoToda
                   return (
                     <button
                       key={`${ev.id}-${j}`}
-                      onClick={() => { if (!ev.isReservation) navigate(`/eventos/${ev.id}`); }}
+                      onClick={() => {
+                        if (ev.isReservation) {
+                          navigate(`/eventos?from_reservation=${ev.id}`);
+                        } else {
+                          navigate(`/eventos/${ev.id}`);
+                        }
+                      }}
                       className={cn(
                         "w-full text-left rounded-md px-1.5 py-1 text-[11px] font-medium border transition-colors hover:opacity-80",
                         cfg.color,

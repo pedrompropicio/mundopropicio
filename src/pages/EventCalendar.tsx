@@ -421,7 +421,11 @@ export default function EventCalendar() {
                         <button
                           key={`${ev.id}-${j}`}
                           onClick={() => {
-                            if (!ev.isReservation) navigate(`/eventos/${ev.id}`);
+                            if (ev.isReservation) {
+                              navigate(`/eventos?from_reservation=${ev.id}`);
+                            } else {
+                              navigate(`/eventos/${ev.id}`);
+                            }
                           }}
                           className={cn(
                             "w-full text-left rounded px-1 py-0.5 text-[10px] lg:text-xs font-medium truncate border transition-colors hover:opacity-80",
@@ -549,9 +553,10 @@ export default function EventCalendar() {
                 month: "short",
               });
               return (
-                <div
+              <div
                   key={r.id}
-                  className="flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/30 transition-colors"
+                  onClick={() => navigate(`/eventos?from_reservation=${r.id}`)}
+                  className="flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/30 transition-colors cursor-pointer"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30">
                     <MapPin className="h-4 w-4" />

@@ -99,7 +99,13 @@ export function AgendaView({ events, currentMonth, currentYear }: AgendaViewProp
                 return (
                   <button
                     key={`${ev.id}-${i}`}
-                    onClick={() => { if (!ev.isReservation) navigate(`/eventos/${ev.id}`); }}
+                    onClick={() => {
+                      if (ev.isReservation) {
+                        navigate(`/eventos?from_reservation=${ev.id}`);
+                      } else {
+                        navigate(`/eventos/${ev.id}`);
+                      }
+                    }}
                     className={cn(
                       "w-full flex items-center gap-3 rounded-lg p-2.5 transition-colors text-left group",
                       isToday ? "bg-primary/5 border border-primary/30" : "hover:bg-secondary/30",
