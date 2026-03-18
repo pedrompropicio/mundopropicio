@@ -44,6 +44,7 @@ function buildPL(
   let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
+  let totalTicketActualRevenue = 0;
   if (evtZones.length > 0) {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
