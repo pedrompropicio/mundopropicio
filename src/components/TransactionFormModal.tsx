@@ -66,14 +66,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const { data: financialAccounts = [] } = useQuery({
-    queryKey: ["financial-accounts-active"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
 
 
   const createMutation = useMutation({
@@ -107,7 +99,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.description || !form.amount || !form.event_id || !form.account_id) {
+    if (!form.description || !form.amount || !form.event_id) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
@@ -195,14 +187,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta *</label>
-            <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="">Selecionar conta…</option>
-              {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </div>
 
           {form.type === "expense" && (
             <div>
