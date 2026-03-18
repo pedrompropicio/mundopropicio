@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2 } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck } from "lucide-react";
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
