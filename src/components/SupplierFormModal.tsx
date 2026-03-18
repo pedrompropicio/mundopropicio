@@ -1,17 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
-
-const supplierCategories = [
-  "Som e Iluminação", "Palcos e Estruturas", "Catering", "Segurança",
-  "Transportes", "Alojamento", "Marketing", "Artistas/Agências",
-  "Decoração", "Limpeza", "Seguros", "Outro",
-];
 
 interface SupplierFormModalProps {
   open: boolean;
