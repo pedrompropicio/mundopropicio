@@ -108,7 +108,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       subs.forEach((sub: any) => {
         opts.push({
           value: sub.id,
-          label: sub.name,
+          label: `${ev.name} — ${sub.name}`,
           group: groupName,
           indent: true,
           icon: "↳",
