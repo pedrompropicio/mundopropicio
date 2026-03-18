@@ -51,7 +51,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required, supplier_required").eq("is_active", true).order("code");
+      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required").eq("is_active", true).order("code");
       if (error) throw error;
       return data;
     },
@@ -107,14 +107,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   // Find root category flags for selected category
   const getRootFlags = (categoryId: string) => {
-    if (!categoryId) return { event_required: true, supplier_required: true };
+    if (!categoryId) return { event_required: true };
     let cat = categories.find((c: any) => c.id === categoryId);
     while (cat && cat.parent_id) {
       cat = categories.find((c: any) => c.id === cat!.parent_id);
     }
     return {
       event_required: cat?.event_required ?? true,
-      supplier_required: cat?.supplier_required ?? true,
     };
   };
 
@@ -128,10 +127,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
     if (rootFlags.event_required && !form.event_id) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
-      return;
-    }
-    if (form.type === "expense" && rootFlags.supplier_required && !form.supplier_id) {
-      toast({ title: "Selecione o fornecedor (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
     if (form.type === "income" && !form.account_id) {
@@ -235,11 +230,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {form.type === "expense" && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor {rootFlags.supplier_required ? "*" : ""}</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
               <div className="flex gap-2">
                 <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
                   className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">{rootFlags.supplier_required ? "Selecionar…" : "Sem fornecedor"}</option>
+                  <option value="">Sem fornecedor</option>
                   {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <button

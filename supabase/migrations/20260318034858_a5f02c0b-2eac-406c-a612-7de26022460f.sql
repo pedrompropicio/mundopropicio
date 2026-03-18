@@ -1,0 +1,1 @@
+ALTER TABLE public.account_categories DROP COLUMN supplier_required;

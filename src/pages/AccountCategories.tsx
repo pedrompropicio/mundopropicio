@@ -18,7 +18,6 @@ interface Category {
   parent_id: string | null;
   is_active: boolean;
   event_required: boolean;
-  supplier_required: boolean;
   children?: Category[];
 }
 
@@ -96,9 +95,8 @@ function CategoryRow({
           </span>
         </td>
         {level === 0 && (
-          <td className="py-2.5 text-center text-xs space-x-2">
+          <td className="py-2.5 text-center text-xs">
             <span className={cat.event_required ? "text-success" : "text-muted-foreground"}>{cat.event_required ? "Evento ✓" : "Evento ✗"}</span>
-            <span className={cat.supplier_required ? "text-success" : "text-muted-foreground"}>{cat.supplier_required ? "Fornec. ✓" : "Fornec. ✗"}</span>
           </td>
         )}
         {level > 0 && <td className="py-2.5" />}
@@ -190,14 +188,13 @@ export default function AccountCategories() {
   }, [categories]);
 
   const createMutation = useMutation({
-    mutationFn: async (cat: { code: string; name: string; type: string; parent_id?: string; event_required?: boolean; supplier_required?: boolean }) => {
+    mutationFn: async (cat: { code: string; name: string; type: string; parent_id?: string; event_required?: boolean }) => {
       const { error } = await supabase.from("account_categories").insert({
         code: cat.code,
         name: cat.name,
         type: cat.type,
         parent_id: cat.parent_id || null,
         event_required: cat.event_required ?? true,
-        supplier_required: cat.supplier_required ?? true,
       });
       if (error) throw error;
     },
@@ -210,10 +207,9 @@ export default function AccountCategories() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, code, name, event_required, supplier_required }: { id: string; code: string; name: string; event_required?: boolean; supplier_required?: boolean }) => {
+    mutationFn: async ({ id, code, name, event_required }: { id: string; code: string; name: string; event_required?: boolean }) => {
       const updateData: any = { code, name };
       if (event_required !== undefined) updateData.event_required = event_required;
-      if (supplier_required !== undefined) updateData.supplier_required = supplier_required;
       const { error } = await supabase.from("account_categories").update(updateData).eq("id", id);
       if (error) throw error;
     },
@@ -281,7 +277,6 @@ export default function AccountCategories() {
       type: fd.get("type") as string,
       parent_id: parentId || undefined,
       event_required: isRoot ? fd.get("event_required") === "on" : true,
-      supplier_required: isRoot ? fd.get("supplier_required") === "on" : true,
     });
   };
 
@@ -296,7 +291,6 @@ export default function AccountCategories() {
       name: fd.get("name") as string,
       ...(isRoot ? {
         event_required: fd.get("edit_event_required") === "on",
-        supplier_required: fd.get("edit_supplier_required") === "on",
       } : {}),
     });
   };
@@ -357,15 +351,9 @@ export default function AccountCategories() {
                 </div>
                 <div className="space-y-2 rounded-lg border border-border/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (apenas para nível 1)</p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="event_required" name="event_required" defaultChecked={true} className="rounded border-border" />
-                      <Label htmlFor="event_required" className="text-sm">Evento</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="supplier_required" name="supplier_required" defaultChecked={true} className="rounded border-border" />
-                      <Label htmlFor="supplier_required" className="text-sm">Fornecedor</Label>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="event_required" name="event_required" defaultChecked={true} className="rounded border-border" />
+                    <Label htmlFor="event_required" className="text-sm">Evento obrigatório</Label>
                   </div>
                 </div>
                 <button type="submit" className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground">
@@ -475,15 +463,9 @@ export default function AccountCategories() {
               {!editingCat.parent_id && (
                 <div className="space-y-2 rounded-lg border border-border/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (nível 1)</p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="edit_event_required" name="edit_event_required" defaultChecked={editingCat.event_required} className="rounded border-border" />
-                      <Label htmlFor="edit_event_required" className="text-sm">Evento</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="edit_supplier_required" name="edit_supplier_required" defaultChecked={editingCat.supplier_required} className="rounded border-border" />
-                      <Label htmlFor="edit_supplier_required" className="text-sm">Fornecedor</Label>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="edit_event_required" name="edit_event_required" defaultChecked={editingCat.event_required} className="rounded border-border" />
+                    <Label htmlFor="edit_event_required" className="text-sm">Evento obrigatório</Label>
                   </div>
                 </div>
               )}
