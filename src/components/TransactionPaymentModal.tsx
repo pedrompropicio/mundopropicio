@@ -109,6 +109,37 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         </div>
 
         <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary/50",
+                !paymentDate && "text-muted-foreground"
+              )}>
+                {paymentDate ? format(paymentDate, "dd/MM/yyyy", { locale: pt }) : "Selecionar data…"}
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[80]" align="start">
+              <Calendar
+                mode="single"
+                selected={paymentDate}
+                onSelect={(d) => d && setPaymentDate(d)}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
+          <input type="text" value={invoiceRef}
+            onChange={(e) => setInvoiceRef(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: FT 2026/001" />
+        </div>
+
+        <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a pagar (€)</label>
           <input type="number" step="0.01" min="0.01" max={balance} value={paymentAmount}
             onChange={(e) => setPaymentAmount(e.target.value)}
