@@ -523,12 +523,14 @@ export function EventForecast({ eventId, eventDate }: Props) {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                     <thead>
                       <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
-                        <th className="pb-2 text-right font-medium">IVA</th>
-                        <th className="pb-2 text-right font-medium">Valor</th>
+                        <th className="pb-2 text-right font-medium">IVA %</th>
+                        <th className="pb-2 text-right font-medium">Valor s/ IVA</th>
+                        <th className="pb-2 text-right font-medium">IVA (€)</th>
+                        <th className="pb-2 text-right font-medium">Total (€)</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
