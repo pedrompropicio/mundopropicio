@@ -39,6 +39,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
+  const [plExpanded, setPlExpanded] = useState(true);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -347,8 +348,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* P&L forecast lines summary */}
-          {hasPL && form.event_id && (() => {
+           {/* P&L forecast lines summary */}
+          {hasPL && form.event_id && plExpanded && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
             if (typeForecasts.length === 0) return null;
 
@@ -371,9 +372,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
             return (
               <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas
-                </p>
+                <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
+                </button>
                 <div className="max-h-40 overflow-y-auto">
                   <table className="w-full text-[11px]">
                     <thead>
@@ -391,7 +392,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                         return (
                           <tr
                             key={l.catId}
-                            onClick={() => l.catId !== "none" && setForm(prev => ({ ...prev, category_id: l.catId }))}
+                            onClick={() => { if (l.catId !== "none") { setForm(prev => ({ ...prev, category_id: l.catId })); setPlExpanded(false); } }}
                             className={`cursor-pointer transition-colors ${
                               isSelected
                                 ? "bg-primary/10 font-medium"
@@ -415,6 +416,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               </div>
             );
           })()}
+
+          {hasPL && form.event_id && !plExpanded && (
+            <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+              P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
+            </button>
+          )}
+
 
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && (
