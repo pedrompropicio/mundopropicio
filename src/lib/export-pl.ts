@@ -117,7 +117,7 @@ function buildPLForExport(
 
 export function exportPLToExcel(
   events: any[], forecasts: any[], transactions: any[], categories: any[],
-  ticketZones: any[] = [], ticketLots: any[] = []
+  ticketZones: any[] = [], ticketLots: any[] = [], mode: PLMode = "comparison"
 ) {
   const wb = XLSX.utils.book_new();
 
