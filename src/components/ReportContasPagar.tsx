@@ -197,7 +197,7 @@ export default function ReportContasPagar() {
           {/* Event multi-select */}
           <div className="flex-1 min-w-[200px]">
             <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Eventos</label>
-            <Popover>
+            <Popover modal={false}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-left font-normal">
                   <Filter className="mr-2 h-4 w-4" />
@@ -206,7 +206,7 @@ export default function ReportContasPagar() {
                     : `${selectedEventIds.size} evento(s) selecionado(s)`}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start">
+              <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                 <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
                   <Checkbox
                     checked={selectedEventIds.size === events.length && events.length > 0}
