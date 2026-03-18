@@ -179,6 +179,12 @@ export default function EventDetail() {
             {eventTypeLabels[eventType]}
           </span>
           <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </button>
             {isAdmin && event.status === "active" && (
               <button
                 onClick={() => {
