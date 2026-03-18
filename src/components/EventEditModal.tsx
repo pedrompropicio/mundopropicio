@@ -21,6 +21,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [budget, setBudget] = useState(String(event.budget || ""));
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
+  const [plMode, setPlMode] = useState(event.pl_mode || "passive");
 
   const eventType = event.event_type || "simple";
 
