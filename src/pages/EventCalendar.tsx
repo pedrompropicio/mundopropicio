@@ -50,6 +50,13 @@ export default function EventCalendar() {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+  });
 
   const { data: events = [] } = useQuery({
     queryKey: ["calendar-events"],
