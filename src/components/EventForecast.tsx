@@ -682,8 +682,14 @@ export function EventForecast({ eventId, eventDate }: Props) {
                                 <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                               </select>
                             </td>
-                            <td className="py-1.5 pr-2">
+                             <td className="py-1.5 pr-2">
                               <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+                              {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+                              {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
                             </td>
                             <td className="py-1.5 text-right">
                               <div className="flex justify-end gap-1">
