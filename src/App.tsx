@@ -60,6 +60,7 @@ function ProtectedLayout() {
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/relatorios" element={<Reports />} />
+              <Route path="/bilhetes" element={<TicketManagement />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="*" element={<NotFound />} />
