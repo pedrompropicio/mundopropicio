@@ -32,6 +32,7 @@ const emptyInline: InlineForm = {
 interface Props {
   eventId: string;
   eventDate: string;
+  childEventIds?: string[];
 }
 
 export function EventForecast({ eventId, eventDate }: Props) {
