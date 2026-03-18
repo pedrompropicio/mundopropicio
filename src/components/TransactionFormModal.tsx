@@ -105,10 +105,29 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
+  // Find root category flags for selected category
+  const getRootFlags = (categoryId: string) => {
+    if (!categoryId) return { event_required: true, supplier_required: true };
+    let cat = categories.find((c: any) => c.id === categoryId);
+    while (cat && cat.parent_id) {
+      cat = categories.find((c: any) => c.id === cat!.parent_id);
+    }
+    return {
+      event_required: cat?.event_required ?? true,
+      supplier_required: cat?.supplier_required ?? true,
+    };
+  };
+
+  const rootFlags = getRootFlags(form.category_id);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.description || !form.amount || !form.event_id) {
+    if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    if (rootFlags.event_required && !form.event_id) {
+      toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
     if (form.type === "income" && !form.account_id) {
