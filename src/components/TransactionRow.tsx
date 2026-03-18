@@ -109,11 +109,6 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           {isExpense && balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
           )}
-          {t.due_date && computedStatus !== "paid" && (
-            <p className={`mt-0.5 text-[10px] ${computedStatus === "overdue" ? "text-destructive" : "text-muted-foreground"}`}>
-              Venc: {new Date(t.due_date).toLocaleDateString("pt-PT")}
-            </p>
-          )}
         </td>
         <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}</td>
         <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
