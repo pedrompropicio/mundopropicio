@@ -19,6 +19,7 @@ import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import TicketManagement from "./pages/TicketManagement";
+import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
 import ReportPLPage from "./pages/ReportPLPage";
 import ReportBankStatementPage from "./pages/ReportBankStatementPage";
@@ -67,12 +68,14 @@ function ProtectedLayout() {
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/bilhetes" element={<TicketManagement />} />
               <Route path="/iva" element={<IvaManagement />} />
-              <Route path="/relatorios" element={<Navigate to="/relatorios/dre" replace />} />
-              <Route path="/relatorios/dre" element={<ReportDREPage />} />
-              <Route path="/relatorios/pl" element={<ReportPLPage />} />
-              <Route path="/relatorios/extrato" element={<ReportBankStatementPage />} />
-              <Route path="/relatorios/contas-pagar" element={<ReportContasPagarPage />} />
-              <Route path="/relatorios/listas-pagamento" element={<ReportPaymentListsPage />} />
+              <Route path="/relatorios" element={<Reports />}>
+                <Route index element={<Navigate to="/relatorios/dre" replace />} />
+                <Route path="dre" element={<ReportDREPage />} />
+                <Route path="pl" element={<ReportPLPage />} />
+                <Route path="extrato" element={<ReportBankStatementPage />} />
+                <Route path="contas-pagar" element={<ReportContasPagarPage />} />
+                <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
+              </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
