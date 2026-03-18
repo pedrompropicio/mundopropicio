@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Star, FileText, Phone, Mail, Building2 } from "lucide-react";
+import { Plus, Search, Star, FileText, Phone, Mail, Building2, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { formatDate } from "@/lib/mock-data";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { toast } from "sonner";
 
 export default function Suppliers() {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -20,6 +22,21 @@ export default function Suppliers() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("suppliers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      setDeletingId(null);
+      toast.success("Fornecedor eliminado");
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao eliminar", { description: err.message });
+      setDeletingId(null);
+    },
+  });
 
   const filtered = suppliers.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -27,7 +44,6 @@ export default function Suppliers() {
     (s.nif && s.nif.includes(search)) ||
     (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
   );
-
 
   return (
     <div className="space-y-6">
@@ -37,13 +53,46 @@ export default function Suppliers() {
           <p className="text-sm text-muted-foreground">Gestão de fornecedores e parceiros</p>
         </div>
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => { setEditingSupplier(null); setIsOpen(true); }}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
         >
           <Plus className="h-4 w-4" /> Novo Fornecedor
         </button>
-        <SupplierFormModal open={isOpen} onOpenChange={setIsOpen} />
       </div>
+
+      <SupplierFormModal
+        key={editingSupplier?.id ?? "new"}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        editingSupplier={editingSupplier}
+      />
+
+      {/* Delete confirmation */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingId(null)}>
+          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Eliminar Fornecedor?</h3>
+            <p className="text-sm text-muted-foreground">
+              Esta ação não pode ser desfeita. O fornecedor será removido permanentemente.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => deleteMutation.mutate(deletingId)}
+                disabled={deleteMutation.isPending}
+                className="flex-1 rounded-lg bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
+              </button>
+              <button
+                onClick={() => setDeletingId(null)}
+                className="flex-1 rounded-lg bg-secondary py-2.5 text-sm font-medium text-secondary-foreground"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -59,17 +108,33 @@ export default function Suppliers() {
           {filtered.map((s) => (
             <div key={s.id} className="glass rounded-xl p-5 space-y-3">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-foreground">{s.name}</h3>
                   {(s as any).trade_name && <p className="text-xs text-foreground/70">{(s as any).trade_name}</p>}
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
-                {s.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                    <span className="text-xs font-medium">{s.rating}/5</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1 ml-2 shrink-0">
+                  {s.rating && (
+                    <div className="flex items-center gap-1 mr-1">
+                      <Star className="h-3.5 w-3.5 fill-warning text-warning" />
+                      <span className="text-xs font-medium">{s.rating}/5</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
+                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setDeletingId(s.id)}
+                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5 text-sm text-muted-foreground">
                 {s.nif && <p className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5" /> NIF: {s.nif}</p>}
