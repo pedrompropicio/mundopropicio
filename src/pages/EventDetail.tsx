@@ -218,6 +218,11 @@ export default function EventDetail() {
             <EventTypeIcon className="h-3 w-3" />
             {eventTypeLabels[eventType]}
           </span>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
+            event.pl_mode === "active" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+          }`}>
+            P&L {event.pl_mode === "active" ? "Ativo" : "Passivo"}
+          </span>
           <div className="ml-auto flex gap-2">
             <button
               onClick={() => setShowEditModal(true)}

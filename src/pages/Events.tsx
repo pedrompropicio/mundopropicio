@@ -38,6 +38,7 @@ interface EventForm {
   tickets_total: string;
   status: string;
   event_type: EventType;
+  pl_mode: "active" | "passive";
   festival_dates: string[];
   sub_events: SubEventForm[];
 }
@@ -51,6 +52,7 @@ const emptyForm: EventForm = {
   tickets_total: "",
   status: "planning",
   event_type: "simple",
+  pl_mode: "passive",
   festival_dates: [],
   sub_events: [{ name: "", date: "", city_id: "", venue_id: "" }],
 };
@@ -154,6 +156,7 @@ export default function Events() {
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
         event_type: data.event_type,
+        pl_mode: data.pl_mode,
         city_id: data.city_id || null,
         venue_id: data.venue_id || null,
       } as any).select().single();
@@ -365,6 +368,37 @@ export default function Events() {
                     <option value="completed">Concluído</option>
                     <option value="cancelled">Cancelado</option>
                   </select>
+                </div>
+              </div>
+
+              {/* P&L Mode */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-muted-foreground">Modo P&L *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, pl_mode: "active" })}
+                    className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                      form.pl_mode === "active"
+                        ? "border-success bg-success/10 text-success"
+                        : "border-border bg-background text-muted-foreground hover:border-success/40"
+                    }`}
+                  >
+                    <span className="block font-semibold">P&L Ativo</span>
+                    <span className="block text-[10px] opacity-70 mt-0.5">Controla saldo por categoria do P&L</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, pl_mode: "passive" })}
+                    className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                      form.pl_mode === "passive"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    <span className="block font-semibold">P&L Passivo</span>
+                    <span className="block text-[10px] opacity-70 mt-0.5">Transações livres sem controlo</span>
+                  </button>
                 </div>
               </div>
 

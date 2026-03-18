@@ -42,9 +42,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: events = [] } = useQuery({
     queryKey: ["events-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name").eq("status", "active").order("name");
+      const { data, error } = await supabase.from("events").select("id, name, pl_mode" as any).eq("status", "active").order("name");
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
@@ -74,6 +74,59 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       return data;
     },
   });
+
+  // Get the selected event's pl_mode
+  const selectedEvent = events.find((e: any) => e.id === form.event_id);
+  const isActivePL = selectedEvent?.pl_mode === "active";
+
+  // Fetch forecasts for active P&L events
+  const { data: eventForecasts = [] } = useQuery({
+    queryKey: ["event_forecasts_budget", form.event_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, type, category_id, amount, status")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id && isActivePL,
+  });
+
+  // Fetch existing transactions for the event to calculate used budget
+  const { data: eventTransactions = [] } = useQuery({
+    queryKey: ["event_transactions_budget", form.event_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, type, category_id, amount")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id && isActivePL,
+  });
+
+  // For active P&L: get allowed categories and remaining budgets
+  const forecastBudgetByCategory = isActivePL
+    ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
+        const key = `${f.type}_${f.category_id || "none"}`;
+        acc[key] = (acc[key] || 0) + Number(f.amount);
+        return acc;
+      }, {})
+    : {};
+
+  const usedBudgetByCategory = isActivePL
+    ? eventTransactions.reduce<Record<string, number>>((acc, t) => {
+        const key = `${t.type}_${t.category_id || "none"}`;
+        acc[key] = (acc[key] || 0) + Number(t.amount);
+        return acc;
+      }, {})
+    : {};
+
+  const allowedCategoryIds = isActivePL
+    ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
+    : [];
 
 
   const createMutation = useMutation({
@@ -133,12 +186,45 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
+
+    // P&L Ativo validations
+    if (isActivePL && form.event_id) {
+      if (!form.category_id) {
+        toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
+        return;
+      }
+      if (!allowedCategoryIds.includes(form.category_id)) {
+        toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
+        return;
+      }
+      const budgetKey = `${form.type}_${form.category_id}`;
+      const forecast = forecastBudgetByCategory[budgetKey] || 0;
+      const used = usedBudgetByCategory[budgetKey] || 0;
+      const newAmount = parseFloat(form.amount) || 0;
+      const remaining = forecast - used;
+      if (newAmount > remaining) {
+        toast({
+          title: "Saldo insuficiente no P&L",
+          description: `Orçamento: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     createMutation.mutate(form);
   };
 
-  const filteredCategories = categories.filter((c) =>
-    form.type === "income" ? c.type === "income" : c.type === "expense"
-  );
+  // Filter categories - for active P&L, only show categories in the forecast
+  const filteredCategories = categories.filter((c) => {
+    const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
+    if (!typeMatch) return false;
+    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
+      return allowedCategoryIds.includes(c.id);
+    }
+    return true;
+  });
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -200,22 +286,55 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value, event_id: "", supplier_id: "" })}
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Evento {rootFlags.event_required ? "*" : ""}
+                {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
+              </label>
+              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value, category_id: "" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Sem categoria</option>
-                {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
+                {events.map((ev: any) => <option key={ev.id} value={ev.id}>{ev.name} {ev.pl_mode === "active" ? "🔒" : ""}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value })}
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Categoria {isActivePL ? "*" : ""}
+              </label>
+              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
-                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                <option value="">{isActivePL ? "Selecionar do P&L…" : "Sem categoria"}</option>
+                {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>
+
+          {/* Budget indicator for active P&L */}
+          {isActivePL && form.category_id && form.event_id && (() => {
+            const budgetKey = `${form.type}_${form.category_id}`;
+            const forecast = forecastBudgetByCategory[budgetKey] || 0;
+            const used = usedBudgetByCategory[budgetKey] || 0;
+            const remaining = forecast - used;
+            const pct = forecast > 0 ? (used / forecast) * 100 : 0;
+            return (
+              <div className="rounded-lg border border-border/50 bg-secondary/30 p-3 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Orçamento P&L</span>
+                  <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full transition-all ${pct > 90 ? "bg-destructive" : pct > 70 ? "bg-warning" : "bg-success"}`}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                  <span>Previsto: {forecast.toFixed(2)}€</span>
+                  <span>Utilizado: {used.toFixed(2)}€</span>
+                  <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {remaining.toFixed(2)}€</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {form.type === "income" && (
             <div>
