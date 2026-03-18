@@ -226,9 +226,33 @@ export default function ReportPL() {
 
   const activeEvents = selectedEventIds.length > 0 ? events.filter((e) => selectedEventIds.includes(e.id)) : events;
 
+  // Build proration map: for each sub-event, find parent's transactions/forecasts and divide by sibling count
+  const subEventParentMap: Record<string, string> = {};
+  const subCountByParent: Record<string, number> = {};
+  events.forEach((e: any) => {
+    if (e.parent_event_id) {
+      subEventParentMap[e.id] = e.parent_event_id;
+      subCountByParent[e.parent_event_id] = (subCountByParent[e.parent_event_id] || 0) + 1;
+    }
+  });
+
   const eventSummaries = activeEvents.map((e) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === e.id);
-    const evtT = transactions.filter((t: any) => t.event_id === e.id);
+    let evtF = forecasts.filter((f: any) => f.event_id === e.id);
+    let evtT = transactions.filter((t: any) => t.event_id === e.id);
+
+    // If this is a sub-event, add prorated parent data
+    const parentId = subEventParentMap[e.id];
+    if (parentId) {
+      const siblingCount = subCountByParent[parentId] || 1;
+      const parentF = forecasts
+        .filter((f: any) => f.event_id === parentId)
+        .map((f: any) => ({ ...f, amount: Number(f.amount) / siblingCount }));
+      const parentT = transactions
+        .filter((t: any) => t.event_id === parentId)
+        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+      evtF = [...evtF, ...parentF];
+      evtT = [...evtT, ...parentT];
+    }
     const fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus } from "lucide-react";
+import { X, Plus, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 
@@ -37,12 +37,13 @@ const emptyForm: TransactionForm = {
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
+  const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name, pl_mode" as any).in("status", ["planning", "active", "confirmed"]).order("name");
+      const { data, error } = await supabase.from("events").select("id, name, pl_mode, event_type, parent_event_id" as any).in("status", ["planning", "active", "confirmed"]).order("name");
       if (error) throw error;
       return data as any[];
     },
@@ -75,9 +76,21 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  // Get the selected event's pl_mode
+  // Get the selected event's pl_mode and multi_day info
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
+  const isParentMultiDay = selectedEvent?.event_type === "multi_day";
+
+  // Group events: parents and sub-events
+  const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
+  const subEventsByParent = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    events.filter((e: any) => e.parent_event_id).forEach((e: any) => {
+      if (!map[e.parent_event_id]) map[e.parent_event_id] = [];
+      map[e.parent_event_id].push(e);
+    });
+    return map;
+  }, [events]);
 
   // Fetch forecasts for active P&L events
   const { data: eventForecasts = [] } = useQuery({
@@ -212,6 +225,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
 
+    // Multi-day parent proration confirmation
+    if (isParentMultiDay && !showProrationConfirm) {
+      setShowProrationConfirm(true);
+      return;
+    }
+
+    setShowProrationConfirm(false);
     createMutation.mutate(form);
   };
 
@@ -290,10 +310,25 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 Evento {rootFlags.event_required ? "*" : ""}
                 {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
               </label>
-              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value, category_id: "" })}
+              <select value={form.event_id} onChange={(e) => { setForm({ ...form, event_id: e.target.value, category_id: "" }); setShowProrationConfirm(false); }}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                 <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
-                {events.map((ev: any) => <option key={ev.id} value={ev.id}>{ev.name} {ev.pl_mode === "active" ? "🔒" : ""}</option>)}
+                {parentEvents.map((ev: any) => {
+                  const subs = subEventsByParent[ev.id] || [];
+                  const isMulti = ev.event_type === "multi_day" && subs.length > 0;
+                  return (
+                    <optgroup key={ev.id} label={isMulti ? `🔀 ${ev.name} (Turnê)` : undefined as any}>
+                      <option value={ev.id}>
+                        {ev.name} {ev.pl_mode === "active" ? "🔒" : ""} {isMulti ? "⚡ Rateio" : ""}
+                      </option>
+                      {subs.map((sub: any) => (
+                        <option key={sub.id} value={sub.id}>
+                          {"  ↳ "}{sub.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
               </select>
             </div>
             <div>
@@ -307,6 +342,38 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
           </div>
+
+          {/* Proration confirmation for multi_day parent */}
+          {showProrationConfirm && isParentMultiDay && (
+            <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-warning">Lançamento no evento-pai (rateio)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e P&L.
+                    Se pretende lançar para uma cidade específica, selecione a data correspondente.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  className="flex-1 rounded-lg bg-warning/20 py-2 text-xs font-medium text-warning hover:bg-warning/30 transition-colors disabled:opacity-50"
+                >
+                  {createMutation.isPending ? "A guardar…" : "Confirmar Rateio"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProrationConfirm(false)}
+                  className="flex-1 rounded-lg bg-secondary py-2 text-xs font-medium text-muted-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  Voltar e Escolher Data
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Budget indicator for active P&L */}
           {isActivePL && form.category_id && form.event_id && (() => {
@@ -388,10 +455,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <button type="submit" disabled={createMutation.isPending}
-            className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
-            {createMutation.isPending ? "A guardar…" : "Criar Transação"}
-          </button>
+          {!showProrationConfirm && (
+            <button type="submit" disabled={createMutation.isPending}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
+              {createMutation.isPending ? "A guardar…" : "Criar Transação"}
+            </button>
+          )}
         </form>
       </div>
     </div>

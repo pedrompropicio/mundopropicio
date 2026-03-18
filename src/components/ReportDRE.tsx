@@ -195,8 +195,29 @@ export default function ReportDRE() {
     ? events.filter((e) => selectedEventIds.includes(e.id))
     : events;
 
+  // Build proration map: for each sub-event, find parent's transactions and divide by sibling count
+  const subEventParentMap: Record<string, string> = {};
+  const subCountByParent: Record<string, number> = {};
+  events.forEach((e: any) => {
+    if (e.parent_event_id) {
+      subEventParentMap[e.id] = e.parent_event_id;
+      subCountByParent[e.parent_event_id] = (subCountByParent[e.parent_event_id] || 0) + 1;
+    }
+  });
+
   const eventSummaries = activeEvents.map((e) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === e.id);
+    let evtTx = transactions.filter((t: any) => t.event_id === e.id);
+
+    // If this is a sub-event, add prorated parent transactions
+    const parentId = subEventParentMap[e.id];
+    if (parentId) {
+      const siblingCount = subCountByParent[parentId] || 1;
+      const parentTx = transactions
+        .filter((t: any) => t.event_id === parentId)
+        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+      evtTx = [...evtTx, ...parentTx];
+    }
+
     const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
