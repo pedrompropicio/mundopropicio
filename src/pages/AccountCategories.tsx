@@ -210,8 +210,11 @@ export default function AccountCategories() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, code, name }: { id: string; code: string; name: string }) => {
-      const { error } = await supabase.from("account_categories").update({ code, name }).eq("id", id);
+    mutationFn: async ({ id, code, name, event_required, supplier_required }: { id: string; code: string; name: string; event_required?: boolean; supplier_required?: boolean }) => {
+      const updateData: any = { code, name };
+      if (event_required !== undefined) updateData.event_required = event_required;
+      if (supplier_required !== undefined) updateData.supplier_required = supplier_required;
+      const { error } = await supabase.from("account_categories").update(updateData).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
