@@ -436,7 +436,15 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   };
 
   const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
-  const expenseGroups = useMemo(() => groupForecasts(expenseForecasts), [expenseForecasts, catLookup]);
+  const expenseGroups = useMemo(() => {
+    const groups = groupForecasts(expenseForecasts);
+    // Ensure "Artístico" group exists if there are cache lines
+    if (cacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
+      groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
+      groups.sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+    }
+    return groups;
+  }, [expenseForecasts, catLookup, cacheLines]);
 
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
@@ -790,10 +798,19 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                           <React.Fragment key={group.groupName}>
                             {showGroupHeader && (
                               <tr className="bg-secondary/10 border-t border-border/30">
-                                <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">{group.groupName}</td>
-                                <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase)}</td>
+                                <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">
+                                  {group.groupName}
+                                  {group.groupCode === "2.1" && cacheLines.length > 0 && (
+                                    <span className="ml-2 text-muted-foreground font-normal">(incl. cachês)</span>
+                                  )}
+                                </td>
+                                <td className="py-2 text-right font-mono text-xs font-semibold">
+                                  {formatCurrency(group.groupCode === "2.1" ? groupBase + totalCacheAmount : groupBase)}
+                                </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
-                                <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase + groupIva)}</td>
+                                <td className="py-2 text-right font-mono text-xs font-semibold">
+                                  {formatCurrency((group.groupCode === "2.1" ? groupBase + totalCacheAmount : groupBase) + groupIva)}
+                                </td>
                                 <td />
                               </tr>
                             )}
@@ -837,39 +854,30 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
                               )
                             ))}
+                            {/* Inject cachê lines inside the Artístico group */}
+                            {group.groupCode === "2.1" && cacheLines.length > 0 && cacheLines.map((cl, idx) => {
+                              const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
+                              return (
+                                <tr key={`cache-${idx}`} className="border-b border-border/10">
+                                  <td className="py-2.5 pr-3 pl-4" colSpan={2}>
+                                    <div className="flex items-center gap-2">
+                                      <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                      <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
+                                    </div>
+                                  </td>
+                                  <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">2.1.01 - Cachês</td>
+                                  <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
+                                  <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
+                                  <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
+                                  <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
+                                  <td />
+                                </tr>
+                              );
+                            })}
                           </React.Fragment>
                         );
                       })}
                       {addingType === "expense" && renderInlineRow("expense")}
-                      {/* Cachê lines under 2.1 Artístico > 2.1.01 Cachês */}
-                      {cacheLines.length > 0 && (
-                        <>
-                          <tr className="bg-secondary/10 border-t border-border/30">
-                            <td colSpan={8} className="py-2 pl-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              2.1.01 Cachês
-                            </td>
-                          </tr>
-                          {cacheLines.map((cl, idx) => {
-                            const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
-                            return (
-                              <tr key={`cache-${idx}`} className="border-b border-border/10">
-                                <td className="py-2.5 pr-3 pl-4" colSpan={2}>
-                                  <div className="flex items-center gap-2">
-                                    <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                    <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
-                                  </div>
-                                </td>
-                                <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">2.1.01 - Cachês</td>
-                                <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
-                                <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
-                                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
-                                <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
-                                <td />
-                              </tr>
-                            );
-                          })}
-                        </>
-                      )}
                     </tbody>
                     {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
                       <tfoot>
