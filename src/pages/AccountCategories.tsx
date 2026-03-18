@@ -95,9 +95,8 @@ function CategoryRow({
           </span>
         </td>
         {level === 0 && (
-          <td className="py-2.5 text-center text-xs space-x-2">
+          <td className="py-2.5 text-center text-xs">
             <span className={cat.event_required ? "text-success" : "text-muted-foreground"}>{cat.event_required ? "Evento ✓" : "Evento ✗"}</span>
-            <span className={cat.supplier_required ? "text-success" : "text-muted-foreground"}>{cat.supplier_required ? "Fornec. ✓" : "Fornec. ✗"}</span>
           </td>
         )}
         {level > 0 && <td className="py-2.5" />}
