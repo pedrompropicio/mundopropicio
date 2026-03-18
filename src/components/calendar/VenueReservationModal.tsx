@@ -50,7 +50,6 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
   const venueOptions = filteredVenues.map((v) => ({ value: v.id, label: v.name }));
 
   const handleSave = async () => {
-    if (!name.trim()) { toast.error("Preencha o nome do evento"); return; }
     if (!date) { toast.error("Selecione uma data"); return; }
     if (!venueId) { toast.error("Selecione uma sala"); return; }
 
@@ -58,7 +57,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
     try {
       const selectedVenue = venues.find((v) => v.id === venueId);
       const { error } = await supabase.from("events").insert({
-        name: name.trim(),
+        name: name.trim() || `Reserva — ${selectedVenue?.name || "Sala"}`,
         date,
         venue_id: venueId,
         city_id: cityId || selectedVenue?.city_id || null,
@@ -93,21 +92,12 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
 
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label>Nome do Evento</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Concerto de Verão"
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label>Data</Label>
             <Input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              autoFocus
             />
           </div>
 
@@ -131,6 +121,15 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
               value={venueId}
               onValueChange={setVenueId}
               placeholder="Selecionar sala..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Nome do Evento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Deixe em branco se ainda não definido"
             />
           </div>
 
