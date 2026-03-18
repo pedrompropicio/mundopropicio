@@ -1149,7 +1149,7 @@ function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cac
               {cacheLines.length > 0 && (
                 <>
                   <tr className="bg-secondary/10 border-t border-border/30">
-                    <td className="py-1.5 pl-2 text-xs font-semibold">Cachê das Atrações</td>
+                    <td className="py-1.5 pl-2 text-xs font-semibold">2.1.01 Cachês</td>
                     <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(totalCacheF)}</td>
                     <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(0)}</td>
                     <td className={`py-1.5 text-right font-mono text-xs font-semibold text-destructive`}>{formatCurrency(0 - totalCacheF)}</td>
