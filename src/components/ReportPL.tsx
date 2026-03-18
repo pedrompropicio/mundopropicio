@@ -217,31 +217,47 @@ export default function ReportPL() {
     },
   });
 
+  // Build proration map
+  const subEventParentMap: Record<string, string> = {};
+  const subCountByParent: Record<string, number> = {};
+  const childrenByParent: Record<string, string[]> = {};
+  events.forEach((e: any) => {
+    if (e.parent_event_id) {
+      subEventParentMap[e.id] = e.parent_event_id;
+      subCountByParent[e.parent_event_id] = (subCountByParent[e.parent_event_id] || 0) + 1;
+      if (!childrenByParent[e.parent_event_id]) childrenByParent[e.parent_event_id] = [];
+      childrenByParent[e.parent_event_id].push(e.id);
+    }
+  });
+
+  // Mutual exclusion: selecting parent deselects children and vice versa
   const toggleEvent = (id: string) => {
-    setSelectedEventIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setSelectedEventIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      let next = [...prev, id];
+      const children = childrenByParent[id];
+      if (children) {
+        next = next.filter((x) => !children.includes(x));
+      }
+      const parentId = subEventParentMap[id];
+      if (parentId) {
+        next = next.filter((x) => x !== parentId);
+      }
+      return next;
+    });
   };
+
   const toggleAll = () => {
     setSelectedEventIds((prev) => prev.length === events.length ? [] : events.map((e) => e.id));
   };
 
   const activeEvents = selectedEventIds.length > 0 ? events.filter((e) => selectedEventIds.includes(e.id)) : events;
 
-  // Build proration map: for each sub-event, find parent's transactions/forecasts and divide by sibling count
-  const subEventParentMap: Record<string, string> = {};
-  const subCountByParent: Record<string, number> = {};
-  events.forEach((e: any) => {
-    if (e.parent_event_id) {
-      subEventParentMap[e.id] = e.parent_event_id;
-      subCountByParent[e.parent_event_id] = (subCountByParent[e.parent_event_id] || 0) + 1;
-    }
-  });
-
-  const eventSummaries = activeEvents.map((e) => {
-    let evtF = forecasts.filter((f: any) => f.event_id === e.id);
-    let evtT = transactions.filter((t: any) => t.event_id === e.id);
-
-    // If this is a sub-event, add prorated parent data
-    const parentId = subEventParentMap[e.id];
+  // Helper: get effective transactions/forecasts for an event (with proration)
+  function getEffectiveData(eventId: string) {
+    let evtF = forecasts.filter((f: any) => f.event_id === eventId);
+    let evtT = transactions.filter((t: any) => t.event_id === eventId);
+    const parentId = subEventParentMap[eventId];
     if (parentId) {
       const siblingCount = subCountByParent[parentId] || 1;
       const parentF = forecasts
@@ -253,11 +269,24 @@ export default function ReportPL() {
       evtF = [...evtF, ...parentF];
       evtT = [...evtT, ...parentT];
     }
+    const children = childrenByParent[eventId];
+    if (children && children.length > 0) {
+      children.forEach((childId) => {
+        const childF = forecasts.filter((f: any) => f.event_id === childId);
+        const childT = transactions.filter((t: any) => t.event_id === childId);
+        evtF = [...evtF, ...childF];
+        evtT = [...evtT, ...childT];
+      });
+    }
+    return { evtF, evtT };
+  }
+
+  const eventSummaries = activeEvents.map((e) => {
+    const { evtF, evtT } = getEffectiveData(e.id);
     const fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    // Add ticket lot revenue to forecast income and ticket sales to actual income
     const evtZones = ticketZones.filter((z: any) => z.event_id === e.id);
     let ticketRev = 0;
     let ticketActualRev = 0;
@@ -313,13 +342,30 @@ export default function ReportPL() {
               {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
             </button>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {events.map((e) => (
-              <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
-                <span>{e.name}</span>
-              </label>
-            ))}
+          <div className="flex flex-col gap-2">
+            {events.filter((e) => !e.parent_event_id).map((e) => {
+              const children = events.filter((c) => c.parent_event_id === e.id);
+              const isParent = children.length > 0;
+              return (
+                <div key={e.id}>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
+                    <span className={isParent ? "font-semibold" : ""}>{e.name}</span>
+                    {isParent && <span className="text-xs text-muted-foreground">(consolidado)</span>}
+                  </label>
+                  {isParent && (
+                    <div className="ml-6 mt-1 flex flex-col gap-1">
+                      {children.map((c) => (
+                        <label key={c.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <Checkbox checked={selectedEventIds.includes(c.id)} onCheckedChange={() => toggleEvent(c.id)} />
+                          <span className="text-muted-foreground">↳ {c.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
           </div>
           {selectedEventIds.length === 0 && events.length > 0 && (
@@ -375,8 +421,7 @@ export default function ReportPL() {
       <div className="space-y-3">
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
-          const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-          const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+          const { evtF, evtT } = getEffectiveData(evt.id);
           const pl = isOpen ? buildPL(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id) : [];
 
           return (
