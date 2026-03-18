@@ -410,17 +410,20 @@ export function exportPLToPDF(
   });
 
   // Summary table per event
+  const numSumCols = isComparison ? 5 : 4;
+  const sumColW = contentWidth / numSumCols;
   doc.setFillColor(30, 30, 40);
   doc.rect(marginLeft, y, contentWidth, 8, "F");
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  const sumColW = contentWidth / 5;
   doc.text("Evento", marginLeft + 2, y + 5.5);
-  doc.text("Receitas Prev.", marginLeft + sumColW + sumColW - 2, y + 5.5, { align: "right" });
+  doc.text("Receitas Prev.", marginLeft + sumColW * 2 - 2, y + 5.5, { align: "right" });
   doc.text("Despesas Prev.", marginLeft + sumColW * 3 - 2, y + 5.5, { align: "right" });
   doc.text("Resultado Prev.", marginLeft + sumColW * 4 - 2, y + 5.5, { align: "right" });
-  doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
+  if (isComparison) {
+    doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
+  }
   doc.setTextColor(0, 0, 0);
   y += 10;
 
@@ -446,8 +449,10 @@ export function exportPLToPDF(
     doc.text(fmtVal(evtFExp), marginLeft + sumColW * 3 - 2, y + 4, { align: "right" });
     doc.setTextColor(fResult >= 0 ? 34 : 200, fResult >= 0 ? 139 : 50, fResult >= 0 ? 34 : 50);
     doc.text(fmtVal(fResult), marginLeft + sumColW * 4 - 2, y + 4, { align: "right" });
-    doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
-    doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+    if (isComparison) {
+      doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
+      doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+    }
     doc.setTextColor(0, 0, 0);
     y += 7;
   });
@@ -462,11 +467,13 @@ export function exportPLToPDF(
   doc.text(fmtVal(gFInc), marginLeft + sumColW * 2 - 2, y + 5, { align: "right" });
   doc.text(fmtVal(gFExp), marginLeft + sumColW * 3 - 2, y + 5, { align: "right" });
   const gFRes = gFInc - gFExp;
-  const gTRes = gTInc - gTExp;
   doc.setTextColor(gFRes >= 0 ? 34 : 200, gFRes >= 0 ? 139 : 50, gFRes >= 0 ? 34 : 50);
   doc.text(fmtVal(gFRes), marginLeft + sumColW * 4 - 2, y + 5, { align: "right" });
-  doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
-  doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+  if (isComparison) {
+    const gTRes = gTInc - gTExp;
+    doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
+    doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+  }
   doc.setTextColor(0, 0, 0);
 
   // Footer
