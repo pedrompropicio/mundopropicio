@@ -242,6 +242,14 @@ export default function UserManagement() {
                             {u.role === "admin" ? "Remover Admin" : "Tornar Admin"}
                           </button>
                           <button
+                            onClick={() => resendResetMutation.mutate({ email: u.email, name: u.full_name })}
+                            disabled={resendResetMutation.isPending}
+                            className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                            title="Reenviar email de definição de senha"
+                          >
+                            <MailCheck className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => {
                               if (confirm(`Eliminar o utilizador ${u.full_name || u.email}?`)) {
                                 deleteUserMutation.mutate(u.id);
@@ -252,6 +260,7 @@ export default function UserManagement() {
                             title="Eliminar utilizador"
                           >
                             <Trash2 className="h-4 w-4" />
+                          </button>
                           </button>
                         </div>
                       )}
