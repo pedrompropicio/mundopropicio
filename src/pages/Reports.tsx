@@ -5,6 +5,8 @@ import {
   Landmark,
   Receipt,
   ClipboardList,
+  Users,
+  FolderTree,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,6 +24,8 @@ const reportItems = [
   { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário" },
   { to: "/relatorios/contas-pagar", icon: Receipt, label: "Contas a Pagar" },
   { to: "/relatorios/listas-pagamento", icon: ClipboardList, label: "Listas de Pagamento" },
+  { to: "/relatorios/fornecedores", icon: Users, label: "Fornecedores" },
+  { to: "/relatorios/plano-contas", icon: FolderTree, label: "Plano de Contas" },
 ];
 
 export default function Reports() {
