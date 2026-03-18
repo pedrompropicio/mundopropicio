@@ -1,30 +1,27 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Receipt, TrendingUp, TrendingDown, AlertTriangle, Info } from "lucide-react";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import {
-  transactions,
-  events,
   formatCurrency,
   formatCurrencyDecimal,
-  formatDate,
   calcIvaAmount,
   calcBaseAmount,
   getQuarter,
   getQuarterLabel,
-  categoryLabels,
   ivaRateLabels,
   type IvaRate,
-  type Transaction,
 } from "@/lib/mock-data";
 
 interface QuarterIva {
   label: string;
   year: number;
   quarter: number;
-  ivaLiquidado: number; // IVA cobrado nas vendas (a pagar ao estado)
-  ivaDedutivel: number; // IVA pago nas compras (a recuperar)
-  saldo: number;        // Liquidado - Dedutível (positivo = pagar, negativo = recuperar)
+  ivaLiquidado: number;
+  ivaDedutivel: number;
+  saldo: number;
 }
 
 interface EventIva {
@@ -43,7 +40,17 @@ interface RateBreakdown {
   ivaExpense: number;
 }
 
-function computeQuarterlyIva(txns: Transaction[]): QuarterIva[] {
+interface DbTransaction {
+  id: string;
+  event_id: string | null;
+  type: string;
+  amount: number;
+  iva_rate: number;
+  date: string;
+  status: string;
+}
+
+function computeQuarterlyIva(txns: DbTransaction[]): QuarterIva[] {
   const map = new Map<string, QuarterIva>();
   txns.forEach((t) => {
     const d = new Date(t.date);
@@ -54,7 +61,7 @@ function computeQuarterlyIva(txns: Transaction[]): QuarterIva[] {
       map.set(key, { label: getQuarterLabel(q, year), year, quarter: q, ivaLiquidado: 0, ivaDedutivel: 0, saldo: 0 });
     }
     const entry = map.get(key)!;
-    const iva = calcIvaAmount(t.amount, t.ivaRate);
+    const iva = calcIvaAmount(t.amount, t.iva_rate as IvaRate);
     if (t.type === "income") entry.ivaLiquidado += iva;
     else entry.ivaDedutivel += iva;
     entry.saldo = entry.ivaLiquidado - entry.ivaDedutivel;
@@ -62,14 +69,15 @@ function computeQuarterlyIva(txns: Transaction[]): QuarterIva[] {
   return Array.from(map.values()).sort((a, b) => a.year - b.year || a.quarter - b.quarter);
 }
 
-function computeEventIva(txns: Transaction[]): EventIva[] {
+function computeEventIva(txns: DbTransaction[], eventsMap: Map<string, string>): EventIva[] {
   const map = new Map<string, EventIva>();
   txns.forEach((t) => {
-    if (!map.has(t.eventId)) {
-      map.set(t.eventId, { eventId: t.eventId, eventName: t.eventName, ivaLiquidado: 0, ivaDedutivel: 0, saldo: 0 });
+    if (!t.event_id) return;
+    if (!map.has(t.event_id)) {
+      map.set(t.event_id, { eventId: t.event_id, eventName: eventsMap.get(t.event_id) || "Sem evento", ivaLiquidado: 0, ivaDedutivel: 0, saldo: 0 });
     }
-    const entry = map.get(t.eventId)!;
-    const iva = calcIvaAmount(t.amount, t.ivaRate);
+    const entry = map.get(t.event_id)!;
+    const iva = calcIvaAmount(t.amount, t.iva_rate as IvaRate);
     if (t.type === "income") entry.ivaLiquidado += iva;
     else entry.ivaDedutivel += iva;
     entry.saldo = entry.ivaLiquidado - entry.ivaDedutivel;
@@ -77,38 +85,66 @@ function computeEventIva(txns: Transaction[]): EventIva[] {
   return Array.from(map.values());
 }
 
-function computeRateBreakdown(txns: Transaction[]): RateBreakdown[] {
+function computeRateBreakdown(txns: DbTransaction[]): RateBreakdown[] {
   const rates: IvaRate[] = [23, 13, 6, 0];
   return rates.map((rate) => {
-    const rateTxns = txns.filter((t) => t.ivaRate === rate);
+    const rateTxns = txns.filter((t) => t.iva_rate === rate);
     const incTxns = rateTxns.filter((t) => t.type === "income");
     const expTxns = rateTxns.filter((t) => t.type === "expense");
     return {
       rate,
-      baseIncome: incTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.ivaRate), 0),
-      ivaIncome: incTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0),
-      baseExpense: expTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.ivaRate), 0),
-      ivaExpense: expTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0),
+      baseIncome: incTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.iva_rate as IvaRate), 0),
+      ivaIncome: incTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0),
+      baseExpense: expTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.iva_rate as IvaRate), 0),
+      ivaExpense: expTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0),
     };
   });
 }
 
 export default function IvaManagement() {
-  const [selectedYear, setSelectedYear] = useState(2026);
-  const years = [2025, 2026];
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const years = [currentYear - 1, currentYear];
 
-  const yearTxns = transactions.filter((t) => new Date(t.date).getFullYear() === selectedYear);
-  const quarterly = computeQuarterlyIva(yearTxns);
-  const eventIva = computeEventIva(yearTxns);
-  const rateBreakdown = computeRateBreakdown(yearTxns);
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["iva-transactions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, event_id, type, amount, iva_rate, date, status")
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return data as DbTransaction[];
+    },
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["iva-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const eventsMap = useMemo(() => {
+    const m = new Map<string, string>();
+    events.forEach((e) => m.set(e.id, e.name));
+    return m;
+  }, [events]);
+
+  const yearTxns = useMemo(() => transactions.filter((t) => new Date(t.date).getFullYear() === selectedYear), [transactions, selectedYear]);
+  const quarterly = useMemo(() => computeQuarterlyIva(yearTxns), [yearTxns]);
+  const eventIva = useMemo(() => computeEventIva(yearTxns, eventsMap), [yearTxns, eventsMap]);
+  const rateBreakdown = useMemo(() => computeRateBreakdown(yearTxns), [yearTxns]);
 
   const totalLiquidado = quarterly.reduce((s, q) => s + q.ivaLiquidado, 0);
   const totalDedutivel = quarterly.reduce((s, q) => s + q.ivaDedutivel, 0);
   const totalSaldo = totalLiquidado - totalDedutivel;
 
-  const pendingIva = transactions
-    .filter((t) => t.status === "pending" && new Date(t.date).getFullYear() === selectedYear)
-    .reduce((s, t) => s + calcIvaAmount(t.amount, t.ivaRate), 0);
+  const pendingIva = yearTxns
+    .filter((t) => t.status === "pending")
+    .reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0);
 
   const chartData = quarterly.map((q) => ({
     name: q.label,
@@ -189,89 +225,101 @@ export default function IvaManagement() {
       {/* Quarterly Chart */}
       <div className="glass rounded-xl p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">IVA Trimestral — {selectedYear}</h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(225 12% 16%)" />
-              <XAxis dataKey="name" tick={{ fill: "hsl(215 12% 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "hsl(215 12% 55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ background: "hsl(225 15% 10%)", border: "1px solid hsl(225 12% 16%)", borderRadius: 8, fontSize: 12 }}
-                formatter={(value: number) => formatCurrency(value)}
-              />
-              <Bar dataKey="liquidado" name="IVA Liquidado" fill="hsl(170 70% 45%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="dedutivel" name="IVA Dedutível" fill="hsl(38 90% 55%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="saldo" name="Saldo" fill="hsl(262 80% 60%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {chartData.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Sem transações para este ano</p>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} barGap={4}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(value: number) => formatCurrency(value)}
+                />
+                <Bar dataKey="liquidado" name="IVA Liquidado" fill="hsl(170 70% 45%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="dedutivel" name="IVA Dedutível" fill="hsl(38 90% 55%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="saldo" name="Saldo" fill="hsl(262 80% 60%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Quarterly Detail Table */}
         <div className="glass rounded-xl p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Detalhe Trimestral</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-3 text-left font-medium">Trimestre</th>
-                  <th className="pb-3 text-right font-medium">Liquidado</th>
-                  <th className="pb-3 text-right font-medium">Dedutível</th>
-                  <th className="pb-3 text-right font-medium">Saldo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {quarterly.map((q) => (
-                  <tr key={q.label}>
-                    <td className="py-3 font-medium">{q.label}</td>
-                    <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(q.ivaLiquidado)}</td>
-                    <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(q.ivaDedutivel)}</td>
-                    <td className={`py-3 text-right font-mono font-semibold ${q.saldo >= 0 ? "text-destructive" : "text-success"}`}>
-                      {q.saldo >= 0 ? "" : "-"}{formatCurrencyDecimal(Math.abs(q.saldo))}
+          {quarterly.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Sem dados</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="pb-3 text-left font-medium">Trimestre</th>
+                    <th className="pb-3 text-right font-medium">Liquidado</th>
+                    <th className="pb-3 text-right font-medium">Dedutível</th>
+                    <th className="pb-3 text-right font-medium">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {quarterly.map((q) => (
+                    <tr key={q.label}>
+                      <td className="py-3 font-medium">{q.label}</td>
+                      <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(q.ivaLiquidado)}</td>
+                      <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(q.ivaDedutivel)}</td>
+                      <td className={`py-3 text-right font-mono font-semibold ${q.saldo >= 0 ? "text-destructive" : "text-success"}`}>
+                        {q.saldo >= 0 ? "" : "-"}{formatCurrencyDecimal(Math.abs(q.saldo))}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-border font-semibold">
+                    <td className="py-3">Total Anual</td>
+                    <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(totalLiquidado)}</td>
+                    <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(totalDedutivel)}</td>
+                    <td className={`py-3 text-right font-mono ${totalSaldo >= 0 ? "text-destructive" : "text-success"}`}>
+                      {totalSaldo >= 0 ? "" : "-"}{formatCurrencyDecimal(Math.abs(totalSaldo))}
                     </td>
                   </tr>
-                ))}
-                <tr className="border-t-2 border-border font-semibold">
-                  <td className="py-3">Total Anual</td>
-                  <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(totalLiquidado)}</td>
-                  <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(totalDedutivel)}</td>
-                  <td className={`py-3 text-right font-mono ${totalSaldo >= 0 ? "text-destructive" : "text-success"}`}>
-                    {totalSaldo >= 0 ? "" : "-"}{formatCurrencyDecimal(Math.abs(totalSaldo))}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* IVA by Event */}
         <div className="glass rounded-xl p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">IVA por Evento</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-3 text-left font-medium">Evento</th>
-                  <th className="pb-3 text-right font-medium">Liquidado</th>
-                  <th className="pb-3 text-right font-medium">Dedutível</th>
-                  <th className="pb-3 text-right font-medium">Saldo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {eventIva.map((e) => (
-                  <tr key={e.eventId}>
-                    <td className="py-3 font-medium">{e.eventName}</td>
-                    <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(e.ivaLiquidado)}</td>
-                    <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(e.ivaDedutivel)}</td>
-                    <td className={`py-3 text-right font-mono font-semibold ${e.saldo >= 0 ? "text-destructive" : "text-success"}`}>
-                      {e.saldo >= 0 ? "" : "-"}{formatCurrencyDecimal(Math.abs(e.saldo))}
-                    </td>
+          {eventIva.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">Sem dados</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="pb-3 text-left font-medium">Evento</th>
+                    <th className="pb-3 text-right font-medium">Liquidado</th>
+                    <th className="pb-3 text-right font-medium">Dedutível</th>
+                    <th className="pb-3 text-right font-medium">Saldo</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {eventIva.map((e) => (
+                    <tr key={e.eventId}>
+                      <td className="py-3 font-medium">{e.eventName}</td>
+                      <td className="py-3 text-right font-mono text-success">{formatCurrencyDecimal(e.ivaLiquidado)}</td>
+                      <td className="py-3 text-right font-mono text-warning">{formatCurrencyDecimal(e.ivaDedutivel)}</td>
+                      <td className={`py-3 text-right font-mono font-semibold ${e.saldo >= 0 ? "text-destructive" : "text-success"}`}>
+                        {e.saldo >= 0 ? "" : "-"}{formatCurrencyDecimal(Math.abs(e.saldo))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
