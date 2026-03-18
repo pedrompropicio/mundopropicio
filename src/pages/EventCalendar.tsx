@@ -38,6 +38,8 @@ export default function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [showReservationModal, setShowReservationModal] = useState(false);
+  const [showScheduledPanel, setShowScheduledPanel] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["calendar-events"],
