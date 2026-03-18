@@ -968,7 +968,48 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0);
   const totalAE = expenseRows.reduce((s, r) => s + r.actual, 0);
 
+  // Group rows by L2 parent
+  const groupRows = (rows: ComparisonRow[]) => {
+    const groups: { groupName: string; rows: ComparisonRow[]; totalF: number; totalA: number }[] = [];
+    const gMap: Record<string, typeof groups[0]> = {};
+    rows.forEach((r) => {
+      if (!gMap[r.groupName]) {
+        gMap[r.groupName] = { groupName: r.groupName, rows: [], totalF: 0, totalA: 0 };
+        groups.push(gMap[r.groupName]);
+      }
+      gMap[r.groupName].rows.push(r);
+      gMap[r.groupName].totalF += r.forecast;
+      gMap[r.groupName].totalA += r.actual;
+    });
+    return groups;
+  };
+
+  const incomeGroups = groupRows(incomeRows);
+  const expenseGroups = groupRows(expenseRows);
+
   if (data.length === 0) return <p className="py-8 text-center text-muted-foreground">Adicione previsões e transações para ver a comparação.</p>;
+
+  const renderGroupedRows = (groups: ReturnType<typeof groupRows>, isIncome?: boolean) => {
+    return groups.map((group) => {
+      const showHeader = groups.length > 1 || (group.rows.length > 1 || group.rows[0]?.categoryName !== group.groupName);
+      return (
+        <React.Fragment key={group.groupName}>
+          {showHeader && (
+            <tr className="bg-secondary/10 border-t border-border/30">
+              <td className="py-1.5 pl-2 text-xs font-semibold">{group.groupName}</td>
+              <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(group.totalF)}</td>
+              <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(group.totalA)}</td>
+              <td className={`py-1.5 text-right font-mono text-xs font-semibold ${isIncome ? (group.totalA - group.totalF >= 0 ? "text-success" : "text-destructive") : (group.totalA - group.totalF <= 0 ? "text-success" : "text-destructive")}`}>
+                {formatCurrency(group.totalA - group.totalF)}
+              </td>
+              <td />
+            </tr>
+          )}
+          {group.rows.map((r) => <ComparisonRowItem key={`${r.type}-${r.categoryCode}`} row={r} isIncome={isIncome} indented={showHeader} />)}
+        </React.Fragment>
+      );
+    });
+  };
 
   return (
     <div className="glass rounded-xl p-5 overflow-x-auto">
@@ -986,7 +1027,7 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
           {incomeRows.length > 0 && (
             <>
               <tr><td colSpan={5} className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-success">Receitas</td></tr>
-              {incomeRows.map((r) => <ComparisonRowItem key={`i-${r.categoryCode}`} row={r} isIncome />)}
+              {renderGroupedRows(incomeGroups, true)}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Receitas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFI)}</td>
@@ -999,7 +1040,7 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
           {expenseRows.length > 0 && (
             <>
               <tr><td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td></tr>
-              {expenseRows.map((r) => <ComparisonRowItem key={`e-${r.categoryCode}`} row={r} />)}
+              {renderGroupedRows(expenseGroups, false)}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Despesas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFE)}</td>
