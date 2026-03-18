@@ -40,6 +40,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   const eventName = (t.events as any)?.name ?? "—";
   const supplierName = (t.suppliers as any)?.name ?? "—";
+  const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
   const amount = Number(t.amount);
   const paidAmount = Number(t.paid_amount ?? 0);
@@ -93,6 +94,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               <p className="font-medium">{t.description}</p>
               {isExpense && t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
+              )}
+              {accountName && (
+                <p className="text-xs text-primary/70">📌 {accountName}</p>
               )}
               <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
             </div>

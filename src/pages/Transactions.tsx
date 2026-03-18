@@ -56,7 +56,7 @@ export default function Transactions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name, status), account_categories(name), suppliers(name)")
+        .select("*, events(name, status), account_categories(name), suppliers(name), financial_accounts(name)")
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
