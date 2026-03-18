@@ -125,8 +125,24 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     enabled: ticketLots.length > 0,
   });
 
-  const ticketRevenue = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
-  const ticketActualRevenue = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+  // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
+  const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  const ticketRevenueNet = ticketLots.reduce((s, l) => {
+    const rate = Number((l as any).iva_rate ?? 6);
+    return s + l.quantity * (Number(l.price) / (1 + rate / 100));
+  }, 0);
+  const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
+  const ticketRevenue = ticketRevenueNet; // P&L uses net values
+
+  // Actual ticket sales: unit_price also includes IVA, extract net
+  const ticketActualRevenueGross = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+  const ticketActualRevenueNet = ticketSales.reduce((s: number, sl: any) => {
+    // Find the lot to get its IVA rate
+    const lot = ticketLots.find((l) => l.id === sl.lot_id);
+    const rate = Number((lot as any)?.iva_rate ?? 6);
+    return s + Number(sl.quantity) * (Number(sl.unit_price) / (1 + rate / 100));
+  }, 0);
+  const ticketActualRevenue = ticketActualRevenueNet;
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
