@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-
+import { FileText } from "lucide-react";
+import { exportSuppliersToPDF } from "@/lib/export-suppliers";
 export default function ReportSuppliersPage() {
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["report-suppliers"],
