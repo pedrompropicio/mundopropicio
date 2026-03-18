@@ -342,13 +342,30 @@ export default function ReportPL() {
               {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
             </button>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {events.map((e) => (
-              <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
-                <span>{e.name}</span>
-              </label>
-            ))}
+          <div className="flex flex-col gap-2">
+            {events.filter((e) => !e.parent_event_id).map((e) => {
+              const children = events.filter((c) => c.parent_event_id === e.id);
+              const isParent = children.length > 0;
+              return (
+                <div key={e.id}>
+                  <label className="flex items-center gap-2 cursor-pointer text-sm">
+                    <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
+                    <span className={isParent ? "font-semibold" : ""}>{e.name}</span>
+                    {isParent && <span className="text-xs text-muted-foreground">(consolidado)</span>}
+                  </label>
+                  {isParent && (
+                    <div className="ml-6 mt-1 flex flex-col gap-1">
+                      {children.map((c) => (
+                        <label key={c.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <Checkbox checked={selectedEventIds.includes(c.id)} onCheckedChange={() => toggleEvent(c.id)} />
+                          <span className="text-muted-foreground">↳ {c.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
           </div>
           {selectedEventIds.length === 0 && events.length > 0 && (
