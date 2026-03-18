@@ -206,6 +206,7 @@ export default function Quotations() {
             queryClient.invalidateQueries({ queryKey: ["suppliers-list"] });
           }}
         />
+      </div>
 
       <div className="flex gap-2">
         {(["all", "pending", "approved", "rejected"] as const).map((f) => (
