@@ -187,6 +187,7 @@ function buildPL(
   const totalTExpIva = mergedExp.reduce((s, g) => s + g.tIva, 0);
 
   const lines: PLLine[] = [];
+  let ticketLinesInserted = false;
 
   lines.push(plLine({
     label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
@@ -209,6 +210,7 @@ function buildPL(
         }));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
+          ticketLinesInserted = true;
         }
       });
     } else {
@@ -219,9 +221,14 @@ function buildPL(
       }));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
+        ticketLinesInserted = true;
       }
     }
   });
+  // Fallback: if ticket lines weren't inserted via category matching, add them after income groups
+  if (!ticketLinesInserted && ticketLines.length > 0) {
+    ticketLines.forEach((tl) => lines.push(tl));
+  }
 
   lines.push(plLine({
     label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
