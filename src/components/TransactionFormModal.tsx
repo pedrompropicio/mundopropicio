@@ -440,6 +440,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               }
             });
 
+            // Inject cachê lines into Artístico group (2.1)
+            if (totalCache > 0) {
+              if (!groupMap["2.1"]) {
+                groupMap["2.1"] = { groupName: "Artístico", groupCode: "2.1", totalForecast: 0, totalUsed: 0, details: [] };
+              }
+              const artGroup = groupMap["2.1"];
+              // Add or merge cachê detail line under 2.1.01
+              let cacheDetail = artGroup.details.find(d => d.catCode === "2.1.01");
+              if (!cacheDetail) {
+                cacheDetail = { catId: "cache-auto", catName: "Cachês (auto)", catCode: "2.1.01", forecast: 0, used: 0, lines: [] };
+                artGroup.details.push(cacheDetail);
+              }
+              cacheDetail.forecast += totalCache;
+              artGroup.totalForecast += totalCache;
+            }
+
             const groups = Object.values(groupMap)
               .map(g => ({ ...g, details: g.details.sort((a, b) => a.catCode.localeCompare(b.catCode)) }))
               .sort((a, b) => a.groupCode.localeCompare(b.groupCode));
