@@ -112,7 +112,21 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     enabled: ticketZones.length > 0,
   });
 
+  // Fetch ticket sales for actual revenue
+  const { data: ticketSales = [] } = useQuery({
+    queryKey: ["event_ticket_sales_for_pl", eventId, childEventIds],
+    queryFn: async () => {
+      const lotIds = ticketLots.map((l) => l.id);
+      if (lotIds.length === 0) return [];
+      const { data, error } = await supabase.from("ticket_sales").select("*").in("lot_id", lotIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: ticketLots.length > 0,
+  });
+
   const ticketRevenue = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  const ticketActualRevenue = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
@@ -374,7 +388,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
-  const totalActualIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+  const totalActualIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0) + ticketActualRevenue;
   const totalActualExpense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const actualProfit = totalActualIncome - totalActualExpense;
 
