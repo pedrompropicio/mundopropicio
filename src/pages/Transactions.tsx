@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
@@ -26,6 +27,29 @@ export default function Transactions() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["events-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const toggleEvent = (id: string) => {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllEvents = () => {
+    if (selectedEventIds.size === events.length) setSelectedEventIds(new Set());
+    else setSelectedEventIds(new Set(events.map((e: any) => e.id)));
+  };
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["transactions"],
