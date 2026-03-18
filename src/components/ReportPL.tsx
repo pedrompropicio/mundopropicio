@@ -77,7 +77,7 @@ function buildPL(
   const lookup = buildCategoryLookup(categories);
 
   // Calculate ticket lot revenue for this event
-  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  const evtZones = ticketZones; // Already filtered by caller
   let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
