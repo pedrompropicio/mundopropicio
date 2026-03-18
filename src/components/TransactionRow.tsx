@@ -219,7 +219,11 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       <span className="text-muted-foreground">
                         {m.field_name === "Pagamento parcial" ? (
                           <>
-                            {formatCurrency(Number(m.old_value ?? 0))} → {formatCurrency(Number(m.new_value ?? 0))}
+                            Pago: {formatCurrency(Number(m.new_value ?? 0) - Number(m.old_value ?? 0))}
+                            {" "}
+                            <span className="text-muted-foreground/60">
+                              (Total: {formatCurrency(Number(m.old_value ?? 0))} → {formatCurrency(Number(m.new_value ?? 0))})
+                            </span>
                           </>
                         ) : (
                           <>
