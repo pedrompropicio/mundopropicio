@@ -76,9 +76,21 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  // Get the selected event's pl_mode
+  // Get the selected event's pl_mode and multi_day info
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
+  const isParentMultiDay = selectedEvent?.event_type === "multi_day";
+
+  // Group events: parents and sub-events
+  const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
+  const subEventsByParent = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    events.filter((e: any) => e.parent_event_id).forEach((e: any) => {
+      if (!map[e.parent_event_id]) map[e.parent_event_id] = [];
+      map[e.parent_event_id].push(e);
+    });
+    return map;
+  }, [events]);
 
   // Fetch forecasts for active P&L events
   const { data: eventForecasts = [] } = useQuery({
