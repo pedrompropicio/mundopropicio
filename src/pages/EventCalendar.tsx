@@ -41,7 +41,7 @@ export default function EventCalendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, date, status, event_type, venue_id, city_id")
+        .select("id, name, date, status, event_type, venue_id, city_id, parent_event_id")
         .in("status", ["planning", "confirmed", "active", "completed"])
         .order("date");
       if (error) throw error;
@@ -86,15 +86,32 @@ export default function EventCalendar() {
   const calendarEvents = useMemo(() => {
     const venueMap = Object.fromEntries(venues.map((v) => [v.id, v]));
     const cityMap = Object.fromEntries(cities.map((c) => [c.id, c]));
+    const eventMap = Object.fromEntries(events.map((e) => [e.id, e]));
+
+    // Filter out parent events (event_type === 'multi_day' with no parent_event_id)
+    const visibleEvents = events.filter((ev) => {
+      const hasChildren = events.some((child) => child.parent_event_id === ev.id);
+      return !hasChildren;
+    });
 
     const result: CalendarEvent[] = [];
 
-    events.forEach((ev) => {
+    visibleEvents.forEach((ev) => {
       const venue = ev.venue_id ? venueMap[ev.venue_id] : null;
       const city = ev.city_id ? cityMap[ev.city_id] : venue ? cityMap[venue.city_id] : null;
+      const parentEvent = ev.parent_event_id ? eventMap[ev.parent_event_id] : null;
+
+      // Build display name: "Parent Name — City" for sub-events, or just event name
+      let displayName = ev.name;
+      if (parentEvent) {
+        const parts = [parentEvent.name];
+        if (city?.name) parts.push(city.name);
+        displayName = parts.join(" — ");
+      }
+
       const base = {
         id: ev.id,
-        name: ev.name,
+        name: displayName,
         status: ev.status,
         venue_name: venue?.name,
         city_name: city?.name,
