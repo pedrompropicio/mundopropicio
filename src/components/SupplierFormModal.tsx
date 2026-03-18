@@ -1,41 +1,36 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
-interface SupplierFormModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated?: (id: string) => void;
-}
-
-export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFormModalProps) {
-  const [categoryValue, setCategoryValue] = useState("");
-  const queryClient = useQueryClient();
-
-  const { data: accountCategories = [] } = useQuery({
-    queryKey: ["account_categories_expense"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("account_categories")
-        .select("id, name, code, type, parent_id")
-        .eq("is_active", true)
-        .eq("type", "expense")
-        .order("code");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const categoryOptions = accountCategories.map(c => ({
-    value: c.name,
-    label: `${c.code} - ${c.name}`,
-  }));
+const supplierCategories = [
+  "Som e Iluminação",
+  "Palco e Estruturas",
+  "Vídeo e LED",
+  "Backline e Instrumentos",
+  "Catering e Alimentação",
+  "Segurança e Controlo de Acessos",
+  "Transportes e Logística",
+  "Alojamento e Hotelaria",
+  "Artistas e Agências",
+  "Produção e Técnicos",
+  "Marketing e Comunicação",
+  "Assessoria de Imprensa",
+  "Design e Sinalização",
+  "Bilhética e Plataformas",
+  "Seguros",
+  "Direitos Autorais e Licenças",
+  "Decoração e Cenografia",
+  "Limpeza e Manutenção",
+  "Locação de Espaços",
+  "Serviços Jurídicos e Contabilidade",
+  "Outro",
+];
 
   const createMutation = useMutation({
     mutationFn: async (supplier: {
