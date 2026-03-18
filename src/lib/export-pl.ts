@@ -206,7 +206,9 @@ function buildPLForExport(
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
-    }
+      if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+        ticketLines.forEach((tl) => lines.push(tl));
+      }
   });
   lines.push(pl({
     label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
