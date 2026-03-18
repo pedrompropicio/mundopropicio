@@ -66,12 +66,12 @@ export default function ReportContasPagar() {
 
     if (dateFrom) {
       const from = dateFrom.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.date >= from);
+      result = result.filter((t: any) => t.due_date && t.due_date >= from);
     }
 
     if (dateTo) {
       const to = dateTo.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.date <= to);
+      result = result.filter((t: any) => t.due_date && t.due_date <= to);
     }
 
     return result;
@@ -293,8 +293,7 @@ export default function ReportContasPagar() {
                   <th className="pb-3 text-left font-medium hidden md:table-cell">Fornecedor</th>
                   <th className="pb-3 text-center font-medium hidden lg:table-cell">IVA</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
-                  <th className="pb-3 text-left font-medium">Data</th>
-                  <th className="pb-3 text-left font-medium hidden lg:table-cell">Vencimento</th>
+                  <th className="pb-3 text-left font-medium">Data Vcto</th>
                   <th className="pb-3 text-right font-medium">Pago</th>
                   <th className="pb-3 text-right font-medium">Valor c/IVA</th>
                   <th className="pb-3 text-right font-medium">Saldo</th>
@@ -325,8 +324,7 @@ export default function ReportContasPagar() {
                           {statusLabel[cs] ?? cs}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground whitespace-nowrap lg:table-cell">
+                      <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
                         {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}
                       </td>
                       <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(paid)}</td>
