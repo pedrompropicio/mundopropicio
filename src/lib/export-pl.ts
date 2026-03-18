@@ -342,8 +342,8 @@ export function exportPLToExcel(
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
-          line.subIndent ? "" : line.forecastIva,
-          line.subIndent ? "" : line.forecastTotal,
+          line.forecastIva,
+          line.forecastTotal,
         ]);
       }
     });
