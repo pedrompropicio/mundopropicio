@@ -841,15 +841,12 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                         );
                       })}
                       {addingType === "expense" && renderInlineRow("expense")}
-                      {/* Cachê lines */}
+                      {/* Cachê lines under 2.1 Artístico > 2.1.01 Cachês */}
                       {cacheLines.length > 0 && (
                         <>
                           <tr className="bg-secondary/10 border-t border-border/30">
                             <td colSpan={8} className="py-2 pl-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              <div className="flex items-center gap-1.5">
-                                <Music className="h-3.5 w-3.5" />
-                                Cachê das Atrações
-                              </div>
+                              2.1.01 Cachês
                             </td>
                           </tr>
                           {cacheLines.map((cl, idx) => {
@@ -862,7 +859,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                                     <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
                                   </div>
                                 </td>
-                                <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">Cachê</td>
+                                <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">2.1.01 - Cachês</td>
                                 <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
                                 <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
                                 <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
@@ -1152,7 +1149,7 @@ function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cac
               {cacheLines.length > 0 && (
                 <>
                   <tr className="bg-secondary/10 border-t border-border/30">
-                    <td className="py-1.5 pl-2 text-xs font-semibold">Cachê das Atrações</td>
+                    <td className="py-1.5 pl-2 text-xs font-semibold">2.1.01 Cachês</td>
                     <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(totalCacheF)}</td>
                     <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(0)}</td>
                     <td className={`py-1.5 text-right font-mono text-xs font-semibold text-destructive`}>{formatCurrency(0 - totalCacheF)}</td>
