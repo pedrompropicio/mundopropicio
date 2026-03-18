@@ -64,23 +64,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const createSupplierMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const { data, error } = await supabase.from("suppliers").insert({ name }).select("id").single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      setForm({ ...form, supplier_id: data.id });
-      setShowNewSupplier(false);
-      setNewSupplierName("");
-      toast({ title: "Fornecedor criado com sucesso!" });
-    },
-    onError: (err: any) => {
-      toast({ title: "Erro ao criar fornecedor", description: err.message, variant: "destructive" });
-    },
-  });
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
