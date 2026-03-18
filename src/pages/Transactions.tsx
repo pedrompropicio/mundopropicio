@@ -247,6 +247,37 @@ export default function Transactions() {
           </button>
         ))}
 
+        {/* Event multi-select filter */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm font-normal">
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
+              {selectedEventIds.size === 0
+                ? "Todos os eventos"
+                : `${selectedEventIds.size} evento(s)`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
+              <Checkbox
+                checked={selectedEventIds.size === events.length && events.length > 0}
+                onCheckedChange={toggleAllEvents}
+              />
+              <span className="text-sm font-medium">Selecionar todos</span>
+            </div>
+            {events.map((e: any) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
+                onClick={() => toggleEvent(e.id)}
+              >
+                <Checkbox checked={selectedEventIds.has(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
+                <span className="text-sm">{e.name}</span>
+              </div>
+            ))}
+          </PopoverContent>
+        </Popover>
+
         {isAdmin && selectedPendingCount > 0 && (
           <button
             onClick={handleBulkApprove}
