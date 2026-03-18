@@ -227,18 +227,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
         return;
       }
+    }
+    // Warning (non-blocking) when amount exceeds P&L forecast
+    if (hasPL && form.event_id && form.category_id) {
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
       const used = usedBudgetByCategory[budgetKey] || 0;
       const newAmount = parseFloat(form.amount) || 0;
       const remaining = forecast - used;
-      if (newAmount > remaining) {
+      if (forecast > 0 && newAmount > remaining) {
         toast({
-          title: "Saldo insuficiente no P&L",
-          description: `Orçamento: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€`,
-          variant: "destructive",
+          title: "⚠️ Valor ultrapassa o previsto no P&L",
+          description: `Previsto: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€ | Lançando: ${newAmount.toFixed(2)}€`,
         });
-        return;
       }
     }
     if (isParentMultiDay && !showProrationConfirm) {
