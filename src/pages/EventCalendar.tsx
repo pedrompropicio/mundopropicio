@@ -41,7 +41,7 @@ export default function EventCalendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, date, status, event_type, venue_id, city_id")
+        .select("id, name, date, status, event_type, venue_id, city_id, parent_event_id")
         .in("status", ["planning", "confirmed", "active", "completed"])
         .order("date");
       if (error) throw error;
