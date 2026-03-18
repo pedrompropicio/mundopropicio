@@ -38,6 +38,28 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     enabled: expanded,
   });
 
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-names"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("email, full_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: expanded,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const resolveUserName = (changedBy: string) => {
+    if (!changedBy || changedBy === "sistema") return "Sistema";
+    if (changedBy === "utilizador") {
+      return profiles.length > 0 ? profiles[0]?.full_name || changedBy : changedBy;
+    }
+    // Check if it's an email and try to find the name
+    const profile = profiles.find((p) => p.email === changedBy);
+    if (profile?.full_name) return profile.full_name;
+    return changedBy;
+  };
+
   const eventName = (t.events as any)?.name ?? "—";
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
@@ -240,7 +262,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                           </>
                         )}
                       </span>
-                      <span className="ml-auto text-muted-foreground/70">{m.changed_by}</span>
+                      <span className="ml-auto text-muted-foreground/70">{resolveUserName(m.changed_by)}</span>
                     </div>
                   ))}
                 </div>
