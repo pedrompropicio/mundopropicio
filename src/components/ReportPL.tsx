@@ -347,7 +347,7 @@ export default function ReportPL() {
           const isOpen = expandedEvent === evt.id;
           const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
           const evtT = transactions.filter((t: any) => t.event_id === evt.id);
-          const pl = isOpen ? buildPL(evtF, evtT, categories, ticketZones, ticketLots, evt.id) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
