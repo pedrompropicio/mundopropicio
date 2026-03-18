@@ -2,10 +2,11 @@ import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { buildCategoryLookup } from "@/lib/category-hierarchy";
 
 interface TransactionForm {
   description: string;
