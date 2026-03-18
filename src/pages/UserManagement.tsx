@@ -260,8 +260,7 @@ export default function UserManagement() {
                             title="Eliminar utilizador"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
-                          </button>
+                           </button>
                         </div>
                       )}
                     </td>
