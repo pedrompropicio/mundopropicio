@@ -251,6 +251,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </select>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
               <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
