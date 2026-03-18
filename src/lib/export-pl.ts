@@ -121,10 +121,13 @@ export function exportPLToExcel(
 ) {
   const wb = XLSX.utils.book_new();
 
+  const isComparison = mode === "comparison";
   const summaryRows: any[][] = [
-    ["RELATÓRIO P&L - PREVISÃO vs REALIZADO"],
+    [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
     [],
-    ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"],
+    isComparison
+      ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
+      : ["Evento", "Receita Prev.", "Despesa Prev.", "Resultado Prev."],
   ];
 
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
@@ -136,21 +139,30 @@ export function exportPLToExcel(
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    // Add ticket lot revenue
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => { fInc += Number(lot.price) * Number(lot.quantity); });
     });
     gFInc += fInc; gFExp += fExp; gTInc += tInc; gTExp += tExp;
-    summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
+    if (isComparison) {
+      summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
+    } else {
+      summaryRows.push([evt.name, fInc, fExp, fInc - fExp]);
+    }
   });
 
   summaryRows.push([]);
-  summaryRows.push(["TOTAL", gFInc, gTInc, gFExp, gTExp, gFInc - gFExp, gTInc - gTExp, (gTInc - gTExp) - (gFInc - gFExp)]);
+  if (isComparison) {
+    summaryRows.push(["TOTAL", gFInc, gTInc, gFExp, gTExp, gFInc - gFExp, gTInc - gTExp, (gTInc - gTExp) - (gFInc - gFExp)]);
+  } else {
+    summaryRows.push(["TOTAL", gFInc, gFExp, gFInc - gFExp]);
+  }
 
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryWs["!cols"] = [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  summaryWs["!cols"] = isComparison
+    ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
+    : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
