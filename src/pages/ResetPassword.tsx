@@ -18,10 +18,21 @@ export default function ResetPassword() {
         setReady(true);
       }
     });
-    // Also check hash for recovery type
+
+    // Check hash for recovery type
     if (window.location.hash.includes("type=recovery")) {
       setReady(true);
     }
+
+    // If there's already a session when this page loads, the user likely
+    // arrived via recovery link and the PASSWORD_RECOVERY event already fired
+    // before this component mounted.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setReady(true);
+      }
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
