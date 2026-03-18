@@ -140,7 +140,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && isActivePL,
+    enabled: !!form.event_id && hasPL,
   });
 
   const forecastBudgetByCategory = isActivePL
