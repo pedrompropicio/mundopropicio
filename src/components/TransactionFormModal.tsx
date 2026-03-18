@@ -289,6 +289,127 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
+          {/* Event — moved up */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Evento {rootFlags.event_required ? "*" : ""}
+              {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
+              {hasPL && !isActivePL && <span className="ml-1 text-muted-foreground">(P&L)</span>}
+            </label>
+            <SearchableSelect
+              options={eventOptions}
+              value={form.event_id}
+              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "" }); setPlExpanded(true); setShowProrationConfirm(false); }}
+              placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+              searchPlaceholder="Pesquisar evento…"
+            />
+          </div>
+
+          {/* P&L forecast lines — auto-expand when event selected */}
+          {hasPL && form.event_id && plExpanded && (() => {
+            const typeForecasts = eventForecasts.filter(f => f.type === form.type);
+            if (typeForecasts.length === 0) return null;
+
+            // Group by category_id, keep individual forecast details for auto-fill
+            const byCat: Record<string, { catId: string; catName: string; forecast: number; used: number; lines: typeof typeForecasts }> = {};
+            typeForecasts.forEach(f => {
+              const catId = f.category_id || "none";
+              if (!byCat[catId]) {
+                const cat = categories.find(c => c.id === catId);
+                byCat[catId] = { catId, catName: cat?.name ?? "Sem categoria", forecast: 0, used: 0, lines: [] };
+              }
+              byCat[catId].forecast += Number(f.amount);
+              byCat[catId].lines.push(f);
+            });
+            eventTransactions.filter(t => t.type === form.type).forEach(t => {
+              const catId = t.category_id || "none";
+              if (byCat[catId]) byCat[catId].used += Number(t.amount);
+            });
+
+            const lines = Object.values(byCat).sort((a, b) => a.catName.localeCompare(b.catName));
+
+            const handleForecastClick = (l: typeof lines[0]) => {
+              if (l.catId === "none") return;
+              // Pick the first forecast line for auto-fill details
+              const firstLine = l.lines[0];
+              setForm(prev => ({
+                ...prev,
+                category_id: l.catId,
+                description: firstLine?.description || prev.description,
+                iva_rate: (firstLine?.iva_rate ?? prev.iva_rate) as IvaRate,
+                specification: firstLine?.specification || prev.specification,
+              }));
+              setPlExpanded(false);
+            };
+
+            return (
+              <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
+                <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
+                </button>
+                <p className="text-[10px] text-muted-foreground">Clique numa linha para preencher automaticamente os dados da transação</p>
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="text-muted-foreground border-b border-border/30">
+                        <th className="text-left pb-1 font-medium">Categoria</th>
+                        <th className="text-right pb-1 font-medium">Previsto</th>
+                        <th className="text-right pb-1 font-medium">Utilizado</th>
+                        <th className="text-right pb-1 font-medium">Disponível</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {lines.map(l => {
+                        const remaining = l.forecast - l.used;
+                        const isSelected = form.category_id === l.catId;
+                        return (
+                          <tr
+                            key={l.catId}
+                            onClick={() => handleForecastClick(l)}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-primary/10 font-medium"
+                                : "hover:bg-muted/40"
+                            }`}
+                          >
+                            <td className="py-1.5 pr-2">{l.catName}</td>
+                            <td className="py-1.5 text-right font-mono">{l.forecast.toFixed(2)}€</td>
+                            <td className="py-1.5 text-right font-mono">{l.used.toFixed(2)}€</td>
+                            <td className={`py-1.5 text-right font-mono font-semibold ${
+                              remaining <= 0 ? "text-destructive" : "text-success"
+                            }`}>
+                              {remaining.toFixed(2)}€
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {hasPL && form.event_id && !plExpanded && (
+            <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+              P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
+            </button>
+          )}
+
+          {/* Category */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Categoria {isActivePL ? "*" : ""}
+            </label>
+            <SearchableSelect
+              options={categoryOptions}
+              value={form.category_id}
+              onValueChange={(v) => setForm({ ...form, category_id: v })}
+              placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
+              searchPlaceholder="Pesquisar categoria…"
+            />
+          </div>
+
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -320,110 +441,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Evento {rootFlags.event_required ? "*" : ""}
-                {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
-              </label>
-              <SearchableSelect
-                options={eventOptions}
-                value={form.event_id}
-                onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "" }); setShowProrationConfirm(false); }}
-                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-                searchPlaceholder="Pesquisar evento…"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Categoria {isActivePL ? "*" : ""}
-              </label>
-              <SearchableSelect
-                options={categoryOptions}
-                value={form.category_id}
-                onValueChange={(v) => setForm({ ...form, category_id: v })}
-                placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
-                searchPlaceholder="Pesquisar categoria…"
-              />
-            </div>
-          </div>
-
-           {/* P&L forecast lines summary */}
-          {hasPL && form.event_id && plExpanded && (() => {
-            const typeForecasts = eventForecasts.filter(f => f.type === form.type);
-            if (typeForecasts.length === 0) return null;
-
-            // Group by category_id
-            const byCat: Record<string, { catId: string; catName: string; forecast: number; used: number }> = {};
-            typeForecasts.forEach(f => {
-              const catId = f.category_id || "none";
-              if (!byCat[catId]) {
-                const cat = categories.find(c => c.id === catId);
-                byCat[catId] = { catId, catName: cat?.name ?? "Sem categoria", forecast: 0, used: 0 };
-              }
-              byCat[catId].forecast += Number(f.amount);
-            });
-            eventTransactions.filter(t => t.type === form.type).forEach(t => {
-              const catId = t.category_id || "none";
-              if (byCat[catId]) byCat[catId].used += Number(t.amount);
-            });
-
-            const lines = Object.values(byCat).sort((a, b) => a.catName.localeCompare(b.catName));
-
-            return (
-              <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
-                <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
-                </button>
-                <div className="max-h-40 overflow-y-auto">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr className="text-muted-foreground border-b border-border/30">
-                        <th className="text-left pb-1 font-medium">Categoria</th>
-                        <th className="text-right pb-1 font-medium">Previsto</th>
-                        <th className="text-right pb-1 font-medium">Utilizado</th>
-                        <th className="text-right pb-1 font-medium">Disponível</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
-                      {lines.map(l => {
-                        const remaining = l.forecast - l.used;
-                        const isSelected = form.category_id === l.catId;
-                        return (
-                          <tr
-                            key={l.catId}
-                            onClick={() => { if (l.catId !== "none") { setForm(prev => ({ ...prev, category_id: l.catId })); setPlExpanded(false); } }}
-                            className={`cursor-pointer transition-colors ${
-                              isSelected
-                                ? "bg-primary/10 font-medium"
-                                : "hover:bg-muted/40"
-                            }`}
-                          >
-                            <td className="py-1.5 pr-2">{l.catName}</td>
-                            <td className="py-1.5 text-right font-mono">{l.forecast.toFixed(2)}€</td>
-                            <td className="py-1.5 text-right font-mono">{l.used.toFixed(2)}€</td>
-                            <td className={`py-1.5 text-right font-mono font-semibold ${
-                              remaining <= 0 ? "text-destructive" : "text-success"
-                            }`}>
-                              {remaining.toFixed(2)}€
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })()}
-
-          {hasPL && form.event_id && !plExpanded && (
-            <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-              P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
-            </button>
-          )}
-
 
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && (
@@ -457,7 +474,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Budget indicator for active P&L */}
+          {/* Budget indicator for P&L */}
           {hasPL && form.category_id && form.event_id && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
