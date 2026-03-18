@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
+import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 
 export type PLMode = "forecast" | "comparison";
 
@@ -72,7 +73,8 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
 
 function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
-  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
+  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
+  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -230,9 +232,23 @@ function buildPL(
     ticketLines.forEach((tl) => lines.push(tl));
   }
 
+  // Calculate cachê lines
+  const eventCacheConfigs = cacheConfigs.filter((c) => c.event_id === eventId);
+  const cacheLines = calculateCacheLinesForPL(
+    eventCacheConfigs,
+    cacheDeductions,
+    ticketForecastNet,
+    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+  );
+  const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
+
+  // Include cache in expense totals
+  const finalFExpBase = totalFExpBase + totalCacheAmount;
+  const finalFExpIva = totalFExpIva;
+
   lines.push(plLine({
-    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
-    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+    label: "DESPESAS", forecast: finalFExpBase, actual: totalTExpBase, variance: totalTExpBase - finalFExpBase, isTotal: true,
+    forecastIva: finalFExpIva, forecastTotal: finalFExpBase + finalFExpIva,
     actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
   mergedExp.forEach((group) => {
@@ -259,8 +275,21 @@ function buildPL(
     }
   });
 
-  const fResultBase = totalFIncBase - totalFExpBase;
-  const fResultIva = totalFIncIva - totalFExpIva;
+  // Cachê das Atrações group
+  if (cacheLines.length > 0) {
+    lines.push(plLine({
+      label: "Cachê das Atrações", forecast: totalCacheAmount, actual: 0, variance: 0 - totalCacheAmount, isGroupHeader: true,
+    }));
+    cacheLines.forEach((cl) => {
+      const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
+      lines.push(plLine({
+        label: `${cl.artistName} ${typeLabel}`, forecast: cl.amount, actual: 0, variance: 0 - cl.amount, indent: true,
+      }));
+    });
+  }
+
+  const fResultBase = totalFIncBase - finalFExpBase;
+  const fResultIva = totalFIncIva - finalFExpIva;
   const tResultBase = totalTIncBase - totalTExpBase;
   const tResultIva = totalTIncIva - totalTExpIva;
   lines.push(plLine({
@@ -337,6 +366,24 @@ export default function ReportPL() {
       const { data, error } = await supabase.from("ticket_sales").select("*");
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: allCacheConfigs = [] } = useQuery({
+    queryKey: ["all-cache-configs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_configs").select("*");
+      if (error) throw error;
+      return data as CacheConfig[];
+    },
+  });
+
+  const { data: allCacheDeductions = [] } = useQuery({
+    queryKey: ["all-cache-deductions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_deductions").select("*");
+      if (error) throw error;
+      return data as CacheDeduction[];
     },
   });
 
@@ -437,10 +484,18 @@ export default function ReportPL() {
     });
     const totalFInc = fInc + ticketRev;
     const totalTInc = tInc + ticketActualRev;
+    // Include cachê in forecast expenses
+    const eventCaches = allCacheConfigs.filter((c) => c.event_id === e.id);
+    const cacheLines = calculateCacheLinesForPL(
+      eventCaches, allCacheDeductions, ticketRev,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+    const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
+    const totalFExp = fExp + totalCache;
     return {
       ...e,
-      fInc: totalFInc, fExp, tInc: totalTInc, tExp,
-      fResult: totalFInc - fExp,
+      fInc: totalFInc, fExp: totalFExp, tInc: totalTInc, tExp,
+      fResult: totalFInc - totalFExp,
       tResult: totalTInc - tExp,
       forecastCount: evtF.length,
       txCount: evtT.length,
@@ -513,7 +568,7 @@ export default function ReportPL() {
 
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode)}
+          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
         >
@@ -521,7 +576,7 @@ export default function ReportPL() {
           <span className="hidden sm:inline">Exportar PDF</span>
         </button>
         <button
-          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode)}
+          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
@@ -561,7 +616,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
