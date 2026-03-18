@@ -339,86 +339,172 @@ export default function EventCalendar() {
         })}
       </div>
 
-      {/* Calendar navigation */}
-      <div className="glass rounded-xl p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <h2 className="text-lg font-semibold min-w-[180px] text-center">
-              {MONTH_NAMES[currentMonth]} {currentYear}
-            </h2>
-            <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
-              <ChevronRight className="h-4 w-4" />
+      {/* View mode switcher */}
+      <div className="flex items-center gap-1 glass rounded-lg p-1 w-fit">
+        {([
+          { mode: "month" as const, icon: LayoutGrid, label: "Mês" },
+          { mode: "week" as const, icon: Calendar, label: "Semana" },
+          { mode: "agenda" as const, icon: List, label: "Lista" },
+          { mode: "year" as const, icon: CalendarDays, label: "Ano" },
+        ]).map(({ mode, icon: Icon, label }) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+              viewMode === mode
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Monthly view */}
+      {viewMode === "month" && (
+        <div className="glass rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <h2 className="text-lg font-semibold min-w-[180px] text-center">
+                {MONTH_NAMES[currentMonth]} {currentYear}
+              </h2>
+              <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <button onClick={goToday} className="text-xs font-medium text-primary hover:underline">
+              Hoje
             </button>
           </div>
-          <button onClick={goToday} className="text-xs font-medium text-primary hover:underline">
-            Hoje
-          </button>
-        </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-7 gap-px mb-1">
-          {DAY_NAMES.map((d) => (
-            <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
-          ))}
-        </div>
+          {/* Day headers */}
+          <div className="grid grid-cols-7 gap-px mb-1">
+            {DAY_NAMES.map((d) => (
+              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
+            ))}
+          </div>
 
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-px">
-          {calendarDays.map((day, i) => {
-            if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px]" />;
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-px">
+            {calendarDays.map((day, i) => {
+              if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px]" />;
 
-            const dayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const isToday = dayStr === todayStr;
-            const dayEvents = getEventsForDay(day);
+              const dayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              const isToday = dayStr === todayStr;
+              const dayEvents = getEventsForDay(day);
 
-            return (
-              <div
-                key={day}
-                className={cn(
-                  "min-h-[80px] lg:min-h-[100px] rounded-lg p-1 transition-colors border",
-                  isToday ? "border-primary/50 bg-primary/5" : "border-transparent hover:bg-secondary/30",
-                )}
-              >
-                <span className={cn(
-                  "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
-                  isToday ? "bg-primary text-primary-foreground" : "text-foreground"
-                )}>
-                  {day}
-                </span>
-
-                <div className="mt-0.5 space-y-0.5">
-                  {dayEvents.slice(0, 3).map((ev, j) => {
-                    const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
-                    return (
-                      <button
-                        key={`${ev.id}-${j}`}
-                        onClick={() => {
-                          if (!ev.isReservation) navigate(`/eventos/${ev.id}`);
-                        }}
-                        className={cn(
-                          "w-full text-left rounded px-1 py-0.5 text-[10px] lg:text-xs font-medium truncate border transition-colors hover:opacity-80",
-                          cfg.color,
-                          ev.isReservation && "italic"
-                        )}
-                        title={`${ev.name}${ev.venue_name ? ` — ${ev.venue_name}` : ""}${ev.isReservation ? " (Reserva)" : ""}`}
-                      >
-                        <span className="hidden lg:inline">{ev.name}</span>
-                        <span className="lg:hidden">{ev.name.slice(0, 10)}{ev.name.length > 10 ? "…" : ""}</span>
-                      </button>
-                    );
-                  })}
-                  {dayEvents.length > 3 && (
-                    <span className="text-[10px] text-muted-foreground px-1">+{dayEvents.length - 3} mais</span>
+              return (
+                <div
+                  key={day}
+                  className={cn(
+                    "min-h-[80px] lg:min-h-[100px] rounded-lg p-1 transition-colors border",
+                    isToday ? "border-primary/50 bg-primary/5" : "border-transparent hover:bg-secondary/30",
                   )}
+                >
+                  <span className={cn(
+                    "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
+                    isToday ? "bg-primary text-primary-foreground" : "text-foreground"
+                  )}>
+                    {day}
+                  </span>
+
+                  <div className="mt-0.5 space-y-0.5">
+                    {dayEvents.slice(0, 3).map((ev, j) => {
+                      const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
+                      return (
+                        <button
+                          key={`${ev.id}-${j}`}
+                          onClick={() => {
+                            if (!ev.isReservation) navigate(`/eventos/${ev.id}`);
+                          }}
+                          className={cn(
+                            "w-full text-left rounded px-1 py-0.5 text-[10px] lg:text-xs font-medium truncate border transition-colors hover:opacity-80",
+                            cfg.color,
+                            ev.isReservation && "italic"
+                          )}
+                          title={`${ev.name}${ev.venue_name ? ` — ${ev.venue_name}` : ""}${ev.isReservation ? " (Reserva)" : ""}`}
+                        >
+                          <span className="hidden lg:inline">{ev.name}</span>
+                          <span className="lg:hidden">{ev.name.slice(0, 10)}{ev.name.length > 10 ? "…" : ""}</span>
+                        </button>
+                      );
+                    })}
+                    {dayEvents.length > 3 && (
+                      <span className="text-[10px] text-muted-foreground px-1">+{dayEvents.length - 3} mais</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Weekly view */}
+      {viewMode === "week" && (
+        <WeeklyView
+          events={calendarEvents}
+          weekStart={weekStart}
+          onPrevWeek={() => setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; })}
+          onNextWeek={() => setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; })}
+          onGoToday={() => {
+            const d = new Date();
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            setWeekStart(new Date(d.getFullYear(), d.getMonth(), diff));
+          }}
+        />
+      )}
+
+      {/* Agenda view */}
+      {viewMode === "agenda" && (
+        <>
+          <div className="glass rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <h2 className="text-lg font-semibold min-w-[180px] text-center">
+                  {MONTH_NAMES[currentMonth]} {currentYear}
+                </h2>
+                <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <button onClick={goToday} className="text-xs font-medium text-primary hover:underline">Hoje</button>
+            </div>
+          </div>
+          <AgendaView events={calendarEvents} currentMonth={currentMonth} currentYear={currentYear} />
+        </>
+      )}
+
+      {/* Annual view */}
+      {viewMode === "year" && (
+        <>
+          <div className="glass rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentYear((y) => y - 1)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <h2 className="text-lg font-semibold min-w-[80px] text-center">{currentYear}</h2>
+                <button onClick={() => setCurrentYear((y) => y + 1)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <button onClick={() => setCurrentYear(today.getFullYear())} className="text-xs font-medium text-primary hover:underline">Hoje</button>
+            </div>
+          </div>
+          <AnnualView events={calendarEvents} currentYear={currentYear} />
+        </>
+      )}
 
       {/* Venue reservations */}
       <div className="glass rounded-xl p-4">
