@@ -1,20 +1,10 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Star, FileText, Phone, Mail, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
 import { formatDate } from "@/lib/mock-data";
-
-const supplierCategories = [
-  "Som e Iluminação", "Palcos e Estruturas", "Catering", "Segurança",
-  "Transportes", "Alojamento", "Marketing", "Artistas/Agências",
-  "Decoração", "Limpeza", "Seguros", "Outro",
-];
+import { SupplierFormModal } from "@/components/SupplierFormModal";
 
 export default function Suppliers() {
   const [search, setSearch] = useState("");
