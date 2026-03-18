@@ -15,12 +15,6 @@ import { TransactionRow } from "@/components/TransactionRow";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { TransactionFormModal } from "@/components/TransactionFormModal";
-import { TransactionEditModal } from "@/components/TransactionEditModal";
-import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
-import { TransactionAuditModal } from "@/components/TransactionAuditModal";
-import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
-import { TransactionRow } from "@/components/TransactionRow";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
