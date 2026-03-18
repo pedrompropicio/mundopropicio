@@ -267,16 +267,21 @@ export function exportPLToExcel(
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
-    let ticketActualRev = 0;
+    let ticketActualNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
-        fInc += Number(lot.price) * Number(lot.quantity);
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+        fInc += netPrice * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualRev += lotSales.reduce((sum: number, sl: any) => sum + Number(sl.quantity) * Number(sl.unit_price), 0);
+        ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return sum + Number(sl.quantity) * saleNet;
+        }, 0);
       });
     });
-    const totalTInc = tInc + ticketActualRev;
+    const totalTInc = tInc + ticketActualNet;
     gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
     if (isComparison) {
       summaryRows.push([evt.name, fInc, totalTInc, fExp, tExp, fInc - fExp, totalTInc - tExp, (totalTInc - tExp) - (fInc - fExp)]);
