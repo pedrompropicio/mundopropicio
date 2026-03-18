@@ -12,6 +12,8 @@ interface PLLine {
   isGrandTotal?: boolean;
   indent?: boolean;
   subIndent?: boolean;
+  quantity?: number;
+  unitPrice?: number;
 }
 
 function buildPLForExport(
@@ -40,8 +42,9 @@ function buildPLForExport(
         const lotRevenue = Number(lot.price) * Number(lot.quantity);
         ticketForecastRevenue += lotRevenue;
         ticketLines.push({
-          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${Number(lot.price).toFixed(2)}€)`,
+          label: `${zone.name} — ${lot.name}`,
           forecast: lotRevenue, actual: 0, variance: 0, subIndent: true,
+          quantity: Number(lot.quantity), unitPrice: Number(lot.price),
         });
       });
     });
@@ -139,14 +142,21 @@ export function exportPLToExcel(
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
-      ["Rubrica", "Previsto (€)", "Real (€)", "Variação (€)"],
+      ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"],
     ];
     pl.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
-      rows.push([prefix + line.label, line.forecast, line.subIndent ? "" : line.actual, line.subIndent ? "" : line.variance]);
+      rows.push([
+        prefix + line.label,
+        line.quantity != null ? line.quantity : "",
+        line.unitPrice != null ? line.unitPrice : "",
+        line.forecast,
+        line.subIndent ? "" : line.actual,
+        line.subIndent ? "" : line.variance,
+      ]);
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 45 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
@@ -166,8 +176,9 @@ export function exportPLToPDF(
   const contentWidth = pageWidth - marginLeft - marginRight;
   let y = 14;
 
-  const colWidths = [contentWidth * 0.40, contentWidth * 0.20, contentWidth * 0.20, contentWidth * 0.20];
-  const colX = [marginLeft, marginLeft + colWidths[0], marginLeft + colWidths[0] + colWidths[1], marginLeft + colWidths[0] + colWidths[1] + colWidths[2]];
+  const colWidths = [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16];
+  const colX = [marginLeft];
+  for (let i = 1; i < colWidths.length; i++) colX.push(colX[i - 1] + colWidths[i - 1]);
 
   function checkNewPage(needed: number) {
     if (y + needed > pageHeight - 20) {
@@ -183,9 +194,11 @@ export function exportPLToPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Rubrica", colX[0] + 2, y + 5.5);
-    doc.text("Previsto (€)", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text("Real (€)", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
-    doc.text("Variação (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text("Qtd", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
+    doc.text("Preço Unit.", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text("Previsto (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
+    doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
@@ -322,20 +335,29 @@ export function exportPLToPDF(
         doc.setFontSize(8);
       }
 
-      const label = line.subIndent ? `          ${line.label}` : line.indent ? `    ${line.label}` : line.label;
+      const label = line.subIndent ? `       ${line.label}` : line.indent ? `    ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
-      doc.text(fmtVal(Math.abs(line.forecast)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
+
+      // Qtd & Preço Unit columns
+      if (line.quantity != null) {
+        doc.text(line.quantity.toLocaleString("pt-PT"), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
+      }
+      if (line.unitPrice != null) {
+        doc.text(fmtVal(line.unitPrice), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+      }
+
+      doc.text(fmtVal(Math.abs(line.forecast)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
       if (line.subIndent) {
-        doc.text("—", colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
-        doc.text("—", colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+        doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+        doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       } else {
-        doc.text(fmtVal(Math.abs(line.actual)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(Math.abs(line.actual)), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         const v = line.variance;
         if (line.isGrandTotal || line.isTotal) {
           doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
         }
-        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       }
       doc.setTextColor(0, 0, 0);
 
