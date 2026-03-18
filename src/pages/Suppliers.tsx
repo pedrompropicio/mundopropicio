@@ -23,6 +23,7 @@ export default function Suppliers() {
 
   const filtered = suppliers.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
+    ((s as any).trade_name && (s as any).trade_name.toLowerCase().includes(search.toLowerCase())) ||
     (s.nif && s.nif.includes(search)) ||
     (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
   );
