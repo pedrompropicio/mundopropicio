@@ -521,7 +521,9 @@ export default function ReportPL() {
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
           const { evtF, evtT } = getEffectiveData(evt.id);
-          const pl = isOpen ? buildPL(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id) : [];
+          const evtTicketEventIds = getTicketEventIds(evt.id);
+          const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
