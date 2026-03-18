@@ -506,6 +506,13 @@ export default function EventDetail() {
           )}
         </TabsContent>
 
+        <TabsContent value="cache">
+          <EventCacheConfig
+            eventId={selectedSubEvent || event.id}
+            childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined}
+          />
+        </TabsContent>
+
         <TabsContent value="forecast">
           {eventType === "multi_day" && !selectedSubEvent ? (
             <div className="glass rounded-xl p-8 text-center space-y-2">
