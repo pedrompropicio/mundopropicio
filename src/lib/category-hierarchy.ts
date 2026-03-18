@@ -34,12 +34,15 @@ export function buildCategoryLookup(categories: CategoryNode[]): Record<string, 
   const byId: Record<string, CategoryNode> = {};
   categories.forEach((c) => { byId[c.id] = c; });
 
+  const getParentId = (c: CategoryNode) => c.parent_id ?? c.parentId ?? null;
+
   const lookup: Record<string, CategoryLookup> = {};
 
   categories.forEach((cat) => {
-    // Determine level: L1 has no parent, L2 parent is L1, L3 parent is L2
-    const parent = cat.parentId ? byId[cat.parentId] : null;
-    const grandParent = parent?.parentId ? byId[parent.parentId] : null;
+    const pid = getParentId(cat);
+    const parent = pid ? byId[pid] : null;
+    const parentPid = parent ? getParentId(parent) : null;
+    const grandParent = parentPid ? byId[parentPid] : null;
 
     if (grandParent) {
       // This is L3 (leaf) → group = parent (L2)
