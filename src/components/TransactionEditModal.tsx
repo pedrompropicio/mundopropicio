@@ -119,6 +119,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           event_id: form.event_id,
           category_id: form.category_id || null,
           supplier_id: form.supplier_id || null,
+          account_id: form.account_id || null,
           specification: transaction.type === "expense" ? (form.specification || null) : null,
           date: form.date,
           due_date: form.due_date || null,
