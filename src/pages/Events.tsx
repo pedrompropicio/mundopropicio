@@ -233,14 +233,23 @@ export default function Events() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // If created from a reservation, delete the reservation
+      if (reservationId) {
+        await supabase.from("venue_reservations").delete().eq("id", reservationId);
+        queryClient.invalidateQueries({ queryKey: ["venue-reservations"] });
+        setReservationId(null);
+        toast({ title: "Evento criado e reserva convertida com sucesso!" });
+      } else {
+        toast({ title: "Evento criado com sucesso!" });
+      }
       queryClient.invalidateQueries({ queryKey: ["events_full"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
       queryClient.invalidateQueries({ queryKey: ["cities_map"] });
       queryClient.invalidateQueries({ queryKey: ["venues_map"] });
       setShowForm(false);
       setForm({ ...emptyForm });
-      toast({ title: "Evento criado com sucesso!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar evento", description: err.message, variant: "destructive" });
