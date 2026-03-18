@@ -349,16 +349,20 @@ export default function ReportPL() {
                     <p className="text-xs text-muted-foreground">Previsto</p>
                     <span className={`font-mono font-bold ${evt.fResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(evt.fResult)}</span>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Real</p>
-                    <span className={`font-mono font-bold ${evt.tResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(evt.tResult)}</span>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Variação</p>
-                    <span className={`font-mono font-bold ${evt.tResult - evt.fResult >= 0 ? "text-success" : "text-destructive"}`}>
-                      {evt.tResult - evt.fResult >= 0 ? "+" : ""}{formatCurrency(evt.tResult - evt.fResult)}
-                    </span>
-                  </div>
+                  {mode === "comparison" && (
+                    <>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Real</p>
+                        <span className={`font-mono font-bold ${evt.tResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(evt.tResult)}</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Variação</p>
+                        <span className={`font-mono font-bold ${evt.tResult - evt.fResult >= 0 ? "text-success" : "text-destructive"}`}>
+                          {evt.tResult - evt.fResult >= 0 ? "+" : ""}{formatCurrency(evt.tResult - evt.fResult)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </button>
 
