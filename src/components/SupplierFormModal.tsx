@@ -1,17 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
-
-const supplierCategories = [
-  "Som e Iluminação", "Palcos e Estruturas", "Catering", "Segurança",
-  "Transportes", "Alojamento", "Marketing", "Artistas/Agências",
-  "Decoração", "Limpeza", "Seguros", "Outro",
-];
 
 interface SupplierFormModalProps {
   open: boolean;
@@ -20,7 +15,27 @@ interface SupplierFormModalProps {
 }
 
 export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFormModalProps) {
+  const [categoryValue, setCategoryValue] = useState("");
   const queryClient = useQueryClient();
+
+  const { data: accountCategories = [] } = useQuery({
+    queryKey: ["account_categories_expense"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("id, name, code, type, parent_id")
+        .eq("is_active", true)
+        .eq("type", "expense")
+        .order("code");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const categoryOptions = accountCategories.map(c => ({
+    value: c.name,
+    label: `${c.code} - ${c.name}`,
+  }));
 
   const createMutation = useMutation({
     mutationFn: async (supplier: {
@@ -55,7 +70,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
       iban: (fd.get("iban") as string) || undefined,
       swift_bic: (fd.get("swift_bic") as string) || undefined,
       payment_terms: (fd.get("payment_terms") as string) || undefined,
-      category: (fd.get("category") as string) || undefined,
+      category: categoryValue || undefined,
       notes: (fd.get("notes") as string) || undefined,
     });
   };
@@ -83,15 +98,14 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
               <Input id="sup-nif" name="nif" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="sup-category">Categoria</Label>
-              <Select name="category">
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                <SelectContent>
-                  {supplierCategories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Categoria</Label>
+              <SearchableSelect
+                options={categoryOptions}
+                value={categoryValue}
+                onValueChange={setCategoryValue}
+                placeholder="Selecionar categoria…"
+                searchPlaceholder="Pesquisar no plano de contas…"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
