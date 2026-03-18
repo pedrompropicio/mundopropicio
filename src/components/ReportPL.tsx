@@ -314,7 +314,7 @@ export default function ReportPL() {
           <span className="hidden sm:inline">Exportar PDF</span>
         </button>
         <button
-          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, mode)}
+          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
