@@ -43,7 +43,7 @@ export default function Auth() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary glow-primary">
             <Music2 className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">EventFin</h1>
+          <h1 className="text-2xl font-bold text-foreground">Mundo Propício</h1>
           <p className="text-sm text-muted-foreground">Entre na sua conta</p>
         </div>
 
