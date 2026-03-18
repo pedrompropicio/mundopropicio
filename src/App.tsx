@@ -19,6 +19,7 @@ import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import TicketManagement from "./pages/TicketManagement";
+import EventCalendar from "./pages/EventCalendar";
 import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
 import ReportPLPage from "./pages/ReportPLPage";
