@@ -113,7 +113,7 @@ function buildPLForExport(
           forecast: lotNet, actual: lotSoldNet, variance: lotSoldNet - lotNet,
           forecastIva: lotIva, forecastTotal: lotNet + lotIva,
           actualIva: lotSoldIva, actualTotal: lotSoldNet + lotSoldIva,
-          subIndent: true, quantity: qty, unitPrice: netPrice,
+          subIndent: true, quantity: qty, unitPrice: grossPrice,
         }));
       });
       totalTicketQty += zoneQty;
