@@ -641,9 +641,9 @@ export default function ReportPL() {
                               <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
                               </TableCell>
-                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(fBase)}</TableCell>
-                              <TableCell className={ivaClass}>{line.subIndent ? "—" : formatCurrency(fIva)}</TableCell>
-                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(fTotal)}</TableCell>
+                              <TableCell className={valClass}>{formatCurrency(fBase)}</TableCell>
+                              <TableCell className={ivaClass}>{formatCurrency(fIva)}</TableCell>
+                              <TableCell className={valClass}>{formatCurrency(fTotal)}</TableCell>
                               {mode === "comparison" && (
                                 <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
                               )}
