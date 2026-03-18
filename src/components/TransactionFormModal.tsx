@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
+import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 
 interface TransactionForm {
   description: string;
