@@ -342,6 +342,12 @@ export function exportPLToPDF(
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
+      } else if (line.isSubTotal) {
+        doc.setFillColor(242, 242, 248);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(80, 80, 80);
       } else if (line.subIndent) {
         doc.setFillColor(248, 248, 252);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
