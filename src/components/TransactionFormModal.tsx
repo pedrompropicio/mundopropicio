@@ -449,7 +449,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Budget indicator for active P&L */}
-          {isActivePL && form.category_id && form.event_id && (() => {
+          {hasPL && form.category_id && form.event_id && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
             const used = usedBudgetByCategory[budgetKey] || 0;
