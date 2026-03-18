@@ -23,6 +23,8 @@ const PIE_COLORS = [
 
 export default function EventDetail() {
   const { id } = useParams();
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
