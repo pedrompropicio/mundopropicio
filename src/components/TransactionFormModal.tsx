@@ -79,6 +79,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
+  const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
   const isParentMultiDay = selectedEvent?.event_type === "multi_day";
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
@@ -126,7 +127,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && isActivePL,
+    enabled: !!form.event_id && hasPL,
   });
 
   const { data: eventTransactions = [] } = useQuery({
@@ -139,10 +140,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && isActivePL,
+    enabled: !!form.event_id && hasPL,
   });
 
-  const forecastBudgetByCategory = isActivePL
+  const forecastBudgetByCategory = hasPL
     ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
         const key = `${f.type}_${f.category_id || "none"}`;
         acc[key] = (acc[key] || 0) + Number(f.amount);
@@ -150,7 +151,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }, {})
     : {};
 
-  const usedBudgetByCategory = isActivePL
+  const usedBudgetByCategory = hasPL
     ? eventTransactions.reduce<Record<string, number>>((acc, t) => {
         const key = `${t.type}_${t.category_id || "none"}`;
         acc[key] = (acc[key] || 0) + Number(t.amount);
@@ -347,7 +348,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* P&L forecast lines summary */}
-          {isActivePL && form.event_id && (() => {
+          {hasPL && form.event_id && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
             if (typeForecasts.length === 0) return null;
 
@@ -371,7 +372,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             return (
               <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas
+                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas
                 </p>
                 <div className="max-h-40 overflow-y-auto">
                   <table className="w-full text-[11px]">
@@ -448,7 +449,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Budget indicator for active P&L */}
-          {isActivePL && form.category_id && form.event_id && (() => {
+          {hasPL && form.category_id && form.event_id && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
             const used = usedBudgetByCategory[budgetKey] || 0;
