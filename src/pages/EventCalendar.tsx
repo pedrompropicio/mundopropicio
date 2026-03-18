@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
+import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
