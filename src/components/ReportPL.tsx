@@ -74,7 +74,8 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
 function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
-  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
+  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
+  relevantEventIds: string[] = [eventId]
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -108,7 +109,6 @@ function buildPL(
         zoneIva += lotIva;
         zoneQty += qty;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        const lotSoldQty = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity), 0);
         const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
         const lotSoldNet = lotSales.reduce((s: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -156,8 +156,8 @@ function buildPL(
   const tIncGroups = aggregateByHierarchy(tInc, lookup);
   const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
-  // Calculate cachê lines and inject into expense hierarchy under "Cachês" (2.1.01)
-  const eventCacheConfigs = cacheConfigs.filter((c) => c.event_id === eventId);
+  // Calculate cachê lines and inject into expense hierarchy under "Artístico" > "Cachês" (2.1.01)
+  const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
   const cacheLines = calculateCacheLinesForPL(
     eventCacheConfigs,
     cacheDeductions,
@@ -166,11 +166,10 @@ function buildPL(
   );
   const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
 
-  // Inject cachê into fExpGroups under "Artístico" > "Cachês"
   if (totalCacheAmount > 0) {
-    const artisticoGroup = fExpGroups.find(g => g.groupCode === "2.1" || g.groupName === "Artístico");
+    const artisticoGroup = fExpGroups.find((g) => g.groupCode === "2.1" || g.groupName === "Artístico");
     if (artisticoGroup) {
-      const cachesDetail = artisticoGroup.details.find(d => d.code === "2.1.01" || d.name === "Cachês");
+      const cachesDetail = artisticoGroup.details.find((d) => d.code === "2.1.01" || d.name === "Cachês");
       if (cachesDetail) {
         cachesDetail.base += totalCacheAmount;
       } else {
@@ -179,8 +178,10 @@ function buildPL(
       artisticoGroup.totalBase += totalCacheAmount;
     } else {
       fExpGroups.push({
-        groupName: "Artístico", groupCode: "2.1",
-        totalBase: totalCacheAmount, totalIva: 0,
+        groupName: "Artístico",
+        groupCode: "2.1",
+        totalBase: totalCacheAmount,
+        totalIva: 0,
         details: [{ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 }],
       });
     }
@@ -487,10 +488,11 @@ export default function ReportPL() {
     });
     const totalFInc = fInc + ticketRev;
     const totalTInc = tInc + ticketActualRev;
-    // Include cachê in forecast expenses
-    const eventCaches = allCacheConfigs.filter((c) => c.event_id === e.id);
+    const eventCaches = allCacheConfigs.filter((c) => ticketEventIds.includes(c.event_id));
     const cacheLines = calculateCacheLinesForPL(
-      eventCaches, allCacheDeductions, ticketRev,
+      eventCaches,
+      allCacheDeductions,
+      ticketRev,
       evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
     );
     const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
@@ -571,7 +573,7 @@ export default function ReportPL() {
 
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
+          onClick={() => exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
         >
@@ -579,7 +581,7 @@ export default function ReportPL() {
           <span className="hidden sm:inline">Exportar PDF</span>
         </button>
         <button
-          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
@@ -619,7 +621,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">

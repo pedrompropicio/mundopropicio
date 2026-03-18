@@ -36,19 +36,19 @@ function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | '
 }
 
 function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]) {
-  const allGroupNames = [...new Set([...fGroups.map(g => g.groupName), ...tGroups.map(g => g.groupName)])];
-  const fMap = Object.fromEntries(fGroups.map(g => [g.groupName, g]));
-  const tMap = Object.fromEntries(tGroups.map(g => [g.groupName, g]));
+  const allGroupNames = [...new Set([...fGroups.map((g) => g.groupName), ...tGroups.map((g) => g.groupName)])];
+  const fMap = Object.fromEntries(fGroups.map((g) => [g.groupName, g]));
+  const tMap = Object.fromEntries(tGroups.map((g) => [g.groupName, g]));
 
-  return allGroupNames.map(name => {
+  return allGroupNames.map((name) => {
     const fg = fMap[name];
     const tg = tMap[name];
     const code = fg?.groupCode ?? tg?.groupCode ?? "Z";
-    const allDetailNames = [...new Set([...(fg?.details.map(d => d.name) ?? []), ...(tg?.details.map(d => d.name) ?? [])])];
-    const fDetailMap = Object.fromEntries((fg?.details ?? []).map(d => [d.name, d]));
-    const tDetailMap = Object.fromEntries((tg?.details ?? []).map(d => [d.name, d]));
+    const allDetailNames = [...new Set([...(fg?.details.map((d) => d.name) ?? []), ...(tg?.details.map((d) => d.name) ?? [])])];
+    const fDetailMap = Object.fromEntries((fg?.details ?? []).map((d) => [d.name, d]));
+    const tDetailMap = Object.fromEntries((tg?.details ?? []).map((d) => [d.name, d]));
 
-    const details = allDetailNames.map(dn => ({
+    const details = allDetailNames.map((dn) => ({
       name: dn,
       fBase: fDetailMap[dn]?.base ?? 0,
       fIva: fDetailMap[dn]?.iva ?? 0,
@@ -57,22 +57,84 @@ function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[
     })).sort((a, b) => a.name.localeCompare(b.name));
 
     return {
-      groupName: name, groupCode: code,
-      fBase: fg?.totalBase ?? 0, fIva: fg?.totalIva ?? 0,
-      tBase: tg?.totalBase ?? 0, tIva: tg?.totalIva ?? 0,
+      groupName: name,
+      groupCode: code,
+      fBase: fg?.totalBase ?? 0,
+      fIva: fg?.totalIva ?? 0,
+      tBase: tg?.totalBase ?? 0,
+      tIva: tg?.totalIva ?? 0,
       details,
     };
   }).sort((a, b) => a.groupCode.localeCompare(b.groupCode));
 }
 
+interface ExportHierarchyMaps {
+  subEventParentMap: Record<string, string>;
+  subCountByParent: Record<string, number>;
+  childrenByParent: Record<string, string[]>;
+}
+
+function buildEventHierarchyMaps(allEvents: any[]): ExportHierarchyMaps {
+  const subEventParentMap: Record<string, string> = {};
+  const subCountByParent: Record<string, number> = {};
+  const childrenByParent: Record<string, string[]> = {};
+
+  allEvents.forEach((event) => {
+    if (event.parent_event_id) {
+      subEventParentMap[event.id] = event.parent_event_id;
+      subCountByParent[event.parent_event_id] = (subCountByParent[event.parent_event_id] || 0) + 1;
+      if (!childrenByParent[event.parent_event_id]) childrenByParent[event.parent_event_id] = [];
+      childrenByParent[event.parent_event_id].push(event.id);
+    }
+  });
+
+  return { subEventParentMap, subCountByParent, childrenByParent };
+}
+
+function getEffectiveExportData(eventId: string, forecasts: any[], transactions: any[], hierarchy: ExportHierarchyMaps) {
+  let evtF = forecasts.filter((f: any) => f.event_id === eventId);
+  let evtT = transactions.filter((t: any) => t.event_id === eventId);
+
+  const parentId = hierarchy.subEventParentMap[eventId];
+  if (parentId) {
+    const siblingCount = hierarchy.subCountByParent[parentId] || 1;
+    const parentF = forecasts
+      .filter((f: any) => f.event_id === parentId)
+      .map((f: any) => ({ ...f, amount: Number(f.amount) / siblingCount }));
+    const parentT = transactions
+      .filter((t: any) => t.event_id === parentId)
+      .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+    evtF = [...evtF, ...parentF];
+    evtT = [...evtT, ...parentT];
+  }
+
+  const children = hierarchy.childrenByParent[eventId];
+  if (children?.length) {
+    children.forEach((childId) => {
+      evtF = [...evtF, ...forecasts.filter((f: any) => f.event_id === childId)];
+      evtT = [...evtT, ...transactions.filter((t: any) => t.event_id === childId)];
+    });
+  }
+
+  return { evtF, evtT };
+}
+
+function getRelevantExportEventIds(eventId: string, hierarchy: ExportHierarchyMaps): string[] {
+  const ids = [eventId];
+  const children = hierarchy.childrenByParent[eventId];
+  if (children?.length) ids.push(...children);
+  return ids;
+}
+
 function buildPLForExport(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
-  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
+  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
+  relevantEventIds: string[] = [eventId]
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
-  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
   let ticketForecastNet = 0;
   let ticketForecastIva = 0;
   const ticketLines: PLLine[] = [];
@@ -112,28 +174,45 @@ function buildPLForExport(
         totalTicketActualIva += lotSoldIva;
         ticketLines.push(pl({
           label: `${zone.name} — ${lot.name}`,
-          forecast: lotNet, actual: lotSoldNet, variance: lotSoldNet - lotNet,
-          forecastIva: lotIva, forecastTotal: lotNet + lotIva,
-          actualIva: lotSoldIva, actualTotal: lotSoldNet + lotSoldIva,
-          subIndent: true, quantity: qty, unitPrice: grossPrice,
+          forecast: lotNet,
+          actual: lotSoldNet,
+          variance: lotSoldNet - lotNet,
+          forecastIva: lotIva,
+          forecastTotal: lotNet + lotIva,
+          actualIva: lotSoldIva,
+          actualTotal: lotSoldNet + lotSoldIva,
+          subIndent: true,
+          quantity: qty,
+          unitPrice: grossPrice,
         }));
       });
       totalTicketQty += zoneQty;
       ticketLines.push(pl({
         label: `Subtotal ${zone.name}`,
-        forecast: zoneNet, actual: zoneActualNet, variance: zoneActualNet - zoneNet,
-        forecastIva: zoneIva, forecastTotal: zoneNet + zoneIva,
-        actualIva: zoneActualIva, actualTotal: zoneActualNet + zoneActualIva,
-        subIndent: true, isSubTotal: true, quantity: zoneQty,
+        forecast: zoneNet,
+        actual: zoneActualNet,
+        variance: zoneActualNet - zoneNet,
+        forecastIva: zoneIva,
+        forecastTotal: zoneNet + zoneIva,
+        actualIva: zoneActualIva,
+        actualTotal: zoneActualNet + zoneActualIva,
+        subIndent: true,
+        isSubTotal: true,
+        quantity: zoneQty,
       }));
     });
     ticketLines.push(pl({
-      label: `Total Bilheteira`,
-      forecast: ticketForecastNet, actual: totalTicketActualNet,
+      label: "Total Bilheteira",
+      forecast: ticketForecastNet,
+      actual: totalTicketActualNet,
       variance: totalTicketActualNet - ticketForecastNet,
-      forecastIva: ticketForecastIva, forecastTotal: ticketForecastNet + ticketForecastIva,
-      actualIva: totalTicketActualIva, actualTotal: totalTicketActualNet + totalTicketActualIva,
-      subIndent: true, isSubTotal: true, quantity: totalTicketQty,
+      forecastIva: ticketForecastIva,
+      forecastTotal: ticketForecastNet + ticketForecastIva,
+      actualIva: totalTicketActualIva,
+      actualTotal: totalTicketActualNet + totalTicketActualIva,
+      subIndent: true,
+      isSubTotal: true,
+      quantity: totalTicketQty,
     }));
   }
 
@@ -147,10 +226,40 @@ function buildPLForExport(
   const tIncGroups = aggregateByHierarchy(tInc, lookup);
   const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
+  const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
+  const cachePLLines = calculateCacheLinesForPL(
+    eventCacheConfigs,
+    cacheDeductions,
+    ticketForecastNet,
+    forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+  );
+  const totalCacheAmount = cachePLLines.reduce((s, c) => s + c.amount, 0);
+
+  if (totalCacheAmount > 0) {
+    const artisticoGroup = fExpGroups.find((g) => g.groupCode === "2.1" || g.groupName === "Artístico");
+    if (artisticoGroup) {
+      const cachesDetail = artisticoGroup.details.find((d) => d.code === "2.1.01" || d.name === "Cachês");
+      if (cachesDetail) {
+        cachesDetail.base += totalCacheAmount;
+      } else {
+        artisticoGroup.details.push({ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 });
+      }
+      artisticoGroup.totalBase += totalCacheAmount;
+    } else {
+      fExpGroups.push({
+        groupName: "Artístico",
+        groupCode: "2.1",
+        totalBase: totalCacheAmount,
+        totalIva: 0,
+        details: [{ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 }],
+      });
+    }
+  }
+
   if (ticketForecastNet > 0) {
-    const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
+    const bilhGroup = fIncGroups.find((g) => g.details.some((d) => d.name.toLowerCase().includes("bilhete")));
     if (bilhGroup) {
-      const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
+      const bilhDetail = bilhGroup.details.find((d) => d.name.toLowerCase().includes("bilhete"));
       if (bilhDetail) {
         bilhDetail.base += ticketForecastNet;
         bilhDetail.iva += ticketForecastIva;
@@ -159,8 +268,10 @@ function buildPLForExport(
       bilhGroup.totalIva += ticketForecastIva;
     } else {
       fIncGroups.push({
-        groupName: "Bilheteira", groupCode: "0.0",
-        totalBase: ticketForecastNet, totalIva: ticketForecastIva,
+        groupName: "Bilheteira",
+        groupCode: "0.0",
+        totalBase: ticketForecastNet,
+        totalIva: ticketForecastIva,
         details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastNet, iva: ticketForecastIva }],
       });
     }
@@ -181,23 +292,41 @@ function buildPLForExport(
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
   lines.push(pl({
-    label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
-    forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
-    actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
+    label: "RECEITAS",
+    forecast: totalFIncBase,
+    actual: totalTIncBase,
+    variance: totalTIncBase - totalFIncBase,
+    isTotal: true,
+    forecastIva: totalFIncIva,
+    forecastTotal: totalFIncBase + totalFIncIva,
+    actualIva: totalTIncIva,
+    actualTotal: totalTIncBase + totalTIncIva,
   }));
   mergedInc.forEach((group) => {
     const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
     if (hasManyDetails) {
       lines.push(pl({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        label: group.groupName,
+        forecast: group.fBase,
+        actual: group.tBase,
+        variance: group.tBase - group.fBase,
+        isGroupHeader: true,
+        forecastIva: group.fIva,
+        forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva,
+        actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
         lines.push(pl({
-          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
-          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+          label: d.name,
+          forecast: d.fBase,
+          actual: d.tBase,
+          variance: d.tBase - d.fBase,
+          indent: true,
+          forecastIva: d.fIva,
+          forecastTotal: d.fBase + d.fIva,
+          actualIva: d.tIva,
+          actualTotal: d.tBase + d.tIva,
         }));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
@@ -206,9 +335,15 @@ function buildPLForExport(
       });
     } else {
       lines.push(pl({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        label: group.groupName,
+        forecast: group.fBase,
+        actual: group.tBase,
+        variance: group.tBase - group.fBase,
+        indent: true,
+        forecastIva: group.fIva,
+        forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva,
+        actualTotal: group.tBase + group.tIva,
       }));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
@@ -216,81 +351,90 @@ function buildPLForExport(
       }
     }
   });
-  // Fallback: if ticket lines weren't inserted via category matching, add them after income groups
   if (!ticketLinesInserted && ticketLines.length > 0) {
     ticketLines.forEach((tl) => lines.push(tl));
   }
-  // Calculate cachê lines
-  const eventCacheConfigs = cacheConfigs.filter((c) => c.event_id === eventId);
-  const cachePLLines = calculateCacheLinesForPL(
-    eventCacheConfigs, cacheDeductions, ticketForecastNet,
-    forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
-  );
-  const totalCacheAmount = cachePLLines.reduce((s, c) => s + c.amount, 0);
-  const finalFExpBase = totalFExpBase + totalCacheAmount;
-  const finalFExpIva = totalFExpIva;
 
   lines.push(pl({
-    label: "DESPESAS", forecast: finalFExpBase, actual: totalTExpBase, variance: totalTExpBase - finalFExpBase, isTotal: true,
-    forecastIva: finalFExpIva, forecastTotal: finalFExpBase + finalFExpIva,
-    actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
+    label: "DESPESAS",
+    forecast: totalFExpBase,
+    actual: totalTExpBase,
+    variance: totalTExpBase - totalFExpBase,
+    isTotal: true,
+    forecastIva: totalFExpIva,
+    forecastTotal: totalFExpBase + totalFExpIva,
+    actualIva: totalTExpIva,
+    actualTotal: totalTExpBase + totalTExpIva,
   }));
   mergedExp.forEach((group) => {
     const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
     if (hasManyDetails) {
       lines.push(pl({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        label: group.groupName,
+        forecast: group.fBase,
+        actual: group.tBase,
+        variance: group.tBase - group.fBase,
+        isGroupHeader: true,
+        forecastIva: group.fIva,
+        forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva,
+        actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
         lines.push(pl({
-          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
-          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+          label: d.name,
+          forecast: d.fBase,
+          actual: d.tBase,
+          variance: d.tBase - d.fBase,
+          indent: true,
+          forecastIva: d.fIva,
+          forecastTotal: d.fBase + d.fIva,
+          actualIva: d.tIva,
+          actualTotal: d.tBase + d.tIva,
         }));
       });
     } else {
       lines.push(pl({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        label: group.groupName,
+        forecast: group.fBase,
+        actual: group.tBase,
+        variance: group.tBase - group.fBase,
+        indent: true,
+        forecastIva: group.fIva,
+        forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva,
+        actualTotal: group.tBase + group.tIva,
       }));
     }
   });
 
-  // Cachê das Atrações group
-  if (cachePLLines.length > 0) {
-    lines.push(pl({
-      label: "Cachê das Atrações", forecast: totalCacheAmount, actual: 0, variance: 0 - totalCacheAmount, isGroupHeader: true,
-    }));
-    cachePLLines.forEach((cl) => {
-      const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
-      lines.push(pl({
-        label: `${cl.artistName} ${typeLabel}`, forecast: cl.amount, actual: 0, variance: 0 - cl.amount, indent: true,
-      }));
-    });
-  }
-
-  const fResBase = totalFIncBase - finalFExpBase;
-  const fResIva = totalFIncIva - finalFExpIva;
+  const fResBase = totalFIncBase - totalFExpBase;
+  const fResIva = totalFIncIva - totalFExpIva;
   const tResBase = totalTIncBase - totalTExpBase;
   const tResIva = totalTIncIva - totalTExpIva;
   lines.push(pl({
-    label: "RESULTADO LÍQUIDO", forecast: fResBase, actual: tResBase, variance: tResBase - fResBase, isGrandTotal: true,
-    forecastIva: fResIva, forecastTotal: fResBase + fResIva,
-    actualIva: tResIva, actualTotal: tResBase + tResIva,
+    label: "RESULTADO LÍQUIDO",
+    forecast: fResBase,
+    actual: tResBase,
+    variance: tResBase - fResBase,
+    isGrandTotal: true,
+    forecastIva: fResIva,
+    forecastTotal: fResBase + fResIva,
+    actualIva: tResIva,
+    actualTotal: tResBase + tResIva,
   }));
+
   return lines;
 }
 
 export function exportPLToExcel(
-  events: any[], forecasts: any[], transactions: any[], categories: any[],
+  eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
 ) {
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
+  const hierarchy = buildEventHierarchyMaps(allEvents);
 
   const summaryRows: any[][] = [
     [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
@@ -302,14 +446,14 @@ export function exportPLToExcel(
 
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
 
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     let fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
@@ -324,6 +468,20 @@ export function exportPLToExcel(
         }, 0);
       });
     });
+    const cachePLLines = calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      evtZones.reduce((sum: number, zone: any) => {
+        const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+        return sum + zoneLots.reduce((lotSum: number, lot: any) => {
+          const ivaRate = Number(lot.iva_rate ?? 6);
+          return lotSum + Number(lot.quantity) * (Number(lot.price) / (1 + ivaRate / 100));
+        }, 0);
+      }, 0),
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+    const totalCache = cachePLLines.reduce((s, c) => s + c.amount, 0);
+    const fExp = fExpBase + totalCache;
     const totalTInc = tInc + ticketActualNet;
     gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
     if (isComparison) {
@@ -346,11 +504,11 @@ export function exportPLToExcel(
     : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
@@ -396,7 +554,7 @@ export function exportPLToExcel(
 }
 
 export function exportPLToPDF(
-  events: any[], forecasts: any[], transactions: any[], categories: any[],
+  eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
 ) {
@@ -408,8 +566,8 @@ export function exportPLToPDF(
   const contentWidth = pageWidth - marginLeft - marginRight;
   let y = 14;
   const isComparison = mode === "comparison";
+  const hierarchy = buildEventHierarchyMaps(allEvents);
 
-  // Columns: Rubrica | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | [Real s/IVA | IVA Real | Total Real | Variação]
   const colWidths = isComparison
     ? [contentWidth * 0.18, contentWidth * 0.06, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.11, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.08]
     : [contentWidth * 0.30, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.18, contentWidth * 0.12, contentWidth * 0.16];
@@ -449,7 +607,6 @@ export function exportPLToPDF(
     return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
   }
 
-  // Logo + title (only once at the top of the first page)
   try {
     doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
     y += 28;
@@ -468,20 +625,17 @@ export function exportPLToPDF(
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  // Per-event
-  events.forEach((evt, evtIdx) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt, evtIdx) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
-
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
 
     if (evtIdx > 0) {
       doc.addPage();
       y = 14;
     }
 
-    // Event header bar (no duplicate logo)
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
@@ -545,7 +699,6 @@ export function exportPLToPDF(
       const showAbs = !line.isGrandTotal;
       doc.text(fmtVal(showAbs ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
-      // Forecast IVA & Total columns
       if (!line.subIndent && !line.isSubTotal && !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.indent) {
         doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
@@ -555,14 +708,14 @@ export function exportPLToPDF(
       }
 
       if (isComparison) {
-          doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
-          doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
-          doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
-          const v = line.variance;
-          if (line.isGrandTotal || line.isTotal) {
-            doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
-          }
-          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
+        const v = line.variance;
+        if (line.isGrandTotal || line.isTotal) {
+          doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+        }
+        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
       }
       doc.setTextColor(0, 0, 0);
 
@@ -572,7 +725,6 @@ export function exportPLToPDF(
     y += 8;
   });
 
-  // Global summary page
   doc.addPage();
   y = 14;
 
@@ -582,18 +734,22 @@ export function exportPLToPDF(
   y += 10;
 
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualRevNet = 0;
+    let ticketForecastNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
         const ivaRate = Number(lot.iva_rate ?? 6);
         const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        evtFInc += netPrice * Number(lot.quantity);
+        const lotForecastNet = netPrice * Number(lot.quantity);
+        evtFInc += lotForecastNet;
+        ticketForecastNet += lotForecastNet;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualRevNet += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -601,8 +757,14 @@ export function exportPLToPDF(
         }, 0);
       });
     });
+    const totalCache = calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      ticketForecastNet,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    ).reduce((sum, line) => sum + line.amount, 0);
     gFInc += evtFInc;
-    gFExp += evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    gFExp += evtFExpBase + totalCache;
     gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0) + ticketActualRevNet;
     gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
   });
@@ -624,21 +786,24 @@ export function exportPLToPDF(
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualNet = 0;
+    let ticketForecastNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
         const ivaRate = Number(lot.iva_rate ?? 6);
         const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        evtFInc += netPrice * Number(lot.quantity);
+        const lotForecastNet = netPrice * Number(lot.quantity);
+        evtFInc += lotForecastNet;
+        ticketForecastNet += lotForecastNet;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -646,6 +811,12 @@ export function exportPLToPDF(
         }, 0);
       });
     });
+    const evtFExp = evtFExpBase + calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      ticketForecastNet,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    ).reduce((sum, line) => sum + line.amount, 0);
     const fResult = evtFInc - evtFExp;
     const tResult = (evtTInc + ticketActualNet) - evtTExp;
 
@@ -664,7 +835,6 @@ export function exportPLToPDF(
     y += 7;
   });
 
-  // Totals row
   y += 2;
   doc.setFillColor(230, 240, 255);
   doc.rect(marginLeft, y - 1, contentWidth, 9, "F");
@@ -683,7 +853,6 @@ export function exportPLToPDF(
   }
   doc.setTextColor(0, 0, 0);
 
-  // Footer
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);

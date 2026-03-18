@@ -126,14 +126,14 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     enabled: ticketLots.length > 0,
   });
 
-  // Fetch cache configs for this event
+  // Fetch cache configs for this event and its child events (for consolidated P&L)
   const { data: cacheConfigs = [] } = useQuery({
-    queryKey: ["event_cache_configs", eventId],
+    queryKey: ["event_cache_configs", ticketEventIds.join(",")],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_cache_configs")
         .select("*")
-        .eq("event_id", eventId)
+        .in("event_id", ticketEventIds)
         .order("created_at");
       if (error) throw error;
       return data as unknown as CacheConfig[];
