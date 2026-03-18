@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 
 interface DRELine {
@@ -62,6 +63,7 @@ function buildDRE(transactions: any[], categories: any[]): DRELine[] {
 
 export default function ReportDRE() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -90,7 +92,24 @@ export default function ReportDRE() {
     },
   });
 
-  const eventSummaries = events.map((e) => {
+  const toggleEvent = (id: string) => {
+    setSelectedEventIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    setSelectedEventIds((prev) =>
+      prev.length === events.length ? [] : events.map((e) => e.id)
+    );
+  };
+
+  // Use selected events or all if none selected
+  const activeEvents = selectedEventIds.length > 0
+    ? events.filter((e) => selectedEventIds.includes(e.id))
+    : events;
+
+  const eventSummaries = activeEvents.map((e) => {
     const evtTx = transactions.filter((t: any) => t.event_id === e.id);
     const totalIncEx = evtTx.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const totalIncInc = evtTx.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
@@ -110,18 +129,43 @@ export default function ReportDRE() {
 
   return (
     <div className="space-y-6">
+      {/* Event selector */}
+      <div className="glass rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Selecionar Eventos</p>
+          <button onClick={toggleAll} className="text-xs text-primary hover:underline">
+            {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {events.map((e) => (
+            <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
+              <Checkbox
+                checked={selectedEventIds.includes(e.id)}
+                onCheckedChange={() => toggleEvent(e.id)}
+              />
+              <span>{e.name}</span>
+            </label>
+          ))}
+          {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+        </div>
+        {selectedEventIds.length === 0 && events.length > 0 && (
+          <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
+        )}
+      </div>
+
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => exportDREToPDF(events, transactions, categories)}
-          disabled={events.length === 0}
+          onClick={() => exportDREToPDF(activeEvents, transactions, categories)}
+          disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
           <span className="hidden sm:inline">Exportar PDF</span>
         </button>
         <button
-          onClick={() => exportDREToExcel(events, transactions, categories)}
-          disabled={events.length === 0}
+          onClick={() => exportDREToExcel(activeEvents, transactions, categories)}
+          disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
