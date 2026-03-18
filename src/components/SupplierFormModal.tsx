@@ -32,6 +32,15 @@ const supplierCategories = [
   "Outro",
 ];
 
+interface SupplierFormModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated?: (id: string) => void;
+}
+
+export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFormModalProps) {
+  const queryClient = useQueryClient();
+
   const createMutation = useMutation({
     mutationFn: async (supplier: {
       name: string; trade_name?: string; nif?: string; contact_name?: string; email?: string;
