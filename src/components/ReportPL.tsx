@@ -568,7 +568,7 @@ export default function ReportPL() {
 
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode)}
+          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
         >
