@@ -1149,6 +1149,29 @@ function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cac
             <>
               <tr><td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td></tr>
               {renderGroupedRows(expenseGroups, false)}
+              {cacheLines.length > 0 && (
+                <>
+                  <tr className="bg-secondary/10 border-t border-border/30">
+                    <td className="py-1.5 pl-2 text-xs font-semibold">Cachê das Atrações</td>
+                    <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(totalCacheF)}</td>
+                    <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(0)}</td>
+                    <td className={`py-1.5 text-right font-mono text-xs font-semibold text-destructive`}>{formatCurrency(0 - totalCacheF)}</td>
+                    <td />
+                  </tr>
+                  {cacheLines.map((cl, idx) => {
+                    const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Var.)";
+                    return (
+                      <tr key={`cache-cmp-${idx}`} className="border-b border-border/20">
+                        <td className="py-2 pr-3 pl-4">{cl.artistName} <span className="text-xs text-muted-foreground">{typeLabel}</span></td>
+                        <td className="py-2 text-right font-mono">{formatCurrency(cl.amount)}</td>
+                        <td className="py-2 text-right font-mono">{formatCurrency(0)}</td>
+                        <td className="py-2 text-right font-mono text-destructive">{formatCurrency(0 - cl.amount)}</td>
+                        <td className="py-2 text-right text-xs">—</td>
+                      </tr>
+                    );
+                  })}
+                </>
+              )}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Despesas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFE)}</td>
