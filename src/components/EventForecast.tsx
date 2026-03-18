@@ -388,7 +388,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
-  const totalActualIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+  const totalActualIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0) + ticketActualRevenue;
   const totalActualExpense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const actualProfit = totalActualIncome - totalActualExpense;
 
