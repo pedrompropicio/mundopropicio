@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -12,6 +13,7 @@ interface DRELine {
   amountIncIva: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
+  isGroupHeader?: boolean;
   indent?: boolean;
 }
 
@@ -29,7 +31,7 @@ function buildDREForExport(
   eventId: string,
   ticketCategoryId: string | null
 ): DRELine[] {
-  const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
+  const lookup = buildCategoryLookup(categories);
 
   const useTicketSales = ticketRevenueSource === "ticket_sales";
   const eventZones = ticketZones.filter((z: any) => z.event_id === eventId);
@@ -51,45 +53,47 @@ function buildDREForExport(
 
   const expenses = transactions.filter((t) => t.type === "expense");
 
-  const aggregate = (txs: any[]) => {
-    const byCat: Record<string, { exIva: number; iva: number; incIva: number }> = {};
-    txs.forEach((t) => {
-      const name = catMap[t.category_id] ?? "Sem categoria";
-      const amt = Number(t.amount);
-      const iva = Number(t.iva_rate ?? 23);
-      const withIva = calcAmountWithIva(amt, iva);
-      if (!byCat[name]) byCat[name] = { exIva: 0, iva: 0, incIva: 0 };
-      byCat[name].exIva += amt;
-      byCat[name].iva += withIva - amt;
-      byCat[name].incIva += withIva;
-    });
-    return byCat;
-  };
-
-  const incByCat = aggregate(incomes);
-  const expByCat = aggregate(expenses);
+  const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
+  const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
 
   if (useTicketSales && hasTicketMgmt && ticketIncomeExIva > 0) {
-    const ticketLabel = "Venda de Bilhetes (Gestão)";
-    incByCat[ticketLabel] = {
-      exIva: ticketIncomeExIva,
-      iva: ticketIncomeIncIva - ticketIncomeExIva,
-      incIva: ticketIncomeIncIva,
-    };
+    incGroups.push({
+      groupName: "Venda de Bilhetes (Gestão)",
+      groupCode: "0.0",
+      totalBase: ticketIncomeExIva,
+      totalIva: ticketIncomeIncIva - ticketIncomeExIva,
+      details: [{ name: "Venda de Bilhetes (Gestão)", code: "0.0.01", base: ticketIncomeExIva, iva: ticketIncomeIncIva - ticketIncomeExIva }],
+    });
   }
 
-  const totalIncEx = Object.values(incByCat).reduce((s, v) => s + v.exIva, 0);
-  const totalIncInc = Object.values(incByCat).reduce((s, v) => s + v.incIva, 0);
-  const totalExpEx = expenses.reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpInc = expenses.reduce((s, t) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
+  const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0);
+  const totalIncIva = incGroups.reduce((s, g) => s + g.totalIva, 0);
+  const totalIncInc = totalIncEx + totalIncIva;
+  const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
+  const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
+  const totalExpInc = totalExpEx + totalExpIva;
 
   const lines: DRELine[] = [];
-  lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncInc - totalIncEx, amountIncIva: totalIncInc, isTotal: true });
-  Object.entries(incByCat).sort((a, b) => b[1].exIva - a[1].exIva)
-    .forEach(([name, val]) => lines.push({ label: name, amountExIva: val.exIva, ivaAmount: val.iva, amountIncIva: val.incIva, indent: true }));
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpInc - totalExpEx, amountIncIva: totalExpInc, isTotal: true });
-  Object.entries(expByCat).sort((a, b) => b[1].exIva - a[1].exIva)
-    .forEach(([name, val]) => lines.push({ label: name, amountExIva: val.exIva, ivaAmount: val.iva, amountIncIva: val.incIva, indent: true }));
+  lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncIva, amountIncIva: totalIncInc, isTotal: true });
+  incGroups.forEach((group) => {
+    if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true });
+      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
+    } else {
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
+    }
+  });
+
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true });
+  expGroups.forEach((group) => {
+    if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true });
+      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
+    } else {
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
+    }
+  });
+
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
@@ -165,7 +169,8 @@ export function exportDREToExcel(
       ["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"],
     ];
     dre.forEach((line) => {
-      rows.push([line.indent ? `  ${line.label}` : line.label, line.amountExIva, line.ivaAmount, line.amountIncIva]);
+      const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+      rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -325,12 +330,17 @@ export function exportDREToPDF(
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
+      } else if (line.isGroupHeader) {
+        doc.setFillColor(245, 245, 250);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
       }
 
-      const label = line.indent ? `    ${line.label}` : line.label;
+      const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
       doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
       doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });

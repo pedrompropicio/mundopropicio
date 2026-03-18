@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Download, BarChart3 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
+import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 
 export type PLMode = "forecast" | "comparison";
 
@@ -21,6 +22,7 @@ interface PLLine {
   variance: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
+  isGroupHeader?: boolean;
   indent?: boolean;
   subIndent?: boolean;
   isSubTotal?: boolean;
@@ -38,24 +40,41 @@ function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva'
   };
 }
 
+function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { groupName: string; groupCode: string; fBase: number; fIva: number; tBase: number; tIva: number; details: { name: string; fBase: number; fIva: number; tBase: number; tIva: number }[] }[] {
+  const allGroupNames = [...new Set([...fGroups.map(g => g.groupName), ...tGroups.map(g => g.groupName)])];
+  const fMap = Object.fromEntries(fGroups.map(g => [g.groupName, g]));
+  const tMap = Object.fromEntries(tGroups.map(g => [g.groupName, g]));
+
+  return allGroupNames.map(name => {
+    const fg = fMap[name];
+    const tg = tMap[name];
+    const code = fg?.groupCode ?? tg?.groupCode ?? "Z";
+    const allDetailNames = [...new Set([...(fg?.details.map(d => d.name) ?? []), ...(tg?.details.map(d => d.name) ?? [])])];
+    const fDetailMap = Object.fromEntries((fg?.details ?? []).map(d => [d.name, d]));
+    const tDetailMap = Object.fromEntries((tg?.details ?? []).map(d => [d.name, d]));
+
+    const details = allDetailNames.map(dn => ({
+      name: dn,
+      fBase: fDetailMap[dn]?.base ?? 0,
+      fIva: fDetailMap[dn]?.iva ?? 0,
+      tBase: tDetailMap[dn]?.base ?? 0,
+      tIva: tDetailMap[dn]?.iva ?? 0,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      groupName: name, groupCode: code,
+      fBase: fg?.totalBase ?? 0, fIva: fg?.totalIva ?? 0,
+      tBase: tg?.totalBase ?? 0, tIva: tg?.totalIva ?? 0,
+      details,
+    };
+  }).sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+}
+
 function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
 ): PLLine[] {
-  const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
-
-  const aggregateWithIva = (items: any[]) => {
-    const byCat: Record<string, { base: number; iva: number }> = {};
-    items.forEach((item) => {
-      const name = catMap[item.category_id] ?? "Sem categoria";
-      if (!byCat[name]) byCat[name] = { base: 0, iva: 0 };
-      const amt = Number(item.amount);
-      const ivaRate = Number(item.iva_rate) || 0;
-      byCat[name].base += amt;
-      byCat[name].iva += amt * ivaRate / 100;
-    });
-    return byCat;
-  };
+  const lookup = buildCategoryLookup(categories);
 
   // Calculate ticket lot revenue for this event
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
@@ -108,29 +127,38 @@ function buildPL(
   const tInc = transactions.filter((t) => t.type === "income");
   const tExp = transactions.filter((t) => t.type === "expense");
 
-  const fIncByCat = aggregateWithIva(fInc);
-  const fExpByCat = aggregateWithIva(fExp);
-  const tIncByCat = aggregateWithIva(tInc);
-  const tExpByCat = aggregateWithIva(tExp);
+  const fIncGroups = aggregateByHierarchy(fInc, lookup);
+  const fExpGroups = aggregateByHierarchy(fExp, lookup);
+  const tIncGroups = aggregateByHierarchy(tInc, lookup);
+  const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
-  // Add ticket lot revenue to Bilheteira category forecast
+  // Add ticket lot revenue to forecast Bilheteira
   if (ticketForecastRevenue > 0) {
-    const bilheteiraKey = "Bilheteira";
-    if (!fIncByCat[bilheteiraKey]) fIncByCat[bilheteiraKey] = { base: 0, iva: 0 };
-    fIncByCat[bilheteiraKey].base += ticketForecastRevenue;
+    const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
+    if (bilhGroup) {
+      const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
+      if (bilhDetail) bilhDetail.base += ticketForecastRevenue;
+      bilhGroup.totalBase += ticketForecastRevenue;
+    } else {
+      fIncGroups.push({
+        groupName: "Bilheteira", groupCode: "0.0",
+        totalBase: ticketForecastRevenue, totalIva: 0,
+        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastRevenue, iva: 0 }],
+      });
+    }
   }
 
-  const totalFIncBase = Object.values(fIncByCat).reduce((s, v) => s + v.base, 0);
-  const totalFIncIva = Object.values(fIncByCat).reduce((s, v) => s + v.iva, 0);
-  const totalFExpBase = Object.values(fExpByCat).reduce((s, v) => s + v.base, 0);
-  const totalFExpIva = Object.values(fExpByCat).reduce((s, v) => s + v.iva, 0);
-  const totalTIncBase = Object.values(tIncByCat).reduce((s, v) => s + v.base, 0) + totalTicketActualRevenue;
-  const totalTIncIva = Object.values(tIncByCat).reduce((s, v) => s + v.iva, 0);
-  const totalTExpBase = Object.values(tExpByCat).reduce((s, v) => s + v.base, 0);
-  const totalTExpIva = Object.values(tExpByCat).reduce((s, v) => s + v.iva, 0);
+  const mergedInc = mergeGroups(fIncGroups, tIncGroups);
+  const mergedExp = mergeGroups(fExpGroups, tExpGroups);
 
-  const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
-  const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
+  const totalFIncBase = mergedInc.reduce((s, g) => s + g.fBase, 0);
+  const totalFIncIva = mergedInc.reduce((s, g) => s + g.fIva, 0);
+  const totalFExpBase = mergedExp.reduce((s, g) => s + g.fBase, 0);
+  const totalFExpIva = mergedExp.reduce((s, g) => s + g.fIva, 0);
+  const totalTIncBase = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualRevenue;
+  const totalTIncIva = mergedInc.reduce((s, g) => s + g.tIva, 0);
+  const totalTExpBase = mergedExp.reduce((s, g) => s + g.tBase, 0);
+  const totalTExpIva = mergedExp.reduce((s, g) => s + g.tIva, 0);
 
   const lines: PLLine[] = [];
 
@@ -139,16 +167,33 @@ function buildPL(
     forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
     actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
   }));
-  allIncCats.forEach((cat) => {
-    const f = fIncByCat[cat] ?? { base: 0, iva: 0 };
-    const a = tIncByCat[cat] ?? { base: 0, iva: 0 };
-    lines.push(plLine({
-      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
-      forecastIva: f.iva, forecastTotal: f.base + f.iva,
-      actualIva: a.iva, actualTotal: a.base + a.iva,
-    }));
-    if (cat.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
-      ticketLines.forEach((tl) => lines.push(tl));
+  mergedInc.forEach((group) => {
+    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+    if (hasManyDetails) {
+      lines.push(plLine({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+      }));
+      group.details.forEach((d) => {
+        lines.push(plLine({
+          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+        }));
+        if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+          ticketLines.forEach((tl) => lines.push(tl));
+        }
+      });
+    } else {
+      lines.push(plLine({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+      }));
+      if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+        ticketLines.forEach((tl) => lines.push(tl));
+      }
     }
   });
 
@@ -157,14 +202,28 @@ function buildPL(
     forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
     actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
-  allExpCats.forEach((cat) => {
-    const f = fExpByCat[cat] ?? { base: 0, iva: 0 };
-    const a = tExpByCat[cat] ?? { base: 0, iva: 0 };
-    lines.push(plLine({
-      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
-      forecastIva: f.iva, forecastTotal: f.base + f.iva,
-      actualIva: a.iva, actualTotal: a.base + a.iva,
-    }));
+  mergedExp.forEach((group) => {
+    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+    if (hasManyDetails) {
+      lines.push(plLine({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+      }));
+      group.details.forEach((d) => {
+        lines.push(plLine({
+          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+        }));
+      });
+    } else {
+      lines.push(plLine({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+      }));
+    }
   });
 
   const fResultBase = totalFIncBase - totalFExpBase;
@@ -512,11 +571,12 @@ export default function ReportPL() {
                           const rowClass = line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
+                            : line.isGroupHeader ? "bg-secondary/10 border-t border-border/20"
                             : line.isSubTotal ? "bg-muted/20 border-t border-border/20"
                             : line.subIndent ? "bg-muted/10" : "";
-                          const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-8" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"}`;
-                          const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
-                          const ivaClass = `text-right font-mono text-xs ${line.isGrandTotal ? "font-bold" : line.isTotal ? "font-semibold" : "text-muted-foreground"}`;
+                          const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
+                          const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
+                          const ivaClass = `text-right font-mono text-xs ${line.isGrandTotal ? "font-bold" : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold" : "text-muted-foreground"}`;
 
                           const showAbs = !line.isGrandTotal && !line.subIndent;
                           const fBase = showAbs ? Math.abs(line.forecast) : line.forecast;
