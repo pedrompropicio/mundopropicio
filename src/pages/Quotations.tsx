@@ -150,12 +150,17 @@ export default function Quotations() {
               </div>
               <div className="grid gap-2">
                 <Label>Fornecedor *</Label>
-                <Select name="supplier_id" required>
-                  <SelectTrigger><SelectValue placeholder="Selecionar fornecedor" /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select name="supplier_id" required value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecionar fornecedor" /></SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <button type="button" onClick={() => setIsSupplierOpen(true)} className="shrink-0 rounded-lg border border-border px-2.5 hover:bg-secondary" title="Novo fornecedor">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Descrição *</Label>
