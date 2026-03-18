@@ -49,40 +49,47 @@ function buildPL(
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       let zoneRevenue = 0;
       let zoneQty = 0;
+      let zoneActualRevenue = 0;
+      let zoneActualQty = 0;
       zoneLots.forEach((lot: any) => {
         const lotRevenue = Number(lot.price) * Number(lot.quantity);
         const qty = Number(lot.quantity);
         ticketForecastRevenue += lotRevenue;
         zoneRevenue += lotRevenue;
         zoneQty += qty;
+        // Actual sales for this lot
+        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+        const lotSoldQty = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity), 0);
+        const lotSoldRevenue = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
+        zoneActualRevenue += lotSoldRevenue;
+        zoneActualQty += lotSoldQty;
+        totalTicketActualRevenue += lotSoldRevenue;
         ticketLines.push({
           label: `${zone.name} — ${lot.name}`,
           forecast: lotRevenue,
-          actual: 0,
-          variance: -lotRevenue,
+          actual: lotSoldRevenue,
+          variance: lotSoldRevenue - lotRevenue,
           subIndent: true,
           quantity: qty,
           unitPrice: Number(lot.price),
         });
       });
       totalTicketQty += zoneQty;
-      // Zone subtotal
       ticketLines.push({
         label: `Subtotal ${zone.name}`,
         forecast: zoneRevenue,
-        actual: 0,
-        variance: -zoneRevenue,
+        actual: zoneActualRevenue,
+        variance: zoneActualRevenue - zoneRevenue,
         subIndent: true,
         isSubTotal: true,
         quantity: zoneQty,
       });
     });
-    // Grand total tickets
     ticketLines.push({
       label: `Total Bilheteira`,
       forecast: ticketForecastRevenue,
-      actual: 0,
-      variance: -ticketForecastRevenue,
+      actual: totalTicketActualRevenue,
+      variance: totalTicketActualRevenue - ticketForecastRevenue,
       subIndent: true,
       isSubTotal: true,
       quantity: totalTicketQty,
