@@ -436,7 +436,15 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   };
 
   const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
-  const expenseGroups = useMemo(() => groupForecasts(expenseForecasts), [expenseForecasts, catLookup]);
+  const expenseGroups = useMemo(() => {
+    const groups = groupForecasts(expenseForecasts);
+    // Ensure "Artístico" group exists if there are cache lines
+    if (cacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
+      groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
+      groups.sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+    }
+    return groups;
+  }, [expenseForecasts, catLookup, cacheLines]);
 
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
