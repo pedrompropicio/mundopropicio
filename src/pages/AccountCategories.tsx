@@ -289,10 +289,15 @@ export default function AccountCategories() {
     e.preventDefault();
     if (!editingCat) return;
     const fd = new FormData(e.currentTarget);
+    const isRoot = !editingCat.parent_id;
     updateMutation.mutate({
       id: editingCat.id,
       code: fd.get("code") as string,
       name: fd.get("name") as string,
+      ...(isRoot ? {
+        event_required: fd.get("edit_event_required") === "on",
+        supplier_required: fd.get("edit_supplier_required") === "on",
+      } : {}),
     });
   };
 
