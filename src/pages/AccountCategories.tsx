@@ -399,6 +399,7 @@ export default function AccountCategories() {
                 <th className="pb-3 text-left font-medium">Código</th>
                 <th className="pb-3 text-left font-medium">Descrição</th>
                 <th className="pb-3 text-center font-medium">Tipo</th>
+                <th className="pb-3 text-center font-medium">Obrigatoriedade</th>
                 <th className="pb-3 text-center font-medium">Estado</th>
                 <th className="pb-3 text-center font-medium">Ações</th>
               </tr>
