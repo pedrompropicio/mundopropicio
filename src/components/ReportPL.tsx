@@ -144,6 +144,7 @@ function buildPL(
 export default function ReportPL() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [mode, setMode] = useState<PLMode>("forecast");
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
