@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2 } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck } from "lucide-react";
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
@@ -71,6 +71,23 @@ export default function UserManagement() {
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar utilizador", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const resendResetMutation = useMutation({
+    mutationFn: async ({ email, name }: { email: string; name: string }) => {
+      const { data, error } = await supabase.functions.invoke("resend-reset-email", {
+        body: { email },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Email reenviado!", description: "O utilizador receberá um novo email para definir a senha." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao reenviar email", description: err.message, variant: "destructive" });
     },
   });
 
@@ -225,6 +242,14 @@ export default function UserManagement() {
                             {u.role === "admin" ? "Remover Admin" : "Tornar Admin"}
                           </button>
                           <button
+                            onClick={() => resendResetMutation.mutate({ email: u.email, name: u.full_name })}
+                            disabled={resendResetMutation.isPending}
+                            className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                            title="Reenviar email de definição de senha"
+                          >
+                            <MailCheck className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => {
                               if (confirm(`Eliminar o utilizador ${u.full_name || u.email}?`)) {
                                 deleteUserMutation.mutate(u.id);
@@ -235,7 +260,7 @@ export default function UserManagement() {
                             title="Eliminar utilizador"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                           </button>
                         </div>
                       )}
                     </td>
