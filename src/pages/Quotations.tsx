@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { SupplierFormModal } from "@/components/SupplierFormModal";
 
 export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);
