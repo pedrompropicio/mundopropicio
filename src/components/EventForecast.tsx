@@ -1065,12 +1065,12 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   );
 }
 
-function ComparisonRowItem({ row, isIncome }: { row: ComparisonRow; isIncome?: boolean }) {
+function ComparisonRowItem({ row, isIncome, indented }: { row: ComparisonRow; isIncome?: boolean; indented?: boolean }) {
   const variancePct = row.forecast > 0 ? (row.variance / row.forecast) * 100 : 0;
   const isPositive = isIncome ? row.variance >= 0 : row.variance <= 0;
   return (
     <tr className="border-b border-border/20">
-      <td className="py-2 pr-3"><span className="text-xs text-muted-foreground mr-1.5">{row.categoryCode}</span>{row.categoryName}</td>
+      <td className={`py-2 pr-3 ${indented ? "pl-4" : ""}`}><span className="text-xs text-muted-foreground mr-1.5">{row.categoryCode}</span>{row.categoryName}</td>
       <td className="py-2 text-right font-mono">{formatCurrency(row.forecast)}</td>
       <td className="py-2 text-right font-mono">{formatCurrency(row.actual)}</td>
       <td className={`py-2 text-right font-mono ${isPositive ? "text-success" : "text-destructive"}`}>{row.variance >= 0 ? "+" : ""}{formatCurrency(row.variance)}</td>
