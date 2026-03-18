@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, ClipboardList, Receipt } from "lucide-react";
+import { BarChart3, ClipboardList, Receipt, TrendingUp } from "lucide-react";
 import ReportDRE from "@/components/ReportDRE";
+import ReportPL from "@/components/ReportPL";
 import PaymentListsTab from "@/components/PaymentListsTab";
 import ReportContasPagar from "@/components/ReportContasPagar";
 
@@ -19,6 +20,11 @@ export default function Reports() {
             <span className="hidden sm:inline">Relatório DRE</span>
             <span className="sm:hidden">DRE</span>
           </TabsTrigger>
+          <TabsTrigger value="pl" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Relatório P&L</span>
+            <span className="sm:hidden">P&L</span>
+          </TabsTrigger>
           <TabsTrigger value="contas-pagar" className="flex items-center gap-2">
             <Receipt className="h-4 w-4" />
             <span className="hidden sm:inline">Contas a Pagar</span>
@@ -33,6 +39,10 @@ export default function Reports() {
 
         <TabsContent value="dre" className="mt-4">
           <ReportDRE />
+        </TabsContent>
+
+        <TabsContent value="pl" className="mt-4">
+          <ReportPL />
         </TabsContent>
 
         <TabsContent value="contas-pagar" className="mt-4">
