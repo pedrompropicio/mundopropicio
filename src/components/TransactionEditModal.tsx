@@ -82,7 +82,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       const { error: logError } = await supabase.from("transaction_audit_log").insert(
-        changes.map((c) => ({ transaction_id: transaction.id, changed_by: user?.email ?? "sistema", ...c }))
+        changes.map((c) => ({ transaction_id: transaction.id, changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema", ...c }))
       );
       if (logError) throw logError;
       const { error } = await supabase
