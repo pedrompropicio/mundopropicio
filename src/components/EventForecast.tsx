@@ -32,9 +32,10 @@ const emptyInline: InlineForm = {
 interface Props {
   eventId: string;
   eventDate: string;
+  childEventIds?: string[];
 }
 
-export function EventForecast({ eventId, eventDate }: Props) {
+export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -89,10 +90,11 @@ export function EventForecast({ eventId, eventDate }: Props) {
   });
 
   // Fetch ticket zones and lots for auto-calculated ticket revenue
+  const ticketEventIds = [eventId, ...(childEventIds || [])];
   const { data: ticketZones = [] } = useQuery({
-    queryKey: ["event_ticket_zones", eventId],
+    queryKey: ["event_ticket_zones", eventId, childEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
+      const { data, error } = await supabase.from("event_ticket_zones").select("id").in("event_id", ticketEventIds);
       if (error) throw error;
       return data;
     },

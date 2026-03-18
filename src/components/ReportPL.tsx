@@ -77,7 +77,7 @@ function buildPL(
   const lookup = buildCategoryLookup(categories);
 
   // Calculate ticket lot revenue for this event
-  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  const evtZones = ticketZones; // Already filtered by caller
   let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
@@ -371,13 +371,22 @@ export default function ReportPL() {
     return { evtF, evtT };
   }
 
+  // Helper: get all event IDs relevant for ticket data (self + children for parent events)
+  const getTicketEventIds = (eventId: string): string[] => {
+    const ids = [eventId];
+    const children = childrenByParent[eventId];
+    if (children) ids.push(...children);
+    return ids;
+  };
+
   const eventSummaries = activeEvents.map((e) => {
     const { evtF, evtT } = getEffectiveData(e.id);
     const fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === e.id);
+    const ticketEventIds = getTicketEventIds(e.id);
+    const evtZones = ticketZones.filter((z: any) => ticketEventIds.includes(z.event_id));
     let ticketRev = 0;
     let ticketActualRev = 0;
     evtZones.forEach((zone: any) => {
@@ -512,7 +521,9 @@ export default function ReportPL() {
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
           const { evtF, evtT } = getEffectiveData(evt.id);
-          const pl = isOpen ? buildPL(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id) : [];
+          const evtTicketEventIds = getTicketEventIds(evt.id);
+          const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
