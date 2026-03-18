@@ -346,12 +346,17 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
                   <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
+                  <th className="p-2 text-right font-medium">Saldo</th>
                   <th className="p-2 text-left font-medium hidden lg:table-cell">Vencimento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {approvedTx.map((t: any) => {
                   const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
+                  const paid = Number(t.paid_amount ?? 0);
+                  const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
+                  const saldo = withIva - paidWithIva;
+                  const hasPartial = paid > 0;
                   return (
                     <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleId(t.id)}>
                       <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
@@ -359,7 +364,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(Number(t.paid_amount))}</td>
+                      <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
+                      <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
                       <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
                     </tr>
                   );
@@ -602,13 +608,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
                       <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
                       <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
                         <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
+                        {paid > 0 && !isPaid && (
+                          <>
+                            <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
+                            <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
+                          </>
+                        )}
                         {isPaid && (
                           <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
-                        )}
-                        {!isPaid && paid > 0 && (
-                          <p className="text-xs text-warning">Pago parcial: {formatCurrency(paid)}</p>
                         )}
                       </div>
                     </div>
