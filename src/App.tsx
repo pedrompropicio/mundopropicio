@@ -10,7 +10,6 @@ import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
 import Transactions from "./pages/Transactions";
-import Reports from "./pages/Reports";
 import IvaManagement from "./pages/IvaManagement";
 import Suppliers from "./pages/Suppliers";
 import Quotations from "./pages/Quotations";
@@ -20,6 +19,11 @@ import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import TicketManagement from "./pages/TicketManagement";
+import ReportDREPage from "./pages/ReportDREPage";
+import ReportPLPage from "./pages/ReportPLPage";
+import ReportBankStatementPage from "./pages/ReportBankStatementPage";
+import ReportContasPagarPage from "./pages/ReportContasPagarPage";
+import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,9 +65,14 @@ function ProtectedLayout() {
               <Route path="/contas" element={<FinancialAccounts />} />
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
-              <Route path="/relatorios" element={<Reports />} />
               <Route path="/bilhetes" element={<TicketManagement />} />
               <Route path="/iva" element={<IvaManagement />} />
+              <Route path="/relatorios" element={<Navigate to="/relatorios/dre" replace />} />
+              <Route path="/relatorios/dre" element={<ReportDREPage />} />
+              <Route path="/relatorios/pl" element={<ReportPLPage />} />
+              <Route path="/relatorios/extrato" element={<ReportBankStatementPage />} />
+              <Route path="/relatorios/contas-pagar" element={<ReportContasPagarPage />} />
+              <Route path="/relatorios/listas-pagamento" element={<ReportPaymentListsPage />} />
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

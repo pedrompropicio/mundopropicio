@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Calendar,
@@ -12,6 +13,10 @@ import {
   LogOut,
   Ticket,
   Landmark,
+  ChevronDown,
+  ChevronRight,
+  TrendingUp,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,12 +31,21 @@ const navItems = [
   { to: "/cotacoes", icon: FileCheck, label: "Cotações" },
   { to: "/iva", icon: Receipt, label: "Gestão IVA" },
   { to: "/bilhetes", icon: Ticket, label: "Gestão Bilhetes" },
-  { to: "/relatorios", icon: BarChart3, label: "Relatórios" },
+];
+
+const reportItems = [
+  { to: "/relatorios/dre", icon: BarChart3, label: "DRE" },
+  { to: "/relatorios/pl", icon: TrendingUp, label: "P&L" },
+  { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário" },
+  { to: "/relatorios/contas-pagar", icon: Receipt, label: "Contas a Pagar" },
+  { to: "/relatorios/listas-pagamento", icon: ClipboardList, label: "Listas de Pagamento" },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const { isAdmin, user, signOut } = useAuth();
+  const isReportsActive = location.pathname.startsWith("/relatorios");
+  const [reportsOpen, setReportsOpen] = useState(isReportsActive);
 
   return (
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
@@ -43,7 +57,7 @@ export function AppSidebar() {
               ? location.pathname === "/"
               : location.pathname.startsWith(item.to);
           return (
-            <NavLink
+            <RouterNavLink
               key={item.to}
               to={item.to}
               className={cn(
@@ -56,12 +70,54 @@ export function AppSidebar() {
             >
               <item.icon className="h-5 w-5 shrink-0" />
               <span className="hidden lg:block">{item.label}</span>
-            </NavLink>
+            </RouterNavLink>
           );
         })}
 
+        {/* Reports submenu */}
+        <button
+          onClick={() => setReportsOpen(!reportsOpen)}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all w-full",
+            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            isReportsActive
+              ? "bg-sidebar-accent text-foreground glow-primary"
+              : "text-sidebar-foreground"
+          )}
+        >
+          <BarChart3 className="h-5 w-5 shrink-0" />
+          <span className="hidden lg:block flex-1 text-left">Relatórios</span>
+          <span className="hidden lg:block">
+            {reportsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </span>
+        </button>
+
+        {reportsOpen && (
+          <div className="flex flex-col gap-0.5 lg:pl-4">
+            {reportItems.map((item) => {
+              const isActive = location.pathname === item.to;
+              return (
+                <RouterNavLink
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                    "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    isActive
+                      ? "bg-sidebar-accent/70 text-foreground"
+                      : "text-sidebar-foreground/70"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span className="hidden lg:block">{item.label}</span>
+                </RouterNavLink>
+              );
+            })}
+          </div>
+        )}
+
         {isAdmin && (
-          <NavLink
+          <RouterNavLink
             to="/utilizadores"
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
@@ -73,7 +129,7 @@ export function AppSidebar() {
           >
             <ShieldCheck className="h-5 w-5 shrink-0" />
             <span className="hidden lg:block">Utilizadores</span>
-          </NavLink>
+          </RouterNavLink>
         )}
       </nav>
 
