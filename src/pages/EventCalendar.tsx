@@ -367,6 +367,18 @@ export default function EventCalendar() {
           </div>
         )}
       </div>
+      {/* Scheduled events panel */}
+      <ScheduledEventsPanel
+        open={showScheduledPanel}
+        onOpenChange={setShowScheduledPanel}
+        events={calendarEvents}
+      />
+
+      {/* Venue reservation modal */}
+      <VenueReservationModal
+        open={showReservationModal}
+        onOpenChange={setShowReservationModal}
+      />
     </div>
   );
 }
