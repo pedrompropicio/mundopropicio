@@ -34,6 +34,7 @@ export default function EventDetail() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
