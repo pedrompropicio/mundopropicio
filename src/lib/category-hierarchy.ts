@@ -12,7 +12,8 @@ export interface CategoryNode {
   id: string;
   name: string;
   code: string;
-  parentId: string | null;
+  parentId?: string | null;
+  parent_id?: string | null;
 }
 
 export interface CategoryLookup {
