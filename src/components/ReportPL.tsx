@@ -421,8 +421,7 @@ export default function ReportPL() {
       <div className="space-y-3">
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
-          const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-          const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+          const { evtF, evtT } = getEffectiveData(evt.id);
           const pl = isOpen ? buildPL(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id) : [];
 
           return (

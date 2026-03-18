@@ -397,7 +397,7 @@ export default function ReportDRE() {
       <div className="space-y-3">
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
-          const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
+          const evtTx = getEffectiveTransactions(evt.id);
           const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId) : [];
 
           return (
