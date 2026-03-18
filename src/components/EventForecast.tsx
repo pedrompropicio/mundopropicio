@@ -464,14 +464,38 @@ export function EventForecast({ eventId, eventDate }: Props) {
               {/* Income section */}
               <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
-                  <button
-                    onClick={() => startAdding("income")}
-                    disabled={addingType === "income"}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Adicionar
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
+                    {isAdmin && incomeForecasts.some((f) => f.status === "draft") && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={incomeForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllDrafts("income")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
+                      <button
+                        onClick={handleBulkApprove}
+                        disabled={bulkApproveMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/15 hover:bg-success/25 transition-colors disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Aprovar ({incomeForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => startAdding("income")}
+                      disabled={addingType === "income"}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Adicionar
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
