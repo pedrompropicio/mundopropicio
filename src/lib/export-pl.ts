@@ -158,7 +158,7 @@ export function exportPLToExcel(
     const totalTInc = tInc + ticketActualRev;
     gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
     if (isComparison) {
-      summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
+      summaryRows.push([evt.name, fInc, totalTInc, fExp, tExp, fInc - fExp, totalTInc - tExp, (totalTInc - tExp) - (fInc - fExp)]);
     } else {
       summaryRows.push([evt.name, fInc, fExp, fInc - fExp]);
     }
