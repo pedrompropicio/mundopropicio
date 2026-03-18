@@ -175,6 +175,17 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
 
+  // Calculate cache lines (after ticketRevenueNet is available)
+  const cacheLines = useMemo(() => {
+    return calculateCacheLinesForPL(
+      cacheConfigs,
+      cacheDeductions,
+      ticketRevenueNet,
+      forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, forecasts]);
+  const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
+
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
       const payload = {
