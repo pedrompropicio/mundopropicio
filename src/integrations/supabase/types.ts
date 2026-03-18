@@ -834,8 +834,10 @@ export type Database = {
           due_date: string | null
           event_id: string | null
           id: string
+          invoice_ref: string | null
           iva_rate: number
           paid_amount: number
+          payment_date: string | null
           specification: string | null
           status: string
           supplier_id: string | null
@@ -852,8 +854,10 @@ export type Database = {
           due_date?: string | null
           event_id?: string | null
           id?: string
+          invoice_ref?: string | null
           iva_rate?: number
           paid_amount?: number
+          payment_date?: string | null
           specification?: string | null
           status?: string
           supplier_id?: string | null
@@ -870,8 +874,10 @@ export type Database = {
           due_date?: string | null
           event_id?: string | null
           id?: string
+          invoice_ref?: string | null
           iva_rate?: number
           paid_amount?: number
+          payment_date?: string | null
           specification?: string | null
           status?: string
           supplier_id?: string | null

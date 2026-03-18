@@ -2,9 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { X } from "lucide-react";
+import { X, CalendarIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 interface Props {
   transaction: any;
@@ -13,6 +18,8 @@ interface Props {
 
 export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [invoiceRef, setInvoiceRef] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const queryClient = useQueryClient();
 
@@ -48,9 +55,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       });
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
+      const updateData: any = { paid_amount: newPaid, status: newStatus, account_id: accountId, payment_date: format(paymentDate, "yyyy-MM-dd") };
+      if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       const { error } = await supabase
         .from("transactions")
-        .update({ paid_amount: newPaid, status: newStatus, account_id: accountId })
+        .update(updateData)
         .eq("id", transaction.id);
       if (error) throw error;
     },
@@ -97,6 +106,37 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             placeholder="Selecionar conta…"
             searchPlaceholder="Pesquisar conta…"
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary/50",
+                !paymentDate && "text-muted-foreground"
+              )}>
+                {paymentDate ? format(paymentDate, "dd/MM/yyyy", { locale: pt }) : "Selecionar data…"}
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[80]" align="start">
+              <Calendar
+                mode="single"
+                selected={paymentDate}
+                onSelect={(d) => d && setPaymentDate(d)}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
+          <input type="text" value={invoiceRef}
+            onChange={(e) => setInvoiceRef(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: FT 2026/001" />
         </div>
 
         <div>
