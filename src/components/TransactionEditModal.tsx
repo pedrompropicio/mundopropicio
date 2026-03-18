@@ -75,6 +75,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: "Evento",
         category_id: "Categoria",
         supplier_id: "Fornecedor",
+        account_id: "Conta",
         specification: "Especificação",
         date: "Data",
         due_date: "Data Vencimento",
