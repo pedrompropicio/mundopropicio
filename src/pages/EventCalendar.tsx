@@ -324,10 +324,34 @@ export default function EventCalendar() {
 
       {/* Venue reservations */}
       <div className="glass rounded-xl p-4">
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-primary" />
-          Salas de Espetáculo Reservadas — {MONTH_NAMES[currentMonth]}
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            Salas de Espetáculo Reservadas — {MONTH_NAMES[currentMonth]}
+          </h3>
+          {venueReservations.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 h-7 text-xs"
+              onClick={() =>
+                exportVenueReservationsToPDF(
+                  venueReservations.map((ev) => ({
+                    name: ev.name,
+                    date: ev.date,
+                    venue_name: ev.venue_name || "",
+                    city_name: ev.city_name || "",
+                    status: ev.status,
+                  })),
+                  `${MONTH_NAMES[currentMonth]} ${currentYear}`
+                )
+              }
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </Button>
+          )}
+        </div>
 
         {venueReservations.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
