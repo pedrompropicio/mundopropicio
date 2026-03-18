@@ -463,15 +463,9 @@ export default function AccountCategories() {
               {!editingCat.parent_id && (
                 <div className="space-y-2 rounded-lg border border-border/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (nível 1)</p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="edit_event_required" name="edit_event_required" defaultChecked={editingCat.event_required} className="rounded border-border" />
-                      <Label htmlFor="edit_event_required" className="text-sm">Evento</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="edit_supplier_required" name="edit_supplier_required" defaultChecked={editingCat.supplier_required} className="rounded border-border" />
-                      <Label htmlFor="edit_supplier_required" className="text-sm">Fornecedor</Label>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="edit_event_required" name="edit_event_required" defaultChecked={editingCat.event_required} className="rounded border-border" />
+                    <Label htmlFor="edit_event_required" className="text-sm">Evento obrigatório</Label>
                   </div>
                 </div>
               )}

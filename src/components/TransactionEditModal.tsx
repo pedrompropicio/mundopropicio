@@ -40,7 +40,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required, supplier_required").eq("is_active", true).order("code");
+      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required").eq("is_active", true).order("code");
       if (error) throw error;
       return data;
     },
