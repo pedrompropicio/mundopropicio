@@ -4,6 +4,7 @@ import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import type { PLMode } from "@/components/ReportPL";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
+import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 
 interface PLLine {
   label: string;
