@@ -352,8 +352,11 @@ export default function ReportContasPagar() {
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="pb-3 text-left font-medium">Descrição</th>
-                  <th className="pb-3 text-left font-medium hidden sm:table-cell">Evento</th>
+                  {groupedByEvent.length <= 1 && (
+                    <th className="pb-3 text-left font-medium hidden sm:table-cell">Evento</th>
+                  )}
                   <th className="pb-3 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                  <th className="pb-3 text-left font-medium hidden lg:table-cell">Conta</th>
                   <th className="pb-3 text-center font-medium hidden lg:table-cell">IVA</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
                   <th className="pb-3 text-left font-medium">Data Vcto</th>
@@ -363,43 +366,73 @@ export default function ReportContasPagar() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filtered.map((t: any) => {
-                  const amount = Number(t.amount);
-                  const ivaRate = t.iva_rate ?? 23;
-                  const withIva = amount * (1 + ivaRate / 100);
-                  const paid = Number(t.paid_amount ?? 0);
-                  const balance = withIva - paid;
-                  const cs = getStatus(t);
+                {groupedByEvent.map((group) => {
+                  const colSpan = groupedByEvent.length > 1 ? 9 : 10;
+                  const groupWithIva = group.items.reduce((s: number, t: any) => s + Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100), 0);
+                  const groupPaid = group.items.reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
+                  const groupBalance = groupWithIva - groupPaid;
 
                   return (
-                    <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
-                      <td className="py-3 pr-4">
-                        <p className="font-medium">{t.description}</p>
-                        {t.specification && <p className="text-xs text-muted-foreground">{t.specification}</p>}
-                      </td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{(t.events as any)?.name ?? "—"}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{(t.suppliers as any)?.name ?? "—"}</td>
-                      <td className="hidden py-3 pr-4 text-center lg:table-cell">
-                        <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{ivaRate}%</span>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass[cs] ?? "bg-secondary text-muted-foreground"}`}>
-                          {statusLabel[cs] ?? cs}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
-                        {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}
-                      </td>
-                      <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(paid)}</td>
-                      <td className="py-3 text-right font-mono font-semibold text-warning whitespace-nowrap">{formatCurrency(withIva)}</td>
-                      <td className="py-3 text-right font-mono font-semibold text-destructive whitespace-nowrap">{formatCurrency(balance)}</td>
-                    </tr>
+                    <React.Fragment key={group.eventName ?? "all"}>
+                      {group.eventName && (
+                        <tr className="bg-muted/30">
+                          <td colSpan={colSpan} className="py-2.5 px-3 font-semibold text-foreground">
+                            {group.eventName}
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">({group.items.length} itens)</span>
+                          </td>
+                        </tr>
+                      )}
+                      {group.items.map((t: any) => {
+                        const amount = Number(t.amount);
+                        const ivaRate = t.iva_rate ?? 23;
+                        const withIva = amount * (1 + ivaRate / 100);
+                        const paid = Number(t.paid_amount ?? 0);
+                        const balance = withIva - paid;
+                        const cs = getStatus(t);
+
+                        return (
+                          <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
+                            <td className="py-3 pr-4">
+                              <p className="font-medium">{t.description}</p>
+                              {t.specification && <p className="text-xs text-muted-foreground">{t.specification}</p>}
+                            </td>
+                            {groupedByEvent.length <= 1 && (
+                              <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{(t.events as any)?.name ?? "—"}</td>
+                            )}
+                            <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{(t.suppliers as any)?.name ?? "—"}</td>
+                            <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">{(t.account_categories as any)?.name ?? "—"}</td>
+                            <td className="hidden py-3 pr-4 text-center lg:table-cell">
+                              <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{ivaRate}%</span>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass[cs] ?? "bg-secondary text-muted-foreground"}`}>
+                                {statusLabel[cs] ?? cs}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
+                              {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}
+                            </td>
+                            <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(paid)}</td>
+                            <td className="py-3 text-right font-mono font-semibold text-warning whitespace-nowrap">{formatCurrency(withIva)}</td>
+                            <td className="py-3 text-right font-mono font-semibold text-destructive whitespace-nowrap">{formatCurrency(balance)}</td>
+                          </tr>
+                        );
+                      })}
+                      {group.eventName && (
+                        <tr className="bg-muted/20 border-t border-border/40">
+                          <td colSpan={colSpan - 3} className="py-2 text-right text-xs font-medium text-muted-foreground">Subtotal {group.eventName}</td>
+                          <td className="py-2 text-right font-mono text-xs text-muted-foreground">{formatCurrency(groupPaid)}</td>
+                          <td className="py-2 text-right font-mono text-xs font-semibold text-warning">{formatCurrency(groupWithIva)}</td>
+                          <td className="py-2 text-right font-mono text-xs font-semibold text-destructive">{formatCurrency(groupBalance)}</td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t border-border font-semibold">
-                  <td colSpan={7} className="py-3 text-right text-muted-foreground">Total</td>
+                <tr className="border-t-2 border-border font-semibold">
+                  <td colSpan={groupedByEvent.length > 1 ? 6 : 7} className="py-3 text-right text-muted-foreground">Total Geral</td>
                   <td className="py-3 text-right font-mono text-success">{formatCurrency(totalPaid)}</td>
                   <td className="py-3 text-right font-mono text-warning">{formatCurrency(totalWithIva)}</td>
                   <td className="py-3 text-right font-mono text-destructive">{formatCurrency(totalBalance)}</td>
