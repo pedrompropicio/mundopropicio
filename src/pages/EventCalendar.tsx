@@ -421,7 +421,11 @@ export default function EventCalendar() {
                         <button
                           key={`${ev.id}-${j}`}
                           onClick={() => {
-                            if (!ev.isReservation) navigate(`/eventos/${ev.id}`);
+                            if (ev.isReservation) {
+                              navigate(`/eventos?from_reservation=${ev.id}`);
+                            } else {
+                              navigate(`/eventos/${ev.id}`);
+                            }
                           }}
                           className={cn(
                             "w-full text-left rounded px-1 py-0.5 text-[10px] lg:text-xs font-medium truncate border transition-colors hover:opacity-80",
