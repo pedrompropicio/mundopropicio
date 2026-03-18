@@ -286,22 +286,55 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value, event_id: "", supplier_id: "" })}
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Evento {rootFlags.event_required ? "*" : ""}
+                {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
+              </label>
+              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value, category_id: "" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Sem categoria</option>
-                {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
+                {events.map((ev: any) => <option key={ev.id} value={ev.id}>{ev.name} {ev.pl_mode === "active" ? "🔒" : ""}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value })}
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Categoria {isActivePL ? "*" : ""}
+              </label>
+              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
-                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                <option value="">{isActivePL ? "Selecionar do P&L…" : "Sem categoria"}</option>
+                {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>
+
+          {/* Budget indicator for active P&L */}
+          {isActivePL && form.category_id && form.event_id && (() => {
+            const budgetKey = `${form.type}_${form.category_id}`;
+            const forecast = forecastBudgetByCategory[budgetKey] || 0;
+            const used = usedBudgetByCategory[budgetKey] || 0;
+            const remaining = forecast - used;
+            const pct = forecast > 0 ? (used / forecast) * 100 : 0;
+            return (
+              <div className="rounded-lg border border-border/50 bg-secondary/30 p-3 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Orçamento P&L</span>
+                  <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full transition-all ${pct > 90 ? "bg-destructive" : pct > 70 ? "bg-warning" : "bg-success"}`}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                  <span>Previsto: {forecast.toFixed(2)}€</span>
+                  <span>Utilizado: {used.toFixed(2)}€</span>
+                  <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {remaining.toFixed(2)}€</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {form.type === "income" && (
             <div>
