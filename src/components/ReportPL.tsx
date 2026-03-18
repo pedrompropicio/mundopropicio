@@ -232,9 +232,23 @@ function buildPL(
     ticketLines.forEach((tl) => lines.push(tl));
   }
 
+  // Calculate cachê lines
+  const eventCacheConfigs = cacheConfigs.filter((c) => c.event_id === eventId);
+  const cacheLines = calculateCacheLinesForPL(
+    eventCacheConfigs,
+    cacheDeductions,
+    ticketForecastNet,
+    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+  );
+  const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
+
+  // Include cache in expense totals
+  const finalFExpBase = totalFExpBase + totalCacheAmount;
+  const finalFExpIva = totalFExpIva;
+
   lines.push(plLine({
-    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
-    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+    label: "DESPESAS", forecast: finalFExpBase, actual: totalTExpBase, variance: totalTExpBase - finalFExpBase, isTotal: true,
+    forecastIva: finalFExpIva, forecastTotal: finalFExpBase + finalFExpIva,
     actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
   mergedExp.forEach((group) => {
@@ -261,8 +275,21 @@ function buildPL(
     }
   });
 
-  const fResultBase = totalFIncBase - totalFExpBase;
-  const fResultIva = totalFIncIva - totalFExpIva;
+  // Cachê das Atrações group
+  if (cacheLines.length > 0) {
+    lines.push(plLine({
+      label: "Cachê das Atrações", forecast: totalCacheAmount, actual: 0, variance: 0 - totalCacheAmount, isGroupHeader: true,
+    }));
+    cacheLines.forEach((cl) => {
+      const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
+      lines.push(plLine({
+        label: `${cl.artistName} ${typeLabel}`, forecast: cl.amount, actual: 0, variance: 0 - cl.amount, indent: true,
+      }));
+    });
+  }
+
+  const fResultBase = totalFIncBase - finalFExpBase;
+  const fResultIva = totalFIncIva - finalFExpIva;
   const tResultBase = totalTIncBase - totalTExpBase;
   const tResultIva = totalTIncIva - totalTExpIva;
   lines.push(plLine({
