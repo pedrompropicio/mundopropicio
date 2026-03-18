@@ -6,6 +6,7 @@ import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock,
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface InlineForm {
   type: string;
@@ -36,6 +37,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
@@ -199,6 +201,80 @@ export function EventForecast({ eventId, eventDate }: Props) {
       toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
     },
   });
+
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (forecastItems: any[]) => {
+      for (const forecast of forecastItems) {
+        const { data: txn, error: txnError } = await supabase
+          .from("transactions")
+          .insert({
+            event_id: eventId,
+            type: forecast.type,
+            description: forecast.description,
+            amount: Number(forecast.amount),
+            iva_rate: forecast.iva_rate,
+            category_id: forecast.category_id || null,
+            specification: forecast.specification || null,
+            date: eventDate,
+            status: "pending",
+          })
+          .select("id")
+          .single();
+        if (txnError) throw txnError;
+
+        const { error: updateError } = await supabase
+          .from("event_forecasts")
+          .update({
+            status: "approved",
+            approved_at: new Date().toISOString(),
+            approved_by: user?.email || "admin",
+            transaction_id: txn.id,
+          })
+          .eq("id", forecast.id);
+        if (updateError) throw updateError;
+      }
+    },
+    onSuccess: (_, items) => {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
+      setSelectedIds(new Set());
+      toast({ title: `${items.length} previsão(ões) aprovada(s) e transações criadas!` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleBulkApprove = () => {
+    const items = forecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft");
+    if (items.length === 0) return;
+    bulkApproveMutation.mutate(items);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllDrafts = (type: "income" | "expense") => {
+    const drafts = forecasts.filter((f) => f.type === type && f.status === "draft");
+    const allSelected = drafts.every((f) => selectedIds.has(f.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        drafts.forEach((f) => next.delete(f.id));
+      } else {
+        drafts.forEach((f) => next.add(f.id));
+      }
+      return next;
+    });
+  };
 
   const handleInlineSave = () => {
     if (!inlineForm.description || !inlineForm.amount) {
@@ -388,14 +464,38 @@ export function EventForecast({ eventId, eventDate }: Props) {
               {/* Income section */}
               <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
-                  <button
-                    onClick={() => startAdding("income")}
-                    disabled={addingType === "income"}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Adicionar
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
+                    {isAdmin && incomeForecasts.some((f) => f.status === "draft") && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={incomeForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllDrafts("income")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
+                      <button
+                        onClick={handleBulkApprove}
+                        disabled={bulkApproveMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/15 hover:bg-success/25 transition-colors disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Aprovar ({incomeForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => startAdding("income")}
+                      disabled={addingType === "income"}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Adicionar
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -437,7 +537,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                             </td>
                           </tr>
                         ) : (
-                          <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} />
+                          <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} />
                         )
                       ))}
                       {addingType === "income" && renderInlineRow("income")}
@@ -478,14 +578,38 @@ export function EventForecast({ eventId, eventDate }: Props) {
               {/* Expense section */}
               <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
-                  <button
-                    onClick={() => startAdding("expense")}
-                    disabled={addingType === "expense"}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Adicionar
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
+                    {isAdmin && expenseForecasts.some((f) => f.status === "draft") && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={expenseForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllDrafts("expense")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
+                      <button
+                        onClick={handleBulkApprove}
+                        disabled={bulkApproveMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/15 hover:bg-success/25 transition-colors disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Aprovar ({expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => startAdding("expense")}
+                      disabled={addingType === "expense"}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Adicionar
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -531,7 +655,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
                             </td>
                           </tr>
                         ) : (
-                          <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} />
+                          <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} />
                         )
                       ))}
                       {addingType === "expense" && renderInlineRow("expense")}
@@ -575,10 +699,11 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
+  isSelected?: boolean; onToggleSelect?: (id: string) => void;
 }) {
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
@@ -587,7 +712,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
       <td className="py-2.5 pr-3">
         <div className="flex items-center gap-2">
-          {isApproved ? (
+          {isDraft && isAdmin && onToggleSelect ? (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelect(item.id)}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+          ) : isApproved ? (
             <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
           ) : (
             <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
