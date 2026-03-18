@@ -123,7 +123,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, type, category_id, amount, status")
+        .select("id, type, category_id, amount, status, description, iva_rate, specification")
         .eq("event_id", form.event_id);
       if (error) throw error;
       return data;
