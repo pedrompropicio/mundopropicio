@@ -141,21 +141,16 @@ export function getQuarterLabel(q: number, year: number): string {
 }
 
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  const fixed = abs.toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const withDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${sign}${withDots},${decPart} €`;
 }
 
 export function formatCurrencyDecimal(value: number): string {
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrency(value);
 }
 
 export function formatDate(dateStr: string): string {
