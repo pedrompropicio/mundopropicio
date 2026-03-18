@@ -369,7 +369,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               ? calculateCacheLinesForPL(
                   cacheConfigs,
                   cacheDeductions,
-                  ticketRevenue,
+                  ticketRevenueNet,
                   eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
                 )
               : [];
