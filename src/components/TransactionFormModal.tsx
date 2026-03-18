@@ -37,6 +37,7 @@ const emptyForm: TransactionForm = {
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
+  const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
