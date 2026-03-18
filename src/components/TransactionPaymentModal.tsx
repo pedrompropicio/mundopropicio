@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
   transaction: any;
@@ -28,6 +29,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const currentPaid = Number(transaction.paid_amount ?? 0);
   const balance = amount - currentPaid;
 
+  const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
+
   const paymentMutation = useMutation({
     mutationFn: async () => {
       const addAmount = parseFloat(paymentAmount);
@@ -36,7 +39,6 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
-      // Log the payment
       await supabase.from("transaction_audit_log").insert({
         transaction_id: transaction.id,
         changed_by: "utilizador",
@@ -88,11 +90,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta de origem/destino *</label>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option value="">Selecionar conta…</option>
-            {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+          <SearchableSelect
+            options={accountOptions}
+            value={accountId}
+            onValueChange={setAccountId}
+            placeholder="Selecionar conta…"
+            searchPlaceholder="Pesquisar conta…"
+          />
         </div>
 
         <div>

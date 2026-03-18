@@ -5,6 +5,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import { X, Plus, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface TransactionForm {
   description: string;
@@ -76,12 +77,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  // Get the selected event's pl_mode and multi_day info
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
   const isParentMultiDay = selectedEvent?.event_type === "multi_day";
 
-  // Group events: parents and sub-events
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
   const subEventsByParent = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -92,7 +91,31 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return map;
   }, [events]);
 
-  // Fetch forecasts for active P&L events
+  // Build event options for SearchableSelect
+  const eventOptions = useMemo(() => {
+    const opts: { value: string; label: string; group?: string; indent?: boolean; icon?: string }[] = [];
+    parentEvents.forEach((ev: any) => {
+      const subs = subEventsByParent[ev.id] || [];
+      const isMulti = ev.event_type === "multi_day" && subs.length > 0;
+      const groupName = isMulti ? `🔀 ${ev.name} (Turnê)` : undefined;
+      opts.push({
+        value: ev.id,
+        label: `${ev.name}${ev.pl_mode === "active" ? " 🔒" : ""}${isMulti ? " ⚡ Rateio" : ""}`,
+        group: groupName,
+      });
+      subs.forEach((sub: any) => {
+        opts.push({
+          value: sub.id,
+          label: sub.name,
+          group: groupName,
+          indent: true,
+          icon: "↳",
+        });
+      });
+    });
+    return opts;
+  }, [parentEvents, subEventsByParent]);
+
   const { data: eventForecasts = [] } = useQuery({
     queryKey: ["event_forecasts_budget", form.event_id],
     queryFn: async () => {
@@ -106,7 +129,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && isActivePL,
   });
 
-  // Fetch existing transactions for the event to calculate used budget
   const { data: eventTransactions = [] } = useQuery({
     queryKey: ["event_transactions_budget", form.event_id],
     queryFn: async () => {
@@ -120,7 +142,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && isActivePL,
   });
 
-  // For active P&L: get allowed categories and remaining budgets
   const forecastBudgetByCategory = isActivePL
     ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
         const key = `${f.type}_${f.category_id || "none"}`;
@@ -140,7 +161,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const allowedCategoryIds = isActivePL
     ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
-
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
@@ -171,16 +191,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  // Find root category flags for selected category
   const getRootFlags = (categoryId: string) => {
     if (!categoryId) return { event_required: true };
     let cat = categories.find((c: any) => c.id === categoryId);
     while (cat && cat.parent_id) {
       cat = categories.find((c: any) => c.id === cat!.parent_id);
     }
-    return {
-      event_required: cat?.event_required ?? true,
-    };
+    return { event_required: cat?.event_required ?? true };
   };
 
   const rootFlags = getRootFlags(form.category_id);
@@ -199,8 +216,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
-
-    // P&L Ativo validations
     if (isActivePL && form.event_id) {
       if (!form.category_id) {
         toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
@@ -224,18 +239,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
     }
-
-    // Multi-day parent proration confirmation
     if (isParentMultiDay && !showProrationConfirm) {
       setShowProrationConfirm(true);
       return;
     }
-
     setShowProrationConfirm(false);
     createMutation.mutate(form);
   };
 
-  // Filter categories - for active P&L, only show categories in the forecast
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
@@ -245,6 +256,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return true;
   });
 
+  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: c.name }));
+  const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
+  const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -310,36 +324,25 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 Evento {rootFlags.event_required ? "*" : ""}
                 {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
               </label>
-              <select value={form.event_id} onChange={(e) => { setForm({ ...form, event_id: e.target.value, category_id: "" }); setShowProrationConfirm(false); }}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
-                {parentEvents.map((ev: any) => {
-                  const subs = subEventsByParent[ev.id] || [];
-                  const isMulti = ev.event_type === "multi_day" && subs.length > 0;
-                  return (
-                    <optgroup key={ev.id} label={isMulti ? `🔀 ${ev.name} (Turnê)` : undefined as any}>
-                      <option value={ev.id}>
-                        {ev.name} {ev.pl_mode === "active" ? "🔒" : ""} {isMulti ? "⚡ Rateio" : ""}
-                      </option>
-                      {subs.map((sub: any) => (
-                        <option key={sub.id} value={sub.id}>
-                          {"  ↳ "}{sub.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
+              <SearchableSelect
+                options={eventOptions}
+                value={form.event_id}
+                onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "" }); setShowProrationConfirm(false); }}
+                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                searchPlaceholder="Pesquisar evento…"
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 Categoria {isActivePL ? "*" : ""}
               </label>
-              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">{isActivePL ? "Selecionar do P&L…" : "Sem categoria"}</option>
-                {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={categoryOptions}
+                value={form.category_id}
+                onValueChange={(v) => setForm({ ...form, category_id: v })}
+                placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
+                searchPlaceholder="Pesquisar categoria…"
+              />
             </div>
           </div>
 
@@ -406,11 +409,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {form.type === "income" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
-              <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Selecionar conta…</option>
-                {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={accountOptions}
+                value={form.account_id}
+                onValueChange={(v) => setForm({ ...form, account_id: v })}
+                placeholder="Selecionar conta…"
+                searchPlaceholder="Pesquisar conta…"
+              />
             </div>
           )}
 
@@ -418,11 +423,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
               <div className="flex gap-2">
-                <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">Sem fornecedor</option>
-                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={supplierOptions}
+                    value={form.supplier_id}
+                    onValueChange={(v) => setForm({ ...form, supplier_id: v })}
+                    placeholder="Sem fornecedor"
+                    searchPlaceholder="Pesquisar fornecedor…"
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowNewSupplier(true)}

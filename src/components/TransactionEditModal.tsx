@@ -5,6 +5,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
   transaction: any;
@@ -66,63 +67,31 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      // Build audit log entries for changed fields
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
       const fieldLabels: Record<string, string> = {
-        description: "Descrição",
-        amount: "Valor",
-        iva_rate: "Taxa IVA",
-        event_id: "Evento",
-        category_id: "Categoria",
-        supplier_id: "Fornecedor",
-        account_id: "Conta",
-        specification: "Especificação",
-        date: "Data",
-        due_date: "Data Vencimento",
+        description: "Descrição", amount: "Valor", iva_rate: "Taxa IVA",
+        event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
+        account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
       };
-
       for (const key of Object.keys(fieldLabels)) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
         if (oldVal !== newVal) {
-          changes.push({
-            field_name: fieldLabels[key],
-            old_value: oldVal,
-            new_value: newVal,
-          });
+          changes.push({ field_name: fieldLabels[key], old_value: oldVal, new_value: newVal });
         }
       }
-
-      if (changes.length === 0) {
-        throw new Error("Nenhuma alteração detectada.");
-      }
-
-      // Insert audit log entries
+      if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       const { error: logError } = await supabase.from("transaction_audit_log").insert(
-        changes.map((c) => ({
-          transaction_id: transaction.id,
-          changed_by: user?.email ?? "sistema",
-          field_name: c.field_name,
-          old_value: c.old_value,
-          new_value: c.new_value,
-        }))
+        changes.map((c) => ({ transaction_id: transaction.id, changed_by: user?.email ?? "sistema", ...c }))
       );
       if (logError) throw logError;
-
-      // Update the transaction
       const { error } = await supabase
         .from("transactions")
         .update({
-          description: form.description,
-          amount: parseFloat(form.amount),
-          iva_rate: form.iva_rate,
-          event_id: form.event_id,
-          category_id: form.category_id || null,
-          supplier_id: form.supplier_id || null,
-          account_id: form.account_id || null,
-          specification: transaction.type === "expense" ? (form.specification || null) : null,
-          date: form.date,
-          due_date: form.due_date || null,
+          description: form.description, amount: parseFloat(form.amount), iva_rate: form.iva_rate,
+          event_id: form.event_id, category_id: form.category_id || null, supplier_id: form.supplier_id || null,
+          account_id: form.account_id || null, specification: transaction.type === "expense" ? (form.specification || null) : null,
+          date: form.date, due_date: form.due_date || null,
         })
         .eq("id", transaction.id);
       if (error) throw error;
@@ -141,16 +110,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isApproved = transaction.status === "approved";
   const valueLocked = isApproved && !isAdmin;
 
-  // Find root category flags for selected category
   const getRootFlags = (categoryId: string) => {
     if (!categoryId) return { event_required: true };
     let cat = categories.find((c: any) => c.id === categoryId);
     while (cat && cat.parent_id) {
       cat = categories.find((c: any) => c.id === cat!.parent_id);
     }
-    return {
-      event_required: cat?.event_required ?? true,
-    };
+    return { event_required: cat?.event_required ?? true };
   };
 
   const rootFlags = getRootFlags(form.category_id);
@@ -175,6 +141,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const filteredCategories = categories.filter((c) =>
     transaction.type === "income" ? c.type === "income" : c.type === "expense"
   );
+
+  const eventOptions = events.map((ev) => ({ value: ev.id, label: ev.name }));
+  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: c.name }));
+  const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
+  const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -235,41 +206,49 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value, event_id: "", supplier_id: "" })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Sem categoria</option>
-                {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={categoryOptions}
+                value={form.category_id}
+                onValueChange={(v) => setForm({ ...form, category_id: v, event_id: "", supplier_id: "" })}
+                placeholder="Sem categoria"
+                searchPlaceholder="Pesquisar categoria…"
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
-                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={eventOptions}
+                value={form.event_id}
+                onValueChange={(v) => setForm({ ...form, event_id: v })}
+                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                searchPlaceholder="Pesquisar evento…"
+              />
             </div>
           </div>
 
           {isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
-              <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Sem fornecedor</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={supplierOptions}
+                value={form.supplier_id}
+                onValueChange={(v) => setForm({ ...form, supplier_id: v })}
+                placeholder="Sem fornecedor"
+                searchPlaceholder="Pesquisar fornecedor…"
+              />
             </div>
           )}
 
           {!isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
-              <select value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Selecionar conta…</option>
-                {financialAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <SearchableSelect
+                options={accountOptions}
+                value={form.account_id}
+                onValueChange={(v) => setForm({ ...form, account_id: v })}
+                placeholder="Selecionar conta…"
+                searchPlaceholder="Pesquisar conta…"
+              />
             </div>
           )}
 
