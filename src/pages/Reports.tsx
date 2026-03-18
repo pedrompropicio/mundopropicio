@@ -1,68 +1,56 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, ClipboardList, Receipt, TrendingUp, Landmark } from "lucide-react";
-import ReportDRE from "@/components/ReportDRE";
-import ReportPL from "@/components/ReportPL";
-import PaymentListsTab from "@/components/PaymentListsTab";
-import ReportContasPagar from "@/components/ReportContasPagar";
-import ReportBankStatement from "@/components/ReportBankStatement";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import {
+  BarChart3,
+  TrendingUp,
+  Landmark,
+  Receipt,
+  ClipboardList,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const reportItems = [
+  { to: "/relatorios/dre", icon: BarChart3, label: "DRE" },
+  { to: "/relatorios/pl", icon: TrendingUp, label: "P&L" },
+  { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário" },
+  { to: "/relatorios/contas-pagar", icon: Receipt, label: "Contas a Pagar" },
+  { to: "/relatorios/listas-pagamento", icon: ClipboardList, label: "Listas de Pagamento" },
+];
 
 export default function Reports() {
+  const location = useLocation();
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Relatórios & Consultas</h1>
-        <p className="text-sm text-muted-foreground">Consulte relatórios financeiros e gerencie listas de pagamento</p>
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Internal sidebar nav */}
+      <nav className="flex lg:flex-col gap-1 lg:w-52 shrink-0 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 border-b lg:border-b-0 lg:border-r border-border lg:pr-4">
+        <h2 className="hidden lg:block text-xs font-semibold uppercase text-muted-foreground mb-2 px-3">
+          Relatórios
+        </h2>
+        {reportItems.map((item) => {
+          const isActive = location.pathname === item.to;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                "hover:bg-muted hover:text-foreground",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
+      </nav>
+
+      {/* Report content */}
+      <div className="flex-1 min-w-0">
+        <Outlet />
       </div>
-
-      <Tabs defaultValue="dre" className="w-full">
-        <TabsList className="w-full justify-start flex-wrap">
-          <TabsTrigger value="dre" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Relatório DRE</span>
-            <span className="sm:hidden">DRE</span>
-          </TabsTrigger>
-          <TabsTrigger value="pl" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Relatório P&L</span>
-            <span className="sm:hidden">P&L</span>
-          </TabsTrigger>
-          <TabsTrigger value="extrato" className="flex items-center gap-2">
-            <Landmark className="h-4 w-4" />
-            <span className="hidden sm:inline">Extrato Bancário</span>
-            <span className="sm:hidden">Extrato</span>
-          </TabsTrigger>
-          <TabsTrigger value="contas-pagar" className="flex items-center gap-2">
-            <Receipt className="h-4 w-4" />
-            <span className="hidden sm:inline">Contas a Pagar</span>
-            <span className="sm:hidden">C. Pagar</span>
-          </TabsTrigger>
-          <TabsTrigger value="payment-lists" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Listas de Pagamento</span>
-            <span className="sm:hidden">Listas</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="dre" className="mt-4">
-          <ReportDRE />
-        </TabsContent>
-
-        <TabsContent value="pl" className="mt-4">
-          <ReportPL />
-        </TabsContent>
-
-        <TabsContent value="extrato" className="mt-4">
-          <ReportBankStatement />
-        </TabsContent>
-
-        <TabsContent value="contas-pagar" className="mt-4">
-          <ReportContasPagar />
-        </TabsContent>
-
-        <TabsContent value="payment-lists" className="mt-4">
-          <PaymentListsTab />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
