@@ -73,7 +73,8 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
 
 function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
-  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
+  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
+  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
