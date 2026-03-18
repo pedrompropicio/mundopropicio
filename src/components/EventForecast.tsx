@@ -906,7 +906,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
         </TabsContent>
 
         <TabsContent value="comparison">
-          <ComparisonTable data={comparisonData} />
+          <ComparisonTable data={comparisonData} cacheLines={cacheLines} />
         </TabsContent>
       </Tabs>
     </div>
