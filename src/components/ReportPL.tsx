@@ -13,7 +13,11 @@ export type PLMode = "forecast" | "comparison";
 interface PLLine {
   label: string;
   forecast: number;
+  forecastIva: number;
+  forecastTotal: number;
   actual: number;
+  actualIva: number;
+  actualTotal: number;
   variance: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
@@ -24,17 +28,31 @@ interface PLLine {
   unitPrice?: number;
 }
 
+function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
+  return {
+    ...base,
+    forecastIva: base.forecastIva ?? 0,
+    forecastTotal: base.forecastTotal ?? base.forecast,
+    actualIva: base.actualIva ?? 0,
+    actualTotal: base.actualTotal ?? base.actual,
+  };
+}
+
 function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
 ): PLLine[] {
   const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
 
-  const aggregate = (items: any[]) => {
-    const byCat: Record<string, number> = {};
+  const aggregateWithIva = (items: any[]) => {
+    const byCat: Record<string, { base: number; iva: number }> = {};
     items.forEach((item) => {
       const name = catMap[item.category_id] ?? "Sem categoria";
-      byCat[name] = (byCat[name] ?? 0) + Number(item.amount);
+      if (!byCat[name]) byCat[name] = { base: 0, iva: 0 };
+      const amt = Number(item.amount);
+      const ivaRate = Number(item.iva_rate) || 0;
+      byCat[name].base += amt;
+      byCat[name].iva += amt * ivaRate / 100;
     });
     return byCat;
   };
@@ -58,43 +76,31 @@ function buildPL(
         ticketForecastRevenue += lotRevenue;
         zoneRevenue += lotRevenue;
         zoneQty += qty;
-        // Actual sales for this lot
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         const lotSoldQty = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity), 0);
         const lotSoldRevenue = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
         zoneActualRevenue += lotSoldRevenue;
         zoneActualQty += lotSoldQty;
         totalTicketActualRevenue += lotSoldRevenue;
-        ticketLines.push({
+        ticketLines.push(plLine({
           label: `${zone.name} — ${lot.name}`,
-          forecast: lotRevenue,
-          actual: lotSoldRevenue,
-          variance: lotSoldRevenue - lotRevenue,
-          subIndent: true,
-          quantity: qty,
-          unitPrice: Number(lot.price),
-        });
+          forecast: lotRevenue, actual: lotSoldRevenue, variance: lotSoldRevenue - lotRevenue,
+          subIndent: true, quantity: qty, unitPrice: Number(lot.price),
+        }));
       });
       totalTicketQty += zoneQty;
-      ticketLines.push({
+      ticketLines.push(plLine({
         label: `Subtotal ${zone.name}`,
-        forecast: zoneRevenue,
-        actual: zoneActualRevenue,
-        variance: zoneActualRevenue - zoneRevenue,
-        subIndent: true,
-        isSubTotal: true,
-        quantity: zoneQty,
-      });
+        forecast: zoneRevenue, actual: zoneActualRevenue, variance: zoneActualRevenue - zoneRevenue,
+        subIndent: true, isSubTotal: true, quantity: zoneQty,
+      }));
     });
-    ticketLines.push({
+    ticketLines.push(plLine({
       label: `Total Bilheteira`,
-      forecast: ticketForecastRevenue,
-      actual: totalTicketActualRevenue,
+      forecast: ticketForecastRevenue, actual: totalTicketActualRevenue,
       variance: totalTicketActualRevenue - ticketForecastRevenue,
-      subIndent: true,
-      isSubTotal: true,
-      quantity: totalTicketQty,
-    });
+      subIndent: true, isSubTotal: true, quantity: totalTicketQty,
+    }));
   }
 
   const fInc = forecasts.filter((f) => f.type === "income");
@@ -102,49 +108,74 @@ function buildPL(
   const tInc = transactions.filter((t) => t.type === "income");
   const tExp = transactions.filter((t) => t.type === "expense");
 
-  const fIncByCat = aggregate(fInc);
-  const fExpByCat = aggregate(fExp);
-  const tIncByCat = aggregate(tInc);
-  const tExpByCat = aggregate(tExp);
+  const fIncByCat = aggregateWithIva(fInc);
+  const fExpByCat = aggregateWithIva(fExp);
+  const tIncByCat = aggregateWithIva(tInc);
+  const tExpByCat = aggregateWithIva(tExp);
 
   // Add ticket lot revenue to Bilheteira category forecast
   if (ticketForecastRevenue > 0) {
     const bilheteiraKey = "Bilheteira";
-    fIncByCat[bilheteiraKey] = (fIncByCat[bilheteiraKey] ?? 0) + ticketForecastRevenue;
+    if (!fIncByCat[bilheteiraKey]) fIncByCat[bilheteiraKey] = { base: 0, iva: 0 };
+    fIncByCat[bilheteiraKey].base += ticketForecastRevenue;
   }
 
-  const totalFInc = Object.values(fIncByCat).reduce((s, v) => s + v, 0);
-  const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
-  const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0) + totalTicketActualRevenue;
-  const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
+  const totalFIncBase = Object.values(fIncByCat).reduce((s, v) => s + v.base, 0);
+  const totalFIncIva = Object.values(fIncByCat).reduce((s, v) => s + v.iva, 0);
+  const totalFExpBase = Object.values(fExpByCat).reduce((s, v) => s + v.base, 0);
+  const totalFExpIva = Object.values(fExpByCat).reduce((s, v) => s + v.iva, 0);
+  const totalTIncBase = Object.values(tIncByCat).reduce((s, v) => s + v.base, 0) + totalTicketActualRevenue;
+  const totalTIncIva = Object.values(tIncByCat).reduce((s, v) => s + v.iva, 0);
+  const totalTExpBase = Object.values(tExpByCat).reduce((s, v) => s + v.base, 0);
+  const totalTExpIva = Object.values(tExpByCat).reduce((s, v) => s + v.iva, 0);
 
   const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
   const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
 
-
   const lines: PLLine[] = [];
 
-  lines.push({ label: "RECEITAS", forecast: totalFInc, actual: totalTInc, variance: totalTInc - totalFInc, isTotal: true });
+  lines.push(plLine({
+    label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
+    forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
+    actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
+  }));
   allIncCats.forEach((cat) => {
-    const f = fIncByCat[cat] ?? 0;
-    const a = tIncByCat[cat] ?? 0;
-    lines.push({ label: cat, forecast: f, actual: a, variance: a - f, indent: true });
-    // Insert ticket lot breakdown after "Venda de Bilhetes"
+    const f = fIncByCat[cat] ?? { base: 0, iva: 0 };
+    const a = tIncByCat[cat] ?? { base: 0, iva: 0 };
+    lines.push(plLine({
+      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
+      forecastIva: f.iva, forecastTotal: f.base + f.iva,
+      actualIva: a.iva, actualTotal: a.base + a.iva,
+    }));
     if (cat.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
       ticketLines.forEach((tl) => lines.push(tl));
     }
   });
 
-  lines.push({ label: "DESPESAS", forecast: totalFExp, actual: totalTExp, variance: totalTExp - totalFExp, isTotal: true });
+  lines.push(plLine({
+    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
+    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+    actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
+  }));
   allExpCats.forEach((cat) => {
-    const f = fExpByCat[cat] ?? 0;
-    const a = tExpByCat[cat] ?? 0;
-    lines.push({ label: cat, forecast: f, actual: a, variance: a - f, indent: true });
+    const f = fExpByCat[cat] ?? { base: 0, iva: 0 };
+    const a = tExpByCat[cat] ?? { base: 0, iva: 0 };
+    lines.push(plLine({
+      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
+      forecastIva: f.iva, forecastTotal: f.base + f.iva,
+      actualIva: a.iva, actualTotal: a.base + a.iva,
+    }));
   });
 
-  const fResult = totalFInc - totalFExp;
-  const tResult = totalTInc - totalTExp;
-  lines.push({ label: "RESULTADO LÍQUIDO", forecast: fResult, actual: tResult, variance: tResult - fResult, isGrandTotal: true });
+  const fResultBase = totalFIncBase - totalFExpBase;
+  const fResultIva = totalFIncIva - totalFExpIva;
+  const tResultBase = totalTIncBase - totalTExpBase;
+  const tResultIva = totalTIncIva - totalTExpIva;
+  lines.push(plLine({
+    label: "RESULTADO LÍQUIDO", forecast: fResultBase, actual: tResultBase, variance: tResultBase - fResultBase, isGrandTotal: true,
+    forecastIva: fResultIva, forecastTotal: fResultBase + fResultIva,
+    actualIva: tResultIva, actualTotal: tResultBase + tResultIva,
+  }));
 
   return lines;
 }
@@ -464,13 +495,15 @@ export default function ReportPL() {
                     <p className="py-6 text-center text-sm text-muted-foreground">Sem previsões ou transações para este evento.</p>
                   ) : (
                     <Table>
-                      <TableHeader>
+                     <TableHeader>
                          <TableRow>
                           <TableHead>Rubrica</TableHead>
                           <TableHead className="text-right">Qtd</TableHead>
                           <TableHead className="text-right">Preço Unit. (€)</TableHead>
-                          <TableHead className="text-right">Previsto (€)</TableHead>
-                          {mode === "comparison" && <TableHead className="text-right">Real (€)</TableHead>}
+                          <TableHead className="text-right">Valor s/ IVA (€)</TableHead>
+                          <TableHead className="text-right">IVA (€)</TableHead>
+                          <TableHead className="text-right">Total (€)</TableHead>
+                          {mode === "comparison" && <TableHead className="text-right">Real s/ IVA (€)</TableHead>}
                           {mode === "comparison" && <TableHead className="text-right">Variação (€)</TableHead>}
                         </TableRow>
                       </TableHeader>
@@ -483,6 +516,12 @@ export default function ReportPL() {
                             : line.subIndent ? "bg-muted/10" : "";
                           const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-8" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"}`;
                           const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
+                          const ivaClass = `text-right font-mono text-xs ${line.isGrandTotal ? "font-bold" : line.isTotal ? "font-semibold" : "text-muted-foreground"}`;
+
+                          const showAbs = !line.isGrandTotal && !line.subIndent;
+                          const fBase = showAbs ? Math.abs(line.forecast) : line.forecast;
+                          const fIva = showAbs ? Math.abs(line.forecastIva) : line.forecastIva;
+                          const fTotal = showAbs ? Math.abs(line.forecastTotal) : line.forecastTotal;
 
                           return (
                             <TableRow key={i} className={rowClass}>
@@ -493,7 +532,9 @@ export default function ReportPL() {
                               <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
                               </TableCell>
-                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : (line.isGrandTotal ? formatCurrency(line.forecast) : formatCurrency(Math.abs(line.forecast)))}</TableCell>
+                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(fBase)}</TableCell>
+                              <TableCell className={ivaClass}>{line.subIndent ? "—" : formatCurrency(fIva)}</TableCell>
+                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(fTotal)}</TableCell>
                               {mode === "comparison" && (
                                 <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
                               )}

@@ -7,6 +7,8 @@ import type { PLMode } from "@/components/ReportPL";
 interface PLLine {
   label: string;
   forecast: number;
+  forecastIva: number;
+  forecastTotal: number;
   actual: number;
   variance: number;
   isTotal?: boolean;
@@ -18,22 +20,33 @@ interface PLLine {
   unitPrice?: number;
 }
 
+function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal'> & { forecastIva?: number; forecastTotal?: number }): PLLine {
+  return {
+    ...base,
+    forecastIva: base.forecastIva ?? 0,
+    forecastTotal: base.forecastTotal ?? base.forecast,
+  };
+}
+
 function buildPLForExport(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
 ): PLLine[] {
   const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
 
-  const aggregate = (items: any[]) => {
-    const byCat: Record<string, number> = {};
+  const aggregateWithIva = (items: any[]) => {
+    const byCat: Record<string, { base: number; iva: number }> = {};
     items.forEach((item) => {
       const name = catMap[item.category_id] ?? "Sem categoria";
-      byCat[name] = (byCat[name] ?? 0) + Number(item.amount);
+      if (!byCat[name]) byCat[name] = { base: 0, iva: 0 };
+      const amt = Number(item.amount);
+      const ivaRate = Number(item.iva_rate) || 0;
+      byCat[name].base += amt;
+      byCat[name].iva += amt * ivaRate / 100;
     });
     return byCat;
   };
 
-  // Calculate ticket lot revenue for this event
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
   let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
@@ -55,24 +68,24 @@ function buildPLForExport(
         const lotSoldRevenue = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
         zoneActualRevenue += lotSoldRevenue;
         totalTicketActualRevenue += lotSoldRevenue;
-        ticketLines.push({
+        ticketLines.push(pl({
           label: `${zone.name} — ${lot.name}`,
           forecast: lotRevenue, actual: lotSoldRevenue, variance: lotSoldRevenue - lotRevenue, subIndent: true,
           quantity: qty, unitPrice: Number(lot.price),
-        });
+        }));
       });
       totalTicketQty += zoneQty;
-      ticketLines.push({
+      ticketLines.push(pl({
         label: `Subtotal ${zone.name}`,
         forecast: zoneRevenue, actual: zoneActualRevenue, variance: zoneActualRevenue - zoneRevenue, subIndent: true, isSubTotal: true,
         quantity: zoneQty,
-      });
+      }));
     });
-    ticketLines.push({
+    ticketLines.push(pl({
       label: `Total Bilheteira`,
       forecast: ticketForecastRevenue, actual: totalTicketActualRevenue, variance: totalTicketActualRevenue - ticketForecastRevenue, subIndent: true, isSubTotal: true,
       quantity: totalTicketQty,
-    });
+    }));
   }
 
   const fInc = forecasts.filter((f) => f.type === "income");
@@ -80,19 +93,21 @@ function buildPLForExport(
   const tInc = transactions.filter((t) => t.type === "income");
   const tExp = transactions.filter((t) => t.type === "expense");
 
-  const fIncByCat = aggregate(fInc);
-  const fExpByCat = aggregate(fExp);
-  const tIncByCat = aggregate(tInc);
-  const tExpByCat = aggregate(tExp);
+  const fIncByCat = aggregateWithIva(fInc);
+  const fExpByCat = aggregateWithIva(fExp);
+  const tIncByCat = aggregateWithIva(tInc);
+  const tExpByCat = aggregateWithIva(tExp);
 
-  // Add ticket lot revenue to Bilheteira category forecast
   if (ticketForecastRevenue > 0) {
     const bilheteiraKey = "Bilheteira";
-    fIncByCat[bilheteiraKey] = (fIncByCat[bilheteiraKey] ?? 0) + ticketForecastRevenue;
+    if (!fIncByCat[bilheteiraKey]) fIncByCat[bilheteiraKey] = { base: 0, iva: 0 };
+    fIncByCat[bilheteiraKey].base += ticketForecastRevenue;
   }
 
-  const totalFInc = Object.values(fIncByCat).reduce((s, v) => s + v, 0);
-  const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
+  const totalFIncBase = Object.values(fIncByCat).reduce((s, v) => s + v.base, 0);
+  const totalFIncIva = Object.values(fIncByCat).reduce((s, v) => s + v.iva, 0);
+  const totalFExpBase = Object.values(fExpByCat).reduce((s, v) => s + v.base, 0);
+  const totalFExpIva = Object.values(fExpByCat).reduce((s, v) => s + v.iva, 0);
   const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0) + totalTicketActualRevenue;
   const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
 
@@ -100,24 +115,40 @@ function buildPLForExport(
   const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
 
   const lines: PLLine[] = [];
-  lines.push({ label: "RECEITAS", forecast: totalFInc, actual: totalTInc, variance: totalTInc - totalFInc, isTotal: true });
+  lines.push(pl({
+    label: "RECEITAS", forecast: totalFIncBase, actual: totalTInc, variance: totalTInc - totalFIncBase, isTotal: true,
+    forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
+  }));
   allIncCats.forEach((cat) => {
-    const f = fIncByCat[cat] ?? 0;
-    const a = tIncByCat[cat] ?? 0;
-    lines.push({ label: cat, forecast: f, actual: a, variance: a - f, indent: true });
+    const f = fIncByCat[cat] ?? { base: 0, iva: 0 };
+    const a = tIncByCat[cat] ?? { base: 0, iva: 0 };
+    lines.push(pl({
+      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
+      forecastIva: f.iva, forecastTotal: f.base + f.iva,
+    }));
     if (cat.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
       ticketLines.forEach((tl) => lines.push(tl));
     }
   });
-  lines.push({ label: "DESPESAS", forecast: totalFExp, actual: totalTExp, variance: totalTExp - totalFExp, isTotal: true });
+  lines.push(pl({
+    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExp, variance: totalTExp - totalFExpBase, isTotal: true,
+    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+  }));
   allExpCats.forEach((cat) => {
-    const f = fExpByCat[cat] ?? 0;
-    const a = tExpByCat[cat] ?? 0;
-    lines.push({ label: cat, forecast: f, actual: a, variance: a - f, indent: true });
+    const f = fExpByCat[cat] ?? { base: 0, iva: 0 };
+    const a = tExpByCat[cat] ?? { base: 0, iva: 0 };
+    lines.push(pl({
+      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
+      forecastIva: f.iva, forecastTotal: f.base + f.iva,
+    }));
   });
-  const fRes = totalFInc - totalFExp;
+  const fResBase = totalFIncBase - totalFExpBase;
+  const fResIva = totalFIncIva - totalFExpIva;
   const tRes = totalTInc - totalTExp;
-  lines.push({ label: "RESULTADO LÍQUIDO", forecast: fRes, actual: tRes, variance: tRes - fRes, isGrandTotal: true });
+  lines.push(pl({
+    label: "RESULTADO LÍQUIDO", forecast: fResBase, actual: tRes, variance: tRes - fResBase, isGrandTotal: true,
+    forecastIva: fResIva, forecastTotal: fResBase + fResIva,
+  }));
   return lines;
 }
 
@@ -126,8 +157,8 @@ export function exportPLToExcel(
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison"
 ) {
   const wb = XLSX.utils.book_new();
-
   const isComparison = mode === "comparison";
+
   const summaryRows: any[][] = [
     [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
     [],
@@ -181,15 +212,15 @@ export function exportPLToExcel(
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtF.length === 0 && evtT.length === 0) return;
-    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id);
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
       isComparison
-        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"]
-        : ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)"],
+        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)", "Real (€)", "Variação (€)"]
+        : ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)"],
     ];
-    pl.forEach((line) => {
+    plLines.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
       if (isComparison) {
         rows.push([
@@ -197,6 +228,8 @@ export function exportPLToExcel(
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
+          line.subIndent ? "" : line.forecastIva,
+          line.subIndent ? "" : line.forecastTotal,
           line.subIndent ? "" : line.actual,
           line.subIndent ? "" : line.variance,
         ]);
@@ -206,13 +239,15 @@ export function exportPLToExcel(
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
+          line.subIndent ? "" : line.forecastIva,
+          line.subIndent ? "" : line.forecastTotal,
         ]);
       }
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = isComparison
-      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
-      : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }];
+      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
+      : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
@@ -224,7 +259,7 @@ export function exportPLToPDF(
   events: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison"
 ) {
-  const doc = new jsPDF({ orientation: "portrait" });
+  const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 14;
@@ -234,8 +269,8 @@ export function exportPLToPDF(
   const isComparison = mode === "comparison";
 
   const colWidths = isComparison
-    ? [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16]
-    : [contentWidth * 0.40, contentWidth * 0.14, contentWidth * 0.20, contentWidth * 0.26];
+    ? [contentWidth * 0.22, contentWidth * 0.07, contentWidth * 0.10, contentWidth * 0.13, contentWidth * 0.10, contentWidth * 0.13, contentWidth * 0.13, contentWidth * 0.12]
+    : [contentWidth * 0.30, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.18, contentWidth * 0.12, contentWidth * 0.16];
   const colX = [marginLeft];
   for (let i = 1; i < colWidths.length; i++) colX.push(colX[i - 1] + colWidths[i - 1]);
 
@@ -249,16 +284,18 @@ export function exportPLToPDF(
   function drawTableHeader() {
     doc.setFillColor(30, 30, 40);
     doc.rect(marginLeft, y, contentWidth, 8, "F");
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Rubrica", colX[0] + 2, y + 5.5);
     doc.text("Qtd", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
     doc.text("Preço Unit.", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
-    doc.text("Previsto (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text("Valor s/ IVA", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text("IVA (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
+    doc.text("Total (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
     if (isComparison) {
-      doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
-      doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
+      doc.text("Real (€)", colX[6] + colWidths[6] - 2, y + 5.5, { align: "right" });
+      doc.text("Variação (€)", colX[7] + colWidths[7] - 2, y + 5.5, { align: "right" });
     }
     doc.setTextColor(0, 0, 0);
     y += 10;
@@ -293,9 +330,8 @@ export function exportPLToPDF(
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtF.length === 0 && evtT.length === 0) return;
 
-    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id);
 
-    // Each event on its own page (except first which follows the title)
     if (evtIdx > 0) {
       doc.addPage();
       y = 14;
@@ -322,7 +358,7 @@ export function exportPLToPDF(
 
     drawTableHeader();
 
-    pl.forEach((line) => {
+    plLines.forEach((line) => {
       checkNewPage(8);
       const rowH = line.subIndent ? 6 : 7;
 
@@ -330,33 +366,32 @@ export function exportPLToPDF(
         doc.setFillColor(230, 240, 255);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
+        doc.setFontSize(8);
       } else if (line.isTotal) {
         doc.setFillColor(240, 240, 245);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
+        doc.setFontSize(7);
       } else if (line.isSubTotal) {
         doc.setFillColor(242, 242, 248);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
         doc.setTextColor(80, 80, 80);
       } else if (line.subIndent) {
         doc.setFillColor(248, 248, 252);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "italic");
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
         doc.setTextColor(120, 120, 120);
       } else {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
+        doc.setFontSize(7);
       }
 
       const label = line.subIndent ? `       ${line.label}` : line.indent ? `    ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
 
-      // Qtd & Preço Unit columns
       if (line.quantity != null) {
         doc.text(line.quantity.toLocaleString("pt-PT"), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
       }
@@ -367,18 +402,27 @@ export function exportPLToPDF(
       const showAbsForecast = !line.isGrandTotal;
       doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
+      // IVA column
+      if (line.subIndent && !line.isSubTotal) {
+        doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+        doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+      } else {
+        doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecastIva) : line.forecastIva), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecastTotal) : line.forecastTotal), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+      }
+
       if (isComparison) {
         if (line.subIndent) {
-          doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+          doc.text("—", colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
+          doc.text("—", colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
         } else {
           const showAbsActual = !line.isGrandTotal;
-          doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+          doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
           const v = line.variance;
           if (line.isGrandTotal || line.isTotal) {
             doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
           }
-          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
         }
       }
       doc.setTextColor(0, 0, 0);
@@ -389,7 +433,7 @@ export function exportPLToPDF(
     y += 8;
   });
 
-  // Global summary page at the end
+  // Global summary page
   doc.addPage();
   y = 14;
 
@@ -426,7 +470,6 @@ export function exportPLToPDF(
     gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
   });
 
-  // Summary table per event
   const numSumCols = isComparison ? 5 : 4;
   const sumColW = contentWidth / numSumCols;
   doc.setFillColor(30, 30, 40);

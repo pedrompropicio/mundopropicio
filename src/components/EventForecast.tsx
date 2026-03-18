@@ -337,8 +337,12 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income");
   const expenseForecasts = forecasts.filter((f) => f.type === "expense");
-  const totalForecastIncome = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
-  const totalForecastExpense = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
+  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
+  const totalForecastExpenseBase = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
   const totalActualIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
@@ -415,6 +419,12 @@ export function EventForecast({ eventId, eventDate }: Props) {
             placeholder="0,00"
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
           />
+        </td>
+        <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+        </td>
+        <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
         </td>
         <td className="py-1.5 text-right">
           <div className="flex justify-end gap-1">
@@ -513,12 +523,14 @@ export function EventForecast({ eventId, eventDate }: Props) {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                     <thead>
                       <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
-                        <th className="pb-2 text-right font-medium">IVA</th>
-                        <th className="pb-2 text-right font-medium">Valor</th>
+                        <th className="pb-2 text-right font-medium">IVA %</th>
+                        <th className="pb-2 text-right font-medium">Valor s/ IVA</th>
+                        <th className="pb-2 text-right font-medium">IVA (€)</th>
+                        <th className="pb-2 text-right font-medium">Total (€)</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
@@ -540,8 +552,14 @@ export function EventForecast({ eventId, eventDate }: Props) {
                                 <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                               </select>
                             </td>
-                            <td className="py-1.5 pr-2">
+                             <td className="py-1.5 pr-2">
                               <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+                              {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+                              {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
                             </td>
                             <td className="py-1.5 text-right">
                               <div className="flex justify-end gap-1">
@@ -569,6 +587,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
                           <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">R01 - Venda de Bilhetes</td>
                           <td className="py-2.5 text-right text-muted-foreground text-xs">—</td>
                           <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenue)}</td>
+                          <td className="py-2.5 text-right text-muted-foreground text-xs">—</td>
+                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenue)}</td>
                           <td />
                         </tr>
                       )}
@@ -577,6 +597,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncomeBase)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success/70">{formatCurrency(totalForecastIncomeIva)}</td>
                           <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncome)}</td>
                           <td />
                         </tr>
@@ -632,8 +654,10 @@ export function EventForecast({ eventId, eventDate }: Props) {
                         <th className="pb-2 text-left font-medium">Descrição</th>
                         <th className="pb-2 text-left font-medium">Especificação</th>
                         <th className="hidden pb-2 text-left font-medium sm:table-cell">Categoria</th>
-                        <th className="pb-2 text-right font-medium">IVA</th>
-                        <th className="pb-2 text-right font-medium">Valor</th>
+                        <th className="pb-2 text-right font-medium">IVA %</th>
+                        <th className="pb-2 text-right font-medium">Valor s/ IVA</th>
+                        <th className="pb-2 text-right font-medium">IVA (€)</th>
+                        <th className="pb-2 text-right font-medium">Total (€)</th>
                         <th className="pb-2 text-right font-medium w-28">Ações</th>
                       </tr>
                     </thead>
@@ -658,8 +682,14 @@ export function EventForecast({ eventId, eventDate }: Props) {
                                 <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                               </select>
                             </td>
-                            <td className="py-1.5 pr-2">
+                             <td className="py-1.5 pr-2">
                               <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+                              {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+                              {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
                             </td>
                             <td className="py-1.5 text-right">
                               <div className="flex justify-end gap-1">
@@ -678,6 +708,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpenseBase)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-warning/70">{formatCurrency(totalForecastExpenseIva)}</td>
                           <td className="py-2.5 text-right font-mono font-bold text-warning">{formatCurrency(totalForecastExpense)}</td>
                           <td />
                         </tr>
@@ -759,6 +791,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
       <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
         {formatCurrency(Number(item.amount))}
+      </td>
+      <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
+        {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+      </td>
+      <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+        {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
       </td>
       <td className="py-2.5 text-right">
         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
