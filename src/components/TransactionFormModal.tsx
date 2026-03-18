@@ -174,36 +174,30 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
   });
 
-  // Fetch ticket revenue for cachê calculation
-  const { data: ticketRevenue = 0 } = useQuery({
-    queryKey: ["ticket_revenue_form", form.event_id],
+  // Fetch ticket lots for cachê calculation (forecast = capacity × price, net of IVA)
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["ticket_lots_form", form.event_id],
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .eq("event_id", form.event_id);
-      if (!zones || zones.length === 0) return 0;
+      if (!zones || zones.length === 0) return [];
       const { data: lots } = await supabase
         .from("event_ticket_lots")
-        .select("id, price, iva_rate")
+        .select("id, price, iva_rate, quantity")
         .in("zone_id", zones.map(z => z.id));
-      if (!lots || lots.length === 0) return 0;
-      const { data: sales } = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price")
-        .in("lot_id", lots.map(l => l.id));
-      if (!sales) return 0;
-      let totalNet = 0;
-      sales.forEach(s => {
-        const lot = lots.find(l => l.id === s.lot_id);
-        const ivaRate = lot?.iva_rate ?? 6;
-        const gross = Number(s.quantity) * Number(s.unit_price);
-        totalNet += gross / (1 + ivaRate / 100);
-      });
-      return totalNet;
+      return lots || [];
     },
     enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
   });
+
+  const ticketRevenueNet = useMemo(() => {
+    return ticketLots.reduce((s, l: any) => {
+      const rate = Number(l.iva_rate ?? 6);
+      return s + Number(l.quantity) * (Number(l.price) / (1 + rate / 100));
+    }, 0);
+  }, [ticketLots]);
 
   const forecastBudgetByCategory = hasPL
     ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
@@ -375,7 +369,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               ? calculateCacheLinesForPL(
                   cacheConfigs,
                   cacheDeductions,
-                  ticketRevenue,
+                  ticketRevenueNet,
                   eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
                 )
               : [];
