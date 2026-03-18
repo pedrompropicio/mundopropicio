@@ -233,19 +233,25 @@ export default function ReportPL() {
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    // Add ticket lot revenue to forecast income
+    // Add ticket lot revenue to forecast income and ticket sales to actual income
     const evtZones = ticketZones.filter((z: any) => z.event_id === e.id);
     let ticketRev = 0;
+    let ticketActualRev = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => { ticketRev += Number(lot.price) * Number(lot.quantity); });
+      zoneLots.forEach((lot: any) => {
+        ticketRev += Number(lot.price) * Number(lot.quantity);
+        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+        ticketActualRev += lotSales.reduce((sum: number, sl: any) => sum + Number(sl.quantity) * Number(sl.unit_price), 0);
+      });
     });
     const totalFInc = fInc + ticketRev;
+    const totalTInc = tInc + ticketActualRev;
     return {
       ...e,
-      fInc: totalFInc, fExp, tInc, tExp,
+      fInc: totalFInc, fExp, tInc: totalTInc, tExp,
       fResult: totalFInc - fExp,
-      tResult: tInc - tExp,
+      tResult: totalTInc - tExp,
       forecastCount: evtF.length,
       txCount: evtT.length,
     };
