@@ -8,6 +8,7 @@ import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
+import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
