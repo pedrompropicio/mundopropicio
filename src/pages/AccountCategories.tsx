@@ -291,7 +291,6 @@ export default function AccountCategories() {
       name: fd.get("name") as string,
       ...(isRoot ? {
         event_required: fd.get("edit_event_required") === "on",
-        supplier_required: fd.get("edit_supplier_required") === "on",
       } : {}),
     });
   };
