@@ -355,17 +355,19 @@ export function exportPLToPDF(
       const showAbsForecast = !line.isGrandTotal;
       doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
-      if (line.subIndent) {
-        doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
-      } else {
-        const showAbsActual = !line.isGrandTotal;
-        doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        const v = line.variance;
-        if (line.isGrandTotal || line.isTotal) {
-          doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+      if (isComparison) {
+        if (line.subIndent) {
+          doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+          doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+        } else {
+          const showAbsActual = !line.isGrandTotal;
+          doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+          const v = line.variance;
+          if (line.isGrandTotal || line.isTotal) {
+            doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+          }
+          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
         }
-        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       }
       doc.setTextColor(0, 0, 0);
 
