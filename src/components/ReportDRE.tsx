@@ -117,7 +117,7 @@ export default function ReportDRE() {
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("*").in("status", ["confirmed", "active", "completed"]).order("date", { ascending: false });
+      const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
       if (error) throw error;
       return data;
     },
