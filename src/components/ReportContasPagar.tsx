@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportContasPagarToExcel, exportContasPagarToPDF } from "@/lib/export-contas-pagar";
-import { FileSpreadsheet, FileText, Filter } from "lucide-react";
+import { FileSpreadsheet, FileText, Filter, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,6 +16,21 @@ export default function ReportContasPagar() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
+
+  // Applied filters (only update when user clicks "Consultar")
+  const [appliedEventIds, setAppliedEventIds] = useState<Set<string>>(new Set());
+  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | undefined>(undefined);
+  const [appliedDateTo, setAppliedDateTo] = useState<Date | undefined>(undefined);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const handleConsultar = () => {
+    setAppliedEventIds(new Set(selectedEventIds));
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+    setHasSearched(true);
+  };
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
@@ -58,24 +73,31 @@ export default function ReportContasPagar() {
   };
 
   const filtered = useMemo(() => {
+    if (!hasSearched) return [];
     let result = transactions;
 
-    if (selectedEventIds.size > 0) {
-      result = result.filter((t: any) => selectedEventIds.has(t.event_id));
+    if (appliedEventIds.size > 0) {
+      result = result.filter((t: any) => appliedEventIds.has(t.event_id));
     }
 
-    if (dateFrom) {
-      const from = dateFrom.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.due_date && t.due_date >= from);
+    if (appliedDateFrom) {
+      const from = appliedDateFrom.toISOString().slice(0, 10);
+      result = result.filter((t: any) => {
+        const d = t.due_date ?? t.date;
+        return d && d >= from;
+      });
     }
 
-    if (dateTo) {
-      const to = dateTo.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.due_date && t.due_date <= to);
+    if (appliedDateTo) {
+      const to = appliedDateTo.toISOString().slice(0, 10);
+      result = result.filter((t: any) => {
+        const d = t.due_date ?? t.date;
+        return d && d <= to;
+      });
     }
 
     return result;
-  }, [transactions, selectedEventIds, dateFrom, dateTo]);
+  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, hasSearched]);
 
   // Compute status
   const getStatus = (t: any) => {
@@ -195,8 +217,8 @@ export default function ReportContasPagar() {
 
           {/* Date from */}
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Início</label>
-            <Popover>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Vcto Início</label>
+            <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
                   {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Sem limite"}
@@ -206,13 +228,13 @@ export default function ReportContasPagar() {
                 <Calendar
                   mode="single"
                   selected={dateFrom}
-                  onSelect={setDateFrom}
+                  onSelect={(d) => { setDateFrom(d); setDateFromOpen(false); }}
                   locale={pt}
                   className={cn("p-3 pointer-events-auto")}
                 />
                 {dateFrom && (
                   <div className="border-t border-border/50 p-2">
-                    <Button variant="ghost" size="sm" className="w-full" onClick={() => setDateFrom(undefined)}>Limpar</Button>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={() => { setDateFrom(undefined); setDateFromOpen(false); }}>Limpar</Button>
                   </div>
                 )}
               </PopoverContent>
@@ -221,8 +243,8 @@ export default function ReportContasPagar() {
 
           {/* Date to */}
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Fim</label>
-            <Popover>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Vcto Fim</label>
+            <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
                   {dateTo ? format(dateTo, "dd/MM/yyyy") : "Sem limite"}
@@ -232,18 +254,24 @@ export default function ReportContasPagar() {
                 <Calendar
                   mode="single"
                   selected={dateTo}
-                  onSelect={setDateTo}
+                  onSelect={(d) => { setDateTo(d); setDateToOpen(false); }}
                   locale={pt}
                   className={cn("p-3 pointer-events-auto")}
                 />
                 {dateTo && (
                   <div className="border-t border-border/50 p-2">
-                    <Button variant="ghost" size="sm" className="w-full" onClick={() => setDateTo(undefined)}>Limpar</Button>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={() => { setDateTo(undefined); setDateToOpen(false); }}>Limpar</Button>
                   </div>
                 )}
               </PopoverContent>
             </Popover>
           </div>
+
+          {/* Consultar button */}
+          <Button onClick={handleConsultar} className="flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Consultar
+          </Button>
 
           {/* Export buttons */}
           <div className="flex gap-2 ml-auto">
@@ -255,6 +283,26 @@ export default function ReportContasPagar() {
             </Button>
           </div>
         </div>
+
+        {/* Active filter summary */}
+        {hasSearched && (
+          <div className="mt-3 pt-3 border-t border-border/50 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Filtros aplicados: </span>
+            {appliedDateFrom || appliedDateTo ? (
+              <span>
+                Período Vcto: {appliedDateFrom ? format(appliedDateFrom, "dd/MM/yyyy") : "—"} a {appliedDateTo ? format(appliedDateTo, "dd/MM/yyyy") : "—"}
+              </span>
+            ) : (
+              <span>Sem filtro de data</span>
+            )}
+            {appliedEventIds.size > 0 && (
+              <span>
+                {" · "}Eventos: {events.filter((e: any) => appliedEventIds.has(e.id)).map((e: any) => e.name).join(", ")}
+              </span>
+            )}
+            {appliedEventIds.size === 0 && <span>{" · "}Todos os eventos</span>}
+          </div>
+        )}
       </div>
 
       {/* Summary cards */}
@@ -281,6 +329,8 @@ export default function ReportContasPagar() {
       <div className="glass rounded-xl p-5">
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
+        ) : !hasSearched ? (
+          <p className="py-8 text-center text-muted-foreground">Selecione os filtros e clique em "Consultar" para ver os resultados.</p>
         ) : filtered.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground">Nenhuma conta a pagar encontrada com os filtros selecionados.</p>
         ) : (
