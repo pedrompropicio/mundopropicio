@@ -29,6 +29,24 @@ function buildPLForExport(
     return byCat;
   };
 
+  // Calculate ticket lot revenue for this event
+  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  let ticketForecastRevenue = 0;
+  const ticketLines: PLLine[] = [];
+  if (evtZones.length > 0) {
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => {
+        const lotRevenue = Number(lot.price) * Number(lot.quantity);
+        ticketForecastRevenue += lotRevenue;
+        ticketLines.push({
+          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${Number(lot.price).toFixed(2)}€)`,
+          forecast: lotRevenue, actual: 0, variance: 0, subIndent: true,
+        });
+      });
+    });
+  }
+
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
   const tInc = transactions.filter((t) => t.type === "income");
@@ -39,29 +57,19 @@ function buildPLForExport(
   const tIncByCat = aggregate(tInc);
   const tExpByCat = aggregate(tExp);
 
-  const totalFInc = fInc.reduce((s, f) => s + Number(f.amount), 0);
+  // Add ticket lot revenue to Bilheteira category forecast
+  if (ticketForecastRevenue > 0) {
+    const bilheteiraKey = "Bilheteira";
+    fIncByCat[bilheteiraKey] = (fIncByCat[bilheteiraKey] ?? 0) + ticketForecastRevenue;
+  }
+
+  const totalFInc = Object.values(fIncByCat).reduce((s, v) => s + v, 0);
   const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
   const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0);
   const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
 
   const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
   const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
-
-  // Ticket lot sub-lines
-  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
-  const ticketLines: PLLine[] = [];
-  if (evtZones.length > 0) {
-    evtZones.forEach((zone: any) => {
-      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => {
-        const lotRevenue = Number(lot.price) * Number(lot.quantity);
-        ticketLines.push({
-          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${Number(lot.price).toFixed(2)}€)`,
-          forecast: lotRevenue, actual: 0, variance: 0, subIndent: true,
-        });
-      });
-    });
-  }
 
   const lines: PLLine[] = [];
   lines.push({ label: "RECEITAS", forecast: totalFInc, actual: totalTInc, variance: totalTInc - totalFInc, isTotal: true });
@@ -102,10 +110,16 @@ export function exportPLToExcel(
   events.forEach((evt) => {
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
-    const fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    let fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    // Add ticket lot revenue
+    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => { fInc += Number(lot.price) * Number(lot.quantity); });
+    });
     gFInc += fInc; gFExp += fExp; gTInc += tInc; gTExp += tExp;
     summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
   });
@@ -204,7 +218,14 @@ export function exportPLToPDF(
   events.forEach((evt) => {
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
-    gFInc += evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    // Add ticket lot revenue
+    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => { evtFInc += Number(lot.price) * Number(lot.quantity); });
+    });
+    gFInc += evtFInc;
     gFExp += evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);

@@ -33,32 +33,16 @@ function buildPL(
     return byCat;
   };
 
-  const fInc = forecasts.filter((f) => f.type === "income");
-  const fExp = forecasts.filter((f) => f.type === "expense");
-  const tInc = transactions.filter((t) => t.type === "income");
-  const tExp = transactions.filter((t) => t.type === "expense");
-
-  const fIncByCat = aggregate(fInc);
-  const fExpByCat = aggregate(fExp);
-  const tIncByCat = aggregate(tInc);
-  const tExpByCat = aggregate(tExp);
-
-  const totalFInc = fInc.reduce((s, f) => s + Number(f.amount), 0);
-  const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
-  const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0);
-  const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
-
-  const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
-  const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
-
-  // Build ticket lot lines for this event
+  // Calculate ticket lot revenue for this event
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  let ticketForecastRevenue = 0;
   const ticketLines: PLLine[] = [];
   if (evtZones.length > 0) {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
         const lotRevenue = Number(lot.price) * Number(lot.quantity);
+        ticketForecastRevenue += lotRevenue;
         ticketLines.push({
           label: `${zone.name} — ${lot.name} (${lot.quantity} × ${formatCurrency(Number(lot.price))})`,
           forecast: lotRevenue,
@@ -69,6 +53,31 @@ function buildPL(
       });
     });
   }
+
+  const fInc = forecasts.filter((f) => f.type === "income");
+  const fExp = forecasts.filter((f) => f.type === "expense");
+  const tInc = transactions.filter((t) => t.type === "income");
+  const tExp = transactions.filter((t) => t.type === "expense");
+
+  const fIncByCat = aggregate(fInc);
+  const fExpByCat = aggregate(fExp);
+  const tIncByCat = aggregate(tInc);
+  const tExpByCat = aggregate(tExp);
+
+  // Add ticket lot revenue to Bilheteira category forecast
+  if (ticketForecastRevenue > 0) {
+    const bilheteiraKey = "Bilheteira";
+    fIncByCat[bilheteiraKey] = (fIncByCat[bilheteiraKey] ?? 0) + ticketForecastRevenue;
+  }
+
+  const totalFInc = Object.values(fIncByCat).reduce((s, v) => s + v, 0);
+  const totalFExp = fExp.reduce((s, f) => s + Number(f.amount), 0);
+  const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0);
+  const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
+
+  const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
+  const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
+
 
   const lines: PLLine[] = [];
 
@@ -171,10 +180,18 @@ export default function ReportPL() {
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    // Add ticket lot revenue to forecast income
+    const evtZones = ticketZones.filter((z: any) => z.event_id === e.id);
+    let ticketRev = 0;
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => { ticketRev += Number(lot.price) * Number(lot.quantity); });
+    });
+    const totalFInc = fInc + ticketRev;
     return {
       ...e,
-      fInc, fExp, tInc, tExp,
-      fResult: fInc - fExp,
+      fInc: totalFInc, fExp, tInc, tExp,
+      fResult: totalFInc - fExp,
       tResult: tInc - tExp,
       forecastCount: evtF.length,
       txCount: evtT.length,
