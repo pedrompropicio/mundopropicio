@@ -155,16 +155,6 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     enabled: cacheConfigIds.length > 0,
   });
 
-  // Calculate cache lines
-  const cacheLines = useMemo(() => {
-    return calculateCacheLinesForPL(
-      cacheConfigs,
-      cacheDeductions,
-      ticketRevenueNet,
-      forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
-    );
-  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, forecasts]);
-  const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
 
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
