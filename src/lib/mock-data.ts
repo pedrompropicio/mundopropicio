@@ -76,7 +76,6 @@ export const categoryLabels: Record<TransactionCategory, string> = {
 export const statusLabels: Record<EventStatus, string> = {
   planning: "Planeamento",
   confirmed: "Confirmado",
-  execution: "Execução",
   active: "Em Curso",
   completed: "Concluído",
   cancelled: "Cancelado",
