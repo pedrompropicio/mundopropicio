@@ -211,13 +211,26 @@ export default function ReportDRE() {
 
   const toggleAll = () => {
     setSelectedEventIds((prev) =>
-      prev.length === events.length ? [] : events.map((e) => e.id)
+      prev.length === eventsWithTransactions.length ? [] : eventsWithTransactions.map((e) => e.id)
     );
   };
 
+  // Only show events that have at least one approved/paid transaction (direct or via children/parent)
+  const eventsWithTransactions = events.filter((e) => {
+    const hasDirect = transactions.some((t: any) => t.event_id === e.id);
+    if (hasDirect) return true;
+    // Parent: check if any child has transactions
+    const children = childrenByParent[e.id];
+    if (children) return children.some((cid) => transactions.some((t: any) => t.event_id === cid));
+    // Sub-event: check if parent has transactions
+    const parentId = subEventParentMap[e.id];
+    if (parentId) return transactions.some((t: any) => t.event_id === parentId);
+    return false;
+  });
+
   const activeEvents = selectedEventIds.length > 0
-    ? events.filter((e) => selectedEventIds.includes(e.id))
-    : events;
+    ? eventsWithTransactions.filter((e) => selectedEventIds.includes(e.id))
+    : eventsWithTransactions;
 
   // Helper: get effective transactions for an event (with proration)
   function getEffectiveTransactions(eventId: string) {
@@ -277,12 +290,12 @@ export default function ReportDRE() {
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">Selecionar Eventos</p>
           <button onClick={toggleAll} className="text-xs text-primary hover:underline">
-            {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
+            {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
           </button>
         </div>
         <div className="flex flex-col gap-2">
-          {events.filter((e) => !e.parent_event_id).map((e) => {
-            const children = events.filter((c) => c.parent_event_id === e.id);
+          {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
+            const children = eventsWithTransactions.filter((c) => c.parent_event_id === e.id);
             const isParent = children.length > 0;
             return (
               <div key={e.id}>
@@ -310,9 +323,9 @@ export default function ReportDRE() {
               </div>
             );
           })}
-          {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+          {eventsWithTransactions.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos com transações registadas.</p>}
         </div>
-        {selectedEventIds.length === 0 && events.length > 0 && (
+        {selectedEventIds.length === 0 && eventsWithTransactions.length > 0 && (
           <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
         )}
       </div>
