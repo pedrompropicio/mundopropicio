@@ -608,13 +608,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
                       <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
                       <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
                         <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
+                        {paid > 0 && !isPaid && (
+                          <>
+                            <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
+                            <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
+                          </>
+                        )}
                         {isPaid && (
                           <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
-                        )}
-                        {!isPaid && paid > 0 && (
-                          <p className="text-xs text-warning">Pago parcial: {formatCurrency(paid)}</p>
                         )}
                       </div>
                     </div>
