@@ -9,9 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { SupplierFormModal } from "@/components/SupplierFormModal";
 
 export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSupplierOpen, setIsSupplierOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const queryClient = useQueryClient();
 
@@ -147,12 +150,17 @@ export default function Quotations() {
               </div>
               <div className="grid gap-2">
                 <Label>Fornecedor *</Label>
-                <Select name="supplier_id" required>
-                  <SelectTrigger><SelectValue placeholder="Selecionar fornecedor" /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select name="supplier_id" required value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecionar fornecedor" /></SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <button type="button" onClick={() => setIsSupplierOpen(true)} className="shrink-0 rounded-lg border border-border px-2.5 hover:bg-secondary" title="Novo fornecedor">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Descrição *</Label>
@@ -190,6 +198,14 @@ export default function Quotations() {
             </form>
           </DialogContent>
         </Dialog>
+        <SupplierFormModal
+          open={isSupplierOpen}
+          onOpenChange={setIsSupplierOpen}
+          onCreated={(id) => {
+            setSelectedSupplier(id);
+            queryClient.invalidateQueries({ queryKey: ["suppliers-list"] });
+          }}
+        />
       </div>
 
       <div className="flex gap-2">
