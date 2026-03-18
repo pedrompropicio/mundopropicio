@@ -180,10 +180,18 @@ export default function ReportPL() {
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    // Add ticket lot revenue to forecast income
+    const evtZones = ticketZones.filter((z: any) => z.event_id === e.id);
+    let ticketRev = 0;
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => { ticketRev += Number(lot.price) * Number(lot.quantity); });
+    });
+    const totalFInc = fInc + ticketRev;
     return {
       ...e,
-      fInc, fExp, tInc, tExp,
-      fResult: fInc - fExp,
+      fInc: totalFInc, fExp, tInc, tExp,
+      fResult: totalFInc - fExp,
       tResult: tInc - tExp,
       forecastCount: evtF.length,
       txCount: evtT.length,
