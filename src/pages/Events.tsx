@@ -156,6 +156,7 @@ export default function Events() {
         tickets_total: parseInt(data.tickets_total) || 0,
         status: data.status,
         event_type: data.event_type,
+        pl_mode: data.pl_mode,
         city_id: data.city_id || null,
         venue_id: data.venue_id || null,
       } as any).select().single();
