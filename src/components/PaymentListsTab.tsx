@@ -386,6 +386,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 
 /* ─── View Payment List Details ─── */
 function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [paying, setPaying] = useState(false);
+
   const { data: list } = useQuery({
     queryKey: ["payment-list", listId],
     queryFn: async () => {
@@ -406,6 +411,70 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       return data;
     },
   });
+
+  const isApproved = list?.status === "approved" || list?.status === "partially_approved";
+
+  const unpaidItems = items.filter((item: any) => {
+    const tx = item.transactions;
+    if (!tx) return false;
+    const amount = Number(tx.amount);
+    const paid = Number(tx.paid_amount ?? 0);
+    return paid < amount && tx.status !== "paid";
+  });
+
+  const toggleTx = (txId: string) => {
+    setSelectedTxIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(txId)) next.delete(txId);
+      else next.add(txId);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedTxIds.size === unpaidItems.length && unpaidItems.length > 0) {
+      setSelectedTxIds(new Set());
+    } else {
+      setSelectedTxIds(new Set(unpaidItems.map((item: any) => item.transactions.id)));
+    }
+  };
+
+  const handleBulkPayment = async () => {
+    if (selectedTxIds.size === 0) return;
+    if (!confirm(`Dar baixa em ${selectedTxIds.size} pagamento(s)? O valor total será marcado como pago.`)) return;
+
+    setPaying(true);
+    try {
+      for (const txId of selectedTxIds) {
+        const item = items.find((i: any) => i.transactions?.id === txId);
+        const tx = item?.transactions;
+        if (!tx) continue;
+        const amount = Number(tx.amount);
+
+        await supabase.from("transaction_audit_log").insert({
+          transaction_id: txId,
+          changed_by: user?.email ?? "sistema",
+          field_name: "Pagamento parcial",
+          old_value: String(tx.paid_amount ?? 0),
+          new_value: String(amount),
+        });
+
+        await supabase
+          .from("transactions")
+          .update({ paid_amount: amount, status: "paid" })
+          .eq("id", txId);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setSelectedTxIds(new Set());
+      toast({ title: `${selectedTxIds.size} pagamento(s) processado(s) com sucesso!` });
+    } catch (err: any) {
+      toast({ title: "Erro ao processar pagamentos", description: err.message, variant: "destructive" });
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const handleExport = async (format: "pdf" | "excel") => {
     if (!list || items.length === 0) return;
@@ -443,7 +512,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             <h2 className="text-xl font-bold">{list?.title ?? "Lista de Pagamentos"}</h2>
             <p className="text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
           </div>
-          {(list?.status === "approved" || list?.status === "partially_approved") && (
+          {isApproved && (
             <div className="flex gap-2">
               <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 rounded-lg bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">
                 <FileText className="h-4 w-4" /> PDF
@@ -462,22 +531,88 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           </p>
         )}
 
+        {/* Bulk payment bar */}
+        {isApproved && unpaidItems.length > 0 && (
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-4 py-2.5 mb-3">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={selectedTxIds.size === unpaidItems.length && unpaidItems.length > 0}
+                onCheckedChange={toggleAll}
+              />
+              <span className="text-sm text-muted-foreground">
+                {selectedTxIds.size > 0
+                  ? `${selectedTxIds.size} de ${unpaidItems.length} selecionado(s)`
+                  : `${unpaidItems.length} pagamento(s) pendente(s)`}
+              </span>
+            </div>
+            {selectedTxIds.size > 0 && (
+              <button
+                onClick={handleBulkPayment}
+                disabled={paying}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <CheckSquare className="h-4 w-4" />
+                {paying ? "A processar…" : `Dar baixa (${selectedTxIds.size})`}
+              </button>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar itens…</p>
         ) : items.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">Sem itens nesta lista.</p>
         ) : (
           <div className="space-y-3">
-            {items.map((item: any, i: number) => {
+            {items.map((item: any) => {
               const tx = item.transactions;
-              const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
+              const amount = Number(tx?.amount ?? 0);
+              const ivaRate = Number(tx?.iva_rate ?? 23);
+              const withIva = amount * (1 + ivaRate / 100);
+              const paid = Number(tx?.paid_amount ?? 0);
+              const isPaid = paid >= amount || tx?.status === "paid";
+              const isSelectable = isApproved && !isPaid && tx;
+
               return (
-                <div key={item.id} className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 space-y-1 text-sm">
-                  <p><span className="font-medium text-muted-foreground">Evento:</span> {tx?.events?.name ?? "-"}</p>
-                  <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
-                  <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
-                  <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
-                  <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
+                <div
+                  key={item.id}
+                  className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
+                    isPaid
+                      ? "border-success/30 bg-success/5 opacity-70"
+                      : selectedTxIds.has(tx?.id)
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border/50 bg-muted/20"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {isApproved && unpaidItems.length > 0 && (
+                      <div className="pt-0.5">
+                        {isSelectable ? (
+                          <Checkbox
+                            checked={selectedTxIds.has(tx.id)}
+                            onCheckedChange={() => toggleTx(tx.id)}
+                          />
+                        ) : (
+                          <span className="inline-flex h-4 w-4 items-center justify-center text-success">✓</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <p><span className="font-medium text-muted-foreground">Evento:</span> {tx?.events?.name ?? "-"}</p>
+                      <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
+                      <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
+                      <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
+                      <div className="flex items-center gap-4">
+                        <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
+                        {isPaid && (
+                          <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
+                        )}
+                        {!isPaid && paid > 0 && (
+                          <p className="text-xs text-warning">Pago parcial: {formatCurrency(paid)}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               );
             })}
