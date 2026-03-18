@@ -197,7 +197,7 @@ export default function ReportContasPagar() {
           {/* Event multi-select */}
           <div className="flex-1 min-w-[200px]">
             <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Eventos</label>
-            <Popover>
+            <Popover modal={false}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-left font-normal">
                   <Filter className="mr-2 h-4 w-4" />
