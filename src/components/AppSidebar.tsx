@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/calendario", icon: CalendarDays, label: "Calendário" },
   { to: "/eventos", icon: Calendar, label: "Eventos" },
   { to: "/transacoes", icon: ArrowUpDown, label: "Transações" },
   { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas" },
