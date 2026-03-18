@@ -46,6 +46,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
     const fd = new FormData(e.currentTarget);
     createMutation.mutate({
       name: fd.get("name") as string,
+      trade_name: (fd.get("trade_name") as string) || undefined,
       nif: (fd.get("nif") as string) || undefined,
       contact_name: (fd.get("contact_name") as string) || undefined,
       email: (fd.get("email") as string) || undefined,
