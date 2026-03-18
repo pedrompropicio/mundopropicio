@@ -244,57 +244,7 @@ export function exportPLToPDF(
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  // Global summary
-  let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
-    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    // Add ticket lot revenue
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
-    evtZones.forEach((zone: any) => {
-      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => { evtFInc += Number(lot.price) * Number(lot.quantity); });
-    });
-    gFInc += evtFInc;
-    gFExp += evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-  });
-
-  doc.setFillColor(245, 245, 250);
-  doc.roundedRect(marginLeft, y, contentWidth, 20, 2, 2, "F");
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  const halfW = contentWidth / 4;
-
-  doc.setTextColor(100, 100, 100);
-  doc.text("Resultado Previsto", marginLeft + 4, y + 6);
-  doc.setFontSize(11);
-  const fRes = gFInc - gFExp;
-  doc.setTextColor(fRes >= 0 ? 34 : 200, fRes >= 0 ? 139 : 50, fRes >= 0 ? 34 : 50);
-  doc.text(fmtVal(fRes), marginLeft + 4, y + 14);
-
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text("Resultado Real", marginLeft + halfW * 1.5, y + 6);
-  doc.setFontSize(11);
-  const tRes = gTInc - gTExp;
-  doc.setTextColor(tRes >= 0 ? 34 : 200, tRes >= 0 ? 139 : 50, tRes >= 0 ? 34 : 50);
-  doc.text(fmtVal(tRes), marginLeft + halfW * 1.5, y + 14);
-
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text("Variação", marginLeft + halfW * 3, y + 6);
-  doc.setFontSize(11);
-  const variance = tRes - fRes;
-  doc.setTextColor(variance >= 0 ? 34 : 200, variance >= 0 ? 139 : 50, variance >= 0 ? 34 : 50);
-  doc.text((variance >= 0 ? "+" : "") + fmtVal(variance), marginLeft + halfW * 3, y + 14);
-
-  doc.setTextColor(0, 0, 0);
-  y += 26;
-
-  // Per-event
+  // Per-event (summary moved to end)
   events.forEach((evt, evtIdx) => {
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
