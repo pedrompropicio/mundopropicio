@@ -16,6 +16,21 @@ export default function ReportContasPagar() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
+
+  // Applied filters (only update when user clicks "Consultar")
+  const [appliedEventIds, setAppliedEventIds] = useState<Set<string>>(new Set());
+  const [appliedDateFrom, setAppliedDateFrom] = useState<Date | undefined>(undefined);
+  const [appliedDateTo, setAppliedDateTo] = useState<Date | undefined>(undefined);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const handleConsultar = () => {
+    setAppliedEventIds(new Set(selectedEventIds));
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+    setHasSearched(true);
+  };
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
