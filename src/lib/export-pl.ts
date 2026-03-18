@@ -273,7 +273,7 @@ export function exportPLToExcel(
         : ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)"],
     ];
     plLines.forEach((line) => {
-      const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
+      const prefix = line.subIndent ? "      " : line.indent ? "      " : line.isGroupHeader ? "  " : "";
       if (isComparison) {
         rows.push([
           prefix + line.label,
