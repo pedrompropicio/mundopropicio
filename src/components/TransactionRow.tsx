@@ -12,6 +12,7 @@ interface Props {
   selected?: boolean;
   onToggleSelect?: () => void;
   showSelectColumn?: boolean;
+  eventCompleted?: boolean;
   onEdit: (id: string) => void;
   onApprove: (id: string) => void;
   onPayment: (id: string) => void;
