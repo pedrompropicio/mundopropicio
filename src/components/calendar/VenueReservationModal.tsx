@@ -57,7 +57,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
     try {
       const selectedVenue = venues.find((v) => v.id === venueId);
       const { error } = await supabase.from("events").insert({
-        name: name.trim(),
+        name: name.trim() || `Reserva — ${selectedVenue?.name || "Sala"}`,
         date,
         venue_id: venueId,
         city_id: cityId || selectedVenue?.city_id || null,
