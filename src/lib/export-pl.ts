@@ -517,12 +517,6 @@ export function exportPLToPDF(
       }
 
       if (isComparison) {
-        if (line.subIndent) {
-          doc.text("—", colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
-          doc.text("—", colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
-        } else {
           doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
           doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
           doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
@@ -531,7 +525,6 @@ export function exportPLToPDF(
             doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
           }
           doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
-        }
       }
       doc.setTextColor(0, 0, 0);
 
