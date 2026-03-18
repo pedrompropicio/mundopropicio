@@ -204,6 +204,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </select>
           </div>
 
+          {form.type === "expense" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
               <div className="flex gap-2">
