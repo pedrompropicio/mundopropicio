@@ -346,6 +346,75 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
+          {/* P&L forecast lines summary */}
+          {isActivePL && form.event_id && (() => {
+            const typeForecasts = eventForecasts.filter(f => f.type === form.type);
+            if (typeForecasts.length === 0) return null;
+
+            // Group by category_id
+            const byCat: Record<string, { catId: string; catName: string; forecast: number; used: number }> = {};
+            typeForecasts.forEach(f => {
+              const catId = f.category_id || "none";
+              if (!byCat[catId]) {
+                const cat = categories.find(c => c.id === catId);
+                byCat[catId] = { catId, catName: cat?.name ?? "Sem categoria", forecast: 0, used: 0 };
+              }
+              byCat[catId].forecast += Number(f.amount);
+            });
+            eventTransactions.filter(t => t.type === form.type).forEach(t => {
+              const catId = t.category_id || "none";
+              if (byCat[catId]) byCat[catId].used += Number(t.amount);
+            });
+
+            const lines = Object.values(byCat).sort((a, b) => a.catName.localeCompare(b.catName));
+
+            return (
+              <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas
+                </p>
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="text-muted-foreground border-b border-border/30">
+                        <th className="text-left pb-1 font-medium">Categoria</th>
+                        <th className="text-right pb-1 font-medium">Previsto</th>
+                        <th className="text-right pb-1 font-medium">Utilizado</th>
+                        <th className="text-right pb-1 font-medium">Disponível</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {lines.map(l => {
+                        const remaining = l.forecast - l.used;
+                        const isSelected = form.category_id === l.catId;
+                        return (
+                          <tr
+                            key={l.catId}
+                            onClick={() => l.catId !== "none" && setForm(prev => ({ ...prev, category_id: l.catId }))}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-primary/10 font-medium"
+                                : "hover:bg-muted/40"
+                            }`}
+                          >
+                            <td className="py-1.5 pr-2">{l.catName}</td>
+                            <td className="py-1.5 text-right font-mono">{l.forecast.toFixed(2)}€</td>
+                            <td className="py-1.5 text-right font-mono">{l.used.toFixed(2)}€</td>
+                            <td className={`py-1.5 text-right font-mono font-semibold ${
+                              remaining <= 0 ? "text-destructive" : "text-success"
+                            }`}>
+                              {remaining.toFixed(2)}€
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
