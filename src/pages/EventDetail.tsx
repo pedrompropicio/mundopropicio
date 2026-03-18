@@ -407,11 +407,102 @@ export default function EventDetail() {
         </TabsContent>
 
         <TabsContent value="ticketing">
-          <EventTicketing eventId={event.id} />
+          {eventType === "multi_day" && !selectedSubEvent ? (
+            <div className="glass rounded-xl p-8 text-center space-y-2">
+              <Ticket className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground">Selecione uma data da turnê acima para configurar a bilheteira.</p>
+              <p className="text-xs text-muted-foreground">A bilheteira é configurada individualmente para cada data.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {eventType === "multi_day" && selectedSubEvent && subEvents.length > 1 && (
+                <CopyFromSelector
+                  label="Copiar bilheteira de"
+                  currentId={selectedSubEvent}
+                  subEvents={subEvents}
+                  onCopy={async (sourceId: string) => {
+                    // Copy zones and lots from source to target
+                    const { data: sourceZones } = await supabase
+                      .from("event_ticket_zones")
+                      .select("*")
+                      .eq("event_id", sourceId);
+                    if (!sourceZones || sourceZones.length === 0) {
+                      toast({ title: "A data de origem não tem bilheteira configurada", variant: "destructive" });
+                      return;
+                    }
+                    for (const zone of sourceZones) {
+                      const { data: newZone } = await supabase
+                        .from("event_ticket_zones")
+                        .insert({ event_id: selectedSubEvent, name: zone.name, total_capacity: zone.total_capacity })
+                        .select("id")
+                        .single();
+                      if (!newZone) continue;
+                      const { data: lots } = await supabase
+                        .from("event_ticket_lots")
+                        .select("*")
+                        .eq("zone_id", zone.id)
+                        .order("lot_number");
+                      if (lots && lots.length > 0) {
+                        await supabase.from("event_ticket_lots").insert(
+                          lots.map(l => ({ zone_id: newZone.id, name: l.name, quantity: l.quantity, price: l.price, lot_number: l.lot_number }))
+                        );
+                      }
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", selectedSubEvent] });
+                    queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", selectedSubEvent] });
+                    toast({ title: "Bilheteira copiada com sucesso!" });
+                  }}
+                />
+              )}
+              <EventTicketing eventId={selectedSubEvent || event.id} />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="forecast">
-          <EventForecast eventId={selectedSubEvent || event.id} eventDate={event.date} />
+          {eventType === "multi_day" && !selectedSubEvent ? (
+            <div className="glass rounded-xl p-8 text-center space-y-2">
+              <TrendingUp className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground">Selecione uma data da turnê acima para gerir o P&L.</p>
+              <p className="text-xs text-muted-foreground">O P&L é configurado individualmente para cada data.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {eventType === "multi_day" && selectedSubEvent && subEvents.length > 1 && (
+                <CopyFromSelector
+                  label="Copiar P&L de"
+                  currentId={selectedSubEvent}
+                  subEvents={subEvents}
+                  onCopy={async (sourceId: string) => {
+                    const { data: sourceForecasts } = await supabase
+                      .from("event_forecasts")
+                      .select("*")
+                      .eq("event_id", sourceId);
+                    if (!sourceForecasts || sourceForecasts.length === 0) {
+                      toast({ title: "A data de origem não tem previsões no P&L", variant: "destructive" });
+                      return;
+                    }
+                    await supabase.from("event_forecasts").insert(
+                      sourceForecasts.map(f => ({
+                        event_id: selectedSubEvent,
+                        type: f.type,
+                        description: f.description,
+                        amount: f.amount,
+                        iva_rate: f.iva_rate,
+                        category_id: f.category_id,
+                        notes: f.notes,
+                        specification: f.specification,
+                        status: "draft",
+                      }))
+                    );
+                    queryClient.invalidateQueries({ queryKey: ["event_forecasts", selectedSubEvent] });
+                    toast({ title: "P&L copiado com sucesso!" });
+                  }}
+                />
+              )}
+              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
