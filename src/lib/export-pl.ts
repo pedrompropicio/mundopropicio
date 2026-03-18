@@ -42,8 +42,9 @@ function buildPLForExport(
         const lotRevenue = Number(lot.price) * Number(lot.quantity);
         ticketForecastRevenue += lotRevenue;
         ticketLines.push({
-          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${Number(lot.price).toFixed(2)}€)`,
+          label: `${zone.name} — ${lot.name}`,
           forecast: lotRevenue, actual: 0, variance: 0, subIndent: true,
+          quantity: Number(lot.quantity), unitPrice: Number(lot.price),
         });
       });
     });
