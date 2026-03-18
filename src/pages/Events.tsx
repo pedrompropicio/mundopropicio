@@ -371,6 +371,37 @@ export default function Events() {
                 </div>
               </div>
 
+              {/* P&L Mode */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-muted-foreground">Modo P&L *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, pl_mode: "active" })}
+                    className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                      form.pl_mode === "active"
+                        ? "border-success bg-success/10 text-success"
+                        : "border-border bg-background text-muted-foreground hover:border-success/40"
+                    }`}
+                  >
+                    <span className="block font-semibold">P&L Ativo</span>
+                    <span className="block text-[10px] opacity-70 mt-0.5">Controla saldo por categoria do P&L</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, pl_mode: "passive" })}
+                    className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                      form.pl_mode === "passive"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    <span className="block font-semibold">P&L Passivo</span>
+                    <span className="block text-[10px] opacity-70 mt-0.5">Transações livres sem controlo</span>
+                  </button>
+                </div>
+              </div>
+
               {/* City / Venue for simple and festival */}
               {form.event_type !== "multi_day" && (
                 <CityVenueSelector
