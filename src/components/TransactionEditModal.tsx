@@ -64,7 +64,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
-
+  const editMutation = useMutation({
     mutationFn: async () => {
       // Build audit log entries for changed fields
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
