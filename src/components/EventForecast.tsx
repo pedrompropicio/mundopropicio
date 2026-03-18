@@ -699,10 +699,11 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
+  isSelected?: boolean; onToggleSelect?: (id: string) => void;
 }) {
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
@@ -711,7 +712,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
       <td className="py-2.5 pr-3">
         <div className="flex items-center gap-2">
-          {isApproved ? (
+          {isDraft && isAdmin && onToggleSelect ? (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelect(item.id)}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+          ) : isApproved ? (
             <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
           ) : (
             <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
