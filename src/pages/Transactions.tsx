@@ -274,6 +274,7 @@ export default function Transactions() {
                     selected={selectedIds.has(t.id)}
                     onToggleSelect={() => toggleSelect(t.id)}
                     showSelectColumn={isAdmin && pendingInView.length > 0}
+                    eventCompleted={(t.events as any)?.status === "completed"}
                     onEdit={(id) => setEditingId(id)}
                     onApprove={(id) => {
                       if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {
