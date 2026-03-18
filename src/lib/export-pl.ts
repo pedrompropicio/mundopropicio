@@ -287,7 +287,7 @@ export function exportPLToPDF(
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtF.length === 0 && evtT.length === 0) return;
 
-    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, evt.id);
+    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id);
 
     // Each event on its own page (except first which follows the title)
     if (evtIdx > 0) {
