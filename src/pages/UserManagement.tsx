@@ -74,6 +74,23 @@ export default function UserManagement() {
     },
   });
 
+  const resendResetMutation = useMutation({
+    mutationFn: async ({ email, name }: { email: string; name: string }) => {
+      const { data, error } = await supabase.functions.invoke("resend-reset-email", {
+        body: { email },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Email reenviado!", description: "O utilizador receberá um novo email para definir a senha." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao reenviar email", description: err.message, variant: "destructive" });
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       const { data, error } = await supabase.functions.invoke("delete-user", {
