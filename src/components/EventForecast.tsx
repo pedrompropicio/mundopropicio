@@ -6,6 +6,7 @@ import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock,
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface InlineForm {
   type: string;
