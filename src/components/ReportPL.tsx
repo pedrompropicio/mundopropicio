@@ -13,7 +13,11 @@ export type PLMode = "forecast" | "comparison";
 interface PLLine {
   label: string;
   forecast: number;
+  forecastIva: number;
+  forecastTotal: number;
   actual: number;
+  actualIva: number;
+  actualTotal: number;
   variance: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
