@@ -47,13 +47,13 @@ export function buildCategoryLookup(categories: CategoryNode[]): Record<string, 
     if (grandParent) {
       // This is L3 (leaf) → group = parent (L2)
       lookup[cat.id] = {
-        id: cat.id, name: cat.name, code: cat.code, parentId: cat.parentId,
+        id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: parent!.name, groupCode: parent!.code,
       };
     } else if (parent) {
       // This is L2 → group = itself
       lookup[cat.id] = {
-        id: cat.id, name: cat.name, code: cat.code, parentId: cat.parentId,
+        id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: cat.name, groupCode: cat.code,
       };
     } else {
