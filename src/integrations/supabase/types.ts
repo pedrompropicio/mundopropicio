@@ -494,6 +494,47 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_sales: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          lot_id: string
+          notes: string | null
+          quantity: number
+          sale_date: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          lot_id: string
+          notes?: string | null
+          quantity?: number
+          sale_date?: string
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          lot_id?: string
+          notes?: string | null
+          quantity?: number
+          sale_date?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_sales_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_audit_log: {
         Row: {
           changed_at: string
