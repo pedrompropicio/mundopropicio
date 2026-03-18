@@ -173,7 +173,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
           {valueLocked && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
-              Transação aprovada — apenas o administrador pode alterar valor e IVA.
+              Transação aprovada — valor e IVA não podem ser alterados.
             </div>
           )}
 
