@@ -1067,12 +1067,13 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     .sort((a, b) => { if (a.type !== b.type) return a.type === "income" ? -1 : 1; return a.groupCode.localeCompare(b.groupCode) || a.categoryCode.localeCompare(b.categoryCode); });
 }
 
-function ComparisonTable({ data }: { data: ComparisonRow[] }) {
+function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cacheLines?: CachePLLine[] }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
+  const totalCacheF = cacheLines.reduce((s, c) => s + c.amount, 0);
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
   const totalAI = incomeRows.reduce((s, r) => s + r.actual, 0);
-  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0);
+  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0) + totalCacheF;
   const totalAE = expenseRows.reduce((s, r) => s + r.actual, 0);
 
   // Group rows by L2 parent
