@@ -143,6 +143,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (!isExpense && !form.account_id) {
+      toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
+      return;
+    }
     editMutation.mutate();
   };
 
