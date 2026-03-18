@@ -54,13 +54,13 @@ export default function EventDetail() {
   const { data: subEvents = [] } = useQuery({
     queryKey: ["sub_events", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from("events")
-        .select("*")
-        .eq("parent_event_id" as any, id!)
+        .select("*") as any)
+        .eq("parent_event_id", id!)
         .order("date", { ascending: true });
       if (error) throw error;
-      return data as any[];
+      return (data ?? []) as any[];
     },
     enabled: !!id && eventType === "multi_day",
   });
