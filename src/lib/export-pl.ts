@@ -219,8 +219,11 @@ export function exportPLToPDF(
   const marginRight = 14;
   const contentWidth = pageWidth - marginLeft - marginRight;
   let y = 14;
+  const isComparison = mode === "comparison";
 
-  const colWidths = [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16];
+  const colWidths = isComparison
+    ? [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16]
+    : [contentWidth * 0.40, contentWidth * 0.14, contentWidth * 0.20, contentWidth * 0.26];
   const colX = [marginLeft];
   for (let i = 1; i < colWidths.length; i++) colX.push(colX[i - 1] + colWidths[i - 1]);
 
@@ -241,8 +244,10 @@ export function exportPLToPDF(
     doc.text("Qtd", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
     doc.text("Preço Unit.", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
     doc.text("Previsto (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
-    doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
-    doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
+    if (isComparison) {
+      doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
+      doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
+    }
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
@@ -261,12 +266,12 @@ export function exportPLToPDF(
 
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("Relatório P&L", marginLeft, y);
+  doc.text(isComparison ? "Relatório P&L — Previsão vs Realizado" : "Relatório P&L — Previsão", marginLeft, y);
   y += 7;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(`Previsão vs Realizado · Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
+  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
   doc.setTextColor(0, 0, 0);
   y += 10;
 
