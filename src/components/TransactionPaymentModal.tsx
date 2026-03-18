@@ -50,7 +50,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
       await supabase.from("transaction_audit_log").insert({
         transaction_id: transaction.id,
-        changed_by: "utilizador",
+        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
         field_name: "Pagamento parcial",
         old_value: String(currentPaid),
         new_value: String(newPaid),
