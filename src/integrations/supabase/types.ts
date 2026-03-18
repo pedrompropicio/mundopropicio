@@ -58,6 +58,27 @@ export type Database = {
           },
         ]
       }
+      cities: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       event_dates: {
         Row: {
           created_at: string
@@ -242,6 +263,7 @@ export type Database = {
       events: {
         Row: {
           budget: number
+          city_id: string | null
           created_at: string
           date: string
           event_type: string
@@ -253,9 +275,11 @@ export type Database = {
           tickets_sold: number
           tickets_total: number
           updated_at: string
+          venue_id: string | null
         }
         Insert: {
           budget?: number
+          city_id?: string | null
           created_at?: string
           date: string
           event_type?: string
@@ -267,9 +291,11 @@ export type Database = {
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
+          venue_id?: string | null
         }
         Update: {
           budget?: number
+          city_id?: string | null
           created_at?: string
           date?: string
           event_type?: string
@@ -281,13 +307,28 @@ export type Database = {
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
+          venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "events_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_parent_event_id_fkey"
             columns: ["parent_event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -799,6 +840,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      venues: {
+        Row: {
+          address: string | null
+          capacity: number | null
+          city_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          address?: string | null
+          capacity?: number | null
+          city_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          address?: string | null
+          capacity?: number | null
+          city_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venues_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
