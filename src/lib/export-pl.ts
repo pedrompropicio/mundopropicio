@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import type { PLMode } from "@/components/ReportPL";
+import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 
 interface PLLine {
   label: string;
@@ -13,6 +14,7 @@ interface PLLine {
   variance: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
+  isGroupHeader?: boolean;
   indent?: boolean;
   subIndent?: boolean;
   isSubTotal?: boolean;
@@ -28,24 +30,41 @@ function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal'> & { forecastIva?
   };
 }
 
+function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]) {
+  const allGroupNames = [...new Set([...fGroups.map(g => g.groupName), ...tGroups.map(g => g.groupName)])];
+  const fMap = Object.fromEntries(fGroups.map(g => [g.groupName, g]));
+  const tMap = Object.fromEntries(tGroups.map(g => [g.groupName, g]));
+
+  return allGroupNames.map(name => {
+    const fg = fMap[name];
+    const tg = tMap[name];
+    const code = fg?.groupCode ?? tg?.groupCode ?? "Z";
+    const allDetailNames = [...new Set([...(fg?.details.map(d => d.name) ?? []), ...(tg?.details.map(d => d.name) ?? [])])];
+    const fDetailMap = Object.fromEntries((fg?.details ?? []).map(d => [d.name, d]));
+    const tDetailMap = Object.fromEntries((tg?.details ?? []).map(d => [d.name, d]));
+
+    const details = allDetailNames.map(dn => ({
+      name: dn,
+      fBase: fDetailMap[dn]?.base ?? 0,
+      fIva: fDetailMap[dn]?.iva ?? 0,
+      tBase: tDetailMap[dn]?.base ?? 0,
+      tIva: tDetailMap[dn]?.iva ?? 0,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      groupName: name, groupCode: code,
+      fBase: fg?.totalBase ?? 0, fIva: fg?.totalIva ?? 0,
+      tBase: tg?.totalBase ?? 0, tIva: tg?.totalIva ?? 0,
+      details,
+    };
+  }).sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+}
+
 function buildPLForExport(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
 ): PLLine[] {
-  const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
-
-  const aggregateWithIva = (items: any[]) => {
-    const byCat: Record<string, { base: number; iva: number }> = {};
-    items.forEach((item) => {
-      const name = catMap[item.category_id] ?? "Sem categoria";
-      if (!byCat[name]) byCat[name] = { base: 0, iva: 0 };
-      const amt = Number(item.amount);
-      const ivaRate = Number(item.iva_rate) || 0;
-      byCat[name].base += amt;
-      byCat[name].iva += amt * ivaRate / 100;
-    });
-    return byCat;
-  };
+  const lookup = buildCategoryLookup(categories);
 
   const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
   let ticketForecastRevenue = 0;
@@ -93,54 +112,87 @@ function buildPLForExport(
   const tInc = transactions.filter((t) => t.type === "income");
   const tExp = transactions.filter((t) => t.type === "expense");
 
-  const fIncByCat = aggregateWithIva(fInc);
-  const fExpByCat = aggregateWithIva(fExp);
-  const tIncByCat = aggregateWithIva(tInc);
-  const tExpByCat = aggregateWithIva(tExp);
+  const fIncGroups = aggregateByHierarchy(fInc, lookup);
+  const fExpGroups = aggregateByHierarchy(fExp, lookup);
+  const tIncGroups = aggregateByHierarchy(tInc, lookup);
+  const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
   if (ticketForecastRevenue > 0) {
-    const bilheteiraKey = "Bilheteira";
-    if (!fIncByCat[bilheteiraKey]) fIncByCat[bilheteiraKey] = { base: 0, iva: 0 };
-    fIncByCat[bilheteiraKey].base += ticketForecastRevenue;
+    const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
+    if (bilhGroup) {
+      const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
+      if (bilhDetail) bilhDetail.base += ticketForecastRevenue;
+      bilhGroup.totalBase += ticketForecastRevenue;
+    } else {
+      fIncGroups.push({
+        groupName: "Bilheteira", groupCode: "0.0",
+        totalBase: ticketForecastRevenue, totalIva: 0,
+        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastRevenue, iva: 0 }],
+      });
+    }
   }
 
-  const totalFIncBase = Object.values(fIncByCat).reduce((s, v) => s + v.base, 0);
-  const totalFIncIva = Object.values(fIncByCat).reduce((s, v) => s + v.iva, 0);
-  const totalFExpBase = Object.values(fExpByCat).reduce((s, v) => s + v.base, 0);
-  const totalFExpIva = Object.values(fExpByCat).reduce((s, v) => s + v.iva, 0);
-  const totalTInc = tInc.reduce((s, t) => s + Number(t.amount), 0) + totalTicketActualRevenue;
-  const totalTExp = tExp.reduce((s, t) => s + Number(t.amount), 0);
+  const mergedInc = mergeGroupsExport(fIncGroups, tIncGroups);
+  const mergedExp = mergeGroupsExport(fExpGroups, tExpGroups);
 
-  const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
-  const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
+  const totalFIncBase = mergedInc.reduce((s, g) => s + g.fBase, 0);
+  const totalFIncIva = mergedInc.reduce((s, g) => s + g.fIva, 0);
+  const totalFExpBase = mergedExp.reduce((s, g) => s + g.fBase, 0);
+  const totalFExpIva = mergedExp.reduce((s, g) => s + g.fIva, 0);
+  const totalTInc = mergedInc.reduce((s, g) => s + g.tBase, 0) + totalTicketActualRevenue;
+  const totalTExp = mergedExp.reduce((s, g) => s + g.tBase, 0);
 
   const lines: PLLine[] = [];
   lines.push(pl({
     label: "RECEITAS", forecast: totalFIncBase, actual: totalTInc, variance: totalTInc - totalFIncBase, isTotal: true,
     forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
   }));
-  allIncCats.forEach((cat) => {
-    const f = fIncByCat[cat] ?? { base: 0, iva: 0 };
-    const a = tIncByCat[cat] ?? { base: 0, iva: 0 };
-    lines.push(pl({
-      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
-      forecastIva: f.iva, forecastTotal: f.base + f.iva,
-    }));
-    if (cat.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
-      ticketLines.forEach((tl) => lines.push(tl));
+  mergedInc.forEach((group) => {
+    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+    if (hasManyDetails) {
+      lines.push(pl({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+      }));
+      group.details.forEach((d) => {
+        lines.push(pl({
+          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+        }));
+        if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+          ticketLines.forEach((tl) => lines.push(tl));
+        }
+      });
+    } else {
+      lines.push(pl({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+      }));
     }
   });
   lines.push(pl({
     label: "DESPESAS", forecast: totalFExpBase, actual: totalTExp, variance: totalTExp - totalFExpBase, isTotal: true,
     forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
   }));
-  allExpCats.forEach((cat) => {
-    const f = fExpByCat[cat] ?? { base: 0, iva: 0 };
-    const a = tExpByCat[cat] ?? { base: 0, iva: 0 };
-    lines.push(pl({
-      label: cat, forecast: f.base, actual: a.base, variance: a.base - f.base, indent: true,
-      forecastIva: f.iva, forecastTotal: f.base + f.iva,
-    }));
+  mergedExp.forEach((group) => {
+    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+    if (hasManyDetails) {
+      lines.push(pl({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+      }));
+      group.details.forEach((d) => {
+        lines.push(pl({
+          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+        }));
+      });
+    } else {
+      lines.push(pl({
+        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+      }));
+    }
   });
   const fResBase = totalFIncBase - totalFExpBase;
   const fResIva = totalFIncIva - totalFExpIva;
