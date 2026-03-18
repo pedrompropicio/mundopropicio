@@ -369,6 +369,24 @@ export default function ReportPL() {
     },
   });
 
+  const { data: allCacheConfigs = [] } = useQuery({
+    queryKey: ["all-cache-configs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_configs").select("*");
+      if (error) throw error;
+      return data as CacheConfig[];
+    },
+  });
+
+  const { data: allCacheDeductions = [] } = useQuery({
+    queryKey: ["all-cache-deductions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_deductions").select("*");
+      if (error) throw error;
+      return data as CacheDeduction[];
+    },
+  });
+
   // Build proration map
   const subEventParentMap: Record<string, string> = {};
   const subCountByParent: Record<string, number> = {};
