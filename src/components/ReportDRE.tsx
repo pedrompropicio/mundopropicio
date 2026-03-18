@@ -290,12 +290,12 @@ export default function ReportDRE() {
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">Selecionar Eventos</p>
           <button onClick={toggleAll} className="text-xs text-primary hover:underline">
-            {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
+            {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
           </button>
         </div>
         <div className="flex flex-col gap-2">
-          {events.filter((e) => !e.parent_event_id).map((e) => {
-            const children = events.filter((c) => c.parent_event_id === e.id);
+          {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
+            const children = eventsWithTransactions.filter((c) => c.parent_event_id === e.id);
             const isParent = children.length > 0;
             return (
               <div key={e.id}>
@@ -323,9 +323,9 @@ export default function ReportDRE() {
               </div>
             );
           })}
-          {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+          {eventsWithTransactions.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos com transações registadas.</p>}
         </div>
-        {selectedEventIds.length === 0 && events.length > 0 && (
+        {selectedEventIds.length === 0 && eventsWithTransactions.length > 0 && (
           <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
         )}
       </div>
