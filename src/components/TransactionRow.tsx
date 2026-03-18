@@ -262,7 +262,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                           </>
                         )}
                       </span>
-                      <span className="ml-auto text-muted-foreground/70">{m.changed_by}</span>
+                      <span className="ml-auto text-muted-foreground/70">{resolveUserName(m.changed_by)}</span>
                     </div>
                   ))}
                 </div>
