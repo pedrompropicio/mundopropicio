@@ -16,6 +16,7 @@ interface PLLine {
   isGrandTotal?: boolean;
   indent?: boolean;
   subIndent?: boolean;
+  isSubTotal?: boolean;
   quantity?: number;
   unitPrice?: number;
 }
