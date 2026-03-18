@@ -220,9 +220,19 @@ function buildPLForExport(
   if (!ticketLinesInserted && ticketLines.length > 0) {
     ticketLines.forEach((tl) => lines.push(tl));
   }
+  // Calculate cachê lines
+  const eventCacheConfigs = cacheConfigs.filter((c) => c.event_id === eventId);
+  const cachePLLines = calculateCacheLinesForPL(
+    eventCacheConfigs, cacheDeductions, ticketForecastNet,
+    forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+  );
+  const totalCacheAmount = cachePLLines.reduce((s, c) => s + c.amount, 0);
+  const finalFExpBase = totalFExpBase + totalCacheAmount;
+  const finalFExpIva = totalFExpIva;
+
   lines.push(pl({
-    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
-    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+    label: "DESPESAS", forecast: finalFExpBase, actual: totalTExpBase, variance: totalTExpBase - finalFExpBase, isTotal: true,
+    forecastIva: finalFExpIva, forecastTotal: finalFExpBase + finalFExpIva,
     actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
   mergedExp.forEach((group) => {
@@ -248,8 +258,22 @@ function buildPLForExport(
       }));
     }
   });
-  const fResBase = totalFIncBase - totalFExpBase;
-  const fResIva = totalFIncIva - totalFExpIva;
+
+  // Cachê das Atrações group
+  if (cachePLLines.length > 0) {
+    lines.push(pl({
+      label: "Cachê das Atrações", forecast: totalCacheAmount, actual: 0, variance: 0 - totalCacheAmount, isGroupHeader: true,
+    }));
+    cachePLLines.forEach((cl) => {
+      const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
+      lines.push(pl({
+        label: `${cl.artistName} ${typeLabel}`, forecast: cl.amount, actual: 0, variance: 0 - cl.amount, indent: true,
+      }));
+    });
+  }
+
+  const fResBase = totalFIncBase - finalFExpBase;
+  const fResIva = totalFIncIva - finalFExpIva;
   const tResBase = totalTIncBase - totalTExpBase;
   const tResIva = totalTIncIva - totalTExpIva;
   lines.push(pl({
