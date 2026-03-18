@@ -87,6 +87,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           budget: parseFloat(budget) || 0,
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
+          pl_mode: plMode,
         } as any)
         .eq("id", event.id);
       if (error) throw error;
