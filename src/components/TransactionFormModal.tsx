@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
 import { X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { SupplierFormModal } from "@/components/SupplierFormModal";
 
 interface TransactionForm {
   description: string;
