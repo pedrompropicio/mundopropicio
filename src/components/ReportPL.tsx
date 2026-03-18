@@ -488,10 +488,11 @@ export default function ReportPL() {
     });
     const totalFInc = fInc + ticketRev;
     const totalTInc = tInc + ticketActualRev;
-    // Include cachê in forecast expenses
-    const eventCaches = allCacheConfigs.filter((c) => c.event_id === e.id);
+    const eventCaches = allCacheConfigs.filter((c) => ticketEventIds.includes(c.event_id));
     const cacheLines = calculateCacheLinesForPL(
-      eventCaches, allCacheDeductions, ticketRev,
+      eventCaches,
+      allCacheDeductions,
+      ticketRev,
       evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
     );
     const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);

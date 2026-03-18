@@ -428,12 +428,13 @@ function buildPLForExport(
 }
 
 export function exportPLToExcel(
-  events: any[], forecasts: any[], transactions: any[], categories: any[],
+  eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
 ) {
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
+  const hierarchy = buildEventHierarchyMaps(allEvents);
 
   const summaryRows: any[][] = [
     [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
@@ -445,14 +446,14 @@ export function exportPLToExcel(
 
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
 
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     let fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
@@ -467,6 +468,20 @@ export function exportPLToExcel(
         }, 0);
       });
     });
+    const cachePLLines = calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      evtZones.reduce((sum: number, zone: any) => {
+        const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+        return sum + zoneLots.reduce((lotSum: number, lot: any) => {
+          const ivaRate = Number(lot.iva_rate ?? 6);
+          return lotSum + Number(lot.quantity) * (Number(lot.price) / (1 + ivaRate / 100));
+        }, 0);
+      }, 0),
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+    const totalCache = cachePLLines.reduce((s, c) => s + c.amount, 0);
+    const fExp = fExpBase + totalCache;
     const totalTInc = tInc + ticketActualNet;
     gFInc += fInc; gFExp += fExp; gTInc += totalTInc; gTExp += tExp;
     if (isComparison) {
@@ -489,11 +504,11 @@ export function exportPLToExcel(
     : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
