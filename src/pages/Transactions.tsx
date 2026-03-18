@@ -29,7 +29,7 @@ export default function Transactions() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), account_categories(name), suppliers(name)")
+        .select("*, events(name, status), account_categories(name), suppliers(name)")
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
@@ -274,6 +274,7 @@ export default function Transactions() {
                     selected={selectedIds.has(t.id)}
                     onToggleSelect={() => toggleSelect(t.id)}
                     showSelectColumn={isAdmin && pendingInView.length > 0}
+                    eventCompleted={(t.events as any)?.status === "completed"}
                     onEdit={(id) => setEditingId(id)}
                     onApprove={(id) => {
                       if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {

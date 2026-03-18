@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
@@ -9,6 +9,8 @@ import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const PIE_COLORS = [
   "hsl(262 80% 60%)",
@@ -21,6 +23,8 @@ const PIE_COLORS = [
 
 export default function EventDetail() {
   const { id } = useParams();
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
@@ -50,6 +54,25 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  const changeStatusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      const { error } = await supabase
+        .from("events")
+        .update({ status: newStatus })
+        .eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: (_, newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ["event_detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["events_full"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      toast({ title: newStatus === "completed" ? "Evento concluído!" : "Evento reativado!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
   if (loadingEvent) {
     return <p className="py-20 text-center text-muted-foreground">A carregar evento…</p>;
   }
@@ -62,6 +85,8 @@ export default function EventDetail() {
       </div>
     );
   }
+
+  const isCompleted = event.status === "completed";
 
   const incomeTransactions = eventTransactions.filter((t) => t.type === "income");
   const expenseTransactions = eventTransactions.filter((t) => t.type === "expense");
@@ -94,6 +119,34 @@ export default function EventDetail() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">{event.name}</h1>
           <EventStatusBadge status={event.status as any} />
+          <div className="ml-auto flex gap-2">
+            {isAdmin && event.status === "active" && (
+              <button
+                onClick={() => {
+                  if (confirm("Concluir este evento? As transações ficarão bloqueadas para alterações.")) {
+                    changeStatusMutation.mutate("completed");
+                  }
+                }}
+                disabled={changeStatusMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Concluir Evento
+              </button>
+            )}
+            {isAdmin && isCompleted && (
+              <button
+                onClick={() => {
+                  if (confirm("Reativar este evento? As transações voltarão a poder ser alteradas.")) {
+                    changeStatusMutation.mutate("active");
+                  }
+                }}
+                disabled={changeStatusMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors disabled:opacity-50"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reativar Evento
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">{event.location} · {formatDate(event.date)}</p>
       </div>
