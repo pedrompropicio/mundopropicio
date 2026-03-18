@@ -92,7 +92,7 @@ export default function Transactions() {
       // Insert audit log entries for all
       const auditEntries = ids.map((id) => ({
         transaction_id: id,
-        changed_by: user?.email ?? "sistema",
+        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
         field_name: "status",
         old_value: "pending",
         new_value: "approved",
