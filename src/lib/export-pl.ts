@@ -424,6 +424,11 @@ export function exportPLToPDF(
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
+      } else if (line.isGroupHeader) {
+        doc.setFillColor(245, 245, 250);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
       } else if (line.isSubTotal) {
         doc.setFillColor(242, 242, 248);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
@@ -441,7 +446,7 @@ export function exportPLToPDF(
         doc.setFontSize(7);
       }
 
-      const label = line.subIndent ? `       ${line.label}` : line.indent ? `    ${line.label}` : line.label;
+      const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
 
       if (line.quantity != null) {
