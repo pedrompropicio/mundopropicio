@@ -4,7 +4,6 @@ import { type EventStatus, statusLabels } from "@/lib/mock-data";
 const statusStyles: Record<EventStatus, string> = {
   planning: "bg-warning/15 text-warning border-warning/30",
   confirmed: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  execution: "bg-accent/15 text-accent-foreground border-accent/30",
   active: "bg-primary/15 text-primary border-primary/30",
   completed: "bg-success/15 text-success border-success/30",
   cancelled: "bg-destructive/15 text-destructive border-destructive/30",

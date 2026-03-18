@@ -1,4 +1,4 @@
-export type EventStatus = "planning" | "confirmed" | "execution" | "active" | "completed" | "cancelled";
+export type EventStatus = "planning" | "confirmed" | "active" | "completed" | "cancelled";
 export type TransactionType = "income" | "expense";
 export type TransactionCategory = 
   | "bilheteira" | "patrocinios" | "bar_food" | "merchandising" | "outros_receita"
@@ -76,7 +76,6 @@ export const categoryLabels: Record<TransactionCategory, string> = {
 export const statusLabels: Record<EventStatus, string> = {
   planning: "Planeamento",
   confirmed: "Confirmado",
-  execution: "Execução",
   active: "Em Curso",
   completed: "Concluído",
   cancelled: "Cancelado",
