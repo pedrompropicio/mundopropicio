@@ -215,8 +215,13 @@ export default function ReportDRE() {
     );
   };
 
+  const [excludeReservations, setExcludeReservations] = useState(true);
+
   // Only show events that have at least one approved/paid transaction (direct or via children/parent)
   const eventsWithTransactions = events.filter((e) => {
+    // Exclude venue reservations if toggle is on
+    if (excludeReservations && e.venue_id && e.name.startsWith("Reserva")) return false;
+
     const hasDirect = transactions.some((t: any) => t.event_id === e.id);
     if (hasDirect) return true;
     // Parent: check if any child has transactions
@@ -289,9 +294,18 @@ export default function ReportDRE() {
       <div className="glass rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">Selecionar Eventos</p>
-          <button onClick={toggleAll} className="text-xs text-primary hover:underline">
-            {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
-          </button>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground">
+              <Checkbox
+                checked={excludeReservations}
+                onCheckedChange={(v) => setExcludeReservations(!!v)}
+              />
+              Excluir reservas de sala
+            </label>
+            <button onClick={toggleAll} className="text-xs text-primary hover:underline">
+              {selectedEventIds.length === eventsWithTransactions.length ? "Desmarcar todos" : "Selecionar todos"}
+            </button>
+          </div>
         </div>
         <div className="flex flex-col gap-2">
           {eventsWithTransactions.filter((e) => !e.parent_event_id).map((e) => {
