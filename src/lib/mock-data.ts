@@ -150,12 +150,7 @@ export function formatCurrency(value: number): string {
 }
 
 export function formatCurrencyDecimal(value: number): string {
-  return new Intl.NumberFormat("pt-PT", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrency(value);
 }
 
 export function formatDate(dateStr: string): string {
