@@ -274,11 +274,14 @@ export default function AccountCategories() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const parentId = fd.get("parent_id") as string;
+    const isRoot = !parentId;
     createMutation.mutate({
       code: fd.get("code") as string,
       name: fd.get("name") as string,
       type: fd.get("type") as string,
       parent_id: parentId || undefined,
+      event_required: isRoot ? fd.get("event_required") === "on" : true,
+      supplier_required: isRoot ? fd.get("supplier_required") === "on" : true,
     });
   };
 
