@@ -11,9 +11,13 @@ interface PLLine {
   isTotal?: boolean;
   isGrandTotal?: boolean;
   indent?: boolean;
+  subIndent?: boolean;
 }
 
-function buildPLForExport(forecasts: any[], transactions: any[], categories: any[]): PLLine[] {
+function buildPLForExport(
+  forecasts: any[], transactions: any[], categories: any[],
+  ticketZones: any[], ticketLots: any[], eventId: string
+): PLLine[] {
   const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
 
   const aggregate = (items: any[]) => {
@@ -43,12 +47,31 @@ function buildPLForExport(forecasts: any[], transactions: any[], categories: any
   const allIncCats = [...new Set([...Object.keys(fIncByCat), ...Object.keys(tIncByCat)])].sort();
   const allExpCats = [...new Set([...Object.keys(fExpByCat), ...Object.keys(tExpByCat)])].sort();
 
+  // Ticket lot sub-lines
+  const evtZones = ticketZones.filter((z: any) => z.event_id === eventId);
+  const ticketLines: PLLine[] = [];
+  if (evtZones.length > 0) {
+    evtZones.forEach((zone: any) => {
+      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+      zoneLots.forEach((lot: any) => {
+        const lotRevenue = Number(lot.price) * Number(lot.quantity);
+        ticketLines.push({
+          label: `${zone.name} — ${lot.name} (${lot.quantity} × ${Number(lot.price).toFixed(2)}€)`,
+          forecast: lotRevenue, actual: 0, variance: 0, subIndent: true,
+        });
+      });
+    });
+  }
+
   const lines: PLLine[] = [];
   lines.push({ label: "RECEITAS", forecast: totalFInc, actual: totalTInc, variance: totalTInc - totalFInc, isTotal: true });
   allIncCats.forEach((cat) => {
     const f = fIncByCat[cat] ?? 0;
     const a = tIncByCat[cat] ?? 0;
     lines.push({ label: cat, forecast: f, actual: a, variance: a - f, indent: true });
+    if (cat.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+      ticketLines.forEach((tl) => lines.push(tl));
+    }
   });
   lines.push({ label: "DESPESAS", forecast: totalFExp, actual: totalTExp, variance: totalTExp - totalFExp, isTotal: true });
   allExpCats.forEach((cat) => {
@@ -62,7 +85,10 @@ function buildPLForExport(forecasts: any[], transactions: any[], categories: any
   return lines;
 }
 
-export function exportPLToExcel(events: any[], forecasts: any[], transactions: any[], categories: any[]) {
+export function exportPLToExcel(
+  events: any[], forecasts: any[], transactions: any[], categories: any[],
+  ticketZones: any[] = [], ticketLots: any[] = []
+) {
   const wb = XLSX.utils.book_new();
 
   const summaryRows: any[][] = [
@@ -95,17 +121,18 @@ export function exportPLToExcel(events: any[], forecasts: any[], transactions: a
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtF.length === 0 && evtT.length === 0) return;
-    const pl = buildPLForExport(evtF, evtT, categories);
+    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, evt.id);
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
       ["Rubrica", "Previsto (€)", "Real (€)", "Variação (€)"],
     ];
     pl.forEach((line) => {
-      rows.push([line.indent ? `  ${line.label}` : line.label, line.forecast, line.actual, line.variance]);
+      const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
+      rows.push([prefix + line.label, line.forecast, line.subIndent ? "" : line.actual, line.subIndent ? "" : line.variance]);
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 45 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
@@ -113,7 +140,10 @@ export function exportPLToExcel(events: any[], forecasts: any[], transactions: a
   XLSX.writeFile(wb, `PL_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-export function exportPLToPDF(events: any[], forecasts: any[], transactions: any[], categories: any[]) {
+export function exportPLToPDF(
+  events: any[], forecasts: any[], transactions: any[], categories: any[],
+  ticketZones: any[] = [], ticketLots: any[] = []
+) {
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -150,7 +180,7 @@ export function exportPLToPDF(events: any[], forecasts: any[], transactions: any
     return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
   }
 
-  // Logo + title on first page
+  // Logo + title
   try {
     doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
     y += 28;
@@ -169,7 +199,7 @@ export function exportPLToPDF(events: any[], forecasts: any[], transactions: any
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  // Global summary box
+  // Global summary
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
   events.forEach((evt) => {
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
@@ -212,13 +242,13 @@ export function exportPLToPDF(events: any[], forecasts: any[], transactions: any
   doc.setTextColor(0, 0, 0);
   y += 26;
 
-  // Per-event P&L — each event on a new page
+  // Per-event
   events.forEach((evt, evtIdx) => {
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtF.length === 0 && evtT.length === 0) return;
 
-    const pl = buildPLForExport(evtF, evtT, categories);
+    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, evt.id);
 
     if (evtIdx > 0 || y > 60) {
       doc.addPage();
@@ -248,7 +278,7 @@ export function exportPLToPDF(events: any[], forecasts: any[], transactions: any
 
     pl.forEach((line) => {
       checkNewPage(8);
-      const rowH = 7;
+      const rowH = line.subIndent ? 6 : 7;
 
       if (line.isGrandTotal) {
         doc.setFillColor(230, 240, 255);
@@ -260,22 +290,32 @@ export function exportPLToPDF(events: any[], forecasts: any[], transactions: any
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
+      } else if (line.subIndent) {
+        doc.setFillColor(248, 248, 252);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7);
+        doc.setTextColor(120, 120, 120);
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
       }
 
-      const label = line.indent ? `    ${line.label}` : line.label;
+      const label = line.subIndent ? `          ${line.label}` : line.indent ? `    ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
       doc.text(fmtVal(Math.abs(line.forecast)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
-      doc.text(fmtVal(Math.abs(line.actual)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
 
-      // Variance with color
-      const v = line.variance;
-      if (line.isGrandTotal || line.isTotal) {
-        doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+      if (line.subIndent) {
+        doc.text("—", colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+        doc.text("—", colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      } else {
+        doc.text(fmtVal(Math.abs(line.actual)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+        const v = line.variance;
+        if (line.isGrandTotal || line.isTotal) {
+          doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+        }
+        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
       }
-      doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
 
       y += rowH;
