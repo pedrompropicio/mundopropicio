@@ -14,6 +14,7 @@ interface TransactionForm {
   event_id: string;
   category_id: string;
   supplier_id: string;
+  account_id: string;
   date: string;
   due_date: string;
   specification: string;
@@ -27,6 +28,7 @@ const emptyForm: TransactionForm = {
   event_id: "",
   category_id: "",
   supplier_id: "",
+  account_id: "",
   date: new Date().toISOString().split("T")[0],
   due_date: "",
   specification: "",
