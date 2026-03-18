@@ -215,9 +215,22 @@ export default function ReportDRE() {
     );
   };
 
+  // Only show events that have at least one approved/paid transaction (direct or via children/parent)
+  const eventsWithTransactions = events.filter((e) => {
+    const hasDirect = transactions.some((t: any) => t.event_id === e.id);
+    if (hasDirect) return true;
+    // Parent: check if any child has transactions
+    const children = childrenByParent[e.id];
+    if (children) return children.some((cid) => transactions.some((t: any) => t.event_id === cid));
+    // Sub-event: check if parent has transactions
+    const parentId = subEventParentMap[e.id];
+    if (parentId) return transactions.some((t: any) => t.event_id === parentId);
+    return false;
+  });
+
   const activeEvents = selectedEventIds.length > 0
-    ? events.filter((e) => selectedEventIds.includes(e.id))
-    : events;
+    ? eventsWithTransactions.filter((e) => selectedEventIds.includes(e.id))
+    : eventsWithTransactions;
 
   // Helper: get effective transactions for an event (with proration)
   function getEffectiveTransactions(eventId: string) {
