@@ -12,7 +12,8 @@ export interface CategoryNode {
   id: string;
   name: string;
   code: string;
-  parentId: string | null;
+  parentId?: string | null;
+  parent_id?: string | null;
 }
 
 export interface CategoryLookup {
@@ -33,23 +34,26 @@ export function buildCategoryLookup(categories: CategoryNode[]): Record<string, 
   const byId: Record<string, CategoryNode> = {};
   categories.forEach((c) => { byId[c.id] = c; });
 
+  const getParentId = (c: CategoryNode) => c.parent_id ?? c.parentId ?? null;
+
   const lookup: Record<string, CategoryLookup> = {};
 
   categories.forEach((cat) => {
-    // Determine level: L1 has no parent, L2 parent is L1, L3 parent is L2
-    const parent = cat.parentId ? byId[cat.parentId] : null;
-    const grandParent = parent?.parentId ? byId[parent.parentId] : null;
+    const pid = getParentId(cat);
+    const parent = pid ? byId[pid] : null;
+    const parentPid = parent ? getParentId(parent) : null;
+    const grandParent = parentPid ? byId[parentPid] : null;
 
     if (grandParent) {
       // This is L3 (leaf) → group = parent (L2)
       lookup[cat.id] = {
-        id: cat.id, name: cat.name, code: cat.code, parentId: cat.parentId,
+        id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: parent!.name, groupCode: parent!.code,
       };
     } else if (parent) {
       // This is L2 → group = itself
       lookup[cat.id] = {
-        id: cat.id, name: cat.name, code: cat.code, parentId: cat.parentId,
+        id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: cat.name, groupCode: cat.code,
       };
     } else {
