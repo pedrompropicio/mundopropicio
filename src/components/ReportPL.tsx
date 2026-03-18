@@ -28,6 +28,16 @@ interface PLLine {
   unitPrice?: number;
 }
 
+function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
+  return {
+    ...base,
+    forecastIva: base.forecastIva ?? 0,
+    forecastTotal: base.forecastTotal ?? base.forecast,
+    actualIva: base.actualIva ?? 0,
+    actualTotal: base.actualTotal ?? base.actual,
+  };
+}
+
 function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
