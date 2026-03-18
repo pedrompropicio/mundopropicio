@@ -841,8 +841,40 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                         );
                       })}
                       {addingType === "expense" && renderInlineRow("expense")}
+                      {/* Cachê lines */}
+                      {cacheLines.length > 0 && (
+                        <>
+                          <tr className="bg-secondary/10 border-t border-border/30">
+                            <td colSpan={8} className="py-2 pl-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <Music className="h-3.5 w-3.5" />
+                                Cachê das Atrações
+                              </div>
+                            </td>
+                          </tr>
+                          {cacheLines.map((cl, idx) => {
+                            const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
+                            return (
+                              <tr key={`cache-${idx}`} className="border-b border-border/10">
+                                <td className="py-2.5 pr-3 pl-4" colSpan={2}>
+                                  <div className="flex items-center gap-2">
+                                    <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
+                                  </div>
+                                </td>
+                                <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">Cachê</td>
+                                <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
+                                <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
+                                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
+                                <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
+                                <td />
+                              </tr>
+                            );
+                          })}
+                        </>
+                      )}
                     </tbody>
-                    {(expenseForecasts.length > 0 || addingType === "expense") && (
+                    {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
