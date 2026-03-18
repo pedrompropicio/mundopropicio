@@ -933,6 +933,48 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_reservations: {
+        Row: {
+          city_id: string | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          venue_id: string
+        }
+        Insert: {
+          city_id?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          venue_id: string
+        }
+        Update: {
+          city_id?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_reservations_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_reservations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           address: string | null
