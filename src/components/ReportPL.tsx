@@ -412,9 +412,14 @@ export default function ReportPL() {
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
-        ticketRev += Number(lot.price) * Number(lot.quantity);
+        const ivaRate = Number(lot.iva_rate ?? 6);
+        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+        ticketRev += netPrice * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualRev += lotSales.reduce((sum: number, sl: any) => sum + Number(sl.quantity) * Number(sl.unit_price), 0);
+        ticketActualRev += lotSales.reduce((sum: number, sl: any) => {
+          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+          return sum + Number(sl.quantity) * saleNet;
+        }, 0);
       });
     });
     const totalFInc = fInc + ticketRev;
