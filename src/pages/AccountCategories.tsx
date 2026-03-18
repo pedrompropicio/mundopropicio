@@ -355,6 +355,19 @@ export default function AccountCategories() {
                     </Select>
                   </div>
                 </div>
+                <div className="space-y-2 rounded-lg border border-border/50 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (apenas para nível 1)</p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="event_required" name="event_required" defaultChecked={true} className="rounded border-border" />
+                      <Label htmlFor="event_required" className="text-sm">Evento</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="supplier_required" name="supplier_required" defaultChecked={true} className="rounded border-border" />
+                      <Label htmlFor="supplier_required" className="text-sm">Fornecedor</Label>
+                    </div>
+                  </div>
+                </div>
                 <button type="submit" className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground">
                   Criar Conta
                 </button>
