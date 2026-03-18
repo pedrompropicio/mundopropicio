@@ -175,7 +175,7 @@ export default function ReportPL() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("transactions").select("*").order("date", { ascending: false });
+      const { data, error } = await supabase.from("transactions").select("*").in("status", ["approved", "paid"]).order("date", { ascending: false });
       if (error) throw error;
       return data;
     },
