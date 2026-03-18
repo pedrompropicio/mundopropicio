@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileDown, ArrowRightCircle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
 import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
 import { exportVenueReservationsToPDF } from "@/lib/export-venue-reservations";
+import { toast } from "sonner";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -21,6 +22,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   confirmed: { label: "Confirmado", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", dot: "bg-blue-500" },
   active: { label: "Ativo", color: "bg-success/15 text-success border-success/30", dot: "bg-success" },
   completed: { label: "Concluído", color: "bg-muted-foreground/15 text-muted-foreground border-muted-foreground/30", dot: "bg-muted-foreground" },
+  reservation: { label: "Reserva", color: "bg-purple-500/15 text-purple-400 border-purple-500/30", dot: "bg-purple-500" },
 };
 
 interface CalendarEvent {
@@ -31,10 +33,12 @@ interface CalendarEvent {
   venue_name?: string;
   city_name?: string;
   event_type: string;
+  isReservation?: boolean;
 }
 
 export default function EventCalendar() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -88,13 +92,63 @@ export default function EventCalendar() {
     },
   });
 
+  const { data: venueReservationsRaw = [] } = useQuery({
+    queryKey: ["venue-reservations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("venue_reservations")
+        .select("id, date, venue_id, city_id, notes")
+        .order("date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const convertToEventMutation = useMutation({
+    mutationFn: async (reservation: { id: string; date: string; venue_id: string; city_id: string | null; notes: string | null }) => {
+      const venue = venues.find((v) => v.id === reservation.venue_id);
+      // Create event
+      const { error: insertErr } = await supabase.from("events").insert({
+        name: reservation.notes || `Evento — ${venue?.name || "Sala"}`,
+        date: reservation.date,
+        venue_id: reservation.venue_id,
+        city_id: reservation.city_id || venue?.city_id || null,
+        status: "planning",
+        event_type: "simple",
+      });
+      if (insertErr) throw insertErr;
+      // Delete reservation
+      const { error: delErr } = await supabase.from("venue_reservations").delete().eq("id", reservation.id);
+      if (delErr) throw delErr;
+    },
+    onSuccess: () => {
+      toast.success("Reserva convertida em evento com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["venue-reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+    },
+    onError: (err: any) => toast.error("Erro: " + err.message),
+  });
+
+  const deleteReservationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("venue_reservations").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Reserva eliminada");
+      queryClient.invalidateQueries({ queryKey: ["venue-reservations"] });
+    },
+    onError: (err: any) => toast.error("Erro: " + err.message),
+  });
+
   // Build enriched events with all dates
   const calendarEvents = useMemo(() => {
     const venueMap = Object.fromEntries(venues.map((v) => [v.id, v]));
     const cityMap = Object.fromEntries(cities.map((c) => [c.id, c]));
     const eventMap = Object.fromEntries(events.map((e) => [e.id, e]));
 
-    // Filter out parent events (event_type === 'multi_day' with no parent_event_id)
+    // Filter out parent events
     const visibleEvents = events.filter((ev) => {
       const hasChildren = events.some((child) => child.parent_event_id === ev.id);
       return !hasChildren;
@@ -107,7 +161,6 @@ export default function EventCalendar() {
       const city = ev.city_id ? cityMap[ev.city_id] : venue ? cityMap[venue.city_id] : null;
       const parentEvent = ev.parent_event_id ? eventMap[ev.parent_event_id] : null;
 
-      // Build display name: "Parent Name — City" for sub-events, or just event name
       let displayName = ev.name;
       if (parentEvent) {
         const parts = [parentEvent.name];
@@ -124,23 +177,37 @@ export default function EventCalendar() {
         event_type: ev.event_type,
       };
 
-      // Add main date
       result.push({ ...base, date: ev.date });
 
-      // Add extra dates (festivals/multi-day)
       const extras = eventDates.filter((ed) => ed.event_id === ev.id && ed.date !== ev.date);
       extras.forEach((ed) => {
         result.push({ ...base, date: ed.date });
       });
     });
 
+    // Add venue reservations to calendar
+    venueReservationsRaw.forEach((r) => {
+      const venue = r.venue_id ? venueMap[r.venue_id] : null;
+      const city = r.city_id ? cityMap[r.city_id] : venue ? cityMap[venue.city_id] : null;
+      result.push({
+        id: r.id,
+        name: r.notes || `Reserva — ${venue?.name || "Sala"}`,
+        date: r.date,
+        status: "reservation",
+        venue_name: venue?.name,
+        city_name: city?.name,
+        event_type: "reservation",
+        isReservation: true,
+      });
+    });
+
     return result;
-  }, [events, eventDates, venues, cities]);
+  }, [events, eventDates, venues, cities, venueReservationsRaw]);
 
   // Calendar grid
   const firstDay = new Date(currentYear, currentMonth, 1);
   const lastDay = new Date(currentYear, currentMonth + 1, 0);
-  const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
+  const startDayOfWeek = (firstDay.getDay() + 6) % 7;
   const daysInMonth = lastDay.getDate();
 
   const calendarDays = useMemo(() => {
@@ -181,13 +248,29 @@ export default function EventCalendar() {
   }, [events]);
 
   // Venue reservations for this month
-  const venueReservations = useMemo(() => {
+  const monthReservations = useMemo(() => {
     const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-01`;
     const monthEnd = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
-    return calendarEvents
-      .filter((ev) => ev.venue_name && ev.date >= monthStart && ev.date <= monthEnd)
+
+    // Real venue reservations
+    const reservations = venueReservationsRaw
+      .filter((r) => r.date >= monthStart && r.date <= monthEnd)
+      .map((r) => {
+        const venue = venues.find((v) => v.id === r.venue_id);
+        const city = r.city_id
+          ? cities.find((c) => c.id === r.city_id)
+          : venue ? cities.find((c) => c.id === venue.city_id) : null;
+        return { ...r, venue_name: venue?.name || "", city_name: city?.name || "" };
+      })
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [calendarEvents, currentMonth, currentYear, daysInMonth]);
+
+    // Events with venues in this month
+    const eventsWithVenues = calendarEvents
+      .filter((ev) => !ev.isReservation && ev.venue_name && ev.date >= monthStart && ev.date <= monthEnd)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return { reservations, eventsWithVenues };
+  }, [venueReservationsRaw, calendarEvents, currentMonth, currentYear, daysInMonth, venues, cities]);
 
   return (
     <div className="space-y-4">
@@ -300,12 +383,15 @@ export default function EventCalendar() {
                     return (
                       <button
                         key={`${ev.id}-${j}`}
-                        onClick={() => navigate(`/eventos/${ev.id}`)}
+                        onClick={() => {
+                          if (!ev.isReservation) navigate(`/eventos/${ev.id}`);
+                        }}
                         className={cn(
                           "w-full text-left rounded px-1 py-0.5 text-[10px] lg:text-xs font-medium truncate border transition-colors hover:opacity-80",
-                          cfg.color
+                          cfg.color,
+                          ev.isReservation && "italic"
                         )}
-                        title={`${ev.name}${ev.venue_name ? ` — ${ev.venue_name}` : ""}`}
+                        title={`${ev.name}${ev.venue_name ? ` — ${ev.venue_name}` : ""}${ev.isReservation ? " (Reserva)" : ""}`}
                       >
                         <span className="hidden lg:inline">{ev.name}</span>
                         <span className="lg:hidden">{ev.name.slice(0, 10)}{ev.name.length > 10 ? "…" : ""}</span>
@@ -327,21 +413,21 @@ export default function EventCalendar() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
-            Salas de Espetáculo Reservadas — {MONTH_NAMES[currentMonth]}
+            Reservas de Sala — {MONTH_NAMES[currentMonth]}
           </h3>
-          {venueReservations.length > 0 && (
+          {monthReservations.reservations.length > 0 && (
             <Button
               size="sm"
               variant="outline"
               className="gap-1.5 h-7 text-xs"
               onClick={() =>
                 exportVenueReservationsToPDF(
-                  venueReservations.map((ev) => ({
-                    name: ev.name,
-                    date: ev.date,
-                    venue_name: ev.venue_name || "",
-                    city_name: ev.city_name || "",
-                    status: ev.status,
+                  monthReservations.reservations.map((r) => ({
+                    name: r.notes || "Reserva",
+                    date: r.date,
+                    venue_name: r.venue_name,
+                    city_name: r.city_name,
+                    status: "reservation",
                   })),
                   `${MONTH_NAMES[currentMonth]} ${currentYear}`
                 )
@@ -353,13 +439,77 @@ export default function EventCalendar() {
           )}
         </div>
 
-        {venueReservations.length === 0 ? (
+        {monthReservations.reservations.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
-            Sem reservas de salas neste mês
+            Sem reservas de sala neste mês
           </p>
         ) : (
           <div className="space-y-2">
-            {venueReservations.map((ev, i) => {
+            {monthReservations.reservations.map((r) => {
+              const dateFormatted = new Date(r.date + "T12:00:00").toLocaleDateString("pt-PT", {
+                day: "2-digit",
+                month: "short",
+              });
+              return (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/30 transition-colors"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {r.venue_name}
+                      {r.city_name ? ` • ${r.city_name}` : ""}
+                    </p>
+                    {r.notes && (
+                      <p className="text-xs text-muted-foreground truncate">{r.notes}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-medium">{dateFormatted}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      title="Converter em evento"
+                      onClick={() => convertToEventMutation.mutate(r)}
+                    >
+                      <ArrowRightCircle className="h-3.5 w-3.5 text-primary" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      title="Eliminar reserva"
+                      onClick={() => {
+                        if (confirm("Eliminar esta reserva de sala?")) {
+                          deleteReservationMutation.mutate(r.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Events with venues this month */}
+      {monthReservations.eventsWithVenues.length > 0 && (
+        <div className="glass rounded-xl p-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <Music className="h-4 w-4 text-primary" />
+            Eventos com Sala — {MONTH_NAMES[currentMonth]}
+          </h3>
+          <div className="space-y-2">
+            {monthReservations.eventsWithVenues.map((ev, i) => {
               const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
               const dateFormatted = new Date(ev.date + "T12:00:00").toLocaleDateString("pt-PT", {
                 day: "2-digit",
@@ -390,13 +540,14 @@ export default function EventCalendar() {
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
       {/* Scheduled events panel */}
       <ScheduledEventsPanel
         open={showScheduledPanel}
         onOpenChange={setShowScheduledPanel}
-        events={calendarEvents}
+        events={calendarEvents.filter((e) => !e.isReservation)}
       />
 
       {/* Venue reservation modal */}
