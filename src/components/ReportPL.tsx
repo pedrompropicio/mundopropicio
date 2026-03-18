@@ -378,8 +378,8 @@ export default function ReportPL() {
                           <TableHead className="text-right">Qtd</TableHead>
                           <TableHead className="text-right">Preço Unit. (€)</TableHead>
                           <TableHead className="text-right">Previsto (€)</TableHead>
-                          <TableHead className="text-right">Real (€)</TableHead>
-                          <TableHead className="text-right">Variação (€)</TableHead>
+                          {mode === "comparison" && <TableHead className="text-right">Real (€)</TableHead>}
+                          {mode === "comparison" && <TableHead className="text-right">Variação (€)</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
