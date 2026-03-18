@@ -110,7 +110,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
           )}
         </td>
-        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}</td>
+        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{new Date(t.due_date ?? t.date).toLocaleDateString("pt-PT")}</td>
         <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
           {formatCurrency(paidAmount)}
         </td>
