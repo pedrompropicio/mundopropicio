@@ -79,6 +79,83 @@ export type Database = {
         }
         Relationships: []
       }
+      event_cache_configs: {
+        Row: {
+          artist_name: string
+          cache_type: string
+          created_at: string
+          event_id: string
+          fixed_amount: number
+          id: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          artist_name: string
+          cache_type?: string
+          created_at?: string
+          event_id: string
+          fixed_amount?: number
+          id?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          artist_name?: string
+          cache_type?: string
+          created_at?: string
+          event_id?: string
+          fixed_amount?: number
+          id?: string
+          percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cache_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_cache_deductions: {
+        Row: {
+          cache_config_id: string
+          category_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          cache_config_id: string
+          category_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          cache_config_id?: string
+          category_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cache_deductions_cache_config_id_fkey"
+            columns: ["cache_config_id"]
+            isOneToOne: false
+            referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_deductions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_dates: {
         Row: {
           created_at: string
