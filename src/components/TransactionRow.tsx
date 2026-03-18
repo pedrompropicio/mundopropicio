@@ -95,6 +95,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               {isExpense && t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
               )}
+              {accountName && (
+                <p className="text-xs text-primary/70">📌 {accountName}</p>
+              )}
               <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
             </div>
           </div>
