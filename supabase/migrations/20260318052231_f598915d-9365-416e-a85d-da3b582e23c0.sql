@@ -1,0 +1,1 @@
+ALTER TABLE public.events ADD COLUMN pl_mode text NOT NULL DEFAULT 'passive';

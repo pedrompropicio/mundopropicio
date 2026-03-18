@@ -271,6 +271,7 @@ export type Database = {
           location: string | null
           name: string
           parent_event_id: string | null
+          pl_mode: string
           status: string
           tickets_sold: number
           tickets_total: number
@@ -287,6 +288,7 @@ export type Database = {
           location?: string | null
           name: string
           parent_event_id?: string | null
+          pl_mode?: string
           status?: string
           tickets_sold?: number
           tickets_total?: number
@@ -303,6 +305,7 @@ export type Database = {
           location?: string | null
           name?: string
           parent_event_id?: string | null
+          pl_mode?: string
           status?: string
           tickets_sold?: number
           tickets_total?: number
