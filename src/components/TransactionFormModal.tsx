@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { buildCategoryLookup } from "@/lib/category-hierarchy";
 
 interface TransactionForm {
   description: string;
@@ -54,7 +55,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required").eq("is_active", true).order("code");
+      const { data, error } = await supabase.from("account_categories").select("id, name, code, type, parent_id, event_required").eq("is_active", true).order("code");
       if (error) throw error;
       return data;
     },
@@ -310,31 +311,73 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
             if (typeForecasts.length === 0) return null;
 
-            // Group by category_id, keep individual forecast details for auto-fill
-            const byCat: Record<string, { catId: string; catName: string; forecast: number; used: number; lines: typeof typeForecasts }> = {};
+            // Build hierarchy using category lookup
+            const catLookup = buildCategoryLookup(categories);
+
+            // Aggregate forecasts and transactions by L2 group → L3 detail
+            interface PLDetail {
+              catId: string;
+              catName: string;
+              catCode: string;
+              forecast: number;
+              used: number;
+              lines: typeof typeForecasts;
+            }
+            interface PLGroup {
+              groupName: string;
+              groupCode: string;
+              totalForecast: number;
+              totalUsed: number;
+              details: PLDetail[];
+            }
+
+            const groupMap: Record<string, PLGroup> = {};
             typeForecasts.forEach(f => {
               const catId = f.category_id || "none";
-              if (!byCat[catId]) {
-                const cat = categories.find(c => c.id === catId);
-                byCat[catId] = { catId, catName: cat?.name ?? "Sem categoria", forecast: 0, used: 0, lines: [] };
+              const info = catLookup[catId];
+              const groupName = info?.groupName ?? "Sem categoria";
+              const groupCode = info?.groupCode ?? "Z";
+              const detailName = info?.name ?? "Sem categoria";
+              const detailCode = info?.code ?? "Z.Z";
+
+              if (!groupMap[groupCode]) {
+                groupMap[groupCode] = { groupName, groupCode, totalForecast: 0, totalUsed: 0, details: [] };
               }
-              byCat[catId].forecast += Number(f.amount);
-              byCat[catId].lines.push(f);
+              const grp = groupMap[groupCode];
+              let detail = grp.details.find(d => d.catId === catId);
+              if (!detail) {
+                detail = { catId, catName: detailName, catCode: detailCode, forecast: 0, used: 0, lines: [] };
+                grp.details.push(detail);
+              }
+              detail.forecast += Number(f.amount);
+              detail.lines.push(f);
+              grp.totalForecast += Number(f.amount);
             });
+
             eventTransactions.filter(t => t.type === form.type).forEach(t => {
               const catId = t.category_id || "none";
-              if (byCat[catId]) byCat[catId].used += Number(t.amount);
+              const info = catLookup[catId];
+              const groupCode = info?.groupCode ?? "Z";
+              const grp = groupMap[groupCode];
+              if (grp) {
+                const detail = grp.details.find(d => d.catId === catId);
+                if (detail) {
+                  detail.used += Number(t.amount);
+                  grp.totalUsed += Number(t.amount);
+                }
+              }
             });
 
-            const lines = Object.values(byCat).sort((a, b) => a.catName.localeCompare(b.catName));
+            const groups = Object.values(groupMap)
+              .map(g => ({ ...g, details: g.details.sort((a, b) => a.catCode.localeCompare(b.catCode)) }))
+              .sort((a, b) => a.groupCode.localeCompare(b.groupCode));
 
-            const handleForecastClick = (l: typeof lines[0]) => {
-              if (l.catId === "none") return;
-              // Pick the first forecast line for auto-fill details
-              const firstLine = l.lines[0];
+            const handleDetailClick = (detail: PLDetail) => {
+              if (detail.catId === "none") return;
+              const firstLine = detail.lines[0];
               setForm(prev => ({
                 ...prev,
-                category_id: l.catId,
+                category_id: detail.catId,
                 description: firstLine?.description || prev.description,
                 iva_rate: (firstLine?.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: firstLine?.specification || prev.specification,
@@ -348,39 +391,63 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
                 <p className="text-[10px] text-muted-foreground">Clique numa linha para preencher automaticamente os dados da transação</p>
-                <div className="max-h-40 overflow-y-auto">
+                <div className="max-h-52 overflow-y-auto">
                   <table className="w-full text-[11px]">
                     <thead>
                       <tr className="text-muted-foreground border-b border-border/30">
-                        <th className="text-left pb-1 font-medium">Categoria</th>
+                        <th className="text-left pb-1 font-medium">Conta</th>
                         <th className="text-right pb-1 font-medium">Previsto</th>
                         <th className="text-right pb-1 font-medium">Utilizado</th>
                         <th className="text-right pb-1 font-medium">Disponível</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/20">
-                      {lines.map(l => {
-                        const remaining = l.forecast - l.used;
-                        const isSelected = form.category_id === l.catId;
+                    <tbody>
+                      {groups.map(group => {
+                        const groupRemaining = group.totalForecast - group.totalUsed;
+                        const hasMultipleDetails = group.details.length > 1;
                         return (
-                          <tr
-                            key={l.catId}
-                            onClick={() => handleForecastClick(l)}
-                            className={`cursor-pointer transition-colors ${
-                              isSelected
-                                ? "bg-primary/10 font-medium"
-                                : "hover:bg-muted/40"
-                            }`}
-                          >
-                            <td className="py-1.5 pr-2">{l.catName}</td>
-                            <td className="py-1.5 text-right font-mono">{l.forecast.toFixed(2)}€</td>
-                            <td className="py-1.5 text-right font-mono">{l.used.toFixed(2)}€</td>
-                            <td className={`py-1.5 text-right font-mono font-semibold ${
-                              remaining <= 0 ? "text-destructive" : "text-success"
-                            }`}>
-                              {remaining.toFixed(2)}€
-                            </td>
-                          </tr>
+                          <React.Fragment key={group.groupCode}>
+                            {/* L2 Group header */}
+                            <tr className="bg-muted/30 border-t border-border/20">
+                              <td className="py-1.5 pr-2 font-semibold text-foreground">
+                                <span className="text-muted-foreground mr-1">{group.groupCode}</span>
+                                {group.groupName}
+                              </td>
+                              <td className="py-1.5 text-right font-mono font-semibold">{group.totalForecast.toFixed(2)}€</td>
+                              <td className="py-1.5 text-right font-mono font-semibold">{group.totalUsed.toFixed(2)}€</td>
+                              <td className={`py-1.5 text-right font-mono font-bold ${groupRemaining <= 0 ? "text-destructive" : "text-success"}`}>
+                                {groupRemaining.toFixed(2)}€
+                              </td>
+                            </tr>
+                            {/* L3 Detail lines */}
+                            {group.details.map(detail => {
+                              const remaining = detail.forecast - detail.used;
+                              const isSelected = form.category_id === detail.catId;
+                              return (
+                                <tr
+                                  key={detail.catId}
+                                  onClick={() => handleDetailClick(detail)}
+                                  className={`cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? "bg-primary/10 font-medium"
+                                      : "hover:bg-muted/40"
+                                  }`}
+                                >
+                                  <td className="py-1.5 pr-2 pl-4">
+                                    <span className="text-muted-foreground mr-1">{detail.catCode}</span>
+                                    {detail.catName}
+                                  </td>
+                                  <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
+                                  <td className="py-1.5 text-right font-mono">{detail.used.toFixed(2)}€</td>
+                                  <td className={`py-1.5 text-right font-mono font-semibold ${
+                                    remaining <= 0 ? "text-destructive" : "text-success"
+                                  }`}>
+                                    {remaining.toFixed(2)}€
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>
