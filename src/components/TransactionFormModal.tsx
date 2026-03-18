@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface TransactionForm {
@@ -33,6 +33,8 @@ const emptyForm: TransactionForm = {
 
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<TransactionForm>(emptyForm);
+  const [showNewSupplier, setShowNewSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -59,6 +61,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
+    },
+  });
+
+  const createSupplierMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase.from("suppliers").insert({ name }).select("id").single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      setForm({ ...form, supplier_id: data.id });
+      setShowNewSupplier(false);
+      setNewSupplierName("");
+      toast({ title: "Fornecedor criado com sucesso!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao criar fornecedor", description: err.message, variant: "destructive" });
     },
   });
 
@@ -181,16 +201,54 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {form.type === "expense" && (
-            <>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
-                <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">Sem fornecedor</option>
-                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            </>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
+              {showNewSupplier ? (
+                <div className="flex gap-2">
+                  <input
+                    value={newSupplierName}
+                    onChange={(e) => setNewSupplierName(e.target.value)}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Nome do fornecedor"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newSupplierName.trim()) return;
+                      createSupplierMutation.mutate(newSupplierName.trim());
+                    }}
+                    disabled={createSupplierMutation.isPending || !newSupplierName.trim()}
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {createSupplierMutation.isPending ? "…" : "Criar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewSupplier(false); setNewSupplierName(""); }}
+                    className="rounded-lg p-2 hover:bg-secondary"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    <option value="">Sem fornecedor</option>
+                    {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewSupplier(true)}
+                    className="rounded-lg border border-border bg-background p-2 hover:bg-secondary transition-colors"
+                    title="Cadastrar novo fornecedor"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
