@@ -179,10 +179,36 @@ export default function ReportDRE() {
   );
   const hasAnyTicketMgmt = eventsWithTickets.length > 0;
 
+  // Build proration map
+  const subEventParentMap: Record<string, string> = {};
+  const subCountByParent: Record<string, number> = {};
+  const childrenByParent: Record<string, string[]> = {};
+  events.forEach((e: any) => {
+    if (e.parent_event_id) {
+      subEventParentMap[e.id] = e.parent_event_id;
+      subCountByParent[e.parent_event_id] = (subCountByParent[e.parent_event_id] || 0) + 1;
+      if (!childrenByParent[e.parent_event_id]) childrenByParent[e.parent_event_id] = [];
+      childrenByParent[e.parent_event_id].push(e.id);
+    }
+  });
+
+  // Mutual exclusion: selecting parent deselects children and vice versa
   const toggleEvent = (id: string) => {
-    setSelectedEventIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedEventIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      let next = [...prev, id];
+      const children = childrenByParent[id];
+      if (children) {
+        // Selected a parent → remove all its children
+        next = next.filter((x) => !children.includes(x));
+      }
+      const parentId = subEventParentMap[id];
+      if (parentId) {
+        // Selected a child → remove parent
+        next = next.filter((x) => x !== parentId);
+      }
+      return next;
+    });
   };
 
   const toggleAll = () => {
@@ -195,29 +221,31 @@ export default function ReportDRE() {
     ? events.filter((e) => selectedEventIds.includes(e.id))
     : events;
 
-  // Build proration map: for each sub-event, find parent's transactions and divide by sibling count
-  const subEventParentMap: Record<string, string> = {};
-  const subCountByParent: Record<string, number> = {};
-  events.forEach((e: any) => {
-    if (e.parent_event_id) {
-      subEventParentMap[e.id] = e.parent_event_id;
-      subCountByParent[e.parent_event_id] = (subCountByParent[e.parent_event_id] || 0) + 1;
-    }
-  });
-
-  const eventSummaries = activeEvents.map((e) => {
-    let evtTx = transactions.filter((t: any) => t.event_id === e.id);
-
-    // If this is a sub-event, add prorated parent transactions
-    const parentId = subEventParentMap[e.id];
+  // Helper: get effective transactions for an event (with proration)
+  function getEffectiveTransactions(eventId: string) {
+    let evtTx = transactions.filter((t: any) => t.event_id === eventId);
+    const parentId = subEventParentMap[eventId];
     if (parentId) {
+      // Sub-event: add prorated parent transactions
       const siblingCount = subCountByParent[parentId] || 1;
       const parentTx = transactions
         .filter((t: any) => t.event_id === parentId)
-        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount, _prorated: true }));
       evtTx = [...evtTx, ...parentTx];
     }
+    const children = childrenByParent[eventId];
+    if (children && children.length > 0) {
+      // Parent event: consolidate all children transactions + direct
+      children.forEach((childId) => {
+        const childTx = transactions.filter((t: any) => t.event_id === childId);
+        evtTx = [...evtTx, ...childTx];
+      });
+    }
+    return evtTx;
+  }
 
+  const eventSummaries = activeEvents.map((e) => {
+    const evtTx = getEffectiveTransactions(e.id);
     const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
