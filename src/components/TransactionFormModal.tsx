@@ -348,7 +348,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* P&L forecast lines summary */}
-          {isActivePL && form.event_id && (() => {
+          {hasPL && form.event_id && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
             if (typeForecasts.length === 0) return null;
 
