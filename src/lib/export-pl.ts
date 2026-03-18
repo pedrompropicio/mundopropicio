@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import type { PLMode } from "@/components/ReportPL";
 
 interface PLLine {
   label: string;
@@ -116,14 +117,17 @@ function buildPLForExport(
 
 export function exportPLToExcel(
   events: any[], forecasts: any[], transactions: any[], categories: any[],
-  ticketZones: any[] = [], ticketLots: any[] = []
+  ticketZones: any[] = [], ticketLots: any[] = [], mode: PLMode = "comparison"
 ) {
   const wb = XLSX.utils.book_new();
 
+  const isComparison = mode === "comparison";
   const summaryRows: any[][] = [
-    ["RELATÓRIO P&L - PREVISÃO vs REALIZADO"],
+    [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
     [],
-    ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"],
+    isComparison
+      ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
+      : ["Evento", "Receita Prev.", "Despesa Prev.", "Resultado Prev."],
   ];
 
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
@@ -135,21 +139,30 @@ export function exportPLToExcel(
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    // Add ticket lot revenue
     const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => { fInc += Number(lot.price) * Number(lot.quantity); });
     });
     gFInc += fInc; gFExp += fExp; gTInc += tInc; gTExp += tExp;
-    summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
+    if (isComparison) {
+      summaryRows.push([evt.name, fInc, tInc, fExp, tExp, fInc - fExp, tInc - tExp, (tInc - tExp) - (fInc - fExp)]);
+    } else {
+      summaryRows.push([evt.name, fInc, fExp, fInc - fExp]);
+    }
   });
 
   summaryRows.push([]);
-  summaryRows.push(["TOTAL", gFInc, gTInc, gFExp, gTExp, gFInc - gFExp, gTInc - gTExp, (gTInc - gTExp) - (gFInc - gFExp)]);
+  if (isComparison) {
+    summaryRows.push(["TOTAL", gFInc, gTInc, gFExp, gTExp, gFInc - gFExp, gTInc - gTExp, (gTInc - gTExp) - (gFInc - gFExp)]);
+  } else {
+    summaryRows.push(["TOTAL", gFInc, gFExp, gFInc - gFExp]);
+  }
 
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryWs["!cols"] = [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  summaryWs["!cols"] = isComparison
+    ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
+    : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
@@ -160,21 +173,34 @@ export function exportPLToExcel(
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
-      ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"],
+      isComparison
+        ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"]
+        : ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)"],
     ];
     pl.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
-      rows.push([
-        prefix + line.label,
-        line.quantity != null ? line.quantity : "",
-        line.unitPrice != null ? line.unitPrice : "",
-        line.forecast,
-        line.subIndent ? "" : line.actual,
-        line.subIndent ? "" : line.variance,
-      ]);
+      if (isComparison) {
+        rows.push([
+          prefix + line.label,
+          line.quantity != null ? line.quantity : "",
+          line.unitPrice != null ? line.unitPrice : "",
+          line.forecast,
+          line.subIndent ? "" : line.actual,
+          line.subIndent ? "" : line.variance,
+        ]);
+      } else {
+        rows.push([
+          prefix + line.label,
+          line.quantity != null ? line.quantity : "",
+          line.unitPrice != null ? line.unitPrice : "",
+          line.forecast,
+        ]);
+      }
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = isComparison
+      ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }]
+      : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
@@ -184,7 +210,7 @@ export function exportPLToExcel(
 
 export function exportPLToPDF(
   events: any[], forecasts: any[], transactions: any[], categories: any[],
-  ticketZones: any[] = [], ticketLots: any[] = []
+  ticketZones: any[] = [], ticketLots: any[] = [], mode: PLMode = "comparison"
 ) {
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -193,8 +219,11 @@ export function exportPLToPDF(
   const marginRight = 14;
   const contentWidth = pageWidth - marginLeft - marginRight;
   let y = 14;
+  const isComparison = mode === "comparison";
 
-  const colWidths = [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16];
+  const colWidths = isComparison
+    ? [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16]
+    : [contentWidth * 0.40, contentWidth * 0.14, contentWidth * 0.20, contentWidth * 0.26];
   const colX = [marginLeft];
   for (let i = 1; i < colWidths.length; i++) colX.push(colX[i - 1] + colWidths[i - 1]);
 
@@ -215,8 +244,10 @@ export function exportPLToPDF(
     doc.text("Qtd", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
     doc.text("Preço Unit.", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
     doc.text("Previsto (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
-    doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
-    doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
+    if (isComparison) {
+      doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
+      doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
+    }
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
@@ -235,12 +266,12 @@ export function exportPLToPDF(
 
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("Relatório P&L", marginLeft, y);
+  doc.text(isComparison ? "Relatório P&L — Previsão vs Realizado" : "Relatório P&L — Previsão", marginLeft, y);
   y += 7;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(`Previsão vs Realizado · Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
+  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
   doc.setTextColor(0, 0, 0);
   y += 10;
 
@@ -324,17 +355,19 @@ export function exportPLToPDF(
       const showAbsForecast = !line.isGrandTotal;
       doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
-      if (line.subIndent) {
-        doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
-      } else {
-        const showAbsActual = !line.isGrandTotal;
-        doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
-        const v = line.variance;
-        if (line.isGrandTotal || line.isTotal) {
-          doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+      if (isComparison) {
+        if (line.subIndent) {
+          doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+          doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
+        } else {
+          const showAbsActual = !line.isGrandTotal;
+          doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+          const v = line.variance;
+          if (line.isGrandTotal || line.isTotal) {
+            doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+          }
+          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
         }
-        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       }
       doc.setTextColor(0, 0, 0);
 
@@ -377,17 +410,20 @@ export function exportPLToPDF(
   });
 
   // Summary table per event
+  const numSumCols = isComparison ? 5 : 4;
+  const sumColW = contentWidth / numSumCols;
   doc.setFillColor(30, 30, 40);
   doc.rect(marginLeft, y, contentWidth, 8, "F");
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  const sumColW = contentWidth / 5;
   doc.text("Evento", marginLeft + 2, y + 5.5);
-  doc.text("Receitas Prev.", marginLeft + sumColW + sumColW - 2, y + 5.5, { align: "right" });
+  doc.text("Receitas Prev.", marginLeft + sumColW * 2 - 2, y + 5.5, { align: "right" });
   doc.text("Despesas Prev.", marginLeft + sumColW * 3 - 2, y + 5.5, { align: "right" });
   doc.text("Resultado Prev.", marginLeft + sumColW * 4 - 2, y + 5.5, { align: "right" });
-  doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
+  if (isComparison) {
+    doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
+  }
   doc.setTextColor(0, 0, 0);
   y += 10;
 
@@ -413,8 +449,10 @@ export function exportPLToPDF(
     doc.text(fmtVal(evtFExp), marginLeft + sumColW * 3 - 2, y + 4, { align: "right" });
     doc.setTextColor(fResult >= 0 ? 34 : 200, fResult >= 0 ? 139 : 50, fResult >= 0 ? 34 : 50);
     doc.text(fmtVal(fResult), marginLeft + sumColW * 4 - 2, y + 4, { align: "right" });
-    doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
-    doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+    if (isComparison) {
+      doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
+      doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+    }
     doc.setTextColor(0, 0, 0);
     y += 7;
   });
@@ -429,11 +467,13 @@ export function exportPLToPDF(
   doc.text(fmtVal(gFInc), marginLeft + sumColW * 2 - 2, y + 5, { align: "right" });
   doc.text(fmtVal(gFExp), marginLeft + sumColW * 3 - 2, y + 5, { align: "right" });
   const gFRes = gFInc - gFExp;
-  const gTRes = gTInc - gTExp;
   doc.setTextColor(gFRes >= 0 ? 34 : 200, gFRes >= 0 ? 139 : 50, gFRes >= 0 ? 34 : 50);
   doc.text(fmtVal(gFRes), marginLeft + sumColW * 4 - 2, y + 5, { align: "right" });
-  doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
-  doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+  if (isComparison) {
+    const gTRes = gTInc - gTExp;
+    doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
+    doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+  }
   doc.setTextColor(0, 0, 0);
 
   // Footer

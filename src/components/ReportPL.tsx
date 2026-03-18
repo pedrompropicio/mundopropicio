@@ -5,7 +5,10 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, Download, BarChart3 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
+
+export type PLMode = "forecast" | "comparison";
 
 interface PLLine {
   label: string;
@@ -141,6 +144,7 @@ function buildPL(
 export default function ReportPL() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [mode, setMode] = useState<PLMode>("forecast");
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -241,31 +245,45 @@ export default function ReportPL() {
 
   return (
     <div className="space-y-6">
-      {/* Event selector */}
-      <div className="glass rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Selecionar Eventos</p>
-          <button onClick={toggleAll} className="text-xs text-primary hover:underline">
-            {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
-          </button>
+      {/* Mode selector + Event selector */}
+      <div className="glass rounded-xl p-4 space-y-4">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium whitespace-nowrap">Tipo de Relatório</label>
+          <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
+            <SelectTrigger className="w-[260px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="forecast">Apenas Previsão</SelectItem>
+              <SelectItem value="comparison">Previsão vs Realizado</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {events.map((e) => (
-            <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
-              <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
-              <span>{e.name}</span>
-            </label>
-          ))}
-          {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+        <div className="border-t border-border/30 pt-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Selecionar Eventos</p>
+            <button onClick={toggleAll} className="text-xs text-primary hover:underline">
+              {selectedEventIds.length === events.length ? "Desmarcar todos" : "Selecionar todos"}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {events.map((e) => (
+              <label key={e.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                <Checkbox checked={selectedEventIds.includes(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
+                <span>{e.name}</span>
+              </label>
+            ))}
+            {events.length === 0 && <p className="text-xs text-muted-foreground">Sem eventos registados.</p>}
+          </div>
+          {selectedEventIds.length === 0 && events.length > 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
+          )}
         </div>
-        {selectedEventIds.length === 0 && events.length > 0 && (
-          <p className="text-xs text-muted-foreground">Nenhum evento selecionado — a mostrar todos.</p>
-        )}
       </div>
 
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots)}
+          onClick={() => exportPLToPDF(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, mode)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
         >
@@ -273,7 +291,7 @@ export default function ReportPL() {
           <span className="hidden sm:inline">Exportar PDF</span>
         </button>
         <button
-          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots)}
+          onClick={() => exportPLToExcel(activeEvents, forecasts, transactions, categories, ticketZones, ticketLots, mode)}
           disabled={activeEvents.length === 0}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
@@ -283,23 +301,27 @@ export default function ReportPL() {
       </div>
 
       {/* Global summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${mode === "comparison" ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Previstas</p>
           <p className="mt-1 text-lg font-bold text-muted-foreground">{formatCurrency(gFInc)}</p>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Reais</p>
-          <p className="mt-1 text-lg font-bold text-success">{formatCurrency(gTInc)}</p>
-        </div>
+        {mode === "comparison" && (
+          <div className="glass rounded-xl p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Reais</p>
+            <p className="mt-1 text-lg font-bold text-success">{formatCurrency(gTInc)}</p>
+          </div>
+        )}
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Previsto</p>
           <p className={`mt-1 text-lg font-bold ${gFResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gFResult)}</p>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Real</p>
-          <p className={`mt-1 text-lg font-bold ${gTResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gTResult)}</p>
-        </div>
+        {mode === "comparison" && (
+          <div className="glass rounded-xl p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Real</p>
+            <p className={`mt-1 text-lg font-bold ${gTResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gTResult)}</p>
+          </div>
+        )}
       </div>
 
       {/* Per-event expandable */}
@@ -327,16 +349,20 @@ export default function ReportPL() {
                     <p className="text-xs text-muted-foreground">Previsto</p>
                     <span className={`font-mono font-bold ${evt.fResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(evt.fResult)}</span>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Real</p>
-                    <span className={`font-mono font-bold ${evt.tResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(evt.tResult)}</span>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Variação</p>
-                    <span className={`font-mono font-bold ${evt.tResult - evt.fResult >= 0 ? "text-success" : "text-destructive"}`}>
-                      {evt.tResult - evt.fResult >= 0 ? "+" : ""}{formatCurrency(evt.tResult - evt.fResult)}
-                    </span>
-                  </div>
+                  {mode === "comparison" && (
+                    <>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Real</p>
+                        <span className={`font-mono font-bold ${evt.tResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(evt.tResult)}</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Variação</p>
+                        <span className={`font-mono font-bold ${evt.tResult - evt.fResult >= 0 ? "text-success" : "text-destructive"}`}>
+                          {evt.tResult - evt.fResult >= 0 ? "+" : ""}{formatCurrency(evt.tResult - evt.fResult)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </button>
 
@@ -352,8 +378,8 @@ export default function ReportPL() {
                           <TableHead className="text-right">Qtd</TableHead>
                           <TableHead className="text-right">Preço Unit. (€)</TableHead>
                           <TableHead className="text-right">Previsto (€)</TableHead>
-                          <TableHead className="text-right">Real (€)</TableHead>
-                          <TableHead className="text-right">Variação (€)</TableHead>
+                          {mode === "comparison" && <TableHead className="text-right">Real (€)</TableHead>}
+                          {mode === "comparison" && <TableHead className="text-right">Variação (€)</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -376,10 +402,14 @@ export default function ReportPL() {
                                 {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
                               </TableCell>
                               <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : (line.isGrandTotal ? formatCurrency(line.forecast) : formatCurrency(Math.abs(line.forecast)))}</TableCell>
-                              <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
-                              <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
-                                {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
-                              </TableCell>
+                              {mode === "comparison" && (
+                                <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
+                              )}
+                              {mode === "comparison" && (
+                                <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
+                                  {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
+                                </TableCell>
+                              )}
                             </TableRow>
                           );
                         })}
