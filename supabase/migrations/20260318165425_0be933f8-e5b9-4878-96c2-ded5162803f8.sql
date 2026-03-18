@@ -1,0 +1,1 @@
+ALTER TABLE public.event_ticket_lots ADD COLUMN iva_rate integer NOT NULL DEFAULT 6;

@@ -191,6 +191,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          iva_rate: number
           lot_number: number
           name: string
           price: number
@@ -200,6 +201,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          iva_rate?: number
           lot_number?: number
           name?: string
           price?: number
@@ -209,6 +211,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          iva_rate?: number
           lot_number?: number
           name?: string
           price?: number
