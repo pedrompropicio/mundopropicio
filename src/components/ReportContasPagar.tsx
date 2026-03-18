@@ -217,8 +217,8 @@ export default function ReportContasPagar() {
 
           {/* Date from */}
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Início</label>
-            <Popover>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Vcto Início</label>
+            <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
                   {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Sem limite"}
@@ -228,13 +228,13 @@ export default function ReportContasPagar() {
                 <Calendar
                   mode="single"
                   selected={dateFrom}
-                  onSelect={setDateFrom}
+                  onSelect={(d) => { setDateFrom(d); setDateFromOpen(false); }}
                   locale={pt}
                   className={cn("p-3 pointer-events-auto")}
                 />
                 {dateFrom && (
                   <div className="border-t border-border/50 p-2">
-                    <Button variant="ghost" size="sm" className="w-full" onClick={() => setDateFrom(undefined)}>Limpar</Button>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={() => { setDateFrom(undefined); setDateFromOpen(false); }}>Limpar</Button>
                   </div>
                 )}
               </PopoverContent>
@@ -243,8 +243,8 @@ export default function ReportContasPagar() {
 
           {/* Date to */}
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Fim</label>
-            <Popover>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Data Vcto Fim</label>
+            <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
                   {dateTo ? format(dateTo, "dd/MM/yyyy") : "Sem limite"}
@@ -254,18 +254,24 @@ export default function ReportContasPagar() {
                 <Calendar
                   mode="single"
                   selected={dateTo}
-                  onSelect={setDateTo}
+                  onSelect={(d) => { setDateTo(d); setDateToOpen(false); }}
                   locale={pt}
                   className={cn("p-3 pointer-events-auto")}
                 />
                 {dateTo && (
                   <div className="border-t border-border/50 p-2">
-                    <Button variant="ghost" size="sm" className="w-full" onClick={() => setDateTo(undefined)}>Limpar</Button>
+                    <Button variant="ghost" size="sm" className="w-full" onClick={() => { setDateTo(undefined); setDateToOpen(false); }}>Limpar</Button>
                   </div>
                 )}
               </PopoverContent>
             </Popover>
           </div>
+
+          {/* Consultar button */}
+          <Button onClick={handleConsultar} className="flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Consultar
+          </Button>
 
           {/* Export buttons */}
           <div className="flex gap-2 ml-auto">
@@ -277,6 +283,26 @@ export default function ReportContasPagar() {
             </Button>
           </div>
         </div>
+
+        {/* Active filter summary */}
+        {hasSearched && (
+          <div className="mt-3 pt-3 border-t border-border/50 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Filtros aplicados: </span>
+            {appliedDateFrom || appliedDateTo ? (
+              <span>
+                Período Vcto: {appliedDateFrom ? format(appliedDateFrom, "dd/MM/yyyy") : "—"} a {appliedDateTo ? format(appliedDateTo, "dd/MM/yyyy") : "—"}
+              </span>
+            ) : (
+              <span>Sem filtro de data</span>
+            )}
+            {appliedEventIds.size > 0 && (
+              <span>
+                {" · "}Eventos: {events.filter((e: any) => appliedEventIds.has(e.id)).map((e: any) => e.name).join(", ")}
+              </span>
+            )}
+            {appliedEventIds.size === 0 && <span>{" · "}Todos os eventos</span>}
+          </div>
+        )}
       </div>
 
       {/* Summary cards */}
