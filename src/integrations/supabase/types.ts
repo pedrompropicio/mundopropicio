@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          event_required: boolean
           id: string
           is_active: boolean
           name: string
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          event_required?: boolean
           id?: string
           is_active?: boolean
           name: string
@@ -38,6 +40,7 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          event_required?: boolean
           id?: string
           is_active?: boolean
           name?: string
@@ -656,7 +659,7 @@ export type Database = {
           date: string
           description: string
           due_date: string | null
-          event_id: string
+          event_id: string | null
           id: string
           iva_rate: number
           paid_amount: number
@@ -674,7 +677,7 @@ export type Database = {
           date: string
           description: string
           due_date?: string | null
-          event_id: string
+          event_id?: string | null
           id?: string
           iva_rate?: number
           paid_amount?: number
@@ -692,7 +695,7 @@ export type Database = {
           date?: string
           description?: string
           due_date?: string | null
-          event_id?: string
+          event_id?: string | null
           id?: string
           iva_rate?: number
           paid_amount?: number
