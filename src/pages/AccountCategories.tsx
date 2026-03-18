@@ -188,14 +188,13 @@ export default function AccountCategories() {
   }, [categories]);
 
   const createMutation = useMutation({
-    mutationFn: async (cat: { code: string; name: string; type: string; parent_id?: string; event_required?: boolean; supplier_required?: boolean }) => {
+    mutationFn: async (cat: { code: string; name: string; type: string; parent_id?: string; event_required?: boolean }) => {
       const { error } = await supabase.from("account_categories").insert({
         code: cat.code,
         name: cat.name,
         type: cat.type,
         parent_id: cat.parent_id || null,
         event_required: cat.event_required ?? true,
-        supplier_required: cat.supplier_required ?? true,
       });
       if (error) throw error;
     },
