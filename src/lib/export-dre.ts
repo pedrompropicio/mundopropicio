@@ -220,27 +220,39 @@ export function exportDREToPDF(
   doc.setTextColor(0, 0, 0);
   y += 26;
 
-  // Per-event DRE
-  events.forEach((evt) => {
+  // Per-event DRE — each event starts on a new page
+  events.forEach((evt, evtIdx) => {
     const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtTx.length === 0) return;
 
     const dre = buildDREForExport(evtTx, categories);
 
-    checkNewPage(40);
+    // Start a new page for each event
+    if (evtIdx > 0 || y > 60) {
+      doc.addPage();
+      y = 14;
+    }
+
+    // Logo on each event page
+    try {
+      doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
+      y += 22;
+    } catch {
+      y += 4;
+    }
 
     // Event header
     doc.setFillColor(60, 60, 80);
-    doc.roundedRect(marginLeft, y, contentWidth, 9, 1, 1, "F");
-    doc.setFontSize(10);
+    doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(evt.name, marginLeft + 4, y + 6.5);
+    doc.text(`DRE — ${evt.name}`, marginLeft + 4, y + 7);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(`${evtTx.length} transações`, pageWidth - marginRight - 4, y + 6.5, { align: "right" });
+    doc.text(`${evtTx.length} transações`, pageWidth - marginRight - 4, y + 7, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    y += 12;
+    y += 14;
 
     drawTableHeader();
 
