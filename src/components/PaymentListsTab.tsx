@@ -459,7 +459,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
         await supabase.from("transaction_audit_log").insert({
           transaction_id: txId,
-          changed_by: user?.email ?? "sistema",
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
           field_name: "Pagamento parcial",
           old_value: String(tx.paid_amount ?? 0),
           new_value: String(amount),

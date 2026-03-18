@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { X, CalendarIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [invoiceRef, setInvoiceRef] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: financialAccounts = [] } = useQuery({
@@ -48,7 +50,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
       await supabase.from("transaction_audit_log").insert({
         transaction_id: transaction.id,
-        changed_by: "utilizador",
+        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
         field_name: "Pagamento parcial",
         old_value: String(currentPaid),
         new_value: String(newPaid),
