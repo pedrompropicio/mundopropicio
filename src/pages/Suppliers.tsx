@@ -20,22 +20,6 @@ export default function Suppliers() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (supplier: {
-      name: string; nif?: string; contact_name?: string; email?: string;
-      phone?: string; address?: string; iban?: string; swift_bic?: string;
-      payment_terms?: string; category?: string; notes?: string;
-    }) => {
-      const { error } = await supabase.from("suppliers").insert(supplier);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-      setIsOpen(false);
-      toast.success("Fornecedor criado com sucesso");
-    },
-    onError: () => toast.error("Erro ao criar fornecedor"),
-  });
 
   const filtered = suppliers.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
