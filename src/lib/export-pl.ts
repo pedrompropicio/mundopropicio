@@ -20,7 +20,7 @@ interface PLLine {
 
 function buildPLForExport(
   forecasts: any[], transactions: any[], categories: any[],
-  ticketZones: any[], ticketLots: any[], eventId: string
+  ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string
 ): PLLine[] {
   const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
 
