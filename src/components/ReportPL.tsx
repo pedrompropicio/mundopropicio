@@ -156,6 +156,36 @@ function buildPL(
   const tIncGroups = aggregateByHierarchy(tInc, lookup);
   const tExpGroups = aggregateByHierarchy(tExp, lookup);
 
+  // Calculate cachê lines and inject into expense hierarchy under "Cachês" (2.1.01)
+  const eventCacheConfigs = cacheConfigs.filter((c) => c.event_id === eventId);
+  const cacheLines = calculateCacheLinesForPL(
+    eventCacheConfigs,
+    cacheDeductions,
+    ticketForecastNet,
+    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+  );
+  const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
+
+  // Inject cachê into fExpGroups under "Artístico" > "Cachês"
+  if (totalCacheAmount > 0) {
+    const artisticoGroup = fExpGroups.find(g => g.groupCode === "2.1" || g.groupName === "Artístico");
+    if (artisticoGroup) {
+      const cachesDetail = artisticoGroup.details.find(d => d.code === "2.1.01" || d.name === "Cachês");
+      if (cachesDetail) {
+        cachesDetail.base += totalCacheAmount;
+      } else {
+        artisticoGroup.details.push({ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 });
+      }
+      artisticoGroup.totalBase += totalCacheAmount;
+    } else {
+      fExpGroups.push({
+        groupName: "Artístico", groupCode: "2.1",
+        totalBase: totalCacheAmount, totalIva: 0,
+        details: [{ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 }],
+      });
+    }
+  }
+
   // Add ticket lot net revenue to forecast Bilheteira
   if (ticketForecastNet > 0) {
     const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
