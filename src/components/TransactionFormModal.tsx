@@ -66,14 +66,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const { data: financialAccounts = [] } = useQuery({
-    queryKey: ["financial-accounts-active"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
 
 
   const createMutation = useMutation({
