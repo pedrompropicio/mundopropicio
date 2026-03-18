@@ -92,21 +92,12 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
 
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label>Nome do Evento</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Concerto de Verão"
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label>Data</Label>
             <Input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              autoFocus
             />
           </div>
 
@@ -130,6 +121,15 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
               value={venueId}
               onValueChange={setVenueId}
               placeholder="Selecionar sala..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Nome do Evento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Deixe em branco se ainda não definido"
             />
           </div>
 
