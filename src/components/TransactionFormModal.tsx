@@ -440,10 +440,29 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 groupMap["2.1"] = { groupName: "Artístico", groupCode: "2.1", totalForecast: 0, totalUsed: 0, details: [] };
               }
               const artGroup = groupMap["2.1"];
-              // Add or merge cachê detail line under 2.1.01
+              // Find real category for Cachês (code 2.1.01)
+              const cacheCat = categories.find(c => c.code === "2.1.01");
+              const cacheCatId = cacheCat?.id ?? "cache-auto";
               let cacheDetail = artGroup.details.find(d => d.catCode === "2.1.01");
               if (!cacheDetail) {
-                cacheDetail = { catId: "cache-auto", catName: "Cachês (auto)", catCode: "2.1.01", forecast: 0, used: 0, lines: [] };
+                const artistNames = cacheLines.map(c => `Cachê ${c.artistName}`).join(", ");
+                cacheDetail = {
+                  catId: cacheCatId,
+                  catName: cacheCat?.name ?? "Cachês (auto)",
+                  catCode: "2.1.01",
+                  forecast: 0,
+                  used: 0,
+                  lines: [{
+                    id: "cache-auto",
+                    type: "expense" as const,
+                    category_id: cacheCatId,
+                    amount: totalCache,
+                    status: "draft",
+                    description: artistNames || "Cachê",
+                    iva_rate: 0,
+                    specification: cacheLines.map(c => `${c.artistName}: ${c.amount.toFixed(2)}€ (${c.cacheType === "fixed" ? "fixo" : "variável"})`).join("; "),
+                  }],
+                };
                 artGroup.details.push(cacheDetail);
               }
               cacheDetail.forecast += totalCache;
