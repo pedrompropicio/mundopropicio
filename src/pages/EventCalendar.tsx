@@ -190,12 +190,33 @@ export default function EventCalendar() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          Calendário de Eventos
-        </h1>
-        <p className="text-sm text-muted-foreground">Visualize todos os eventos e reservas de salas</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
+            <CalendarDays className="h-6 w-6 text-primary" />
+            Calendário de Eventos
+          </h1>
+          <p className="text-sm text-muted-foreground">Visualize todos os eventos e reservas de salas</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowScheduledPanel((v) => !v)}
+            className="gap-1.5"
+          >
+            <CalendarClock className="h-4 w-4" />
+            <span className="hidden sm:inline">Programados</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowReservationModal(true)}
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Reservar Sala</span>
+          </Button>
+        </div>
       </div>
 
       {/* Status summary cards */}
