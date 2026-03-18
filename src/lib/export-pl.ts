@@ -357,7 +357,7 @@ export function exportPLToPDF(
         if (line.isGrandTotal || line.isTotal) {
           doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
         }
-        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       }
       doc.setTextColor(0, 0, 0);
 
