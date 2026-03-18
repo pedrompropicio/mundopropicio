@@ -190,10 +190,10 @@ export function EventForecast({ eventId, eventDate }: Props) {
         .eq("id", forecast.id);
       if (updateError) throw updateError;
 
-      // Update event status to "execution" on first approval
+      // Update event status to "active" on first approval
       await supabase
         .from("events")
-        .update({ status: "execution" })
+        .update({ status: "active" })
         .eq("id", eventId)
         .in("status", ["planning", "confirmed"]);
     },
