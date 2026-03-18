@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
+import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -35,6 +38,8 @@ export default function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [showReservationModal, setShowReservationModal] = useState(false);
+  const [showScheduledPanel, setShowScheduledPanel] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["calendar-events"],
@@ -185,12 +190,33 @@ export default function EventCalendar() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          Calendário de Eventos
-        </h1>
-        <p className="text-sm text-muted-foreground">Visualize todos os eventos e reservas de salas</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
+            <CalendarDays className="h-6 w-6 text-primary" />
+            Calendário de Eventos
+          </h1>
+          <p className="text-sm text-muted-foreground">Visualize todos os eventos e reservas de salas</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowScheduledPanel((v) => !v)}
+            className="gap-1.5"
+          >
+            <CalendarClock className="h-4 w-4" />
+            <span className="hidden sm:inline">Programados</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowReservationModal(true)}
+            className="gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Reservar Sala</span>
+          </Button>
+        </div>
       </div>
 
       {/* Status summary cards */}
@@ -341,6 +367,18 @@ export default function EventCalendar() {
           </div>
         )}
       </div>
+      {/* Scheduled events panel */}
+      <ScheduledEventsPanel
+        open={showScheduledPanel}
+        onOpenChange={setShowScheduledPanel}
+        events={calendarEvents}
+      />
+
+      {/* Venue reservation modal */}
+      <VenueReservationModal
+        open={showReservationModal}
+        onOpenChange={setShowReservationModal}
+      />
     </div>
   );
 }
