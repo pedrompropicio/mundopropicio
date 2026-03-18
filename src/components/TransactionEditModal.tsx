@@ -20,6 +20,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     event_id: transaction.event_id,
     category_id: transaction.category_id ?? "",
     supplier_id: transaction.supplier_id ?? "",
+    account_id: transaction.account_id ?? "",
     date: transaction.date,
     due_date: transaction.due_date ?? "",
     specification: transaction.specification ?? "",
