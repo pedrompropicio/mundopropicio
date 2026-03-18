@@ -144,6 +144,39 @@ export default function Events() {
     },
   });
 
+  // Handle from_reservation query param
+  const fromReservationId = searchParams.get("from_reservation");
+  const { data: reservationData } = useQuery({
+    queryKey: ["reservation-prefill", fromReservationId],
+    queryFn: async () => {
+      if (!fromReservationId) return null;
+      const { data, error } = await supabase
+        .from("venue_reservations")
+        .select("id, date, venue_id, city_id, notes")
+        .eq("id", fromReservationId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!fromReservationId,
+  });
+
+  useEffect(() => {
+    if (reservationData) {
+      const venue = (venuesMap as any)[reservationData.venue_id];
+      setForm({
+        ...emptyForm,
+        name: reservationData.notes || "",
+        date: reservationData.date,
+        venue_id: reservationData.venue_id || "",
+        city_id: reservationData.city_id || venue?.city_id || "",
+      });
+      setReservationId(reservationData.id);
+      setShowForm(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [reservationData, venuesMap]);
+
   const createMutation = useMutation({
     mutationFn: async (data: EventForm) => {
       const venueName = data.venue_id ? (venuesMap as any)[data.venue_id]?.name : null;
