@@ -57,9 +57,9 @@ export default function Events() {
     queryKey: ["events_full"],
     queryFn: async () => {
       // Only fetch top-level events (no sub-events)
-      const { data: evts, error } = await supabase
+      const { data: evts, error } = await (supabase
         .from("events")
-        .select("*")
+        .select("*") as any)
         .is("parent_event_id", null)
         .order("date", { ascending: false });
       if (error) throw error;
