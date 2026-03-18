@@ -10,6 +10,7 @@ import {
   BookOpen,
   ShieldCheck,
   LogOut,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +23,7 @@ const navItems = [
   { to: "/fornecedores", icon: Users, label: "Fornecedores" },
   { to: "/cotacoes", icon: FileCheck, label: "Cotações" },
   { to: "/iva", icon: Receipt, label: "Gestão IVA" },
+  { to: "/bilhetes", icon: Ticket, label: "Gestão Bilhetes" },
   { to: "/relatorios", icon: BarChart3, label: "Relatórios" },
 ];
 

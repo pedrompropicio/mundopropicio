@@ -18,6 +18,7 @@ import AccountCategories from "./pages/AccountCategories";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import TicketManagement from "./pages/TicketManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ function ProtectedLayout() {
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/relatorios" element={<Reports />} />
+              <Route path="/bilhetes" element={<TicketManagement />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="*" element={<NotFound />} />
