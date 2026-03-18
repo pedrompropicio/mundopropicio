@@ -420,6 +420,12 @@ export function EventForecast({ eventId, eventDate }: Props) {
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
           />
         </td>
+        <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
+          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+        </td>
+        <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
+          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+        </td>
         <td className="py-1.5 text-right">
           <div className="flex justify-end gap-1">
             <button
