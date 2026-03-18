@@ -464,8 +464,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             const used = usedBudgetByCategory[budgetKey] || 0;
             const remaining = forecast - used;
             const pct = forecast > 0 ? (used / forecast) * 100 : 0;
+            const newAmount = parseFloat(form.amount) || 0;
+            const exceedsForcast = forecast > 0 && newAmount > remaining;
             return (
-              <div className="rounded-lg border border-border/50 bg-secondary/30 p-3 space-y-1.5">
+              <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Orçamento P&L</span>
                   <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
@@ -481,6 +483,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   <span>Utilizado: {used.toFixed(2)}€</span>
                   <span className={remaining < 0 ? "text-destructive" : "text-success"}>Disponível: {remaining.toFixed(2)}€</span>
                 </div>
+                {exceedsForcast && (
+                  <p className="flex items-center gap-1.5 text-xs text-warning font-medium pt-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Valor ultrapassa o disponível em {(newAmount - remaining).toFixed(2)}€
+                  </p>
+                )}
               </div>
             );
           })()}
