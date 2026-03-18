@@ -244,7 +244,7 @@ export function exportPLToPDF(
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  // Per-event (summary moved to end)
+  // Per-event
   events.forEach((evt, evtIdx) => {
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
@@ -252,7 +252,8 @@ export function exportPLToPDF(
 
     const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, evt.id);
 
-    if (evtIdx > 0 || y > 60) {
+    // Each event on its own page (except first which follows the title)
+    if (evtIdx > 0) {
       doc.addPage();
       y = 14;
     }
