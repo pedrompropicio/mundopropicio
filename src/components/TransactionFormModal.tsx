@@ -417,6 +417,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             );
           })()}
 
+          {hasPL && form.event_id && !plExpanded && (
+            <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+              P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
+            </button>
+          )}
+
+
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
