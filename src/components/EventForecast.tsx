@@ -581,6 +581,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
                           <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">R01 - Venda de Bilhetes</td>
                           <td className="py-2.5 text-right text-muted-foreground text-xs">—</td>
                           <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenue)}</td>
+                          <td className="py-2.5 text-right text-muted-foreground text-xs">—</td>
+                          <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(ticketRevenue)}</td>
                           <td />
                         </tr>
                       )}
@@ -589,6 +591,8 @@ export function EventForecast({ eventId, eventDate }: Props) {
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncomeBase)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success/70">{formatCurrency(totalForecastIncomeIva)}</td>
                           <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncome)}</td>
                           <td />
                         </tr>
