@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, Navigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   BarChart3,
   TrendingUp,
@@ -18,11 +18,6 @@ const reportItems = [
 
 export default function Reports() {
   const location = useLocation();
-
-  // Redirect /relatorios to first report
-  if (location.pathname === "/relatorios") {
-    return <Navigate to="/relatorios/dre" replace />;
-  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
