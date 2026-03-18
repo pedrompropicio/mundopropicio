@@ -392,7 +392,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                         return (
                           <tr
                             key={l.catId}
-                            onClick={() => l.catId !== "none" && setForm(prev => ({ ...prev, category_id: l.catId }))}
+                            onClick={() => { if (l.catId !== "none") { setForm(prev => ({ ...prev, category_id: l.catId })); setPlExpanded(false); } }}
                             className={`cursor-pointer transition-colors ${
                               isSelected
                                 ? "bg-primary/10 font-medium"
