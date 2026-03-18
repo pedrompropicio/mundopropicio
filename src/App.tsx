@@ -77,6 +77,8 @@ function ProtectedLayout() {
                 <Route path="extrato" element={<ReportBankStatementPage />} />
                 <Route path="contas-pagar" element={<ReportContasPagarPage />} />
                 <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
+                <Route path="fornecedores" element={<ReportSuppliersPage />} />
+                <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
               </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="*" element={<NotFound />} />
