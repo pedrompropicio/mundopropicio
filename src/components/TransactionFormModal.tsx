@@ -75,6 +75,59 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
+  // Get the selected event's pl_mode
+  const selectedEvent = events.find((e: any) => e.id === form.event_id);
+  const isActivePL = selectedEvent?.pl_mode === "active";
+
+  // Fetch forecasts for active P&L events
+  const { data: eventForecasts = [] } = useQuery({
+    queryKey: ["event_forecasts_budget", form.event_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, type, category_id, amount, status")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id && isActivePL,
+  });
+
+  // Fetch existing transactions for the event to calculate used budget
+  const { data: eventTransactions = [] } = useQuery({
+    queryKey: ["event_transactions_budget", form.event_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, type, category_id, amount")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id && isActivePL,
+  });
+
+  // For active P&L: get allowed categories and remaining budgets
+  const forecastBudgetByCategory = isActivePL
+    ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
+        const key = `${f.type}_${f.category_id || "none"}`;
+        acc[key] = (acc[key] || 0) + Number(f.amount);
+        return acc;
+      }, {})
+    : {};
+
+  const usedBudgetByCategory = isActivePL
+    ? eventTransactions.reduce<Record<string, number>>((acc, t) => {
+        const key = `${t.type}_${t.category_id || "none"}`;
+        acc[key] = (acc[key] || 0) + Number(t.amount);
+        return acc;
+      }, {})
+    : {};
+
+  const allowedCategoryIds = isActivePL
+    ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
+    : [];
+
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
