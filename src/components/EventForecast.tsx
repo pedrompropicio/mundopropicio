@@ -1145,7 +1145,7 @@ function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cac
               </tr>
             </>
           )}
-          {expenseRows.length > 0 && (
+          {(expenseRows.length > 0 || cacheLines.length > 0) && (
             <>
               <tr><td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td></tr>
               {renderGroupedRows(expenseGroups, false)}
