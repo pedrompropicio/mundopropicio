@@ -142,14 +142,21 @@ export function exportPLToExcel(
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
-      ["Rubrica", "Previsto (€)", "Real (€)", "Variação (€)"],
+      ["Rubrica", "Qtd", "Preço Unit. (€)", "Previsto (€)", "Real (€)", "Variação (€)"],
     ];
     pl.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "  " : "";
-      rows.push([prefix + line.label, line.forecast, line.subIndent ? "" : line.actual, line.subIndent ? "" : line.variance]);
+      rows.push([
+        prefix + line.label,
+        line.quantity != null ? line.quantity : "",
+        line.unitPrice != null ? line.unitPrice : "",
+        line.forecast,
+        line.subIndent ? "" : line.actual,
+        line.subIndent ? "" : line.variance,
+      ]);
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 45 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
