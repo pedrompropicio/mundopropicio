@@ -23,6 +23,7 @@ export default function Suppliers() {
 
   const filtered = suppliers.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
+    ((s as any).trade_name && (s as any).trade_name.toLowerCase().includes(search.toLowerCase())) ||
     (s.nif && s.nif.includes(search)) ||
     (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
   );
@@ -60,6 +61,7 @@ export default function Suppliers() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold text-foreground">{s.name}</h3>
+                  {(s as any).trade_name && <p className="text-xs text-foreground/70">{(s as any).trade_name}</p>}
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
                 {s.rating && (

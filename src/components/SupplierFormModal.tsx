@@ -24,11 +24,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
 
   const createMutation = useMutation({
     mutationFn: async (supplier: {
-      name: string; nif?: string; contact_name?: string; email?: string;
+      name: string; trade_name?: string; nif?: string; contact_name?: string; email?: string;
       phone?: string; address?: string; iban?: string; swift_bic?: string;
       payment_terms?: string; category?: string; notes?: string;
     }) => {
-      const { data, error } = await supabase.from("suppliers").insert(supplier).select("id").single();
+      const { data, error } = await supabase.from("suppliers").insert(supplier as any).select("id").single();
       if (error) throw error;
       return data;
     },
@@ -46,6 +46,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
     const fd = new FormData(e.currentTarget);
     createMutation.mutate({
       name: fd.get("name") as string,
+      trade_name: (fd.get("trade_name") as string) || undefined,
       nif: (fd.get("nif") as string) || undefined,
       contact_name: (fd.get("contact_name") as string) || undefined,
       email: (fd.get("email") as string) || undefined,
@@ -66,9 +67,15 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
           <DialogTitle>Novo Fornecedor</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="sup-name">Nome *</Label>
-            <Input id="sup-name" name="name" required />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="sup-name">Nome da Entidade *</Label>
+              <Input id="sup-name" name="name" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sup-trade-name">Nome Fantasia</Label>
+              <Input id="sup-trade-name" name="trade_name" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">

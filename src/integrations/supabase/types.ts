@@ -663,6 +663,7 @@ export type Database = {
           phone: string | null
           rating: number | null
           swift_bic: string | null
+          trade_name: string | null
           updated_at: string
         }
         Insert: {
@@ -681,6 +682,7 @@ export type Database = {
           phone?: string | null
           rating?: number | null
           swift_bic?: string | null
+          trade_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -699,6 +701,7 @@ export type Database = {
           phone?: string | null
           rating?: number | null
           swift_bic?: string | null
+          trade_name?: string | null
           updated_at?: string
         }
         Relationships: []
