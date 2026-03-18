@@ -1,0 +1,1 @@
+ALTER TABLE public.account_categories ADD COLUMN supplier_required boolean NOT NULL DEFAULT true;

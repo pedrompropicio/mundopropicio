@@ -40,7 +40,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, type").eq("is_active", true).order("code");
+      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required, supplier_required").eq("is_active", true).order("code");
       if (error) throw error;
       return data;
     },
@@ -137,10 +137,37 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
+  const isExpense = transaction.type === "expense";
+  const isApproved = transaction.status === "approved";
+  const valueLocked = isApproved && !isAdmin;
+
+  // Find root category flags for selected category
+  const getRootFlags = (categoryId: string) => {
+    if (!categoryId) return { event_required: true, supplier_required: true };
+    let cat = categories.find((c: any) => c.id === categoryId);
+    while (cat && cat.parent_id) {
+      cat = categories.find((c: any) => c.id === cat!.parent_id);
+    }
+    return {
+      event_required: cat?.event_required ?? true,
+      supplier_required: cat?.supplier_required ?? true,
+    };
+  };
+
+  const rootFlags = getRootFlags(form.category_id);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.description || !form.amount || !form.event_id) {
+    if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    if (rootFlags.event_required && !form.event_id) {
+      toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
+      return;
+    }
+    if (isExpense && rootFlags.supplier_required && !form.supplier_id) {
+      toast({ title: "Selecione o fornecedor (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
     if (!isExpense && !form.account_id) {
@@ -153,10 +180,6 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const filteredCategories = categories.filter((c) =>
     transaction.type === "income" ? c.type === "income" : c.type === "expense"
   );
-
-  const isExpense = transaction.type === "expense";
-  const isApproved = transaction.status === "approved";
-  const valueLocked = isApproved && !isAdmin;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -216,34 +239,32 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento *</label>
-              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Selecionar…</option>
-                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
-              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value, event_id: "", supplier_id: "" })}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                 <option value="">Sem categoria</option>
                 {filteredCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
+              <select value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">{rootFlags.event_required ? "Selecionar…" : "Sem evento"}</option>
+                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+              </select>
+            </div>
           </div>
 
           {isExpense && (
-            <>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor</label>
-                <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">Sem fornecedor</option>
-                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-            </>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor {rootFlags.supplier_required ? "*" : ""}</label>
+              <select value={form.supplier_id} onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">{rootFlags.supplier_required ? "Selecionar…" : "Sem fornecedor"}</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
           )}
 
           {!isExpense && (
