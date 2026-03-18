@@ -484,10 +484,18 @@ export default function ReportPL() {
     });
     const totalFInc = fInc + ticketRev;
     const totalTInc = tInc + ticketActualRev;
+    // Include cachê in forecast expenses
+    const eventCaches = allCacheConfigs.filter((c) => c.event_id === e.id);
+    const cacheLines = calculateCacheLinesForPL(
+      eventCaches, allCacheDeductions, ticketRev,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+    const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
+    const totalFExp = fExp + totalCache;
     return {
       ...e,
-      fInc: totalFInc, fExp, tInc: totalTInc, tExp,
-      fResult: totalFInc - fExp,
+      fInc: totalFInc, fExp: totalFExp, tInc: totalTInc, tExp,
+      fResult: totalFInc - totalFExp,
       tResult: totalTInc - tExp,
       forecastCount: evtF.length,
       txCount: evtT.length,
