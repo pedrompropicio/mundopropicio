@@ -206,7 +206,7 @@ export default function ReportContasPagar() {
                     : `${selectedEventIds.size} evento(s) selecionado(s)`}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start">
+              <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                 <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
                   <Checkbox
                     checked={selectedEventIds.size === events.length && events.length > 0}
