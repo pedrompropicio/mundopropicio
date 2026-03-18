@@ -534,13 +534,6 @@ export function exportPLToPDF(
   doc.addPage();
   y = 14;
 
-  try {
-    doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
-    y += 22;
-  } catch {
-    y += 4;
-  }
-
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("Resumo Geral", marginLeft, y);
