@@ -58,6 +58,38 @@ export type Database = {
           },
         ]
       }
+      event_dates: {
+        Row: {
+          created_at: string
+          date: string
+          event_id: string
+          id: string
+          label: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          event_id: string
+          id?: string
+          label?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          event_id?: string
+          id?: string
+          label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_dates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_forecasts: {
         Row: {
           amount: number
@@ -212,9 +244,11 @@ export type Database = {
           budget: number
           created_at: string
           date: string
+          event_type: string
           id: string
           location: string | null
           name: string
+          parent_event_id: string | null
           status: string
           tickets_sold: number
           tickets_total: number
@@ -224,9 +258,11 @@ export type Database = {
           budget?: number
           created_at?: string
           date: string
+          event_type?: string
           id?: string
           location?: string | null
           name: string
+          parent_event_id?: string | null
           status?: string
           tickets_sold?: number
           tickets_total?: number
@@ -236,15 +272,25 @@ export type Database = {
           budget?: number
           created_at?: string
           date?: string
+          event_type?: string
           id?: string
           location?: string | null
           name?: string
+          parent_event_id?: string | null
           status?: string
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_accounts: {
         Row: {
