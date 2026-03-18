@@ -107,7 +107,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.description || !form.amount || !form.event_id) {
+    if (!form.description || !form.amount || !form.event_id || !form.account_id) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
