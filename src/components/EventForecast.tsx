@@ -37,6 +37,7 @@ export function EventForecast({ eventId, eventDate }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
