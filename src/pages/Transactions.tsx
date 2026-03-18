@@ -340,9 +340,7 @@ export default function Transactions() {
                     onDocs={(id) => setShowDocsId(id)}
                     onAudit={(id) => setShowAuditId(id)}
                     onDelete={(id) => {
-                      if (confirm("Eliminar esta transação? Esta ação não pode ser desfeita.")) {
-                        deleteMutation.mutate(id);
-                      }
+                      deleteMutation.mutate(id);
                     }}
                   />
                 ))}
