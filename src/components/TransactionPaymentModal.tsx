@@ -55,9 +55,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       });
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
+      const updateData: any = { paid_amount: newPaid, status: newStatus, account_id: accountId, payment_date: format(paymentDate, "yyyy-MM-dd") };
+      if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       const { error } = await supabase
         .from("transactions")
-        .update({ paid_amount: newPaid, status: newStatus, account_id: accountId })
+        .update(updateData)
         .eq("id", transaction.id);
       if (error) throw error;
     },
