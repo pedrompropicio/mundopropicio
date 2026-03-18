@@ -924,6 +924,8 @@ function SummaryCard({ label, forecast, actual, icon, isProfit }: {
 interface ComparisonRow {
   categoryCode: string;
   categoryName: string;
+  groupName: string;
+  groupCode: string;
   type: string;
   forecast: number;
   actual: number;
@@ -931,30 +933,31 @@ interface ComparisonRow {
 }
 
 function buildComparison(forecasts: any[], transactions: any[], categories: any[]): ComparisonRow[] {
+  const lookup = buildCategoryLookup(categories);
   const map: Record<string, ComparisonRow> = {};
   const getKey = (type: string, catId: string | null) => `${type}_${catId || "none"}`;
-  const getCatInfo = (catId: string | null, cats: any[]) => {
-    if (!catId) return { code: "—", name: "Sem categoria" };
-    const c = cats.find((x) => x.id === catId);
-    return c ? { code: c.code, name: c.name } : { code: "—", name: "Desconhecida" };
+  const getCatInfo = (catId: string | null) => {
+    if (!catId) return { code: "—", name: "Sem categoria", groupName: "Sem categoria", groupCode: "Z" };
+    const info = lookup[catId];
+    return info ? { code: info.code, name: info.name, groupName: info.groupName, groupCode: info.groupCode } : { code: "—", name: "Desconhecida", groupName: "Sem categoria", groupCode: "Z" };
   };
 
   forecasts.forEach((f) => {
     const key = getKey(f.type, f.category_id);
-    const cat = getCatInfo(f.category_id, categories);
-    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, type: f.type, forecast: 0, actual: 0, variance: 0 };
+    const cat = getCatInfo(f.category_id);
+    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, groupName: cat.groupName, groupCode: cat.groupCode, type: f.type, forecast: 0, actual: 0, variance: 0 };
     map[key].forecast += Number(f.amount);
   });
   transactions.forEach((t) => {
     const key = getKey(t.type, t.category_id);
-    const cat = getCatInfo(t.category_id, categories);
-    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, type: t.type, forecast: 0, actual: 0, variance: 0 };
+    const cat = getCatInfo(t.category_id);
+    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, groupName: cat.groupName, groupCode: cat.groupCode, type: t.type, forecast: 0, actual: 0, variance: 0 };
     map[key].actual += Number(t.amount);
   });
 
   return Object.values(map)
     .map((r) => ({ ...r, variance: r.actual - r.forecast }))
-    .sort((a, b) => { if (a.type !== b.type) return a.type === "income" ? -1 : 1; return a.categoryCode.localeCompare(b.categoryCode); });
+    .sort((a, b) => { if (a.type !== b.type) return a.type === "income" ? -1 : 1; return a.groupCode.localeCompare(b.groupCode) || a.categoryCode.localeCompare(b.categoryCode); });
 }
 
 function ComparisonTable({ data }: { data: ComparisonRow[] }) {
