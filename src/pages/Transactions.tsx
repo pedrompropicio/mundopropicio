@@ -334,9 +334,7 @@ export default function Transactions() {
                     eventCompleted={(t.events as any)?.status === "completed"}
                     onEdit={(id) => setEditingId(id)}
                     onApprove={(id) => {
-                      if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {
-                        approveMutation.mutate(id);
-                      }
+                      approveMutation.mutate(id);
                     }}
                     onPayment={(id) => setShowPaymentId(id)}
                     onDocs={(id) => setShowDocsId(id)}
