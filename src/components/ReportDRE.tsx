@@ -215,13 +215,8 @@ export default function ReportDRE() {
     );
   };
 
-  const [excludeReservations, setExcludeReservations] = useState(true);
-
   // Only show events that have at least one approved/paid transaction (direct or via children/parent)
   const eventsWithTransactions = events.filter((e) => {
-    // Exclude venue reservations if toggle is on
-    if (excludeReservations && e.venue_id && e.name.startsWith("Reserva")) return false;
-
     const hasDirect = transactions.some((t: any) => t.event_id === e.id);
     if (hasDirect) return true;
     // Parent: check if any child has transactions
