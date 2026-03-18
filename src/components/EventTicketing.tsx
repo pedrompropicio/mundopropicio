@@ -18,10 +18,20 @@ interface LotForm {
   name: string;
   quantity: string;
   price: string;
+  iva_rate: string;
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6" };
+
+/** Extract net (ex-IVA) from gross price where IVA is included ("por dentro") */
+function netFromGross(gross: number, ivaRate: number): number {
+  return gross / (1 + ivaRate / 100);
+}
+
+function ivaFromGross(gross: number, ivaRate: number): number {
+  return gross - netFromGross(gross, ivaRate);
+}
 
 export function EventTicketing({ eventId }: Props) {
   const queryClient = useQueryClient();
@@ -121,6 +131,7 @@ export function EventTicketing({ eventId }: Props) {
         name: form.name,
         quantity: parseInt(form.quantity) || 0,
         price: parseFloat(form.price) || 0,
+        iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
       };
       if (id) {
@@ -135,7 +146,6 @@ export function EventTicketing({ eventId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
       toast({ title: vars.id ? "Lote atualizado!" : "Lote adicionado!" });
       if (!vars.id) {
-        // Keep adding mode for rapid entry
         setLotForm(emptyLot);
         setTimeout(() => lotNameRef.current?.focus(), 50);
       } else {
@@ -173,7 +183,7 @@ export function EventTicketing({ eventId }: Props) {
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price) });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6) });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
@@ -206,7 +216,7 @@ export function EventTicketing({ eventId }: Props) {
     if (zone && zone.total_capacity > 0) {
       const currentLots = allLots.filter((l) => l.zone_id === zoneId);
       const existingTotal = currentLots
-        .filter((l) => l.id !== editingLotId) // exclude lot being edited
+        .filter((l) => l.id !== editingLotId)
         .reduce((s, l) => s + l.quantity, 0);
       const newQty = parseInt(lotForm.quantity) || 0;
       if (existingTotal + newQty > zone.total_capacity) {
@@ -223,20 +233,97 @@ export function EventTicketing({ eventId }: Props) {
     saveLotMutation.mutate({ form: lotForm, zoneId, id: editingLotId });
   };
 
-  // Totals
+  // Totals — gross, net, IVA
   const getZoneLots = (zoneId: string) => allLots.filter((l) => l.zone_id === zoneId);
-  const getZoneRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  const getZoneGrossRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  const getZoneNetRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => {
+    const rate = Number((l as any).iva_rate ?? 6);
+    return s + l.quantity * netFromGross(Number(l.price), rate);
+  }, 0);
+  const getZoneIva = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => {
+    const rate = Number((l as any).iva_rate ?? 6);
+    return s + l.quantity * ivaFromGross(Number(l.price), rate);
+  }, 0);
   const getZoneTotalTickets = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
-  const totalRevenue = zones.reduce((s, z) => s + getZoneRevenue(z.id), 0);
+
+  const totalGrossRevenue = zones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
+  const totalNetRevenue = zones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
+  const totalIva = zones.reduce((s, z) => s + getZoneIva(z.id), 0);
   const totalTickets = zones.reduce((s, z) => s + getZoneTotalTickets(z.id), 0);
   const totalCapacity = zones.reduce((s, z) => s + z.total_capacity, 0);
 
   const inputClass = "w-full rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50";
 
+  const renderLotRow = (lot: any, isEditing: boolean, zoneId: string) => {
+    const grossPrice = parseFloat(isEditing ? lotForm.price : String(lot.price)) || 0;
+    const ivaRate = parseInt(isEditing ? lotForm.iva_rate : String((lot as any).iva_rate ?? 6)) || 0;
+    const qty = parseInt(isEditing ? lotForm.quantity : String(lot.quantity)) || 0;
+    const net = netFromGross(grossPrice, ivaRate);
+    const iva = ivaFromGross(grossPrice, ivaRate);
+    const subtotalGross = qty * grossPrice;
+    const subtotalNet = qty * net;
+    const subtotalIva = qty * iva;
+
+    if (isEditing) {
+      return (
+        <tr key={lot?.id || "new"} className="bg-primary/5" onKeyDown={(e) => handleLotKeyDown(e, zoneId)}>
+          <td className="py-1.5 pr-2">
+            <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
+          </td>
+          <td className="py-1.5 pr-2">
+            <input type="number" min="0" value={lotForm.quantity} onChange={(e) => setLotForm({ ...lotForm, quantity: e.target.value })} className={`${inputClass} w-20 text-right`} placeholder="0" />
+          </td>
+          <td className="py-1.5 pr-2">
+            <input type="number" step="0.01" min="0" value={lotForm.price} onChange={(e) => setLotForm({ ...lotForm, price: e.target.value })} className={`${inputClass} w-20 text-right`} placeholder="0,00" />
+          </td>
+          <td className="py-1.5 pr-2">
+            <select value={lotForm.iva_rate} onChange={(e) => setLotForm({ ...lotForm, iva_rate: e.target.value })} className={`${inputClass} w-16`}>
+              <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
+            </select>
+          </td>
+          <td className="py-1.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(subtotalNet)}</td>
+          <td className="py-1.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(subtotalIva)}</td>
+          <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(subtotalGross)}</td>
+          <td className="py-1.5 text-right">
+            <div className="flex justify-end gap-1">
+              <button onClick={() => handleSaveLot(zoneId)} disabled={saveLotMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
+              <button onClick={cancelLot} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    return (
+      <tr key={lot.id} className="group hover:bg-muted/20 transition-colors">
+        <td className="py-2 pr-3">
+          <span className="text-xs text-muted-foreground mr-1.5">{lot.lot_number}º</span>
+          {lot.name}
+        </td>
+        <td className="py-2 text-right font-mono">{lot.quantity.toLocaleString()}</td>
+        <td className="py-2 text-right font-mono">{formatCurrency(Number(lot.price))}</td>
+        <td className="py-2 text-right font-mono text-xs text-muted-foreground">{ivaRate}%</td>
+        <td className="py-2 text-right font-mono text-xs text-muted-foreground">{formatCurrency(subtotalNet)}</td>
+        <td className="py-2 text-right font-mono text-xs text-muted-foreground">{formatCurrency(subtotalIva)}</td>
+        <td className="py-2 text-right font-mono font-semibold text-success">{formatCurrency(subtotalGross)}</td>
+        <td className="py-2 text-right">
+          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => startEditLot(lot)} className="rounded p-1 hover:bg-secondary" title="Editar">
+              <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+            </button>
+            <button onClick={() => deleteLotMutation.mutate(lot.id)} className="rounded p-1 hover:bg-destructive/20" title="Eliminar">
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Ticket className="h-4 w-4 text-primary" /> Total de Bilhetes
@@ -248,19 +335,25 @@ export function EventTicketing({ eventId }: Props) {
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Layers className="h-4 w-4 text-success" /> Zonas
+            <span className="text-success font-bold">€</span> Receita Bruta
           </div>
-          <p className="font-mono text-lg font-bold">{zones.length}</p>
-          <p className="text-xs text-muted-foreground">{allLots.length} lotes configurados</p>
+          <p className="font-mono text-lg font-bold text-success">{formatCurrency(totalGrossRevenue)}</p>
+          {totalTickets > 0 && (
+            <p className="text-xs text-muted-foreground">Preço médio: {formatCurrency(totalGrossRevenue / totalTickets)}</p>
+          )}
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-success font-bold">€</span> Receita Prevista
+            <span className="text-warning font-bold">%</span> IVA Incluído
           </div>
-          <p className="font-mono text-lg font-bold text-success">{formatCurrency(totalRevenue)}</p>
-          {totalTickets > 0 && (
-            <p className="text-xs text-muted-foreground">Preço médio: {formatCurrency(totalRevenue / totalTickets)}</p>
-          )}
+          <p className="font-mono text-lg font-bold text-warning">{formatCurrency(totalIva)}</p>
+        </div>
+        <div className="glass rounded-xl p-4 space-y-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Layers className="h-4 w-4 text-primary" /> Receita Líquida
+          </div>
+          <p className="font-mono text-lg font-bold text-primary">{formatCurrency(totalNetRevenue)}</p>
+          <p className="text-xs text-muted-foreground">{zones.length} zonas · {allLots.length} lotes</p>
         </div>
       </div>
 
@@ -283,7 +376,9 @@ export function EventTicketing({ eventId }: Props) {
           <div className="space-y-3">
             {zones.map((zone) => {
               const zoneLots = getZoneLots(zone.id);
-              const zoneRevenue = getZoneRevenue(zone.id);
+              const zoneGross = getZoneGrossRevenue(zone.id);
+              const zoneNet = getZoneNetRevenue(zone.id);
+              const zoneIvaTotal = getZoneIva(zone.id);
               const zoneTotalTickets = getZoneTotalTickets(zone.id);
               const isExpanded = expandedZones.has(zone.id);
               const isEditing = editingZoneId === zone.id;
@@ -307,10 +402,13 @@ export function EventTicketing({ eventId }: Props) {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{zone.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {zoneLots.length} lote{zoneLots.length !== 1 ? "s" : ""} · {zoneTotalTickets.toLocaleString()} bilhetes · Capacidade: {(zone.total_capacity ?? 0).toLocaleString()}
+                          {zoneLots.length} lote{zoneLots.length !== 1 ? "s" : ""} · {zoneTotalTickets.toLocaleString()} bilhetes · Cap.: {(zone.total_capacity ?? 0).toLocaleString()}
                         </p>
                       </div>
-                      <span className="font-mono font-semibold text-success text-sm whitespace-nowrap">{formatCurrency(zoneRevenue)}</span>
+                      <div className="text-right shrink-0">
+                        <span className="font-mono font-semibold text-success text-sm">{formatCurrency(zoneGross)}</span>
+                        <p className="text-xs text-muted-foreground font-mono">Líq. {formatCurrency(zoneNet)}</p>
+                      </div>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => startEditZone(zone)} className="rounded p-1 hover:bg-secondary" title="Editar zona">
                           <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -324,98 +422,42 @@ export function EventTicketing({ eventId }: Props) {
 
                   {isExpanded && !isEditing && (
                     <div className="border-t border-border/30 bg-secondary/10 p-3">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-xs uppercase tracking-wider text-muted-foreground">
-                            <th className="pb-2 text-left font-medium">Lote</th>
-                            <th className="pb-2 text-right font-medium">Qtd. Bilhetes</th>
-                            <th className="pb-2 text-right font-medium">Preço Unit.</th>
-                            <th className="pb-2 text-right font-medium">Subtotal</th>
-                            <th className="pb-2 text-right font-medium w-20">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/20">
-                          {zoneLots.map((lot) => (
-                            editingLotId === lot.id ? (
-                              <tr key={lot.id} className="bg-primary/5" onKeyDown={(e) => handleLotKeyDown(e, zone.id)}>
-                                <td className="py-1.5 pr-2">
-                                  <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} autoFocus />
-                                </td>
-                                <td className="py-1.5 pr-2">
-                                  <input type="number" min="0" value={lotForm.quantity} onChange={(e) => setLotForm({ ...lotForm, quantity: e.target.value })} className={`${inputClass} w-24 text-right`} />
-                                </td>
-                                <td className="py-1.5 pr-2">
-                                  <input type="number" step="0.01" min="0" value={lotForm.price} onChange={(e) => setLotForm({ ...lotForm, price: e.target.value })} className={`${inputClass} w-24 text-right`} />
-                                </td>
-                                <td className="py-1.5 text-right font-mono text-muted-foreground">
-                                  {formatCurrency((parseInt(lotForm.quantity) || 0) * (parseFloat(lotForm.price) || 0))}
-                                </td>
-                                <td className="py-1.5 text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <button onClick={() => handleSaveLot(zone.id)} disabled={saveLotMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
-                                    <button onClick={cancelLot} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              <tr key={lot.id} className="group hover:bg-muted/20 transition-colors">
-                                <td className="py-2 pr-3">
-                                  <span className="text-xs text-muted-foreground mr-1.5">{lot.lot_number}º</span>
-                                  {lot.name}
-                                </td>
-                                <td className="py-2 text-right font-mono">{lot.quantity.toLocaleString()}</td>
-                                <td className="py-2 text-right font-mono">{formatCurrency(Number(lot.price))}</td>
-                                <td className="py-2 text-right font-mono font-semibold text-success">{formatCurrency(lot.quantity * Number(lot.price))}</td>
-                                <td className="py-2 text-right">
-                                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => startEditLot(lot)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                                      <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                                    </button>
-                                    <button onClick={() => deleteLotMutation.mutate(lot.id)} className="rounded p-1 hover:bg-destructive/20" title="Eliminar">
-                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          ))}
-                          {addingLotForZone === zone.id && (
-                            <tr className="bg-primary/5 animate-fade-in" onKeyDown={(e) => handleLotKeyDown(e, zone.id)}>
-                              <td className="py-1.5 pr-2">
-                                <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
-                              </td>
-                              <td className="py-1.5 pr-2">
-                                <input type="number" min="0" value={lotForm.quantity} onChange={(e) => setLotForm({ ...lotForm, quantity: e.target.value })} className={`${inputClass} w-24 text-right`} placeholder="0" />
-                              </td>
-                              <td className="py-1.5 pr-2">
-                                <input type="number" step="0.01" min="0" value={lotForm.price} onChange={(e) => setLotForm({ ...lotForm, price: e.target.value })} className={`${inputClass} w-24 text-right`} placeholder="0,00" />
-                              </td>
-                              <td className="py-1.5 text-right font-mono text-muted-foreground">
-                                {formatCurrency((parseInt(lotForm.quantity) || 0) * (parseFloat(lotForm.price) || 0))}
-                              </td>
-                              <td className="py-1.5 text-right">
-                                <div className="flex justify-end gap-1">
-                                  <button onClick={() => handleSaveLot(zone.id)} disabled={saveLotMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
-                                  <button onClick={cancelLot} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                                </div>
-                              </td>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-xs uppercase tracking-wider text-muted-foreground">
+                              <th className="pb-2 text-left font-medium">Lote</th>
+                              <th className="pb-2 text-right font-medium">Qtd.</th>
+                              <th className="pb-2 text-right font-medium">Preço c/IVA</th>
+                              <th className="pb-2 text-right font-medium">IVA %</th>
+                              <th className="pb-2 text-right font-medium">Valor s/IVA</th>
+                              <th className="pb-2 text-right font-medium">IVA (€)</th>
+                              <th className="pb-2 text-right font-medium">Total c/IVA</th>
+                              <th className="pb-2 text-right font-medium w-20">Ações</th>
                             </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/20">
+                            {zoneLots.map((lot) => renderLotRow(lot, editingLotId === lot.id, zone.id))}
+                            {addingLotForZone === zone.id && renderLotRow(null, true, zone.id)}
+                          </tbody>
+                          {zoneLots.length > 0 && (
+                            <tfoot>
+                              <tr className="border-t border-border/40">
+                                <td className="py-2 text-xs font-medium text-muted-foreground">Total Zona</td>
+                                <td className="py-2 text-right font-mono font-bold">{zoneTotalTickets.toLocaleString()}</td>
+                                <td className="py-2 text-right font-mono text-xs text-muted-foreground">
+                                  {zoneTotalTickets > 0 ? `Ø ${formatCurrency(zoneGross / zoneTotalTickets)}` : "—"}
+                                </td>
+                                <td />
+                                <td className="py-2 text-right font-mono font-semibold">{formatCurrency(zoneNet)}</td>
+                                <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(zoneIvaTotal)}</td>
+                                <td className="py-2 text-right font-mono font-bold text-success">{formatCurrency(zoneGross)}</td>
+                                <td />
+                              </tr>
+                            </tfoot>
                           )}
-                        </tbody>
-                        {zoneLots.length > 0 && (
-                          <tfoot>
-                            <tr className="border-t border-border/40">
-                              <td className="py-2 text-xs font-medium text-muted-foreground">Total Zona</td>
-                              <td className="py-2 text-right font-mono font-bold">{zoneTotalTickets.toLocaleString()}</td>
-                              <td className="py-2 text-right font-mono text-xs text-muted-foreground">
-                                {zoneTotalTickets > 0 ? `Ø ${formatCurrency(zoneRevenue / zoneTotalTickets)}` : "—"}
-                              </td>
-                              <td className="py-2 text-right font-mono font-bold text-success">{formatCurrency(zoneRevenue)}</td>
-                              <td />
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
+                        </table>
+                      </div>
                       <button
                         onClick={() => { setAddingLotForZone(zone.id); setEditingLotId(null); setLotForm(emptyLot); }}
                         disabled={addingLotForZone === zone.id}
@@ -462,20 +504,26 @@ export function EventTicketing({ eventId }: Props) {
                 <th className="pb-2 text-right font-medium">Bilhetes</th>
                 <th className="pb-2 text-right font-medium">Capacidade</th>
                 <th className="pb-2 text-right font-medium">Preço Médio</th>
-                <th className="pb-2 text-right font-medium">Receita</th>
+                <th className="pb-2 text-right font-medium">Valor s/IVA</th>
+                <th className="pb-2 text-right font-medium">IVA</th>
+                <th className="pb-2 text-right font-medium">Total c/IVA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
               {zones.map((z) => {
-                const rev = getZoneRevenue(z.id);
+                const gross = getZoneGrossRevenue(z.id);
+                const net = getZoneNetRevenue(z.id);
+                const iva = getZoneIva(z.id);
                 const tix = getZoneTotalTickets(z.id);
                 return (
                   <tr key={z.id}>
                     <td className="py-2.5 font-medium">{z.name}</td>
                     <td className="py-2.5 text-right font-mono">{tix.toLocaleString()}</td>
                     <td className="py-2.5 text-right font-mono text-muted-foreground">{(z.total_capacity ?? 0).toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono text-muted-foreground">{tix > 0 ? formatCurrency(rev / tix) : "—"}</td>
-                    <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(rev)}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground">{tix > 0 ? formatCurrency(gross / tix) : "—"}</td>
+                    <td className="py-2.5 text-right font-mono">{formatCurrency(net)}</td>
+                    <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(iva)}</td>
+                    <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(gross)}</td>
                   </tr>
                 );
               })}
@@ -485,8 +533,10 @@ export function EventTicketing({ eventId }: Props) {
                 <td className="py-2.5">Total</td>
                 <td className="py-2.5 text-right font-mono">{totalTickets.toLocaleString()}</td>
                 <td className="py-2.5 text-right font-mono text-muted-foreground">{totalCapacity.toLocaleString()}</td>
-                <td className="py-2.5 text-right font-mono text-muted-foreground">{totalTickets > 0 ? formatCurrency(totalRevenue / totalTickets) : "—"}</td>
-                <td className="py-2.5 text-right font-mono text-success">{formatCurrency(totalRevenue)}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground">{totalTickets > 0 ? formatCurrency(totalGrossRevenue / totalTickets) : "—"}</td>
+                <td className="py-2.5 text-right font-mono">{formatCurrency(totalNetRevenue)}</td>
+                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(totalIva)}</td>
+                <td className="py-2.5 text-right font-mono text-success">{formatCurrency(totalGrossRevenue)}</td>
               </tr>
             </tfoot>
           </table>
