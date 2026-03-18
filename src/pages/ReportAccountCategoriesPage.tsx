@@ -21,9 +21,20 @@ export default function ReportAccountCategoriesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight lg:text-2xl">Relatório do Plano de Contas</h1>
-        <p className="text-sm text-muted-foreground">Visão hierárquica do plano de contas</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight lg:text-2xl">Relatório do Plano de Contas</h1>
+          <p className="text-sm text-muted-foreground">Visão hierárquica do plano de contas</p>
+        </div>
+        {categories.length > 0 && (
+          <button
+            onClick={() => exportAccountCategoriesToPDF(categories)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <FileText className="h-4 w-4" />
+            PDF
+          </button>
+        )}
       </div>
 
       {isLoading ? (
