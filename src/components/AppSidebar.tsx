@@ -77,6 +77,19 @@ export function AppSidebar() {
             <ShieldCheck className="h-5 w-5 shrink-0" />
             <span className="hidden lg:block">Utilizadores</span>
           </RouterNavLink>
+          <RouterNavLink
+            to="/backups"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              location.pathname === "/backups"
+                ? "bg-sidebar-accent text-foreground glow-primary"
+                : "text-sidebar-foreground"
+            )}
+          >
+            <Database className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:block">Backups</span>
+          </RouterNavLink>
         )}
       </nav>
 

@@ -84,6 +84,7 @@ function ProtectedLayout() {
                 <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
               </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
+              <Route path="/backups" element={<DatabaseBackups />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
