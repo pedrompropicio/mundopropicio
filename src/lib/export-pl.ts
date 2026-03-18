@@ -175,7 +175,7 @@ export function exportPLToExcel(
     const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
     const evtT = transactions.filter((t: any) => t.event_id === evt.id);
     if (evtF.length === 0 && evtT.length === 0) return;
-    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, evt.id);
+    const pl = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id);
     const rows: any[][] = [
       [`P&L - ${evt.name}`],
       [],
