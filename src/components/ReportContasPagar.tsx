@@ -66,12 +66,12 @@ export default function ReportContasPagar() {
 
     if (dateFrom) {
       const from = dateFrom.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.date >= from);
+      result = result.filter((t: any) => t.due_date && t.due_date >= from);
     }
 
     if (dateTo) {
       const to = dateTo.toISOString().slice(0, 10);
-      result = result.filter((t: any) => t.date <= to);
+      result = result.filter((t: any) => t.due_date && t.due_date <= to);
     }
 
     return result;
