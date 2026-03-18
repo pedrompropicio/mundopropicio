@@ -136,7 +136,8 @@ export default function Transactions() {
     },
   });
 
-  const filtered = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
+  const filtered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id));
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
