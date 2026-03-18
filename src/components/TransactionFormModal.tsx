@@ -369,7 +369,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* P&L forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
-            if (typeForecasts.length === 0) return null;
+
+            // Calculate cachê lines for expense view
+            const cacheLines = form.type === "expense" && cacheConfigs.length > 0
+              ? calculateCacheLinesForPL(
+                  cacheConfigs,
+                  cacheDeductions,
+                  ticketRevenue,
+                  eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+                )
+              : [];
+            const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
+
+            if (typeForecasts.length === 0 && cacheLines.length === 0) return null;
 
             // Build hierarchy using category lookup
             const catLookup = buildCategoryLookup(categories);
