@@ -16,6 +16,8 @@ interface PLLine {
   isGrandTotal?: boolean;
   indent?: boolean;
   subIndent?: boolean;
+  quantity?: number;
+  unitPrice?: number;
 }
 
 function buildPL(
