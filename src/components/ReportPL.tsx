@@ -301,23 +301,27 @@ export default function ReportPL() {
       </div>
 
       {/* Global summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${mode === "comparison" ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Previstas</p>
           <p className="mt-1 text-lg font-bold text-muted-foreground">{formatCurrency(gFInc)}</p>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Reais</p>
-          <p className="mt-1 text-lg font-bold text-success">{formatCurrency(gTInc)}</p>
-        </div>
+        {mode === "comparison" && (
+          <div className="glass rounded-xl p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Reais</p>
+            <p className="mt-1 text-lg font-bold text-success">{formatCurrency(gTInc)}</p>
+          </div>
+        )}
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Previsto</p>
           <p className={`mt-1 text-lg font-bold ${gFResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gFResult)}</p>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Real</p>
-          <p className={`mt-1 text-lg font-bold ${gTResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gTResult)}</p>
-        </div>
+        {mode === "comparison" && (
+          <div className="glass rounded-xl p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Real</p>
+            <p className={`mt-1 text-lg font-bold ${gTResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gTResult)}</p>
+          </div>
+        )}
       </div>
 
       {/* Per-event expandable */}
