@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
+import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +34,7 @@ export default function EventDetail() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
@@ -177,6 +179,12 @@ export default function EventDetail() {
             {eventTypeLabels[eventType]}
           </span>
           <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </button>
             {isAdmin && event.status === "active" && (
               <button
                 onClick={() => {
@@ -288,6 +296,10 @@ export default function EventDetail() {
           subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((event.tickets_sold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
         />
       </div>
+
+      {showEditModal && (
+        <EventEditModal event={event} onClose={() => setShowEditModal(false)} />
+      )}
 
       {/* Main tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
