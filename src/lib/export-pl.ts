@@ -176,8 +176,9 @@ export function exportPLToPDF(
   const contentWidth = pageWidth - marginLeft - marginRight;
   let y = 14;
 
-  const colWidths = [contentWidth * 0.40, contentWidth * 0.20, contentWidth * 0.20, contentWidth * 0.20];
-  const colX = [marginLeft, marginLeft + colWidths[0], marginLeft + colWidths[0] + colWidths[1], marginLeft + colWidths[0] + colWidths[1] + colWidths[2]];
+  const colWidths = [contentWidth * 0.28, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.16, contentWidth * 0.16, contentWidth * 0.16];
+  const colX = [marginLeft];
+  for (let i = 1; i < colWidths.length; i++) colX.push(colX[i - 1] + colWidths[i - 1]);
 
   function checkNewPage(needed: number) {
     if (y + needed > pageHeight - 20) {
@@ -193,9 +194,11 @@ export function exportPLToPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Rubrica", colX[0] + 2, y + 5.5);
-    doc.text("Previsto (€)", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text("Real (€)", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
-    doc.text("Variação (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text("Qtd", colX[1] + colWidths[1] - 2, y + 5.5, { align: "right" });
+    doc.text("Preço Unit.", colX[2] + colWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text("Previsto (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text("Real (€)", colX[4] + colWidths[4] - 2, y + 5.5, { align: "right" });
+    doc.text("Variação (€)", colX[5] + colWidths[5] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
   }
