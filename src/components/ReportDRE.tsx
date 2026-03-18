@@ -437,10 +437,11 @@ export default function ReportDRE() {
                         {dre.map((line, i) => {
                           const rowClass = line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
-                            : line.isTotal ? "bg-secondary/20" : "";
-                          const labelClass = `${line.indent ? "pl-8" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"}`;
+                            : line.isTotal ? "bg-secondary/20"
+                            : line.isGroupHeader ? "bg-secondary/10 border-t border-border/20" : "";
+                          const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
                           const valClass = (amt: number) =>
-                            `text-right font-mono ${line.isGrandTotal ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : "text-muted-foreground"}`;
+                            `text-right font-mono ${line.isGrandTotal ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
