@@ -495,13 +495,15 @@ export default function ReportPL() {
                     <p className="py-6 text-center text-sm text-muted-foreground">Sem previsões ou transações para este evento.</p>
                   ) : (
                     <Table>
-                      <TableHeader>
+                     <TableHeader>
                          <TableRow>
                           <TableHead>Rubrica</TableHead>
                           <TableHead className="text-right">Qtd</TableHead>
                           <TableHead className="text-right">Preço Unit. (€)</TableHead>
-                          <TableHead className="text-right">Previsto (€)</TableHead>
-                          {mode === "comparison" && <TableHead className="text-right">Real (€)</TableHead>}
+                          <TableHead className="text-right">Valor s/ IVA (€)</TableHead>
+                          <TableHead className="text-right">IVA (€)</TableHead>
+                          <TableHead className="text-right">Total (€)</TableHead>
+                          {mode === "comparison" && <TableHead className="text-right">Real s/ IVA (€)</TableHead>}
                           {mode === "comparison" && <TableHead className="text-right">Variação (€)</TableHead>}
                         </TableRow>
                       </TableHeader>
@@ -514,6 +516,12 @@ export default function ReportPL() {
                             : line.subIndent ? "bg-muted/10" : "";
                           const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-8" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : "text-sm"}`;
                           const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
+                          const ivaClass = `text-right font-mono text-xs ${line.isGrandTotal ? "font-bold" : line.isTotal ? "font-semibold" : "text-muted-foreground"}`;
+
+                          const showAbs = !line.isGrandTotal && !line.subIndent;
+                          const fBase = showAbs ? Math.abs(line.forecast) : line.forecast;
+                          const fIva = showAbs ? Math.abs(line.forecastIva) : line.forecastIva;
+                          const fTotal = showAbs ? Math.abs(line.forecastTotal) : line.forecastTotal;
 
                           return (
                             <TableRow key={i} className={rowClass}>
@@ -524,7 +532,9 @@ export default function ReportPL() {
                               <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
                               </TableCell>
-                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : (line.isGrandTotal ? formatCurrency(line.forecast) : formatCurrency(Math.abs(line.forecast)))}</TableCell>
+                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(fBase)}</TableCell>
+                              <TableCell className={ivaClass}>{line.subIndent ? "—" : formatCurrency(fIva)}</TableCell>
+                              <TableCell className={valClass}>{line.subIndent ? formatCurrency(line.forecast) : formatCurrency(fTotal)}</TableCell>
                               {mode === "comparison" && (
                                 <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
                               )}
