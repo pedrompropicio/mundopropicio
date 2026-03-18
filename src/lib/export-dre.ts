@@ -169,7 +169,8 @@ export function exportDREToExcel(
       ["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"],
     ];
     dre.forEach((line) => {
-      rows.push([line.indent ? `  ${line.label}` : line.label, line.amountExIva, line.ivaAmount, line.amountIncIva]);
+      const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+      rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
