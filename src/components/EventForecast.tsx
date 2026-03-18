@@ -780,6 +780,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
         {formatCurrency(Number(item.amount))}
       </td>
+      <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
+        {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+      </td>
+      <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+        {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
+      </td>
       <td className="py-2.5 text-right">
         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {isDraft && isAdmin && (
