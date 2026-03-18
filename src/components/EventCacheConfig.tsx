@@ -1,0 +1,472 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/lib/mock-data";
+import { Checkbox } from "@/components/ui/checkbox";
+
+interface Props {
+  eventId: string;
+  childEventIds?: string[];
+}
+
+export function EventCacheConfig({ eventId, childEventIds }: Props) {
+  const queryClient = useQueryClient();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Form state
+  const [artistName, setArtistName] = useState("");
+  const [cacheType, setCacheType] = useState<"fixed" | "variable">("fixed");
+  const [fixedAmount, setFixedAmount] = useState("");
+  const [percentage, setPercentage] = useState("");
+
+  // Fetch cache configs
+  const { data: cacheConfigs = [], isLoading } = useQuery({
+    queryKey: ["event_cache_configs", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_cache_configs" as any)
+        .select("*")
+        .eq("event_id", eventId)
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Fetch deductions for all configs
+  const configIds = cacheConfigs.map((c: any) => c.id);
+  const { data: deductions = [] } = useQuery({
+    queryKey: ["event_cache_deductions", configIds.join(",")],
+    queryFn: async () => {
+      if (configIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_cache_deductions" as any)
+        .select("*")
+        .in("cache_config_id", configIds);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: configIds.length > 0,
+  });
+
+  // Fetch expense categories (for deduction selection)
+  const { data: categories = [] } = useQuery({
+    queryKey: ["account_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("code");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch ticket data for revenue calculation
+  const ticketEventIds = [eventId, ...(childEventIds || [])];
+  const { data: ticketZones = [] } = useQuery({
+    queryKey: ["event_ticket_zones", eventId, childEventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_zones").select("id").in("event_id", ticketEventIds);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["event_ticket_lots_for_pl", eventId],
+    queryFn: async () => {
+      const zoneIds = ticketZones.map((z) => z.id);
+      if (zoneIds.length === 0) return [];
+      const { data, error } = await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: ticketZones.length > 0,
+  });
+
+  // Fetch forecasts to calculate deduction amounts
+  const { data: forecasts = [] } = useQuery({
+    queryKey: ["event_forecasts", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name, type)")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Calculate net ticket revenue (sem IVA)
+  const ticketRevenueNet = useMemo(() => {
+    return ticketLots.reduce((s, l) => {
+      const rate = Number((l as any).iva_rate ?? 6);
+      return s + l.quantity * (Number(l.price) / (1 + rate / 100));
+    }, 0);
+  }, [ticketLots]);
+
+  // Expense categories (level 3 only - detail accounts)
+  const expenseDetailCategories = useMemo(() => {
+    return categories.filter((c) => c.type === "expense" && c.parent_id !== null);
+  }, [categories]);
+
+  // Get deductions for a specific config
+  const getDeductionsForConfig = (configId: string) => {
+    return deductions.filter((d: any) => d.cache_config_id === configId);
+  };
+
+  // Calculate deduction amount for a config
+  const calculateDeductionAmount = (configId: string) => {
+    const configDeductions = getDeductionsForConfig(configId);
+    const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
+
+    // Sum forecasts that match deduction categories
+    return forecasts
+      .filter((f) => f.type === "expense" && deductionCategoryIds.includes(f.category_id))
+      .reduce((s, f) => s + Number(f.amount), 0); // amount is already sem IVA
+  };
+
+  // Calculate variable cachê
+  const calculateVariableCache = (config: any) => {
+    const deductionAmount = calculateDeductionAmount(config.id);
+    const baseForCalc = ticketRevenueNet - deductionAmount;
+    const pct = Number(config.percentage) || 0;
+    return Math.max(0, baseForCalc * (pct / 100));
+  };
+
+  // Add config
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("event_cache_configs" as any).insert({
+        event_id: eventId,
+        artist_name: artistName,
+        cache_type: cacheType,
+        fixed_amount: cacheType === "fixed" ? (parseFloat(fixedAmount) || 0) : 0,
+        percentage: cacheType === "variable" ? (parseFloat(percentage) || 0) : 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      toast({ title: "Cachê adicionado!" });
+      resetForm();
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("event_cache_configs" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_deductions"] });
+      toast({ title: "Cachê removido" });
+    },
+  });
+
+  // Toggle deduction category
+  const toggleDeductionMutation = useMutation({
+    mutationFn: async ({ configId, categoryId, add }: { configId: string; categoryId: string; add: boolean }) => {
+      if (add) {
+        const { error } = await supabase.from("event_cache_deductions" as any).insert({
+          cache_config_id: configId,
+          category_id: categoryId,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("event_cache_deductions" as any)
+          .delete()
+          .eq("cache_config_id", configId)
+          .eq("category_id", categoryId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_deductions"] });
+    },
+  });
+
+  const resetForm = () => {
+    setArtistName("");
+    setCacheType("fixed");
+    setFixedAmount("");
+    setPercentage("");
+    setShowAddForm(false);
+  };
+
+  const handleAdd = () => {
+    if (!artistName) {
+      toast({ title: "Informe o nome da atração", variant: "destructive" });
+      return;
+    }
+    addMutation.mutate();
+  };
+
+  const totalCache = useMemo(() => {
+    return cacheConfigs.reduce((total: number, config: any) => {
+      if (config.cache_type === "fixed") {
+        return total + Number(config.fixed_amount);
+      } else {
+        return total + calculateVariableCache(config);
+      }
+    }, 0);
+  }, [cacheConfigs, ticketRevenueNet, forecasts, deductions]);
+
+  const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
+
+  return (
+    <div className="glass rounded-xl p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Music className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cachê das Atrações</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            Total: <span className="font-mono font-bold text-foreground">{formatCurrency(totalCache)}</span>
+          </span>
+          <button
+            onClick={() => setShowAddForm(true)}
+            disabled={showAddForm}
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar Atração
+          </button>
+        </div>
+      </div>
+
+      {/* Add form */}
+      {showAddForm && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-foreground">Nova Atração</span>
+            <button onClick={resetForm} className="rounded p-1 hover:bg-secondary">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome da Atração *</label>
+            <input
+              value={artistName}
+              onChange={(e) => setArtistName(e.target.value)}
+              className={inputClass}
+              placeholder="Ex: Artista Principal"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-medium text-muted-foreground">Tipo de Cachê</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setCacheType("fixed")}
+                className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                  cacheType === "fixed"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                <DollarSign className="h-3.5 w-3.5 mb-1" />
+                <span className="block font-semibold">Cachê Fixo</span>
+                <span className="block text-[10px] opacity-70 mt-0.5">Valor definido manualmente</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCacheType("variable")}
+                className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                  cacheType === "variable"
+                    ? "border-warning bg-warning/10 text-warning"
+                    : "border-border bg-background text-muted-foreground hover:border-warning/40"
+                }`}
+              >
+                <Percent className="h-3.5 w-3.5 mb-1" />
+                <span className="block font-semibold">Cachê Variável</span>
+                <span className="block text-[10px] opacity-70 mt-0.5">% sobre receita líquida</span>
+              </button>
+            </div>
+          </div>
+
+          {cacheType === "fixed" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor do Cachê (€)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={fixedAmount}
+                onChange={(e) => setFixedAmount(e.target.value)}
+                className={inputClass}
+                placeholder="0.00"
+              />
+            </div>
+          )}
+
+          {cacheType === "variable" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Percentual (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={percentage}
+                onChange={(e) => setPercentage(e.target.value)}
+                className={inputClass}
+                placeholder="Ex: 15"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                <Info className="inline h-3 w-3 mr-0.5" />
+                Após adicionar, configure os descontos na cabeça (despesas a subtrair da receita antes do cálculo).
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={handleAdd}
+            disabled={addMutation.isPending}
+            className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50"
+          >
+            {addMutation.isPending ? "A guardar…" : "Adicionar Cachê"}
+          </button>
+        </div>
+      )}
+
+      {/* Configs list */}
+      {isLoading ? (
+        <p className="text-center text-xs text-muted-foreground py-4">A carregar…</p>
+      ) : cacheConfigs.length === 0 && !showAddForm ? (
+        <p className="text-center text-xs text-muted-foreground py-6">Nenhum cachê configurado para este evento.</p>
+      ) : (
+        <div className="space-y-2">
+          {cacheConfigs.map((config: any) => {
+            const isVariable = config.cache_type === "variable";
+            const isExpanded = expandedId === config.id;
+            const configDeductions = getDeductionsForConfig(config.id);
+            const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
+            const deductionAmount = isVariable ? calculateDeductionAmount(config.id) : 0;
+            const variableValue = isVariable ? calculateVariableCache(config) : 0;
+            const displayValue = isVariable ? variableValue : Number(config.fixed_amount);
+
+            return (
+              <div key={config.id} className="rounded-lg border border-border bg-background overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center gap-3 p-3">
+                  <Music className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold truncate">{config.artist_name}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        isVariable
+                          ? "bg-warning/15 text-warning"
+                          : "bg-primary/15 text-primary"
+                      }`}>
+                        {isVariable ? `Variável · ${config.percentage}%` : "Fixo"}
+                      </span>
+                    </div>
+                    {isVariable && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Receita s/ IVA ({formatCurrency(ticketRevenueNet)})
+                        {deductionAmount > 0 && ` − Descontos (${formatCurrency(deductionAmount)})`}
+                        {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - deductionAmount))}`}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-sm shrink-0">{formatCurrency(displayValue)}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isVariable && (
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : config.id)}
+                        className="rounded p-1.5 hover:bg-secondary transition-colors"
+                        title="Configurar descontos"
+                      >
+                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (confirm(`Remover cachê de "${config.artist_name}"?`)) {
+                          deleteMutation.mutate(config.id);
+                        }
+                      }}
+                      className="rounded p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Deductions panel (variable only) */}
+                {isVariable && isExpanded && (
+                  <div className="border-t border-border bg-muted/30 p-3 space-y-2 animate-fade-in">
+                    <div className="flex items-center gap-1.5">
+                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Descontos na Cabeça — Selecione as contas de despesa a subtrair da receita
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {expenseDetailCategories.map((cat) => {
+                        const isChecked = deductionCategoryIds.has(cat.id);
+                        // Find forecast amount for this category
+                        const forecastAmount = forecasts
+                          .filter((f) => f.type === "expense" && f.category_id === cat.id)
+                          .reduce((s, f) => s + Number(f.amount), 0);
+
+                        return (
+                          <label
+                            key={cat.id}
+                            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer hover:bg-background transition-colors ${
+                              isChecked ? "bg-background" : ""
+                            }`}
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                toggleDeductionMutation.mutate({
+                                  configId: config.id,
+                                  categoryId: cat.id,
+                                  add: !!checked,
+                                });
+                              }}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="flex-1 text-foreground">
+                              <span className="text-muted-foreground">{cat.code}</span> {cat.name}
+                            </span>
+                            {forecastAmount > 0 && (
+                              <span className="font-mono text-muted-foreground">{formatCurrency(forecastAmount)}</span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {configDeductions.length > 0 && (
+                      <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {configDeductions.length} conta(s) selecionada(s)
+                        </span>
+                        <span className="font-mono font-semibold text-warning">
+                          − {formatCurrency(deductionAmount)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

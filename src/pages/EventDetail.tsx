@@ -8,6 +8,7 @@ import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
+import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -351,6 +352,7 @@ export default function EventDetail() {
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
+          <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
         </TabsList>
 
@@ -502,6 +504,13 @@ export default function EventDetail() {
               <EventTicketing eventId={selectedSubEvent || event.id} />
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="cache">
+          <EventCacheConfig
+            eventId={selectedSubEvent || event.id}
+            childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined}
+          />
         </TabsContent>
 
         <TabsContent value="forecast">
