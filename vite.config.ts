@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico"],
       manifest: {
-        name: "EventFin - Gestão Financeira de Eventos",
-        short_name: "EventFin",
+        name: "Mundo Propício - Gestão Financeira de Eventos",
+        short_name: "Mundo Propício",
         description: "Gestão financeira para empresas de eventos, concertos e festivais em Portugal",
         theme_color: "#7c3aed",
         background_color: "#0f1117",
