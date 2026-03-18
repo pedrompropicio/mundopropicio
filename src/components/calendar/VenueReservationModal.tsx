@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ interface VenueReservationModalProps {
 
 export function VenueReservationModal({ open, onOpenChange, defaultDate }: VenueReservationModalProps) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
   const [date, setDate] = useState(defaultDate || new Date().toISOString().slice(0, 10));
   const [cityId, setCityId] = useState("");
   const [venueId, setVenueId] = useState("");
@@ -56,21 +56,19 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
     setSaving(true);
     try {
       const selectedVenue = venues.find((v) => v.id === venueId);
-      const { error } = await supabase.from("events").insert({
-        name: name.trim() || `Reserva — ${selectedVenue?.name || "Sala"}`,
+      const { error } = await supabase.from("venue_reservations").insert({
         date,
         venue_id: venueId,
         city_id: cityId || selectedVenue?.city_id || null,
-        status: "planning",
-        event_type: "simple",
+        notes: notes.trim() || null,
       });
       if (error) throw error;
 
       toast.success("Reserva de sala criada com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["venue-reservations"] });
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
-      queryClient.invalidateQueries({ queryKey: ["events"] });
       onOpenChange(false);
-      setName("");
+      setNotes("");
       setVenueId("");
       setCityId("");
     } catch (err: any) {
@@ -125,11 +123,11 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
           </div>
 
           <div className="space-y-2">
-            <Label>Nome do Evento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+            <Label>Notas <span className="text-muted-foreground font-normal">(opcional)</span></Label>
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Deixe em branco se ainda não definido"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: aguardar confirmação de disponibilidade"
             />
           </div>
 
