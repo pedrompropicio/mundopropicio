@@ -18,6 +18,7 @@ import AccountCategories from "./pages/AccountCategories";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import TicketManagement from "./pages/TicketManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
