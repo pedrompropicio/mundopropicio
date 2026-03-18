@@ -338,6 +338,32 @@ export function EventForecast({ eventId, eventDate }: Props) {
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income");
   const expenseForecasts = forecasts.filter((f) => f.type === "expense");
+
+  // Build hierarchy lookup for grouping
+  const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
+
+  // Group forecasts by L2 parent category
+  const groupForecasts = (items: any[]) => {
+    const groups: { groupName: string; groupCode: string; items: any[] }[] = [];
+    const groupMap: Record<string, { groupName: string; groupCode: string; items: any[] }> = {};
+
+    items.forEach((item) => {
+      const info = catLookup[item.category_id];
+      const groupName = info?.groupName ?? "Sem categoria";
+      const groupCode = info?.groupCode ?? "Z";
+      if (!groupMap[groupName]) {
+        groupMap[groupName] = { groupName, groupCode, items: [] };
+        groups.push(groupMap[groupName]);
+      }
+      groupMap[groupName].items.push(item);
+    });
+
+    return groups.sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+  };
+
+  const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
+  const expenseGroups = useMemo(() => groupForecasts(expenseForecasts), [expenseForecasts, catLookup]);
+
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
