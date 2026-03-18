@@ -24,11 +24,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFor
 
   const createMutation = useMutation({
     mutationFn: async (supplier: {
-      name: string; nif?: string; contact_name?: string; email?: string;
+      name: string; trade_name?: string; nif?: string; contact_name?: string; email?: string;
       phone?: string; address?: string; iban?: string; swift_bic?: string;
       payment_terms?: string; category?: string; notes?: string;
     }) => {
-      const { data, error } = await supabase.from("suppliers").insert(supplier).select("id").single();
+      const { data, error } = await supabase.from("suppliers").insert(supplier as any).select("id").single();
       if (error) throw error;
       return data;
     },
