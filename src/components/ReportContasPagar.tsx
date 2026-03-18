@@ -329,6 +329,8 @@ export default function ReportContasPagar() {
       <div className="glass rounded-xl p-5">
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
+        ) : !hasSearched ? (
+          <p className="py-8 text-center text-muted-foreground">Selecione os filtros e clique em "Consultar" para ver os resultados.</p>
         ) : filtered.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground">Nenhuma conta a pagar encontrada com os filtros selecionados.</p>
         ) : (
