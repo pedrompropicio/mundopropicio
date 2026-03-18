@@ -141,13 +141,12 @@ export function getQuarterLabel(q: number, year: number): string {
 }
 
 export function formatCurrency(value: number): string {
-  const formatted = value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  const [intPart, decPart] = formatted.split(".");
-  // Re-split: last part is decimals
-  const parts = formatted.split(".");
-  const decimals = parts.pop()!;
-  const integer = parts.join(".");
-  return `${integer},${decimals} €`;
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  const fixed = abs.toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const withDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${sign}${withDots},${decPart} €`;
 }
 
 export function formatCurrencyDecimal(value: number): string {
