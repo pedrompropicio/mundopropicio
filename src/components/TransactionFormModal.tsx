@@ -111,6 +111,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (form.type === "income" && !form.account_id) {
+      toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
+      return;
+    }
     createMutation.mutate(form);
   };
 
