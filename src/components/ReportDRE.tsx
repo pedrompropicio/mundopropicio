@@ -211,7 +211,7 @@ export default function ReportDRE() {
 
   const toggleAll = () => {
     setSelectedEventIds((prev) =>
-      prev.length === events.length ? [] : events.map((e) => e.id)
+      prev.length === eventsWithTransactions.length ? [] : eventsWithTransactions.map((e) => e.id)
     );
   };
 
