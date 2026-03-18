@@ -372,9 +372,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
             return (
               <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas
-                </p>
+                <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
+                </button>
                 <div className="max-h-40 overflow-y-auto">
                   <table className="w-full text-[11px]">
                     <thead>
