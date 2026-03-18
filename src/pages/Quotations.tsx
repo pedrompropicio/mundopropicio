@@ -65,10 +65,29 @@ export default function Quotations() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase.from("quotations").update({ status }).eq("id", id);
       if (error) throw error;
+
+      // When approved, create a transaction from the quotation
+      if (status === "approved") {
+        const quotation = quotations.find((q) => q.id === id);
+        if (quotation) {
+          const { error: txError } = await supabase.from("transactions").insert({
+            event_id: quotation.event_id,
+            supplier_id: quotation.supplier_id,
+            description: quotation.description,
+            amount: quotation.amount,
+            iva_rate: quotation.iva_rate,
+            type: "expense",
+            date: new Date().toISOString().split("T")[0],
+            status: "pending",
+          });
+          if (txError) throw txError;
+        }
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["quotations"] });
-      toast.success("Estado atualizado");
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success(status === "approved" ? "Cotação aprovada e transação criada" : "Estado atualizado");
     },
   });
 
