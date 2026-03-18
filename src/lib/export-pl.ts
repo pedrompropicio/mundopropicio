@@ -554,7 +554,7 @@ export function exportPLToExcel(
 }
 
 export function exportPLToPDF(
-  events: any[], forecasts: any[], transactions: any[], categories: any[],
+  eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
 ) {
@@ -566,8 +566,8 @@ export function exportPLToPDF(
   const contentWidth = pageWidth - marginLeft - marginRight;
   let y = 14;
   const isComparison = mode === "comparison";
+  const hierarchy = buildEventHierarchyMaps(allEvents);
 
-  // Columns: Rubrica | Qtd | Preço Unit. | Valor s/IVA | IVA | Total | [Real s/IVA | IVA Real | Total Real | Variação]
   const colWidths = isComparison
     ? [contentWidth * 0.18, contentWidth * 0.06, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.11, contentWidth * 0.08, contentWidth * 0.11, contentWidth * 0.08]
     : [contentWidth * 0.30, contentWidth * 0.10, contentWidth * 0.14, contentWidth * 0.18, contentWidth * 0.12, contentWidth * 0.16];
@@ -607,7 +607,6 @@ export function exportPLToPDF(
     return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
   }
 
-  // Logo + title (only once at the top of the first page)
   try {
     doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
     y += 28;
@@ -626,20 +625,17 @@ export function exportPLToPDF(
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  // Per-event
-  events.forEach((evt, evtIdx) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt, evtIdx) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
-
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
 
     if (evtIdx > 0) {
       doc.addPage();
       y = 14;
     }
 
-    // Event header bar (no duplicate logo)
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
@@ -703,7 +699,6 @@ export function exportPLToPDF(
       const showAbs = !line.isGrandTotal;
       doc.text(fmtVal(showAbs ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
-      // Forecast IVA & Total columns
       if (!line.subIndent && !line.isSubTotal && !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.indent) {
         doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
@@ -713,14 +708,14 @@ export function exportPLToPDF(
       }
 
       if (isComparison) {
-          doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
-          doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
-          doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
-          const v = line.variance;
-          if (line.isGrandTotal || line.isTotal) {
-            doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
-          }
-          doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.actual) : line.actual), colX[6] + colWidths[6] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.actualIva) : line.actualIva), colX[7] + colWidths[7] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(showAbs ? Math.abs(line.actualTotal) : line.actualTotal), colX[8] + colWidths[8] - 2, y + 4, { align: "right" });
+        const v = line.variance;
+        if (line.isGrandTotal || line.isTotal) {
+          doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
+        }
+        doc.text((v >= 0 ? "+" : "") + fmtVal(v), colX[9] + colWidths[9] - 2, y + 4, { align: "right" });
       }
       doc.setTextColor(0, 0, 0);
 
@@ -730,7 +725,6 @@ export function exportPLToPDF(
     y += 8;
   });
 
-  // Global summary page
   doc.addPage();
   y = 14;
 
@@ -740,18 +734,22 @@ export function exportPLToPDF(
   y += 10;
 
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualRevNet = 0;
+    let ticketForecastNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
         const ivaRate = Number(lot.iva_rate ?? 6);
         const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        evtFInc += netPrice * Number(lot.quantity);
+        const lotForecastNet = netPrice * Number(lot.quantity);
+        evtFInc += lotForecastNet;
+        ticketForecastNet += lotForecastNet;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualRevNet += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -759,8 +757,14 @@ export function exportPLToPDF(
         }, 0);
       });
     });
+    const totalCache = calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      ticketForecastNet,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    ).reduce((sum, line) => sum + line.amount, 0);
     gFInc += evtFInc;
-    gFExp += evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    gFExp += evtFExpBase + totalCache;
     gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0) + ticketActualRevNet;
     gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
   });
@@ -782,21 +786,24 @@ export function exportPLToPDF(
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  events.forEach((evt) => {
-    const evtF = forecasts.filter((f: any) => f.event_id === evt.id);
-    const evtT = transactions.filter((t: any) => t.event_id === evt.id);
+  eventsToExport.forEach((evt) => {
+    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === evt.id);
+    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualNet = 0;
+    let ticketForecastNet = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
         const ivaRate = Number(lot.iva_rate ?? 6);
         const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        evtFInc += netPrice * Number(lot.quantity);
+        const lotForecastNet = netPrice * Number(lot.quantity);
+        evtFInc += lotForecastNet;
+        ticketForecastNet += lotForecastNet;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -804,6 +811,12 @@ export function exportPLToPDF(
         }, 0);
       });
     });
+    const evtFExp = evtFExpBase + calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      ticketForecastNet,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    ).reduce((sum, line) => sum + line.amount, 0);
     const fResult = evtFInc - evtFExp;
     const tResult = (evtTInc + ticketActualNet) - evtTExp;
 
@@ -822,7 +835,6 @@ export function exportPLToPDF(
     y += 7;
   });
 
-  // Totals row
   y += 2;
   doc.setFillColor(230, 240, 255);
   doc.rect(marginLeft, y - 1, contentWidth, 9, "F");
@@ -841,7 +853,6 @@ export function exportPLToPDF(
   }
   doc.setTextColor(0, 0, 0);
 
-  // Footer
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
