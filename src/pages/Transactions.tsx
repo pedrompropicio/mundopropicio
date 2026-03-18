@@ -175,9 +175,7 @@ export default function Transactions() {
   const handleBulkApprove = () => {
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
-    if (confirm(`Aprovar ${ids.length} transação(ões)? Após aprovação, os valores não podem ser alterados.`)) {
-      bulkApproveMutation.mutate(ids);
-    }
+    bulkApproveMutation.mutate(ids);
   };
 
   const editingTransaction = transactions.find((t) => t.id === editingId);
@@ -336,17 +334,13 @@ export default function Transactions() {
                     eventCompleted={(t.events as any)?.status === "completed"}
                     onEdit={(id) => setEditingId(id)}
                     onApprove={(id) => {
-                      if (confirm("Aprovar esta transação? Após aprovação, o valor não pode ser alterado.")) {
-                        approveMutation.mutate(id);
-                      }
+                      approveMutation.mutate(id);
                     }}
                     onPayment={(id) => setShowPaymentId(id)}
                     onDocs={(id) => setShowDocsId(id)}
                     onAudit={(id) => setShowAuditId(id)}
                     onDelete={(id) => {
-                      if (confirm("Eliminar esta transação? Esta ação não pode ser desfeita.")) {
-                        deleteMutation.mutate(id);
-                      }
+                      deleteMutation.mutate(id);
                     }}
                   />
                 ))}
