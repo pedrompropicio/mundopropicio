@@ -240,6 +240,13 @@ export function EventForecast({ eventId, eventDate }: Props) {
           .eq("id", forecast.id);
         if (updateError) throw updateError;
       }
+
+      // Update event status to "execution" on approval
+      await supabase
+        .from("events")
+        .update({ status: "execution" })
+        .eq("id", eventId)
+        .in("status", ["planning", "confirmed"]);
     },
     onSuccess: (_, items) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
