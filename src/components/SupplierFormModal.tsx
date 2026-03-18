@@ -15,7 +15,27 @@ interface SupplierFormModalProps {
 }
 
 export function SupplierFormModal({ open, onOpenChange, onCreated }: SupplierFormModalProps) {
+  const [categoryValue, setCategoryValue] = useState("");
   const queryClient = useQueryClient();
+
+  const { data: accountCategories = [] } = useQuery({
+    queryKey: ["account_categories_expense"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("id, name, code, type, parent_id")
+        .eq("is_active", true)
+        .eq("type", "expense")
+        .order("code");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const categoryOptions = accountCategories.map(c => ({
+    value: c.name,
+    label: `${c.code} - ${c.name}`,
+  }));
 
   const createMutation = useMutation({
     mutationFn: async (supplier: {
