@@ -293,8 +293,7 @@ export default function ReportContasPagar() {
                   <th className="pb-3 text-left font-medium hidden md:table-cell">Fornecedor</th>
                   <th className="pb-3 text-center font-medium hidden lg:table-cell">IVA</th>
                   <th className="pb-3 text-left font-medium">Estado</th>
-                  <th className="pb-3 text-left font-medium">Data</th>
-                  <th className="pb-3 text-left font-medium hidden lg:table-cell">Vencimento</th>
+                  <th className="pb-3 text-left font-medium">Data Vcto</th>
                   <th className="pb-3 text-right font-medium">Pago</th>
                   <th className="pb-3 text-right font-medium">Valor c/IVA</th>
                   <th className="pb-3 text-right font-medium">Saldo</th>
