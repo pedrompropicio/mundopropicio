@@ -320,13 +320,15 @@ export function exportPLToPDF(
         doc.text(fmtVal(line.unitPrice), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
       }
 
-      doc.text(fmtVal(Math.abs(line.forecast)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      const showAbsForecast = !line.isGrandTotal;
+      doc.text(fmtVal(showAbsForecast ? Math.abs(line.forecast) : line.forecast), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
 
       if (line.subIndent) {
         doc.text("—", colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         doc.text("—", colX[5] + colWidths[5] - 2, y + 4, { align: "right" });
       } else {
-        doc.text(fmtVal(Math.abs(line.actual)), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
+        const showAbsActual = !line.isGrandTotal;
+        doc.text(fmtVal(showAbsActual ? Math.abs(line.actual) : line.actual), colX[4] + colWidths[4] - 2, y + 4, { align: "right" });
         const v = line.variance;
         if (line.isGrandTotal || line.isTotal) {
           doc.setTextColor(v >= 0 ? 34 : 200, v >= 0 ? 139 : 50, v >= 0 ? 34 : 50);
