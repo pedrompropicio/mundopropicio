@@ -371,13 +371,22 @@ export default function ReportPL() {
     return { evtF, evtT };
   }
 
+  // Helper: get all event IDs relevant for ticket data (self + children for parent events)
+  const getTicketEventIds = (eventId: string): string[] => {
+    const ids = [eventId];
+    const children = childrenByParent[eventId];
+    if (children) ids.push(...children);
+    return ids;
+  };
+
   const eventSummaries = activeEvents.map((e) => {
     const { evtF, evtT } = getEffectiveData(e.id);
     const fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtZones = ticketZones.filter((z: any) => z.event_id === e.id);
+    const ticketEventIds = getTicketEventIds(e.id);
+    const evtZones = ticketZones.filter((z: any) => ticketEventIds.includes(z.event_id));
     let ticketRev = 0;
     let ticketActualRev = 0;
     evtZones.forEach((zone: any) => {
