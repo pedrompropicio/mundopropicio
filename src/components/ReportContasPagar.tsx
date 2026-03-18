@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportContasPagarToExcel, exportContasPagarToPDF } from "@/lib/export-contas-pagar";
-import { FileSpreadsheet, FileText, Filter } from "lucide-react";
+import { FileSpreadsheet, FileText, Filter, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
