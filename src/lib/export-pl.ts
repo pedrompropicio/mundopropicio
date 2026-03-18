@@ -209,6 +209,7 @@ function buildPLForExport(
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
       }
+    }
   });
   lines.push(pl({
     label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
