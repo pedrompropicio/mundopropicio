@@ -5,7 +5,10 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, Download, BarChart3 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
+
+export type PLMode = "forecast" | "comparison";
 
 interface PLLine {
   label: string;
