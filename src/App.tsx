@@ -25,6 +25,8 @@ import ReportPLPage from "./pages/ReportPLPage";
 import ReportBankStatementPage from "./pages/ReportBankStatementPage";
 import ReportContasPagarPage from "./pages/ReportContasPagarPage";
 import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
+import ReportSuppliersPage from "./pages/ReportSuppliersPage";
+import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +77,8 @@ function ProtectedLayout() {
                 <Route path="extrato" element={<ReportBankStatementPage />} />
                 <Route path="contas-pagar" element={<ReportContasPagarPage />} />
                 <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
+                <Route path="fornecedores" element={<ReportSuppliersPage />} />
+                <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
               </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="*" element={<NotFound />} />
