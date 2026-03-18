@@ -83,7 +83,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         type: data.type,
         amount: parseFloat(data.amount),
         iva_rate: data.iva_rate,
-        event_id: data.event_id,
+        event_id: data.event_id || null,
         category_id: data.category_id || null,
         supplier_id: data.supplier_id || null,
         account_id: data.account_id || null,
