@@ -186,12 +186,45 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
+
+    // P&L Ativo validations
+    if (isActivePL && form.event_id) {
+      if (!form.category_id) {
+        toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
+        return;
+      }
+      if (!allowedCategoryIds.includes(form.category_id)) {
+        toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
+        return;
+      }
+      const budgetKey = `${form.type}_${form.category_id}`;
+      const forecast = forecastBudgetByCategory[budgetKey] || 0;
+      const used = usedBudgetByCategory[budgetKey] || 0;
+      const newAmount = parseFloat(form.amount) || 0;
+      const remaining = forecast - used;
+      if (newAmount > remaining) {
+        toast({
+          title: "Saldo insuficiente no P&L",
+          description: `Orçamento: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     createMutation.mutate(form);
   };
 
-  const filteredCategories = categories.filter((c) =>
-    form.type === "income" ? c.type === "income" : c.type === "expense"
-  );
+  // Filter categories - for active P&L, only show categories in the forecast
+  const filteredCategories = categories.filter((c) => {
+    const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
+    if (!typeMatch) return false;
+    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
+      return allowedCategoryIds.includes(c.id);
+    }
+    return true;
+  });
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
