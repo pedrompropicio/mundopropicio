@@ -34,7 +34,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         new_value: String(newPaid),
       });
 
-      const newStatus = newPaid >= amount ? "paid" : "pending";
+      const newStatus = newPaid >= amount ? "paid" : "approved";
       const { error } = await supabase
         .from("transactions")
         .update({ paid_amount: newPaid, status: newStatus })
