@@ -24,6 +24,7 @@ import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
 import ReportPLPage from "./pages/ReportPLPage";
 import ReportBankStatementPage from "./pages/ReportBankStatementPage";
+import ReportCashFlowPage from "./pages/ReportCashFlowPage";
 import ReportContasPagarPage from "./pages/ReportContasPagarPage";
 import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
 import ReportSuppliersPage from "./pages/ReportSuppliersPage";
