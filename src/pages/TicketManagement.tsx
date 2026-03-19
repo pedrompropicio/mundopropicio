@@ -152,8 +152,31 @@ export default function TicketManagement() {
     },
   });
 
+  const getZoneCapacityValidation = async (zoneId: string, currentLotId?: string | null) => {
+    const [{ data: zone, error: zoneError }, { data: zoneLots, error: lotsError }] = await Promise.all([
+      supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("id", zoneId).single(),
+      supabase.from("event_ticket_lots").select("id, quantity, lot_number").eq("zone_id", zoneId),
+    ]);
+
+    if (zoneError) throw zoneError;
+    if (lotsError) throw lotsError;
+    if (!zone) throw new Error("Zona não encontrada.");
+
+    const filteredLots = (zoneLots ?? []).filter((lot) => lot.id !== currentLotId);
+    const allocatedQuantity = filteredLots.reduce((sum, lot) => sum + Number(lot.quantity), 0);
+
+    return { zone, zoneLots: zoneLots ?? [], allocatedQuantity };
+  };
+
   const updateLotMutation = useMutation({
-    mutationFn: async ({ id, quantity, price }: { id: string; quantity: number; price: number }) => {
+    mutationFn: async ({ id, zoneId, quantity, price }: { id: string; zoneId: string; quantity: number; price: number }) => {
+      const { zone, allocatedQuantity } = await getZoneCapacityValidation(zoneId, id);
+
+      if (zone.total_capacity > 0 && allocatedQuantity + quantity > zone.total_capacity) {
+        const remaining = Math.max(zone.total_capacity - allocatedQuantity, 0);
+        throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} lugares. Restam ${remaining.toLocaleString()} disponíveis.`);
+      }
+
       const { error } = await supabase.from("event_ticket_lots").update({ quantity, price }).eq("id", id);
       if (error) throw error;
     },
@@ -163,11 +186,18 @@ export default function TicketManagement() {
       toast({ title: "Lote atualizado!" });
       setEditingLotId(null);
     },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
   const addLotMutation = useMutation({
     mutationFn: async ({ zoneId, name, quantity, price }: { zoneId: string; name: string; quantity: number; price: number }) => {
-      const zoneLots = lots.filter((l) => l.zone_id === zoneId);
+      const { zone, zoneLots, allocatedQuantity } = await getZoneCapacityValidation(zoneId);
+
+      if (zone.total_capacity > 0 && allocatedQuantity + quantity > zone.total_capacity) {
+        const remaining = Math.max(zone.total_capacity - allocatedQuantity, 0);
+        throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} lugares. Restam ${remaining.toLocaleString()} disponíveis.`);
+      }
+
       const { error } = await supabase.from("event_ticket_lots").insert({
         zone_id: zoneId,
         name,
@@ -183,6 +213,7 @@ export default function TicketManagement() {
       setAddingLotZoneId(null);
       setNewLotForm({ name: "", quantity: "", price: "" });
     },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
   const addZoneMutation = useMutation({
@@ -452,7 +483,7 @@ export default function TicketManagement() {
                                   <div className="flex justify-end gap-1">
                                     {isEditingThis ? (
                                       <>
-                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
+                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
                                           Salvar
                                         </Button>
                                         <Button size="sm" variant="ghost" onClick={() => setEditingLotId(null)}>Cancelar</Button>
