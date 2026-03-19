@@ -47,8 +47,16 @@ export function EventTicketing({ eventId }: Props) {
 
   useEffect(() => {
     if ((addingZone || editingZoneId) && zoneNameRef.current) {
-      // Use setTimeout to ensure DOM is fully ready
-      setTimeout(() => zoneNameRef.current?.focus(), 100);
+      // Multiple attempts to ensure focus works in all contexts
+      const attempts = [50, 150, 300];
+      attempts.forEach(delay => {
+        setTimeout(() => {
+          if (zoneNameRef.current) {
+            zoneNameRef.current.focus();
+            zoneNameRef.current.click();
+          }
+        }, delay);
+      });
     }
   }, [addingZone, editingZoneId]);
 
