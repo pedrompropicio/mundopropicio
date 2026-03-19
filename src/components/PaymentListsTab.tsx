@@ -390,6 +390,28 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   );
 }
 
+/* ─── Copy Line Helper ─── */
+function CopyLine({ label, value, mono, bold }: { label: string; value: string; mono?: boolean; bold?: boolean }) {
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      toast({ title: "Copiado!", description: `${label}: ${value}` });
+    });
+  };
+  return (
+    <p className="flex items-center gap-1.5 group">
+      <span className="font-medium text-muted-foreground">{label}:</span>
+      <span className={`${mono ? "font-mono text-xs" : ""} ${bold ? "font-semibold" : ""}`}>{value}</span>
+      <button
+        onClick={handleCopy}
+        className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 text-muted-foreground hover:text-foreground"
+        title={`Copiar ${label}`}
+      >
+        <Copy className="h-3 w-3" />
+      </button>
+    </p>
+  );
+}
+
 /* ─── View Payment List Details ─── */
 function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
