@@ -28,13 +28,14 @@ interface CalendarEvent {
 interface AnnualViewProps {
   events: CalendarEvent[];
   currentYear: number;
+  onMonthClick?: (month: number) => void;
 }
 
 function formatDateStr(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-export function AnnualView({ events, currentYear }: AnnualViewProps) {
+export function AnnualView({ events, currentYear, onMonthClick }: AnnualViewProps) {
   const todayStr = useMemo(() => {
     const t = new Date();
     return formatDateStr(t.getFullYear(), t.getMonth(), t.getDate());
