@@ -74,6 +74,14 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
+      // Check account balance for expenses
+      if (transaction.type === "expense") {
+        const accBalance = computeAccountBalance(accountId);
+        if (addAmount > accBalance) {
+          throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
+        }
+      }
+
       await supabase.from("transaction_audit_log").insert({
         transaction_id: transaction.id,
         changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
