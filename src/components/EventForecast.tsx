@@ -191,16 +191,19 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
 
   const saveMutation = useMutation({
-    mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
+    mutationFn: async ({ form, id, computedAmount }: { form: InlineForm; id: string | null; computedAmount?: number }) => {
+      const finalAmount = form.formula_type !== "fixed" && computedAmount != null ? computedAmount : (parseFloat(form.amount) || 0);
       const payload = {
         event_id: eventId,
         type: form.type,
         description: form.description,
-        amount: parseFloat(form.amount) || 0,
+        amount: finalAmount,
         iva_rate: parseInt(form.iva_rate) || 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
+        formula_type: form.formula_type || "fixed",
+        formula_value: parseFloat(form.formula_value) || 0,
       };
       if (id) {
         const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
