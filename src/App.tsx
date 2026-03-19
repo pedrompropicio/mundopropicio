@@ -78,6 +78,7 @@ function ProtectedLayout() {
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
                 <Route path="pl" element={<ReportPLPage />} />
+                <Route path="fluxo-caixa" element={<ReportCashFlowPage />} />
                 <Route path="extrato" element={<ReportBankStatementPage />} />
                 <Route path="contas-pagar" element={<ReportContasPagarPage />} />
                 <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
