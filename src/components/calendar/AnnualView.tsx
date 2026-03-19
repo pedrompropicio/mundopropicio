@@ -70,7 +70,7 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
                 <div key={i} className="text-[9px] text-muted-foreground font-medium py-0.5 border-b border-r border-border/60 last:border-r-0 bg-secondary/20">{d}</div>
               ))}
               {days.map((day, i) => {
-                if (day === null) return <div key={`e-${i}`} className="h-6 border-r border-b border-border/30 last:border-r-0" />;
+                if (day === null) return <div key={`e-${i}`} className="h-6 border-r border-b border-border/60 last:border-r-0" />;
                 const dateStr = formatDateStr(currentYear, month, day);
                 const isToday = dateStr === todayStr;
                 const dayEvents = eventsByDate.get(dateStr) || [];
