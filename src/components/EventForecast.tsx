@@ -498,6 +498,9 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const renderInlineRow = (type: "income" | "expense") => {
     const cats = type === "income" ? incomeCategories : expenseCategories;
     const isExpenseType = type === "expense";
+    const isFormula = inlineForm.formula_type !== "fixed";
+    const formulaAmount = isFormula ? computeFormulaAmount(inlineForm.formula_type, parseFloat(inlineForm.formula_value) || 0) : (parseFloat(inlineForm.amount) || 0);
+    const formulaLabel = inlineForm.formula_type === "percentage_revenue" ? "% Receita Bruta" : inlineForm.formula_type === "per_ticket" ? "€/Bilhete" : "";
     return (
       <tr className="bg-primary/5 animate-fade-in" onKeyDown={handleInlineKeyDown}>
         <td className="py-1.5 pr-2">
@@ -545,22 +548,49 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
           </select>
         </td>
         <td className="py-1.5 pr-2">
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={inlineForm.amount}
-            onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
-            className={`${inputClass} w-28 text-right font-mono`}
-            placeholder="0,00"
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
-          />
+          <div className="flex items-center gap-1">
+            <select
+              value={inlineForm.formula_type}
+              onChange={(e) => setInlineForm({ ...inlineForm, formula_type: e.target.value, amount: e.target.value === "fixed" ? inlineForm.amount : "", formula_value: e.target.value !== "fixed" ? inlineForm.formula_value : "" })}
+              className={`${inputClass} w-24 text-xs`}
+            >
+              <option value="fixed">Fixo</option>
+              <option value="percentage_revenue">% Receita</option>
+              <option value="per_ticket">€/Bilhete</option>
+            </select>
+            {isFormula ? (
+              <div className="flex flex-col items-end">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={inlineForm.formula_value}
+                  onChange={(e) => setInlineForm({ ...inlineForm, formula_value: e.target.value })}
+                  className={`${inputClass} w-20 text-right font-mono`}
+                  placeholder={inlineForm.formula_type === "percentage_revenue" ? "2%" : "3,50"}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
+                />
+                <span className="text-[10px] text-muted-foreground mt-0.5">= {formatCurrency(formulaAmount)}</span>
+              </div>
+            ) : (
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={inlineForm.amount}
+                onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
+                className={`${inputClass} w-24 text-right font-mono`}
+                placeholder="0,00"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
+              />
+            )}
+          </div>
         </td>
         <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+          {formatCurrency(formulaAmount * (parseInt(inlineForm.iva_rate) || 0) / 100)}
         </td>
         <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+          {formatCurrency(formulaAmount * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
         </td>
         <td className="py-1.5 text-right">
           <div className="flex justify-end gap-1">
