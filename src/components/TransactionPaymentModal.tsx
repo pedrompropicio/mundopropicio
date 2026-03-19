@@ -142,6 +142,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             placeholder="Selecionar conta…"
             searchPlaceholder="Pesquisar conta…"
           />
+          {accountId && selectedAccountBalance !== null && (
+            <p className={`mt-1 text-xs font-medium ${selectedAccountBalance <= 0 ? "text-destructive" : "text-muted-foreground"}`}>
+              Saldo disponível: <span className="font-mono font-semibold">{formatCurrency(selectedAccountBalance)}</span>
+              {selectedAccountBalance <= 0 && " — Sem saldo!"}
+            </p>
+          )}
         </div>
 
         <div>
