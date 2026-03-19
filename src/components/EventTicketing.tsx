@@ -46,7 +46,10 @@ export function EventTicketing({ eventId }: Props) {
   const lotNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if ((addingZone || editingZoneId) && zoneNameRef.current) zoneNameRef.current.focus();
+    if ((addingZone || editingZoneId) && zoneNameRef.current) {
+      // Use setTimeout to ensure DOM is fully ready
+      setTimeout(() => zoneNameRef.current?.focus(), 100);
+    }
   }, [addingZone, editingZoneId]);
 
   useEffect(() => {
