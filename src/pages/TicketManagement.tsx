@@ -60,6 +60,9 @@ export default function TicketManagement() {
     },
   });
 
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const isParentEvent = selectedEvent?.event_type === "multi_day" && !selectedEvent?.parent_event_id;
+
   const { data: zones = [] } = useQuery({
     queryKey: ["ticket-mgmt-zones", selectedEventId],
     queryFn: async () => {
