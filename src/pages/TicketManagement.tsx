@@ -235,7 +235,7 @@ export default function TicketManagement() {
     setSaleModalOpen(true);
   };
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  // selectedEvent already declared above
 
   return (
     <div className="space-y-6">
