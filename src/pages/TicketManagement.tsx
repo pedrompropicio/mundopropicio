@@ -296,6 +296,14 @@ export default function TicketManagement() {
           </div>
 
           {/* Actions */}
+          {isParentEvent ? (
+            <div className="glass rounded-xl p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Eventos do tipo "Múltiplos Dias" não possuem bilheteira própria.
+                Configure a bilheteira nos sub-eventos individualmente.
+              </p>
+            </div>
+          ) : (
           <div className="flex items-center gap-2">
             <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
               <Plus className="h-4 w-4 mr-2" /> Registar Venda
