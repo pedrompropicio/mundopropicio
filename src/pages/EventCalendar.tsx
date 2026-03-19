@@ -384,14 +384,14 @@ export default function EventCalendar() {
           </div>
 
           {/* Day headers */}
-          <div className="grid grid-cols-7 gap-px mb-1">
+          <div className="grid grid-cols-7 border-b border-border/50">
             {DAY_NAMES.map((d) => (
-              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
+              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2 border-r border-border/30 last:border-r-0">{d}</div>
             ))}
           </div>
 
           {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-px">
+          <div className="grid grid-cols-7 border-l border-border/30">
             {calendarDays.map((day, i) => {
               if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px]" />;
 
