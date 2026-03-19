@@ -309,6 +309,33 @@ export default function ReportContasPagar() {
             </Popover>
           </div>
 
+          {/* Due status filter */}
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Vencimento</label>
+            <select
+              value={dueFilter}
+              onChange={(e) => setDueFilter(e.target.value as any)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm min-w-[140px] h-10"
+            >
+              <option value="all">Todas</option>
+              <option value="overdue">Vencidas</option>
+              <option value="not_overdue">Não vencidas</option>
+            </select>
+          </div>
+
+          {/* Balance filter */}
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo</label>
+            <select
+              value={balanceFilter}
+              onChange={(e) => setBalanceFilter(e.target.value as any)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm min-w-[140px] h-10"
+            >
+              <option value="open">Com saldo aberto</option>
+              <option value="all">Todas (incl. pagas)</option>
+            </select>
+          </div>
+
           {/* Consultar button */}
           <Button onClick={handleConsultar} className="flex items-center gap-2">
             <Search className="h-4 w-4" />
