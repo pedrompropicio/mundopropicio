@@ -517,10 +517,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     lines.push(`📅 Data: ${formatDate(list.payment_date)}`);
     if (list.approved_by) lines.push(`✅ Aprovada por: ${list.approved_by}`);
     lines.push("");
-    lines.push("```");
-    // Header
-    lines.push("Nº | Fornecedor | Valor | Estado");
-    lines.push("---|---|---|---");
+
     items.forEach((item: any, idx: number) => {
       const tx = item.transactions;
       const amount = Number(tx?.amount ?? 0);
@@ -530,10 +527,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const isPaid = paid >= amount || tx?.status === "paid";
       const status = isPaid ? "✅" : "⬜";
       const supplier = tx?.suppliers?.name ?? "-";
-      lines.push(`${idx + 1} | ${supplier} | ${formatCurrency(withIva)} | ${status}`);
+      const event = tx?.events?.name ?? "";
+      const desc = tx?.description ?? "";
+
+      lines.push(`${status} *${idx + 1}. ${supplier}*`);
+      if (event) lines.push(`   📌 ${event}`);
+      lines.push(`   📝 ${desc}`);
+      lines.push(`   💶 ${formatCurrency(withIva)}`);
+      lines.push("───────────────");
     });
-    lines.push("```");
-    lines.push("");
+
     const total = items.reduce((sum: number, item: any) => {
       const tx = item.transactions;
       const amount = Number(tx?.amount ?? 0);
