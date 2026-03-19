@@ -83,9 +83,9 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
                   <div
                     key={day}
                     className={cn(
-                      "h-6 flex flex-col items-center justify-center rounded relative group cursor-default",
-                      isToday && "bg-primary text-primary-foreground rounded-full",
-                      hasEvents && !isToday && "bg-secondary/40 rounded"
+                      "h-6 flex flex-col items-center justify-center relative group cursor-default border-r border-b border-border/30 last:border-r-0",
+                      isToday && "bg-primary text-primary-foreground",
+                      hasEvents && !isToday && "bg-secondary/40"
                     )}
                     title={dayEvents.map((e) => e.name).join(", ")}
                   >

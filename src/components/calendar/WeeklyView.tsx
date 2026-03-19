@@ -82,8 +82,8 @@ export function WeeklyView({ events, weekStart, onPrevWeek, onNextWeek, onGoToda
             <div
               key={i}
               className={cn(
-                "rounded-xl border p-2 min-h-[200px] transition-colors",
-                isToday ? "border-primary/50 bg-primary/5" : "border-border/30"
+                "p-2 min-h-[200px] transition-colors",
+                isToday ? "bg-primary/5" : ""
               )}
             >
               <div className="text-center mb-2">

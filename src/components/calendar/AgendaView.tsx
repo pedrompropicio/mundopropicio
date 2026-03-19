@@ -86,7 +86,7 @@ export function AgendaView({ events, currentMonth, currentYear }: AgendaViewProp
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Semana de {weekLabel}
             </h3>
-            <div className="space-y-1.5">
+            <div className="divide-y divide-border/30">
               {weekEvents.map((ev, i) => {
                 const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
                 const isToday = ev.date === todayStr;
