@@ -18,6 +18,8 @@ interface InlineForm {
   category_id: string;
   notes: string;
   specification: string;
+  formula_type: string;
+  formula_value: string;
 }
 
 const emptyInline: InlineForm = {
@@ -28,6 +30,8 @@ const emptyInline: InlineForm = {
   category_id: "",
   notes: "",
   specification: "",
+  formula_type: "fixed",
+  formula_value: "",
 };
 
 interface Props {
@@ -164,6 +168,21 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   }, 0);
   const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
   const ticketRevenue = ticketRevenueNet; // P&L uses net values
+  const ticketTotalQuantity = ticketLots.reduce((s, l) => s + l.quantity, 0);
+
+  // Helper: compute formula-based amount
+  const computeFormulaAmount = (formulaType: string, formulaValue: number): number => {
+    if (formulaType === "percentage_revenue") return (formulaValue / 100) * ticketRevenueGross;
+    if (formulaType === "per_ticket") return formulaValue * ticketTotalQuantity;
+    return 0;
+  };
+
+  // Get display amount for a forecast (computed if formula, stored otherwise)
+  const getDisplayAmount = (f: any): number => {
+    const ft = f.formula_type || "fixed";
+    if (ft !== "fixed" && f.formula_value) return computeFormulaAmount(ft, Number(f.formula_value));
+    return Number(f.amount);
+  };
 
   // Actual ticket sales: unit_price also includes IVA, extract net
   const ticketActualRevenueGross = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
@@ -187,16 +206,19 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
 
   const saveMutation = useMutation({
-    mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
+    mutationFn: async ({ form, id, computedAmount }: { form: InlineForm; id: string | null; computedAmount?: number }) => {
+      const finalAmount = form.formula_type !== "fixed" && computedAmount != null ? computedAmount : (parseFloat(form.amount) || 0);
       const payload = {
         event_id: eventId,
         type: form.type,
         description: form.description,
-        amount: parseFloat(form.amount) || 0,
+        amount: finalAmount,
         iva_rate: parseInt(form.iva_rate) || 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
+        formula_type: form.formula_type || "fixed",
+        formula_value: parseFloat(form.formula_value) || 0,
       };
       if (id) {
         const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
@@ -366,11 +388,13 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   };
 
   const handleInlineSave = () => {
-    if (!inlineForm.description || !inlineForm.amount) {
-      toast({ title: "Preencha a descrição e valor", variant: "destructive" });
+    const isFormula = inlineForm.formula_type !== "fixed";
+    if (!inlineForm.description || (!isFormula && !inlineForm.amount) || (isFormula && !inlineForm.formula_value)) {
+      toast({ title: "Preencha a descrição e valor/fórmula", variant: "destructive" });
       return;
     }
-    saveMutation.mutate({ form: inlineForm, id: editingId });
+    const computedAmount = isFormula ? computeFormulaAmount(inlineForm.formula_type, parseFloat(inlineForm.formula_value) || 0) : undefined;
+    saveMutation.mutate({ form: inlineForm, id: editingId, computedAmount });
   };
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
@@ -393,6 +417,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
       category_id: f.category_id || "",
       notes: f.notes || "",
       specification: f.specification || "",
+      formula_type: f.formula_type || "fixed",
+      formula_value: f.formula_value ? String(f.formula_value) : "",
     });
     setEditingId(f.id);
     setAddingType(null);
@@ -446,12 +472,12 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     return groups;
   }, [expenseForecasts, catLookup, cacheLines]);
 
-  const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
-  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
+  const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + getDisplayAmount(f), 0) + ticketRevenue;
+  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
-  const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + getDisplayAmount(f), 0);
   const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount;
-  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0);
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
@@ -472,6 +498,9 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const renderInlineRow = (type: "income" | "expense") => {
     const cats = type === "income" ? incomeCategories : expenseCategories;
     const isExpenseType = type === "expense";
+    const isFormula = inlineForm.formula_type !== "fixed";
+    const formulaAmount = isFormula ? computeFormulaAmount(inlineForm.formula_type, parseFloat(inlineForm.formula_value) || 0) : (parseFloat(inlineForm.amount) || 0);
+    const formulaLabel = inlineForm.formula_type === "percentage_revenue" ? "% Receita Bruta" : inlineForm.formula_type === "per_ticket" ? "€/Bilhete" : "";
     return (
       <tr className="bg-primary/5 animate-fade-in" onKeyDown={handleInlineKeyDown}>
         <td className="py-1.5 pr-2">
@@ -519,22 +548,49 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
           </select>
         </td>
         <td className="py-1.5 pr-2">
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={inlineForm.amount}
-            onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
-            className={`${inputClass} w-28 text-right font-mono`}
-            placeholder="0,00"
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
-          />
+          <div className="flex items-center gap-1">
+            <select
+              value={inlineForm.formula_type}
+              onChange={(e) => setInlineForm({ ...inlineForm, formula_type: e.target.value, amount: e.target.value === "fixed" ? inlineForm.amount : "", formula_value: e.target.value !== "fixed" ? inlineForm.formula_value : "" })}
+              className={`${inputClass} w-24 text-xs`}
+            >
+              <option value="fixed">Fixo</option>
+              <option value="percentage_revenue">% Receita</option>
+              <option value="per_ticket">€/Bilhete</option>
+            </select>
+            {isFormula ? (
+              <div className="flex flex-col items-end">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={inlineForm.formula_value}
+                  onChange={(e) => setInlineForm({ ...inlineForm, formula_value: e.target.value })}
+                  className={`${inputClass} w-20 text-right font-mono`}
+                  placeholder={inlineForm.formula_type === "percentage_revenue" ? "2%" : "3,50"}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
+                />
+                <span className="text-[10px] text-muted-foreground mt-0.5">= {formatCurrency(formulaAmount)}</span>
+              </div>
+            ) : (
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={inlineForm.amount}
+                onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })}
+                className={`${inputClass} w-24 text-right font-mono`}
+                placeholder="0,00"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); } }}
+              />
+            )}
+          </div>
         </td>
         <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
+          {formatCurrency(formulaAmount * (parseInt(inlineForm.iva_rate) || 0) / 100)}
         </td>
         <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-          {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
+          {formatCurrency(formulaAmount * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
         </td>
         <td className="py-1.5 text-right">
           <div className="flex justify-end gap-1">
@@ -646,8 +702,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {incomeGroups.map((group) => {
-                        const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
-                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                        const groupBase = group.items.reduce((s, f) => s + getDisplayAmount(f), 0);
+                        const groupIva = group.items.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0);
                         const showGroupHeader = incomeGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
                         return (
                           <React.Fragment key={group.groupName}>
@@ -662,39 +718,9 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                             )}
                             {group.items.map((f) => (
                               editingId === f.id ? (
-                                <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
-                                  <td className="py-1.5 pr-2">
-                                    <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
-                                  </td>
-                                  <td className="hidden py-1.5 pr-2 sm:table-cell">
-                                    <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
-                                      <option value="">—</option>
-                                      {incomeCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-                                    </select>
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
-                                      <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
-                                    </select>
-                                  </td>
-                                   <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
-                                  </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
-                                  </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
-                                  </td>
-                                  <td className="py-1.5 text-right">
-                                    <div className="flex justify-end gap-1">
-                                      <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
-                                      <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                                    </div>
-                                  </td>
-                                </tr>
+                                renderInlineRow("income")
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} displayAmount={getDisplayAmount(f)} />
                               )
                             ))}
                           </React.Fragment>
@@ -791,8 +817,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {expenseGroups.map((group) => {
-                        const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
-                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                        const groupBase = group.items.reduce((s, f) => s + getDisplayAmount(f), 0);
+                        const groupIva = group.items.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0);
                         const showGroupHeader = expenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
                         return (
                           <React.Fragment key={group.groupName}>
@@ -816,42 +842,9 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                             )}
                             {group.items.map((f) => (
                               editingId === f.id ? (
-                                <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
-                                  <td className="py-1.5 pr-2">
-                                    <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
-                                  </td>
-                                  <td className="hidden py-1.5 pr-2 sm:table-cell">
-                                    <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
-                                      <option value="">—</option>
-                                      {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-                                    </select>
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
-                                      <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
-                                    </select>
-                                  </td>
-                                   <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
-                                  </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
-                                  </td>
-                                  <td className="py-1.5 pr-2 text-right font-mono text-xs font-semibold">
-                                    {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
-                                  </td>
-                                  <td className="py-1.5 text-right">
-                                    <div className="flex justify-end gap-1">
-                                      <button onClick={handleInlineSave} disabled={saveMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
-                                      <button onClick={cancelInline} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                                    </div>
-                                  </td>
-                                </tr>
+                                renderInlineRow("expense")
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} displayAmount={getDisplayAmount(f)} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
@@ -920,15 +913,19 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, displayAmount }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
-  indented?: boolean;
+  indented?: boolean; displayAmount?: number;
 }) {
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+  const amount = displayAmount ?? Number(item.amount);
+  const ft = item.formula_type || "fixed";
+  const isFormula = ft !== "fixed";
+  const formulaLabel = ft === "percentage_revenue" ? `${Number(item.formula_value)}% Receita` : ft === "per_ticket" ? `€${Number(item.formula_value)}/bilhete` : "";
 
   return (
     <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
@@ -947,6 +944,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           )}
           <div>
             <p className="font-medium">{item.description}</p>
+            {isFormula && <p className="text-[10px] text-primary/70 font-medium">📐 {formulaLabel}</p>}
             {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
             {isApproved && item.transaction_id && (
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -966,13 +964,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       </td>
       <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
       <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-        {formatCurrency(Number(item.amount))}
+        {formatCurrency(amount)}
       </td>
       <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
-        {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+        {formatCurrency(amount * Number(item.iva_rate) / 100)}
       </td>
       <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-        {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
+        {formatCurrency(amount * (1 + Number(item.iva_rate) / 100))}
       </td>
       <td className="py-2.5 text-right">
         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
