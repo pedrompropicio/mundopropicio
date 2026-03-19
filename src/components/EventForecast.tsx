@@ -397,6 +397,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
       category_id: f.category_id || "",
       notes: f.notes || "",
       specification: f.specification || "",
+      formula_type: f.formula_type || "fixed",
+      formula_value: f.formula_value ? String(f.formula_value) : "",
     });
     setEditingId(f.id);
     setAddingType(null);
