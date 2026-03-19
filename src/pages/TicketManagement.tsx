@@ -217,6 +217,24 @@ export default function TicketManagement() {
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
+  const deleteLotMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Check if lot has sales before deleting
+      const { data: lotSales } = await supabase.from("ticket_sales").select("id").eq("lot_id", id).limit(1);
+      if (lotSales && lotSales.length > 0) {
+        throw new Error("Não é possível eliminar um lote que já tem vendas registadas.");
+      }
+      const { error } = await supabase.from("event_ticket_lots").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-sales", selectedEventId] });
+      toast({ title: "Lote eliminado" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
   const addZoneMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("event_ticket_zones").insert({
