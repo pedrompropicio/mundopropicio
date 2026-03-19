@@ -228,31 +228,6 @@ export function exportDREToPDF(
     return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
   }
 
-  // Logo
-  try {
-    doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
-    y += 28;
-  } catch {
-    y += 4;
-  }
-
-  // Title
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("Relatório DRE", marginLeft, y);
-  y += 7;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
-  y += 5;
-  const sourceLabel = ticketRevenueSource === "ticket_sales"
-    ? "Receita de bilhetes: Vendas da gestão de bilhetes"
-    : "Receita de bilhetes: Transações registadas";
-  doc.text(sourceLabel, marginLeft, y);
-  doc.setTextColor(0, 0, 0);
-  y += 10;
-
   // Compute global summary totals
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
@@ -262,13 +237,17 @@ export function exportDREToPDF(
   });
 
   // Per-event DRE
-  events.forEach((evt, evtIdx) => {
+  let isFirstEventPage = true;
+  events.forEach((evt) => {
     const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
     const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
-    doc.addPage();
-    y = 14;
+    if (!isFirstEventPage) {
+      doc.addPage();
+      y = 14;
+    }
+    isFirstEventPage = false;
 
     try {
       doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
