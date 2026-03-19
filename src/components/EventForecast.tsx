@@ -388,11 +388,13 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   };
 
   const handleInlineSave = () => {
-    if (!inlineForm.description || !inlineForm.amount) {
-      toast({ title: "Preencha a descrição e valor", variant: "destructive" });
+    const isFormula = inlineForm.formula_type !== "fixed";
+    if (!inlineForm.description || (!isFormula && !inlineForm.amount) || (isFormula && !inlineForm.formula_value)) {
+      toast({ title: "Preencha a descrição e valor/fórmula", variant: "destructive" });
       return;
     }
-    saveMutation.mutate({ form: inlineForm, id: editingId });
+    const computedAmount = isFormula ? computeFormulaAmount(inlineForm.formula_type, parseFloat(inlineForm.formula_value) || 0) : undefined;
+    saveMutation.mutate({ form: inlineForm, id: editingId, computedAmount });
   };
 
   const handleInlineKeyDown = (e: React.KeyboardEvent) => {
