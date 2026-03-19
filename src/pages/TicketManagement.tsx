@@ -268,7 +268,9 @@ export default function TicketManagement() {
           </SelectTrigger>
           <SelectContent>
             {events.map((e) => (
-              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+              <SelectItem key={e.id} value={e.id}>
+                {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
