@@ -847,8 +847,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {expenseGroups.map((group) => {
-                        const groupBase = group.items.reduce((s, f) => s + Number(f.amount), 0);
-                        const groupIva = group.items.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                        const groupBase = group.items.reduce((s, f) => s + getDisplayAmount(f), 0);
+                        const groupIva = group.items.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0);
                         const showGroupHeader = expenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
                         return (
                           <React.Fragment key={group.groupName}>
