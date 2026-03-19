@@ -33,6 +33,8 @@ export default function ReportContasPagar() {
     setAppliedEventIds(new Set(selectedEventIds));
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
+    setAppliedDueFilter(dueFilter);
+    setAppliedBalanceFilter(balanceFilter);
     setHasSearched(true);
   };
 
