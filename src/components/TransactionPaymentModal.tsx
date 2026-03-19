@@ -21,6 +21,7 @@ interface Props {
 export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [showDocuments, setShowDocuments] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const { user } = useAuth();
