@@ -28,11 +28,37 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name, type").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type, initial_balance").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: txSummary = [] } = useQuery({
+    queryKey: ["financial-accounts-tx-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("account_id, type, amount, status")
+        .not("account_id", "is", null);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  function computeAccountBalance(accId: string) {
+    const acc = financialAccounts.find((a: any) => a.id === accId);
+    if (!acc) return 0;
+    let bal = Number(acc.initial_balance ?? 0);
+    txSummary.filter((t: any) => t.account_id === accId).forEach((t: any) => {
+      const amt = Number(t.amount);
+      if (t.type === "income") bal += amt;
+      else bal -= amt;
+    });
+    return bal;
+  }
+
+  const selectedAccountBalance = accountId ? computeAccountBalance(accountId) : null;
 
   const amount = Number(transaction.amount);
   const currentPaid = Number(transaction.paid_amount ?? 0);
