@@ -217,6 +217,24 @@ export default function TicketManagement() {
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
+  const deleteLotMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Check if lot has sales before deleting
+      const { data: lotSales } = await supabase.from("ticket_sales").select("id").eq("lot_id", id).limit(1);
+      if (lotSales && lotSales.length > 0) {
+        throw new Error("Não é possível eliminar um lote que já tem vendas registadas.");
+      }
+      const { error } = await supabase.from("event_ticket_lots").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-sales", selectedEventId] });
+      toast({ title: "Lote eliminado" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
   const addZoneMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("event_ticket_zones").insert({
@@ -499,9 +517,14 @@ export default function TicketManagement() {
                                           <ShoppingCart className="h-3.5 w-3.5" />
                                         </Button>
                                         {isAdmin && (
-                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
-                                            <Pencil className="h-3.5 w-3.5" />
-                                          </Button>
+                                          <>
+                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm("Eliminar este lote?")) deleteLotMutation.mutate(lot.id); }} title="Eliminar lote">
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </>
                                         )}
                                       </>
                                     )}
