@@ -28,13 +28,14 @@ interface CalendarEvent {
 interface AnnualViewProps {
   events: CalendarEvent[];
   currentYear: number;
+  onMonthClick?: (month: number) => void;
 }
 
 function formatDateStr(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-export function AnnualView({ events, currentYear }: AnnualViewProps) {
+export function AnnualView({ events, currentYear, onMonthClick }: AnnualViewProps) {
   const todayStr = useMemo(() => {
     const t = new Date();
     return formatDateStr(t.getFullYear(), t.getMonth(), t.getDate());
@@ -63,8 +64,8 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
         while (days.length % 7 !== 0) days.push(null);
 
         return (
-          <div key={month} className="glass rounded-xl p-3">
-            <h4 className="text-sm font-semibold text-center mb-2">{MONTH_NAMES_SHORT[month]}</h4>
+          <div key={month} className="glass rounded-xl p-3 cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all" onClick={() => onMonthClick?.(month)}>
+            <h4 className="text-sm font-semibold text-center mb-2 hover:text-primary transition-colors">{MONTH_NAMES_SHORT[month]}</h4>
             <div className="grid grid-cols-7 text-center border border-muted-foreground/30 rounded overflow-hidden">
               {["S", "T", "Q", "Q", "S", "S", "D"].map((d, i) => (
                 <div key={i} className="text-[9px] text-muted-foreground font-medium py-0.5 border-b border-r border-muted-foreground/30 last:border-r-0 bg-secondary/20">{d}</div>

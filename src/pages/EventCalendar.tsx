@@ -506,7 +506,7 @@ export default function EventCalendar() {
               <button onClick={() => setCurrentYear(today.getFullYear())} className="text-xs font-medium text-primary hover:underline">Hoje</button>
             </div>
           </div>
-          <AnnualView events={calendarEvents} currentYear={currentYear} />
+          <AnnualView events={calendarEvents} currentYear={currentYear} onMonthClick={(month) => { setCurrentMonth(month); setViewMode("month"); }} />
         </>
       )}
 
