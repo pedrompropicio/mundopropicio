@@ -43,7 +43,7 @@ export default function TicketManagement() {
 
   // Admin lot editing
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
-  const [lotEditForm, setLotEditForm] = useState({ quantity: "", price: "" });
+  const [lotEditForm, setLotEditForm] = useState({ name: "", quantity: "", price: "" });
   const [addingLotZoneId, setAddingLotZoneId] = useState<string | null>(null);
   const [newLotForm, setNewLotForm] = useState({ name: "", quantity: "", price: "" });
 
