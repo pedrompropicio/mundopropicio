@@ -304,16 +304,17 @@ export default function TicketManagement() {
               </p>
             </div>
           ) : (
-          <div className="flex items-center gap-2">
-            <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
-              <Plus className="h-4 w-4 mr-2" /> Registar Venda
-            </Button>
-            {isAdmin && (
-              <Button variant="outline" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}>
-                <Plus className="h-4 w-4 mr-2" /> Nova Zona
+            <div className="flex items-center gap-2">
+              <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
+                <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
-            )}
-          </div>
+              {isAdmin && (
+                <Button variant="outline" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}>
+                  <Plus className="h-4 w-4 mr-2" /> Nova Zona
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Add zone inline */}
           {addingZone && isAdmin && (
