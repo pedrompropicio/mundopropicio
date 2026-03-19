@@ -24,6 +24,7 @@ import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
 import ReportPLPage from "./pages/ReportPLPage";
 import ReportBankStatementPage from "./pages/ReportBankStatementPage";
+import ReportCashFlowPage from "./pages/ReportCashFlowPage";
 import ReportContasPagarPage from "./pages/ReportContasPagarPage";
 import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
 import ReportSuppliersPage from "./pages/ReportSuppliersPage";
@@ -77,6 +78,7 @@ function ProtectedLayout() {
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
                 <Route path="pl" element={<ReportPLPage />} />
+                <Route path="fluxo-caixa" element={<ReportCashFlowPage />} />
                 <Route path="extrato" element={<ReportBankStatementPage />} />
                 <Route path="contas-pagar" element={<ReportContasPagarPage />} />
                 <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
