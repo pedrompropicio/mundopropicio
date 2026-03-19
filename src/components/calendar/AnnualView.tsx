@@ -83,7 +83,7 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
                   <div
                     key={day}
                     className={cn(
-                      "h-6 flex flex-col items-center justify-center relative group cursor-default border-r border-b border-border last:border-r-0",
+                      "h-6 flex flex-col items-center justify-center relative group cursor-default border-r border-b border-muted-foreground/30 last:border-r-0",
                       isToday && "bg-primary text-primary-foreground",
                       hasEvents && !isToday && "bg-secondary/40"
                     )}

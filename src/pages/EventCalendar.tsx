@@ -403,7 +403,7 @@ export default function EventCalendar() {
                 <div
                   key={day}
                   className={cn(
-                    "min-h-[80px] lg:min-h-[100px] p-1 transition-colors border-r border-b border-border",
+                    "min-h-[80px] lg:min-h-[100px] p-1 transition-colors border-r border-b border-muted-foreground/30",
                     isToday ? "bg-primary/5" : "hover:bg-secondary/30",
                   )}
                 >
