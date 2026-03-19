@@ -190,10 +190,25 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
         </div>
 
-        <button onClick={() => paymentMutation.mutate()} disabled={paymentMutation.isPending}
-          className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
-          {paymentMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowDocuments(true)}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-secondary/80">
+            <Paperclip className="h-4 w-4" />
+            Anexar
+          </button>
+          <button onClick={() => paymentMutation.mutate()} disabled={paymentMutation.isPending}
+            className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
+            {paymentMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
+          </button>
+        </div>
+
+        {showDocuments && (
+          <TransactionDocumentsModal
+            transactionId={transaction.id}
+            transactionDescription={transaction.description}
+            onClose={() => setShowDocuments(false)}
+          />
+        )}
       </div>
     </div>
   );
