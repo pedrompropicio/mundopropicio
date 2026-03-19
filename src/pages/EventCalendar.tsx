@@ -386,14 +386,14 @@ export default function EventCalendar() {
           {/* Day headers */}
           <div className="grid grid-cols-7 border-b border-border">
             {DAY_NAMES.map((d) => (
-              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2 border-r border-border/60 last:border-r-0">{d}</div>
+              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2 border-r border-border last:border-r-0">{d}</div>
             ))}
           </div>
 
           {/* Calendar grid */}
-          <div className="grid grid-cols-7 border-l border-border/60">
+          <div className="grid grid-cols-7 border-l border-border">
             {calendarDays.map((day, i) => {
-              if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px] border-r border-b border-border/60" />;
+              if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px] border-r border-b border-border" />;
 
               const dayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
               const isToday = dayStr === todayStr;
@@ -403,7 +403,7 @@ export default function EventCalendar() {
                 <div
                   key={day}
                   className={cn(
-                    "min-h-[80px] lg:min-h-[100px] p-1 transition-colors border-r border-b border-border/60",
+                    "min-h-[80px] lg:min-h-[100px] p-1 transition-colors border-r border-b border-border",
                     isToday ? "bg-primary/5" : "hover:bg-secondary/30",
                   )}
                 >
