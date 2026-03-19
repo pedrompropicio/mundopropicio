@@ -397,12 +397,6 @@ function CopyLine({ label, value, mono, bold }: { label: string; value: string; 
       toast({ title: "Copiado!", description: `${label}: ${value}` });
     });
   };
-  const handleCopyWhatsApp = () => {
-    const text = bold ? `*${label}:* *${value}*` : `*${label}:* ${value}`;
-    navigator.clipboard.writeText(text).then(() => {
-      toast({ title: "Copiado para WhatsApp!", description: text });
-    });
-  };
   return (
     <p className="flex items-center gap-1.5 group">
       <span className="font-medium text-muted-foreground">{label}:</span>
@@ -413,13 +407,6 @@ function CopyLine({ label, value, mono, bold }: { label: string; value: string; 
         title={`Copiar ${label}`}
       >
         <Copy className="h-3 w-3" />
-      </button>
-      <button
-        onClick={handleCopyWhatsApp}
-        className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 text-emerald-400 hover:text-emerald-300"
-        title={`Copiar ${label} para WhatsApp`}
-      >
-        <MessageSquare className="h-3 w-3" />
       </button>
     </p>
   );
