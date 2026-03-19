@@ -711,31 +711,34 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
-          lot_id: string
+          lot_id: string | null
           notes: string | null
           quantity: number
           sale_date: string
           unit_price: number
+          zone_id: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string
           id?: string
-          lot_id: string
+          lot_id?: string | null
           notes?: string | null
           quantity?: number
           sale_date?: string
           unit_price?: number
+          zone_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string
           id?: string
-          lot_id?: string
+          lot_id?: string | null
           notes?: string | null
           quantity?: number
           sale_date?: string
           unit_price?: number
+          zone_id?: string | null
         }
         Relationships: [
           {
@@ -743,6 +746,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "event_ticket_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_sales_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
             referencedColumns: ["id"]
           },
         ]
