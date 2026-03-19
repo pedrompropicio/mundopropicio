@@ -56,7 +56,22 @@ export default function TicketManagement() {
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
       if (error) throw error;
-      return data;
+      // Sort: parent events first, then their children grouped underneath
+      const parents = (data || []).filter(e => !e.parent_event_id);
+      const children = (data || []).filter(e => !!e.parent_event_id);
+      const sorted: typeof data = [];
+      for (const parent of parents) {
+        sorted.push(parent);
+        const kids = children.filter(c => c.parent_event_id === parent.id);
+        kids.sort((a, b) => a.date.localeCompare(b.date));
+        sorted.push(...kids);
+      }
+      // Add orphan children (no matching parent) at the end
+      const usedIds = new Set(sorted.map(e => e.id));
+      for (const c of children) {
+        if (!usedIds.has(c.id)) sorted.push(c);
+      }
+      return sorted;
     },
   });
 
