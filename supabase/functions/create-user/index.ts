@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the caller is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -24,7 +23,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is admin using their token
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -36,7 +34,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roleData } = await adminClient
       .from("user_roles")
@@ -61,7 +58,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create user with a temporary password via admin API
+    const validRoles = ["admin", "manager", "editor", "viewer", "user"];
+    const targetRole = validRoles.includes(role) ? role : "user";
+
     const tempPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
@@ -77,20 +76,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update role if admin was selected (default trigger creates 'user' role)
-    if (role === "admin" && newUser.user) {
+    // Update role if not default 'user'
+    if (targetRole !== "user" && newUser.user) {
       await adminClient
         .from("user_roles")
-        .update({ role: "admin" })
+        .update({ role: targetRole })
         .eq("user_id", newUser.user.id);
     }
 
-    // Send password reset email so user can set their own password
     const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${req.headers.get("origin") || supabaseUrl}/reset-password`,
     });
 
-    // Even if reset email fails, user was created
     return new Response(
       JSON.stringify({
         success: true,
