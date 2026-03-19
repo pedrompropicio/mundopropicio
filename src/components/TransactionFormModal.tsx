@@ -273,7 +273,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
-    if (isActivePL && form.event_id) {
+    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
       if (!form.category_id) {
         toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
         return;
