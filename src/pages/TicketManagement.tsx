@@ -517,9 +517,14 @@ export default function TicketManagement() {
                                           <ShoppingCart className="h-3.5 w-3.5" />
                                         </Button>
                                         {isAdmin && (
-                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
-                                            <Pencil className="h-3.5 w-3.5" />
-                                          </Button>
+                                          <>
+                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm("Eliminar este lote?")) deleteLotMutation.mutate(lot.id); }} title="Eliminar lote">
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </>
                                         )}
                                       </>
                                     )}
