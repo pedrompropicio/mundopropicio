@@ -72,7 +72,7 @@ export function WeeklyView({ events, weekStart, onPrevWeek, onNextWeek, onGoToda
         <button onClick={onGoToday} className="text-xs font-medium text-primary hover:underline">Hoje</button>
       </div>
 
-      <div className="grid grid-cols-7 divide-x divide-border/30 border border-border/30 rounded-lg overflow-hidden">
+      <div className="grid grid-cols-7 divide-x divide-border/60 border border-border/60 rounded-lg overflow-hidden">
         {weekDays.map((day, i) => {
           const dateStr = formatDateStr(day);
           const isToday = dateStr === todayStr;
