@@ -18,29 +18,29 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
-const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/calendario", icon: CalendarDays, label: "Calendário" },
-  { to: "/eventos", icon: Calendar, label: "Eventos" },
-  { to: "/transacoes", icon: ArrowUpDown, label: "Transações" },
-  { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas" },
-  { to: "/contas", icon: Landmark, label: "Contas" },
-  { to: "/fornecedores", icon: Users, label: "Fornecedores" },
-  { to: "/cotacoes", icon: FileCheck, label: "Cotações" },
-  { to: "/iva", icon: Receipt, label: "Gestão IVA" },
-  { to: "/bilhetes", icon: Ticket, label: "Gestão Bilhetes" },
-  { to: "/relatorios", icon: BarChart3, label: "Relatórios" },
-];
-
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin, user, signOut } = useAuth();
+  const { isAdmin, user, signOut, hasPermission } = useAuth();
+
+  const navItems = [
+    { to: "/", icon: LayoutDashboard, label: "Dashboard", show: true },
+    { to: "/calendario", icon: CalendarDays, label: "Calendário", show: hasPermission("manage_calendar") || isAdmin },
+    { to: "/eventos", icon: Calendar, label: "Eventos", show: hasPermission("manage_events") || isAdmin },
+    { to: "/transacoes", icon: ArrowUpDown, label: "Transações", show: hasPermission("manage_transactions") || isAdmin },
+    { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas", show: hasPermission("manage_categories") || isAdmin },
+    { to: "/contas", icon: Landmark, label: "Contas", show: hasPermission("manage_accounts") || hasPermission("view_balances") || isAdmin },
+    { to: "/fornecedores", icon: Users, label: "Fornecedores", show: hasPermission("manage_suppliers") || isAdmin },
+    { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
+    { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
+    { to: "/bilhetes", icon: Ticket, label: "Gestão Bilhetes", show: hasPermission("manage_tickets") || isAdmin },
+    { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
+  ];
 
   return (
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {navItems.map((item) => {
+        {navItems.filter(i => i.show).map((item) => {
           const isActive =
             item.to === "/"
               ? location.pathname === "/"

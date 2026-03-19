@@ -1,9 +1,19 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase } from "lucide-react";
+
+const ROLE_ICONS: Record<AppRole, React.ElementType> = {
+  admin: ShieldCheck,
+  manager: Briefcase,
+  editor: Pencil,
+  viewer: Eye,
+  user: User,
+};
+
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
@@ -11,7 +21,7 @@ export default function UserManagement() {
   const [showForm, setShowForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState<"user" | "admin">("user");
+  const [newRole, setNewRole] = useState<AppRole>("user");
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users-with-roles"],
@@ -29,14 +39,13 @@ export default function UserManagement() {
 
       return (profiles ?? []).map((p) => ({
         ...p,
-        role: roles?.find((r) => r.user_id === p.id)?.role ?? "user",
+        role: (roles?.find((r) => r.user_id === p.id)?.role as AppRole) ?? "user",
       }));
     },
   });
 
-  const toggleRoleMutation = useMutation({
-    mutationFn: async ({ userId, currentRole }: { userId: string; currentRole: string }) => {
-      const newRole = currentRole === "admin" ? "user" : "admin";
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: AppRole }) => {
       const { error } = await supabase
         .from("user_roles")
         .update({ role: newRole })
@@ -75,7 +84,7 @@ export default function UserManagement() {
   });
 
   const resendResetMutation = useMutation({
-    mutationFn: async ({ email, name }: { email: string; name: string }) => {
+    mutationFn: async ({ email }: { email: string }) => {
       const { data, error } = await supabase.functions.invoke("resend-reset-email", {
         body: { email },
       });
@@ -133,6 +142,30 @@ export default function UserManagement() {
         </button>
       </div>
 
+      {/* Role legend */}
+      <div className="glass rounded-xl p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Níveis de Permissão</h3>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {ASSIGNABLE_ROLES.map((r) => {
+            const Icon = ROLE_ICONS[r];
+            return (
+              <div key={r} className="flex items-start gap-2 rounded-lg border border-border/50 p-3">
+                <Icon className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">{ROLE_LABELS[r]}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {r === "admin" && "Acesso total ao sistema"}
+                    {r === "manager" && "Cria, edita, vê relatórios e saldos"}
+                    {r === "editor" && "Cria e edita, sem relatórios/saldos"}
+                    {r === "viewer" && "Apenas visualização"}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {showForm && (
         <div className="glass rounded-xl p-5 space-y-4">
           <h2 className="text-lg font-semibold">Criar Novo Utilizador</h2>
@@ -172,11 +205,12 @@ export default function UserManagement() {
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nível de acesso</label>
               <select
                 value={newRole}
-                onChange={(e) => setNewRole(e.target.value as "user" | "admin")}
+                onChange={(e) => setNewRole(e.target.value as AppRole)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                <option value="user">Utilizador</option>
-                <option value="admin">Administrador</option>
+                {ASSIGNABLE_ROLES.map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
               </select>
             </div>
             <div className="flex items-end gap-2">
@@ -217,55 +251,60 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 pr-4 font-medium">{u.full_name || "—"}</td>
-                    <td className="py-3 pr-4 text-muted-foreground">{u.email}</td>
-                    <td className="py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        u.role === "admin"
-                          ? "bg-primary/15 text-primary"
-                          : "bg-secondary text-secondary-foreground"
-                      }`}>
-                        {u.role === "admin" ? <ShieldCheck className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                        {u.role === "admin" ? "Admin" : "Utilizador"}
-                      </span>
-                    </td>
-                    <td className="py-3 text-center">
-                      {u.id !== user?.id && (
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => toggleRoleMutation.mutate({ userId: u.id, currentRole: u.role })}
-                            disabled={toggleRoleMutation.isPending}
-                            className="rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 transition-colors disabled:opacity-50"
+                {users.map((u) => {
+                  const Icon = ROLE_ICONS[u.role] || User;
+                  return (
+                    <tr key={u.id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="py-3 pr-4 font-medium">{u.full_name || "—"}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{u.email}</td>
+                      <td className="py-3 text-center">
+                        {u.id === user?.id ? (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[u.role]}`}>
+                            <Icon className="h-3 w-3" />
+                            {ROLE_LABELS[u.role]}
+                          </span>
+                        ) : (
+                          <select
+                            value={u.role}
+                            onChange={(e) => changeRoleMutation.mutate({ userId: u.id, newRole: e.target.value as AppRole })}
+                            disabled={changeRoleMutation.isPending}
+                            className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
                           >
-                            {u.role === "admin" ? "Remover Admin" : "Tornar Admin"}
-                          </button>
-                          <button
-                            onClick={() => resendResetMutation.mutate({ email: u.email, name: u.full_name })}
-                            disabled={resendResetMutation.isPending}
-                            className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-                            title="Reenviar email de definição de senha"
-                          >
-                            <MailCheck className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Eliminar o utilizador ${u.full_name || u.email}?`)) {
-                                deleteUserMutation.mutate(u.id);
-                              }
-                            }}
-                            disabled={deleteUserMutation.isPending}
-                            className="rounded-lg p-1.5 text-xs text-destructive hover:bg-destructive/15 transition-colors disabled:opacity-50"
-                            title="Eliminar utilizador"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                           </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                            {ASSIGNABLE_ROLES.map((r) => (
+                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="py-3 text-center">
+                        {u.id !== user?.id && (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => resendResetMutation.mutate({ email: u.email })}
+                              disabled={resendResetMutation.isPending}
+                              className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                              title="Reenviar email de definição de senha"
+                            >
+                              <MailCheck className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Eliminar o utilizador ${u.full_name || u.email}?`)) {
+                                  deleteUserMutation.mutate(u.id);
+                                }
+                              }}
+                              disabled={deleteUserMutation.isPending}
+                              className="rounded-lg p-1.5 text-xs text-destructive hover:bg-destructive/15 transition-colors disabled:opacity-50"
+                              title="Eliminar utilizador"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
