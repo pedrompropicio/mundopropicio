@@ -124,24 +124,24 @@ export function EventTicketing({ eventId }: Props) {
   // Lot CRUD
   const saveLotMutation = useMutation({
     mutationFn: async ({ form, zoneId, id }: { form: LotForm; zoneId: string; id: string | null }) => {
-      // Fetch fresh lots from DB to validate capacity
-      const zone = zones.find((z) => z.id === zoneId);
-      const { data: freshLots } = await supabase
-        .from("event_ticket_lots")
-        .select("id, quantity, lot_number")
-        .eq("zone_id", zoneId);
+      // Fetch fresh zone AND lots from DB to validate capacity
+      const [{ data: freshZone, error: zoneError }, { data: freshLots }] = await Promise.all([
+        supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("id", zoneId).single(),
+        supabase.from("event_ticket_lots").select("id, quantity, lot_number").eq("zone_id", zoneId),
+      ]);
+      if (zoneError) throw zoneError;
       const currentLots = freshLots ?? [];
 
       const newQty = parseInt(form.quantity) || 0;
 
       // Validate capacity with fresh data
-      if (zone && zone.total_capacity > 0) {
+      if (freshZone && freshZone.total_capacity > 0) {
         const existingTotal = currentLots
           .filter((l) => l.id !== id)
           .reduce((s, l) => s + l.quantity, 0);
-        if (existingTotal + newQty > zone.total_capacity) {
-          const remaining = zone.total_capacity - existingTotal;
-          throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`);
+        if (existingTotal + newQty > freshZone.total_capacity) {
+          const remaining = Math.max(freshZone.total_capacity - existingTotal, 0);
+          throw new Error(`Capacidade excedida! A zona "${freshZone.name}" tem capacidade para ${freshZone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`);
         }
       }
 
