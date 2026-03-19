@@ -527,13 +527,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const isPaid = paid >= amount || tx?.status === "paid";
       const status = isPaid ? "✅" : "⬜";
       const supplier = tx?.suppliers?.name ?? "-";
-      const event = tx?.events?.name ?? "";
-      const desc = tx?.description ?? "";
+      const iban = tx?.suppliers?.iban ?? "-";
+      const event = tx?.events?.name ?? "-";
+      const desc = tx?.description ?? "-";
 
-      lines.push(`${status} *${idx + 1}. ${supplier}*`);
-      if (event) lines.push(`   📌 ${event}`);
-      lines.push(`   📝 ${desc}`);
-      lines.push(`   💶 ${formatCurrency(withIva)}`);
+      lines.push(`${status} ${idx + 1}. ${event} | ${iban} | ${supplier} | ${desc} | ${formatCurrency(withIva)}`);
       lines.push("───────────────");
     });
 
