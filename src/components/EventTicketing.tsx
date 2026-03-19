@@ -47,8 +47,16 @@ export function EventTicketing({ eventId }: Props) {
 
   useEffect(() => {
     if ((addingZone || editingZoneId) && zoneNameRef.current) {
-      // Use setTimeout to ensure DOM is fully ready
-      setTimeout(() => zoneNameRef.current?.focus(), 100);
+      // Multiple attempts to ensure focus works in all contexts
+      const attempts = [50, 150, 300];
+      attempts.forEach(delay => {
+        setTimeout(() => {
+          if (zoneNameRef.current) {
+            zoneNameRef.current.focus();
+            zoneNameRef.current.click();
+          }
+        }, delay);
+      });
     }
   }, [addingZone, editingZoneId]);
 
@@ -477,10 +485,10 @@ export function EventTicketing({ eventId }: Props) {
 
             {/* Add zone inline */}
             {addingZone && (
-              <div className="rounded-lg border border-primary/30 p-3 bg-primary/5 animate-fade-in relative z-10" onKeyDown={handleZoneKeyDown}>
+              <div className="rounded-lg border border-primary/30 p-3 bg-primary/5 animate-fade-in relative z-50 pointer-events-auto" onKeyDown={handleZoneKeyDown} onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-2">
                   <Ticket className="h-4 w-4 text-primary shrink-0" />
-                  <input ref={zoneNameRef} value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })} className={`${inputClass} flex-1`} placeholder="Nome da zona (ex: VIP, Plateia, Geral)…" />
+                  <input ref={zoneNameRef} autoFocus value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })} className={`${inputClass} flex-1 pointer-events-auto`} placeholder="Nome da zona (ex: VIP, Plateia, Geral)…" onFocus={(e) => e.target.select()} />
                   <input type="number" min="0" value={zoneForm.total_capacity} onChange={(e) => setZoneForm({ ...zoneForm, total_capacity: e.target.value })} className={`${inputClass} w-32`} placeholder="Capacidade" />
                   <button onClick={handleSaveZone} disabled={saveZoneMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                   <button onClick={cancelZone} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
