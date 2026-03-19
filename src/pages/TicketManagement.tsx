@@ -43,7 +43,7 @@ export default function TicketManagement() {
 
   // Admin lot editing
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
-  const [lotEditForm, setLotEditForm] = useState({ quantity: "", price: "" });
+  const [lotEditForm, setLotEditForm] = useState({ name: "", quantity: "", price: "" });
   const [addingLotZoneId, setAddingLotZoneId] = useState<string | null>(null);
   const [newLotForm, setNewLotForm] = useState({ name: "", quantity: "", price: "" });
 
@@ -169,7 +169,8 @@ export default function TicketManagement() {
   };
 
   const updateLotMutation = useMutation({
-    mutationFn: async ({ id, zoneId, quantity, price }: { id: string; zoneId: string; quantity: number; price: number }) => {
+    mutationFn: async ({ id, zoneId, name, quantity, price }: { id: string; zoneId: string; name: string; quantity: number; price: number }) => {
+      if (!name.trim()) throw new Error("O nome do lote é obrigatório");
       const { zone, allocatedQuantity } = await getZoneCapacityValidation(zoneId, id);
 
       if (zone.total_capacity > 0 && allocatedQuantity + quantity > zone.total_capacity) {
@@ -177,7 +178,7 @@ export default function TicketManagement() {
         throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} lugares. Restam ${remaining.toLocaleString()} disponíveis.`);
       }
 
-      const { error } = await supabase.from("event_ticket_lots").update({ quantity, price }).eq("id", id);
+      const { error } = await supabase.from("event_ticket_lots").update({ name: name.trim(), quantity, price }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -457,7 +458,11 @@ export default function TicketManagement() {
                               <TableRow key={lot.id}>
                                 <TableCell className="font-medium">
                                   <span className="text-xs text-muted-foreground mr-1">{lot.lot_number}º</span>
-                                  {lot.name}
+                                  {isEditingThis ? (
+                                    <Input className="w-32 inline-block" value={lotEditForm.name} onChange={(e) => setLotEditForm({ ...lotEditForm, name: e.target.value })} />
+                                  ) : (
+                                    lot.name
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right font-mono">
                                   {isEditingThis ? (
@@ -483,7 +488,7 @@ export default function TicketManagement() {
                                   <div className="flex justify-end gap-1">
                                     {isEditingThis ? (
                                       <>
-                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
+                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, name: lotEditForm.name, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
                                           Salvar
                                         </Button>
                                         <Button size="sm" variant="ghost" onClick={() => setEditingLotId(null)}>Cancelar</Button>
@@ -494,7 +499,7 @@ export default function TicketManagement() {
                                           <ShoppingCart className="h-3.5 w-3.5" />
                                         </Button>
                                         {isAdmin && (
-                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
+                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
                                             <Pencil className="h-3.5 w-3.5" />
                                           </Button>
                                         )}
