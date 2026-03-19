@@ -168,6 +168,21 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   }, 0);
   const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
   const ticketRevenue = ticketRevenueNet; // P&L uses net values
+  const ticketTotalQuantity = ticketLots.reduce((s, l) => s + l.quantity, 0);
+
+  // Helper: compute formula-based amount
+  const computeFormulaAmount = (formulaType: string, formulaValue: number): number => {
+    if (formulaType === "percentage_revenue") return (formulaValue / 100) * ticketRevenueGross;
+    if (formulaType === "per_ticket") return formulaValue * ticketTotalQuantity;
+    return 0;
+  };
+
+  // Get display amount for a forecast (computed if formula, stored otherwise)
+  const getDisplayAmount = (f: any): number => {
+    const ft = f.formula_type || "fixed";
+    if (ft !== "fixed" && f.formula_value) return computeFormulaAmount(ft, Number(f.formula_value));
+    return Number(f.amount);
+  };
 
   // Actual ticket sales: unit_price also includes IVA, extract net
   const ticketActualRevenueGross = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
