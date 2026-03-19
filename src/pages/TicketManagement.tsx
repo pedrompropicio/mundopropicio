@@ -169,7 +169,8 @@ export default function TicketManagement() {
   };
 
   const updateLotMutation = useMutation({
-    mutationFn: async ({ id, zoneId, quantity, price }: { id: string; zoneId: string; quantity: number; price: number }) => {
+    mutationFn: async ({ id, zoneId, name, quantity, price }: { id: string; zoneId: string; name: string; quantity: number; price: number }) => {
+      if (!name.trim()) throw new Error("O nome do lote é obrigatório");
       const { zone, allocatedQuantity } = await getZoneCapacityValidation(zoneId, id);
 
       if (zone.total_capacity > 0 && allocatedQuantity + quantity > zone.total_capacity) {
@@ -177,7 +178,7 @@ export default function TicketManagement() {
         throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} lugares. Restam ${remaining.toLocaleString()} disponíveis.`);
       }
 
-      const { error } = await supabase.from("event_ticket_lots").update({ quantity, price }).eq("id", id);
+      const { error } = await supabase.from("event_ticket_lots").update({ name: name.trim(), quantity, price }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
