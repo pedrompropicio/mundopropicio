@@ -499,7 +499,7 @@ export default function TicketManagement() {
                                           <ShoppingCart className="h-3.5 w-3.5" />
                                         </Button>
                                         {isAdmin && (
-                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
+                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
                                             <Pencil className="h-3.5 w-3.5" />
                                           </Button>
                                         )}
