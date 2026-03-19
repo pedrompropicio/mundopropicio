@@ -80,7 +80,17 @@ export default function ReportContasPagar() {
 
   const filtered = useMemo(() => {
     if (!hasSearched) return [];
+    const today = new Date().toISOString().slice(0, 10);
     let result = transactions;
+
+    // Balance filter
+    if (appliedBalanceFilter === "open") {
+      result = result.filter((t: any) => {
+        const amount = Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100);
+        const paid = Number(t.paid_amount ?? 0);
+        return paid < amount;
+      });
+    }
 
     if (appliedEventIds.size > 0) {
       result = result.filter((t: any) => appliedEventIds.has(t.event_id));
@@ -102,8 +112,21 @@ export default function ReportContasPagar() {
       });
     }
 
+    // Due status filter
+    if (appliedDueFilter === "overdue") {
+      result = result.filter((t: any) => {
+        const dueDate = t.due_date;
+        return dueDate && dueDate < today;
+      });
+    } else if (appliedDueFilter === "not_overdue") {
+      result = result.filter((t: any) => {
+        const dueDate = t.due_date;
+        return !dueDate || dueDate >= today;
+      });
+    }
+
     return result;
-  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, hasSearched]);
+  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, appliedDueFilter, appliedBalanceFilter, hasSearched]);
 
   // Compute status
   const getStatus = (t: any) => {
