@@ -370,6 +370,11 @@ export default function ReportContasPagar() {
               </span>
             )}
             {appliedEventIds.size === 0 && <span>{" · "}Todos os eventos</span>}
+            {appliedDueFilter !== "all" && (
+              <span>{" · "}{appliedDueFilter === "overdue" ? "Apenas vencidas" : "Apenas não vencidas"}</span>
+            )}
+            {appliedBalanceFilter === "open" && <span>{" · "}Com saldo aberto</span>}
+            {appliedBalanceFilter === "all" && <span>{" · "}Todas (incl. pagas)</span>}
           </div>
         )}
       </div>
