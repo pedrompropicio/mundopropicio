@@ -197,6 +197,8 @@ export type Database = {
           created_at: string
           description: string
           event_id: string
+          formula_type: string
+          formula_value: number
           id: string
           iva_rate: number
           notes: string | null
@@ -214,6 +216,8 @@ export type Database = {
           created_at?: string
           description: string
           event_id: string
+          formula_type?: string
+          formula_value?: number
           id?: string
           iva_rate?: number
           notes?: string | null
@@ -231,6 +235,8 @@ export type Database = {
           created_at?: string
           description?: string
           event_id?: string
+          formula_type?: string
+          formula_value?: number
           id?: string
           iva_rate?: number
           notes?: string | null
