@@ -20,6 +20,7 @@ export default function ReportContasPagar() {
   const [dateToOpen, setDateToOpen] = useState(false);
   const [dueFilter, setDueFilter] = useState<"all" | "overdue" | "not_overdue">("all");
   const [balanceFilter, setBalanceFilter] = useState<"open" | "all">("open");
+  const [pdfGroupByEvent, setPdfGroupByEvent] = useState(false);
 
   // Applied filters (only update when user clicks "Consultar")
   const [appliedEventIds, setAppliedEventIds] = useState<Set<string>>(new Set());
@@ -201,6 +202,7 @@ export default function ReportContasPagar() {
       eventNames: selectedEventIds.size > 0
         ? events.filter((e: any) => selectedEventIds.has(e.id)).map((e: any) => e.name)
         : null,
+      groupByEvent: pdfGroupByEvent,
       items: filtered.map((t: any) => ({
         description: t.description,
         specification: t.specification,
@@ -343,7 +345,14 @@ export default function ReportContasPagar() {
           </Button>
 
           {/* Export buttons */}
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-3 ml-auto">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <Checkbox
+                checked={pdfGroupByEvent}
+                onCheckedChange={(v) => setPdfGroupByEvent(!!v)}
+              />
+              Quebrar por evento
+            </label>
             <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filtered.length === 0}>
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
             </Button>
