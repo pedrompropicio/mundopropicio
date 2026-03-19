@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Users,
   FolderTree,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
