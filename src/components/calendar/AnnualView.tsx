@@ -65,9 +65,9 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
         return (
           <div key={month} className="glass rounded-xl p-3">
             <h4 className="text-sm font-semibold text-center mb-2">{MONTH_NAMES_SHORT[month]}</h4>
-            <div className="grid grid-cols-7 text-center border border-border/30 rounded overflow-hidden">
+            <div className="grid grid-cols-7 text-center border border-border/60 rounded overflow-hidden">
               {["S", "T", "Q", "Q", "S", "S", "D"].map((d, i) => (
-                <div key={i} className="text-[9px] text-muted-foreground font-medium py-0.5 border-b border-r border-border/30 last:border-r-0 bg-secondary/20">{d}</div>
+                <div key={i} className="text-[9px] text-muted-foreground font-medium py-0.5 border-b border-r border-border/60 last:border-r-0 bg-secondary/20">{d}</div>
               ))}
               {days.map((day, i) => {
                 if (day === null) return <div key={`e-${i}`} className="h-6 border-r border-b border-border/30 last:border-r-0" />;
