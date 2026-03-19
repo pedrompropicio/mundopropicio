@@ -238,7 +238,7 @@ export function EventTicketing({ eventId }: Props) {
   };
 
   const handleSaveLot = (zoneId: string) => {
-    if (!lotForm.name || !lotForm.quantity || !lotForm.price) {
+    if (!lotForm.name || !lotForm.quantity || lotForm.price === "") {
       toast({ title: "Preencha todos os campos do lote", variant: "destructive" }); return;
     }
 
