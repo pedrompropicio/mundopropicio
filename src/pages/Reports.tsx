@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Select,
   SelectContent,
@@ -19,23 +20,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const reportItems = [
-  { to: "/relatorios/dre", icon: BarChart3, label: "DRE" },
-  { to: "/relatorios/pl", icon: TrendingUp, label: "P&L" },
-  { to: "/relatorios/fluxo-caixa", icon: ArrowLeftRight, label: "Fluxo de Caixa" },
-  { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário" },
-  { to: "/relatorios/contas-pagar", icon: Receipt, label: "Contas a Pagar" },
-  { to: "/relatorios/listas-pagamento", icon: ClipboardList, label: "Listas de Pagamento" },
-  { to: "/relatorios/fornecedores", icon: Users, label: "Fornecedores" },
-  { to: "/relatorios/plano-contas", icon: FolderTree, label: "Plano de Contas" },
+const allReportItems = [
+  { to: "/relatorios/dre", icon: BarChart3, label: "DRE", permission: "view_report_dre" },
+  { to: "/relatorios/pl", icon: TrendingUp, label: "P&L", permission: "view_report_pl" },
+  { to: "/relatorios/fluxo-caixa", icon: ArrowLeftRight, label: "Fluxo de Caixa", permission: "view_report_cashflow" },
+  { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário", permission: "view_report_bank_statement" },
+  { to: "/relatorios/contas-pagar", icon: Receipt, label: "Contas a Pagar", permission: "view_report_contas_pagar" },
+  { to: "/relatorios/listas-pagamento", icon: ClipboardList, label: "Listas de Pagamento", permission: "view_report_payment_lists" },
+  { to: "/relatorios/fornecedores", icon: Users, label: "Fornecedores", permission: "view_report_suppliers" },
+  { to: "/relatorios/plano-contas", icon: FolderTree, label: "Plano de Contas", permission: "view_report_categories" },
 ];
 
 export default function Reports() {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { hasPermission, isAdmin } = useAuth();
+
+  const reportItems = allReportItems.filter(
+    (item) => isAdmin || hasPermission(item.permission)
+  );
 
   const currentReport = reportItems.find((item) => item.to === location.pathname);
+
+  if (reportItems.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Sem acesso a relatórios.</p>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
@@ -61,7 +75,7 @@ export default function Reports() {
           </SelectContent>
         </Select>
 
-        <div className="min-w-0">
+        <div className="flex-1">
           <Outlet />
         </div>
       </div>
@@ -69,11 +83,8 @@ export default function Reports() {
   }
 
   return (
-    <div className="flex flex-row gap-6">
-      <nav className="flex flex-col gap-1 w-52 shrink-0 border-r border-border pr-4">
-        <h2 className="text-xs font-semibold uppercase text-muted-foreground mb-2 px-3">
-          Relatórios
-        </h2>
+    <div className="flex gap-6">
+      <nav className="w-52 shrink-0 space-y-1 overflow-y-auto max-h-[calc(100vh-8rem)]">
         {reportItems.map((item) => {
           const isActive = location.pathname === item.to;
           return (
@@ -81,10 +92,10 @@ export default function Reports() {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
-                "hover:bg-muted hover:text-foreground",
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                "hover:bg-secondary hover:text-secondary-foreground",
                 isActive
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-secondary text-foreground"
                   : "text-muted-foreground"
               )}
             >

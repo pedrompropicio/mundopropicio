@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -44,6 +44,28 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   user: "bg-secondary text-secondary-foreground",
 };
 
+export const ALL_PERMISSIONS = [
+  { key: "view_balances", label: "Ver Saldos", group: "Geral" },
+  { key: "view_reports", label: "Ver Relatórios (geral)", group: "Geral" },
+  { key: "manage_events", label: "Gerir Eventos", group: "Operacional" },
+  { key: "manage_transactions", label: "Gerir Transações", group: "Operacional" },
+  { key: "manage_suppliers", label: "Gerir Fornecedores", group: "Operacional" },
+  { key: "manage_quotations", label: "Gerir Cotações", group: "Operacional" },
+  { key: "manage_accounts", label: "Gerir Contas", group: "Operacional" },
+  { key: "manage_tickets", label: "Gerir Bilhetes", group: "Operacional" },
+  { key: "manage_iva", label: "Gerir IVA", group: "Operacional" },
+  { key: "manage_categories", label: "Gerir Plano de Contas", group: "Operacional" },
+  { key: "manage_calendar", label: "Gerir Calendário", group: "Operacional" },
+  { key: "view_report_dre", label: "Relatório DRE", group: "Relatórios" },
+  { key: "view_report_pl", label: "Relatório P&L", group: "Relatórios" },
+  { key: "view_report_cashflow", label: "Relatório Fluxo de Caixa", group: "Relatórios" },
+  { key: "view_report_bank_statement", label: "Relatório Extrato Bancário", group: "Relatórios" },
+  { key: "view_report_contas_pagar", label: "Relatório Contas a Pagar", group: "Relatórios" },
+  { key: "view_report_payment_lists", label: "Relatório Listas de Pagamento", group: "Relatórios" },
+  { key: "view_report_suppliers", label: "Relatório Fornecedores", group: "Relatórios" },
+  { key: "view_report_categories", label: "Relatório Plano de Contas", group: "Relatórios" },
+];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -51,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchRoleAndPermissions = async (userId: string) => {
+  const fetchRoleAndPermissions = useCallback(async (userId: string) => {
+    // Fetch role
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -62,13 +85,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userRole = (roleData?.role as AppRole) ?? "user";
     setRole(userRole);
 
-    const { data: permsData } = await supabase
+    // Fetch role-level permissions
+    const { data: rolePerms } = await supabase
       .from("role_permissions")
       .select("permission")
       .eq("role", userRole);
 
-    setPermissions(permsData?.map((p) => p.permission) ?? []);
-  };
+    const rolePermSet = new Set(rolePerms?.map((p) => p.permission) ?? []);
+
+    // Fetch user-level overrides
+    const { data: userPerms } = await supabase
+      .from("user_permissions")
+      .select("permission, granted")
+      .eq("user_id", userId);
+
+    // Apply overrides
+    if (userPerms) {
+      for (const up of userPerms) {
+        if (up.granted) {
+          rolePermSet.add(up.permission);
+        } else {
+          rolePermSet.delete(up.permission);
+        }
+      }
+    }
+
+    setPermissions(Array.from(rolePermSet));
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -95,9 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchRoleAndPermissions]);
 
-  const hasPermission = (permission: string) => permissions.includes(permission);
+  const hasPermission = useCallback((permission: string) => permissions.includes(permission), [permissions]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

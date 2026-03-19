@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2 } from "lucide-react";
+import UserPermissionsModal from "@/components/UserPermissionsModal";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
@@ -21,7 +22,8 @@ export default function UserManagement() {
   const [showForm, setShowForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState<AppRole>("user");
+  const [newRole, setNewRole] = useState<AppRole>("editor");
+  const [permModalUser, setPermModalUser] = useState<{ id: string; name: string; role: AppRole } | null>(null);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users-with-roles"],
@@ -76,7 +78,7 @@ export default function UserManagement() {
       setShowForm(false);
       setNewEmail("");
       setNewName("");
-      setNewRole("user");
+      setNewRole("editor");
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar utilizador", description: err.message, variant: "destructive" });
@@ -156,7 +158,7 @@ export default function UserManagement() {
                   <p className="text-xs text-muted-foreground">
                     {r === "admin" && "Acesso total ao sistema"}
                     {r === "manager" && "Cria, edita, vê relatórios e saldos"}
-                    {r === "editor" && "Cria e edita, sem relatórios/saldos"}
+                    {r === "editor" && "Cria e edita, configurável por utilizador"}
                     {r === "viewer" && "Apenas visualização"}
                   </p>
                 </div>
@@ -278,7 +280,14 @@ export default function UserManagement() {
                       </td>
                       <td className="py-3 text-center">
                         {u.id !== user?.id && (
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setPermModalUser({ id: u.id, name: u.full_name || u.email, role: u.role })}
+                              className="rounded-lg p-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                              title="Configurar permissões individuais"
+                            >
+                              <Settings2 className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => resendResetMutation.mutate({ email: u.email })}
                               disabled={resendResetMutation.isPending}
@@ -310,6 +319,16 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+
+      {permModalUser && (
+        <UserPermissionsModal
+          open={!!permModalUser}
+          onOpenChange={(open) => !open && setPermModalUser(null)}
+          userId={permModalUser.id}
+          userName={permModalUser.name}
+          userRole={permModalUser.role}
+        />
+      )}
     </div>
   );
 }
