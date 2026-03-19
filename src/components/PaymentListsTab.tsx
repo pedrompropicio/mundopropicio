@@ -530,8 +530,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const iban = tx?.suppliers?.iban ?? "-";
       const event = tx?.events?.name ?? "-";
       const desc = tx?.description ?? "-";
+      const shortDesc = desc.length > 27 ? desc.substring(0, 24) + "..." : desc.padEnd(27, " ").substring(0, 27);
 
       lines.push(`${status} ${idx + 1}. ${event} | ${iban} | ${supplier} | ${desc} | ${formatCurrency(withIva)}`);
+      lines.push(`      📎 _${shortDesc}_`);
       lines.push("───────────────");
     });
 
