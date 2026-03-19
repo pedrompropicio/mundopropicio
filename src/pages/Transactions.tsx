@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
@@ -36,6 +37,29 @@ export default function Transactions() {
       return data;
     },
   });
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["financial-accounts-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_accounts").select("id, name").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const toggleAccount = (id: string) => {
+    setSelectedAccountIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllAccounts = () => {
+    if (selectedAccountIds.size === accounts.length) setSelectedAccountIds(new Set());
+    else setSelectedAccountIds(new Set(accounts.map((a: any) => a.id)));
+  };
 
   const toggleEvent = (id: string) => {
     setSelectedEventIds((prev) => {
@@ -137,7 +161,8 @@ export default function Transactions() {
   });
 
   const filtered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
-    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id));
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
+    .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)));
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -271,6 +296,37 @@ export default function Transactions() {
               >
                 <Checkbox checked={selectedEventIds.has(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
                 <span className="text-sm">{e.name}</span>
+              </div>
+            ))}
+          </PopoverContent>
+        </Popover>
+
+        {/* Account multi-select filter */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm font-normal">
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
+              {selectedAccountIds.size === 0
+                ? "Todas as contas"
+                : `${selectedAccountIds.size} conta(s)`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
+              <Checkbox
+                checked={selectedAccountIds.size === accounts.length && accounts.length > 0}
+                onCheckedChange={toggleAllAccounts}
+              />
+              <span className="text-sm font-medium">Selecionar todas</span>
+            </div>
+            {accounts.map((a: any) => (
+              <div
+                key={a.id}
+                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
+                onClick={() => toggleAccount(a.id)}
+              >
+                <Checkbox checked={selectedAccountIds.has(a.id)} onCheckedChange={() => toggleAccount(a.id)} />
+                <span className="text-sm">{a.name}</span>
               </div>
             ))}
           </PopoverContent>
