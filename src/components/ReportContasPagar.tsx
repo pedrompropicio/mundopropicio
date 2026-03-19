@@ -202,6 +202,7 @@ export default function ReportContasPagar() {
       eventNames: selectedEventIds.size > 0
         ? events.filter((e: any) => selectedEventIds.has(e.id)).map((e: any) => e.name)
         : null,
+      groupByEvent: pdfGroupByEvent,
       items: filtered.map((t: any) => ({
         description: t.description,
         specification: t.specification,
