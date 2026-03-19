@@ -65,12 +65,12 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
         return (
           <div key={month} className="glass rounded-xl p-3">
             <h4 className="text-sm font-semibold text-center mb-2">{MONTH_NAMES_SHORT[month]}</h4>
-            <div className="grid grid-cols-7 text-center border border-border rounded overflow-hidden">
+            <div className="grid grid-cols-7 text-center border border-muted-foreground/30 rounded overflow-hidden">
               {["S", "T", "Q", "Q", "S", "S", "D"].map((d, i) => (
-                <div key={i} className="text-[9px] text-muted-foreground font-medium py-0.5 border-b border-r border-border last:border-r-0 bg-secondary/20">{d}</div>
+                <div key={i} className="text-[9px] text-muted-foreground font-medium py-0.5 border-b border-r border-muted-foreground/30 last:border-r-0 bg-secondary/20">{d}</div>
               ))}
               {days.map((day, i) => {
-                if (day === null) return <div key={`e-${i}`} className="h-6 border-r border-b border-border last:border-r-0" />;
+                if (day === null) return <div key={`e-${i}`} className="h-6 border-r border-b border-muted-foreground/30 last:border-r-0" />;
                 const dateStr = formatDateStr(currentYear, month, day);
                 const isToday = dateStr === todayStr;
                 const dayEvents = eventsByDate.get(dateStr) || [];
@@ -83,7 +83,7 @@ export function AnnualView({ events, currentYear }: AnnualViewProps) {
                   <div
                     key={day}
                     className={cn(
-                      "h-6 flex flex-col items-center justify-center relative group cursor-default border-r border-b border-border last:border-r-0",
+                      "h-6 flex flex-col items-center justify-center relative group cursor-default border-r border-b border-muted-foreground/30 last:border-r-0",
                       isToday && "bg-primary text-primary-foreground",
                       hasEvents && !isToday && "bg-secondary/40"
                     )}
