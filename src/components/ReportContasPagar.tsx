@@ -18,11 +18,15 @@ export default function ReportContasPagar() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
+  const [dueFilter, setDueFilter] = useState<"all" | "overdue" | "not_overdue">("all");
+  const [balanceFilter, setBalanceFilter] = useState<"open" | "all">("open");
 
   // Applied filters (only update when user clicks "Consultar")
   const [appliedEventIds, setAppliedEventIds] = useState<Set<string>>(new Set());
   const [appliedDateFrom, setAppliedDateFrom] = useState<Date | undefined>(undefined);
   const [appliedDateTo, setAppliedDateTo] = useState<Date | undefined>(undefined);
+  const [appliedDueFilter, setAppliedDueFilter] = useState<"all" | "overdue" | "not_overdue">("all");
+  const [appliedBalanceFilter, setAppliedBalanceFilter] = useState<"open" | "all">("open");
   const [hasSearched, setHasSearched] = useState(false);
 
   const handleConsultar = () => {
