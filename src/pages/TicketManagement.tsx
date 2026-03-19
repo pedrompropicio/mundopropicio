@@ -458,7 +458,11 @@ export default function TicketManagement() {
                               <TableRow key={lot.id}>
                                 <TableCell className="font-medium">
                                   <span className="text-xs text-muted-foreground mr-1">{lot.lot_number}º</span>
-                                  {lot.name}
+                                  {isEditingThis ? (
+                                    <Input className="w-32 inline-block" value={lotEditForm.name} onChange={(e) => setLotEditForm({ ...lotEditForm, name: e.target.value })} />
+                                  ) : (
+                                    lot.name
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right font-mono">
                                   {isEditingThis ? (
