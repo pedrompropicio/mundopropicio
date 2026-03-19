@@ -201,15 +201,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             {paymentMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
           </button>
         </div>
-
-        {showDocuments && (
-          <TransactionDocumentsModal
-            transactionId={transaction.id}
-            transactionDescription={transaction.description}
-            onClose={() => setShowDocuments(false)}
-          />
-        )}
       </div>
+
+      {showDocuments && (
+        <TransactionDocumentsModal
+          transactionId={transaction.id}
+          transactionDescription={transaction.description}
+          onClose={() => setShowDocuments(false)}
+        />
+      )}
     </div>
   );
 }
