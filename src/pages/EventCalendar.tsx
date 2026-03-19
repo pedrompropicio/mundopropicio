@@ -393,7 +393,7 @@ export default function EventCalendar() {
           {/* Calendar grid */}
           <div className="grid grid-cols-7 border-l border-border">
             {calendarDays.map((day, i) => {
-              if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px] border-r border-b border-border/60" />;
+              if (day === null) return <div key={`empty-${i}`} className="min-h-[80px] lg:min-h-[100px] border-r border-b border-border" />;
 
               const dayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
               const isToday = dayStr === todayStr;
