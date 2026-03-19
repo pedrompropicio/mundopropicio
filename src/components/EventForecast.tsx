@@ -976,15 +976,19 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, displayAmount }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
-  indented?: boolean;
+  indented?: boolean; displayAmount?: number;
 }) {
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+  const amount = displayAmount ?? Number(item.amount);
+  const ft = item.formula_type || "fixed";
+  const isFormula = ft !== "fixed";
+  const formulaLabel = ft === "percentage_revenue" ? `${Number(item.formula_value)}% Receita` : ft === "per_ticket" ? `€${Number(item.formula_value)}/bilhete` : "";
 
   return (
     <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
@@ -1003,6 +1007,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           )}
           <div>
             <p className="font-medium">{item.description}</p>
+            {isFormula && <p className="text-[10px] text-primary/70 font-medium">📐 {formulaLabel}</p>}
             {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
             {isApproved && item.transaction_id && (
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -1022,13 +1027,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       </td>
       <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
       <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-        {formatCurrency(Number(item.amount))}
+        {formatCurrency(amount)}
       </td>
       <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
-        {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+        {formatCurrency(amount * Number(item.iva_rate) / 100)}
       </td>
       <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-        {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
+        {formatCurrency(amount * (1 + Number(item.iva_rate) / 100))}
       </td>
       <td className="py-2.5 text-right">
         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
