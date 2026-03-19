@@ -85,13 +85,23 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         }
       }
 
-      await supabase.from("transaction_audit_log").insert({
+      const auditEntries: any[] = [{
         transaction_id: transaction.id,
         changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
         field_name: "Pagamento parcial",
         old_value: String(currentPaid),
         new_value: String(newPaid),
-      });
+      }];
+      if (notes.trim()) {
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Nota de pagamento",
+          old_value: null,
+          new_value: notes.trim(),
+        });
+      }
+      await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
       const updateData: any = { paid_amount: newPaid, status: newStatus, account_id: accountId, payment_date: format(paymentDate, "yyyy-MM-dd") };
