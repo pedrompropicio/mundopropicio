@@ -530,10 +530,18 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const iban = tx?.suppliers?.iban ?? "-";
       const event = tx?.events?.name ?? "-";
       const desc = tx?.description ?? "-";
-      const shortDesc = desc.length > 27 ? desc.substring(0, 24) + "..." : desc.padEnd(27, " ").substring(0, 27);
+      const shortDesc = desc.length > 27 ? desc.substring(0, 24) + "..." : desc;
 
-      lines.push(`${status} ${idx + 1}. ${event} | ${iban} | ${supplier} | ${desc} | ${formatCurrency(withIva)}`);
-      lines.push(`      📎 _${shortDesc}_`);
+      lines.push(`${status} *${idx + 1}.*`);
+      lines.push(`Evento: ${event}`);
+      lines.push(`IBAN: ${iban}`);
+      lines.push(`Entidade: ${supplier}`);
+      lines.push(`Descrição: ${desc}`);
+      lines.push(`Resumo: ${shortDesc}`);
+      lines.push(`Valor: ${formatCurrency(withIva)}`);
+      if (paid > 0 && !isPaid) {
+        lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + ivaRate / 100))}`);
+      }
       lines.push("───────────────");
     });
 
