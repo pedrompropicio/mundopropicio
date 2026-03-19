@@ -301,6 +301,37 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
+        {/* Account multi-select filter */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm font-normal">
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
+              {selectedAccountIds.size === 0
+                ? "Todas as contas"
+                : `${selectedAccountIds.size} conta(s)`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
+              <Checkbox
+                checked={selectedAccountIds.size === accounts.length && accounts.length > 0}
+                onCheckedChange={toggleAllAccounts}
+              />
+              <span className="text-sm font-medium">Selecionar todas</span>
+            </div>
+            {accounts.map((a: any) => (
+              <div
+                key={a.id}
+                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
+                onClick={() => toggleAccount(a.id)}
+              >
+                <Checkbox checked={selectedAccountIds.has(a.id)} onCheckedChange={() => toggleAccount(a.id)} />
+                <span className="text-sm">{a.name}</span>
+              </div>
+            ))}
+          </PopoverContent>
+        </Popover>
+
         {isAdmin && selectedPendingCount > 0 && (
           <button
             onClick={handleBulkApprove}
