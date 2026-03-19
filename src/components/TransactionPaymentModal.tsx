@@ -23,6 +23,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [showDocuments, setShowDocuments] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState("");
+  const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -84,13 +85,23 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         }
       }
 
-      await supabase.from("transaction_audit_log").insert({
+      const auditEntries: any[] = [{
         transaction_id: transaction.id,
         changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
         field_name: "Pagamento parcial",
         old_value: String(currentPaid),
         new_value: String(newPaid),
-      });
+      }];
+      if (notes.trim()) {
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Nota de pagamento",
+          old_value: null,
+          new_value: notes.trim(),
+        });
+      }
+      await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
       const updateData: any = { paid_amount: newPaid, status: newStatus, account_id: accountId, payment_date: format(paymentDate, "yyyy-MM-dd") };
@@ -189,6 +200,14 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             <input type="number" step="0.01" min="0.01" max={balance} value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota / Observação</label>
+            <textarea value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" placeholder="Observação sobre este pagamento…" />
           </div>
 
           <div className="flex gap-2">
