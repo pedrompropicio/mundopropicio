@@ -124,12 +124,32 @@ export function EventTicketing({ eventId }: Props) {
   // Lot CRUD
   const saveLotMutation = useMutation({
     mutationFn: async ({ form, zoneId, id }: { form: LotForm; zoneId: string; id: string | null }) => {
-      const lotsForZone = allLots.filter((l) => l.zone_id === zoneId);
-      const nextLotNumber = id ? allLots.find((l) => l.id === id)?.lot_number ?? 1 : lotsForZone.length + 1;
+      // Fetch fresh lots from DB to validate capacity
+      const zone = zones.find((z) => z.id === zoneId);
+      const { data: freshLots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, quantity, lot_number")
+        .eq("zone_id", zoneId);
+      const currentLots = freshLots ?? [];
+
+      const newQty = parseInt(form.quantity) || 0;
+
+      // Validate capacity with fresh data
+      if (zone && zone.total_capacity > 0) {
+        const existingTotal = currentLots
+          .filter((l) => l.id !== id)
+          .reduce((s, l) => s + l.quantity, 0);
+        if (existingTotal + newQty > zone.total_capacity) {
+          const remaining = zone.total_capacity - existingTotal;
+          throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`);
+        }
+      }
+
+      const nextLotNumber = id ? currentLots.find((l) => l.id === id)?.lot_number ?? 1 : currentLots.length + 1;
       const payload = {
         zone_id: zoneId,
         name: form.name,
-        quantity: parseInt(form.quantity) || 0,
+        quantity: newQty,
         price: parseFloat(form.price) || 0,
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
@@ -209,25 +229,6 @@ export function EventTicketing({ eventId }: Props) {
   const handleSaveLot = (zoneId: string) => {
     if (!lotForm.name || !lotForm.quantity || !lotForm.price) {
       toast({ title: "Preencha todos os campos do lote", variant: "destructive" }); return;
-    }
-
-    // Validate capacity
-    const zone = zones.find((z) => z.id === zoneId);
-    if (zone && zone.total_capacity > 0) {
-      const currentLots = allLots.filter((l) => l.zone_id === zoneId);
-      const existingTotal = currentLots
-        .filter((l) => l.id !== editingLotId)
-        .reduce((s, l) => s + l.quantity, 0);
-      const newQty = parseInt(lotForm.quantity) || 0;
-      if (existingTotal + newQty > zone.total_capacity) {
-        const remaining = zone.total_capacity - existingTotal;
-        toast({
-          title: "Capacidade excedida",
-          description: `A zona "${zone.name}" tem capacidade para ${(zone.total_capacity ?? 0).toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`,
-          variant: "destructive",
-        });
-        return;
-      }
     }
 
     saveLotMutation.mutate({ form: lotForm, zoneId, id: editingLotId });
