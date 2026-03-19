@@ -472,12 +472,12 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     return groups;
   }, [expenseForecasts, catLookup, cacheLines]);
 
-  const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
-  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
+  const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + getDisplayAmount(f), 0) + ticketRevenue;
+  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
-  const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + getDisplayAmount(f), 0);
   const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount;
-  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + getDisplayAmount(f) * Number(f.iva_rate) / 100, 0);
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
