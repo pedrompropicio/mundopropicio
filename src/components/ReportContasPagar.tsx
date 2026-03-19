@@ -345,7 +345,14 @@ export default function ReportContasPagar() {
           </Button>
 
           {/* Export buttons */}
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-3 ml-auto">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <Checkbox
+                checked={pdfGroupByEvent}
+                onCheckedChange={(v) => setPdfGroupByEvent(!!v)}
+              />
+              Quebrar por evento
+            </label>
             <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filtered.length === 0}>
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
             </Button>
