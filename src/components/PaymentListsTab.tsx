@@ -657,10 +657,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       </div>
                     )}
                     <div className="flex-1 space-y-1">
-                      <p><span className="font-medium text-muted-foreground">Evento:</span> {tx?.events?.name ?? "-"}</p>
-                      <p><span className="font-medium text-muted-foreground">IBAN:</span> <span className="font-mono text-xs">{tx?.suppliers?.iban ?? "-"}</span></p>
-                      <p><span className="font-medium text-muted-foreground">Fornecedor:</span> {tx?.suppliers?.name ?? "-"}</p>
-                      <p><span className="font-medium text-muted-foreground">Descrição:</span> <span className="font-semibold">{tx?.description}</span></p>
+                      <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
+                      <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                      <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                      <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
+                      <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
                       <div className="flex items-center gap-4 flex-wrap">
                         <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
                         {paid > 0 && !isPaid && (
