@@ -488,7 +488,7 @@ export default function TicketManagement() {
                                   <div className="flex justify-end gap-1">
                                     {isEditingThis ? (
                                       <>
-                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
+                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, name: lotEditForm.name, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
                                           Salvar
                                         </Button>
                                         <Button size="sm" variant="ghost" onClick={() => setEditingLotId(null)}>Cancelar</Button>
