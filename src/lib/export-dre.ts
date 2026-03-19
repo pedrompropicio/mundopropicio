@@ -329,6 +329,31 @@ export function exportDREToPDF(
     y += 8;
   });
 
+  // Global summary box at the end
+  checkNewPage(30);
+  y += 4;
+  doc.setFillColor(245, 245, 250);
+  doc.roundedRect(marginLeft, y, contentWidth, 20, 2, 2, "F");
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  const thirdW = contentWidth / 3;
+  doc.setTextColor(34, 139, 34);
+  doc.text("Total Receitas", marginLeft + 4, y + 6);
+  doc.setFontSize(11);
+  doc.text(fmtVal(gIncEx), marginLeft + 4, y + 14);
+  doc.setFontSize(8);
+  doc.setTextColor(200, 120, 0);
+  doc.text("Total Despesas", marginLeft + thirdW + 4, y + 6);
+  doc.setFontSize(11);
+  doc.text(fmtVal(gExpEx), marginLeft + thirdW + 4, y + 14);
+  doc.setFontSize(8);
+  const resColor = gIncEx - gExpEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+  doc.setTextColor(resColor[0], resColor[1], resColor[2]);
+  doc.text("Resultado Líquido", marginLeft + thirdW * 2 + 4, y + 6);
+  doc.setFontSize(11);
+  doc.text(fmtVal(gIncEx - gExpEx), marginLeft + thirdW * 2 + 4, y + 14);
+  doc.setTextColor(0, 0, 0);
+
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
