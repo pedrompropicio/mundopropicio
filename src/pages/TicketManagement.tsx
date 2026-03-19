@@ -316,6 +316,8 @@ export default function TicketManagement() {
             </div>
           )}
 
+          {!isParentEvent && (
+          <>
           {/* Add zone inline */}
           {addingZone && isAdmin && (
             <div className="glass rounded-xl p-4 flex items-end gap-3">
