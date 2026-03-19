@@ -18,6 +18,8 @@ interface InlineForm {
   category_id: string;
   notes: string;
   specification: string;
+  formula_type: string;
+  formula_value: string;
 }
 
 const emptyInline: InlineForm = {
@@ -28,6 +30,8 @@ const emptyInline: InlineForm = {
   category_id: "",
   notes: "",
   specification: "",
+  formula_type: "fixed",
+  formula_value: "",
 };
 
 interface Props {
