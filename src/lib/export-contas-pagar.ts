@@ -24,6 +24,7 @@ interface ContasPagarExport {
   dateTo: string | null;
   eventNames: string[] | null;
   items: ContasPagarItem[];
+  groupByEvent?: boolean;
 }
 
 function calcWithIva(amount: number, ivaRate: number): number {
