@@ -38,6 +38,29 @@ export default function Transactions() {
     },
   });
 
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["financial-accounts-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_accounts").select("id, name").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const toggleAccount = (id: string) => {
+    setSelectedAccountIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllAccounts = () => {
+    if (selectedAccountIds.size === accounts.length) setSelectedAccountIds(new Set());
+    else setSelectedAccountIds(new Set(accounts.map((a: any) => a.id)));
+  };
+
   const toggleEvent = (id: string) => {
     setSelectedEventIds((prev) => {
       const next = new Set(prev);
