@@ -510,6 +510,45 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     }
   };
 
+  const handleCopyWhatsApp = () => {
+    if (!list || items.length === 0) return;
+    const lines: string[] = [];
+    lines.push(`📋 *${list.title}*`);
+    lines.push(`📅 Data: ${formatDate(list.payment_date)}`);
+    if (list.approved_by) lines.push(`✅ Aprovada por: ${list.approved_by}`);
+    lines.push("");
+    lines.push("```");
+    // Header
+    lines.push("Nº | Fornecedor | Valor | Estado");
+    lines.push("---|---|---|---");
+    items.forEach((item: any, idx: number) => {
+      const tx = item.transactions;
+      const amount = Number(tx?.amount ?? 0);
+      const ivaRate = Number(tx?.iva_rate ?? 23);
+      const withIva = amount * (1 + ivaRate / 100);
+      const paid = Number(tx?.paid_amount ?? 0);
+      const isPaid = paid >= amount || tx?.status === "paid";
+      const status = isPaid ? "✅" : "⬜";
+      const supplier = tx?.suppliers?.name ?? "-";
+      lines.push(`${idx + 1} | ${supplier} | ${formatCurrency(withIva)} | ${status}`);
+    });
+    lines.push("```");
+    lines.push("");
+    const total = items.reduce((sum: number, item: any) => {
+      const tx = item.transactions;
+      const amount = Number(tx?.amount ?? 0);
+      const ivaRate = Number(tx?.iva_rate ?? 23);
+      return sum + amount * (1 + ivaRate / 100);
+    }, 0);
+    lines.push(`💰 *Total: ${formatCurrency(total)}*`);
+
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      toast({ title: "Copiado!", description: "Lista formatada copiada para a área de transferência. Cole no WhatsApp." });
+    }).catch(() => {
+      toast({ title: "Erro ao copiar", variant: "destructive" });
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -519,7 +558,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             <p className="text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
           </div>
           {isApproved && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={handleCopyWhatsApp} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                <Copy className="h-4 w-4" /> WhatsApp
+              </button>
               <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 rounded-lg bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">
                 <FileText className="h-4 w-4" /> PDF
               </button>
