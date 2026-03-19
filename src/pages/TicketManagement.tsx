@@ -543,6 +543,8 @@ export default function TicketManagement() {
               </div>
             )}
           </div>
+          </>
+          )}
         </>
       )}
 
