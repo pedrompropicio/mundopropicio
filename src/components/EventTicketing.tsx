@@ -46,7 +46,10 @@ export function EventTicketing({ eventId }: Props) {
   const lotNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if ((addingZone || editingZoneId) && zoneNameRef.current) zoneNameRef.current.focus();
+    if ((addingZone || editingZoneId) && zoneNameRef.current) {
+      // Use setTimeout to ensure DOM is fully ready
+      setTimeout(() => zoneNameRef.current?.focus(), 100);
+    }
   }, [addingZone, editingZoneId]);
 
   useEffect(() => {
@@ -124,24 +127,24 @@ export function EventTicketing({ eventId }: Props) {
   // Lot CRUD
   const saveLotMutation = useMutation({
     mutationFn: async ({ form, zoneId, id }: { form: LotForm; zoneId: string; id: string | null }) => {
-      // Fetch fresh lots from DB to validate capacity
-      const zone = zones.find((z) => z.id === zoneId);
-      const { data: freshLots } = await supabase
-        .from("event_ticket_lots")
-        .select("id, quantity, lot_number")
-        .eq("zone_id", zoneId);
+      // Fetch fresh zone AND lots from DB to validate capacity
+      const [{ data: freshZone, error: zoneError }, { data: freshLots }] = await Promise.all([
+        supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("id", zoneId).single(),
+        supabase.from("event_ticket_lots").select("id, quantity, lot_number").eq("zone_id", zoneId),
+      ]);
+      if (zoneError) throw zoneError;
       const currentLots = freshLots ?? [];
 
       const newQty = parseInt(form.quantity) || 0;
 
       // Validate capacity with fresh data
-      if (zone && zone.total_capacity > 0) {
+      if (freshZone && freshZone.total_capacity > 0) {
         const existingTotal = currentLots
           .filter((l) => l.id !== id)
           .reduce((s, l) => s + l.quantity, 0);
-        if (existingTotal + newQty > zone.total_capacity) {
-          const remaining = zone.total_capacity - existingTotal;
-          throw new Error(`Capacidade excedida! A zona "${zone.name}" tem capacidade para ${zone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`);
+        if (existingTotal + newQty > freshZone.total_capacity) {
+          const remaining = Math.max(freshZone.total_capacity - existingTotal, 0);
+          throw new Error(`Capacidade excedida! A zona "${freshZone.name}" tem capacidade para ${freshZone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`);
         }
       }
 
@@ -474,10 +477,10 @@ export function EventTicketing({ eventId }: Props) {
 
             {/* Add zone inline */}
             {addingZone && (
-              <div className="rounded-lg border border-primary/30 p-3 bg-primary/5 animate-fade-in" onKeyDown={handleZoneKeyDown}>
+              <div className="rounded-lg border border-primary/30 p-3 bg-primary/5 animate-fade-in relative z-10" onKeyDown={handleZoneKeyDown}>
                 <div className="flex items-center gap-2">
                   <Ticket className="h-4 w-4 text-primary shrink-0" />
-                  <input ref={zoneNameRef} value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })} className={`${inputClass} flex-1`} placeholder="Nome da zona (ex: VIP, Plateia, Geral)…" autoFocus />
+                  <input ref={zoneNameRef} value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })} className={`${inputClass} flex-1`} placeholder="Nome da zona (ex: VIP, Plateia, Geral)…" />
                   <input type="number" min="0" value={zoneForm.total_capacity} onChange={(e) => setZoneForm({ ...zoneForm, total_capacity: e.target.value })} className={`${inputClass} w-32`} placeholder="Capacidade" />
                   <button onClick={handleSaveZone} disabled={saveZoneMutation.isPending} className="rounded p-1.5 bg-success/15 text-success hover:bg-success/25 disabled:opacity-50"><Check className="h-3.5 w-3.5" /></button>
                   <button onClick={cancelZone} className="rounded p-1.5 hover:bg-secondary"><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
