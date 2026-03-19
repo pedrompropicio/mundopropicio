@@ -18,17 +18,23 @@ export default function ReportContasPagar() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
+  const [dueFilter, setDueFilter] = useState<"all" | "overdue" | "not_overdue">("all");
+  const [balanceFilter, setBalanceFilter] = useState<"open" | "all">("open");
 
   // Applied filters (only update when user clicks "Consultar")
   const [appliedEventIds, setAppliedEventIds] = useState<Set<string>>(new Set());
   const [appliedDateFrom, setAppliedDateFrom] = useState<Date | undefined>(undefined);
   const [appliedDateTo, setAppliedDateTo] = useState<Date | undefined>(undefined);
+  const [appliedDueFilter, setAppliedDueFilter] = useState<"all" | "overdue" | "not_overdue">("all");
+  const [appliedBalanceFilter, setAppliedBalanceFilter] = useState<"open" | "all">("open");
   const [hasSearched, setHasSearched] = useState(false);
 
   const handleConsultar = () => {
     setAppliedEventIds(new Set(selectedEventIds));
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
+    setAppliedDueFilter(dueFilter);
+    setAppliedBalanceFilter(balanceFilter);
     setHasSearched(true);
   };
 
@@ -74,7 +80,17 @@ export default function ReportContasPagar() {
 
   const filtered = useMemo(() => {
     if (!hasSearched) return [];
+    const today = new Date().toISOString().slice(0, 10);
     let result = transactions;
+
+    // Balance filter
+    if (appliedBalanceFilter === "open") {
+      result = result.filter((t: any) => {
+        const amount = Number(t.amount) * (1 + (t.iva_rate ?? 23) / 100);
+        const paid = Number(t.paid_amount ?? 0);
+        return paid < amount;
+      });
+    }
 
     if (appliedEventIds.size > 0) {
       result = result.filter((t: any) => appliedEventIds.has(t.event_id));
@@ -96,8 +112,21 @@ export default function ReportContasPagar() {
       });
     }
 
+    // Due status filter
+    if (appliedDueFilter === "overdue") {
+      result = result.filter((t: any) => {
+        const dueDate = t.due_date;
+        return dueDate && dueDate < today;
+      });
+    } else if (appliedDueFilter === "not_overdue") {
+      result = result.filter((t: any) => {
+        const dueDate = t.due_date;
+        return !dueDate || dueDate >= today;
+      });
+    }
+
     return result;
-  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, hasSearched]);
+  }, [transactions, appliedEventIds, appliedDateFrom, appliedDateTo, appliedDueFilter, appliedBalanceFilter, hasSearched]);
 
   // Compute status
   const getStatus = (t: any) => {
@@ -280,6 +309,33 @@ export default function ReportContasPagar() {
             </Popover>
           </div>
 
+          {/* Due status filter */}
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Vencimento</label>
+            <select
+              value={dueFilter}
+              onChange={(e) => setDueFilter(e.target.value as any)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm min-w-[140px] h-10"
+            >
+              <option value="all">Todas</option>
+              <option value="overdue">Vencidas</option>
+              <option value="not_overdue">Não vencidas</option>
+            </select>
+          </div>
+
+          {/* Balance filter */}
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo</label>
+            <select
+              value={balanceFilter}
+              onChange={(e) => setBalanceFilter(e.target.value as any)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm min-w-[140px] h-10"
+            >
+              <option value="open">Com saldo aberto</option>
+              <option value="all">Todas (incl. pagas)</option>
+            </select>
+          </div>
+
           {/* Consultar button */}
           <Button onClick={handleConsultar} className="flex items-center gap-2">
             <Search className="h-4 w-4" />
@@ -314,6 +370,11 @@ export default function ReportContasPagar() {
               </span>
             )}
             {appliedEventIds.size === 0 && <span>{" · "}Todos os eventos</span>}
+            {appliedDueFilter !== "all" && (
+              <span>{" · "}{appliedDueFilter === "overdue" ? "Apenas vencidas" : "Apenas não vencidas"}</span>
+            )}
+            {appliedBalanceFilter === "open" && <span>{" · "}Com saldo aberto</span>}
+            {appliedBalanceFilter === "all" && <span>{" · "}Todas (incl. pagas)</span>}
           </div>
         )}
       </div>
