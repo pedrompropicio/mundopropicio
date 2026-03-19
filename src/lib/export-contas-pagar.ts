@@ -92,9 +92,55 @@ export function exportContasPagarToExcel(data: ContasPagarExport) {
   XLSX.writeFile(wb, filename);
 }
 
+function renderPdfTable(doc: jsPDF, items: ContasPagarItem[], startY: number, marginLeft: number, showEventCol: boolean) {
+  let totalWithIva = 0;
+  let totalPaid = 0;
+
+  const tableData = items.map((item, i) => {
+    const withIva = calcWithIva(item.amount, item.iva_rate);
+    const balance = withIva - item.paid_amount;
+    totalWithIva += withIva;
+    totalPaid += item.paid_amount;
+    const row = [
+      String(i + 1),
+      formatDate(item.date),
+      ...(showEventCol ? [item.event_name] : []),
+      item.supplier_name,
+      item.description,
+      item.status,
+      formatCurrencyDecimal(withIva),
+      formatCurrencyDecimal(item.paid_amount),
+      formatCurrencyDecimal(balance),
+      item.due_date ? formatDate(item.due_date) : "-",
+    ];
+    return row;
+  });
+
+  const head = [
+    "#", "Data",
+    ...(showEventCol ? ["Evento"] : []),
+    "Fornecedor", "Descrição", "Estado", "Valor c/IVA", "Pago", "Saldo", "Vencimento",
+  ];
+
+  const footPadding = showEventCol ? ["", "", "", "", "TOTAL", ""] : ["", "", "", "TOTAL", ""];
+
+  autoTable(doc, {
+    startY,
+    head: [head],
+    body: tableData,
+    foot: [[...footPadding, formatCurrencyDecimal(totalWithIva), formatCurrencyDecimal(totalPaid), formatCurrencyDecimal(totalWithIva - totalPaid), ""]],
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [50, 50, 50], textColor: 255, fontStyle: "bold" },
+    footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 248, 248] },
+    margin: { left: marginLeft, right: 14 },
+  });
+
+  return { totalWithIva, totalPaid };
+}
+
 export function exportContasPagarToPDF(data: ContasPagarExport) {
   const doc = new jsPDF({ orientation: "landscape" });
-  const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 14;
   let y = 14;
 
@@ -115,39 +161,53 @@ export function exportContasPagarToPDF(data: ContasPagarExport) {
   doc.setTextColor(0, 0, 0);
   y += 8;
 
-  let totalWithIva = 0;
-  let totalPaid = 0;
+  if (data.groupByEvent) {
+    // Group items by event
+    const eventMap = new Map<string, ContasPagarItem[]>();
+    for (const item of data.items) {
+      const key = item.event_name || "Sem evento";
+      if (!eventMap.has(key)) eventMap.set(key, []);
+      eventMap.get(key)!.push(item);
+    }
+    const sortedEvents = Array.from(eventMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-  const tableData = data.items.map((item, i) => {
-    const withIva = calcWithIva(item.amount, item.iva_rate);
-    const balance = withIva - item.paid_amount;
-    totalWithIva += withIva;
-    totalPaid += item.paid_amount;
-    return [
-      String(i + 1),
-      formatDate(item.date),
-      item.event_name,
-      item.supplier_name,
-      item.description,
-      item.status,
-      formatCurrencyDecimal(withIva),
-      formatCurrencyDecimal(item.paid_amount),
-      formatCurrencyDecimal(balance),
-      item.due_date ? formatDate(item.due_date) : "-",
-    ];
-  });
+    let grandTotalWithIva = 0;
+    let grandTotalPaid = 0;
 
-  autoTable(doc, {
-    startY: y,
-    head: [["#", "Data", "Evento", "Fornecedor", "Descrição", "Estado", "Valor c/IVA", "Pago", "Saldo", "Vencimento"]],
-    body: tableData,
-    foot: [["", "", "", "", "TOTAL", "", formatCurrencyDecimal(totalWithIva), formatCurrencyDecimal(totalPaid), formatCurrencyDecimal(totalWithIva - totalPaid), ""]],
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [50, 50, 50], textColor: 255, fontStyle: "bold" },
-    footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 248, 248] },
-    margin: { left: marginLeft, right: 14 },
-  });
+    for (const [eventName, items] of sortedEvents) {
+      // Check if we need a new page
+      const finalY = (doc as any).lastAutoTable?.finalY ?? y;
+      if (finalY > doc.internal.pageSize.getHeight() - 40) {
+        doc.addPage();
+        y = 14;
+      } else {
+        y = finalY + 6;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(eventName, marginLeft, y);
+      doc.setFont("helvetica", "normal");
+      y += 5;
+
+      const { totalWithIva, totalPaid } = renderPdfTable(doc, items, y, marginLeft, false);
+      grandTotalWithIva += totalWithIva;
+      grandTotalPaid += totalPaid;
+    }
+
+    // Grand total
+    const finalY = (doc as any).lastAutoTable?.finalY ?? y;
+    y = finalY + 8;
+    if (y > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = 14;
+    }
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL GERAL — Valor c/IVA: ${formatCurrencyDecimal(grandTotalWithIva)}  |  Pago: ${formatCurrencyDecimal(grandTotalPaid)}  |  Saldo: ${formatCurrencyDecimal(grandTotalWithIva - grandTotalPaid)}`, marginLeft, y);
+  } else {
+    renderPdfTable(doc, data.items, y, marginLeft, true);
+  }
 
   const filename = `Contas_Pagar_${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(filename);
