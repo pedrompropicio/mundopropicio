@@ -492,7 +492,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
                 <p className="text-[10px] text-muted-foreground">Clique numa linha para preencher automaticamente os dados da transação</p>
-                <div className="max-h-52 overflow-y-auto">
+                <div className="max-h-52 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                   <table className="w-full text-[11px]">
                     <thead>
                       <tr className="text-muted-foreground border-b border-border/30">
