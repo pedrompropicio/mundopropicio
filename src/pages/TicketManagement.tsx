@@ -17,8 +17,7 @@ import {
 } from "lucide-react";
 
 interface SaleForm {
-  target_type: "lot" | "zone";
-  target_id: string;
+  lot_id: string;
   sale_date: string;
   quantity: string;
   unit_price: string;
@@ -26,8 +25,7 @@ interface SaleForm {
 }
 
 const emptySale: SaleForm = {
-  target_type: "zone",
-  target_id: "",
+  lot_id: "",
   sale_date: new Date().toISOString().slice(0, 10),
   quantity: "",
   unit_price: "",
@@ -58,6 +56,7 @@ export default function TicketManagement() {
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
       if (error) throw error;
+      // Sort: parent events first, then their children grouped underneath
       const parents = (data || []).filter(e => !e.parent_event_id);
       const children = (data || []).filter(e => !!e.parent_event_id);
       const sorted: typeof data = [];
@@ -67,6 +66,7 @@ export default function TicketManagement() {
         kids.sort((a, b) => a.date.localeCompare(b.date));
         sorted.push(...kids);
       }
+      // Add orphan children (no matching parent) at the end
       const usedIds = new Set(sorted.map(e => e.id));
       for (const c of children) {
         if (!usedIds.has(c.id)) sorted.push(c);
@@ -101,49 +101,28 @@ export default function TicketManagement() {
     enabled: zones.length > 0,
   });
 
-  // Fetch sales by lot_id OR zone_id
   const { data: sales = [] } = useQuery({
     queryKey: ["ticket-sales", selectedEventId],
     queryFn: async () => {
-      const zoneIds = zones.map((z) => z.id);
       const lotIds = lots.map((l) => l.id);
-      if (zoneIds.length === 0) return [];
-
-      // Fetch sales that belong to lots of this event OR directly to zones of this event
-      let query = supabase.from("ticket_sales").select("*").order("sale_date", { ascending: false });
-
-      if (lotIds.length > 0) {
-        // Use or filter: lot_id in lotIds OR zone_id in zoneIds
-        query = query.or(`lot_id.in.(${lotIds.join(",")}),zone_id.in.(${zoneIds.join(",")})`);
-      } else {
-        query = query.in("zone_id", zoneIds);
-      }
-
-      const { data, error } = await query;
+      if (lotIds.length === 0) return [];
+      const { data, error } = await supabase.from("ticket_sales").select("*").in("lot_id", lotIds).order("sale_date", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: zones.length > 0,
+    enabled: lots.length > 0,
   });
 
   // Mutations
   const saveSaleMutation = useMutation({
     mutationFn: async () => {
-      const payload: any = {
+      const payload = {
+        lot_id: saleForm.lot_id,
         sale_date: saleForm.sale_date,
         quantity: parseInt(saleForm.quantity) || 0,
         unit_price: parseFloat(saleForm.unit_price) || 0,
         notes: saleForm.notes || null,
       };
-
-      if (saleForm.target_type === "lot") {
-        payload.lot_id = saleForm.target_id;
-        payload.zone_id = null;
-      } else {
-        payload.zone_id = saleForm.target_id;
-        payload.lot_id = null;
-      }
-
       if (editingSaleId) {
         const { error } = await supabase.from("ticket_sales").update(payload).eq("id", editingSaleId);
         if (error) throw error;
@@ -257,25 +236,13 @@ export default function TicketManagement() {
   // Computed values
   const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId);
   const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
-  const getZoneDirectSales = (zoneId: string) => sales.filter((s) => s.zone_id === zoneId && !s.lot_id);
   const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
   const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
 
-  const getZoneDirectSold = (zoneId: string) => getZoneDirectSales(zoneId).reduce((s, sale) => s + Number(sale.quantity), 0);
-  const getZoneDirectRevenue = (zoneId: string) => getZoneDirectSales(zoneId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
-
-  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0) + getZoneDirectSold(zoneId);
-  const getZoneCapacity = (zoneId: string) => {
-    const zoneLots = getZoneLots(zoneId);
-    if (zoneLots.length > 0) {
-      return zoneLots.reduce((s, l) => s + l.quantity, 0);
-    }
-    // No lots: use zone's total_capacity directly
-    const zone = zones.find(z => z.id === zoneId);
-    return zone?.total_capacity ?? 0;
-  };
+  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0);
+  const getZoneCapacity = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
   const getZoneForecastRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
-  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0) + getZoneDirectRevenue(zoneId);
+  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0);
 
   const totalCapacity = zones.reduce((s, z) => s + getZoneCapacity(z.id), 0);
   const totalSold = zones.reduce((s, z) => s + getZoneSold(z.id), 0);
@@ -291,32 +258,20 @@ export default function TicketManagement() {
     });
   };
 
-  const openSaleModal = (opts?: { lotId?: string; zoneId?: string }) => {
-    if (opts?.lotId) {
-      const lot = lots.find((l) => l.id === opts.lotId);
-      setSaleForm({
-        ...emptySale,
-        target_type: "lot",
-        target_id: opts.lotId,
-        unit_price: lot ? String(lot.price) : "",
-      });
-    } else if (opts?.zoneId) {
-      setSaleForm({
-        ...emptySale,
-        target_type: "zone",
-        target_id: opts.zoneId,
-      });
-    } else {
-      setSaleForm(emptySale);
-    }
+  const openSaleModal = (lotId?: string) => {
+    const lot = lotId ? lots.find((l) => l.id === lotId) : null;
+    setSaleForm({
+      ...emptySale,
+      lot_id: lotId || "",
+      unit_price: lot ? String(lot.price) : "",
+    });
     setEditingSaleId(null);
     setSaleModalOpen(true);
   };
 
   const openEditSale = (sale: any) => {
     setSaleForm({
-      target_type: sale.lot_id ? "lot" : "zone",
-      target_id: sale.lot_id || sale.zone_id || "",
+      lot_id: sale.lot_id,
       sale_date: sale.sale_date,
       quantity: String(sale.quantity),
       unit_price: String(sale.unit_price),
@@ -326,25 +281,7 @@ export default function TicketManagement() {
     setSaleModalOpen(true);
   };
 
-  // Build sale target options: zones (direct) + lots
-  const saleTargetOptions: { value: string; type: "zone" | "lot"; label: string; price?: number }[] = [];
-  for (const zone of zones) {
-    const zoneLots = getZoneLots(zone.id);
-    // Always allow zone-level sales
-    saleTargetOptions.push({
-      value: zone.id,
-      type: "zone",
-      label: `${zone.name} (Zona — ${(zone.total_capacity ?? 0).toLocaleString()} lugares)`,
-    });
-    for (const lot of zoneLots) {
-      saleTargetOptions.push({
-        value: lot.id,
-        type: "lot",
-        label: `${zone.name} — ${lot.name} (${formatCurrency(Number(lot.price))})`,
-        price: Number(lot.price),
-      });
-    }
-  }
+  // selectedEvent already declared above
 
   return (
     <div className="space-y-6">
@@ -416,7 +353,7 @@ export default function TicketManagement() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Button onClick={() => openSaleModal()} disabled={zones.length === 0}>
+              <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
                 <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
               {isAdmin && (
@@ -472,7 +409,6 @@ export default function TicketManagement() {
             {zones.map((zone) => {
               const zoneLots = getZoneLots(zone.id);
               const isExpanded = expandedZones.has(zone.id);
-              const zoneDirectSales = getZoneDirectSales(zone.id);
 
               return (
                 <div key={zone.id} className="glass rounded-xl overflow-hidden">
@@ -481,10 +417,7 @@ export default function TicketManagement() {
                     <Ticket className="h-4 w-4 text-primary" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{zone.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {zoneLots.length > 0 ? `${zoneLots.length} lotes · ` : ""}
-                        Cap: {(zone.total_capacity ?? 0).toLocaleString()}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{zoneLots.length} lotes · Cap: {(zone.total_capacity ?? 0).toLocaleString()}</p>
                     </div>
                     <div className="hidden sm:flex items-center gap-4 text-sm">
                       <div className="text-center">
@@ -500,121 +433,104 @@ export default function TicketManagement() {
 
                   {isExpanded && (
                     <div className="border-t border-border/30 px-4 pb-4">
-                      {/* Lot table (only if there are lots) */}
-                      {zoneLots.length > 0 && (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Lote</TableHead>
-                              <TableHead className="text-right">Carga</TableHead>
-                              <TableHead className="text-right">Preço Unit.</TableHead>
-                              <TableHead className="text-right">Vendidos</TableHead>
-                              <TableHead className="text-right">Disponível</TableHead>
-                              <TableHead className="text-right">Receita Prev.</TableHead>
-                              <TableHead className="text-right">Receita Real</TableHead>
-                              <TableHead className="text-right">Ações</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {zoneLots.map((lot) => {
-                              const sold = getLotSold(lot.id);
-                              const available = lot.quantity - sold;
-                              const revenue = getLotRevenue(lot.id);
-                              const isEditingThis = editingLotId === lot.id;
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Lote</TableHead>
+                            <TableHead className="text-right">Carga</TableHead>
+                            <TableHead className="text-right">Preço Unit.</TableHead>
+                            <TableHead className="text-right">Vendidos</TableHead>
+                            <TableHead className="text-right">Disponível</TableHead>
+                            <TableHead className="text-right">Receita Prev.</TableHead>
+                            <TableHead className="text-right">Receita Real</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {zoneLots.map((lot) => {
+                            const sold = getLotSold(lot.id);
+                            const available = lot.quantity - sold;
+                            const revenue = getLotRevenue(lot.id);
+                            const isEditingThis = editingLotId === lot.id;
 
-                              return (
-                                <TableRow key={lot.id}>
-                                  <TableCell className="font-medium">
-                                    <span className="text-xs text-muted-foreground mr-1">{lot.lot_number}º</span>
-                                    {lot.name}
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono">
-                                    {isEditingThis ? (
-                                      <Input type="number" min="0" className="w-20 text-right ml-auto" value={lotEditForm.quantity} onChange={(e) => setLotEditForm({ ...lotEditForm, quantity: e.target.value })} />
-                                    ) : (
-                                      lot.quantity.toLocaleString()
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono">
-                                    {isEditingThis ? (
-                                      <Input type="number" step="0.01" min="0" className="w-24 text-right ml-auto" value={lotEditForm.price} onChange={(e) => setLotEditForm({ ...lotEditForm, price: e.target.value })} />
-                                    ) : (
-                                      formatCurrency(Number(lot.price))
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono font-semibold">{sold.toLocaleString()}</TableCell>
-                                  <TableCell className={`text-right font-mono ${available <= 0 ? "text-destructive" : "text-success"}`}>
-                                    {available.toLocaleString()}
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(lot.quantity * Number(lot.price))}</TableCell>
-                                  <TableCell className="text-right font-mono text-success font-semibold">{formatCurrency(revenue)}</TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1">
-                                      {isEditingThis ? (
-                                        <>
-                                          <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
-                                            Salvar
-                                          </Button>
-                                          <Button size="sm" variant="ghost" onClick={() => setEditingLotId(null)}>Cancelar</Button>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openSaleModal({ lotId: lot.id })} title="Registar venda">
-                                            <ShoppingCart className="h-3.5 w-3.5" />
-                                          </Button>
-                                          {isAdmin && (
-                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
-                                              <Pencil className="h-3.5 w-3.5" />
-                                            </Button>
-                                          )}
-                                        </>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-
-                            {/* Add new lot row (admin) */}
-                            {isAdmin && addingLotZoneId === zone.id && (
-                              <TableRow className="bg-primary/5">
-                                <TableCell>
-                                  <Input placeholder="Nome do lote" value={newLotForm.name} onChange={(e) => setNewLotForm({ ...newLotForm, name: e.target.value })} />
+                            return (
+                              <TableRow key={lot.id}>
+                                <TableCell className="font-medium">
+                                  <span className="text-xs text-muted-foreground mr-1">{lot.lot_number}º</span>
+                                  {lot.name}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                  <Input type="number" min="0" className="w-20 text-right ml-auto" value={newLotForm.quantity} onChange={(e) => setNewLotForm({ ...newLotForm, quantity: e.target.value })} />
+                                <TableCell className="text-right font-mono">
+                                  {isEditingThis ? (
+                                    <Input type="number" min="0" className="w-20 text-right ml-auto" value={lotEditForm.quantity} onChange={(e) => setLotEditForm({ ...lotEditForm, quantity: e.target.value })} />
+                                  ) : (
+                                    lot.quantity.toLocaleString()
+                                  )}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                  <Input type="number" step="0.01" min="0" className="w-24 text-right ml-auto" value={newLotForm.price} onChange={(e) => setNewLotForm({ ...newLotForm, price: e.target.value })} />
+                                <TableCell className="text-right font-mono">
+                                  {isEditingThis ? (
+                                    <Input type="number" step="0.01" min="0" className="w-24 text-right ml-auto" value={lotEditForm.price} onChange={(e) => setLotEditForm({ ...lotEditForm, price: e.target.value })} />
+                                  ) : (
+                                    formatCurrency(Number(lot.price))
+                                  )}
                                 </TableCell>
-                                <TableCell colSpan={4}></TableCell>
+                                <TableCell className="text-right font-mono font-semibold">{sold.toLocaleString()}</TableCell>
+                                <TableCell className={`text-right font-mono ${available <= 0 ? "text-destructive" : "text-success"}`}>
+                                  {available.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(lot.quantity * Number(lot.price))}</TableCell>
+                                <TableCell className="text-right font-mono text-success font-semibold">{formatCurrency(revenue)}</TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1">
-                                    <Button size="sm" onClick={() => addLotMutation.mutate({ zoneId: zone.id, name: newLotForm.name, quantity: parseInt(newLotForm.quantity) || 0, price: parseFloat(newLotForm.price) || 0 })} disabled={!newLotForm.name || addLotMutation.isPending}>
-                                      Criar
-                                    </Button>
-                                    <Button size="sm" variant="ghost" onClick={() => setAddingLotZoneId(null)}>Cancelar</Button>
+                                    {isEditingThis ? (
+                                      <>
+                                        <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>
+                                          Salvar
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setEditingLotId(null)}>Cancelar</Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openSaleModal(lot.id)} title="Registar venda">
+                                          <ShoppingCart className="h-3.5 w-3.5" />
+                                        </Button>
+                                        {isAdmin && (
+                                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote">
+                                            <Pencil className="h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                      </>
+                                    )}
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      )}
+                            );
+                          })}
 
-                      {/* Zone-level sale button (no lots) */}
-                      {zoneLots.length === 0 && (
-                        <div className="py-4 text-center space-y-2">
-                          <p className="text-sm text-muted-foreground">Esta zona não tem lotes configurados. As vendas são registadas diretamente na zona.</p>
-                          <div className="flex items-center justify-center gap-4 text-sm">
-                            <span className="font-mono">Vendidos: <strong>{getZoneDirectSold(zone.id).toLocaleString()}</strong> / {(zone.total_capacity ?? 0).toLocaleString()}</span>
-                            <span className="font-mono text-success">Receita: <strong>{formatCurrency(getZoneDirectRevenue(zone.id))}</strong></span>
-                          </div>
-                          <Button size="sm" onClick={() => openSaleModal({ zoneId: zone.id })}>
-                            <ShoppingCart className="h-3.5 w-3.5 mr-1" /> Registar Venda
-                          </Button>
-                        </div>
-                      )}
+                          {/* Add new lot row (admin) */}
+                          {isAdmin && addingLotZoneId === zone.id && (
+                            <TableRow className="bg-primary/5">
+                              <TableCell>
+                                <Input placeholder="Nome do lote" value={newLotForm.name} onChange={(e) => setNewLotForm({ ...newLotForm, name: e.target.value })} />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Input type="number" min="0" className="w-20 text-right ml-auto" value={newLotForm.quantity} onChange={(e) => setNewLotForm({ ...newLotForm, quantity: e.target.value })} />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Input type="number" step="0.01" min="0" className="w-24 text-right ml-auto" value={newLotForm.price} onChange={(e) => setNewLotForm({ ...newLotForm, price: e.target.value })} />
+                              </TableCell>
+                              <TableCell colSpan={4}></TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button size="sm" onClick={() => addLotMutation.mutate({ zoneId: zone.id, name: newLotForm.name, quantity: parseInt(newLotForm.quantity) || 0, price: parseFloat(newLotForm.price) || 0 })} disabled={!newLotForm.name || addLotMutation.isPending}>
+                                    Criar
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setAddingLotZoneId(null)}>Cancelar</Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
 
                       {isAdmin && addingLotZoneId !== zone.id && (
                         <Button variant="ghost" size="sm" className="mt-2" onClick={() => { setAddingLotZoneId(zone.id); setNewLotForm({ name: "", quantity: "", price: "" }); }}>
@@ -622,62 +538,41 @@ export default function TicketManagement() {
                         </Button>
                       )}
 
-                      {/* Recent sales for this zone (lot sales + direct zone sales) */}
-                      {(() => {
-                        const allZoneSales = [
-                          ...zoneLots.flatMap((l) =>
-                            getLotSales(l.id).map((sale) => ({
-                              ...sale,
-                              lotName: l.name,
-                              lotNumber: l.lot_number,
-                              isZoneDirect: false,
-                            }))
-                          ),
-                          ...zoneDirectSales.map((sale) => ({
-                            ...sale,
-                            lotName: null,
-                            lotNumber: null,
-                            isZoneDirect: true,
-                          })),
-                        ];
-
-                        if (allZoneSales.length === 0) return null;
-
-                        return (
-                          <div className="mt-4">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Vendas Recentes — {zone.name}</p>
-                            <div className="space-y-1 max-h-48 overflow-y-auto">
-                              {allZoneSales
-                                .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
-                                .slice(0, 10)
-                                .map((sale: any) => (
-                                  <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
-                                    <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
-                                    <span className="flex-1 truncate">
-                                      {sale.isZoneDirect ? (
-                                        <span className="text-muted-foreground italic">Venda direta</span>
-                                      ) : (
-                                        <>{sale.lotNumber}º {sale.lotName}</>
-                                      )}
-                                    </span>
-                                    <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
-                                    <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
-                                    <div className="flex gap-1">
-                                      <button onClick={() => openEditSale(sale)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      {/* Recent sales for this zone */}
+                      {zoneLots.some((l) => getLotSales(l.id).length > 0) && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Vendas Recentes — {zone.name}</p>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {zoneLots.flatMap((l) =>
+                              getLotSales(l.id).map((sale) => ({
+                                ...sale,
+                                lotName: l.name,
+                                lotNumber: l.lot_number,
+                              }))
+                            )
+                              .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
+                              .slice(0, 10)
+                              .map((sale: any) => (
+                                <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
+                                  <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
+                                  <span className="flex-1 truncate">{sale.lotNumber}º {sale.lotName}</span>
+                                  <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
+                                  <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => openEditSale(sale)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                                    </button>
+                                    {isAdmin && (
+                                      <button onClick={() => { if (confirm("Eliminar esta venda?")) deleteSaleMutation.mutate(sale.id); }} className="rounded p-1 hover:bg-destructive/20" title="Eliminar">
+                                        <Trash2 className="h-3 w-3 text-destructive" />
                                       </button>
-                                      {isAdmin && (
-                                        <button onClick={() => { if (confirm("Eliminar esta venda?")) deleteSaleMutation.mutate(sale.id); }} className="rounded p-1 hover:bg-destructive/20" title="Eliminar">
-                                          <Trash2 className="h-3 w-3 text-destructive" />
-                                        </button>
-                                      )}
-                                    </div>
+                                    )}
                                   </div>
-                                ))}
-                            </div>
+                                </div>
+                              ))}
                           </div>
-                        );
-                      })()}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -709,29 +604,23 @@ export default function TicketManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Zona / Lote</Label>
-              <Select
-                value={`${saleForm.target_type}:${saleForm.target_id}`}
-                onValueChange={(v) => {
-                  const [type, id] = v.split(":") as ["zone" | "lot", string];
-                  const opt = saleTargetOptions.find(o => o.type === type && o.value === id);
-                  setSaleForm({
-                    ...saleForm,
-                    target_type: type,
-                    target_id: id,
-                    unit_price: opt?.price != null ? String(opt.price) : saleForm.unit_price,
-                  });
-                }}
-              >
+              <Label>Lote</Label>
+              <Select value={saleForm.lot_id} onValueChange={(v) => {
+                const lot = lots.find((l) => l.id === v);
+                setSaleForm({ ...saleForm, lot_id: v, unit_price: lot ? String(lot.price) : saleForm.unit_price });
+              }}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione a zona ou lote…" />
+                  <SelectValue placeholder="Selecione o lote…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {saleTargetOptions.map((opt) => (
-                    <SelectItem key={`${opt.type}:${opt.value}`} value={`${opt.type}:${opt.value}`}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
+                  {zones.map((zone) => {
+                    const zoneLots = getZoneLots(zone.id);
+                    return zoneLots.map((lot) => (
+                      <SelectItem key={lot.id} value={lot.id}>
+                        {zone.name} — {lot.name} ({formatCurrency(Number(lot.price))})
+                      </SelectItem>
+                    ));
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -749,36 +638,21 @@ export default function TicketManagement() {
               <Label>Preço Unitário (€)</Label>
               <Input type="number" step="0.01" min="0" className="mt-1" value={saleForm.unit_price} onChange={(e) => setSaleForm({ ...saleForm, unit_price: e.target.value })} />
             </div>
-            {saleForm.target_id && saleForm.quantity && (
+            {saleForm.lot_id && saleForm.quantity && (
               <div className="rounded-lg bg-success/10 p-3 text-sm">
                 <p className="font-medium">Total: <span className="font-mono text-success">{formatCurrency((parseInt(saleForm.quantity) || 0) * (parseFloat(saleForm.unit_price) || 0))}</span></p>
                 {(() => {
-                  if (saleForm.target_type === "lot") {
-                    const lot = lots.find((l) => l.id === saleForm.target_id);
-                    if (!lot) return null;
-                    const currentSold = getLotSold(lot.id) - (editingSaleId ? (parseInt(saleForm.quantity) || 0) : 0);
-                    const afterSale = currentSold + (parseInt(saleForm.quantity) || 0);
-                    const available = lot.quantity - afterSale;
-                    return (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Após esta venda: {afterSale.toLocaleString()} vendidos / {lot.quantity.toLocaleString()} disponíveis
-                        {available < 0 && <span className="text-destructive ml-1">(excede em {Math.abs(available)})</span>}
-                      </p>
-                    );
-                  } else {
-                    const zone = zones.find((z) => z.id === saleForm.target_id);
-                    if (!zone) return null;
-                    const currentSold = getZoneDirectSold(zone.id) - (editingSaleId ? (parseInt(saleForm.quantity) || 0) : 0);
-                    const afterSale = currentSold + (parseInt(saleForm.quantity) || 0);
-                    const capacity = zone.total_capacity ?? 0;
-                    const available = capacity - afterSale;
-                    return (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Após esta venda: {afterSale.toLocaleString()} vendidos / {capacity.toLocaleString()} capacidade
-                        {capacity > 0 && available < 0 && <span className="text-destructive ml-1">(excede em {Math.abs(available)})</span>}
-                      </p>
-                    );
-                  }
+                  const lot = lots.find((l) => l.id === saleForm.lot_id);
+                  if (!lot) return null;
+                  const currentSold = getLotSold(lot.id) - (editingSaleId ? (parseInt(saleForm.quantity) || 0) : 0);
+                  const afterSale = currentSold + (parseInt(saleForm.quantity) || 0);
+                  const available = lot.quantity - afterSale;
+                  return (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Após esta venda: {afterSale.toLocaleString()} vendidos / {lot.quantity.toLocaleString()} disponíveis
+                      {available < 0 && <span className="text-destructive ml-1">(excede em {Math.abs(available)})</span>}
+                    </p>
+                  );
                 })()}
               </div>
             )}
@@ -789,7 +663,7 @@ export default function TicketManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={() => saveSaleMutation.mutate()} disabled={!saleForm.target_id || !saleForm.quantity || saveSaleMutation.isPending}>
+            <Button onClick={() => saveSaleMutation.mutate()} disabled={!saleForm.lot_id || !saleForm.quantity || saveSaleMutation.isPending}>
               {editingSaleId ? "Atualizar" : "Registar"}
             </Button>
           </DialogFooter>
