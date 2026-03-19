@@ -267,10 +267,8 @@ export function exportDREToPDF(
     const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
-    if (evtIdx > 0 || y > 60) {
-      doc.addPage();
-      y = 14;
-    }
+    doc.addPage();
+    y = 14;
 
     try {
       doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
