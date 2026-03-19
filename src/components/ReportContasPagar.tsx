@@ -20,6 +20,7 @@ export default function ReportContasPagar() {
   const [dateToOpen, setDateToOpen] = useState(false);
   const [dueFilter, setDueFilter] = useState<"all" | "overdue" | "not_overdue">("all");
   const [balanceFilter, setBalanceFilter] = useState<"open" | "all">("open");
+  const [pdfGroupByEvent, setPdfGroupByEvent] = useState(false);
 
   // Applied filters (only update when user clicks "Consultar")
   const [appliedEventIds, setAppliedEventIds] = useState<Set<string>>(new Set());
