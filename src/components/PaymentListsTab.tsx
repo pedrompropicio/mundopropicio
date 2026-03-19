@@ -685,7 +685,6 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
                       <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
                       <div className="flex items-center gap-4 flex-wrap">
-                        <p><span className="font-medium text-muted-foreground">Valor:</span> <span className="font-mono font-bold">{formatCurrency(withIva)}</span></p>
                         {paid > 0 && !isPaid && (
                           <>
                             <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
