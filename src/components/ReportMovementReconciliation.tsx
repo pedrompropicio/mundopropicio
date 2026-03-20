@@ -178,9 +178,10 @@ export default function ReportMovementReconciliation() {
     setGenerated(false);
   }
 
-  function handlePrint() {
-    window.print();
-  }
+  const exportParams = {
+    movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFrom,
+    dateTo: fullPeriod ? "" : dateTo, totalPaid, totalReceived,
+  };
 
   const periodLabel = fullPeriod ? "Período Completo" : `${dateFrom ? new Date(dateFrom).toLocaleDateString("pt-PT") : "—"} a ${dateTo ? new Date(dateTo).toLocaleDateString("pt-PT") : "—"}`;
   const accountsLabel = selectedAccountIds.length > 0 ? selectedAccountIds.map((id) => accountNameMap[id]).join(", ") : "Todas";
