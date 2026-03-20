@@ -308,14 +308,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
-    if (!typeMatch) return false;
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
-      return allowedCategoryIds.includes(c.id);
-    }
-    return true;
+    return typeMatch;
   });
 
-  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: c.name }));
+  const isNonPLCategorySelected = isActivePL && form.event_id && allowedCategoryIds.length > 0 &&
+    form.category_id && !allowedCategoryIds.includes(form.category_id);
+
+  const categoryOptions = filteredCategories.map((c) => {
+    const isOutsidePL = isActivePL && form.event_id && allowedCategoryIds.length > 0 && !allowedCategoryIds.includes(c.id);
+    return { value: c.id, label: c.name, icon: isOutsidePL ? "🔐" : undefined };
+  });
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
