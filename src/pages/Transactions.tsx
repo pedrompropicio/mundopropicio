@@ -254,13 +254,22 @@ export default function Transactions() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transações</h1>
           <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nova Transação</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTransfer(true)}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Transferência</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova Transação</span>
+          </button>
+        </div>
       </div>
 
       {showForm && (
