@@ -282,19 +282,6 @@ export default function ReportMovementReconciliation() {
               <SummaryCard label="Aberto (Rec.)" value={formatCurrency(totalOpenIncome)} color={totalOpenIncome > 0 ? "text-warning" : "text-muted-foreground"} />
             </div>
 
-            {/* Print header (hidden on screen) */}
-            <div className="print-header hidden" ref={printRef}>
-              <div style={{ fontWeight: 700, fontSize: "12pt", marginBottom: 2 }}>RELATÓRIO DE MOVIMENTAÇÕES</div>
-              <div style={{ fontSize: "8pt" }}>Período: {periodLabel} | Contas: {accountsLabel} | Evento: {eventLabel}</div>
-              <div className="print-summary" style={{ display: "none" }}>
-                <span className="print-summary-item">Despesas: {formatCurrency(totalExpenses)} (Líq: {formatCurrency(totalNetExpenses)})</span>
-                <span className="print-summary-item">Receitas: {formatCurrency(totalIncome)} (Líq: {formatCurrency(totalNetIncome)})</span>
-                <span className="print-summary-item">Pago: {formatCurrency(totalPaid)}</span>
-                <span className="print-summary-item">Recebido: {formatCurrency(totalReceived)}</span>
-                <span className="print-summary-item">Aberto Desp: {formatCurrency(totalOpenExpenses)}</span>
-                <span className="print-summary-item">Aberto Rec: {formatCurrency(totalOpenIncome)}</span>
-              </div>
-            </div>
 
             {/* Table */}
             {movements.length === 0 ? (
