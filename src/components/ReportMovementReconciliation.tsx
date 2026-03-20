@@ -11,6 +11,7 @@ import { exportMovementReconciliationToExcel } from "@/lib/export-movement-recon
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [generated, setGenerated] = useState(false);
@@ -19,6 +20,15 @@ export default function ReportMovementReconciliation() {
     queryKey: ["financial-accounts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("financial_accounts").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["events-list-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, name, parent_event_id").order("name");
       if (error) throw error;
       return data;
     },
@@ -90,7 +100,7 @@ export default function ReportMovementReconciliation() {
       if (transactionIds.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name), financial_accounts(name)")
+        .select("*, events(name, parent_event_id), suppliers(name), financial_accounts(name)")
         .in("id", transactionIds);
       if (error) throw error;
       return data;
@@ -154,6 +164,7 @@ export default function ReportMovementReconciliation() {
           isPayment,
           type: isPayment ? "Pagamento" : "Recebimento",
           transactionDescription: tx?.description ?? "—",
+          eventId: tx?.event_id ?? null,
           eventName: tx?.events?.name ?? "—",
           supplierName: tx?.suppliers?.name ?? "—",
           totalAmount: tx ? Number(tx.amount) : 0,
@@ -165,10 +176,19 @@ export default function ReportMovementReconciliation() {
         };
       })
       .filter((m) => {
-        if (selectedAccountIds.length === 0) return true;
-        return selectedNames.includes(m.accountName);
+        if (selectedAccountIds.length > 0 && !selectedNames.includes(m.accountName)) return false;
+        if (selectedEventIds.length > 0) {
+          if (!m.eventId) return false;
+          // Include sub-events of selected parent events
+          const subEventIds = events
+            .filter((e: any) => selectedEventIds.includes(e.parent_event_id))
+            .map((e: any) => e.id);
+          const allIds = [...selectedEventIds, ...subEventIds];
+          if (!allIds.includes(m.eventId)) return false;
+        }
+        return true;
       });
-  }, [auditEntries, transactions, paymentEntries, noteEntries, selectedAccountIds, accountNameMap]);
+  }, [auditEntries, transactions, paymentEntries, noteEntries, selectedAccountIds, selectedEventIds, accountNameMap]);
 
   const totalPayments = movements.filter((m) => m.isPayment).reduce((s, m) => s + m.movementAmount, 0);
   const totalReceipts = movements.filter((m) => !m.isPayment).reduce((s, m) => s + m.movementAmount, 0);
@@ -229,6 +249,21 @@ export default function ReportMovementReconciliation() {
             </div>
             {selectedAccountIds.length === 0 && (
               <p className="mt-1 text-[10px] text-muted-foreground">Todas as contas serão incluídas</p>
+            )}
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Eventos (opcional)</label>
+            <SearchableSelect
+              options={events.filter((e: any) => !e.parent_event_id).map((e: any) => ({ value: e.id, label: e.name }))}
+              value={selectedEventIds.length === 1 ? selectedEventIds[0] : ""}
+              onValueChange={(val) => { setSelectedEventIds(val ? [val] : []); setGenerated(false); }}
+              placeholder="Todos os eventos"
+              searchPlaceholder="Pesquisar evento…"
+            />
+            {selectedEventIds.length > 0 && (
+              <button onClick={() => { setSelectedEventIds([]); setGenerated(false); }} className="mt-1 text-[10px] text-primary hover:underline">
+                Limpar filtro de evento
+              </button>
             )}
           </div>
           <div className="flex items-end">
