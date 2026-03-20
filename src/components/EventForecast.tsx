@@ -237,30 +237,12 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
 
   const approveMutation = useMutation({
     mutationFn: async (forecast: any) => {
-      const { data: txn, error: txnError } = await supabase
-        .from("transactions")
-        .insert({
-          event_id: eventId,
-          type: forecast.type,
-          description: forecast.description,
-          amount: Number(forecast.amount),
-          iva_rate: forecast.iva_rate,
-          category_id: forecast.category_id || null,
-          specification: forecast.specification || null,
-          date: eventDate,
-          status: "pending",
-        })
-        .select("id")
-        .single();
-      if (txnError) throw txnError;
-
       const { error: updateError } = await supabase
         .from("event_forecasts")
         .update({
           status: "approved",
           approved_at: new Date().toISOString(),
           approved_by: user?.email || "admin",
-          transaction_id: txn.id,
         })
         .eq("id", forecast.id);
       if (updateError) throw updateError;
@@ -274,10 +256,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_transactions", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
-      toast({ title: "Previsão aprovada e transação criada!" });
+      toast({ title: "Previsão aprovada!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
