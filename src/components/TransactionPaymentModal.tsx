@@ -145,7 +145,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
         <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Registar Pagamento</h2>
+            <h2 className="text-lg font-bold">{modalTitle}</h2>
             <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
           </div>
 
