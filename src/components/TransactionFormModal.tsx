@@ -640,10 +640,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
-              onValueChange={(v) => setForm({ ...form, category_id: v })}
+              onValueChange={(v) => { setForm({ ...form, category_id: v }); setPlOverrideAuthorized(false); }}
               placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
               searchPlaceholder="Pesquisar categoria…"
             />
+            {isNonPLCategorySelected && !plOverrideAuthorized && (
+              <p className="mt-1 flex items-center gap-1 text-[10px] text-warning">
+                <Lock className="h-3 w-3" />
+                Categoria fora do P&L — requer autorização de gestão
+              </p>
+            )}
+            {plOverrideAuthorized && isNonPLCategorySelected && (
+              <p className="mt-1 flex items-center gap-1 text-[10px] text-success">
+                <ShieldCheck className="h-3 w-3" />
+                Autorização concedida
+              </p>
+            )}
           </div>
 
           <div>
