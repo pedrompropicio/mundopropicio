@@ -134,7 +134,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
             {statusLabel}
           </span>
-          {isExpense && balance > 0 && computedStatus !== "paid" && (
+          {balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
           )}
         </td>
@@ -175,9 +175,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <ShieldCheck className="h-3.5 w-3.5" />
               </button>
             )}
-            {/* Payment: only after approved, not completed */}
-            {!eventCompleted && isExpense && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
-              <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Registar pagamento">
+            {/* Payment/Receipt: only after approved, not completed */}
+            {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
+              <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                 <CreditCard className="h-3.5 w-3.5" />
               </button>
             )}
@@ -244,35 +244,40 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       )}
                     </div>
                   )}
-                  {movements.map((m) => (
-                    <div key={m.id} className="flex items-center gap-3 text-xs">
+                  {movements.map((m) => {
+                    const isPaymentEntry = m.field_name === "Pagamento parcial" || m.field_name === "Recebimento parcial";
+                    const isAccountEntry = m.field_name === "Conta de pagamento" || m.field_name === "Conta de recebimento";
+                    const isNoteEntry = m.field_name === "Nota de pagamento" || m.field_name === "Nota de recebimento";
+                    return (
+                    <div key={m.id} className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
                         {new Date(m.changed_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
                         {" "}
                         {new Date(m.changed_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${
-                        m.field_name === "Pagamento parcial"
+                        isPaymentEntry
                           ? "bg-success/15 text-success"
+                          : isAccountEntry
+                          ? "bg-primary/15 text-primary"
                           : m.field_name === "status"
                           ? "bg-blue-500/15 text-blue-400"
                           : "bg-secondary text-muted-foreground"
                       }`}>
-                        {m.field_name === "Pagamento parcial" ? "Pagamento" : m.field_name === "status" ? "Estado" : m.field_name}
+                        {isPaymentEntry ? (isExpense ? "Pagamento" : "Recebimento") 
+                          : isAccountEntry ? "Conta"
+                          : m.field_name === "status" ? "Estado" 
+                          : m.field_name}
                       </span>
                       <span className="text-muted-foreground">
-                        {m.field_name === "Pagamento parcial" ? (
+                        {isPaymentEntry ? (
                           <>
-                            Pago: {formatCurrency(Number(m.new_value ?? 0) - Number(m.old_value ?? 0))}
-                            {t.payment_date && (
-                              <span className="text-muted-foreground/70 ml-1">
-                                — Dt. pgto: {new Date(t.payment_date).toLocaleDateString("pt-PT")}
-                              </span>
-                            )}
-                            {t.invoice_ref && (
-                              <span className="ml-1">📄 {t.invoice_ref}</span>
-                            )}
+                            {isExpense ? "Pago" : "Recebido"}: {formatCurrency(Number(m.new_value ?? 0) - Number(m.old_value ?? 0))}
                           </>
+                        ) : isAccountEntry ? (
+                          <>{m.new_value}</>
+                        ) : isNoteEntry ? (
+                          <>{m.new_value}</>
                         ) : (
                           <>
                             {m.old_value ?? "—"} → {m.new_value ?? "—"}
@@ -281,7 +286,8 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       </span>
                       <span className="ml-auto text-muted-foreground/70">{resolveUserName(m.changed_by)}</span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
