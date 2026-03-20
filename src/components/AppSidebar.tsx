@@ -24,6 +24,7 @@ import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 export function AppSidebar() {
   const location = useLocation();
   const { isAdmin, user, signOut, hasPermission } = useAuth();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard", show: true },
