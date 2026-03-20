@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,13 +15,16 @@ import {
   Ticket,
   Landmark,
   Database,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
 export function AppSidebar() {
   const location = useLocation();
   const { isAdmin, user, signOut, hasPermission } = useAuth();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard", show: true },
@@ -95,10 +99,17 @@ export function AppSidebar() {
         )}
       </nav>
 
-      <div className="mt-auto w-full px-2 lg:px-3">
+      <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
         <div className="hidden lg:block mb-2 px-3 truncate text-xs text-muted-foreground">
           {user?.email}
         </div>
+        <button
+          onClick={() => setShowChangePassword(true)}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <KeyRound className="h-5 w-5 shrink-0" />
+          <span className="hidden lg:block">Alterar Senha</span>
+        </button>
         <button
           onClick={signOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -107,6 +118,8 @@ export function AppSidebar() {
           <span className="hidden lg:block">Sair</span>
         </button>
       </div>
+
+      <ChangePasswordModal open={showChangePassword} onOpenChange={setShowChangePassword} />
     </aside>
   );
 }
