@@ -177,7 +177,15 @@ export default function ReportMovementReconciliation() {
       })
       .filter((m) => {
         if (selectedAccountIds.length > 0 && !selectedNames.includes(m.accountName)) return false;
-        if (selectedEventIds.length > 0 && (!m.eventId || !selectedEventIds.includes(m.eventId))) return false;
+        if (selectedEventIds.length > 0) {
+          if (!m.eventId) return false;
+          // Include sub-events of selected parent events
+          const subEventIds = events
+            .filter((e: any) => selectedEventIds.includes(e.parent_event_id))
+            .map((e: any) => e.id);
+          const allIds = [...selectedEventIds, ...subEventIds];
+          if (!allIds.includes(m.eventId)) return false;
+        }
         return true;
       });
   }, [auditEntries, transactions, paymentEntries, noteEntries, selectedAccountIds, selectedEventIds, accountNameMap]);
