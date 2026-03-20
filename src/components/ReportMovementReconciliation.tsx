@@ -283,16 +283,12 @@ export default function ReportMovementReconciliation() {
                 {movements.length} transaç{movements.length !== 1 ? "ões" : "ão"}
               </p>
               <div className="flex gap-2">
-                <button onClick={handlePrint} disabled={movements.length === 0}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-secondary/80 disabled:opacity-50">
-                  <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Imprimir</span>
-                </button>
-                <button
-                  onClick={() => exportMovementReconciliationToExcel(movements, accountsLabel, fullPeriod ? "" : dateFrom, fullPeriod ? "" : dateTo, totalPaid, totalReceived)}
-                  disabled={movements.length === 0}
-                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50">
-                  <Download className="h-4 w-4" /> <span className="hidden sm:inline">Excel</span>
-                </button>
+                <Button variant="outline" size="sm" onClick={() => exportMovementReconciliationToExcel(exportParams)} disabled={movements.length === 0}>
+                  <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => exportMovementReconciliationToPDF(exportParams)} disabled={movements.length === 0}>
+                  <FileText className="mr-1.5 h-4 w-4" /> PDF
+                </Button>
               </div>
             </div>
 
