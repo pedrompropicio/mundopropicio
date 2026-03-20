@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -42,6 +42,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
+  const [showAuthOverride, setShowAuthOverride] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [plOverrideAuthorized, setPlOverrideAuthorized] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -273,15 +278,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
-      if (!form.category_id) {
-        toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
-        return;
-      }
-      if (!allowedCategoryIds.includes(form.category_id)) {
-        toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
-        return;
-      }
+    const isNonPLCategory = isActivePL && form.event_id && allowedCategoryIds.length > 0 &&
+      form.category_id && !allowedCategoryIds.includes(form.category_id);
+    if (isNonPLCategory && !plOverrideAuthorized) {
+      setShowAuthOverride(true);
+      return;
     }
     // Warning (non-blocking) when amount exceeds P&L forecast
     if (hasPL && form.event_id && form.category_id) {
@@ -305,16 +306,72 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     createMutation.mutate(form);
   };
 
+  const handleAuthOverride = async () => {
+    if (!authEmail || !authPassword) {
+      toast({ title: "Preencha email e senha", variant: "destructive" });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      // Save current session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      // Try signing in with the provided credentials
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (authError) throw new Error("Credenciais inválidas");
+
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("Utilizador não encontrado");
+
+      // Check if user is admin or manager
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+
+      // Restore original session
+      if (currentSession) {
+        await supabase.auth.setSession({
+          access_token: currentSession.access_token,
+          refresh_token: currentSession.refresh_token,
+        });
+      }
+
+      if (!roleData || !["admin", "manager"].includes(roleData.role)) {
+        throw new Error("Utilizador sem permissão de gestão");
+      }
+
+      setPlOverrideAuthorized(true);
+      setShowAuthOverride(false);
+      setAuthEmail("");
+      setAuthPassword("");
+      toast({ title: "✅ Autorização concedida", description: `Aprovado por ${authEmail}` });
+
+      // Auto-submit after authorization
+      setShowProrationConfirm(false);
+      createMutation.mutate(form);
+    } catch (err: any) {
+      toast({ title: "Autorização negada", description: err.message, variant: "destructive" });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
-    if (!typeMatch) return false;
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
-      return allowedCategoryIds.includes(c.id);
-    }
-    return true;
+    return typeMatch;
   });
 
-  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: c.name }));
+  const isNonPLCategorySelected = isActivePL && form.event_id && allowedCategoryIds.length > 0 &&
+    form.category_id && !allowedCategoryIds.includes(form.category_id);
+
+  const categoryOptions = filteredCategories.map((c) => {
+    const isOutsidePL = isActivePL && form.event_id && allowedCategoryIds.length > 0 && !allowedCategoryIds.includes(c.id);
+    return { value: c.id, label: c.name, icon: isOutsidePL ? "🔐" : undefined };
+  });
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
@@ -583,10 +640,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
-              onValueChange={(v) => setForm({ ...form, category_id: v })}
+              onValueChange={(v) => { setForm({ ...form, category_id: v }); setPlOverrideAuthorized(false); }}
               placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
               searchPlaceholder="Pesquisar categoria…"
             />
+            {isNonPLCategorySelected && !plOverrideAuthorized && (
+              <p className="mt-1 flex items-center gap-1 text-[10px] text-warning">
+                <Lock className="h-3 w-3" />
+                Categoria fora do P&L — requer autorização de gestão
+              </p>
+            )}
+            {plOverrideAuthorized && isNonPLCategorySelected && (
+              <p className="mt-1 flex items-center gap-1 text-[10px] text-success">
+                <ShieldCheck className="h-3 w-3" />
+                Autorização concedida
+              </p>
+            )}
           </div>
 
           <div>
@@ -754,6 +823,62 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </form>
+
+        {/* Auth Override Modal */}
+        {showAuthOverride && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowAuthOverride(false)}>
+            <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-warning" />
+                <h3 className="text-base font-bold">Autorização Necessária</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A categoria selecionada não existe no P&L deste evento. É necessária a autorização de um Administrador ou Gestor.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Email do autorizador</label>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="admin@empresa.com"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Senha</label>
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                    onKeyDown={(e) => e.key === "Enter" && handleAuthOverride()}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowAuthOverride(false); setAuthEmail(""); setAuthPassword(""); }}
+                    className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-secondary transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAuthOverride}
+                    disabled={authLoading}
+                    className="flex-1 rounded-lg bg-warning px-3 py-2 text-sm font-medium text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50"
+                  >
+                    {authLoading ? "A verificar…" : "Autorizar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
