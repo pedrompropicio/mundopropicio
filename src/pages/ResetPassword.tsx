@@ -10,18 +10,39 @@ type ResetStatus = "loading" | "ready" | "expired";
 function getRecoveryParams() {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const queryParams = new URLSearchParams(window.location.search);
+  const getParam = (key: string) => queryParams.get(key) ?? hashParams.get(key);
 
   return {
-    code: queryParams.get("code"),
-    tokenHash: queryParams.get("token_hash"),
-    type: (queryParams.get("type") || hashParams.get("type")) as EmailOtpType | null,
-    accessToken: hashParams.get("access_token"),
-    refreshToken: hashParams.get("refresh_token"),
+    code: getParam("code"),
+    tokenHash: getParam("token_hash"),
+    type: getParam("type") as EmailOtpType | null,
+    accessToken: getParam("access_token"),
+    refreshToken: getParam("refresh_token"),
+    errorCode: getParam("error_code"),
+    errorDescription: getParam("error_description"),
   };
 }
 
 function clearRecoveryParams() {
   window.history.replaceState({}, document.title, "/reset-password");
+}
+
+function mapRecoveryError(message?: string | null) {
+  const normalized = String(message ?? "").toLowerCase();
+
+  if (/code verifier|both auth code and code verifier|auth code/i.test(normalized)) {
+    return "Abra o link no mesmo browser e dispositivo onde pediu a recuperação da senha.";
+  }
+
+  if (/expired|invalid|otp|one-time token not found|email link is invalid/i.test(normalized)) {
+    return "O link de recuperação expirou, já foi usado, ou ficou inválido. Solicite um novo link.";
+  }
+
+  if (/timeout|demor/i.test(normalized)) {
+    return "Não foi possível validar o link a tempo. Solicite um novo link e abra-o apenas uma vez.";
+  }
+
+  return "Não foi possível validar o link de recuperação. Solicite um novo link.";
 }
 
 export default function ResetPassword() {
@@ -51,90 +72,100 @@ export default function ResetPassword() {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[ResetPassword] auth event", event, { hasSession: !!session });
+
       if (!isMounted) return;
 
       if (
-        (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "INITIAL_SESSION") &&
-        session
+        session &&
+        (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")
       ) {
         markReady();
       }
     });
 
     const initializeRecovery = async () => {
+      const { code, tokenHash, type, accessToken, refreshToken, errorCode, errorDescription } = recoveryParams;
+
+      console.log("[ResetPassword] init", {
+        hasCode: !!code,
+        hasTokenHash: !!tokenHash,
+        type,
+        hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken,
+        errorCode,
+        hasErrorDescription: !!errorDescription,
+      });
+
+      if (errorCode || errorDescription) {
+        markExpired(mapRecoveryError(errorDescription || errorCode));
+        return;
+      }
+
       const { data: { session: existingSession } } = await supabase.auth.getSession();
       if (existingSession) {
+        console.log("[ResetPassword] existing session found");
         markReady();
         return;
       }
 
-      const { code, tokenHash, type, accessToken, refreshToken } = recoveryParams;
-      const hasRecoveryPayload = Boolean(code || tokenHash || (accessToken && refreshToken));
-
-      if (!hasRecoveryPayload) {
-        markExpired("Abra novamente o link recebido no email para redefinir a senha.");
-        return;
-      }
-
       try {
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-        } else if (tokenHash && type === "recovery") {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: "recovery",
-          });
-          if (error) throw error;
-        } else if (accessToken && refreshToken) {
+        if (accessToken && refreshToken) {
+          console.log("[ResetPassword] applying session from url tokens");
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) throw error;
-        } else {
-          markExpired("O link de recuperação está incompleto ou inválido.");
+        } else if (code) {
+          console.log("[ResetPassword] exchanging code for session");
+          const result = await Promise.race([
+            supabase.auth.exchangeCodeForSession(code),
+            new Promise<{ error: Error }>((resolve) =>
+              window.setTimeout(() => resolve({ error: new Error("exchange timeout") }), 6000)
+            ),
+          ]);
+          if (result.error) throw result.error;
+        } else if (tokenHash && type === "recovery") {
+          console.log("[ResetPassword] verifying otp from token_hash");
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+          if (error) throw error;
+        }
+
+        const delays = [0, 250, 750, 1500, 3000];
+        for (const delay of delays) {
+          if (delay > 0) {
+            await new Promise((resolve) => window.setTimeout(resolve, delay));
+          }
+
+          const { data: { session } } = await supabase.auth.getSession();
+          console.log("[ResetPassword] poll session", { delay, hasSession: !!session });
+
+          if (session) {
+            markReady();
+            return;
+          }
+        }
+
+        if (code || tokenHash || accessToken || refreshToken) {
+          markExpired("O link foi consumido mas a sessão de recuperação não ficou disponível. Solicite um novo link e abra-o apenas uma vez.");
           return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          markReady();
-          return;
-        }
-
-        markExpired("Não foi possível validar o link de recuperação.");
+        markExpired("Abra novamente o link recebido no email para redefinir a senha.");
       } catch (error: any) {
-        const message = String(error?.message ?? "");
-        const openedInDifferentBrowser = /code verifier|auth code|both auth code and code verifier/i.test(message);
-        const expiredToken = /expired|invalid|otp/i.test(message);
-
-        if (openedInDifferentBrowser) {
-          markExpired("Abra o link no mesmo browser e dispositivo onde pediu a recuperação da senha.");
-          return;
-        }
-
-        if (expiredToken) {
-          markExpired("O link de recuperação expirou ou já foi usado. Solicite um novo link.");
-          return;
-        }
-
-        markExpired("Não foi possível validar o link de recuperação. Solicite um novo link.");
+        console.log("[ResetPassword] init error", error?.message ?? error);
+        markExpired(mapRecoveryError(error?.message));
       }
     };
 
     void initializeRecovery();
 
-    const timeout = window.setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        markExpired("A validação do link demorou demasiado. Solicite um novo link.");
-      }
-    }, 10000);
-
     return () => {
       isMounted = false;
-      window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, [recoveryParams]);
@@ -154,25 +185,22 @@ export default function ResetPassword() {
 
     setLoading(true);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setStatus("expired");
-      setStatusDetail("A sessão de recuperação expirou. Solicite um novo link.");
-      toast({ title: "Sessão expirada", description: "Solicite um novo link de recuperação.", variant: "destructive" });
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      const mappedMessage = mapRecoveryError(error.message);
+      if (/sess|auth|expired|invalid|otp|token/i.test(error.message)) {
+        setStatus("expired");
+        setStatusDetail(mappedMessage);
+      }
+      toast({ title: "Erro", description: mappedMessage, variant: "destructive" });
       setLoading(false);
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
-
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
-      await supabase.auth.signOut();
-      navigate("/login");
-    }
-
+    toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
+    await supabase.auth.signOut();
+    navigate("/login");
     setLoading(false);
   };
 
