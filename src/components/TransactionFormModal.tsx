@@ -253,7 +253,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         account_id: data.account_id || null,
         specification: data.type === "expense" ? (data.specification || null) : null,
         date: data.date,
-        due_date: data.due_date || null,
+        due_date: parseDueDateForDb(data.due_date),
         status: autoApproved ? "approved" : "pending",
         paid_amount: 0,
       });
