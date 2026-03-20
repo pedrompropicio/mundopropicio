@@ -371,11 +371,22 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
+        {/* Ver Contas Pagas */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-sm font-normal"
+          onClick={() => setShowPaidDialog(true)}
+        >
+          <Eye className="mr-1.5 h-3.5 w-3.5" />
+          Ver Pagas
+        </Button>
+
         {isAdmin && selectedPendingCount > 0 && (
           <button
             onClick={handleBulkApprove}
             disabled={bulkApproveMutation.isPending}
-            className="ml-auto flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 disabled:opacity-50"
+            className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" />
             Aprovar {selectedPendingCount} selecionada{selectedPendingCount > 1 ? "s" : ""}
