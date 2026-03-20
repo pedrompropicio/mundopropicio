@@ -175,9 +175,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <ShieldCheck className="h-3.5 w-3.5" />
               </button>
             )}
-            {/* Payment: only after approved, not completed */}
-            {!eventCompleted && isExpense && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
-              <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Registar pagamento">
+            {/* Payment/Receipt: only after approved, not completed */}
+            {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
+              <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                 <CreditCard className="h-3.5 w-3.5" />
               </button>
             )}
