@@ -37,6 +37,21 @@ const emptyForm: TransactionForm = {
   specification: "",
 };
 
+const formatDueDateInput = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+const parseDueDateForDb = (value: string) => {
+  if (!value.trim()) return null;
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return `${year}-${month}-${day}`;
+};
+
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
@@ -238,7 +253,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         account_id: data.account_id || null,
         specification: data.type === "expense" ? (data.specification || null) : null,
         date: data.date,
-        due_date: data.due_date || null,
+        due_date: parseDueDateForDb(data.due_date),
         status: autoApproved ? "approved" : "pending",
         paid_amount: 0,
       });
@@ -749,11 +764,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Vcto</label>
                 <input
                   key={`due-date-${form.type}-${form.event_id || "none"}`}
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
                   name="transaction_due_date"
                   autoComplete="off"
+                  placeholder="dd/mm/aaaa"
                   value={form.due_date || ""}
-                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  onChange={(e) => setForm({ ...form, due_date: formatDueDateInput(e.target.value) })}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
