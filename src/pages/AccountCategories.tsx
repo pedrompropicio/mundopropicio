@@ -188,9 +188,9 @@ export default function AccountCategories() {
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["account-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("*").order("code");
+      const { data, error } = await supabase.from("account_categories").select("*");
       if (error) throw error;
-      return data;
+      return data.sort((a, b) => compareCategoryCodes(a.code, b.code));
     },
   });
 
