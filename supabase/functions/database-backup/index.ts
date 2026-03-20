@@ -40,26 +40,37 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Verify caller is admin (if called from frontend)
     const authHeader = req.headers.get("Authorization");
     if (authHeader && authHeader !== `Bearer ${serviceRoleKey}`) {
-      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+      const anonClient = createClient(supabaseUrl, anonKey);
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user }, error: authErr } = await anonClient.auth.getUser(token);
+      const {
+        data: { user },
+        error: authErr,
+      } = await anonClient.auth.getUser(token);
+
       if (authErr || !user) {
         return new Response(JSON.stringify({ error: "Não autorizado" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Check admin role
-      const { data: roleData } = await anonClient
+
+      const { data: roleData, error: roleError } = await adminClient
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
         .eq("role", "admin")
         .maybeSingle();
+
+      if (roleError) {
+        throw new Error(`Erro ao validar permissões: ${roleError.message}`);
+      }
+
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Apenas administradores podem criar backups" }), {
           status: 403,
@@ -67,8 +78,6 @@ Deno.serve(async (req) => {
         });
       }
     }
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Export all tables
     const backup: Record<string, unknown[]> = {};
