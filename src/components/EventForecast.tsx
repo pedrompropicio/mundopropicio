@@ -267,30 +267,12 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const bulkApproveMutation = useMutation({
     mutationFn: async (forecastItems: any[]) => {
       for (const forecast of forecastItems) {
-        const { data: txn, error: txnError } = await supabase
-          .from("transactions")
-          .insert({
-            event_id: eventId,
-            type: forecast.type,
-            description: forecast.description,
-            amount: Number(forecast.amount),
-            iva_rate: forecast.iva_rate,
-            category_id: forecast.category_id || null,
-            specification: forecast.specification || null,
-            date: eventDate,
-            status: "pending",
-          })
-          .select("id")
-          .single();
-        if (txnError) throw txnError;
-
         const { error: updateError } = await supabase
           .from("event_forecasts")
           .update({
             status: "approved",
             approved_at: new Date().toISOString(),
             approved_by: user?.email || "admin",
-            transaction_id: txn.id,
           })
           .eq("id", forecast.id);
         if (updateError) throw updateError;
@@ -305,8 +287,6 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     },
     onSuccess: (_, items) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_transactions", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
       setSelectedIds(new Set());
       toast({ title: `${items.length} previsão(ões) aprovada(s) e transações criadas!` });
