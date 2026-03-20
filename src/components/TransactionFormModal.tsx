@@ -42,6 +42,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
+  const [showAuthOverride, setShowAuthOverride] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [plOverrideAuthorized, setPlOverrideAuthorized] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
