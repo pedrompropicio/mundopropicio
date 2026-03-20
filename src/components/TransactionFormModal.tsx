@@ -360,8 +360,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       setAuthLoading(false);
     }
   };
-
-
+  const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     return typeMatch;
   });
