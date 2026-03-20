@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, Eye } from "lucide-react";
+import { Plus, ShieldCheck, Filter, Eye, ArrowRightLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
@@ -12,6 +12,7 @@ import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionRow } from "@/components/TransactionRow";
+import { TransferFormModal } from "@/components/TransferFormModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export default function Transactions() {
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showPaidDialog, setShowPaidDialog] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [paidDateFrom, setPaidDateFrom] = useState<Date | undefined>(undefined);
   const [paidDateTo, setPaidDateTo] = useState<Date | undefined>(undefined);
   const queryClient = useQueryClient();
@@ -252,14 +254,27 @@ export default function Transactions() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transações</h1>
           <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nova Transação</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTransfer(true)}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Transferência</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova Transação</span>
+          </button>
+        </div>
       </div>
+
+      {showTransfer && (
+        <TransferFormModal onClose={() => setShowTransfer(false)} />
+      )}
 
       {showForm && (
         <TransactionFormModal onClose={() => setShowForm(false)} />
