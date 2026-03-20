@@ -38,6 +38,7 @@ export default function Transactions() {
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showPaidDialog, setShowPaidDialog] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [paidDateFrom, setPaidDateFrom] = useState<Date | undefined>(undefined);
   const [paidDateTo, setPaidDateTo] = useState<Date | undefined>(undefined);
   const queryClient = useQueryClient();
