@@ -460,7 +460,7 @@ export default function Transactions() {
       <Dialog open={showPaidDialog} onOpenChange={setShowPaidDialog}>
         <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Contas Pagas</DialogTitle>
+            <DialogTitle>Transações Liquidadas</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-wrap items-center gap-3 py-2">
