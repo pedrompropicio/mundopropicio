@@ -221,13 +221,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
-      // Auto-approve if event has active P&L and category is in forecasts
+      // Auto-approve if event is active and category is in P&L forecasts (active or passive mode)
       const evt = events.find((e: any) => e.id === data.event_id);
-      const isPLActive = evt?.pl_mode === "active";
-      const categoryInPL = isPLActive && eventForecasts.some(
+      const hasForecastMatch = eventForecasts.some(
         (f) => f.type === data.type && f.category_id === data.category_id
       );
-      const autoApproved = isPLActive && categoryInPL;
+      const autoApproved = evt && hasForecastMatch;
 
       const { error } = await supabase.from("transactions").insert({
         description: data.description,
