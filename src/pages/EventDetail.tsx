@@ -231,7 +231,7 @@ export default function EventDetail() {
             >
               <Pencil className="h-3.5 w-3.5" /> Editar
             </button>
-            {isAdmin && event.status === "active" && (
+            {(isAdmin || isManager) && event.status === "active" && (
               <button
                 onClick={() => {
                   if (confirm("Concluir este evento? As transações ficarão bloqueadas para alterações.")) {
