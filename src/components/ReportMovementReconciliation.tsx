@@ -164,6 +164,7 @@ export default function ReportMovementReconciliation() {
           isPayment,
           type: isPayment ? "Pagamento" : "Recebimento",
           transactionDescription: tx?.description ?? "—",
+          eventId: tx?.event_id ?? null,
           eventName: tx?.events?.name ?? "—",
           supplierName: tx?.suppliers?.name ?? "—",
           totalAmount: tx ? Number(tx.amount) : 0,
