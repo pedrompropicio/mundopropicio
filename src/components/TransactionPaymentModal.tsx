@@ -236,7 +236,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             </button>
             <button onClick={() => paymentMutation.mutate()} disabled={paymentMutation.isPending}
               className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
-              {paymentMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
+              {paymentMutation.isPending ? "A processar…" : confirmLabel}
             </button>
           </div>
         </div>
