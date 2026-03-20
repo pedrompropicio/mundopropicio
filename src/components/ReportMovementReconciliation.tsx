@@ -243,6 +243,21 @@ export default function ReportMovementReconciliation() {
               <p className="mt-1 text-[10px] text-muted-foreground">Todas as contas serão incluídas</p>
             )}
           </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Eventos (opcional)</label>
+            <SearchableSelect
+              options={events.filter((e: any) => !e.parent_event_id).map((e: any) => ({ value: e.id, label: e.name }))}
+              value={selectedEventIds.length === 1 ? selectedEventIds[0] : ""}
+              onValueChange={(val) => { setSelectedEventIds(val ? [val] : []); setGenerated(false); }}
+              placeholder="Todos os eventos"
+              searchPlaceholder="Pesquisar evento…"
+            />
+            {selectedEventIds.length > 0 && (
+              <button onClick={() => { setSelectedEventIds([]); setGenerated(false); }} className="mt-1 text-[10px] text-primary hover:underline">
+                Limpar filtro de evento
+              </button>
+            )}
+          </div>
           <div className="flex items-end">
             <button
               onClick={() => setGenerated(true)}
