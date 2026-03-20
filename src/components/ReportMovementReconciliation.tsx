@@ -34,78 +34,45 @@ export default function ReportMovementReconciliation() {
     },
   });
 
-  // Fetch audit log entries for payment/receipt accounts within period
-  const { data: auditEntries = [] } = useQuery({
-    queryKey: ["movement-reconciliation-audit", dateFrom, dateTo],
+  // Primary source: transactions with payment_date in the period
+  const { data: paidTransactions = [] } = useQuery({
+    queryKey: ["movement-reconciliation-paid-tx", dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
-        .from("transaction_audit_log")
-        .select("*")
-        .in("field_name", ["Conta de pagamento", "Conta de recebimento"])
-        .order("changed_at", { ascending: true });
-      if (dateFrom) q = q.gte("changed_at", `${dateFrom}T00:00:00`);
-      if (dateTo) q = q.lte("changed_at", `${dateTo}T23:59:59`);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
-    },
-    enabled: generated,
-  });
-
-  // Fetch corresponding payment amount entries
-  const { data: paymentEntries = [] } = useQuery({
-    queryKey: ["movement-reconciliation-payments", dateFrom, dateTo],
-    queryFn: async () => {
-      let q = supabase
-        .from("transaction_audit_log")
-        .select("*")
-        .in("field_name", ["Pagamento parcial", "Recebimento parcial"])
-        .order("changed_at", { ascending: true });
-      if (dateFrom) q = q.gte("changed_at", `${dateFrom}T00:00:00`);
-      if (dateTo) q = q.lte("changed_at", `${dateTo}T23:59:59`);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
-    },
-    enabled: generated,
-  });
-
-  // Fetch note entries
-  const { data: noteEntries = [] } = useQuery({
-    queryKey: ["movement-reconciliation-notes", dateFrom, dateTo],
-    queryFn: async () => {
-      let q = supabase
-        .from("transaction_audit_log")
-        .select("*")
-        .in("field_name", ["Nota de pagamento", "Nota de recebimento"])
-        .order("changed_at", { ascending: true });
-      if (dateFrom) q = q.gte("changed_at", `${dateFrom}T00:00:00`);
-      if (dateTo) q = q.lte("changed_at", `${dateTo}T23:59:59`);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
-    },
-    enabled: generated,
-  });
-
-  // Fetch transactions for details
-  const transactionIds = useMemo(
-    () => [...new Set(auditEntries.map((e: any) => e.transaction_id))],
-    [auditEntries]
-  );
-
-  const { data: transactions = [] } = useQuery({
-    queryKey: ["movement-reconciliation-txs", transactionIds],
-    queryFn: async () => {
-      if (transactionIds.length === 0) return [];
-      const { data, error } = await supabase
         .from("transactions")
         .select("*, events(name, parent_event_id), suppliers(name), financial_accounts(name)")
-        .in("id", transactionIds);
+        .gt("paid_amount", 0)
+        .order("payment_date", { ascending: true });
+      if (dateFrom) q = q.gte("payment_date", dateFrom);
+      if (dateTo) q = q.lte("payment_date", dateTo);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
-    enabled: generated && transactionIds.length > 0,
+    enabled: generated,
+  });
+
+  // Secondary source: audit log entries for account details (partial payments)
+  const txIds = useMemo(() => paidTransactions.map((t: any) => t.id), [paidTransactions]);
+
+  const { data: auditEntries = [] } = useQuery({
+    queryKey: ["movement-reconciliation-audit-details", txIds],
+    queryFn: async () => {
+      if (txIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("transaction_audit_log")
+        .select("*")
+        .in("transaction_id", txIds)
+        .in("field_name", [
+          "Conta de pagamento", "Conta de recebimento",
+          "Pagamento parcial", "Recebimento parcial",
+          "Nota de pagamento", "Nota de recebimento",
+        ])
+        .order("changed_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: generated && txIds.length > 0,
   });
 
   const accountNameMap = useMemo(() => {
@@ -114,87 +81,114 @@ export default function ReportMovementReconciliation() {
     return map;
   }, [accounts]);
 
-  // Parse account name from audit entry new_value: "AccountName — €X,XX"
-  function parseAccountName(newValue: string | null): string {
-    if (!newValue) return "";
-    const parts = newValue.split(" — ");
-    return parts[0] ?? "";
-  }
-
-  function parseAmount(newValue: string | null): number {
-    if (!newValue) return 0;
-    const parts = newValue.split(" — ");
-    if (parts.length < 2) return 0;
-    // Parse formatted currency like "1.500,00 €"
-    const raw = parts[1].replace(/[^\d,.-]/g, "").replace(".", "").replace(",", ".");
-    return parseFloat(raw) || 0;
-  }
-
-  // Build movement lines
+  // Build movement lines - combine transaction data with audit details
   const movements = useMemo(() => {
-    const selectedNames = selectedAccountIds.map((id) => accountNameMap[id]).filter(Boolean);
-    const txMap = new Map(transactions.map((t: any) => [t.id, t]));
-    const paymentMap = new Map<string, any>();
-    paymentEntries.forEach((p: any) => {
-      // Key by transaction_id + changed_at to match account entry
-      const key = `${p.transaction_id}|${p.changed_at}`;
-      paymentMap.set(key, p);
-    });
-    const noteMap = new Map<string, any>();
-    noteEntries.forEach((n: any) => {
-      const key = `${n.transaction_id}|${n.changed_at}`;
-      noteMap.set(key, n);
+    // Group audit entries by transaction
+    const auditByTx = new Map<string, any[]>();
+    auditEntries.forEach((e: any) => {
+      const list = auditByTx.get(e.transaction_id) || [];
+      list.push(e);
+      auditByTx.set(e.transaction_id, list);
     });
 
-    return auditEntries
-      .map((entry: any) => {
-        const accountName = parseAccountName(entry.new_value);
-        const movementAmount = parseAmount(entry.new_value);
-        const tx = txMap.get(entry.transaction_id);
-        const isPayment = entry.field_name === "Conta de pagamento";
-        const paymentKey = `${entry.transaction_id}|${entry.changed_at}`;
-        const payment = paymentMap.get(paymentKey);
-        const note = noteMap.get(paymentKey);
+    // Compute expanded event IDs (selected + their sub-events)
+    const expandedEventIds = selectedEventIds.length > 0
+      ? [
+          ...selectedEventIds,
+          ...events.filter((e: any) => selectedEventIds.includes(e.parent_event_id)).map((e: any) => e.id),
+        ]
+      : [];
 
-        return {
-          id: entry.id,
-          date: entry.changed_at,
+    // Selected account names
+    const selectedAccNames = selectedAccountIds.map((id) => accountNameMap[id]).filter(Boolean);
+
+    const result: any[] = [];
+
+    paidTransactions.forEach((tx: any) => {
+      const isExpense = tx.type === "expense";
+      const eventId = tx.event_id;
+      const eventName = tx.events?.name ?? "—";
+      const supplierName = tx.suppliers?.name ?? "—";
+
+      // Event filter
+      if (expandedEventIds.length > 0 && (!eventId || !expandedEventIds.includes(eventId))) return;
+
+      const txAudit = auditByTx.get(tx.id) || [];
+      const accountEntries = txAudit.filter((a) =>
+        a.field_name === "Conta de pagamento" || a.field_name === "Conta de recebimento"
+      );
+
+      if (accountEntries.length > 0) {
+        // We have detailed audit entries - show each partial payment
+        accountEntries.forEach((accEntry) => {
+          const accountName = parseAccountName(accEntry.new_value);
+          const movementAmount = parseAmount(accEntry.new_value);
+
+          // Account filter
+          if (selectedAccNames.length > 0 && !selectedAccNames.includes(accountName)) return;
+
+          // Find associated note
+          const noteEntry = txAudit.find(
+            (a) => (a.field_name === "Nota de pagamento" || a.field_name === "Nota de recebimento") &&
+              a.changed_at === accEntry.changed_at
+          );
+
+          result.push({
+            id: accEntry.id,
+            date: accEntry.changed_at,
+            accountName,
+            movementAmount,
+            isPayment: isExpense,
+            type: isExpense ? "Pagamento" : "Recebimento",
+            transactionDescription: tx.description,
+            eventId,
+            eventName,
+            supplierName,
+            totalAmount: Number(tx.amount),
+            paidAmount: Number(tx.paid_amount),
+            invoiceRef: tx.invoice_ref ?? "",
+            changedBy: accEntry.changed_by,
+            note: noteEntry?.new_value ?? "",
+            ivaRate: tx.iva_rate ?? 0,
+          });
+        });
+      } else {
+        // No audit entries - show transaction directly using account_id
+        const accountName = tx.financial_accounts?.name ?? "—";
+
+        // Account filter
+        if (selectedAccNames.length > 0 && !selectedAccNames.includes(accountName)) return;
+
+        result.push({
+          id: tx.id,
+          date: tx.payment_date ? `${tx.payment_date}T00:00:00` : tx.updated_at,
           accountName,
-          movementAmount,
-          isPayment,
-          type: isPayment ? "Pagamento" : "Recebimento",
-          transactionDescription: tx?.description ?? "—",
-          eventId: tx?.event_id ?? null,
-          eventName: tx?.events?.name ?? "—",
-          supplierName: tx?.suppliers?.name ?? "—",
-          totalAmount: tx ? Number(tx.amount) : 0,
-          paidAmount: payment ? Number(payment.new_value ?? 0) : 0,
-          invoiceRef: tx?.invoice_ref ?? "",
-          changedBy: entry.changed_by,
-          note: note?.new_value ?? "",
-          ivaRate: tx?.iva_rate ?? 0,
-        };
-      })
-      .filter((m) => {
-        if (selectedAccountIds.length > 0 && !selectedNames.includes(m.accountName)) return false;
-        if (selectedEventIds.length > 0) {
-          if (!m.eventId) return false;
-          // Include sub-events of selected parent events
-          const subEventIds = events
-            .filter((e: any) => selectedEventIds.includes(e.parent_event_id))
-            .map((e: any) => e.id);
-          const allIds = [...selectedEventIds, ...subEventIds];
-          if (!allIds.includes(m.eventId)) return false;
-        }
-        return true;
-      });
-  }, [auditEntries, transactions, paymentEntries, noteEntries, selectedAccountIds, selectedEventIds, accountNameMap]);
+          movementAmount: Number(tx.paid_amount),
+          isPayment: isExpense,
+          type: isExpense ? "Pagamento" : "Recebimento",
+          transactionDescription: tx.description,
+          eventId,
+          eventName,
+          supplierName,
+          totalAmount: Number(tx.amount),
+          paidAmount: Number(tx.paid_amount),
+          invoiceRef: tx.invoice_ref ?? "",
+          changedBy: "—",
+          note: "",
+          ivaRate: tx.iva_rate ?? 0,
+        });
+      }
+    });
+
+    // Sort by date
+    result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return result;
+  }, [paidTransactions, auditEntries, selectedAccountIds, selectedEventIds, accountNameMap, events]);
 
   const totalPayments = movements.filter((m) => m.isPayment).reduce((s, m) => s + m.movementAmount, 0);
   const totalReceipts = movements.filter((m) => !m.isPayment).reduce((s, m) => s + m.movementAmount, 0);
 
   const activeAccounts = accounts.filter((a: any) => a.is_active);
-  const accountOptions = activeAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   function toggleAccount(id: string) {
     setSelectedAccountIds((prev) =>
@@ -227,7 +221,7 @@ export default function ReportMovementReconciliation() {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="sm:col-span-2 lg:col-span-2">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Contas (opcional)</label>
             <div className="flex flex-wrap gap-1.5">
               {activeAccounts.map((a: any) => {
@@ -251,8 +245,8 @@ export default function ReportMovementReconciliation() {
               <p className="mt-1 text-[10px] text-muted-foreground">Todas as contas serão incluídas</p>
             )}
           </div>
-          <div className="sm:col-span-2 lg:col-span-4">
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Eventos (opcional)</label>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento (opcional)</label>
             <SearchableSelect
               options={events.filter((e: any) => !e.parent_event_id).map((e: any) => ({ value: e.id, label: e.name }))}
               value={selectedEventIds.length === 1 ? selectedEventIds[0] : ""}
@@ -398,4 +392,18 @@ export default function ReportMovementReconciliation() {
       )}
     </div>
   );
+}
+
+function parseAccountName(newValue: string | null): string {
+  if (!newValue) return "";
+  const parts = newValue.split(" — ");
+  return parts[0] ?? "";
+}
+
+function parseAmount(newValue: string | null): number {
+  if (!newValue) return 0;
+  const parts = newValue.split(" — ");
+  if (parts.length < 2) return 0;
+  const raw = parts[1].replace(/[^\d,.-]/g, "").replace(".", "").replace(",", ".");
+  return parseFloat(raw) || 0;
 }
