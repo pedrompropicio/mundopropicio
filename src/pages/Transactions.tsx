@@ -455,6 +455,92 @@ export default function Transactions() {
           </div>
         )}
       </div>
+
+      {/* Dialog de Contas Pagas */}
+      <Dialog open={showPaidDialog} onOpenChange={setShowPaidDialog}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Contas Pagas</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-wrap items-center gap-3 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Data pgto. de</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateFrom && "text-muted-foreground")}>
+                    {paidDateFrom ? format(paidDateFrom, "dd/MM/yyyy") : "Início"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={paidDateFrom} onSelect={setPaidDateFrom} locale={pt} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Data pgto. até</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateTo && "text-muted-foreground")}>
+                    {paidDateTo ? format(paidDateTo, "dd/MM/yyyy") : "Fim"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={paidDateTo} onSelect={setPaidDateTo} locale={pt} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            {(paidDateFrom || paidDateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setPaidDateFrom(undefined); setPaidDateTo(undefined); }} className="mt-5 text-xs">
+                Limpar datas
+              </Button>
+            )}
+            <span className="ml-auto mt-5 text-xs text-muted-foreground">
+              {paidTransactions.length} transação(ões)
+            </span>
+          </div>
+
+          <div className="overflow-y-auto flex-1 -mx-6 px-6">
+            {paidTransactions.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">Sem transações pagas no período selecionado.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="pb-3 text-left font-medium">Descrição</th>
+                    <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
+                    <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="pb-3 text-left font-medium">Dt. Pgto</th>
+                    <th className="pb-3 text-right font-medium">Valor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {paidTransactions.map((t) => {
+                    const isExpense = t.type === "expense";
+                    return (
+                      <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
+                        <td className="py-2.5 pr-4">
+                          <p className="font-medium">{t.description}</p>
+                          {t.specification && <p className="text-xs text-muted-foreground">{t.specification}</p>}
+                          {(t.financial_accounts as any)?.name && <p className="text-xs text-primary/70">📌 {(t.financial_accounts as any).name}</p>}
+                        </td>
+                        <td className="hidden py-2.5 pr-4 text-muted-foreground sm:table-cell">{(t.events as any)?.name ?? "—"}</td>
+                        <td className="hidden py-2.5 pr-4 text-muted-foreground md:table-cell">{(t.suppliers as any)?.name ?? "—"}</td>
+                        <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">
+                          {t.payment_date ? new Date(t.payment_date).toLocaleDateString("pt-PT") : "—"}
+                        </td>
+                        <td className={`py-2.5 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
+                          {isExpense ? "-" : "+"}{formatCurrency(Number(t.amount))}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
