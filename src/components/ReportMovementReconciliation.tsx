@@ -11,6 +11,7 @@ import { exportMovementReconciliationToExcel } from "@/lib/export-movement-recon
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [generated, setGenerated] = useState(false);
