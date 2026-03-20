@@ -1,48 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
-import type { EmailOtpType } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  clearRecoveryParams,
+  getRecoveryParams,
+  mapRecoveryError,
+  type RecoveryParams,
+} from "@/lib/password-recovery";
 
 type ResetStatus = "loading" | "ready" | "expired";
 
-function getRecoveryParams() {
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const queryParams = new URLSearchParams(window.location.search);
-  const getParam = (key: string) => queryParams.get(key) ?? hashParams.get(key);
+const SESSION_POLL_DELAYS = [0, 500, 1000, 2000, 4000, 8000];
+const FALLBACK_TIMEOUT_MS = 15000;
 
-  return {
-    code: getParam("code"),
-    tokenHash: getParam("token_hash"),
-    type: getParam("type") as EmailOtpType | null,
-    accessToken: getParam("access_token"),
-    refreshToken: getParam("refresh_token"),
-    errorCode: getParam("error_code"),
-    errorDescription: getParam("error_description"),
-  };
+function hasRecoveryPayload(params: RecoveryParams) {
+  return Boolean(params.code || params.tokenHash || params.accessToken || params.refreshToken);
 }
 
-function clearRecoveryParams() {
-  window.history.replaceState({}, document.title, "/reset-password");
-}
-
-function mapRecoveryError(message?: string | null) {
-  const normalized = String(message ?? "").toLowerCase();
-
-  if (/code verifier|both auth code and code verifier|auth code/i.test(normalized)) {
-    return "Abra o link no mesmo browser e dispositivo onde pediu a recuperação da senha.";
-  }
-
-  if (/expired|invalid|otp|one-time token not found|email link is invalid/i.test(normalized)) {
-    return "O link de recuperação expirou, já foi usado, ou ficou inválido. Solicite um novo link.";
-  }
-
-  if (/timeout|demor/i.test(normalized)) {
-    return "Não foi possível validar o link a tempo. Solicite um novo link e abra-o apenas uma vez.";
-  }
-
-  return "Não foi possível validar o link de recuperação. Solicite um novo link.";
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export default function ResetPassword() {
@@ -51,12 +30,25 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<ResetStatus>("loading");
   const [statusDetail, setStatusDetail] = useState("A verificar link de recuperação…");
+  const { session } = useAuth();
   const navigate = useNavigate();
 
-  const recoveryParams = useMemo(() => getRecoveryParams(), []);
+  useEffect(() => {
+    if (!session) return;
+
+    clearRecoveryParams();
+    setStatus("ready");
+    setStatusDetail("Introduza a sua nova senha");
+  }, [session]);
 
   useEffect(() => {
     let isMounted = true;
+    let fallbackTimer: number | undefined;
+
+    const recoveryParams = getRecoveryParams();
+    const recoveryMessage = hasRecoveryPayload(recoveryParams)
+      ? "A validação do link demorou demasiado. Aguarde mais alguns segundos ou solicite um novo link."
+      : "Abra novamente o link recebido no email para redefinir a senha.";
 
     const markReady = () => {
       if (!isMounted) return;
@@ -71,14 +63,34 @@ export default function ResetPassword() {
       setStatusDetail(message ?? "O link de recuperação expirou ou é inválido.");
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[ResetPassword] auth event", event, { hasSession: !!session });
+    const startFallbackTimer = () => {
+      window.clearTimeout(fallbackTimer);
+      fallbackTimer = window.setTimeout(async () => {
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
 
+        if (!isMounted) return;
+        if (currentSession) {
+          markReady();
+          return;
+        }
+
+        markExpired(recoveryMessage);
+      }, FALLBACK_TIMEOUT_MS);
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!isMounted) return;
 
       if (
-        session &&
-        (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")
+        nextSession &&
+        (event === "PASSWORD_RECOVERY" ||
+          event === "SIGNED_IN" ||
+          event === "INITIAL_SESSION" ||
+          event === "TOKEN_REFRESHED")
       ) {
         markReady();
       }
@@ -87,88 +99,60 @@ export default function ResetPassword() {
     const initializeRecovery = async () => {
       const { code, tokenHash, type, accessToken, refreshToken, errorCode, errorDescription } = recoveryParams;
 
-      console.log("[ResetPassword] init", {
-        hasCode: !!code,
-        hasTokenHash: !!tokenHash,
-        type,
-        hasAccessToken: !!accessToken,
-        hasRefreshToken: !!refreshToken,
-        errorCode,
-        hasErrorDescription: !!errorDescription,
-      });
-
       if (errorCode || errorDescription) {
         markExpired(mapRecoveryError(errorDescription || errorCode));
         return;
       }
 
-      const { data: { session: existingSession } } = await supabase.auth.getSession();
-      if (existingSession) {
-        console.log("[ResetPassword] existing session found");
-        markReady();
-        return;
-      }
-
       try {
         if (accessToken && refreshToken) {
-          console.log("[ResetPassword] applying session from url tokens");
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) throw error;
         } else if (code) {
-          console.log("[ResetPassword] exchanging code for session");
-          const result = await Promise.race([
-            supabase.auth.exchangeCodeForSession(code),
-            new Promise<{ error: Error }>((resolve) =>
-              window.setTimeout(() => resolve({ error: new Error("exchange timeout") }), 6000)
-            ),
-          ]);
-          if (result.error) throw result.error;
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
         } else if (tokenHash && type === "recovery") {
-          console.log("[ResetPassword] verifying otp from token_hash");
           const { error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: "recovery",
           });
           if (error) throw error;
         }
+      } catch (error: any) {
+        markExpired(mapRecoveryError(error?.message));
+        return;
+      }
 
-        const delays = [0, 250, 750, 1500, 3000];
-        for (const delay of delays) {
-          if (delay > 0) {
-            await new Promise((resolve) => window.setTimeout(resolve, delay));
-          }
-
-          const { data: { session } } = await supabase.auth.getSession();
-          console.log("[ResetPassword] poll session", { delay, hasSession: !!session });
-
-          if (session) {
-            markReady();
-            return;
-          }
+      for (const delay of SESSION_POLL_DELAYS) {
+        if (delay > 0) {
+          await wait(delay);
         }
 
-        if (code || tokenHash || accessToken || refreshToken) {
-          markExpired("O link foi consumido mas a sessão de recuperação não ficou disponível. Solicite um novo link e abra-o apenas uma vez.");
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
+        if (currentSession) {
+          markReady();
           return;
         }
-
-        markExpired("Abra novamente o link recebido no email para redefinir a senha.");
-      } catch (error: any) {
-        console.log("[ResetPassword] init error", error?.message ?? error);
-        markExpired(mapRecoveryError(error?.message));
       }
+
+      startFallbackTimer();
     };
 
     void initializeRecovery();
 
     return () => {
       isMounted = false;
+      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
-  }, [recoveryParams]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,6 +168,19 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
+
+    const {
+      data: { session: currentSession },
+    } = await supabase.auth.getSession();
+
+    if (!currentSession) {
+      const message = "A sessão de recuperação já não está ativa. Solicite um novo link.";
+      setStatus("expired");
+      setStatusDetail(message);
+      toast({ title: "Erro", description: message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.updateUser({ password });
 
@@ -217,9 +214,7 @@ export default function ResetPassword() {
 
         {status === "expired" && (
           <div className="glass rounded-xl p-6 space-y-4 text-center">
-            <p className="text-sm text-muted-foreground">
-              Solicite um novo link na página de login.
-            </p>
+            <p className="text-sm text-muted-foreground">Solicite um novo link na página de login.</p>
             <button
               onClick={() => navigate("/login")}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
