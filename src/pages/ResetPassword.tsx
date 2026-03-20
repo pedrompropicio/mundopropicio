@@ -14,53 +14,44 @@ export default function ResetPassword() {
   useEffect(() => {
     let isMounted = true;
 
-    const hasRecoveryContext = () => {
-      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-      const queryParams = new URLSearchParams(window.location.search);
-
-      return (
-        hashParams.get("type") === "recovery" ||
-        queryParams.get("type") === "recovery" ||
-        hashParams.has("access_token") ||
-        hashParams.has("refresh_token") ||
-        queryParams.has("code") ||
-        queryParams.has("token") ||
-        queryParams.has("token_hash")
-      );
-    };
-
-    const syncRecoveryState = async () => {
+    const checkReady = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-
       if (!isMounted) return;
-      if (session || hasRecoveryContext()) {
+      if (session) {
         setReady(true);
+        return true;
       }
+      return false;
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
       if (
         event === "PASSWORD_RECOVERY" ||
-        ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && (session || hasRecoveryContext()))
+        event === "SIGNED_IN" ||
+        (event === "INITIAL_SESSION" && session)
       ) {
         setReady(true);
       }
     });
 
-    if (hasRecoveryContext()) {
-      setReady(true);
-    }
-
-    void syncRecoveryState();
-    const retryTimers = [250, 1000].map((delay) =>
-      window.setTimeout(() => {
-        void syncRecoveryState();
-      }, delay)
+    // Check immediately, then retry a few times in case of race condition
+    void checkReady();
+    const retryTimers = [300, 800, 2000, 4000].map((delay) =>
+      window.setTimeout(() => void checkReady(), delay)
     );
+
+    // Ultimate fallback: show the form after 5s so the user isn't stuck forever
+    const fallbackTimer = window.setTimeout(() => {
+      if (isMounted && !ready) {
+        setReady(true);
+      }
+    }, 5000);
 
     return () => {
       isMounted = false;
-      retryTimers.forEach((timer) => window.clearTimeout(timer));
+      retryTimers.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, []);
