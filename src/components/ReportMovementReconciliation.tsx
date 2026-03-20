@@ -25,6 +25,15 @@ export default function ReportMovementReconciliation() {
     },
   });
 
+  const { data: events = [] } = useQuery({
+    queryKey: ["events-list-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, name, parent_event_id").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch audit log entries for payment/receipt accounts within period
   const { data: auditEntries = [] } = useQuery({
     queryKey: ["movement-reconciliation-audit", dateFrom, dateTo],
