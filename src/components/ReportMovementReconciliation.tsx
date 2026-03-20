@@ -1,11 +1,12 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { Download, ArrowLeftRight, Printer } from "lucide-react";
+import { FileSpreadsheet, FileText, ArrowLeftRight } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { exportMovementReconciliationToExcel } from "@/lib/export-movement-reconciliation";
+import { Button } from "@/components/ui/button";
+import { exportMovementReconciliationToExcel, exportMovementReconciliationToPDF } from "@/lib/export-movement-reconciliation";
 
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
@@ -15,7 +16,6 @@ export default function ReportMovementReconciliation() {
   const [dateTo, setDateTo] = useState("");
   const [fullPeriod, setFullPeriod] = useState(false);
   const [generated, setGenerated] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
@@ -178,36 +178,17 @@ export default function ReportMovementReconciliation() {
     setGenerated(false);
   }
 
-  function handlePrint() {
-    window.print();
-  }
-
   const periodLabel = fullPeriod ? "Período Completo" : `${dateFrom ? new Date(dateFrom).toLocaleDateString("pt-PT") : "—"} a ${dateTo ? new Date(dateTo).toLocaleDateString("pt-PT") : "—"}`;
   const accountsLabel = selectedAccountIds.length > 0 ? selectedAccountIds.map((id) => accountNameMap[id]).join(", ") : "Todas";
   const eventLabel = selectedEventIds.length > 0 ? events.find((e: any) => e.id === selectedEventIds[0])?.name ?? "—" : "Todos";
 
+  const exportParams = {
+    movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFrom,
+    dateTo: fullPeriod ? "" : dateTo, totalPaid, totalReceived,
+  };
+
   return (
     <>
-      {/* Print-specific styles */}
-      <style>{`
-        @media print {
-          @page { size: landscape; margin: 8mm; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          header, nav, .no-print, .glass { display: none !important; }
-          .print-area { display: block !important; }
-          .print-table { font-size: 7.5pt !important; }
-          .print-table th, .print-table td { padding: 2px 4px !important; border: 0.5px solid #ccc !important; }
-          .print-table th { background: #f0f0f0 !important; color: #333 !important; font-weight: 700 !important; }
-          .print-header { display: block !important; margin-bottom: 8px; }
-          .print-summary { display: flex !important; gap: 12px; margin-bottom: 8px; }
-          .print-summary-item { border: 1px solid #ccc; padding: 4px 8px; font-size: 8pt; }
-          * { color: #000 !important; background: transparent !important; }
-          .print-type-expense { color: #b45309 !important; }
-          .print-type-income { color: #16a34a !important; }
-          .print-status { padding: 1px 4px; border-radius: 3px; font-size: 7pt; }
-          .print-open { color: #dc2626 !important; font-weight: 700 !important; }
-        }
-      `}</style>
 
       <div className="space-y-6">
         {/* Filters - hidden on print */}
@@ -282,16 +263,12 @@ export default function ReportMovementReconciliation() {
                 {movements.length} transaç{movements.length !== 1 ? "ões" : "ão"}
               </p>
               <div className="flex gap-2">
-                <button onClick={handlePrint} disabled={movements.length === 0}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-secondary/80 disabled:opacity-50">
-                  <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Imprimir</span>
-                </button>
-                <button
-                  onClick={() => exportMovementReconciliationToExcel(movements, accountsLabel, fullPeriod ? "" : dateFrom, fullPeriod ? "" : dateTo, totalPaid, totalReceived)}
-                  disabled={movements.length === 0}
-                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50">
-                  <Download className="h-4 w-4" /> <span className="hidden sm:inline">Excel</span>
-                </button>
+                <Button variant="outline" size="sm" onClick={() => exportMovementReconciliationToExcel(exportParams)} disabled={movements.length === 0}>
+                  <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => exportMovementReconciliationToPDF(exportParams)} disabled={movements.length === 0}>
+                  <FileText className="mr-1.5 h-4 w-4" /> PDF
+                </Button>
               </div>
             </div>
 
@@ -305,19 +282,6 @@ export default function ReportMovementReconciliation() {
               <SummaryCard label="Aberto (Rec.)" value={formatCurrency(totalOpenIncome)} color={totalOpenIncome > 0 ? "text-warning" : "text-muted-foreground"} />
             </div>
 
-            {/* Print header (hidden on screen) */}
-            <div className="print-header hidden" ref={printRef}>
-              <div style={{ fontWeight: 700, fontSize: "12pt", marginBottom: 2 }}>RELATÓRIO DE MOVIMENTAÇÕES</div>
-              <div style={{ fontSize: "8pt" }}>Período: {periodLabel} | Contas: {accountsLabel} | Evento: {eventLabel}</div>
-              <div className="print-summary" style={{ display: "none" }}>
-                <span className="print-summary-item">Despesas: {formatCurrency(totalExpenses)} (Líq: {formatCurrency(totalNetExpenses)})</span>
-                <span className="print-summary-item">Receitas: {formatCurrency(totalIncome)} (Líq: {formatCurrency(totalNetIncome)})</span>
-                <span className="print-summary-item">Pago: {formatCurrency(totalPaid)}</span>
-                <span className="print-summary-item">Recebido: {formatCurrency(totalReceived)}</span>
-                <span className="print-summary-item">Aberto Desp: {formatCurrency(totalOpenExpenses)}</span>
-                <span className="print-summary-item">Aberto Rec: {formatCurrency(totalOpenIncome)}</span>
-              </div>
-            </div>
 
             {/* Table */}
             {movements.length === 0 ? (
