@@ -811,6 +811,62 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </form>
+
+        {/* Auth Override Modal */}
+        {showAuthOverride && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowAuthOverride(false)}>
+            <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-warning" />
+                <h3 className="text-base font-bold">Autorização Necessária</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A categoria selecionada não existe no P&L deste evento. É necessária a autorização de um Administrador ou Gestor.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Email do autorizador</label>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="admin@empresa.com"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Senha</label>
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                    onKeyDown={(e) => e.key === "Enter" && handleAuthOverride()}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowAuthOverride(false); setAuthEmail(""); setAuthPassword(""); }}
+                    className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-secondary transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAuthOverride}
+                    disabled={authLoading}
+                    className="flex-1 rounded-lg bg-warning px-3 py-2 text-sm font-medium text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50"
+                  >
+                    {authLoading ? "A verificar…" : "Autorizar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
