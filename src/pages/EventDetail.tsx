@@ -231,6 +231,19 @@ export default function EventDetail() {
             >
               <Pencil className="h-3.5 w-3.5" /> Editar
             </button>
+            {(isAdmin || isManager) && (event.status === "planning" || event.status === "confirmed") && (
+              <button
+                onClick={() => {
+                  if (confirm("Ativar este evento? O evento ficará disponível para receber transações.")) {
+                    changeStatusMutation.mutate("active");
+                  }
+                }}
+                disabled={changeStatusMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Ativar Evento
+              </button>
+            )}
             {(isAdmin || isManager) && event.status === "active" && (
               <button
                 onClick={() => {
