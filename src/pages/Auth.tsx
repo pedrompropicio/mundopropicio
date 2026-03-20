@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +33,8 @@ export default function Auth() {
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Email enviado", description: "Verifique o seu email para redefinir a senha." });
+      toast({ title: "Email enviado", description: "Verifique o seu email para o código de recuperação." });
+      navigate(`/reset-password?email=${encodeURIComponent(email)}&mode=otp`);
     }
     setLoading(false);
   };
