@@ -9,23 +9,15 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     let isMounted = true;
 
-    const checkReady = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      if (session) {
-        setReady(true);
-        return true;
-      }
-      return false;
-    };
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
+      console.log("[ResetPassword] onAuthStateChange:", event, !!session);
       if (
         event === "PASSWORD_RECOVERY" ||
         event === "SIGNED_IN" ||
@@ -35,23 +27,27 @@ export default function ResetPassword() {
       }
     });
 
-    // Check immediately, then retry a few times in case of race condition
-    void checkReady();
-    const retryTimers = [300, 800, 2000, 4000].map((delay) =>
-      window.setTimeout(() => void checkReady(), delay)
+    // Also poll getSession for cases where events already fired
+    const poll = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("[ResetPassword] getSession poll:", !!session);
+      if (isMounted && session) setReady(true);
+    };
+
+    void poll();
+    const retryTimers = [500, 1500, 3000].map((d) =>
+      window.setTimeout(() => void poll(), d)
     );
 
-    // Ultimate fallback: show the form after 5s so the user isn't stuck forever
-    const fallbackTimer = window.setTimeout(() => {
-      if (isMounted && !ready) {
-        setReady(true);
-      }
-    }, 5000);
+    // After 6s with no session, show timeout message instead of staying stuck
+    const fallback = window.setTimeout(() => {
+      if (isMounted) setTimedOut(true);
+    }, 6000);
 
     return () => {
       isMounted = false;
       retryTimers.forEach((t) => window.clearTimeout(t));
-      window.clearTimeout(fallbackTimer);
+      window.clearTimeout(fallback);
       subscription.unsubscribe();
     };
   }, []);
@@ -64,12 +60,18 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
+
+    // Try getSession with a small retry to handle timing edge cases
+    let session = (await supabase.auth.getSession()).data.session;
+    if (!session) {
+      await new Promise((r) => setTimeout(r, 1000));
+      session = (await supabase.auth.getSession()).data.session;
+    }
 
     if (!session) {
       toast({
-        title: "Link inválido ou expirado",
-        description: "Abra novamente o link do email para definir a senha.",
+        title: "Sessão expirada",
+        description: "O link pode ter expirado. Solicite um novo link de recuperação.",
         variant: "destructive",
       });
       setLoading(false);
@@ -87,6 +89,9 @@ export default function ResetPassword() {
     setLoading(false);
   };
 
+  const showForm = ready;
+  const showExpired = !ready && timedOut;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -96,11 +101,29 @@ export default function ResetPassword() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Definir Nova Senha</h1>
           <p className="text-sm text-muted-foreground">
-            {ready ? "Introduza a sua nova senha" : "A verificar link de recuperação…"}
+            {showForm
+              ? "Introduza a sua nova senha"
+              : showExpired
+              ? "O link de recuperação expirou ou é inválido."
+              : "A verificar link de recuperação…"}
           </p>
         </div>
 
-        {ready && (
+        {showExpired && (
+          <div className="glass rounded-xl p-6 space-y-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Solicite um novo link na página de login.
+            </p>
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+            >
+              Voltar ao login
+            </button>
+          </div>
+        )}
+
+        {showForm && (
           <form onSubmit={handleSubmit} className="glass rounded-xl p-6 space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nova senha</label>
