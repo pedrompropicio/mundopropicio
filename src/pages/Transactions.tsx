@@ -272,6 +272,10 @@ export default function Transactions() {
         </div>
       </div>
 
+      {showTransfer && (
+        <TransferFormModal onClose={() => setShowTransfer(false)} />
+      )}
+
       {showForm && (
         <TransactionFormModal onClose={() => setShowForm(false)} />
       )}
