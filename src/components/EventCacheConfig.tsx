@@ -5,6 +5,7 @@ import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, In
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
+import { sortByHierarchicalCode } from "@/lib/utils";
 
 interface Props {
   eventId: string;
@@ -59,10 +60,9 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
       const { data, error } = await supabase
         .from("account_categories")
         .select("*")
-        .eq("is_active", true)
-        .order("code");
+        .eq("is_active", true);
       if (error) throw error;
-      return data;
+      return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
   });
 

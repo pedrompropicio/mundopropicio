@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
+import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 
 interface InlineForm {
   type: string;
@@ -58,10 +59,9 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
       const { data, error } = await supabase
         .from("account_categories")
         .select("*")
-        .eq("is_active", true)
-        .order("code");
+        .eq("is_active", true);
       if (error) throw error;
-      return data;
+      return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
   });
 
@@ -393,7 +393,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
       groupMap[groupName].items.push(item);
     });
 
-    return groups.sort((a, b) => (a.groupCode || "Z").localeCompare(b.groupCode || "Z"));
+    return groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
   };
 
   const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
@@ -402,7 +402,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     // Ensure "Artístico" group exists if there are cache lines
     if (cacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
       groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
-      groups.sort((a, b) => (a.groupCode || "Z").localeCompare(b.groupCode || "Z"));
+      groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
     }
     return groups;
   }, [expenseForecasts, catLookup, cacheLines]);
@@ -1030,7 +1030,10 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
 
   return Object.values(map)
     .map((r) => ({ ...r, variance: r.actual - r.forecast }))
-    .sort((a, b) => { if (a.type !== b.type) return a.type === "income" ? -1 : 1; return a.groupCode.localeCompare(b.groupCode) || a.categoryCode.localeCompare(b.categoryCode); });
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === "income" ? -1 : 1;
+      return compareHierarchicalCodes(a.groupCode, b.groupCode) || compareHierarchicalCodes(a.categoryCode, b.categoryCode);
+    });
 }
 
 function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cacheLines?: CachePLLine[] }) {

@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import type { PLMode } from "@/components/ReportPL";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
+import { compareHierarchicalCodes } from "@/lib/utils";
 
 interface PLLine {
   label: string;
@@ -65,7 +66,7 @@ function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[
       tIva: tg?.totalIva ?? 0,
       details,
     };
-  }).sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+  }).sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 }
 
 interface ExportHierarchyMaps {

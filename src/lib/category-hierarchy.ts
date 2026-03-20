@@ -1,3 +1,5 @@
+import { compareHierarchicalCodes } from "@/lib/utils";
+
 /**
  * Utility to group transactions/forecasts by the chart of accounts hierarchy.
  * Categories have 3 levels:
@@ -118,9 +120,9 @@ export function aggregateByHierarchy(
       groupCode: g.groupCode,
       totalBase: Object.values(g.details).reduce((s, d) => s + d.base, 0),
       totalIva: Object.values(g.details).reduce((s, d) => s + d.iva, 0),
-      details: Object.values(g.details).sort((a, b) => a.code.localeCompare(b.code)),
+      details: Object.values(g.details).sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
     }))
-    .sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+    .sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 }
 
 /**
@@ -166,7 +168,7 @@ export function aggregateByHierarchyDRE(
       groupCode: g.groupCode,
       totalBase: Object.values(g.details).reduce((s, d) => s + d.base, 0),
       totalIva: Object.values(g.details).reduce((s, d) => s + d.iva, 0),
-      details: Object.values(g.details).sort((a, b) => a.code.localeCompare(b.code)),
+      details: Object.values(g.details).sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
     }))
-    .sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+    .sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 }
