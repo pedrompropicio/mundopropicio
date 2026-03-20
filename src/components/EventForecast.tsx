@@ -401,7 +401,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
     // Ensure "Artístico" group exists if there are cache lines
     if (cacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
       groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
-      groups.sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+      groups.sort((a, b) => (a.groupCode || "Z").localeCompare(b.groupCode || "Z"));
     }
     return groups;
   }, [expenseForecasts, catLookup, cacheLines]);
