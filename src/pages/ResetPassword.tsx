@@ -3,54 +3,42 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [recoveryDetected, setRecoveryDetected] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const { session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // Detect PASSWORD_RECOVERY event specifically
   useEffect(() => {
-    let isMounted = true;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isMounted) return;
-      console.log("[ResetPassword] onAuthStateChange:", event, !!session);
-      if (
-        event === "PASSWORD_RECOVERY" ||
-        event === "SIGNED_IN" ||
-        (event === "INITIAL_SESSION" && session)
-      ) {
-        setReady(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      console.log("[ResetPassword] auth event:", event);
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryDetected(true);
       }
     });
-
-    // Also poll getSession for cases where events already fired
-    const poll = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("[ResetPassword] getSession poll:", !!session);
-      if (isMounted && session) setReady(true);
-    };
-
-    void poll();
-    const retryTimers = [500, 1500, 3000].map((d) =>
-      window.setTimeout(() => void poll(), d)
-    );
-
-    // After 6s with no session, show timeout message instead of staying stuck
-    const fallback = window.setTimeout(() => {
-      if (isMounted) setTimedOut(true);
-    }, 6000);
-
-    return () => {
-      isMounted = false;
-      retryTimers.forEach((t) => window.clearTimeout(t));
-      window.clearTimeout(fallback);
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Consider ready when we have a session (from AuthContext) — either via recovery or any auth state
+  const ready = !authLoading && !!session;
+
+  // Timeout fallback
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setTimedOut(true);
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const showForm = ready;
+  const showExpired = !ready && !authLoading && timedOut;
+  const showLoading = !ready && !showExpired;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,25 +46,12 @@ export default function ResetPassword() {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
-
-    setLoading(true);
-
-    // Try getSession with a small retry to handle timing edge cases
-    let session = (await supabase.auth.getSession()).data.session;
-    if (!session) {
-      await new Promise((r) => setTimeout(r, 1000));
-      session = (await supabase.auth.getSession()).data.session;
-    }
-
-    if (!session) {
-      toast({
-        title: "Sessão expirada",
-        description: "O link pode ter expirado. Solicite um novo link de recuperação.",
-        variant: "destructive",
-      });
-      setLoading(false);
+    if (password.length < 6) {
+      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
       return;
     }
+
+    setLoading(true);
 
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
@@ -88,9 +63,6 @@ export default function ResetPassword() {
     }
     setLoading(false);
   };
-
-  const showForm = ready;
-  const showExpired = !ready && timedOut;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
