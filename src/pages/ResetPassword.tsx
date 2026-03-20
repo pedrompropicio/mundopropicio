@@ -1,27 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  clearRecoveryParams,
-  getRecoveryParams,
-  mapRecoveryError,
-  type RecoveryParams,
-} from "@/lib/password-recovery";
 
 type ResetStatus = "loading" | "ready" | "expired";
 
-const SESSION_POLL_DELAYS = [0, 500, 1000, 2000, 4000, 8000];
-const FALLBACK_TIMEOUT_MS = 15000;
+/**
+ * Extracts error parameters from the URL (both hash and query).
+ * We do NOT manually extract tokens — the Supabase JS client auto-processes
+ * access_token/refresh_token from the hash fragment on page load.
+ * Manually doing so creates a race condition that causes session loss.
+ */
+function getErrorFromUrl() {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const queryParams = new URLSearchParams(window.location.search);
+  const getParam = (key: string) => queryParams.get(key) ?? hashParams.get(key);
 
-function hasRecoveryPayload(params: RecoveryParams) {
-  return Boolean(params.code || params.tokenHash || params.accessToken || params.refreshToken);
+  return {
+    errorCode: getParam("error_code") ?? getParam("error"),
+    errorDescription: getParam("error_description"),
+  };
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+function mapRecoveryError(message?: string | null) {
+  const normalized = String(message ?? "").toLowerCase();
+  if (/code verifier|auth code/i.test(normalized)) {
+    return "Abra o link no mesmo browser e dispositivo onde pediu a recuperação da senha.";
+  }
+  if (/expired|invalid|otp|one-time token not found|email link is invalid/i.test(normalized)) {
+    return "O link de recuperação expirou, já foi usado, ou ficou inválido. Solicite um novo link.";
+  }
+  return "Não foi possível validar o link de recuperação. Solicite um novo link.";
 }
 
 export default function ResetPassword() {
@@ -30,126 +40,63 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<ResetStatus>("loading");
   const [statusDetail, setStatusDetail] = useState("A verificar link de recuperação…");
-  const { session } = useAuth();
   const navigate = useNavigate();
+  const resolvedRef = useRef(false);
 
   useEffect(() => {
-    if (!session) return;
-
-    clearRecoveryParams();
-    setStatus("ready");
-    setStatusDetail("Introduza a sua nova senha");
-  }, [session]);
-
-  useEffect(() => {
-    let isMounted = true;
-    let fallbackTimer: number | undefined;
-
-    const recoveryParams = getRecoveryParams();
-    const recoveryMessage = hasRecoveryPayload(recoveryParams)
-      ? "A validação do link demorou demasiado. Aguarde mais alguns segundos ou solicite um novo link."
-      : "Abra novamente o link recebido no email para redefinir a senha.";
+    // Check for error params first
+    const { errorCode, errorDescription } = getErrorFromUrl();
+    if (errorCode || errorDescription) {
+      setStatus("expired");
+      setStatusDetail(mapRecoveryError(errorDescription || errorCode));
+      window.history.replaceState({}, document.title, "/reset-password");
+      return;
+    }
 
     const markReady = () => {
-      if (!isMounted) return;
-      clearRecoveryParams();
+      if (resolvedRef.current) return;
+      resolvedRef.current = true;
+      window.history.replaceState({}, document.title, "/reset-password");
       setStatus("ready");
       setStatusDetail("Introduza a sua nova senha");
     };
 
-    const markExpired = (message?: string) => {
-      if (!isMounted) return;
+    const markExpired = (message: string) => {
+      if (resolvedRef.current) return;
+      resolvedRef.current = true;
       setStatus("expired");
-      setStatusDetail(message ?? "O link de recuperação expirou ou é inválido.");
+      setStatusDetail(message);
     };
 
-    const startFallbackTimer = () => {
-      window.clearTimeout(fallbackTimer);
-      fallbackTimer = window.setTimeout(async () => {
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-        if (currentSession) {
-          markReady();
-          return;
-        }
-
-        markExpired(recoveryMessage);
-      }, FALLBACK_TIMEOUT_MS);
-    };
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (!isMounted) return;
-
-      if (
-        nextSession &&
-        (event === "PASSWORD_RECOVERY" ||
-          event === "SIGNED_IN" ||
-          event === "INITIAL_SESSION" ||
-          event === "TOKEN_REFRESHED")
-      ) {
+    // Let the Supabase client handle token processing automatically.
+    // We just listen for the session to appear.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
         markReady();
       }
     });
 
-    const initializeRecovery = async () => {
-      const { code, tokenHash, type, accessToken, refreshToken, errorCode, errorDescription } = recoveryParams;
+    // Also check if session already exists (e.g. from auto-processed tokens)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) markReady();
+    });
 
-      if (errorCode || errorDescription) {
-        markExpired(mapRecoveryError(errorDescription || errorCode));
-        return;
+    // Generous timeout — if no session after 20s, mark expired
+    const timeout = window.setTimeout(() => {
+      if (!resolvedRef.current) {
+        // One last check
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            markReady();
+          } else {
+            markExpired("A validação do link demorou demasiado. Solicite um novo link.");
+          }
+        });
       }
-
-      try {
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) throw error;
-        } else if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-        } else if (tokenHash && type === "recovery") {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: "recovery",
-          });
-          if (error) throw error;
-        }
-      } catch (error: any) {
-        markExpired(mapRecoveryError(error?.message));
-        return;
-      }
-
-      for (const delay of SESSION_POLL_DELAYS) {
-        if (delay > 0) {
-          await wait(delay);
-        }
-
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-        if (currentSession) {
-          markReady();
-          return;
-        }
-      }
-
-      startFallbackTimer();
-    };
-
-    void initializeRecovery();
+    }, 20000);
 
     return () => {
-      isMounted = false;
-      window.clearTimeout(fallbackTimer);
+      window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -161,7 +108,6 @@ export default function ResetPassword() {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
-
     if (password.length < 6) {
       toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
       return;
@@ -169,28 +115,18 @@ export default function ResetPassword() {
 
     setLoading(true);
 
-    const {
-      data: { session: currentSession },
-    } = await supabase.auth.getSession();
-
-    if (!currentSession) {
-      const message = "A sessão de recuperação já não está ativa. Solicite um novo link.";
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       setStatus("expired");
-      setStatusDetail(message);
-      toast({ title: "Erro", description: message, variant: "destructive" });
+      setStatusDetail("A sessão de recuperação já não está ativa. Solicite um novo link.");
+      toast({ title: "Erro", description: "Sessão expirada. Solicite um novo link.", variant: "destructive" });
       setLoading(false);
       return;
     }
 
     const { error } = await supabase.auth.updateUser({ password });
-
     if (error) {
-      const mappedMessage = mapRecoveryError(error.message);
-      if (/sess|auth|expired|invalid|otp|token/i.test(error.message)) {
-        setStatus("expired");
-        setStatusDetail(mappedMessage);
-      }
-      toast({ title: "Erro", description: mappedMessage, variant: "destructive" });
+      toast({ title: "Erro", description: mapRecoveryError(error.message), variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -211,6 +147,12 @@ export default function ResetPassword() {
           <h1 className="text-2xl font-bold text-foreground">Definir Nova Senha</h1>
           <p className="text-center text-sm text-muted-foreground">{statusDetail}</p>
         </div>
+
+        {status === "loading" && (
+          <div className="glass rounded-xl p-6 text-center">
+            <div className="animate-pulse text-sm text-muted-foreground">A processar link de recuperação…</div>
+          </div>
+        )}
 
         {status === "expired" && (
           <div className="glass rounded-xl p-6 space-y-4 text-center">
