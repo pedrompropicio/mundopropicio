@@ -332,7 +332,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="flex gap-2">
             {(["income", "expense"] as const).map((t) => (
               <button
