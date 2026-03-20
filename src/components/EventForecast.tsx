@@ -43,7 +43,8 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
+  const canApprove = isAdmin || isManager;
 
   useEffect(() => {
     if ((addingType || editingId) && descRef.current) {
