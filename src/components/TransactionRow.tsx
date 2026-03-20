@@ -134,7 +134,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
             {statusLabel}
           </span>
-          {isExpense && balance > 0 && computedStatus !== "paid" && (
+          {balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
           )}
         </td>
