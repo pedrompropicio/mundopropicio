@@ -21,6 +21,18 @@ interface Category {
   children?: Category[];
 }
 
+function compareCategoryCodes(a: string, b: string) {
+  const partsA = a.split(".").map(Number);
+  const partsB = b.split(".").map(Number);
+
+  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+
+  return 0;
+}
+
 function buildTree(categories: Category[]): Category[] {
   const map = new Map<string, Category>();
   const roots: Category[] = [];
@@ -36,6 +48,14 @@ function buildTree(categories: Category[]): Category[] {
     }
   });
 
+  const sortNodes = (nodes: Category[]) => {
+    nodes.sort((a, b) => compareCategoryCodes(a.code, b.code));
+    nodes.forEach((node) => {
+      if (node.children?.length) sortNodes(node.children);
+    });
+  };
+
+  sortNodes(roots);
   return roots;
 }
 
@@ -168,9 +188,9 @@ export default function AccountCategories() {
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["account-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("*").order("code");
+      const { data, error } = await supabase.from("account_categories").select("*");
       if (error) throw error;
-      return data;
+      return data.sort((a, b) => compareCategoryCodes(a.code, b.code));
     },
   });
 
