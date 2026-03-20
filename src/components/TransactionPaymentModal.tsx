@@ -214,7 +214,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a pagar (€)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor a {isExpense ? "pagar" : "receber"} (€)</label>
             <input type="number" step="0.01" min="0.01" max={balance} value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
