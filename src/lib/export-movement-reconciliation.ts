@@ -1,12 +1,8 @@
 import * as XLSX from "xlsx";
 
 function fmtDate(d: string) {
+  if (!d) return "—";
   return new Date(d).toLocaleDateString("pt-PT");
-}
-
-function fmtDateTime(d: string) {
-  const dt = new Date(d);
-  return `${dt.toLocaleDateString("pt-PT")} ${dt.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function fmtVal(v: number): number {
@@ -18,48 +14,61 @@ export function exportMovementReconciliationToExcel(
   accountLabel: string,
   dateFrom: string,
   dateTo: string,
-  totalPayments: number,
-  totalReceipts: number
+  totalPaid: number,
+  totalReceived: number
 ) {
   const wb = XLSX.utils.book_new();
+  const periodLabel = dateFrom && dateTo
+    ? `${fmtDate(dateFrom)} a ${fmtDate(dateTo)}`
+    : "Período Completo";
 
   const rows: any[][] = [
-    [`RELATÓRIO DE MOVIMENTAÇÕES — CONCILIAÇÃO`],
+    [`RELATÓRIO DE MOVIMENTAÇÕES`],
     [`Contas: ${accountLabel}`],
-    [`Período: ${fmtDate(dateFrom)} a ${fmtDate(dateTo)}`],
+    [`Período: ${periodLabel}`],
     [],
-    ["Data/Hora", "Tipo", "Conta", "Descrição", "Evento", "Fornecedor", "Nº Doc", "Valor Mov. (€)", "Valor Total (€)", "IVA %", "Nota", "Utilizador"],
+    ["Data", "Tipo", "Descrição", "Especificação", "Evento", "Fornecedor", "Conta", "Estado", "Valor (€)", "Pago (€)", "Aberto (€)", "IVA %", "Nº Doc", "Vencimento"],
   ];
 
   movements.forEach((m) => {
     rows.push([
-      fmtDateTime(m.date),
+      fmtDate(m.date),
       m.type,
-      m.accountName,
-      m.transactionDescription,
+      m.description,
+      m.specification || "",
       m.eventName,
       m.supplierName,
-      m.invoiceRef || "",
-      fmtVal(m.isPayment ? -m.movementAmount : m.movementAmount),
-      fmtVal(m.totalAmount),
+      m.accountName,
+      m.status,
+      fmtVal(m.isExpense ? -m.amount : m.amount),
+      fmtVal(m.paidAmount),
+      fmtVal(m.balance),
       m.ivaRate,
-      m.note || "",
-      m.changedBy,
+      m.invoiceRef || "",
+      m.dueDate ? fmtDate(m.dueDate) : "",
     ]);
   });
 
+  const totalExpenses = movements.filter((m) => m.isExpense).reduce((s, m) => s + m.amount, 0);
+  const totalIncome = movements.filter((m) => !m.isExpense).reduce((s, m) => s + m.amount, 0);
+  const totalOpenExp = movements.filter((m) => m.isExpense).reduce((s, m) => s + m.balance, 0);
+  const totalOpenInc = movements.filter((m) => !m.isExpense).reduce((s, m) => s + m.balance, 0);
+
   rows.push([]);
-  rows.push(["", "", "", "", "", "", "Total Pagamentos:", fmtVal(-totalPayments)]);
-  rows.push(["", "", "", "", "", "", "Total Recebimentos:", fmtVal(totalReceipts)]);
-  rows.push(["", "", "", "", "", "", "Saldo:", fmtVal(totalReceipts - totalPayments)]);
+  rows.push(["", "", "", "", "", "", "", "Total Despesas:", fmtVal(-totalExpenses), fmtVal(totalPaid), fmtVal(totalOpenExp)]);
+  rows.push(["", "", "", "", "", "", "", "Total Receitas:", fmtVal(totalIncome), fmtVal(totalReceived), fmtVal(totalOpenInc)]);
+  rows.push(["", "", "", "", "", "", "", "Saldo:", fmtVal(totalIncome - totalExpenses)]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
-    { wch: 18 }, { wch: 14 }, { wch: 20 }, { wch: 30 }, { wch: 20 },
-    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 6 },
-    { wch: 25 }, { wch: 18 },
+    { wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 20 },
+    { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 14 },
+    { wch: 14 }, { wch: 6 }, { wch: 15 }, { wch: 12 },
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
-  XLSX.writeFile(wb, `Movimentacoes_${dateFrom}_${dateTo}.xlsx`);
+  const fileName = dateFrom && dateTo
+    ? `Movimentacoes_${dateFrom}_${dateTo}.xlsx`
+    : `Movimentacoes_Completo.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }
