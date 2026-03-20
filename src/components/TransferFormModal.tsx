@@ -6,7 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
-const TRANSFER_CATEGORY_CODE = "6.3";
+const TRANSFER_CATEGORY_CODE = "10.3";
 
 interface TransferFormModalProps {
   onClose: () => void;
