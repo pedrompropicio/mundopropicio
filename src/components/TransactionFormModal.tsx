@@ -332,7 +332,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="flex gap-2">
             {(["income", "expense"] as const).map((t) => (
               <button
@@ -747,8 +747,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             {form.type === "expense" && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Vcto</label>
-                <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input
+                  key={`due-date-${form.type}-${form.event_id || "none"}`}
+                  type="date"
+                  name="transaction_due_date"
+                  autoComplete="off"
+                  value={form.due_date || ""}
+                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
               </div>
             )}
           </div>
