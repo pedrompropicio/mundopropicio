@@ -306,7 +306,62 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     createMutation.mutate(form);
   };
 
-  const filteredCategories = categories.filter((c) => {
+  const handleAuthOverride = async () => {
+    if (!authEmail || !authPassword) {
+      toast({ title: "Preencha email e senha", variant: "destructive" });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      // Save current session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      // Try signing in with the provided credentials
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (authError) throw new Error("Credenciais inválidas");
+
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("Utilizador não encontrado");
+
+      // Check if user is admin or manager
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+
+      // Restore original session
+      if (currentSession) {
+        await supabase.auth.setSession({
+          access_token: currentSession.access_token,
+          refresh_token: currentSession.refresh_token,
+        });
+      }
+
+      if (!roleData || !["admin", "manager"].includes(roleData.role)) {
+        throw new Error("Utilizador sem permissão de gestão");
+      }
+
+      setPlOverrideAuthorized(true);
+      setShowAuthOverride(false);
+      setAuthEmail("");
+      setAuthPassword("");
+      toast({ title: "✅ Autorização concedida", description: `Aprovado por ${authEmail}` });
+
+      // Auto-submit after authorization
+      setShowProrationConfirm(false);
+      createMutation.mutate(form);
+    } catch (err: any) {
+      toast({ title: "Autorização negada", description: err.message, variant: "destructive" });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     return typeMatch;
   });
