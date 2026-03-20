@@ -12,6 +12,7 @@ import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionRow } from "@/components/TransactionRow";
+import { TransferFormModal } from "@/components/TransferFormModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
