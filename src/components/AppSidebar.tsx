@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,9 +15,11 @@ import {
   Ticket,
   Landmark,
   Database,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
 export function AppSidebar() {
   const location = useLocation();
