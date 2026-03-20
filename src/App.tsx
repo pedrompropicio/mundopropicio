@@ -85,6 +85,7 @@ function ProtectedLayout() {
                 <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
                 <Route path="fornecedores" element={<ReportSuppliersPage />} />
                 <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
+                <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
               </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="/backups" element={<DatabaseBackups />} />
