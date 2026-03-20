@@ -561,7 +561,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
-                    {isAdmin && incomeForecasts.some((f) => f.status === "draft") && (
+                    {canApprove && incomeForecasts.some((f) => f.status === "draft") && (
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={incomeForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
@@ -573,7 +573,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
+                    {canApprove && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
                       <button
                         onClick={handleBulkApprove}
                         disabled={bulkApproveMutation.isPending}
@@ -655,7 +655,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
                               )
                             ))}
                           </React.Fragment>
@@ -705,7 +705,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
-                    {isAdmin && expenseForecasts.some((f) => f.status === "draft") && (
+                    {canApprove && expenseForecasts.some((f) => f.status === "draft") && (
                       <div className="flex items-center gap-2">
                         <Checkbox
                           checked={expenseForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
@@ -717,7 +717,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {isAdmin && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
+                    {canApprove && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
                       <button
                         onClick={handleBulkApprove}
                         disabled={bulkApproveMutation.isPending}
@@ -812,7 +812,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={isAdmin} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
