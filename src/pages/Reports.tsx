@@ -8,6 +8,7 @@ import {
   Users,
   FolderTree,
   ArrowLeftRight,
+  FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
