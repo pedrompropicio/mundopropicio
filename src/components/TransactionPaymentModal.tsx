@@ -69,34 +69,52 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
+  const isExpense = transaction.type === "expense";
+  const modalTitle = isExpense ? "Registar Pagamento" : "Registar Recebimento";
+  const confirmLabel = isExpense ? "Confirmar Pagamento" : "Confirmar Recebimento";
+  const successMsg = isExpense ? "Pagamento registado com sucesso!" : "Recebimento registado com sucesso!";
+  const accountLabel = isExpense ? "Conta de origem *" : "Conta de destino *";
+
   const paymentMutation = useMutation({
     mutationFn: async () => {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
-      if (!accountId) throw new Error("Selecione a conta de origem/destino");
+      if (!accountId) throw new Error("Selecione a conta");
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
       // Check account balance for expenses
-      if (transaction.type === "expense") {
+      if (isExpense) {
         const accBalance = computeAccountBalance(accountId);
         if (addAmount > accBalance) {
           throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
         }
       }
 
+      // Get the account name for audit log
+      const selectedAccount = financialAccounts.find((a: any) => a.id === accountId);
+      const accountNameForLog = selectedAccount?.name ?? "—";
+
       const auditEntries: any[] = [{
         transaction_id: transaction.id,
         changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
-        field_name: "Pagamento parcial",
+        field_name: isExpense ? "Pagamento parcial" : "Recebimento parcial",
         old_value: String(currentPaid),
         new_value: String(newPaid),
       }];
+      // Log account used for this specific payment/receipt
+      auditEntries.push({
+        transaction_id: transaction.id,
+        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+        field_name: isExpense ? "Conta de pagamento" : "Conta de recebimento",
+        old_value: null,
+        new_value: `${accountNameForLog} — ${formatCurrency(addAmount)}`,
+      });
       if (notes.trim()) {
         auditEntries.push({
           transaction_id: transaction.id,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
-          field_name: "Nota de pagamento",
+          field_name: isExpense ? "Nota de pagamento" : "Nota de recebimento",
           old_value: null,
           new_value: notes.trim(),
         });
@@ -104,7 +122,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
-      const updateData: any = { paid_amount: newPaid, status: newStatus, account_id: accountId, payment_date: format(paymentDate, "yyyy-MM-dd") };
+      const updateData: any = { paid_amount: newPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd") };
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       const { error } = await supabase
         .from("transactions")
@@ -115,7 +133,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onClose();
-      toast({ title: "Pagamento registado com sucesso!" });
+      toast({ title: successMsg });
     },
     onError: (err: any) => {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
