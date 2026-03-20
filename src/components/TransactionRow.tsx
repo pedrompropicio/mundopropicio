@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   transaction: any;
@@ -137,7 +138,23 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
           )}
         </td>
-        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">{new Date(t.due_date ?? t.date).toLocaleDateString("pt-PT")}</td>
+        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
+          <div className="flex items-center gap-1.5">
+            <span>{new Date(t.due_date ?? t.date).toLocaleDateString("pt-PT")}</span>
+            {isExpense && computedStatus !== "paid" && t.due_date && new Date(t.due_date) < new Date() && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-destructive">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Vencido há {Math.floor((Date.now() - new Date(t.due_date).getTime()) / 86400000)} dia(s)
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </td>
         <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
           {formatCurrency(paidAmount)}
         </td>
