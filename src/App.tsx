@@ -29,6 +29,7 @@ import ReportContasPagarPage from "./pages/ReportContasPagarPage";
 import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
 import ReportSuppliersPage from "./pages/ReportSuppliersPage";
 import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
+import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import NotFound from "./pages/NotFound";
 
