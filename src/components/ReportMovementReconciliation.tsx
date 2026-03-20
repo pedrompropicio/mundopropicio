@@ -176,10 +176,11 @@ export default function ReportMovementReconciliation() {
         };
       })
       .filter((m) => {
-        if (selectedAccountIds.length === 0) return true;
-        return selectedNames.includes(m.accountName);
+        if (selectedAccountIds.length > 0 && !selectedNames.includes(m.accountName)) return false;
+        if (selectedEventIds.length > 0 && (!m.eventId || !selectedEventIds.includes(m.eventId))) return false;
+        return true;
       });
-  }, [auditEntries, transactions, paymentEntries, noteEntries, selectedAccountIds, accountNameMap]);
+  }, [auditEntries, transactions, paymentEntries, noteEntries, selectedAccountIds, selectedEventIds, accountNameMap]);
 
   const totalPayments = movements.filter((m) => m.isPayment).reduce((s, m) => s + m.movementAmount, 0);
   const totalReceipts = movements.filter((m) => !m.isPayment).reduce((s, m) => s + m.movementAmount, 0);
