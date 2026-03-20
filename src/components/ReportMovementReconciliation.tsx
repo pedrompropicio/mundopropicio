@@ -189,26 +189,6 @@ export default function ReportMovementReconciliation() {
 
   return (
     <>
-      {/* Print-specific styles */}
-      <style>{`
-        @media print {
-          @page { size: landscape; margin: 8mm; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          header, nav, .no-print, .glass { display: none !important; }
-          .print-area { display: block !important; }
-          .print-table { font-size: 7.5pt !important; }
-          .print-table th, .print-table td { padding: 2px 4px !important; border: 0.5px solid #ccc !important; }
-          .print-table th { background: #f0f0f0 !important; color: #333 !important; font-weight: 700 !important; }
-          .print-header { display: block !important; margin-bottom: 8px; }
-          .print-summary { display: flex !important; gap: 12px; margin-bottom: 8px; }
-          .print-summary-item { border: 1px solid #ccc; padding: 4px 8px; font-size: 8pt; }
-          * { color: #000 !important; background: transparent !important; }
-          .print-type-expense { color: #b45309 !important; }
-          .print-type-income { color: #16a34a !important; }
-          .print-status { padding: 1px 4px; border-radius: 3px; font-size: 7pt; }
-          .print-open { color: #dc2626 !important; font-weight: 700 !important; }
-        }
-      `}</style>
 
       <div className="space-y-6">
         {/* Filters - hidden on print */}
