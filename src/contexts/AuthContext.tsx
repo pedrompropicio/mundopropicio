@@ -10,6 +10,7 @@ interface AuthContextType {
   role: AppRole | null;
   permissions: string[];
   isAdmin: boolean;
+  isManager: boolean;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   signOut: () => Promise<void>;
