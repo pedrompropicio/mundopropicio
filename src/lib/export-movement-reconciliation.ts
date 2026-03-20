@@ -59,7 +59,7 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
   const periodLabel = buildPeriodLabel(dateFrom, dateTo);
 
   const headerRow = ["Data", "Tipo", "Descrição", "Fornecedor", "Conta", "Estado",
-    "IVA %", "Líquido (€)", "IVA (€)", "Bruto (€)", "Pago (€)", "Aberto (€)", "Vencimento", "Dt Pgto", "Nº Doc"];
+    "Líquido (€)", "IVA (€)", "Bruto (€)", "Pago (€)", "Aberto (€)", "Vencimento", "Dt Pgto", "Nº Doc"];
 
   const rows: any[][] = [
     [`RELATÓRIO DE MOVIMENTAÇÕES`],
@@ -77,7 +77,7 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
     group.items.forEach((m) => {
       rows.push([
         fmtDate(m.date), m.type, m.description, m.supplierName, m.accountName, m.status,
-        m.ivaRate, fmtVal(m.netAmount), fmtVal(m.ivaAmount),
+        fmtVal(m.netAmount), fmtVal(m.ivaAmount),
         fmtVal(m.isExpense ? -m.amount : m.amount), fmtVal(m.paidAmount), fmtVal(m.balance),
         m.dueDate ? fmtDate(m.dueDate) : "", m.paymentDate ? fmtDate(m.paymentDate) : "", m.invoiceRef || "",
       ]);
@@ -86,14 +86,14 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
   });
 
   const t = calcTotals(movements);
-  rows.push(["", "", "", "", "", "DESPESAS", "", fmtVal(t.totalNetExp), fmtVal(t.totalIvaExp), fmtVal(-t.totalExpenses), fmtVal(totalPaid), fmtVal(t.totalOpenExp)]);
-  rows.push(["", "", "", "", "", "RECEITAS", "", fmtVal(t.totalNetInc), fmtVal(t.totalIvaInc), fmtVal(t.totalIncome), fmtVal(totalReceived), fmtVal(t.totalOpenInc)]);
-  rows.push(["", "", "", "", "", "SALDO", "", fmtVal(t.totalNetInc - t.totalNetExp), fmtVal(t.totalIvaInc - t.totalIvaExp), fmtVal(t.totalIncome - t.totalExpenses), fmtVal(totalReceived - totalPaid), fmtVal(t.totalOpenInc - t.totalOpenExp)]);
+  rows.push(["", "", "", "", "", "DESPESAS", fmtVal(t.totalNetExp), fmtVal(t.totalIvaExp), fmtVal(-t.totalExpenses), fmtVal(totalPaid), fmtVal(t.totalOpenExp)]);
+  rows.push(["", "", "", "", "", "RECEITAS", fmtVal(t.totalNetInc), fmtVal(t.totalIvaInc), fmtVal(t.totalIncome), fmtVal(totalReceived), fmtVal(t.totalOpenInc)]);
+  rows.push(["", "", "", "", "", "SALDO", fmtVal(t.totalNetInc - t.totalNetExp), fmtVal(t.totalIvaInc - t.totalIvaExp), fmtVal(t.totalIncome - t.totalExpenses), fmtVal(totalReceived - totalPaid), fmtVal(t.totalOpenInc - t.totalOpenExp)]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
     { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 18 },
-    { wch: 16 }, { wch: 12 }, { wch: 6 }, { wch: 14 },
+    { wch: 16 }, { wch: 12 }, { wch: 14 },
     { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 15 },
   ];
@@ -132,7 +132,7 @@ export function exportMovementReconciliationToPDF(params: MovementExportParams) 
   doc.setTextColor(0, 0, 0);
 
   const head = ["Data", "Tipo", "Descrição", "Fornecedor", "Conta", "Estado",
-    "IVA%", "Líquido", "IVA (€)", "Bruto", "Pago", "Aberto", "Vcto", "Dt Pgto", "Nº Doc"];
+    "Líquido", "IVA (€)", "Bruto", "Pago", "Aberto", "Vencimento", "Dt Pgto", "Nº Doc"];
 
   const grouped = groupByEvent(movements);
   const groupEntries = Array.from(grouped.entries());
@@ -154,7 +154,6 @@ export function exportMovementReconciliationToPDF(params: MovementExportParams) 
       m.supplierName.length > 18 ? m.supplierName.substring(0, 16) + "…" : m.supplierName,
       m.accountName.length > 14 ? m.accountName.substring(0, 12) + "…" : m.accountName,
       m.status,
-      `${m.ivaRate}%`,
       fmtCur(m.netAmount),
       fmtCur(m.ivaAmount),
       (m.isExpense ? "-" : "+") + fmtCur(m.amount),
@@ -174,21 +173,20 @@ export function exportMovementReconciliationToPDF(params: MovementExportParams) 
       alternateRowStyles: { fillColor: [248, 248, 248] },
       margin: { left: marginLeft, right: 10 },
       columnStyles: {
-        0: { cellWidth: 14 },
-        1: { cellWidth: 12 },
-        2: { cellWidth: 36 },
-        3: { cellWidth: 22 },
-        4: { cellWidth: 18 },
-        5: { cellWidth: 14 },
-        6: { cellWidth: 10 },
+        0: { cellWidth: 16 },
+        1: { cellWidth: 14 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 24 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 16 },
+        6: { cellWidth: 18, halign: "right" },
         7: { cellWidth: 16, halign: "right" },
-        8: { cellWidth: 14, halign: "right" },
-        9: { cellWidth: 16, halign: "right" },
-        10: { cellWidth: 16, halign: "right" },
-        11: { cellWidth: 16, halign: "right" },
-        12: { cellWidth: 14 },
-        13: { cellWidth: 14 },
-        14: { cellWidth: 18 },
+        8: { cellWidth: 18, halign: "right" },
+        9: { cellWidth: 18, halign: "right" },
+        10: { cellWidth: 18, halign: "right" },
+        11: { cellWidth: 18 },
+        12: { cellWidth: 18 },
+        13: { cellWidth: 20 },
       },
     });
 

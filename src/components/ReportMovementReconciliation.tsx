@@ -308,7 +308,6 @@ export default function ReportMovementReconciliation() {
                         <th className="py-2 px-2">Fornecedor</th>
                         <th className="py-2 px-1">Conta</th>
                         <th className="py-2 px-1">Estado</th>
-                        <th className="py-2 px-1 text-center">IVA</th>
                         <th className="py-2 px-1 text-right">Líquido</th>
                         <th className="py-2 px-1 text-right">IVA (€)</th>
                         <th className="py-2 px-1 text-right">Bruto</th>
@@ -320,7 +319,7 @@ export default function ReportMovementReconciliation() {
                       </tr>
                     );
 
-                    const totalCols = 15;
+                    const totalCols = 14;
                     const groupEntries = Array.from(grouped.entries());
 
                     return (
@@ -355,7 +354,6 @@ export default function ReportMovementReconciliation() {
                                     {m.status}
                                   </span>
                                 </td>
-                                <td className="py-1.5 px-1 text-center font-mono">{m.ivaRate}%</td>
                                 <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.netAmount)}</td>
                                 <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.ivaAmount)}</td>
                                 <td className={`py-1.5 px-1 text-right font-mono font-semibold ${m.isExpense ? "text-warning" : "text-success"}`}>
@@ -374,7 +372,7 @@ export default function ReportMovementReconciliation() {
                         ))}
                         {/* Totals */}
                         <tr className="border-t-2 border-primary/30 bg-primary/5 font-bold text-[10px]">
-                          <td colSpan={7} className="py-2 px-2 uppercase tracking-wider">Totais Despesas</td>
+                          <td colSpan={6} className="py-2 px-2 uppercase tracking-wider">Totais Despesas</td>
                           <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalNetExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalIvaExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalExpenses)}</td>
@@ -383,7 +381,7 @@ export default function ReportMovementReconciliation() {
                           <td colSpan={3} />
                         </tr>
                         <tr className="bg-primary/5 font-bold text-[10px]">
-                          <td colSpan={7} className="py-2 px-2 uppercase tracking-wider">Totais Receitas</td>
+                          <td colSpan={6} className="py-2 px-2 uppercase tracking-wider">Totais Receitas</td>
                           <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalNetIncome)}</td>
                           <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIvaIncome)}</td>
                           <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIncome)}</td>
@@ -392,7 +390,7 @@ export default function ReportMovementReconciliation() {
                           <td colSpan={3} />
                         </tr>
                         <tr className="bg-primary/10 font-bold text-[10px] border-t border-primary/30">
-                          <td colSpan={7} className="py-2 px-2 uppercase tracking-wider">Saldo</td>
+                          <td colSpan={6} className="py-2 px-2 uppercase tracking-wider">Saldo</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalNetIncome - totalNetExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIvaIncome - totalIvaExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIncome - totalExpenses)}</td>
