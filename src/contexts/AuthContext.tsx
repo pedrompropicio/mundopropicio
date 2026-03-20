@@ -10,6 +10,7 @@ interface AuthContextType {
   role: AppRole | null;
   permissions: string[];
   isAdmin: boolean;
+  isManager: boolean;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   signOut: () => Promise<void>;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   permissions: [],
   isAdmin: false,
+  isManager: false,
   loading: true,
   hasPermission: () => false,
   signOut: async () => {},
@@ -154,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, session, role, permissions,
       isAdmin: role === "admin",
+      isManager: role === "manager",
       loading, hasPermission, signOut,
     }}>
       {children}
