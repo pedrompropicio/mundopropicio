@@ -100,7 +100,7 @@ export default function ReportMovementReconciliation() {
       if (transactionIds.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name), financial_accounts(name)")
+        .select("*, events(name, parent_event_id), suppliers(name), financial_accounts(name)")
         .in("id", transactionIds);
       if (error) throw error;
       return data;
