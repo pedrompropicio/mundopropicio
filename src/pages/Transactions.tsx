@@ -173,9 +173,35 @@ export default function Transactions() {
     },
   });
 
+  // Default: only open (not paid) transactions
   const filtered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
     .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
-    .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)));
+    .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+    .filter((t) => {
+      const paidAmount = Number(t.paid_amount ?? 0);
+      const amount = Number(t.amount);
+      return paidAmount < amount || t.status !== "paid";
+    });
+
+  // Paid transactions filtered by payment date range
+  const paidTransactions = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
+    .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+    .filter((t) => {
+      const paidAmount = Number(t.paid_amount ?? 0);
+      const amount = Number(t.amount);
+      if (paidAmount < amount && t.status !== "paid") return false;
+      if (!paidDateFrom && !paidDateTo) return true;
+      const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
+      if (!paymentDate) return false;
+      if (paidDateFrom && paymentDate < paidDateFrom) return false;
+      if (paidDateTo) {
+        const endOfDay = new Date(paidDateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (paymentDate > endOfDay) return false;
+      }
+      return true;
+    });
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
