@@ -328,100 +328,117 @@ export default function ReportMovementReconciliation() {
             ) : (
               <div className="rounded-xl overflow-hidden overflow-x-auto glass print-area">
                 <table className="w-full text-left print-table" style={{ borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr className="border-b border-border bg-secondary/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      <th className="py-2 px-2">Data</th>
-                      <th className="py-2 px-2">Tipo</th>
-                      <th className="py-2 px-2">Descrição</th>
-                      <th className="py-2 px-1">Especif.</th>
-                      <th className="py-2 px-2">Evento</th>
-                      <th className="py-2 px-2">Fornecedor</th>
-                      <th className="py-2 px-1">Conta</th>
-                      <th className="py-2 px-1">Estado</th>
-                      <th className="py-2 px-1 text-center">IVA</th>
-                      <th className="py-2 px-1 text-right">Líquido</th>
-                      <th className="py-2 px-1 text-right">IVA (€)</th>
-                      <th className="py-2 px-1 text-right">Bruto</th>
-                      <th className="py-2 px-1 text-right">Pago</th>
-                      <th className="py-2 px-1 text-right">Aberto</th>
-                      <th className="py-2 px-1">Vcto</th>
-                      <th className="py-2 px-1">Dt Pgto</th>
-                      <th className="py-2 px-1">Nº Doc</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/30 text-xs">
-                    {movements.map((m) => (
-                      <tr key={m.id} className={`hover:bg-secondary/20 transition-colors ${m.status === "Liquidado" ? "opacity-70" : ""}`}>
-                        <td className="py-1.5 px-2 whitespace-nowrap">{new Date(m.date).toLocaleDateString("pt-PT")}</td>
-                        <td className="py-1.5 px-2">
-                          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${m.isExpense ? "bg-warning/15 text-warning print-type-expense" : "bg-success/15 text-success print-type-income"}`}>
-                            {m.type}
-                          </span>
-                        </td>
-                        <td className="py-1.5 px-2 font-medium max-w-[180px]">
-                          <span className="block truncate" title={m.description}>{m.description}</span>
-                        </td>
-                        <td className="py-1.5 px-1 text-muted-foreground max-w-[100px]">
-                          <span className="block truncate" title={m.specification || ""}>{m.specification || "—"}</span>
-                        </td>
-                        <td className="py-1.5 px-2 text-muted-foreground max-w-[120px]">
-                          <span className="block truncate" title={m.eventName}>{m.eventName}</span>
-                        </td>
-                        <td className="py-1.5 px-2 text-muted-foreground max-w-[120px]">
-                          <span className="block truncate" title={m.supplierName}>{m.supplierName}</span>
-                        </td>
-                        <td className="py-1.5 px-1 text-muted-foreground max-w-[90px]">
-                          <span className="block truncate" title={m.accountName}>{m.accountName}</span>
-                        </td>
-                        <td className="py-1.5 px-1">
-                          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold print-status ${m.statusClass}`}>
-                            {m.status}
-                          </span>
-                        </td>
-                        <td className="py-1.5 px-1 text-center font-mono">{m.ivaRate}%</td>
-                        <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.netAmount)}</td>
-                        <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.ivaAmount)}</td>
-                        <td className={`py-1.5 px-1 text-right font-mono font-semibold ${m.isExpense ? "text-warning" : "text-success"}`}>
-                          {m.isExpense ? "-" : "+"}{formatCurrency(m.amount)}
-                        </td>
-                        <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.paidAmount)}</td>
-                        <td className={`py-1.5 px-1 text-right font-mono ${m.balance > 0 ? "text-destructive font-semibold print-open" : "text-muted-foreground"}`}>
-                          {formatCurrency(m.balance)}
-                        </td>
-                        <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.dueDate ? new Date(m.dueDate).toLocaleDateString("pt-PT") : "—"}</td>
-                        <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.paymentDate ? new Date(m.paymentDate).toLocaleDateString("pt-PT") : "—"}</td>
-                        <td className="py-1.5 px-1 text-muted-foreground">{m.invoiceRef || "—"}</td>
+                  {(() => {
+                    const grouped = new Map<string, { eventName: string; items: typeof movements }>();
+                    movements.forEach((m) => {
+                      const key = m.eventId || "__no_event__";
+                      if (!grouped.has(key)) grouped.set(key, { eventName: m.eventName, items: [] });
+                      grouped.get(key)!.items.push(m);
+                    });
+
+                    const colHeaders = (
+                      <tr className="border-b border-border bg-secondary/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <th className="py-2 px-2">Data</th>
+                        <th className="py-2 px-2">Tipo</th>
+                        <th className="py-2 px-2">Descrição</th>
+                        <th className="py-2 px-2">Fornecedor</th>
+                        <th className="py-2 px-1">Conta</th>
+                        <th className="py-2 px-1">Estado</th>
+                        <th className="py-2 px-1 text-center">IVA</th>
+                        <th className="py-2 px-1 text-right">Líquido</th>
+                        <th className="py-2 px-1 text-right">IVA (€)</th>
+                        <th className="py-2 px-1 text-right">Bruto</th>
+                        <th className="py-2 px-1 text-right">Pago</th>
+                        <th className="py-2 px-1 text-right">Aberto</th>
+                        <th className="py-2 px-1">Vcto</th>
+                        <th className="py-2 px-1">Dt Pgto</th>
+                        <th className="py-2 px-1">Nº Doc</th>
                       </tr>
-                    ))}
-                    {/* Totals */}
-                    <tr className="border-t-2 border-primary/30 bg-primary/5 font-bold text-[10px]">
-                      <td colSpan={9} className="py-2 px-2 uppercase tracking-wider">Totais Despesas</td>
-                      <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalNetExpenses)}</td>
-                      <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalIvaExpenses)}</td>
-                      <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalExpenses)}</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalPaid)}</td>
-                      <td className="py-2 px-1 text-right font-mono text-destructive">{formatCurrency(totalOpenExpenses)}</td>
-                      <td colSpan={3} />
-                    </tr>
-                    <tr className="bg-primary/5 font-bold text-[10px]">
-                      <td colSpan={9} className="py-2 px-2 uppercase tracking-wider">Totais Receitas</td>
-                      <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalNetIncome)}</td>
-                      <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIvaIncome)}</td>
-                      <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIncome)}</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalReceived)}</td>
-                      <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalOpenIncome)}</td>
-                      <td colSpan={3} />
-                    </tr>
-                    <tr className="bg-primary/10 font-bold text-[10px] border-t border-primary/30">
-                      <td colSpan={9} className="py-2 px-2 uppercase tracking-wider">Saldo</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalNetIncome - totalNetExpenses)}</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIvaIncome - totalIvaExpenses)}</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIncome - totalExpenses)}</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalReceived - totalPaid)}</td>
-                      <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalOpenIncome - totalOpenExpenses)}</td>
-                      <td colSpan={3} />
-                    </tr>
-                  </tbody>
+                    );
+
+                    const totalCols = 15;
+                    const groupEntries = Array.from(grouped.entries());
+
+                    return (
+                      <tbody className="text-xs">
+                        {groupEntries.map(([key, group], gi) => (
+                          <>
+                            <tr key={`hdr-${key}`}>
+                              <td colSpan={totalCols} className={`py-2 px-2 font-bold text-sm bg-primary/10 border-b border-primary/20 ${gi > 0 ? "pt-6" : ""}`}>
+                                {group.eventName === "—" ? "Sem Evento" : group.eventName}
+                              </td>
+                            </tr>
+                            {colHeaders}
+                            {group.items.map((m) => (
+                              <tr key={m.id} className={`hover:bg-secondary/20 transition-colors border-b border-border/30 ${m.status === "Liquidado" ? "opacity-70" : ""}`}>
+                                <td className="py-1.5 px-2 whitespace-nowrap">{new Date(m.date).toLocaleDateString("pt-PT")}</td>
+                                <td className="py-1.5 px-2">
+                                  <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${m.isExpense ? "bg-warning/15 text-warning print-type-expense" : "bg-success/15 text-success print-type-income"}`}>
+                                    {m.type}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-2 font-medium max-w-[200px]">
+                                  <span className="block truncate" title={m.description}>{m.description}</span>
+                                </td>
+                                <td className="py-1.5 px-2 text-muted-foreground max-w-[120px]">
+                                  <span className="block truncate" title={m.supplierName}>{m.supplierName}</span>
+                                </td>
+                                <td className="py-1.5 px-1 text-muted-foreground max-w-[90px]">
+                                  <span className="block truncate" title={m.accountName}>{m.accountName}</span>
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold print-status ${m.statusClass}`}>
+                                    {m.status}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-1 text-center font-mono">{m.ivaRate}%</td>
+                                <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.netAmount)}</td>
+                                <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.ivaAmount)}</td>
+                                <td className={`py-1.5 px-1 text-right font-mono font-semibold ${m.isExpense ? "text-warning" : "text-success"}`}>
+                                  {m.isExpense ? "-" : "+"}{formatCurrency(m.amount)}
+                                </td>
+                                <td className="py-1.5 px-1 text-right font-mono text-muted-foreground">{formatCurrency(m.paidAmount)}</td>
+                                <td className={`py-1.5 px-1 text-right font-mono ${m.balance > 0 ? "text-destructive font-semibold print-open" : "text-muted-foreground"}`}>
+                                  {formatCurrency(m.balance)}
+                                </td>
+                                <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.dueDate ? new Date(m.dueDate).toLocaleDateString("pt-PT") : "—"}</td>
+                                <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.paymentDate ? new Date(m.paymentDate).toLocaleDateString("pt-PT") : "—"}</td>
+                                <td className="py-1.5 px-1 text-muted-foreground">{m.invoiceRef || "—"}</td>
+                              </tr>
+                            ))}
+                          </>
+                        ))}
+                        {/* Totals */}
+                        <tr className="border-t-2 border-primary/30 bg-primary/5 font-bold text-[10px]">
+                          <td colSpan={7} className="py-2 px-2 uppercase tracking-wider">Totais Despesas</td>
+                          <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalNetExpenses)}</td>
+                          <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalIvaExpenses)}</td>
+                          <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalExpenses)}</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalPaid)}</td>
+                          <td className="py-2 px-1 text-right font-mono text-destructive">{formatCurrency(totalOpenExpenses)}</td>
+                          <td colSpan={3} />
+                        </tr>
+                        <tr className="bg-primary/5 font-bold text-[10px]">
+                          <td colSpan={7} className="py-2 px-2 uppercase tracking-wider">Totais Receitas</td>
+                          <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalNetIncome)}</td>
+                          <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIvaIncome)}</td>
+                          <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIncome)}</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalReceived)}</td>
+                          <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalOpenIncome)}</td>
+                          <td colSpan={3} />
+                        </tr>
+                        <tr className="bg-primary/10 font-bold text-[10px] border-t border-primary/30">
+                          <td colSpan={7} className="py-2 px-2 uppercase tracking-wider">Saldo</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalNetIncome - totalNetExpenses)}</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIvaIncome - totalIvaExpenses)}</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIncome - totalExpenses)}</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalReceived - totalPaid)}</td>
+                          <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalOpenIncome - totalOpenExpenses)}</td>
+                          <td colSpan={3} />
+                        </tr>
+                      </tbody>
+                    );
+                  })()}
                 </table>
               </div>
             )}
