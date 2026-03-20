@@ -379,7 +379,7 @@ export default function Transactions() {
           onClick={() => setShowPaidDialog(true)}
         >
           <Eye className="mr-1.5 h-3.5 w-3.5" />
-          Ver Pagas
+          Ver Liquidadas
         </Button>
 
         {isAdmin && selectedPendingCount > 0 && (
@@ -460,7 +460,7 @@ export default function Transactions() {
       <Dialog open={showPaidDialog} onOpenChange={setShowPaidDialog}>
         <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Contas Pagas</DialogTitle>
+            <DialogTitle>Transações Liquidadas</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-wrap items-center gap-3 py-2">
