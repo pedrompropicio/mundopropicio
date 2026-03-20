@@ -72,7 +72,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 
 export default function EventDetail() {
   const { id } = useParams();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
