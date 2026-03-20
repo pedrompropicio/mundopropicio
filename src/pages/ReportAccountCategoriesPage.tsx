@@ -9,10 +9,17 @@ export default function ReportAccountCategoriesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("account_categories")
-        .select("*")
-        .order("code");
+        .select("*");
       if (error) throw error;
-      return data;
+      return data.sort((a, b) => {
+        const pa = a.code.split(".").map(Number);
+        const pb = b.code.split(".").map(Number);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+          const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+          if (diff !== 0) return diff;
+        }
+        return 0;
+      });
     },
   });
 
