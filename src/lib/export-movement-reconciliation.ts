@@ -20,35 +20,49 @@ export function exportMovementReconciliationToExcel(
   const wb = XLSX.utils.book_new();
   const periodLabel = dateFrom && dateTo ? `${fmtDate(dateFrom)} a ${fmtDate(dateTo)}` : "Período Completo";
 
+  const headerRow = ["Data", "Tipo", "Descrição", "Fornecedor", "Conta", "Estado",
+    "IVA %", "Líquido (€)", "IVA (€)", "Bruto (€)", "Pago (€)", "Aberto (€)", "Vencimento", "Dt Pgto", "Nº Doc"];
+
   const rows: any[][] = [
     [`RELATÓRIO DE MOVIMENTAÇÕES`],
     [`Contas: ${accountLabel}`],
     [`Período: ${periodLabel}`],
     [],
-    ["Data", "Tipo", "Descrição", "Especificação", "Evento", "Fornecedor", "Conta", "Estado",
-     "IVA %", "Líquido (€)", "IVA (€)", "Bruto (€)", "Pago (€)", "Aberto (€)", "Vencimento", "Dt Pgto", "Nº Doc"],
   ];
 
+  // Group by event
+  const grouped = new Map<string, { eventName: string; items: any[] }>();
   movements.forEach((m) => {
-    rows.push([
-      fmtDate(m.date),
-      m.type,
-      m.description,
-      m.specification || "",
-      m.eventName,
-      m.supplierName,
-      m.accountName,
-      m.status,
-      m.ivaRate,
-      fmtVal(m.netAmount),
-      fmtVal(m.ivaAmount),
-      fmtVal(m.isExpense ? -m.amount : m.amount),
-      fmtVal(m.paidAmount),
-      fmtVal(m.balance),
-      m.dueDate ? fmtDate(m.dueDate) : "",
-      m.paymentDate ? fmtDate(m.paymentDate) : "",
-      m.invoiceRef || "",
-    ]);
+    const key = m.eventId || "__no_event__";
+    if (!grouped.has(key)) grouped.set(key, { eventName: m.eventName, items: [] });
+    grouped.get(key)!.items.push(m);
+  });
+
+  grouped.forEach((group) => {
+    rows.push([group.eventName === "—" ? "Sem Evento" : group.eventName]);
+    rows.push(headerRow);
+
+    group.items.forEach((m) => {
+      rows.push([
+        fmtDate(m.date),
+        m.type,
+        m.description,
+        m.supplierName,
+        m.accountName,
+        m.status,
+        m.ivaRate,
+        fmtVal(m.netAmount),
+        fmtVal(m.ivaAmount),
+        fmtVal(m.isExpense ? -m.amount : m.amount),
+        fmtVal(m.paidAmount),
+        fmtVal(m.balance),
+        m.dueDate ? fmtDate(m.dueDate) : "",
+        m.paymentDate ? fmtDate(m.paymentDate) : "",
+        m.invoiceRef || "",
+      ]);
+    });
+
+    rows.push([]);
   });
 
   const totalExpenses = movements.filter((m) => m.isExpense).reduce((s, m) => s + m.amount, 0);
@@ -60,15 +74,14 @@ export function exportMovementReconciliationToExcel(
   const totalOpenExp = movements.filter((m) => m.isExpense).reduce((s, m) => s + m.balance, 0);
   const totalOpenInc = movements.filter((m) => !m.isExpense).reduce((s, m) => s + m.balance, 0);
 
-  rows.push([]);
-  rows.push(["", "", "", "", "", "", "", "DESPESAS", "", fmtVal(totalNetExp), fmtVal(totalIvaExp), fmtVal(-totalExpenses), fmtVal(totalPaid), fmtVal(totalOpenExp)]);
-  rows.push(["", "", "", "", "", "", "", "RECEITAS", "", fmtVal(totalNetInc), fmtVal(totalIvaInc), fmtVal(totalIncome), fmtVal(totalReceived), fmtVal(totalOpenInc)]);
-  rows.push(["", "", "", "", "", "", "", "SALDO", "", fmtVal(totalNetInc - totalNetExp), fmtVal(totalIvaInc - totalIvaExp), fmtVal(totalIncome - totalExpenses), fmtVal(totalReceived - totalPaid), fmtVal(totalOpenInc - totalOpenExp)]);
+  rows.push(["", "", "", "", "", "DESPESAS", "", fmtVal(totalNetExp), fmtVal(totalIvaExp), fmtVal(-totalExpenses), fmtVal(totalPaid), fmtVal(totalOpenExp)]);
+  rows.push(["", "", "", "", "", "RECEITAS", "", fmtVal(totalNetInc), fmtVal(totalIvaInc), fmtVal(totalIncome), fmtVal(totalReceived), fmtVal(totalOpenInc)]);
+  rows.push(["", "", "", "", "", "SALDO", "", fmtVal(totalNetInc - totalNetExp), fmtVal(totalIvaInc - totalIvaExp), fmtVal(totalIncome - totalExpenses), fmtVal(totalReceived - totalPaid), fmtVal(totalOpenInc - totalOpenExp)]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
-    { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 18 }, { wch: 18 },
-    { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 6 }, { wch: 14 },
+    { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 18 },
+    { wch: 16 }, { wch: 12 }, { wch: 6 }, { wch: 14 },
     { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 15 },
   ];
