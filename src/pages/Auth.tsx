@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,24 +15,6 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-    }
-    setLoading(false);
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      toast({ title: "Introduza o seu email", description: "Preencha o campo de email para recuperar a senha.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Email enviado", description: "Verifique o seu email para o código de recuperação." });
-      navigate(`/reset-password?email=${encodeURIComponent(email)}&mode=otp`);
     }
     setLoading(false);
   };
@@ -82,16 +62,6 @@ export default function Auth() {
             {loading ? "A processar…" : "Entrar"}
           </button>
         </form>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Esqueceu a senha?{" "}
-          <button
-            onClick={handleForgotPassword}
-            className="font-medium text-primary hover:underline"
-          >
-            Recuperar senha
-          </button>
-        </p>
       </div>
     </div>
   );
