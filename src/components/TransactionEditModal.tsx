@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { sortByHierarchicalCode } from "@/lib/utils";
 
 interface Props {
   transaction: any;
@@ -41,9 +42,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, type, parent_id, event_required").eq("is_active", true).order("code");
+      const { data, error } = await supabase.from("account_categories").select("id, name, code, type, parent_id, event_required").eq("is_active", true);
       if (error) throw error;
-      return data;
+      return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
   });
 

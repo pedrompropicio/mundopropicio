@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
+import { compareHierarchicalCodes } from "@/lib/utils";
 
 export type PLMode = "forecast" | "comparison";
 
@@ -68,7 +69,7 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
       tBase: tg?.totalBase ?? 0, tIva: tg?.totalIva ?? 0,
       details,
     };
-  }).sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+  }).sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 }
 
 function buildPL(

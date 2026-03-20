@@ -8,6 +8,7 @@ import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
+import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 
 interface TransactionForm {
   description: string;
@@ -71,9 +72,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, name, code, type, parent_id, event_required").eq("is_active", true).order("code");
+      const { data, error } = await supabase.from("account_categories").select("id, name, code, type, parent_id, event_required").eq("is_active", true);
       if (error) throw error;
-      return data;
+      return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
   });
 
@@ -491,8 +492,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             }
 
             const groups = Object.values(groupMap)
-              .map(g => ({ ...g, details: g.details.sort((a, b) => a.catCode.localeCompare(b.catCode)) }))
-              .sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+              .map(g => ({ ...g, details: sortByHierarchicalCode(g.details, (detail) => detail.catCode) }))
+              .sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 
             const handleDetailClick = (detail: PLDetail) => {
               if (detail.catId === "none") return;
