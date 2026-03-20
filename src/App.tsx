@@ -29,6 +29,7 @@ import ReportContasPagarPage from "./pages/ReportContasPagarPage";
 import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
 import ReportSuppliersPage from "./pages/ReportSuppliersPage";
 import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
+import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import NotFound from "./pages/NotFound";
 
@@ -84,6 +85,7 @@ function ProtectedLayout() {
                 <Route path="listas-pagamento" element={<ReportPaymentListsPage />} />
                 <Route path="fornecedores" element={<ReportSuppliersPage />} />
                 <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
+                <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
               </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="/backups" element={<DatabaseBackups />} />
