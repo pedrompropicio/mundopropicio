@@ -166,7 +166,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta de origem/destino *</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
             <SearchableSelect
               options={accountOptions}
               value={accountId}
