@@ -379,7 +379,7 @@ export default function Transactions() {
           onClick={() => setShowPaidDialog(true)}
         >
           <Eye className="mr-1.5 h-3.5 w-3.5" />
-          Ver Pagas
+          Ver Liquidadas
         </Button>
 
         {isAdmin && selectedPendingCount > 0 && (
