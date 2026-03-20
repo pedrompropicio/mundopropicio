@@ -392,7 +392,7 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
       groupMap[groupName].items.push(item);
     });
 
-    return groups.sort((a, b) => a.groupCode.localeCompare(b.groupCode));
+    return groups.sort((a, b) => (a.groupCode || "Z").localeCompare(b.groupCode || "Z"));
   };
 
   const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
