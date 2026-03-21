@@ -300,6 +300,19 @@ export default function EventDetail() {
                 <RotateCcw className="h-3.5 w-3.5" /> Reativar Evento
               </button>
             )}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  if (confirm("Tem a certeza que deseja eliminar este evento? Esta ação é irreversível e eliminará todos os dados associados (previsões, bilhetes, cachês).")) {
+                    deleteEventMutation.mutate();
+                  }
+                }}
+                disabled={deleteEventMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> {deleteEventMutation.isPending ? "A eliminar…" : "Eliminar"}
+              </button>
+            )}
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{event.location} · {formatDate(event.date)}</p>
