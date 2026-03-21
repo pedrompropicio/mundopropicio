@@ -573,7 +573,19 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filtered.map((t) => (
+                {overdueGroup.length > 0 && (
+                  <tr>
+                    <td colSpan={10} className="pt-4 pb-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive">
+                          🔴 Vencidas ({overdueGroup.length})
+                        </span>
+                        <div className="flex-1 border-t border-destructive/20" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {overdueGroup.map((t) => (
                   <TransactionRow
                     key={t.id}
                     transaction={t}
@@ -584,15 +596,73 @@ export default function Transactions() {
                     showSelectColumn={isAdmin && pendingInView.length > 0}
                     eventCompleted={(t.events as any)?.status === "completed"}
                     onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => {
-                      approveMutation.mutate(id);
-                    }}
+                    onApprove={(id) => approveMutation.mutate(id)}
                     onPayment={(id) => setShowPaymentId(id)}
                     onDocs={(id) => setShowDocsId(id)}
                     onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => {
-                      deleteMutation.mutate(id);
-                    }}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                  />
+                ))}
+
+                {periodGroup.length > 0 && (
+                  <tr>
+                    <td colSpan={10} className="pt-4 pb-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                          📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
+                        </span>
+                        <div className="flex-1 border-t border-primary/20" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {periodGroup.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    transaction={t}
+                    isAdmin={isAdmin}
+                    selectable={isAdmin && t.status === "pending"}
+                    selected={selectedIds.has(t.id)}
+                    onToggleSelect={() => toggleSelect(t.id)}
+                    showSelectColumn={isAdmin && pendingInView.length > 0}
+                    eventCompleted={(t.events as any)?.status === "completed"}
+                    onEdit={(id) => setEditingId(id)}
+                    onApprove={(id) => approveMutation.mutate(id)}
+                    onPayment={(id) => setShowPaymentId(id)}
+                    onDocs={(id) => setShowDocsId(id)}
+                    onAudit={(id) => setShowAuditId(id)}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                  />
+                ))}
+
+                {noDateGroup.length > 0 && (
+                  <tr>
+                    <td colSpan={10} className="pt-4 pb-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                          ➖ Sem data de vencimento ({noDateGroup.length})
+                        </span>
+                        <div className="flex-1 border-t border-border/30" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {noDateGroup.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    transaction={t}
+                    isAdmin={isAdmin}
+                    selectable={isAdmin && t.status === "pending"}
+                    selected={selectedIds.has(t.id)}
+                    onToggleSelect={() => toggleSelect(t.id)}
+                    showSelectColumn={isAdmin && pendingInView.length > 0}
+                    eventCompleted={(t.events as any)?.status === "completed"}
+                    onEdit={(id) => setEditingId(id)}
+                    onApprove={(id) => approveMutation.mutate(id)}
+                    onPayment={(id) => setShowPaymentId(id)}
+                    onDocs={(id) => setShowDocsId(id)}
+                    onAudit={(id) => setShowAuditId(id)}
+                    onDelete={(id) => deleteMutation.mutate(id)}
                   />
                 ))}
               </tbody>
