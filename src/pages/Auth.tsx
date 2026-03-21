@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Music2 } from "lucide-react";
+import { Music2, Lock } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { MfaVerify } from "@/components/MfaVerify";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
 
 export default function Auth() {
   const [email, setEmail] = useState("");
