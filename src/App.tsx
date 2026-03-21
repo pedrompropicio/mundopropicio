@@ -33,6 +33,7 @@ import ReportSuppliersPage from "./pages/ReportSuppliersPage";
 import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
 import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
+import RecurringTransactions from "./pages/RecurringTransactions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
