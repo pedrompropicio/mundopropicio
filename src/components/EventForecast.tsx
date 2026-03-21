@@ -161,6 +161,47 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: cacheConfigIds.length > 0,
   });
 
+  // Fetch parent event's expense forecasts for proration display on sub-events
+  const { data: parentForecasts = [] } = useQuery({
+    queryKey: ["parent_event_forecasts", parentEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name, type)")
+        .eq("event_id", parentEventId!)
+        .eq("type", "expense")
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!parentEventId,
+  });
+
+  // Count sibling sub-events for proration
+  const { data: siblingCount = 1 } = useQuery({
+    queryKey: ["sibling_count", parentEventId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_event_id", parentEventId!);
+      if (error) throw error;
+      return count || 1;
+    },
+    enabled: !!parentEventId,
+  });
+
+  // Prorated parent expenses (amount / number of sub-events)
+  const proratedParentExpenses = useMemo(() => {
+    if (!parentEventId || parentForecasts.length === 0) return [];
+    return parentForecasts.map((f: any) => ({
+      ...f,
+      amount: Number(f.amount) / siblingCount,
+      _prorated: true,
+      _originalAmount: Number(f.amount),
+      _siblingCount: siblingCount,
+    }));
+  }, [parentForecasts, siblingCount, parentEventId]);
 
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
