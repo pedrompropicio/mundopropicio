@@ -166,11 +166,19 @@ export default function FinancialAccounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Contas de Movimentação</h1>
-          <p className="text-sm text-muted-foreground">Gerencie contas bancárias, cartões e caixas</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Contas de Movimentação</h1>
+        <p className="text-sm text-muted-foreground">Gerencie contas bancárias, cartões e operações financeiras</p>
+      </div>
+
+      <Tabs defaultValue="accounts" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="accounts">Contas</TabsTrigger>
+          <TabsTrigger value="operations">Operações Financeiras</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="accounts" className="space-y-6">
+      <div className="flex items-center justify-end">
         {isAdmin && (
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
