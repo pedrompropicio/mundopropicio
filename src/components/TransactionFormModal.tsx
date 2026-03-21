@@ -622,7 +622,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* Category */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Categoria {isActivePL && !plOverride ? "*" : ""}
+              Categoria {hasPLRestriction && !plOverride ? "*" : ""}
               {plOverride && <span className="ml-1 text-warning font-semibold">⚠️ Fora do P&L</span>}
             </label>
             <SearchableSelect
