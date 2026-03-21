@@ -82,6 +82,7 @@ function ProtectedLayout() {
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/bilhetes" element={<TicketManagement />} />
               <Route path="/iva" element={<IvaManagement />} />
+              <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/relatorios" element={<Reports />}>
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
