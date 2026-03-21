@@ -164,6 +164,53 @@ export default function RecurringTransactions() {
     return null;
   };
 
+  // Generate all pending transactions for a recurring template
+  const generateAllTransactions = async (rec: {
+    description: string; type: string; amount: number; iva_rate: number;
+    category_id: string | null; event_id: string | null; supplier_id: string | null;
+    account_id: string | null; specification: string | null;
+    frequency: string; day_of_month: number; start_date: string; end_date: string | null;
+    id: string;
+  }) => {
+    const startDate = new Date(rec.start_date);
+    const endDate = rec.end_date ? new Date(rec.end_date) : null;
+    const today = new Date();
+    const limitDate = endDate && endDate < today ? endDate : today;
+
+    const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
+    const transactions: any[] = [];
+    const current = new Date(startDate);
+
+    while (current <= limitDate) {
+      transactions.push({
+        description: rec.description,
+        type: rec.type,
+        amount: rec.amount,
+        iva_rate: rec.iva_rate,
+        category_id: rec.category_id,
+        event_id: rec.event_id,
+        supplier_id: rec.supplier_id,
+        account_id: rec.account_id,
+        specification: rec.specification,
+        date: current.toISOString().slice(0, 10),
+        status: "pending",
+      });
+      current.setMonth(current.getMonth() + freqMonths);
+    }
+
+    if (transactions.length > 0) {
+      const { error } = await supabase.from("transactions").insert(transactions);
+      if (error) throw error;
+
+      const lastDate = transactions[transactions.length - 1].date;
+      await supabase.from("recurring_transactions").update({
+        last_generated_at: lastDate,
+      }).eq("id", rec.id);
+    }
+
+    return transactions.length;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const [sy, sm] = form.start_month.split("-").map(Number);
@@ -187,16 +234,29 @@ export default function RecurringTransactions() {
         created_by: user?.email ?? "system",
       };
 
+      let recId = editId;
+
       if (editId) {
         const { error } = await supabase.from("recurring_transactions").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("recurring_transactions").insert(payload);
+        const { data, error } = await supabase.from("recurring_transactions").insert(payload).select("id").single();
         if (error) throw error;
+        recId = data.id;
+
+        // Auto-generate transactions on creation
+        const count = await generateAllTransactions({
+          ...payload,
+          id: recId!,
+        });
+        if (count > 0) {
+          toast.success(`${count} transação(ões) gerada(s) automaticamente`);
+        }
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       toast.success(editId ? "Template atualizado" : "Template criado");
       closeForm();
     },
@@ -220,38 +280,6 @@ export default function RecurringTransactions() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-transactions"] }),
-  });
-
-  // Manual generation for a single template
-  const generateNow = useMutation({
-    mutationFn: async (rec: any) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const { error } = await supabase.from("transactions").insert({
-        description: rec.description,
-        type: rec.type,
-        amount: rec.amount,
-        iva_rate: rec.iva_rate,
-        category_id: rec.category_id,
-        event_id: rec.event_id,
-        supplier_id: rec.supplier_id,
-        account_id: rec.account_id,
-        specification: rec.specification,
-        date: today,
-        status: "pending",
-      });
-      if (error) throw error;
-
-      // Update last_generated_at
-      await supabase.from("recurring_transactions").update({
-        last_generated_at: today,
-      }).eq("id", rec.id);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["recurring-transactions"] });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success("Transação gerada com sucesso");
-    },
-    onError: () => toast.error("Erro ao gerar transação"),
   });
 
   const closeForm = () => {
@@ -282,6 +310,12 @@ export default function RecurringTransactions() {
       duration_months: "",
     });
     setShowForm(true);
+  };
+
+  const formatMonthYear = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    const [y, m] = dateStr.slice(0, 7).split("-");
+    return `${m}/${y}`;
   };
 
   const freqLabel = (f: string) => FREQUENCIES.find((x) => x.value === f)?.label ?? f;
@@ -327,7 +361,8 @@ export default function RecurringTransactions() {
                 <TableHead className="hidden md:table-cell">Tipo</TableHead>
                 <TableHead className="hidden sm:table-cell">Frequência</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="hidden lg:table-cell">Categoria</TableHead>
+                <TableHead className="hidden lg:table-cell">Período</TableHead>
+                <TableHead className="hidden xl:table-cell">Categoria</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -348,7 +383,10 @@ export default function RecurringTransactions() {
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{freqLabel(rec.frequency)}</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(Number(rec.amount))}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                    {formatMonthYear(rec.start_date)} → {rec.end_date ? formatMonthYear(rec.end_date) : "∞"}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
                     {getCategoryLabel(rec.category_id)}
                   </TableCell>
                   <TableCell className="text-center">
@@ -358,13 +396,6 @@ export default function RecurringTransactions() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => generateNow.mutate(rec)}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        title="Gerar transação agora"
-                      >
-                        <Play className="h-4 w-4" />
-                      </button>
                       <button
                         onClick={() => toggleActive.mutate({ id: rec.id, active: !rec.is_active })}
                         className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
