@@ -481,14 +481,14 @@ export default function Transactions() {
                 <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">De</label>
-                    <Popover>
+                    <Popover open={rangeFromOpen} onOpenChange={setRangeFromOpen}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeFrom && "text-muted-foreground")}>
                           {rangeFrom ? format(rangeFrom, "dd/MM/yyyy") : "Início"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeFrom} onSelect={setRangeFrom} locale={pt} className="p-3 pointer-events-auto" />
+                        <Calendar mode="single" selected={rangeFrom} onSelect={(d) => { setRangeFrom(d); setRangeFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
