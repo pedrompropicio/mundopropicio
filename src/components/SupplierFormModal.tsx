@@ -95,7 +95,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       notes: (fd.get("notes") as string) || null,
     };
     const result = validateForm(supplierSchema, raw);
-    if (!result.success) {
+    if (result.success === false) {
       setValidationErrors(result.errors);
       toast.error("Corrija os erros de validação");
       return;
