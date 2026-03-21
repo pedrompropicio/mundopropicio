@@ -55,6 +55,8 @@ function ProtectedLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  useInactivityTimeout();
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar px-4 lg:px-6">
