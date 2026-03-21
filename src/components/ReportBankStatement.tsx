@@ -19,8 +19,10 @@ export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(searchParams.get("conta") ?? "");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
   const [generated, setGenerated] = useState(false);
 
   const { data: accounts = [] } = useQuery({
