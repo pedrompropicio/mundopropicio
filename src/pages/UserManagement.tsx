@@ -278,7 +278,7 @@ export default function UserManagement() {
                         ) : (
                           <select
                             value={u.role}
-                            onChange={(e) => changeRoleMutation.mutate({ userId: u.id, newRole: e.target.value as AppRole })}
+                            onChange={(e) => changeRoleMutation.mutate({ userId: u.id, newRole: e.target.value as AppRole, oldRole: u.role, userName: u.full_name || u.email })}
                             disabled={changeRoleMutation.isPending}
                             className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
                           >

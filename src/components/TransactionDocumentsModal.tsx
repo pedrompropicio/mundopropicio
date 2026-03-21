@@ -49,13 +49,21 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (doc: { id: string; file_url: string }) => {
+    mutationFn: async (doc: { id: string; file_url: string; name: string }) => {
       const storagePath = extractStoragePath(doc.file_url);
       if (storagePath) {
         await supabase.storage.from("transaction-documents").remove([storagePath]);
       }
       const { error } = await supabase.from("transaction_documents").delete().eq("id", doc.id);
       if (error) throw error;
+      await logAudit({
+        entity_type: "transaction_document",
+        entity_id: doc.id,
+        action: "delete",
+        changed_by: getAuditUser(user),
+        old_data: { name: doc.name, file_url: doc.file_url },
+        metadata: { transaction_id: transactionId, transaction_description: transactionDescription },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });

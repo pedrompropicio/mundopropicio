@@ -143,11 +143,20 @@ export default function Transactions() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Fetch transaction data before deleting for audit
+      const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
       const { error } = await supabase
         .from("transactions")
         .delete()
         .eq("id", id);
       if (error) throw error;
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: id,
+        action: "delete",
+        changed_by: getAuditUser(user),
+        old_data: txData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });

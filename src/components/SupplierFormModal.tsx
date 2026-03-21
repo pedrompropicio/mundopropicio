@@ -64,11 +64,34 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const updateMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
+      // Track IBAN/SWIFT changes for audit
+      const bankFields = ["iban", "swift_bic"];
+      const changedBankFields: Record<string, { old: any; new: any }> = {};
+      for (const field of bankFields) {
+        const oldVal = editingSupplier?.[field] ?? null;
+        const newVal = supplier[field] ?? null;
+        if (oldVal !== newVal) {
+          changedBankFields[field] = { old: oldVal, new: newVal };
+        }
+      }
+
       const { error } = await supabase
         .from("suppliers")
         .update(supplier as any)
         .eq("id", editingSupplier?.id);
       if (error) throw error;
+
+      if (Object.keys(changedBankFields).length > 0) {
+        await logAudit({
+          entity_type: "supplier",
+          entity_id: editingSupplier?.id,
+          action: "update_bank_details",
+          changed_by: getAuditUser(user),
+          old_data: Object.fromEntries(Object.entries(changedBankFields).map(([k, v]) => [k, v.old])),
+          new_data: Object.fromEntries(Object.entries(changedBankFields).map(([k, v]) => [k, v.new])),
+          metadata: { supplier_name: editingSupplier?.name },
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
