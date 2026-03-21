@@ -253,10 +253,12 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
   // Auto-fill description based on operation type
   function handleOperationTypeChange(value: string) {
     const op = OPERATION_TYPES.find((t) => t.value === value);
+    const currentOpLabel = OPERATION_TYPES.find((t) => t.value === form.operation_type)?.label || "";
+    const descIsAutoFilled = !form.description || form.description === currentOpLabel;
     setForm({
       ...form,
       operation_type: value,
-      description: form.description || op?.label || "",
+      description: descIsAutoFilled ? (op?.label || "") : form.description,
     });
   }
 
