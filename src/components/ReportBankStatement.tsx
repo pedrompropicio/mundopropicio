@@ -92,18 +92,18 @@ export default function ReportBankStatement() {
 
   // Fetch all transactions for opening balance calculation
   const { data: allAccountTx = [] } = useQuery({
-    queryKey: ["bank-statement-all-tx", selectedAccountId, dateFrom],
+    queryKey: ["bank-statement-all-tx", selectedAccountId, dateFromStr],
     queryFn: async () => {
-      if (!selectedAccountId || !dateFrom) return [];
+      if (!selectedAccountId || !dateFromStr) return [];
       const { data, error } = await supabase
         .from("transactions")
         .select("type, amount")
         .eq("account_id", selectedAccountId)
-        .lt("date", dateFrom);
+        .lt("date", dateFromStr);
       if (error) throw error;
       return data;
     },
-    enabled: generated && !!selectedAccountId && !!dateFrom,
+    enabled: generated && !!selectedAccountId && !!dateFromStr,
   });
 
   const openingBalance = (() => {
