@@ -1,4 +1,3 @@
-import React, { lazy } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
