@@ -224,7 +224,7 @@ export default function ReportBankStatement() {
               <span className="hidden sm:inline">Exportar PDF</span>
             </button>
             <button
-              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFrom, dateTo)}
+              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
               disabled={lines.length === 0}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
             >
