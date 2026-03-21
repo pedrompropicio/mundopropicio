@@ -306,11 +306,12 @@ export default function EventDetail() {
             )}
             {isAdmin && (
               <button
-                onClick={() => {
-                  if (confirm("Tem a certeza que deseja eliminar este evento? Esta ação é irreversível e eliminará todos os dados associados (previsões, bilhetes, cachês).")) {
-                    deleteEventMutation.mutate();
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "⚠️ Eliminar Evento",
+                  description: `Tem a certeza que deseja eliminar "${event.name}"? Esta ação é irreversível e eliminará todos os dados associados (previsões, bilhetes, cachês, transações associadas).`,
+                  action: () => deleteEventMutation.mutate(),
+                  variant: "destructive",
+                })}
                 disabled={deleteEventMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50"
               >
