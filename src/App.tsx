@@ -38,6 +38,7 @@ import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import NotFound from "./pages/NotFound";
+import DatePickerDemo from "./components/DatePickerDemo";
 
 const queryClient = new QueryClient();
 
