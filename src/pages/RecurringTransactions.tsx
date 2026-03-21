@@ -361,7 +361,8 @@ export default function RecurringTransactions() {
                 <TableHead className="hidden md:table-cell">Tipo</TableHead>
                 <TableHead className="hidden sm:table-cell">Frequência</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="hidden lg:table-cell">Categoria</TableHead>
+                <TableHead className="hidden lg:table-cell">Período</TableHead>
+                <TableHead className="hidden xl:table-cell">Categoria</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
