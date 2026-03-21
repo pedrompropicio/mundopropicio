@@ -699,14 +699,14 @@ export default function Transactions() {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Data pgto. até</label>
-              <Popover>
+              <Popover open={paidDateToOpen} onOpenChange={setPaidDateToOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateTo && "text-muted-foreground")}>
                     {paidDateTo ? format(paidDateTo, "dd/MM/yyyy") : "Fim"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateTo} onSelect={setPaidDateTo} locale={pt} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={paidDateTo} onSelect={(d) => { setPaidDateTo(d); setPaidDateToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
