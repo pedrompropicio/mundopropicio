@@ -50,13 +50,36 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) {
+      toast({ title: "Conta bloqueada", description: `Aguarde ${lockoutRemaining}s antes de tentar novamente.`, variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      if (newAttempts >= MAX_ATTEMPTS) {
+        startLockout();
+        toast({
+          title: "Conta bloqueada temporariamente",
+          description: `Demasiadas tentativas falhadas. Aguarde antes de tentar novamente.`,
+          variant: "destructive",
+        });
+      } else {
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        toast({
+          title: "Erro ao entrar",
+          description: `Credenciais inválidas. ${remaining} tentativa(s) restante(s).`,
+          variant: "destructive",
+        });
+      }
       setLoading(false);
       return;
     }
+    // Reset on success
+    setFailedAttempts(0);
+    setLockoutCount(0);
     // Check if MFA is required
     const { data: factors } = await supabase.auth.mfa.listFactors();
     const hasTotp = factors?.totp && factors.totp.length > 0;
