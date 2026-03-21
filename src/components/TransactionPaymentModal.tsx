@@ -194,7 +194,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 <Calendar
                   mode="single"
                   selected={paymentDate}
-                  onSelect={(d) => { if (d) setPaymentDate(d); setPaymentDateOpen(false); }}
+                  onSelect={(d) => { if (d) { setPaymentDate(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)); } setPaymentDateOpen(false); }}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
