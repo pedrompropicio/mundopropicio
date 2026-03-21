@@ -1,19 +1,23 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "forgot">("login");
-  const [forgotSent, setForgotSent] = useState(false);
+  const [mode, setMode] = useState<"login" | "forgot" | "otp" | "new-password">("login");
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
@@ -28,18 +32,67 @@ export default function Auth() {
       return;
     }
     setLoading(true);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      setForgotSent(true);
-      toast({ title: "Email enviado", description: "Verifique a sua caixa de entrada para redefinir a senha." });
+      setMode("otp");
+      toast({ title: "Código enviado", description: "Verifique o seu email para o código de 6 dígitos." });
     }
     setLoading(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length !== 6) {
+      toast({ title: "Erro", description: "Introduza o código de 6 dígitos.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode,
+      type: "recovery",
+    });
+    if (error) {
+      toast({ title: "Código inválido", description: "O código está incorreto ou expirou. Tente novamente.", variant: "destructive" });
+    } else {
+      setMode("new-password");
+      toast({ title: "Código verificado", description: "Defina a sua nova senha." });
+    }
+    setLoading(false);
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
+      await supabase.auth.signOut();
+      setMode("login");
+      setOtpCode("");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setLoading(false);
+  };
+
+  const resetToLogin = () => {
+    setMode("login");
+    setOtpCode("");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   return (
@@ -51,11 +104,14 @@ export default function Auth() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Mundo Propício</h1>
           <p className="text-sm text-muted-foreground">
-            {mode === "login" ? "Entre na sua conta" : "Recuperar senha"}
+            {mode === "login" && "Entre na sua conta"}
+            {mode === "forgot" && "Recuperar senha"}
+            {mode === "otp" && "Introduza o código"}
+            {mode === "new-password" && "Definir nova senha"}
           </p>
         </div>
 
-        {mode === "login" ? (
+        {mode === "login" && (
           <form onSubmit={handleSubmit} className="glass rounded-xl p-6 space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Email</label>
@@ -89,62 +145,125 @@ export default function Auth() {
             </button>
             <button
               type="button"
-              onClick={() => { setMode("forgot"); setForgotSent(false); }}
+              onClick={() => { setMode("forgot"); }}
               className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
             >
               Esqueceu a senha?
             </button>
           </form>
-        ) : (
-          <div className="glass rounded-xl p-6 space-y-4">
-            {forgotSent ? (
-              <div className="text-center space-y-3">
-                <p className="text-sm text-foreground">
-                  Foi enviado um email para <strong>{email}</strong> com instruções para redefinir a sua senha.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Verifique também a pasta de spam.
-                </p>
-                <button
-                  onClick={() => { setMode("login"); setForgotSent(false); }}
-                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
-                >
-                  Voltar ao login
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Introduza o email associado à sua conta para receber um link de recuperação.
-                </p>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
-                >
-                  {loading ? "A enviar…" : "Enviar link de recuperação"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
-                >
-                  Voltar ao login
-                </button>
-              </form>
-            )}
-          </div>
+        )}
+
+        {mode === "forgot" && (
+          <form onSubmit={handleForgotPassword} className="glass rounded-xl p-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Introduza o email associado à sua conta para receber um código de recuperação.
+            </p>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="email@exemplo.com"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
+            >
+              {loading ? "A enviar…" : "Enviar código de recuperação"}
+            </button>
+            <button
+              type="button"
+              onClick={resetToLogin}
+              className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              Voltar ao login
+            </button>
+          </form>
+        )}
+
+        {mode === "otp" && (
+          <form onSubmit={handleVerifyOtp} className="glass rounded-xl p-6 space-y-4">
+            <p className="text-sm text-muted-foreground text-center">
+              Introduza o código de 6 dígitos enviado para <strong className="text-foreground">{email}</strong>
+            </p>
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <button
+              type="submit"
+              disabled={loading || otpCode.length !== 6}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
+            >
+              {loading ? "A verificar…" : "Verificar código"}
+            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleForgotPassword as any}
+                disabled={loading}
+                className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                Reenviar código
+              </button>
+              <button
+                type="button"
+                onClick={resetToLogin}
+                className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                Voltar ao login
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === "new-password" && (
+          <form onSubmit={handleSetNewPassword} className="glass rounded-xl p-6 space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Nova senha</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Confirmar senha</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
+            >
+              {loading ? "A processar…" : "Definir senha"}
+            </button>
+          </form>
         )}
       </div>
     </div>
