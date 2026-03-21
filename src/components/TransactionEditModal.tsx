@@ -82,20 +82,26 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         }
       }
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
-      const { error: logError } = await supabase.from("transaction_audit_log").insert(
-        changes.map((c) => ({ transaction_id: transaction.id, changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema", ...c }))
-      );
-      if (logError) throw logError;
-      const { error } = await supabase
-        .from("transactions")
-        .update({
-          description: form.description, amount: parseFloat(form.amount), iva_rate: form.iva_rate,
-          event_id: form.event_id, category_id: form.category_id || null, supplier_id: form.supplier_id || null,
-          account_id: form.account_id || null, specification: transaction.type === "expense" ? (form.specification || null) : null,
-          date: form.date, due_date: form.due_date || null,
-        })
-        .eq("id", transaction.id);
+
+      const updates = {
+        description: form.description,
+        amount: parseFloat(form.amount),
+        iva_rate: form.iva_rate,
+        event_id: form.event_id,
+        category_id: form.category_id || null,
+        supplier_id: form.supplier_id || null,
+        account_id: form.account_id || null,
+        specification: transaction.type === "expense" ? (form.specification || null) : null,
+        date: form.date,
+        due_date: form.due_date || null,
+      };
+
+      const { data, error } = await supabase.functions.invoke("update-transaction", {
+        body: { transaction_id: transaction.id, updates, changes },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
