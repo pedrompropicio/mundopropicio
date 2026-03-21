@@ -1057,28 +1057,32 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
       </td>
       <td className="py-2.5 text-right">
-        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isDraft && isAdmin && (
-            <button
-              onClick={() => onApprove(item)}
-              disabled={isApproving}
-              className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
-              title="Aprovar e criar transação"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {isDraft && (
-            <>
-              <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        {readOnly ? (
+          <span className="text-[10px] text-primary/60 italic">rateio</span>
+        ) : (
+          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isDraft && isAdmin && (
+              <button
+                onClick={() => onApprove(item)}
+                disabled={isApproving}
+                className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+                title="Aprovar e criar transação"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              </button>
-            </>
-          )}
-        </div>
+            )}
+            {isDraft && (
+              <>
+                <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                  <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </td>
     </tr>
   );
