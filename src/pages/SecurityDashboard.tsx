@@ -51,6 +51,8 @@ export default function SecurityDashboard() {
 
   const hasMfa = mfaFactors?.totp && mfaFactors.totp.length > 0;
 
+  if (!isAdmin) return <Navigate to="/" replace />;
+
   // Stats
   const totalUsers = profiles.length;
   const adminCount = roles.filter((r) => r.role === "admin").length;
