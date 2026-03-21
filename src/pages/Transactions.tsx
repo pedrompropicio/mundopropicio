@@ -170,37 +170,84 @@ export default function Transactions() {
     },
   });
 
-  const sortTransactionsByDueDate = <T extends { due_date: string | null; date: string; created_at: string }>(items: T[]) => {
+  const sortByDueDate = <T extends { due_date: string | null; date: string; created_at: string }>(items: T[]) => {
     return [...items].sort((a, b) => {
       const aPrimary = a.due_date ?? a.date;
       const bPrimary = b.due_date ?? b.date;
-
-      if (aPrimary !== bPrimary) {
-        return aPrimary.localeCompare(bPrimary);
-      }
-
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
-      }
-
+      if (aPrimary !== bPrimary) return aPrimary.localeCompare(bPrimary);
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
       return a.created_at.localeCompare(b.created_at);
     });
   };
 
-  // Default: only open (not paid) transactions
-  const filtered = sortTransactionsByDueDate(
-    (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
-      .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
-      .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
-      .filter((t) => {
-        const paidAmount = Number(t.paid_amount ?? 0);
-        const amount = Number(t.amount);
-        return paidAmount < amount || t.status !== "paid";
-      })
-      .filter((t) => !onlyPending || t.status === "pending")
-  );
+  // Base filter (type, event, account, open only)
+  const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
+    .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+    .filter((t) => {
+      const paidAmount = Number(t.paid_amount ?? 0);
+      const amount = Number(t.amount);
+      return paidAmount < amount || t.status !== "paid";
+    })
+    .filter((t) => !onlyPending || t.status === "pending");
 
-  // Paid transactions filtered by payment date range
+  // Group transactions: overdue, period, no-date
+  const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdue: typeof baseFiltered = [];
+    const inPeriod: typeof baseFiltered = [];
+    const noDate: typeof baseFiltered = [];
+    const outOfPeriod: typeof baseFiltered = []; // not shown but needed for separation
+
+    // Compute period end date
+    let periodEnd: Date;
+    if (duePeriod === "day") {
+      periodEnd = new Date(today);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (duePeriod === "week") {
+      periodEnd = new Date(today);
+      periodEnd.setDate(periodEnd.getDate() + 7);
+    } else if (duePeriod === "month") {
+      periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else {
+      // range
+      periodEnd = rangeTo ? new Date(rangeTo) : new Date(today.getFullYear() + 10, 0, 1);
+      periodEnd.setHours(23, 59, 59, 999);
+    }
+
+    const periodStart = duePeriod === "range" && rangeFrom ? new Date(rangeFrom) : today;
+    if (duePeriod === "range" && rangeFrom) periodStart.setHours(0, 0, 0, 0);
+
+    baseFiltered.forEach((t) => {
+      if (!t.due_date) {
+        noDate.push(t);
+        return;
+      }
+      const due = new Date(t.due_date);
+      const paidAmount = Number(t.paid_amount ?? 0);
+      const amount = Number(t.amount);
+      const isPaid = t.status === "paid" || paidAmount >= amount;
+
+      if (!isPaid && due < today && t.status !== "pending") {
+        overdue.push(t);
+      } else if (due >= periodStart && due <= periodEnd) {
+        inPeriod.push(t);
+      } else {
+        // Outside period — still show but in period group for completeness
+        inPeriod.push(t);
+      }
+    });
+
+    return {
+      overdueGroup: sortByDueDate(overdue),
+      periodGroup: sortByDueDate(inPeriod),
+      noDateGroup: sortByDueDate(noDate),
+    };
+  }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
+
+  const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
   const paidTransactions = sortTransactionsByDueDate(
     (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
