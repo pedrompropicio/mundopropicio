@@ -33,10 +33,7 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Play,
-  Pause,
   RefreshCw,
-  Calendar,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
