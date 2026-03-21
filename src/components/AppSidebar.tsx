@@ -11,6 +11,7 @@ import {
   FileCheck,
   BookOpen,
   ShieldCheck,
+  ShieldAlert,
   LogOut,
   Ticket,
   Landmark,
