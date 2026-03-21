@@ -4,7 +4,6 @@ import * as React from 'npm:react@18.3.1'
 
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
@@ -15,29 +14,35 @@ import {
 
 interface RecoveryEmailProps {
   siteName: string
-  confirmationUrl: string
+  token?: string
+  confirmationUrl?: string
 }
 
 export const RecoveryEmail = ({
   siteName,
+  token,
   confirmationUrl,
 }: RecoveryEmailProps) => (
   <Html lang="pt" dir="ltr">
     <Head />
-    <Preview>Recuperação de senha — {siteName}</Preview>
+    <Preview>Código de recuperação de senha — {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Recuperar senha</Heading>
         <Text style={text}>
-          Recebemos um pedido para redefinir a sua senha em {siteName}. Clique
-          no botão abaixo para escolher uma nova senha.
+          Recebemos um pedido para redefinir a sua senha em {siteName}. Use o
+          código abaixo para continuar:
         </Text>
-        <Button style={button} href={confirmationUrl}>
-          Redefinir Senha
-        </Button>
+        {token ? (
+          <Text style={codeStyle}>{token}</Text>
+        ) : confirmationUrl ? (
+          <Text style={text}>
+            Se não conseguir usar o código, aceda a: {confirmationUrl}
+          </Text>
+        ) : null}
         <Text style={footer}>
           Se não solicitou esta recuperação, pode ignorar este email. A sua
-          senha não será alterada.
+          senha não será alterada. O código expira em poucos minutos.
         </Text>
       </Container>
     </Body>
@@ -60,13 +65,15 @@ const text = {
   lineHeight: '1.6',
   margin: '0 0 25px',
 }
-const button = {
-  backgroundColor: '#1a6fb8',
-  color: '#ffffff',
-  fontSize: '14px',
+const codeStyle = {
+  fontSize: '32px',
+  fontWeight: 'bold' as const,
+  color: '#1a6fb8',
+  letterSpacing: '6px',
+  textAlign: 'center' as const,
+  margin: '16px 0 28px',
+  padding: '16px',
+  backgroundColor: '#f3f4f6',
   borderRadius: '12px',
-  padding: '12px 24px',
-  textDecoration: 'none',
-  fontWeight: '500' as const,
 }
 const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }
