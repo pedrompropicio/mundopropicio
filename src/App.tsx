@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -59,7 +60,10 @@ function ProtectedLayout() {
           alt="Mundo Propício Entretenimento"
           className="h-9 object-contain"
         />
-        <GlobalSearch />
+        <div className="flex items-center gap-2">
+          <GlobalSearch />
+          <NotificationBell />
+        </div>
       </header>
       <div className="flex pt-14">
         <AppSidebar />
