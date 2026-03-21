@@ -208,7 +208,8 @@ export default function Transactions() {
       periodEnd.setHours(23, 59, 59, 999);
     } else if (duePeriod === "week") {
       periodEnd = new Date(today);
-      periodEnd.setDate(periodEnd.getDate() + 7);
+      periodEnd.setDate(periodEnd.getDate() + 6);
+      periodEnd.setHours(23, 59, 59, 999);
     } else if (duePeriod === "month") {
       periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
     } else {
