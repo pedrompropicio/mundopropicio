@@ -115,7 +115,22 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </button>
             <div>
-              <p className="font-medium">{t.description}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-medium">{t.description}</p>
+                {t.pl_override_note && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning cursor-help">
+                        Fora do P&L
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs font-medium">Justificação:</p>
+                      <p className="text-xs">{t.pl_override_note}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               {isExpense && t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
               )}
