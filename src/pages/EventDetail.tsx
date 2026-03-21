@@ -45,7 +45,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
   if (others.length === 0) return null;
 
   const handleCopy = async (sourceId: string) => {
-    if (!confirm("Isto irá copiar os dados para esta data. Deseja continuar?")) return;
+    if (!window.confirm("Isto irá copiar os dados para esta data. Deseja continuar?")) return;
     setCopying(true);
     try {
       await onCopy(sourceId);
