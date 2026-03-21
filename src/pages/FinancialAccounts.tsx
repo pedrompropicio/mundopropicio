@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -164,11 +166,19 @@ export default function FinancialAccounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Contas de Movimentação</h1>
-          <p className="text-sm text-muted-foreground">Gerencie contas bancárias, cartões e caixas</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Contas de Movimentação</h1>
+        <p className="text-sm text-muted-foreground">Gerencie contas bancárias, cartões e operações financeiras</p>
+      </div>
+
+      <Tabs defaultValue="accounts" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="accounts">Contas</TabsTrigger>
+          <TabsTrigger value="operations">Operações Financeiras</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="accounts" className="space-y-6">
+      <div className="flex items-center justify-end">
         {isAdmin && (
           <button
             onClick={() => { resetForm(); setShowForm(true); }}
@@ -421,6 +431,12 @@ export default function FinancialAccounts() {
           )}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="operations">
+          <FinancialOperationsTab accounts={accounts} isAdmin={isAdmin} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
