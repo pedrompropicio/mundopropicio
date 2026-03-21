@@ -30,6 +30,7 @@ import {
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [onlyPending, setOnlyPending] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -202,6 +203,7 @@ export default function Transactions() {
         const amount = Number(t.amount);
         return paidAmount < amount || t.status !== "paid";
       })
+      .filter((t) => !onlyPending || t.status === "pending")
   );
 
   // Paid transactions filtered by payment date range
@@ -407,7 +409,17 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
-        {/* Ver Contas Pagas */}
+        {/* Filtro Aguardando */}
+        <Button
+          variant={onlyPending ? "default" : "outline"}
+          size="sm"
+          className="text-sm font-normal"
+          onClick={() => setOnlyPending(!onlyPending)}
+        >
+          <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+          Aguardando
+        </Button>
+
         <Button
           variant="outline"
           size="sm"
