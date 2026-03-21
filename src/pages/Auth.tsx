@@ -17,6 +17,36 @@ export default function Auth() {
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Brute-force protection
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutCount, setLockoutCount] = useState(0);
+  const lockoutTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+
+  const startLockout = useCallback(() => {
+    const duration = LOCKOUT_DURATIONS[Math.min(lockoutCount, LOCKOUT_DURATIONS.length - 1)];
+    const until = Date.now() + duration * 1000;
+    setLockoutUntil(until);
+    setLockoutCount((c) => c + 1);
+    setLockoutRemaining(duration);
+
+    if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+    lockoutTimer.current = setInterval(() => {
+      const remaining = Math.ceil((until - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLockoutRemaining(0);
+        setFailedAttempts(0);
+        if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+      } else {
+        setLockoutRemaining(remaining);
+      }
+    }, 1000);
+  }, [lockoutCount]);
+
+  const isLocked = lockoutUntil !== null && Date.now() < lockoutUntil;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
