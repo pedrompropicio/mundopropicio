@@ -358,13 +358,22 @@ export default function FinancialAccounts() {
                         </TableCell>
                         {isAdmin && (
                           <TableCell className="text-right">
-                            <button
-                              onClick={() => startEdit(acc)}
-                              className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
-                              title="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => navigate(`/relatorios/extrato-bancario?conta=${acc.id}`)}
+                                className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
+                                title="Ver extrato"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => startEdit(acc)}
+                                className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
