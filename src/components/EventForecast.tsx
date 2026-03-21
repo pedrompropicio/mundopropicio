@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { CopyPLModal } from "@/components/CopyPLModal";
 
 interface InlineForm {
   type: string;
@@ -34,14 +35,16 @@ const emptyInline: InlineForm = {
 interface Props {
   eventId: string;
   eventDate: string;
+  eventName?: string;
   childEventIds?: string[];
 }
 
-export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
@@ -546,10 +549,20 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
       </div>
 
       <Tabs defaultValue="forecasts" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="forecasts">Previsões</TabsTrigger>
-          <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="forecasts">Previsões</TabsTrigger>
+            <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
+          </TabsList>
+          {canApprove && (
+            <button
+              onClick={() => setShowCopyModal(true)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copiar P&L
+            </button>
+          )}
+        </div>
 
         <TabsContent value="forecasts">
           {isLoading ? (
@@ -875,6 +888,15 @@ export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
           <ComparisonTable data={comparisonData} cacheLines={cacheLines} />
         </TabsContent>
       </Tabs>
+
+      {showCopyModal && (
+        <CopyPLModal
+          targetEventId={eventId}
+          targetEventName={eventName || "este evento"}
+          existingForecastCount={forecasts.length}
+          onClose={() => setShowCopyModal(false)}
+        />
+      )}
     </div>
   );
 }
