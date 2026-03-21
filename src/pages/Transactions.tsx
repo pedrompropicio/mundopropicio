@@ -235,8 +235,7 @@ export default function Transactions() {
       } else if (due >= periodStart && due <= periodEnd) {
         inPeriod.push(t);
       } else {
-        // Outside period — still show but in period group for completeness
-        inPeriod.push(t);
+        // Outside selected period — exclude from view
       }
     });
 
