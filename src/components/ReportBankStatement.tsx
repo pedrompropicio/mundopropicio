@@ -216,7 +216,7 @@ export default function ReportBankStatement() {
           {/* Export buttons */}
           <div className="flex items-center justify-end gap-2">
             <button
-              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFrom, dateTo)}
+              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
               disabled={lines.length === 0}
               className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
             >
