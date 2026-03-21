@@ -102,6 +102,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
   const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
+  const hasPLRestriction = hasPL;
   const isParentMultiDay = selectedEvent?.event_type === "multi_day";
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
@@ -234,7 +235,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }, {})
     : {};
 
-  const allowedCategoryIds = isActivePL
+  const allowedCategoryIds = hasPLRestriction
     ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
@@ -299,9 +300,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+    if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       if (!form.category_id) {
-        toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
+        toast({ title: "Evento com P&L: selecione uma categoria existente no P&L", variant: "destructive" });
         return;
       }
       if (!allowedCategoryIds.includes(form.category_id)) {
@@ -338,7 +339,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+    if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       return allowedCategoryIds.includes(c.id);
     }
     return true;
@@ -379,7 +380,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Evento {rootFlags.event_required ? "*" : ""}
               {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
-              {hasPL && !isActivePL && <span className="ml-1 text-muted-foreground">(P&L)</span>}
+              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(P&L Passivo)</span>}
             </label>
             <SearchableSelect
               options={eventOptions}
@@ -519,7 +520,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             return (
               <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
                 <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-                  P&L{isActivePL ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
+                  P&L{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
                 <p className="text-[10px] text-muted-foreground">Clique numa linha para preencher automaticamente os dados da transação</p>
                 <div
@@ -606,7 +607,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* P&L Override toggle — only when restriction is active */}
-          {isActivePL && form.event_id && allowedCategoryIds.length > 0 && (
+          {hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -621,14 +622,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* Category */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Categoria {isActivePL && !plOverride ? "*" : ""}
+              Categoria {hasPLRestriction && !plOverride ? "*" : ""}
               {plOverride && <span className="ml-1 text-warning font-semibold">⚠️ Fora do P&L</span>}
             </label>
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
               onValueChange={(v) => setForm({ ...form, category_id: v })}
-              placeholder={isActivePL && !plOverride ? "Selecionar do P&L…" : "Selecionar categoria…"}
+              placeholder={hasPLRestriction && !plOverride ? "Selecionar do P&L…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
           </div>
