@@ -912,6 +912,41 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           </React.Fragment>
                         );
                       })}
+                      {/* Prorated parent expenses */}
+                      {proratedParentExpenses.length > 0 && (
+                        <>
+                          <tr className="bg-primary/5 border-t-2 border-primary/20">
+                            <td colSpan={8} className="py-2.5 pl-2">
+                              <div className="flex items-center gap-2">
+                                <Layers className="h-4 w-4 text-primary shrink-0" />
+                                <span className="text-xs font-semibold text-primary">Despesas Rateadas do Evento-Pai</span>
+                                <span className="text-[10px] text-muted-foreground">(÷ {siblingCount} sub-eventos)</span>
+                              </div>
+                            </td>
+                          </tr>
+                          {proratedExpenseGroups.map((group) => {
+                            const groupBase = group.items.reduce((s: number, f: any) => s + Number(f.amount), 0);
+                            const groupIva = group.items.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                            const showGroupHeader = proratedExpenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
+                            return (
+                              <React.Fragment key={`prorated-${group.groupName}`}>
+                                {showGroupHeader && (
+                                  <tr className="bg-primary/5 border-t border-border/30">
+                                    <td colSpan={4} className="py-2 pl-4 text-xs font-semibold text-foreground/70">{group.groupName}</td>
+                                    <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase)}</td>
+                                    <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
+                                    <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase + groupIva)}</td>
+                                    <td />
+                                  </tr>
+                                )}
+                                {group.items.map((f: any) => (
+                                  <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} />
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
+                        </>
+                      )}
                       {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
                     {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
