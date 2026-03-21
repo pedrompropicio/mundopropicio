@@ -10,8 +10,6 @@ export default function SecurityDashboard() {
   const { isAdmin, user } = useAuth();
   const [showMfaSetup, setShowMfaSetup] = useState(false);
 
-  if (!isAdmin) return <Navigate to="/" replace />;
-
   const { data: auditLogs = [], isLoading: loadingAudit } = useQuery({
     queryKey: ["audit-logs-recent"],
     queryFn: async () => {
