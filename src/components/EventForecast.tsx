@@ -999,21 +999,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
-  indented?: boolean;
+  indented?: boolean; readOnly?: boolean;
 }) {
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+  const isProrated = item._prorated;
 
   return (
-    <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
+    <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
       <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
         <div className="flex items-center gap-2">
-          {isDraft && isAdmin && onToggleSelect ? (
+          {readOnly ? (
+            <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
+          ) : isDraft && isAdmin && onToggleSelect ? (
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelect(item.id)}
