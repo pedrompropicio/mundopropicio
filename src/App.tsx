@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -53,6 +54,8 @@ function ProtectedLayout() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  useInactivityTimeout();
 
   return (
     <div className="flex min-h-screen flex-col">
