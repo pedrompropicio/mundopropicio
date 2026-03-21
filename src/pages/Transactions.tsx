@@ -30,6 +30,7 @@ import {
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [onlyPending, setOnlyPending] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
