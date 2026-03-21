@@ -386,19 +386,18 @@ export default function RecurringTransactions() {
                   <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
                     {getCategoryLabel(rec.category_id)}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={rec.is_active ? "default" : "outline"}>
-                      {rec.is_active ? "Ativo" : "Pausado"}
-                    </Badge>
+                  <TableCell className="hidden sm:table-cell text-center text-muted-foreground">
+                    {(() => {
+                      const start = new Date(rec.start_date);
+                      const end = rec.end_date ? new Date(rec.end_date) : null;
+                      if (!end) return "—";
+                      const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
+                      let count = 0;
+                      const cur = new Date(start);
+                      while (cur <= end) { count++; cur.setMonth(cur.getMonth() + freqMonths); }
+                      return count;
+                    })()}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => toggleActive.mutate({ id: rec.id, active: !rec.is_active })}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        title={rec.is_active ? "Pausar" : "Ativar"}
-                      >
-                        {rec.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </button>
                       {(isAdmin || isManager) && (
                         <>
