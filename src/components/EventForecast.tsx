@@ -39,10 +39,12 @@ interface Props {
   childEventIds?: string[];
 }
 
-export function EventForecast({ eventId, eventDate, childEventIds }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
