@@ -549,10 +549,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds }: 
       </div>
 
       <Tabs defaultValue="forecasts" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="forecasts">Previsões</TabsTrigger>
-          <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="forecasts">Previsões</TabsTrigger>
+            <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
+          </TabsList>
+          {canApprove && (
+            <button
+              onClick={() => setShowCopyModal(true)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copiar P&L
+            </button>
+          )}
+        </div>
 
         <TabsContent value="forecasts">
           {isLoading ? (
