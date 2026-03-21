@@ -109,7 +109,7 @@ export default function ReportBankStatement() {
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
     let bal = Number(selectedAccount.initial_balance ?? 0);
-    if (dateFrom) {
+    if (dateFromStr) {
       allAccountTx.forEach((t: any) => {
         const amt = Number(t.amount);
         if (t.type === "income") bal += amt;
