@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { CopyPLModal } from "@/components/CopyPLModal";
 
 interface InlineForm {
   type: string;
