@@ -248,7 +248,7 @@ export default function Transactions() {
   }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
-  const paidTransactions = sortTransactionsByDueDate(
+  const paidTransactions = sortByDueDate(
     (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
