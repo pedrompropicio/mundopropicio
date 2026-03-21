@@ -14,6 +14,7 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Toolti
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import { DashboardCharts } from "@/components/DashboardCharts";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 
@@ -39,6 +40,15 @@ export default function Dashboard() {
         .from("transactions")
         .select("*, events(name), account_categories(code, name)")
         .order("date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["dashboard_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("account_categories").select("*");
       if (error) throw error;
       return data;
     },
@@ -225,6 +235,9 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Advanced Charts */}
+      <DashboardCharts transactions={transactions} events={events} categories={categories} />
 
       {/* Recent Transactions */}
       <div className="glass rounded-xl p-5">
