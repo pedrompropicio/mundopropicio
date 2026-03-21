@@ -398,7 +398,8 @@ export default function RecurringTransactions() {
                       return count;
                     })()}
                   </TableCell>
-                      </button>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
                       {(isAdmin || isManager) && (
                         <>
                           <button
