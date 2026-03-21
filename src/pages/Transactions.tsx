@@ -450,6 +450,62 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
+        {/* Period filter */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm font-normal">
+              <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+              {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex flex-col gap-1">
+              {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setDuePeriod(val)}
+                  className={cn(
+                    "rounded px-3 py-1.5 text-sm text-left transition-colors",
+                    duePeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              {duePeriod === "range" && (
+                <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">De</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeFrom && "text-muted-foreground")}>
+                          {rangeFrom ? format(rangeFrom, "dd/MM/yyyy") : "Início"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={rangeFrom} onSelect={setRangeFrom} locale={pt} className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Até</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeTo && "text-muted-foreground")}>
+                          {rangeTo ? format(rangeTo, "dd/MM/yyyy") : "Fim"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={rangeTo} onSelect={setRangeTo} locale={pt} className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         {/* Filtro Aguardando */}
         <Button
           variant={onlyPending ? "default" : "outline"}
