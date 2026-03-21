@@ -575,7 +575,7 @@ export default function EventDetail() {
         </TabsContent>
 
         <TabsContent value="forecast">
-          {eventType === "multi_day" && !selectedSubEvent ? (
+          {eventType === "multi_day" && !selectedSubEvent && !event?.parent_event_id ? (
             <div className="space-y-4">
               <EventForecast eventId={event.id} eventDate={event.date} eventName={event.name} expenseOnly />
             </div>
