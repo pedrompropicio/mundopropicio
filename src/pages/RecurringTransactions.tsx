@@ -60,7 +60,7 @@ interface RecurringForm {
   frequency: string;
   day_of_month: number;
   start_month: string; // YYYY-MM
-  end_mode: "none" | "date" | "duration";
+  end_mode: "date" | "duration";
   end_month: string; // YYYY-MM
   duration_months: string;
 }
