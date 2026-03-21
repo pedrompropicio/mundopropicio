@@ -38,6 +38,7 @@ const PAGES = [
   { label: "Cotações", path: "/cotacoes", icon: FileCheck },
   { label: "Gestão IVA", path: "/iva", icon: Receipt },
   { label: "Gestão Bilhetes", path: "/bilhetes", icon: Ticket },
+  { label: "Transações Recorrentes", path: "/recorrentes", icon: BarChart3 },
   { label: "Relatórios — DRE", path: "/relatorios/dre", icon: BarChart3 },
   { label: "Relatórios — P&L", path: "/relatorios/pl", icon: BarChart3 },
   { label: "Relatórios — Fluxo de Caixa", path: "/relatorios/fluxo-caixa", icon: BarChart3 },
