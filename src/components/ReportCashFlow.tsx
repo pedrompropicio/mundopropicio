@@ -53,8 +53,10 @@ function formatPeriodLabel(key: string, granularity: Granularity): string {
 }
 
 export default function ReportCashFlow() {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
   const [granularity, setGranularity] = useState<Granularity>("monthly");
   const [groupByEvent, setGroupByEvent] = useState(false);
   const [generated, setGenerated] = useState(false);
