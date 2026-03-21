@@ -477,22 +477,51 @@ export default function RecurringTransactions() {
               </div>
 
               <div>
-                <Label>Data início</Label>
+                <Label>Mês/Ano início</Label>
                 <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                  type="month"
+                  value={form.start_month}
+                  onChange={(e) => setForm({ ...form, start_month: e.target.value })}
                 />
               </div>
 
               <div>
-                <Label>Data fim (opcional)</Label>
-                <Input
-                  type="date"
-                  value={form.end_date}
-                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                />
+                <Label>Fim da recorrência</Label>
+                <Select value={form.end_mode} onValueChange={(v: "none" | "date" | "duration") => setForm({ ...form, end_mode: v, end_month: "", duration_months: "" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem fim</SelectItem>
+                    <SelectItem value="date">Mês/Ano final</SelectItem>
+                    <SelectItem value="duration">Duração em meses</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {form.end_mode === "date" && (
+                <div>
+                  <Label>Mês/Ano final</Label>
+                  <Input
+                    type="month"
+                    value={form.end_month}
+                    onChange={(e) => setForm({ ...form, end_month: e.target.value })}
+                    min={form.start_month}
+                  />
+                </div>
+              )}
+
+              {form.end_mode === "duration" && (
+                <div>
+                  <Label>Duração (meses)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={form.duration_months}
+                    onChange={(e) => setForm({ ...form, duration_months: e.target.value })}
+                    placeholder="Ex: 12"
+                  />
+                </div>
+              )}
 
               <div className="sm:col-span-2">
                 <Label>Categoria</Label>
