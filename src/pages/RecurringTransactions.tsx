@@ -164,6 +164,53 @@ export default function RecurringTransactions() {
     return null;
   };
 
+  // Generate all pending transactions for a recurring template
+  const generateAllTransactions = async (rec: {
+    description: string; type: string; amount: number; iva_rate: number;
+    category_id: string | null; event_id: string | null; supplier_id: string | null;
+    account_id: string | null; specification: string | null;
+    frequency: string; day_of_month: number; start_date: string; end_date: string | null;
+    id: string;
+  }) => {
+    const startDate = new Date(rec.start_date);
+    const endDate = rec.end_date ? new Date(rec.end_date) : null;
+    const today = new Date();
+    const limitDate = endDate && endDate < today ? endDate : today;
+
+    const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
+    const transactions: any[] = [];
+    const current = new Date(startDate);
+
+    while (current <= limitDate) {
+      transactions.push({
+        description: rec.description,
+        type: rec.type,
+        amount: rec.amount,
+        iva_rate: rec.iva_rate,
+        category_id: rec.category_id,
+        event_id: rec.event_id,
+        supplier_id: rec.supplier_id,
+        account_id: rec.account_id,
+        specification: rec.specification,
+        date: current.toISOString().slice(0, 10),
+        status: "pending",
+      });
+      current.setMonth(current.getMonth() + freqMonths);
+    }
+
+    if (transactions.length > 0) {
+      const { error } = await supabase.from("transactions").insert(transactions);
+      if (error) throw error;
+
+      const lastDate = transactions[transactions.length - 1].date;
+      await supabase.from("recurring_transactions").update({
+        last_generated_at: lastDate,
+      }).eq("id", rec.id);
+    }
+
+    return transactions.length;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const [sy, sm] = form.start_month.split("-").map(Number);
@@ -187,71 +234,33 @@ export default function RecurringTransactions() {
         created_by: user?.email ?? "system",
       };
 
+      let recId = editId;
+
       if (editId) {
         const { error } = await supabase.from("recurring_transactions").update(payload).eq("id", editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("recurring_transactions").insert(payload);
+        const { data, error } = await supabase.from("recurring_transactions").insert(payload).select("id").single();
         if (error) throw error;
+        recId = data.id;
+
+        // Auto-generate transactions on creation
+        const count = await generateAllTransactions({
+          ...payload,
+          id: recId!,
+        });
+        if (count > 0) {
+          toast.success(`${count} transação(ões) gerada(s) automaticamente`);
+        }
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       toast.success(editId ? "Template atualizado" : "Template criado");
       closeForm();
     },
     onError: () => toast.error("Erro ao guardar template"),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("recurring_transactions").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["recurring-transactions"] });
-      toast.success("Template eliminado");
-    },
-  });
-
-  const toggleActive = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("recurring_transactions").update({ is_active: active }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-transactions"] }),
-  });
-
-  // Manual generation for a single template
-  const generateNow = useMutation({
-    mutationFn: async (rec: any) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const { error } = await supabase.from("transactions").insert({
-        description: rec.description,
-        type: rec.type,
-        amount: rec.amount,
-        iva_rate: rec.iva_rate,
-        category_id: rec.category_id,
-        event_id: rec.event_id,
-        supplier_id: rec.supplier_id,
-        account_id: rec.account_id,
-        specification: rec.specification,
-        date: today,
-        status: "pending",
-      });
-      if (error) throw error;
-
-      // Update last_generated_at
-      await supabase.from("recurring_transactions").update({
-        last_generated_at: today,
-      }).eq("id", rec.id);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["recurring-transactions"] });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success("Transação gerada com sucesso");
-    },
-    onError: () => toast.error("Erro ao gerar transação"),
   });
 
   const closeForm = () => {
