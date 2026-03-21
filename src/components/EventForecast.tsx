@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -511,16 +512,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           </td>
         )}
         <td className="hidden py-1.5 pr-2 sm:table-cell">
-          <select
+          <SearchableSelect
+            options={cats.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
             value={inlineForm.category_id}
-            onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })}
+            onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
+            placeholder="Categoria…"
+            searchPlaceholder="Pesquisar conta…"
             className={inputClass}
-          >
-            <option value="">—</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-            ))}
-          </select>
+          />
         </td>
         <td className="py-1.5 pr-2">
           <select
@@ -701,11 +700,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   <td className="py-1.5 pr-2">
                                     <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
                                   </td>
-                                  <td className="hidden py-1.5 pr-2 sm:table-cell">
-                                    <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
-                                      <option value="">—</option>
-                                      {incomeCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-                                    </select>
+                                   <td className="hidden py-1.5 pr-2 sm:table-cell">
+                                    <SearchableSelect
+                                      options={incomeCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+                                      value={inlineForm.category_id}
+                                      onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
+                                      placeholder="Categoria…"
+                                      searchPlaceholder="Pesquisar conta…"
+                                      className={inputClass}
+                                    />
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
@@ -858,11 +861,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   <td className="py-1.5 pr-2">
                                     <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
                                   </td>
-                                  <td className="hidden py-1.5 pr-2 sm:table-cell">
-                                    <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
-                                      <option value="">—</option>
-                                      {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-                                    </select>
+                                   <td className="hidden py-1.5 pr-2 sm:table-cell">
+                                     <SearchableSelect
+                                       options={expenseCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+                                       value={inlineForm.category_id}
+                                       onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
+                                       placeholder="Categoria…"
+                                       searchPlaceholder="Pesquisar conta…"
+                                       className={inputClass}
+                                     />
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>

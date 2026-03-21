@@ -336,7 +336,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return true;
   });
 
-  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: c.name }));
+  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
