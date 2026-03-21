@@ -34,8 +34,11 @@ export default function ReportBankStatement() {
     },
   });
 
+  const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
+  const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
+
   const { data: transactions = [] } = useQuery({
-    queryKey: ["bank-statement-tx", selectedAccountId, dateFrom, dateTo],
+    queryKey: ["bank-statement-tx", selectedAccountId, dateFromStr, dateToStr],
     queryFn: async () => {
       if (!selectedAccountId) return [];
       let q = supabase
@@ -43,8 +46,8 @@ export default function ReportBankStatement() {
         .select("*, events(name), suppliers(name)")
         .eq("account_id", selectedAccountId)
         .order("date", { ascending: true });
-      if (dateFrom) q = q.gte("date", dateFrom);
-      if (dateTo) q = q.lte("date", dateTo);
+      if (dateFromStr) q = q.gte("date", dateFromStr);
+      if (dateToStr) q = q.lte("date", dateToStr);
       const { data, error } = await q;
       if (error) throw error;
       return data;
