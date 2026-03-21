@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { Music2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { MfaVerify } from "@/components/MfaVerify";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
