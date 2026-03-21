@@ -59,9 +59,14 @@ interface RecurringForm {
   specification: string;
   frequency: string;
   day_of_month: number;
-  start_date: string;
-  end_date: string;
+  start_month: string; // YYYY-MM
+  end_mode: "none" | "date" | "duration";
+  end_month: string; // YYYY-MM
+  duration_months: string;
 }
+
+const now = new Date();
+const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
 const emptyForm: RecurringForm = {
   description: "",
@@ -75,8 +80,10 @@ const emptyForm: RecurringForm = {
   specification: "",
   frequency: "monthly",
   day_of_month: 1,
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: "",
+  start_month: currentMonth,
+  end_mode: "none",
+  end_month: "",
+  duration_months: "",
 };
 
 export default function RecurringTransactions() {
@@ -140,8 +147,29 @@ export default function RecurringTransactions() {
     return !hasChildren && c.type === form.type;
   });
 
+  // Helper to compute end_date from duration
+  const computeEndDate = (): string | null => {
+    if (form.end_mode === "none") return null;
+    if (form.end_mode === "date" && form.end_month) {
+      const [y, m] = form.end_month.split("-").map(Number);
+      const day = Math.min(form.day_of_month, 28);
+      return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+    if (form.end_mode === "duration" && form.duration_months) {
+      const months = Number(form.duration_months);
+      const [sy, sm] = form.start_month.split("-").map(Number);
+      const endDate = new Date(sy, sm - 1 + months, Math.min(form.day_of_month, 28));
+      return endDate.toISOString().slice(0, 10);
+    }
+    return null;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const [sy, sm] = form.start_month.split("-").map(Number);
+      const startDay = Math.min(form.day_of_month, 28);
+      const startDate = `${sy}-${String(sm).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`;
+
       const payload: any = {
         description: form.description,
         type: form.type,
@@ -154,8 +182,8 @@ export default function RecurringTransactions() {
         specification: form.specification || null,
         frequency: form.frequency,
         day_of_month: form.day_of_month,
-        start_date: form.start_date,
-        end_date: form.end_date || null,
+        start_date: startDate,
+        end_date: computeEndDate(),
         created_by: user?.email ?? "system",
       };
 
@@ -234,6 +262,8 @@ export default function RecurringTransactions() {
 
   const openEdit = (rec: any) => {
     setEditId(rec.id);
+    const startMonth = rec.start_date ? rec.start_date.slice(0, 7) : currentMonth;
+    const endMonth = rec.end_date ? rec.end_date.slice(0, 7) : "";
     setForm({
       description: rec.description,
       type: rec.type,
@@ -246,8 +276,10 @@ export default function RecurringTransactions() {
       specification: rec.specification ?? "",
       frequency: rec.frequency,
       day_of_month: rec.day_of_month,
-      start_date: rec.start_date,
-      end_date: rec.end_date ?? "",
+      start_month: startMonth,
+      end_mode: rec.end_date ? "date" : "none",
+      end_month: endMonth,
+      duration_months: "",
     });
     setShowForm(true);
   };
@@ -445,22 +477,51 @@ export default function RecurringTransactions() {
               </div>
 
               <div>
-                <Label>Data início</Label>
+                <Label>Mês/Ano início</Label>
                 <Input
-                  type="date"
-                  value={form.start_date}
-                  onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                  type="month"
+                  value={form.start_month}
+                  onChange={(e) => setForm({ ...form, start_month: e.target.value })}
                 />
               </div>
 
               <div>
-                <Label>Data fim (opcional)</Label>
-                <Input
-                  type="date"
-                  value={form.end_date}
-                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                />
+                <Label>Fim da recorrência</Label>
+                <Select value={form.end_mode} onValueChange={(v: "none" | "date" | "duration") => setForm({ ...form, end_mode: v, end_month: "", duration_months: "" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem fim</SelectItem>
+                    <SelectItem value="date">Mês/Ano final</SelectItem>
+                    <SelectItem value="duration">Duração em meses</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {form.end_mode === "date" && (
+                <div>
+                  <Label>Mês/Ano final</Label>
+                  <Input
+                    type="month"
+                    value={form.end_month}
+                    onChange={(e) => setForm({ ...form, end_month: e.target.value })}
+                    min={form.start_month}
+                  />
+                </div>
+              )}
+
+              {form.end_mode === "duration" && (
+                <div>
+                  <Label>Duração (meses)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={form.duration_months}
+                    onChange={(e) => setForm({ ...form, duration_months: e.target.value })}
+                    placeholder="Ex: 12"
+                  />
+                </div>
+              )}
 
               <div className="sm:col-span-2">
                 <Label>Categoria</Label>
