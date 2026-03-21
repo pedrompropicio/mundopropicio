@@ -31,6 +31,7 @@ import {
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
+  const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
   const [onlyPending, setOnlyPending] = useState(false);
