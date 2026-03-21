@@ -575,7 +575,7 @@ export default function EventDetail() {
         </TabsContent>
 
         <TabsContent value="forecast">
-          {eventType === "multi_day" && !selectedSubEvent ? (
+          {eventType === "multi_day" && !selectedSubEvent && !event?.parent_event_id ? (
             <div className="space-y-4">
               <EventForecast eventId={event.id} eventDate={event.date} eventName={event.name} expenseOnly />
             </div>
@@ -613,7 +613,7 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined} parentEventId={selectedSubEvent && eventType === "multi_day" ? id : undefined} />
+              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined} parentEventId={(selectedSubEvent && eventType === "multi_day" ? id : undefined) || (event?.parent_event_id ? event.parent_event_id : undefined)} />
             </div>
           )}
         </TabsContent>
