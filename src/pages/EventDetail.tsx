@@ -576,10 +576,8 @@ export default function EventDetail() {
 
         <TabsContent value="forecast">
           {eventType === "multi_day" && !selectedSubEvent ? (
-            <div className="glass rounded-xl p-8 text-center space-y-2">
-              <TrendingUp className="h-8 w-8 mx-auto text-muted-foreground" />
-              <p className="text-muted-foreground">Selecione uma data da turnê acima para gerir o P&L.</p>
-              <p className="text-xs text-muted-foreground">O P&L é configurado individualmente para cada data.</p>
+            <div className="space-y-4">
+              <EventForecast eventId={event.id} eventDate={event.date} eventName={event.name} expenseOnly />
             </div>
           ) : (
             <div className="space-y-4">

@@ -37,9 +37,10 @@ interface Props {
   eventDate: string;
   eventName?: string;
   childEventIds?: string[];
+  expenseOnly?: boolean;
 }
 
-export function EventForecast({ eventId, eventDate, eventName, childEventIds }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -525,11 +526,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds }: 
 
   return (
     <div className="space-y-6">
+      {expenseOnly && (
+        <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+          <TrendingDown className="h-5 w-5 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Despesas Partilhadas (Rateio)</p>
+            <p className="text-xs text-muted-foreground">As despesas aqui criadas serão rateadas igualmente entre todos os sub-eventos nos relatórios.</p>
+          </div>
+        </div>
+      )}
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="Receitas" forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />
+      <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
+        {!expenseOnly && <SummaryCard label="Receitas" forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
         <SummaryCard label="Despesas" forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />
-        <SummaryCard label="Resultado" forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />
+        {!expenseOnly && <SummaryCard label="Resultado" forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -570,7 +580,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds }: 
           ) : (
             <div className="space-y-6">
               {/* Income section */}
-              <div className="glass rounded-xl p-5">
+              {!expenseOnly && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
@@ -711,7 +721,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds }: 
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem receitas previstas</p>
                   )}
                 </div>
-              </div>
+              </div>}
 
               {/* Expense section */}
               <div className="glass rounded-xl p-5">
