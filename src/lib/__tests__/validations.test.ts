@@ -82,7 +82,7 @@ describe("validateForm helper", () => {
   it("returns field-level errors on failure", () => {
     const result = validateForm(eventSchema, { name: "", date: "" });
     expect(result.success).toBe(false);
-    if (!result.success) {
+    if ("errors" in result) {
       expect(result.errors).toHaveProperty("name");
       expect(result.errors).toHaveProperty("date");
     }
