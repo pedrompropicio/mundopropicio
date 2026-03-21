@@ -729,6 +729,45 @@ export default function ReportPL() {
                       </TableBody>
                     </Table>
                   )}
+
+                  {/* Override transactions section */}
+                  {(() => {
+                    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
+                    if (overrideTxs.length === 0) return null;
+                    const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
+                    return (
+                      <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-warning" />
+                          <span className="text-sm font-semibold text-warning">Transações Fora do P&L ({overrideTxs.length})</span>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Descrição</TableHead>
+                              <TableHead className="text-xs">Tipo</TableHead>
+                              <TableHead className="text-xs">Categoria</TableHead>
+                              <TableHead className="text-xs text-right">Valor (€)</TableHead>
+                              <TableHead className="text-xs">Estado</TableHead>
+                              <TableHead className="text-xs">Justificação</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {overrideTxs.map((t: any) => (
+                              <TableRow key={t.id} className="bg-warning/5">
+                                <TableCell className="text-sm">{t.description}</TableCell>
+                                <TableCell className="text-xs">{t.type === "income" ? "Receita" : "Despesa"}</TableCell>
+                                <TableCell className="text-xs">{catMap[t.category_id] ?? "—"}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(t.amount))}</TableCell>
+                                <TableCell className="text-xs">{t.status === "pending" ? "Aguardando" : t.status === "approved" ? "Aprovado" : t.status}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={t.pl_override_note}>{t.pl_override_note}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
