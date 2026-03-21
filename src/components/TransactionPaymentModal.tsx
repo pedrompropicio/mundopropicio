@@ -123,7 +123,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
-      const updateData: any = { paid_amount: newPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd") };
+      const updateData: any = { paid_amount: newPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd"), account_id: accountId };
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       const { error } = await supabase
         .from("transactions")
