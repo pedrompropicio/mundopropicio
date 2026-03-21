@@ -45,6 +45,15 @@ export default function Dashboard() {
     },
   });
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ["dashboard_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("account_categories").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const isLoading = loadingEvents || loadingTxns;
 
   // Compute stats
