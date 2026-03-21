@@ -360,7 +360,7 @@ export default function FinancialAccounts() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
-                                onClick={() => navigate(`/relatorios/extrato-bancario?conta=${acc.id}`)}
+                                onClick={() => navigate(`/relatorios/extrato?conta=${acc.id}`)}
                                 className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
                                 title="Ver extrato"
                               >
