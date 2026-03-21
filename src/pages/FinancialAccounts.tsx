@@ -131,7 +131,7 @@ export default function FinancialAccounts() {
     const accountTxs = txSummary.filter((t) => t.account_id === accountId);
     let balance = initialBalance;
     accountTxs.forEach((t) => {
-      const amt = Number(t.amount);
+      const amt = Number((t as any).paid_amount ?? 0);
       if (t.type === "income") balance += amt;
       else balance -= amt;
     });
