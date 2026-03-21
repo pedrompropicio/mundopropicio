@@ -580,7 +580,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           ) : (
             <div className="space-y-6">
               {/* Income section */}
-              <div className="glass rounded-xl p-5">
+              {!expenseOnly && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
