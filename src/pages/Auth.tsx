@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAudit } from "@/lib/audit";
 import { Music2, Lock } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { MfaVerify } from "@/components/MfaVerify";
