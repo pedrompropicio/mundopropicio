@@ -501,7 +501,7 @@ export default function Transactions() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeTo} onSelect={(d) => { setRangeTo(d); setRangeToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        <Calendar mode="single" selected={rangeTo} onSelect={(d) => { setRangeTo(d); setRangeToOpen(false); setPeriodPopoverOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
