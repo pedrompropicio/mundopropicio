@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supplierSchema, validateForm } from "@/lib/validations";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAudit, getAuditUser } from "@/lib/audit";
 
 const supplierCategories = [
   "Som e Iluminação",
