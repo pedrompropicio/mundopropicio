@@ -46,7 +46,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, status")
+        .select("account_id, type, amount, paid_amount, status")
         .not("account_id", "is", null);
       if (error) throw error;
       return data;
@@ -58,7 +58,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     if (!acc) return 0;
     let bal = Number(acc.initial_balance ?? 0);
     txSummary.filter((t: any) => t.account_id === accId).forEach((t: any) => {
-      const amt = Number(t.amount);
+      const amt = Number(t.paid_amount ?? 0);
       if (t.type === "income") bal += amt;
       else bal -= amt;
     });
