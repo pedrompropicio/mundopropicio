@@ -721,7 +721,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem receitas previstas</p>
                   )}
                 </div>
-              </div>
+              </div>}
 
               {/* Expense section */}
               <div className="glass rounded-xl p-5">
