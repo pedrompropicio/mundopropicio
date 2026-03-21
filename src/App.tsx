@@ -100,7 +100,7 @@ function ProtectedLayout() {
                 <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
                 <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
               </Route>
-              <Route path="/demo-datepicker" element={<React.Suspense fallback={<div>Loading...</div>}><DatePickerDemo /></React.Suspense>} />
+              
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="/backups" element={<DatabaseBackups />} />
               <Route path="/seguranca" element={<SecurityDashboard />} />
