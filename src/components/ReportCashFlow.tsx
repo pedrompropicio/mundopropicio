@@ -70,17 +70,19 @@ export default function ReportCashFlow() {
       return data;
     },
   });
+  const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
+  const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
 
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ["cf-transactions", dateFrom, dateTo, selectedAccountId],
+    queryKey: ["cf-transactions", dateFromStr, dateToStr, selectedAccountId],
     queryFn: async () => {
       let q = supabase
         .from("transactions")
         .select("*, events(name)")
         .in("status", ["approved", "paid"])
         .order("date", { ascending: true });
-      if (dateFrom) q = q.gte("date", dateFrom);
-      if (dateTo) q = q.lte("date", dateTo);
+      if (dateFromStr) q = q.gte("date", dateFromStr);
+      if (dateToStr) q = q.lte("date", dateToStr);
       if (selectedAccountId) q = q.eq("account_id", selectedAccountId);
       const { data, error } = await q;
       if (error) throw error;
