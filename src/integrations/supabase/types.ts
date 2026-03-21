@@ -1120,6 +1120,7 @@ export type Database = {
           iva_rate: number
           paid_amount: number
           payment_date: string | null
+          pl_override_note: string | null
           specification: string | null
           status: string
           supplier_id: string | null
@@ -1140,6 +1141,7 @@ export type Database = {
           iva_rate?: number
           paid_amount?: number
           payment_date?: string | null
+          pl_override_note?: string | null
           specification?: string | null
           status?: string
           supplier_id?: string | null
@@ -1160,6 +1162,7 @@ export type Database = {
           iva_rate?: number
           paid_amount?: number
           payment_date?: string | null
+          pl_override_note?: string | null
           specification?: string | null
           status?: string
           supplier_id?: string | null

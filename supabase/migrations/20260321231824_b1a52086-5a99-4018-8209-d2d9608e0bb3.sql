@@ -1,0 +1,1 @@
+ALTER TABLE public.transactions ADD COLUMN pl_override_note text DEFAULT NULL;

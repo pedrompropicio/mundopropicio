@@ -22,6 +22,7 @@ interface TransactionForm {
   date: string;
   due_date: string;
   specification: string;
+  pl_override_note: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -36,6 +37,7 @@ const emptyForm: TransactionForm = {
   date: new Date().toISOString().split("T")[0],
   due_date: "",
   specification: "",
+  pl_override_note: "",
 };
 
 const formatDueDateInput = (value: string) => {
@@ -58,6 +60,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
+  const [plOverride, setPlOverride] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -253,11 +256,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         supplier_id: data.supplier_id || null,
         account_id: data.account_id || null,
         specification: data.type === "expense" ? (data.specification || null) : null,
+        pl_override_note: data.pl_override_note.trim() || null,
         date: data.date,
         due_date: parseDueDateForDb(data.due_date),
         status: autoApproved ? "approved" : "pending",
         paid_amount: 0,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -295,7 +299,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
+    if (isActivePL && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       if (!form.category_id) {
         toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
         return;
@@ -304,6 +308,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
         return;
       }
+    }
+    if (plOverride && !form.pl_override_note.trim()) {
+      toast({ title: "Justificação obrigatória para categorias fora do P&L", variant: "destructive" });
+      return;
     }
     // Warning (non-blocking) when amount exceeds P&L forecast
     if (hasPL && form.event_id && form.category_id) {
@@ -330,7 +338,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
+    if (isActivePL && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       return allowedCategoryIds.includes(c.id);
     }
     return true;
@@ -354,7 +362,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               <button
                 key={t}
                 type="button"
-                onClick={() => setForm({ ...form, type: t, category_id: "", supplier_id: "" })}
+                onClick={() => { setForm({ ...form, type: t, category_id: "", supplier_id: "", pl_override_note: "" }); setPlOverride(false); }}
                 className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                   form.type === t
                     ? t === "income" ? "bg-success/20 text-success ring-1 ring-success/40" : "bg-warning/20 text-warning ring-1 ring-warning/40"
@@ -376,7 +384,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={eventOptions}
               value={form.event_id}
-              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "" }); setPlExpanded(true); setShowProrationConfirm(false); }}
+              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" }); setPlExpanded(true); setShowProrationConfirm(false); setPlOverride(false); }}
               placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
               searchPlaceholder="Pesquisar evento…"
             />
@@ -597,19 +605,46 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
 
+          {/* P&L Override toggle — only when restriction is active */}
+          {isActivePL && form.event_id && allowedCategoryIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setPlOverride(!plOverride); setForm({ ...form, category_id: "", pl_override_note: "" }); }}
+                className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {plOverride ? "⚠️ Categoria fora do P&L — Clique para reverter" : "Categoria não prevista? Clique aqui"}
+              </button>
+            </div>
+          )}
+
           {/* Category */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Categoria {isActivePL ? "*" : ""}
+              Categoria {isActivePL && !plOverride ? "*" : ""}
+              {plOverride && <span className="ml-1 text-warning font-semibold">⚠️ Fora do P&L</span>}
             </label>
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
               onValueChange={(v) => setForm({ ...form, category_id: v })}
-              placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
+              placeholder={isActivePL && !plOverride ? "Selecionar do P&L…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
           </div>
+
+          {/* Justification field when P&L override is active */}
+          {plOverride && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
+              <input
+                value={form.pl_override_note}
+                onChange={(e) => setForm({ ...form, pl_override_note: e.target.value })}
+                className="w-full rounded-lg border border-warning/50 bg-warning/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                placeholder="Ex: Despesa urgente não prevista no orçamento inicial"
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
