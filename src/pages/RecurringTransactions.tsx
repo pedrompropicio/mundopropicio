@@ -145,6 +145,14 @@ export default function RecurringTransactions() {
   });
 
   // Helper to compute end_date from duration
+  // Helper: format Date as YYYY-MM-DD without timezone issues
+  const formatDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
   const computeEndDate = (): string | null => {
     if (form.end_mode === "date" && form.end_month) {
       const [y, m] = form.end_month.split("-").map(Number);
@@ -155,7 +163,7 @@ export default function RecurringTransactions() {
       const months = Number(form.duration_months);
       const [sy, sm] = form.start_month.split("-").map(Number);
       const endDate = new Date(sy, sm - 1 + months, Math.min(form.day_of_month, 28));
-      return endDate.toISOString().slice(0, 10);
+      return formatDateStr(endDate);
     }
     return null;
   };
@@ -168,18 +176,20 @@ export default function RecurringTransactions() {
     frequency: string; day_of_month: number; start_date: string; end_date: string | null;
     id: string;
   }) => {
-    const startDate = new Date(rec.start_date);
-    const endDate = rec.end_date ? new Date(rec.end_date) : null;
+    if (!rec.end_date) return 0;
 
-    // If no end_date, don't generate
-    if (!endDate) return 0;
+    // Parse dates in local timezone to avoid UTC offset issues
+    const [sy, sm, sd] = rec.start_date.split("-").map(Number);
+    const [ey, em, ed] = rec.end_date.split("-").map(Number);
+    const startDate = new Date(sy, sm - 1, sd);
+    const endDate = new Date(ey, em - 1, ed);
 
     const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
     const transactions: any[] = [];
     const current = new Date(startDate);
 
     while (current <= endDate) {
-      const dateStr = current.toISOString().slice(0, 10);
+      const dateStr = formatDateStr(current);
       transactions.push({
         description: rec.description,
         type: rec.type,
