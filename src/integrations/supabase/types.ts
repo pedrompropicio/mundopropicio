@@ -617,6 +617,104 @@ export type Database = {
           },
         ]
       }
+      recurring_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category_id: string | null
+          created_at: string
+          created_by: string
+          day_of_month: number
+          description: string
+          end_date: string | null
+          event_id: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          iva_rate: number
+          last_generated_at: string | null
+          next_due_date: string | null
+          specification: string | null
+          start_date: string
+          supplier_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          day_of_month?: number
+          description: string
+          end_date?: string | null
+          event_id?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          iva_rate?: number
+          last_generated_at?: string | null
+          next_due_date?: string | null
+          specification?: string | null
+          start_date?: string
+          supplier_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          day_of_month?: number
+          description?: string
+          end_date?: string | null
+          event_id?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          iva_rate?: number
+          last_generated_at?: string | null
+          next_due_date?: string | null
+          specification?: string | null
+          start_date?: string
+          supplier_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string
