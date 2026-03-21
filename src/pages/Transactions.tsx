@@ -34,6 +34,10 @@ export default function Transactions() {
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
+  const [rangeFromOpen, setRangeFromOpen] = useState(false);
+  const [rangeToOpen, setRangeToOpen] = useState(false);
+  const [paidDateFromOpen, setPaidDateFromOpen] = useState(false);
+  const [paidDateToOpen, setPaidDateToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
