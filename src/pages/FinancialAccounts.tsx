@@ -45,6 +45,7 @@ const emptyForm: AccountForm = {
 export default function FinancialAccounts() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
