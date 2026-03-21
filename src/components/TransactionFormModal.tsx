@@ -235,7 +235,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }, {})
     : {};
 
-  const allowedCategoryIds = isActivePL
+  const allowedCategoryIds = hasPLRestriction
     ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
