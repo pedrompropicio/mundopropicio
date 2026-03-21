@@ -888,6 +888,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds }: 
           <ComparisonTable data={comparisonData} cacheLines={cacheLines} />
         </TabsContent>
       </Tabs>
+
+      {showCopyModal && (
+        <CopyPLModal
+          targetEventId={eventId}
+          targetEventName={eventName || "este evento"}
+          existingForecastCount={forecasts.length}
+          onClose={() => setShowCopyModal(false)}
+        />
+      )}
     </div>
   );
 }
