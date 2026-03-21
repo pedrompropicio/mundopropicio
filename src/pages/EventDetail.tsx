@@ -164,6 +164,35 @@ export default function EventDetail() {
     },
   });
 
+  const deleteEventMutation = useMutation({
+    mutationFn: async () => {
+      // Delete related data first
+      await supabase.from("event_dates").delete().eq("event_id", id!);
+      await supabase.from("event_forecasts").delete().eq("event_id", id!);
+      await supabase.from("event_cache_configs").delete().eq("event_id", id!);
+      // Delete ticket lots via zones
+      const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
+      if (zones && zones.length > 0) {
+        const zoneIds = zones.map(z => z.id);
+        await supabase.from("event_ticket_lots").delete().in("zone_id", zoneIds);
+        await supabase.from("ticket_sales").delete().in("zone_id", zoneIds);
+      }
+      await supabase.from("event_ticket_zones").delete().eq("event_id", id!);
+      // Delete the event itself
+      const { error } = await supabase.from("events").delete().eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events_full"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      toast({ title: "Evento eliminado com sucesso!" });
+      navigate("/eventos");
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao eliminar", description: err.message, variant: "destructive" });
+    },
+  });
+
   if (loadingEvent) {
     return <p className="py-20 text-center text-muted-foreground">A carregar evento…</p>;
   }
