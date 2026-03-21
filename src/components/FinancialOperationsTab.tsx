@@ -13,7 +13,7 @@ import { Plus, X, CalendarIcon, RefreshCw, Landmark, ArrowDownCircle, ArrowUpCir
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { logAuditEvent } from "@/lib/audit";
+
 
 interface FinancialOperationsTabProps {
   accounts: any[];
