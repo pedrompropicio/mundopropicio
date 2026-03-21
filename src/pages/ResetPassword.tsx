@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
 type ResetStatus = "loading" | "ready" | "expired";
 
