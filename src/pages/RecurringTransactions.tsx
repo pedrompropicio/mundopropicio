@@ -147,8 +147,29 @@ export default function RecurringTransactions() {
     return !hasChildren && c.type === form.type;
   });
 
+  // Helper to compute end_date from duration
+  const computeEndDate = (): string | null => {
+    if (form.end_mode === "none") return null;
+    if (form.end_mode === "date" && form.end_month) {
+      const [y, m] = form.end_month.split("-").map(Number);
+      const day = Math.min(form.day_of_month, 28);
+      return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+    if (form.end_mode === "duration" && form.duration_months) {
+      const months = Number(form.duration_months);
+      const [sy, sm] = form.start_month.split("-").map(Number);
+      const endDate = new Date(sy, sm - 1 + months, Math.min(form.day_of_month, 28));
+      return endDate.toISOString().slice(0, 10);
+    }
+    return null;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const [sy, sm] = form.start_month.split("-").map(Number);
+      const startDay = Math.min(form.day_of_month, 28);
+      const startDate = `${sy}-${String(sm).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`;
+
       const payload: any = {
         description: form.description,
         type: form.type,
@@ -161,8 +182,8 @@ export default function RecurringTransactions() {
         specification: form.specification || null,
         frequency: form.frequency,
         day_of_month: form.day_of_month,
-        start_date: form.start_date,
-        end_date: form.end_date || null,
+        start_date: startDate,
+        end_date: computeEndDate(),
         created_by: user?.email ?? "system",
       };
 
