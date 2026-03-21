@@ -60,8 +60,28 @@ export default function Auth() {
     if (error) {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
+
+      // Log failed attempt to audit
+      logAudit({
+        entity_type: "auth",
+        entity_id: email,
+        action: "login_failed",
+        changed_by: email,
+        metadata: { attempt: newAttempts, error: error.message },
+      });
+
       if (newAttempts >= MAX_ATTEMPTS) {
         startLockout();
+
+        // Log lockout to audit
+        logAudit({
+          entity_type: "auth",
+          entity_id: email,
+          action: "account_locked",
+          changed_by: email,
+          metadata: { attempts: newAttempts, lockout_count: lockoutCount + 1 },
+        });
+
         toast({
           title: "Conta bloqueada temporariamente",
           description: `Demasiadas tentativas falhadas. Aguarde antes de tentar novamente.`,
