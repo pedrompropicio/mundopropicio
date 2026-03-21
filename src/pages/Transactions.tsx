@@ -96,7 +96,7 @@ export default function Transactions() {
       const { data, error } = await supabase
         .from("transactions")
         .select("*, events(name, status), account_categories(name), suppliers(name), financial_accounts(name)")
-        .order("due_date", { ascending: false, nullsFirst: false });
+        .order("due_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data;
     },
