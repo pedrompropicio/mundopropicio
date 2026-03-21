@@ -382,7 +382,10 @@ export default function RecurringTransactions() {
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{freqLabel(rec.frequency)}</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(Number(rec.amount))}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                    {formatMonthYear(rec.start_date)} → {rec.end_date ? formatMonthYear(rec.end_date) : "∞"}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
                     {getCategoryLabel(rec.category_id)}
                   </TableCell>
                   <TableCell className="text-center">
