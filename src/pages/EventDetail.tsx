@@ -293,11 +293,11 @@ export default function EventDetail() {
             )}
             {isAdmin && isCompleted && (
               <button
-                onClick={() => {
-                  if (confirm("Reativar este evento? As transações voltarão a poder ser alteradas.")) {
-                    changeStatusMutation.mutate("active");
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "Reativar Evento",
+                  description: "Reativar este evento? As transações voltarão a poder ser alteradas.",
+                  action: () => changeStatusMutation.mutate("active"),
+                })}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors disabled:opacity-50"
               >
