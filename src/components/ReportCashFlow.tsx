@@ -3,9 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Filter } from "lucide-react";
+import { Download, Filter, CalendarIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface CashFlowRow {
   period: string;
@@ -47,8 +53,10 @@ function formatPeriodLabel(key: string, granularity: Granularity): string {
 }
 
 export default function ReportCashFlow() {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
   const [granularity, setGranularity] = useState<Granularity>("monthly");
   const [groupByEvent, setGroupByEvent] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -62,17 +70,19 @@ export default function ReportCashFlow() {
       return data;
     },
   });
+  const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
+  const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
 
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ["cf-transactions", dateFrom, dateTo, selectedAccountId],
+    queryKey: ["cf-transactions", dateFromStr, dateToStr, selectedAccountId],
     queryFn: async () => {
       let q = supabase
         .from("transactions")
         .select("*, events(name)")
         .in("status", ["approved", "paid"])
         .order("date", { ascending: true });
-      if (dateFrom) q = q.gte("date", dateFrom);
-      if (dateTo) q = q.lte("date", dateTo);
+      if (dateFromStr) q = q.gte("date", dateFromStr);
+      if (dateToStr) q = q.lte("date", dateToStr);
       if (selectedAccountId) q = q.eq("account_id", selectedAccountId);
       const { data, error } = await q;
       if (error) throw error;
@@ -156,21 +166,31 @@ export default function ReportCashFlow() {
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">Data Início</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value); setGenerated(false); }}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
+            <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Selecionar…"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); setGenerated(false); setDateFromOpen(false); }} locale={pt} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">Data Fim</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => { setDateTo(e.target.value); setGenerated(false); }}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
+            <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-[180px] justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTo ? format(dateTo, "dd/MM/yyyy") : "Selecionar…"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); setGenerated(false); setDateToOpen(false); }} locale={pt} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">Conta</label>

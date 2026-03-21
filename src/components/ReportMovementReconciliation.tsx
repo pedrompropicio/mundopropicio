@@ -3,17 +3,24 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { FileSpreadsheet, FileText, ArrowLeftRight } from "lucide-react";
+import { FileSpreadsheet, FileText, ArrowLeftRight, CalendarIcon } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { exportMovementReconciliationToExcel, exportMovementReconciliationToPDF } from "@/lib/export-movement-reconciliation";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
   const [fullPeriod, setFullPeriod] = useState(false);
   const [generated, setGenerated] = useState(false);
 
@@ -35,16 +42,19 @@ export default function ReportMovementReconciliation() {
     },
   });
 
+  const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
+  const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
+
   const { data: allTransactions = [] } = useQuery({
-    queryKey: ["movement-report-tx", dateFrom, dateTo, fullPeriod],
+    queryKey: ["movement-report-tx", dateFromStr, dateToStr, fullPeriod],
     queryFn: async () => {
       let q = supabase
         .from("transactions")
         .select("*, events(name, parent_event_id), suppliers(name), financial_accounts(name)")
         .order("date", { ascending: true });
       if (!fullPeriod) {
-        if (dateFrom) q = q.gte("date", dateFrom);
-        if (dateTo) q = q.lte("date", dateTo);
+        if (dateFromStr) q = q.gte("date", dateFromStr);
+        if (dateToStr) q = q.lte("date", dateToStr);
       }
       const { data, error } = await q;
       if (error) throw error;
@@ -183,8 +193,8 @@ export default function ReportMovementReconciliation() {
   const eventLabel = selectedEventIds.length > 0 ? events.find((e: any) => e.id === selectedEventIds[0])?.name ?? "—" : "Todos";
 
   const exportParams = {
-    movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFrom,
-    dateTo: fullPeriod ? "" : dateTo, totalPaid, totalReceived,
+    movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFromStr,
+    dateTo: fullPeriod ? "" : dateToStr, totalPaid, totalReceived,
   };
 
   return (
@@ -208,15 +218,31 @@ export default function ReportMovementReconciliation() {
               <>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Início *</label>
-                  <input type="date" value={dateFrom}
-                    onChange={(e) => { setDateFrom(e.target.value); setGenerated(false); }}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Selecionar…"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); setGenerated(false); setDateFromOpen(false); }} locale={pt} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Fim *</label>
-                  <input type="date" value={dateTo}
-                    onChange={(e) => { setDateTo(e.target.value); setGenerated(false); }}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(dateTo, "dd/MM/yyyy") : "Selecionar…"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); setGenerated(false); setDateToOpen(false); }} locale={pt} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </>
             )}
