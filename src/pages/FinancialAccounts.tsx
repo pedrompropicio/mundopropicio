@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
