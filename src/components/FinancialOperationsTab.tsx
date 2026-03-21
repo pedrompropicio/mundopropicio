@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,19 +20,18 @@ interface FinancialOperationsTabProps {
   isAdmin: boolean;
 }
 
-const OPERATION_TYPES = [
-  { value: "bank_fee", label: "Taxa/Comissão Bancária", type: "expense" },
-  { value: "interest_paid", label: "Juros Pagos", type: "expense" },
-  { value: "interest_received", label: "Juros Recebidos", type: "income" },
-  { value: "loan_installment", label: "Parcela de Empréstimo/Financiamento", type: "expense" },
-  { value: "insurance", label: "Seguros", type: "expense" },
-  { value: "tax", label: "Impostos/Encargos", type: "expense" },
-  { value: "other_expense", label: "Outro Custo Não Operacional", type: "expense" },
-  { value: "other_income", label: "Outra Receita Não Operacional", type: "income" },
+const DESCRIPTION_SUGGESTIONS = [
+  { label: "Taxa/Comissão Bancária", type: "expense" },
+  { label: "Juros Pagos", type: "expense" },
+  { label: "Juros Recebidos", type: "income" },
+  { label: "Parcela de Empréstimo/Financiamento", type: "expense" },
+  { label: "Seguros", type: "expense" },
+  { label: "Impostos/Encargos", type: "expense" },
+  { label: "Outro Custo Não Operacional", type: "expense" },
+  { label: "Outra Receita Não Operacional", type: "income" },
 ];
 
 interface OpForm {
-  operation_type: string;
   account_id: string;
   amount: string;
   description: string;
@@ -44,7 +43,6 @@ interface OpForm {
 }
 
 const emptyForm: OpForm = {
-  operation_type: "bank_fee",
   account_id: "",
   amount: "",
   description: "",
@@ -138,8 +136,8 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
     enabled: group10Ids.length > 0,
   });
 
-  const selectedOpType = OPERATION_TYPES.find((t) => t.value === form.operation_type);
-  const transactionType = selectedOpType?.type ?? "expense";
+  const matchedSuggestion = DESCRIPTION_SUGGESTIONS.find((s) => s.label === form.description);
+  const transactionType = matchedSuggestion?.type ?? "expense";
 
   const activeAccounts = accounts.filter((a: any) => a.is_active);
 
@@ -250,17 +248,23 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
     },
   });
 
-  // Auto-fill description based on operation type
-  function handleOperationTypeChange(value: string) {
-    const op = OPERATION_TYPES.find((t) => t.value === value);
-    const currentOpLabel = OPERATION_TYPES.find((t) => t.value === form.operation_type)?.label || "";
-    const descIsAutoFilled = !form.description || form.description === currentOpLabel;
-    setForm({
-      ...form,
-      operation_type: value,
-      description: descIsAutoFilled ? (op?.label || "") : form.description,
-    });
-  }
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (descriptionRef.current && !descriptionRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredSuggestions = DESCRIPTION_SUGGESTIONS.filter((s) =>
+    s.label.toLowerCase().includes(form.description.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -349,74 +353,42 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
                 </select>
               </div>
 
-              {/* Operation type */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo de Operação *</label>
-                <select
-                  value={form.operation_type}
-                  onChange={(e) => handleOperationTypeChange(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  {OPERATION_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-                <div className="mt-1">
-                  <Badge variant={transactionType === "income" ? "default" : "secondary"} className="text-xs">
-                    {transactionType === "income" ? "Receita" : "Despesa"}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Amount + Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor (€) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Data *</label>
-                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.date && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {form.date ? format(form.date, "dd/MM/yyyy") : "Selecionar…"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={form.date}
-                        onSelect={(d) => { setForm({ ...form, date: d }); setDateOpen(false); }}
-                        locale={pt}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
+              {/* Description with suggestions */}
+              <div ref={descriptionRef} className="relative">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
                 <input
                   value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, description: e.target.value }); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Ex: Comissão de manutenção conta"
+                  placeholder="Ex: Taxa bancária, Juros pagos…"
+                  autoComplete="off"
                 />
+                {showSuggestions && filteredSuggestions.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg max-h-48 overflow-y-auto">
+                    {filteredSuggestions.map((s) => (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() => { setForm({ ...form, description: s.label }); setShowSuggestions(false); }}
+                        className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                      >
+                        <span>{s.label}</span>
+                        <Badge variant={s.type === "income" ? "default" : "secondary"} className="text-xs ml-2">
+                          {s.type === "income" ? "Receita" : "Despesa"}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {matchedSuggestion && (
+                  <div className="mt-1">
+                    <Badge variant={transactionType === "income" ? "default" : "secondary"} className="text-xs">
+                      {transactionType === "income" ? "Receita" : "Despesa"}
+                    </Badge>
+                  </div>
+                )}
               </div>
-
-              {/* Category */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria (Plano de Contas) *</label>
                 <select
