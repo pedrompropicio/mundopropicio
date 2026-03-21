@@ -149,7 +149,6 @@ export default function RecurringTransactions() {
 
   // Helper to compute end_date from duration
   const computeEndDate = (): string | null => {
-    if (form.end_mode === "none") return null;
     if (form.end_mode === "date" && form.end_month) {
       const [y, m] = form.end_month.split("-").map(Number);
       const day = Math.min(form.day_of_month, 28);
