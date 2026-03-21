@@ -298,7 +298,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0) {
+    if (isActivePL && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       if (!form.category_id) {
         toast({ title: "Evento com P&L Ativo: selecione uma categoria existente no P&L", variant: "destructive" });
         return;
@@ -307,6 +307,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
         return;
       }
+    }
+    if (plOverride && !form.pl_override_note.trim()) {
+      toast({ title: "Justificação obrigatória para categorias fora do P&L", variant: "destructive" });
+      return;
     }
     // Warning (non-blocking) when amount exceeds P&L forecast
     if (hasPL && form.event_id && form.category_id) {
