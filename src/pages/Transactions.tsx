@@ -105,18 +105,12 @@ export default function Transactions() {
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("transaction_audit_log").insert({
-        transaction_id: id,
-        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-        field_name: "status",
-        old_value: "pending",
-        new_value: "approved",
+      const { data, error } = await supabase.functions.invoke("approve-transaction", {
+        body: { transaction_ids: [id] },
       });
-      const { error } = await supabase
-        .from("transactions")
-        .update({ status: "approved" })
-        .eq("id", id);
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -129,25 +123,12 @@ export default function Transactions() {
 
   const bulkApproveMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      // Insert audit log entries for all
-      const auditEntries = ids.map((id) => ({
-        transaction_id: id,
-        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
-        field_name: "status",
-        old_value: "pending",
-        new_value: "approved",
-      }));
-      const { error: logError } = await supabase
-        .from("transaction_audit_log")
-        .insert(auditEntries);
-      if (logError) throw logError;
-
-      // Update all transactions
-      const { error } = await supabase
-        .from("transactions")
-        .update({ status: "approved" })
-        .in("id", ids);
+      const { data, error } = await supabase.functions.invoke("approve-transaction", {
+        body: { transaction_ids: ids },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: (_data, ids) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
