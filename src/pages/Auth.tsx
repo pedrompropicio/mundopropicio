@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Music2 } from "lucide-react";
+import { Music2, Lock } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { MfaVerify } from "@/components/MfaVerify";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -14,16 +17,69 @@ export default function Auth() {
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Brute-force protection
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutCount, setLockoutCount] = useState(0);
+  const lockoutTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+
+  const startLockout = useCallback(() => {
+    const duration = LOCKOUT_DURATIONS[Math.min(lockoutCount, LOCKOUT_DURATIONS.length - 1)];
+    const until = Date.now() + duration * 1000;
+    setLockoutUntil(until);
+    setLockoutCount((c) => c + 1);
+    setLockoutRemaining(duration);
+
+    if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+    lockoutTimer.current = setInterval(() => {
+      const remaining = Math.ceil((until - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLockoutRemaining(0);
+        setFailedAttempts(0);
+        if (lockoutTimer.current) clearInterval(lockoutTimer.current);
+      } else {
+        setLockoutRemaining(remaining);
+      }
+    }, 1000);
+  }, [lockoutCount]);
+
+  const isLocked = lockoutUntil !== null && Date.now() < lockoutUntil;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) {
+      toast({ title: "Conta bloqueada", description: `Aguarde ${lockoutRemaining}s antes de tentar novamente.`, variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      if (newAttempts >= MAX_ATTEMPTS) {
+        startLockout();
+        toast({
+          title: "Conta bloqueada temporariamente",
+          description: `Demasiadas tentativas falhadas. Aguarde antes de tentar novamente.`,
+          variant: "destructive",
+        });
+      } else {
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        toast({
+          title: "Erro ao entrar",
+          description: `Credenciais inválidas. ${remaining} tentativa(s) restante(s).`,
+          variant: "destructive",
+        });
+      }
       setLoading(false);
       return;
     }
+    // Reset on success
+    setFailedAttempts(0);
+    setLockoutCount(0);
     // Check if MFA is required
     const { data: factors } = await supabase.auth.mfa.listFactors();
     const hasTotp = factors?.totp && factors.totp.length > 0;
@@ -146,12 +202,25 @@ export default function Auth() {
                 placeholder="••••••••"
               />
             </div>
+            {isLocked && (
+              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                <Lock className="h-4 w-4 text-destructive shrink-0" />
+                <p className="text-xs text-destructive font-medium">
+                  Conta bloqueada. Tente novamente em {lockoutRemaining}s
+                </p>
+              </div>
+            )}
+            {!isLocked && failedAttempts > 0 && failedAttempts < MAX_ATTEMPTS && (
+              <p className="text-xs text-amber-500 text-center">
+                {MAX_ATTEMPTS - failedAttempts} tentativa(s) restante(s)
+              </p>
+            )}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isLocked}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
             >
-              {loading ? "A processar…" : "Entrar"}
+              {loading ? "A processar…" : isLocked ? `Bloqueado (${lockoutRemaining}s)` : "Entrar"}
             </button>
             <button
               type="button"
