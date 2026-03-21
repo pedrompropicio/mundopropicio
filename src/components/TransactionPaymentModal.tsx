@@ -20,7 +20,10 @@ interface Props {
 
 export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [paymentDate, setPaymentDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  });
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState("");
@@ -191,7 +194,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 <Calendar
                   mode="single"
                   selected={paymentDate}
-                  onSelect={(d) => { if (d) setPaymentDate(d); setPaymentDateOpen(false); }}
+                  onSelect={(d) => { if (d) { setPaymentDate(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)); } setPaymentDateOpen(false); }}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
