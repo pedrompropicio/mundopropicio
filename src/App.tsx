@@ -33,6 +33,7 @@ import ReportSuppliersPage from "./pages/ReportSuppliersPage";
 import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
 import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
+import RecurringTransactions from "./pages/RecurringTransactions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ function ProtectedLayout() {
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/bilhetes" element={<TicketManagement />} />
               <Route path="/iva" element={<IvaManagement />} />
+              <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/relatorios" element={<Reports />}>
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
