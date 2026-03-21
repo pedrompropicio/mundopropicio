@@ -942,6 +942,42 @@ export type Database = {
         }
         Relationships: []
       }
+      system_audit_log: {
+        Row: {
+          action: string
+          changed_by: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          new_data: Json | null
+          old_data: Json | null
+        }
+        Insert: {
+          action: string
+          changed_by?: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+        }
+        Update: {
+          action?: string
+          changed_by?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+        }
+        Relationships: []
+      }
       ticket_sales: {
         Row: {
           created_at: string
