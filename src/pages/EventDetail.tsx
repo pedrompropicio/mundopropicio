@@ -14,6 +14,10 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const PIE_COLORS = [
   "hsl(262 80% 60%)",
@@ -41,7 +45,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
   if (others.length === 0) return null;
 
   const handleCopy = async (sourceId: string) => {
-    if (!confirm("Isto irá copiar os dados para esta data. Deseja continuar?")) return;
+    if (!window.confirm("Isto irá copiar os dados para esta data. Deseja continuar?")) return;
     setCopying(true);
     try {
       await onCopy(sourceId);
@@ -77,7 +81,7 @@ export default function EventDetail() {
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-
+  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
     queryFn: async () => {
@@ -263,11 +267,11 @@ export default function EventDetail() {
             </button>
             {(isAdmin || isManager) && (event.status === "planning" || event.status === "confirmed") && (
               <button
-                onClick={() => {
-                  if (confirm("Ativar este evento? O evento ficará disponível para receber transações.")) {
-                    changeStatusMutation.mutate("active");
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "Ativar Evento",
+                  description: "Ativar este evento? O evento ficará disponível para receber transações.",
+                  action: () => changeStatusMutation.mutate("active"),
+                })}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 transition-colors disabled:opacity-50"
               >
@@ -276,11 +280,11 @@ export default function EventDetail() {
             )}
             {(isAdmin || isManager) && event.status === "active" && (
               <button
-                onClick={() => {
-                  if (confirm("Concluir este evento? As transações ficarão bloqueadas para alterações.")) {
-                    changeStatusMutation.mutate("completed");
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "Concluir Evento",
+                  description: "Concluir este evento? As transações ficarão bloqueadas para alterações.",
+                  action: () => changeStatusMutation.mutate("completed"),
+                })}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
               >
@@ -289,11 +293,11 @@ export default function EventDetail() {
             )}
             {isAdmin && isCompleted && (
               <button
-                onClick={() => {
-                  if (confirm("Reativar este evento? As transações voltarão a poder ser alteradas.")) {
-                    changeStatusMutation.mutate("active");
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "Reativar Evento",
+                  description: "Reativar este evento? As transações voltarão a poder ser alteradas.",
+                  action: () => changeStatusMutation.mutate("active"),
+                })}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors disabled:opacity-50"
               >
@@ -302,11 +306,12 @@ export default function EventDetail() {
             )}
             {isAdmin && (
               <button
-                onClick={() => {
-                  if (confirm("Tem a certeza que deseja eliminar este evento? Esta ação é irreversível e eliminará todos os dados associados (previsões, bilhetes, cachês).")) {
-                    deleteEventMutation.mutate();
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "⚠️ Eliminar Evento",
+                  description: `Tem a certeza que deseja eliminar "${event.name}"? Esta ação é irreversível e eliminará todos os dados associados (previsões, bilhetes, cachês, transações associadas).`,
+                  action: () => deleteEventMutation.mutate(),
+                  variant: "destructive",
+                })}
                 disabled={deleteEventMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50"
               >
@@ -615,6 +620,25 @@ export default function EventDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation dialog */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmAction?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmAction?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { confirmAction?.action(); setConfirmAction(null); }}
+              className={confirmAction?.variant === "destructive" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
