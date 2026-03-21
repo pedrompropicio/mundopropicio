@@ -257,6 +257,23 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     const isPaymentEntry = m.field_name === "Pagamento parcial" || m.field_name === "Recebimento parcial";
                     const isAccountEntry = m.field_name === "Conta de pagamento" || m.field_name === "Conta de recebimento";
                     const isNoteEntry = m.field_name === "Nota de pagamento" || m.field_name === "Nota de recebimento";
+
+                    // Parse new_value for payment entries: could be "1.000,00 € — Banco X" or just a number
+                    let paymentDisplayAmount = "";
+                    let paymentAccountName = "";
+                    if (isPaymentEntry && m.new_value) {
+                      const parts = m.new_value.split(" — ");
+                      if (parts.length >= 2) {
+                        // New format: "1.000,00 € — Banco Santander Totta"
+                        paymentDisplayAmount = parts[0].trim();
+                        paymentAccountName = parts.slice(1).join(" — ").trim();
+                      } else {
+                        // Old format: just a number (total paid)
+                        const diff = Number(m.new_value ?? 0) - Number(m.old_value ?? 0);
+                        paymentDisplayAmount = formatCurrency(diff);
+                      }
+                    }
+
                     return (
                     <div key={m.id} className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
@@ -281,7 +298,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       <span className="text-muted-foreground">
                         {isPaymentEntry ? (
                           <>
-                            {isExpense ? "Pago" : "Recebido"}: {formatCurrency(Number(m.new_value ?? 0) - Number(m.old_value ?? 0))}
+                            {isExpense ? "Pago" : "Recebido"}: {paymentDisplayAmount} de {formatCurrency(amount)}
                           </>
                         ) : isAccountEntry ? (
                           <>{m.new_value}</>
@@ -293,6 +310,21 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                           </>
                         )}
                       </span>
+                      {isPaymentEntry && paymentAccountName && (
+                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          🏦 {paymentAccountName}
+                        </span>
+                      )}
+                      {isPaymentEntry && t.payment_date && (
+                        <span className="text-muted-foreground/70">
+                          Dt. pgto: {new Date(t.payment_date).toLocaleDateString("pt-PT")}
+                        </span>
+                      )}
+                      {isPaymentEntry && t.invoice_ref && (
+                        <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          📄 {t.invoice_ref}
+                        </span>
+                      )}
                       <span className="ml-auto text-muted-foreground/70">{resolveUserName(m.changed_by)}</span>
                     </div>
                     );
