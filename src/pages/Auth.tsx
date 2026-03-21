@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { Music2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { MfaVerify } from "@/components/MfaVerify";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -76,8 +77,9 @@ export default function Auth() {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+    const pwError = validatePassword(newPassword);
+    if (pwError) {
+      toast({ title: "Erro", description: pwError, variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -247,10 +249,11 @@ export default function Auth() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />
+              <PasswordStrengthIndicator password={newPassword} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Confirmar senha</label>
@@ -259,7 +262,7 @@ export default function Auth() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />

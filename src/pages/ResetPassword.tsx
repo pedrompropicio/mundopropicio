@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
 type ResetStatus = "loading" | "ready" | "expired";
 
@@ -94,8 +95,9 @@ export default function ResetPassword() {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
-    if (password.length < 6) {
-      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+    const pwError = validatePassword(password);
+    if (pwError) {
+      toast({ title: "Erro", description: pwError, variant: "destructive" });
       return;
     }
 
@@ -160,10 +162,11 @@ export default function ResetPassword() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••••••"
               />
+              <PasswordStrengthIndicator password={password} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Confirmar senha</label>
