@@ -35,6 +35,7 @@ const emptyInline: InlineForm = {
 interface Props {
   eventId: string;
   eventDate: string;
+  eventName?: string;
   childEventIds?: string[];
 }
 
