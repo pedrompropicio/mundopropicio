@@ -3,10 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { FileSpreadsheet, FileText, ArrowLeftRight } from "lucide-react";
+import { FileSpreadsheet, FileText, ArrowLeftRight, CalendarIcon } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { exportMovementReconciliationToExcel, exportMovementReconciliationToPDF } from "@/lib/export-movement-reconciliation";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
