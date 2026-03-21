@@ -77,8 +77,9 @@ export default function Auth() {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+    const pwError = validatePassword(newPassword);
+    if (pwError) {
+      toast({ title: "Erro", description: pwError, variant: "destructive" });
       return;
     }
     setLoading(true);
