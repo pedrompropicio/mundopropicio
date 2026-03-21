@@ -34,6 +34,10 @@ export default function Transactions() {
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
+  const [rangeFromOpen, setRangeFromOpen] = useState(false);
+  const [rangeToOpen, setRangeToOpen] = useState(false);
+  const [paidDateFromOpen, setPaidDateFromOpen] = useState(false);
+  const [paidDateToOpen, setPaidDateToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
@@ -477,27 +481,27 @@ export default function Transactions() {
                 <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">De</label>
-                    <Popover>
+                    <Popover open={rangeFromOpen} onOpenChange={setRangeFromOpen}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeFrom && "text-muted-foreground")}>
                           {rangeFrom ? format(rangeFrom, "dd/MM/yyyy") : "Início"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeFrom} onSelect={setRangeFrom} locale={pt} className="p-3 pointer-events-auto" />
+                        <Calendar mode="single" selected={rangeFrom} onSelect={(d) => { setRangeFrom(d); setRangeFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Até</label>
-                    <Popover>
+                    <Popover open={rangeToOpen} onOpenChange={setRangeToOpen}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeTo && "text-muted-foreground")}>
                           {rangeTo ? format(rangeTo, "dd/MM/yyyy") : "Fim"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeTo} onSelect={setRangeTo} locale={pt} className="p-3 pointer-events-auto" />
+                        <Calendar mode="single" selected={rangeTo} onSelect={(d) => { setRangeTo(d); setRangeToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -682,27 +686,27 @@ export default function Transactions() {
           <div className="flex flex-wrap items-center gap-3 py-2">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Data pgto. de</label>
-              <Popover>
+              <Popover open={paidDateFromOpen} onOpenChange={setPaidDateFromOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateFrom && "text-muted-foreground")}>
                     {paidDateFrom ? format(paidDateFrom, "dd/MM/yyyy") : "Início"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateFrom} onSelect={setPaidDateFrom} locale={pt} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={paidDateFrom} onSelect={(d) => { setPaidDateFrom(d); setPaidDateFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Data pgto. até</label>
-              <Popover>
+              <Popover open={paidDateToOpen} onOpenChange={setPaidDateToOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateTo && "text-muted-foreground")}>
                     {paidDateTo ? format(paidDateTo, "dd/MM/yyyy") : "Fim"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateTo} onSelect={setPaidDateTo} locale={pt} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={paidDateTo} onSelect={(d) => { setPaidDateTo(d); setPaidDateToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>

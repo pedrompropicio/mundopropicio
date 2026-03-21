@@ -22,6 +22,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [showDocuments, setShowDocuments] = useState(false);
+  const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
@@ -184,7 +185,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>
-            <Popover>
+            <Popover open={paymentDateOpen} onOpenChange={setPaymentDateOpen}>
               <PopoverTrigger asChild>
                 <button className={cn(
                   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary/50",
@@ -198,7 +199,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 <Calendar
                   mode="single"
                   selected={paymentDate}
-                  onSelect={(d) => d && setPaymentDate(d)}
+                  onSelect={(d) => { if (d) setPaymentDate(d); setPaymentDateOpen(false); }}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
