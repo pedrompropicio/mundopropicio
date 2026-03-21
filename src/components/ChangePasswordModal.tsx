@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
 interface ChangePasswordModalProps {
   open: boolean;
@@ -28,8 +29,9 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: "Erro", description: "A senha deve ter no mínimo 6 caracteres.", variant: "destructive" });
+    const pwError = validatePassword(newPassword);
+    if (pwError) {
+      toast({ title: "Erro", description: pwError, variant: "destructive" });
       return;
     }
 
@@ -62,9 +64,10 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
               placeholder="••••••••"
             />
+            <PasswordStrengthIndicator password={newPassword} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirmar palavra-passe</Label>
@@ -74,7 +77,7 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
               placeholder="••••••••"
             />
           </div>
