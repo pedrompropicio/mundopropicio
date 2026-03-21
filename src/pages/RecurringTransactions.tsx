@@ -164,7 +164,7 @@ export default function RecurringTransactions() {
     return null;
   };
 
-  // Generate all pending transactions for a recurring template
+  // Generate all transactions for the entire recurrence period
   const generateAllTransactions = async (rec: {
     description: string; type: string; amount: number; iva_rate: number;
     category_id: string | null; event_id: string | null; supplier_id: string | null;
@@ -174,14 +174,16 @@ export default function RecurringTransactions() {
   }) => {
     const startDate = new Date(rec.start_date);
     const endDate = rec.end_date ? new Date(rec.end_date) : null;
-    const today = new Date();
-    const limitDate = endDate && endDate < today ? endDate : today;
+
+    // If no end_date, don't generate
+    if (!endDate) return 0;
 
     const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
     const transactions: any[] = [];
     const current = new Date(startDate);
 
-    while (current <= limitDate) {
+    while (current <= endDate) {
+      const dateStr = current.toISOString().slice(0, 10);
       transactions.push({
         description: rec.description,
         type: rec.type,
@@ -192,7 +194,8 @@ export default function RecurringTransactions() {
         supplier_id: rec.supplier_id,
         account_id: rec.account_id,
         specification: rec.specification,
-        date: current.toISOString().slice(0, 10),
+        date: dateStr,
+        due_date: dateStr,
         status: "pending",
       });
       current.setMonth(current.getMonth() + freqMonths);
@@ -201,11 +204,6 @@ export default function RecurringTransactions() {
     if (transactions.length > 0) {
       const { error } = await supabase.from("transactions").insert(transactions);
       if (error) throw error;
-
-      const lastDate = transactions[transactions.length - 1].date;
-      await supabase.from("recurring_transactions").update({
-        last_generated_at: lastDate,
-      }).eq("id", rec.id);
     }
 
     return transactions.length;
