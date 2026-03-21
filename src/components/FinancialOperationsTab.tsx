@@ -136,8 +136,8 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
     enabled: group10Ids.length > 0,
   });
 
-  const selectedOpType = OPERATION_TYPES.find((t) => t.value === form.operation_type);
-  const transactionType = selectedOpType?.type ?? "expense";
+  const matchedSuggestion = DESCRIPTION_SUGGESTIONS.find((s) => s.label === form.description);
+  const transactionType = matchedSuggestion?.type ?? "expense";
 
   const activeAccounts = accounts.filter((a: any) => a.is_active);
 
