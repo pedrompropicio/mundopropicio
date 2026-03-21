@@ -605,19 +605,46 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
 
+          {/* P&L Override toggle — only when restriction is active */}
+          {isActivePL && form.event_id && allowedCategoryIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setPlOverride(!plOverride); setForm({ ...form, category_id: "", pl_override_note: "" }); }}
+                className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {plOverride ? "⚠️ Categoria fora do P&L — Clique para reverter" : "Categoria não prevista? Clique aqui"}
+              </button>
+            </div>
+          )}
+
           {/* Category */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Categoria {isActivePL ? "*" : ""}
+              Categoria {isActivePL && !plOverride ? "*" : ""}
+              {plOverride && <span className="ml-1 text-warning font-semibold">⚠️ Fora do P&L</span>}
             </label>
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
               onValueChange={(v) => setForm({ ...form, category_id: v })}
-              placeholder={isActivePL ? "Selecionar do P&L…" : "Sem categoria"}
+              placeholder={isActivePL && !plOverride ? "Selecionar do P&L…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
           </div>
+
+          {/* Justification field when P&L override is active */}
+          {plOverride && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
+              <input
+                value={form.pl_override_note}
+                onChange={(e) => setForm({ ...form, pl_override_note: e.target.value })}
+                className="w-full rounded-lg border border-warning/50 bg-warning/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                placeholder="Ex: Despesa urgente não prevista no orçamento inicial"
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
