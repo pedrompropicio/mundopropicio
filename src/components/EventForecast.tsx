@@ -37,9 +37,10 @@ interface Props {
   eventDate: string;
   eventName?: string;
   childEventIds?: string[];
+  expenseOnly?: boolean;
 }
 
-export function EventForecast({ eventId, eventDate, eventName, childEventIds }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
