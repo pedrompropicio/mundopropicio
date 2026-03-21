@@ -387,13 +387,6 @@ export default function RecurringTransactions() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => generateNow.mutate(rec)}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        title="Gerar transação agora"
-                      >
-                        <Play className="h-4 w-4" />
-                      </button>
-                      <button
                         onClick={() => toggleActive.mutate({ id: rec.id, active: !rec.is_active })}
                         className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
                         title={rec.is_active ? "Pausar" : "Ativar"}
