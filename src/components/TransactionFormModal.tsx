@@ -60,6 +60,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
+  const [plOverride, setPlOverride] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
