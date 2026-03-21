@@ -14,6 +14,7 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Toolti
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import { DashboardCharts } from "@/components/DashboardCharts";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 
