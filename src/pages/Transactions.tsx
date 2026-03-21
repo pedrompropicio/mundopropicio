@@ -494,14 +494,14 @@ export default function Transactions() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Até</label>
-                    <Popover>
+                    <Popover open={rangeToOpen} onOpenChange={setRangeToOpen}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeTo && "text-muted-foreground")}>
                           {rangeTo ? format(rangeTo, "dd/MM/yyyy") : "Fim"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeTo} onSelect={setRangeTo} locale={pt} className="p-3 pointer-events-auto" />
+                        <Calendar mode="single" selected={rangeTo} onSelect={(d) => { setRangeTo(d); setRangeToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
