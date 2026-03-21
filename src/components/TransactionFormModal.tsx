@@ -339,7 +339,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
-    if (isActivePL && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+    if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       return allowedCategoryIds.includes(c.id);
     }
     return true;
