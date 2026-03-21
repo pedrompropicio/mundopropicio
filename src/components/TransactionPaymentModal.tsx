@@ -101,16 +101,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
         field_name: isExpense ? "Pagamento parcial" : "Recebimento parcial",
         old_value: String(currentPaid),
-        new_value: String(newPaid),
+        new_value: `${formatCurrency(addAmount)} — ${accountNameForLog}`,
       }];
-      // Log account used for this specific payment/receipt
-      auditEntries.push({
-        transaction_id: transaction.id,
-        changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
-        field_name: isExpense ? "Conta de pagamento" : "Conta de recebimento",
-        old_value: null,
-        new_value: `${accountNameForLog} — ${formatCurrency(addAmount)}`,
-      });
       if (notes.trim()) {
         auditEntries.push({
           transaction_id: transaction.id,
