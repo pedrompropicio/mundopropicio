@@ -181,15 +181,17 @@ export default function RecurringTransactions() {
     // Parse dates in local timezone to avoid UTC offset issues
     const [sy, sm, sd] = rec.start_date.split("-").map(Number);
     const [ey, em, ed] = rec.end_date.split("-").map(Number);
-    const startDate = new Date(sy, sm - 1, sd);
     const endDate = new Date(ey, em - 1, ed);
 
     const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
     const transactions: any[] = [];
-    const current = new Date(startDate);
+    let occurrenceIndex = 0;
 
-    while (current <= endDate) {
-      const dateStr = formatDateStr(current);
+    while (true) {
+      const occurrenceDate = new Date(sy, sm - 1 + occurrenceIndex * freqMonths, sd);
+      if (occurrenceDate > endDate) break;
+
+      const dateStr = formatDateStr(occurrenceDate);
       transactions.push({
         description: rec.description,
         type: rec.type,
@@ -204,7 +206,8 @@ export default function RecurringTransactions() {
         due_date: dateStr,
         status: "pending",
       });
-      current.setMonth(current.getMonth() + freqMonths);
+
+      occurrenceIndex += 1;
     }
 
     if (transactions.length > 0) {
