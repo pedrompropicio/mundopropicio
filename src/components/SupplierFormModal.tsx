@@ -44,6 +44,7 @@ interface SupplierFormModalProps {
 
 export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier }: SupplierFormModalProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const isEditing = !!editingSupplier;
 
   const createMutation = useMutation({
