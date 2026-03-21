@@ -33,6 +33,7 @@ export default function Transactions() {
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
+  const [onlyPending, setOnlyPending] = useState(false);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
