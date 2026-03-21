@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,9 +38,10 @@ interface Props {
   eventName?: string;
   childEventIds?: string[];
   expenseOnly?: boolean;
+  parentEventId?: string;
 }
 
-export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -160,6 +161,47 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: cacheConfigIds.length > 0,
   });
 
+  // Fetch parent event's expense forecasts for proration display on sub-events
+  const { data: parentForecasts = [] } = useQuery({
+    queryKey: ["parent_event_forecasts", parentEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name, type)")
+        .eq("event_id", parentEventId!)
+        .eq("type", "expense")
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!parentEventId,
+  });
+
+  // Count sibling sub-events for proration
+  const { data: siblingCount = 1 } = useQuery({
+    queryKey: ["sibling_count", parentEventId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_event_id", parentEventId!);
+      if (error) throw error;
+      return count || 1;
+    },
+    enabled: !!parentEventId,
+  });
+
+  // Prorated parent expenses (amount / number of sub-events)
+  const proratedParentExpenses = useMemo(() => {
+    if (!parentEventId || parentForecasts.length === 0) return [];
+    return parentForecasts.map((f: any) => ({
+      ...f,
+      amount: Number(f.amount) / siblingCount,
+      _prorated: true,
+      _originalAmount: Number(f.amount),
+      _siblingCount: siblingCount,
+    }));
+  }, [parentForecasts, siblingCount, parentEventId]);
 
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
@@ -411,12 +453,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return groups;
   }, [expenseForecasts, catLookup, cacheLines]);
 
+  // Groups for prorated parent expenses (separate from own expenses)
+  const proratedExpenseGroups = useMemo(() => {
+    if (proratedParentExpenses.length === 0) return [];
+    return groupForecasts(proratedParentExpenses);
+  }, [proratedParentExpenses, catLookup]);
+
+  const proratedExpenseBase = proratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
+  const proratedExpenseIva = proratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
   const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
-  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount;
-  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount + proratedExpenseBase;
+  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + proratedExpenseIva;
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
@@ -861,6 +912,41 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           </React.Fragment>
                         );
                       })}
+                      {/* Prorated parent expenses */}
+                      {proratedParentExpenses.length > 0 && (
+                        <>
+                          <tr className="bg-primary/5 border-t-2 border-primary/20">
+                            <td colSpan={8} className="py-2.5 pl-2">
+                              <div className="flex items-center gap-2">
+                                <Layers className="h-4 w-4 text-primary shrink-0" />
+                                <span className="text-xs font-semibold text-primary">Despesas Rateadas do Evento-Pai</span>
+                                <span className="text-[10px] text-muted-foreground">(÷ {siblingCount} sub-eventos)</span>
+                              </div>
+                            </td>
+                          </tr>
+                          {proratedExpenseGroups.map((group) => {
+                            const groupBase = group.items.reduce((s: number, f: any) => s + Number(f.amount), 0);
+                            const groupIva = group.items.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+                            const showGroupHeader = proratedExpenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
+                            return (
+                              <React.Fragment key={`prorated-${group.groupName}`}>
+                                {showGroupHeader && (
+                                  <tr className="bg-primary/5 border-t border-border/30">
+                                    <td colSpan={4} className="py-2 pl-4 text-xs font-semibold text-foreground/70">{group.groupName}</td>
+                                    <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase)}</td>
+                                    <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
+                                    <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase + groupIva)}</td>
+                                    <td />
+                                  </tr>
+                                )}
+                                {group.items.map((f: any) => (
+                                  <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} />
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
+                        </>
+                      )}
                       {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
                     {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
@@ -913,21 +999,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
-  indented?: boolean;
+  indented?: boolean; readOnly?: boolean;
 }) {
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+  const isProrated = item._prorated;
 
   return (
-    <tr className={isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
+    <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
       <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
         <div className="flex items-center gap-2">
-          {isDraft && isAdmin && onToggleSelect ? (
+          {readOnly ? (
+            <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
+          ) : isDraft && isAdmin && onToggleSelect ? (
             <Checkbox
               checked={isSelected}
               onCheckedChange={() => onToggleSelect(item.id)}
@@ -968,28 +1057,32 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
       </td>
       <td className="py-2.5 text-right">
-        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {isDraft && isAdmin && (
-            <button
-              onClick={() => onApprove(item)}
-              disabled={isApproving}
-              className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
-              title="Aprovar e criar transação"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {isDraft && (
-            <>
-              <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        {readOnly ? (
+          <span className="text-[10px] text-primary/60 italic">rateio</span>
+        ) : (
+          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isDraft && isAdmin && (
+              <button
+                onClick={() => onApprove(item)}
+                disabled={isApproving}
+                className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+                title="Aprovar e criar transação"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-              </button>
-            </>
-          )}
-        </div>
+            )}
+            {isDraft && (
+              <>
+                <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                  <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </td>
     </tr>
   );

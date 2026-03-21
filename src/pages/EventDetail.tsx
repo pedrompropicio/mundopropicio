@@ -613,7 +613,7 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined} />
+              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined} parentEventId={selectedSubEvent && eventType === "multi_day" ? id : undefined} />
             </div>
           )}
         </TabsContent>
