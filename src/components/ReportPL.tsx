@@ -498,6 +498,7 @@ export default function ReportPL() {
     );
     const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
     const totalFExp = fExp + totalCache;
+    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
     return {
       ...e,
       fInc: totalFInc, fExp: totalFExp, tInc: totalTInc, tExp,
@@ -505,6 +506,7 @@ export default function ReportPL() {
       tResult: totalTInc - tExp,
       forecastCount: evtF.length,
       txCount: evtT.length,
+      overrideCount: overrideTxs.length,
     };
   });
 
