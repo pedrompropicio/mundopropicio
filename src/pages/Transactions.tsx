@@ -31,6 +31,7 @@ import {
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
+  const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
   const [onlyPending, setOnlyPending] = useState(false);
@@ -451,7 +452,7 @@ export default function Transactions() {
         </Popover>
 
         {/* Period filter */}
-        <Popover modal={false}>
+        <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="text-sm font-normal">
               <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
@@ -463,7 +464,7 @@ export default function Transactions() {
               {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setDuePeriod(val)}
+                  onClick={() => { setDuePeriod(val); if (val !== "range") setPeriodPopoverOpen(false); }}
                   className={cn(
                     "rounded px-3 py-1.5 text-sm text-left transition-colors",
                     duePeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
