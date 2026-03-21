@@ -248,17 +248,23 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
     },
   });
 
-  // Auto-fill description based on operation type
-  function handleOperationTypeChange(value: string) {
-    const op = OPERATION_TYPES.find((t) => t.value === value);
-    const currentOpLabel = OPERATION_TYPES.find((t) => t.value === form.operation_type)?.label || "";
-    const descIsAutoFilled = !form.description || form.description === currentOpLabel;
-    setForm({
-      ...form,
-      operation_type: value,
-      description: descIsAutoFilled ? (op?.label || "") : form.description,
-    });
-  }
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (descriptionRef.current && !descriptionRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredSuggestions = DESCRIPTION_SUGGESTIONS.filter((s) =>
+    s.label.toLowerCase().includes(form.description.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
