@@ -302,7 +302,7 @@ export default function RecurringTransactions() {
       frequency: rec.frequency,
       day_of_month: rec.day_of_month,
       start_month: startMonth,
-      end_mode: rec.end_date ? "date" : "none",
+      end_mode: rec.end_date ? "date" : "duration",
       end_month: endMonth,
       duration_months: "",
     });
