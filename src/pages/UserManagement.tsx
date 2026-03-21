@@ -5,6 +5,7 @@ import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/Auth
 import { toast } from "@/hooks/use-toast";
 import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2 } from "lucide-react";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
+import { logAudit, getAuditUser } from "@/lib/audit";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
