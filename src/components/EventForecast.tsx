@@ -45,7 +45,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCopyModal, setShowCopyModal] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const descRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
