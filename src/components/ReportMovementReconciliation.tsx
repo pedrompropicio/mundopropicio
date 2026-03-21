@@ -193,8 +193,8 @@ export default function ReportMovementReconciliation() {
   const eventLabel = selectedEventIds.length > 0 ? events.find((e: any) => e.id === selectedEventIds[0])?.name ?? "—" : "Todos";
 
   const exportParams = {
-    movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFrom,
-    dateTo: fullPeriod ? "" : dateTo, totalPaid, totalReceived,
+    movements, accountLabel: accountsLabel, eventLabel, dateFrom: fullPeriod ? "" : dateFromStr,
+    dateTo: fullPeriod ? "" : dateToStr, totalPaid, totalReceived,
   };
 
   return (
