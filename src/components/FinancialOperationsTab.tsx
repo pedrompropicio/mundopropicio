@@ -192,17 +192,17 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
         let idx = 0;
         while (current <= endDate) {
           const txDate = new Date(current.getFullYear(), current.getMonth(), Math.min(day, new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate()));
-          transactions.push({
-            description: form.description,
-            type: transactionType,
-            amount,
-            category_id: form.category_id,
-            account_id: form.account_id,
-            date: format(txDate, "yyyy-MM-dd"),
-            status: "pending",
-            iva_rate: 0,
-            paid_amount: 0,
-          });
+            transactions.push({
+              description: form.description,
+              type: transactionType,
+              amount,
+              category_id: form.category_id,
+              account_id: form.account_id,
+              date: format(txDate, "yyyy-MM-dd"),
+              status: transactionType === "income" ? "approved" : "to_pay",
+              iva_rate: 0,
+              paid_amount: 0,
+            });
           current.setMonth(current.getMonth() + 1);
           idx++;
           if (idx > 120) break; // safety limit
