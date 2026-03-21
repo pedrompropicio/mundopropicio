@@ -263,6 +263,25 @@ export default function RecurringTransactions() {
     onError: () => toast.error("Erro ao guardar template"),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("recurring_transactions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recurring-transactions"] });
+      toast.success("Template eliminado");
+    },
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("recurring_transactions").update({ is_active: active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-transactions"] }),
+  });
+
   const closeForm = () => {
     setShowForm(false);
     setEditId(null);
