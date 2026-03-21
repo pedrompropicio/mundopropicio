@@ -20,19 +20,18 @@ interface FinancialOperationsTabProps {
   isAdmin: boolean;
 }
 
-const OPERATION_TYPES = [
-  { value: "bank_fee", label: "Taxa/Comissão Bancária", type: "expense" },
-  { value: "interest_paid", label: "Juros Pagos", type: "expense" },
-  { value: "interest_received", label: "Juros Recebidos", type: "income" },
-  { value: "loan_installment", label: "Parcela de Empréstimo/Financiamento", type: "expense" },
-  { value: "insurance", label: "Seguros", type: "expense" },
-  { value: "tax", label: "Impostos/Encargos", type: "expense" },
-  { value: "other_expense", label: "Outro Custo Não Operacional", type: "expense" },
-  { value: "other_income", label: "Outra Receita Não Operacional", type: "income" },
+const DESCRIPTION_SUGGESTIONS = [
+  { label: "Taxa/Comissão Bancária", type: "expense" },
+  { label: "Juros Pagos", type: "expense" },
+  { label: "Juros Recebidos", type: "income" },
+  { label: "Parcela de Empréstimo/Financiamento", type: "expense" },
+  { label: "Seguros", type: "expense" },
+  { label: "Impostos/Encargos", type: "expense" },
+  { label: "Outro Custo Não Operacional", type: "expense" },
+  { label: "Outra Receita Não Operacional", type: "income" },
 ];
 
 interface OpForm {
-  operation_type: string;
   account_id: string;
   amount: string;
   description: string;
@@ -44,7 +43,6 @@ interface OpForm {
 }
 
 const emptyForm: OpForm = {
-  operation_type: "bank_fee",
   account_id: "",
   amount: "",
   description: "",
