@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,10 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Landmark, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/export-bank-statement";
+import { useSearchParams } from "react-router-dom";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [searchParams] = useSearchParams();
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(searchParams.get("conta") ?? "");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [generated, setGenerated] = useState(false);
