@@ -362,7 +362,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               <button
                 key={t}
                 type="button"
-                onClick={() => setForm({ ...form, type: t, category_id: "", supplier_id: "" })}
+                onClick={() => { setForm({ ...form, type: t, category_id: "", supplier_id: "", pl_override_note: "" }); setPlOverride(false); }}
                 className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                   form.type === t
                     ? t === "income" ? "bg-success/20 text-success ring-1 ring-success/40" : "bg-warning/20 text-warning ring-1 ring-warning/40"
