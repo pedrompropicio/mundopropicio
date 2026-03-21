@@ -6,6 +6,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, Eye, ArrowRightLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAudit, getAuditUser } from "@/lib/audit";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
