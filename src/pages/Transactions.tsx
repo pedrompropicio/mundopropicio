@@ -409,7 +409,17 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
-        {/* Ver Contas Pagas */}
+        {/* Filtro Aguardando */}
+        <Button
+          variant={onlyPending ? "default" : "outline"}
+          size="sm"
+          className="text-sm font-normal"
+          onClick={() => setOnlyPending(!onlyPending)}
+        >
+          <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+          Aguardando
+        </Button>
+
         <Button
           variant="outline"
           size="sm"
