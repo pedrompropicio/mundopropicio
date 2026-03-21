@@ -453,12 +453,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return groups;
   }, [expenseForecasts, catLookup, cacheLines]);
 
+  // Groups for prorated parent expenses (separate from own expenses)
+  const proratedExpenseGroups = useMemo(() => {
+    if (proratedParentExpenses.length === 0) return [];
+    return groupForecasts(proratedParentExpenses);
+  }, [proratedParentExpenses, catLookup]);
+
+  const proratedExpenseBase = proratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
+  const proratedExpenseIva = proratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
   const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
-  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount;
-  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount + proratedExpenseBase;
+  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + proratedExpenseIva;
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
