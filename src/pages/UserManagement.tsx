@@ -5,6 +5,7 @@ import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/Auth
 import { toast } from "@/hooks/use-toast";
 import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2 } from "lucide-react";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
+import { logAudit, getAuditUser } from "@/lib/audit";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
@@ -47,12 +48,21 @@ export default function UserManagement() {
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: AppRole }) => {
+    mutationFn: async ({ userId, newRole, oldRole, userName }: { userId: string; newRole: AppRole; oldRole: AppRole; userName: string }) => {
       const { error } = await supabase
         .from("user_roles")
         .update({ role: newRole })
         .eq("user_id", userId);
       if (error) throw error;
+      await logAudit({
+        entity_type: "user_role",
+        entity_id: userId,
+        action: "update",
+        changed_by: getAuditUser(user),
+        old_data: { role: oldRole },
+        new_data: { role: newRole },
+        metadata: { user_name: userName },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users-with-roles"] });
@@ -268,7 +278,7 @@ export default function UserManagement() {
                         ) : (
                           <select
                             value={u.role}
-                            onChange={(e) => changeRoleMutation.mutate({ userId: u.id, newRole: e.target.value as AppRole })}
+                            onChange={(e) => changeRoleMutation.mutate({ userId: u.id, newRole: e.target.value as AppRole, oldRole: u.role, userName: u.full_name || u.email })}
                             disabled={changeRoleMutation.isPending}
                             className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
                           >

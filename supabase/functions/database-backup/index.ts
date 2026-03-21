@@ -28,6 +28,7 @@ const TABLES_TO_BACKUP = [
   "cities",
   "venues",
   "venue_reservations",
+  "system_audit_log",
   "profiles",
   "user_roles",
 ];

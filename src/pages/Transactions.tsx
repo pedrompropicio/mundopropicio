@@ -6,6 +6,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, Eye, ArrowRightLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAudit, getAuditUser } from "@/lib/audit";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
@@ -142,11 +143,20 @@ export default function Transactions() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Fetch transaction data before deleting for audit
+      const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
       const { error } = await supabase
         .from("transactions")
         .delete()
         .eq("id", id);
       if (error) throw error;
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: id,
+        action: "delete",
+        changed_by: getAuditUser(user),
+        old_data: txData,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
