@@ -515,10 +515,9 @@ export default function RecurringTransactions() {
 
               <div>
                 <Label>Fim da recorrência</Label>
-                <Select value={form.end_mode} onValueChange={(v: "none" | "date" | "duration") => setForm({ ...form, end_mode: v, end_month: "", duration_months: "" })}>
+                <Select value={form.end_mode} onValueChange={(v: "date" | "duration") => setForm({ ...form, end_mode: v, end_month: "", duration_months: "" })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Sem fim</SelectItem>
                     <SelectItem value="date">Mês/Ano final</SelectItem>
                     <SelectItem value="duration">Duração em meses</SelectItem>
                   </SelectContent>
