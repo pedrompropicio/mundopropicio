@@ -22,6 +22,7 @@ interface TransactionForm {
   date: string;
   due_date: string;
   specification: string;
+  pl_override_note: string;
 }
 
 const emptyForm: TransactionForm = {
