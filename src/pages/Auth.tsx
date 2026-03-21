@@ -202,12 +202,25 @@ export default function Auth() {
                 placeholder="••••••••"
               />
             </div>
+            {isLocked && (
+              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                <Lock className="h-4 w-4 text-destructive shrink-0" />
+                <p className="text-xs text-destructive font-medium">
+                  Conta bloqueada. Tente novamente em {lockoutRemaining}s
+                </p>
+              </div>
+            )}
+            {!isLocked && failedAttempts > 0 && failedAttempts < MAX_ATTEMPTS && (
+              <p className="text-xs text-amber-500 text-center">
+                {MAX_ATTEMPTS - failedAttempts} tentativa(s) restante(s)
+              </p>
+            )}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isLocked}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
             >
-              {loading ? "A processar…" : "Entrar"}
+              {loading ? "A processar…" : isLocked ? `Bloqueado (${lockoutRemaining}s)` : "Entrar"}
             </button>
             <button
               type="button"
