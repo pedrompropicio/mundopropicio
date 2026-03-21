@@ -25,6 +25,7 @@ const OPERATION_TYPES = [
   { value: "interest_paid", label: "Juros Pagos", type: "expense" },
   { value: "interest_received", label: "Juros Recebidos", type: "income" },
   { value: "loan_installment", label: "Parcela de Empréstimo", type: "expense" },
+  { value: "financing", label: "Financiamento", type: "income" },
   { value: "insurance", label: "Seguros", type: "expense" },
   { value: "tax", label: "Impostos/Encargos", type: "expense" },
   { value: "other_expense", label: "Outro Custo Não Operacional", type: "expense" },
