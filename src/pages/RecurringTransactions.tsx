@@ -81,9 +81,9 @@ const emptyForm: RecurringForm = {
   frequency: "monthly",
   day_of_month: 1,
   start_month: currentMonth,
-  end_mode: "none",
+  end_mode: "duration",
   end_month: "",
-  duration_months: "",
+  duration_months: "12",
 };
 
 export default function RecurringTransactions() {
