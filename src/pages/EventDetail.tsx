@@ -280,11 +280,11 @@ export default function EventDetail() {
             )}
             {(isAdmin || isManager) && event.status === "active" && (
               <button
-                onClick={() => {
-                  if (confirm("Concluir este evento? As transações ficarão bloqueadas para alterações.")) {
-                    changeStatusMutation.mutate("completed");
-                  }
-                }}
+                onClick={() => setConfirmAction({
+                  title: "Concluir Evento",
+                  description: "Concluir este evento? As transações ficarão bloqueadas para alterações.",
+                  action: () => changeStatusMutation.mutate("completed"),
+                })}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
               >
