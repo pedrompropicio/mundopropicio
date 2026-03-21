@@ -33,10 +33,7 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Play,
-  Pause,
   RefreshCw,
-  Calendar,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -60,7 +57,7 @@ interface RecurringForm {
   frequency: string;
   day_of_month: number;
   start_month: string; // YYYY-MM
-  end_mode: "none" | "date" | "duration";
+  end_mode: "date" | "duration";
   end_month: string; // YYYY-MM
   duration_months: string;
 }
@@ -81,9 +78,9 @@ const emptyForm: RecurringForm = {
   frequency: "monthly",
   day_of_month: 1,
   start_month: currentMonth,
-  end_mode: "none",
+  end_mode: "duration",
   end_month: "",
-  duration_months: "",
+  duration_months: "12",
 };
 
 export default function RecurringTransactions() {
@@ -149,7 +146,6 @@ export default function RecurringTransactions() {
 
   // Helper to compute end_date from duration
   const computeEndDate = (): string | null => {
-    if (form.end_mode === "none") return null;
     if (form.end_mode === "date" && form.end_month) {
       const [y, m] = form.end_month.split("-").map(Number);
       const day = Math.min(form.day_of_month, 28);
@@ -164,7 +160,7 @@ export default function RecurringTransactions() {
     return null;
   };
 
-  // Generate all pending transactions for a recurring template
+  // Generate all transactions for the entire recurrence period
   const generateAllTransactions = async (rec: {
     description: string; type: string; amount: number; iva_rate: number;
     category_id: string | null; event_id: string | null; supplier_id: string | null;
@@ -174,14 +170,16 @@ export default function RecurringTransactions() {
   }) => {
     const startDate = new Date(rec.start_date);
     const endDate = rec.end_date ? new Date(rec.end_date) : null;
-    const today = new Date();
-    const limitDate = endDate && endDate < today ? endDate : today;
+
+    // If no end_date, don't generate
+    if (!endDate) return 0;
 
     const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
     const transactions: any[] = [];
     const current = new Date(startDate);
 
-    while (current <= limitDate) {
+    while (current <= endDate) {
+      const dateStr = current.toISOString().slice(0, 10);
       transactions.push({
         description: rec.description,
         type: rec.type,
@@ -192,7 +190,8 @@ export default function RecurringTransactions() {
         supplier_id: rec.supplier_id,
         account_id: rec.account_id,
         specification: rec.specification,
-        date: current.toISOString().slice(0, 10),
+        date: dateStr,
+        due_date: dateStr,
         status: "pending",
       });
       current.setMonth(current.getMonth() + freqMonths);
@@ -201,11 +200,6 @@ export default function RecurringTransactions() {
     if (transactions.length > 0) {
       const { error } = await supabase.from("transactions").insert(transactions);
       if (error) throw error;
-
-      const lastDate = transactions[transactions.length - 1].date;
-      await supabase.from("recurring_transactions").update({
-        last_generated_at: lastDate,
-      }).eq("id", rec.id);
     }
 
     return transactions.length;
@@ -305,7 +299,7 @@ export default function RecurringTransactions() {
       frequency: rec.frequency,
       day_of_month: rec.day_of_month,
       start_month: startMonth,
-      end_mode: rec.end_date ? "date" : "none",
+      end_mode: rec.end_date ? "date" : "duration",
       end_month: endMonth,
       duration_months: "",
     });
@@ -363,7 +357,7 @@ export default function RecurringTransactions() {
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="hidden lg:table-cell">Período</TableHead>
                 <TableHead className="hidden xl:table-cell">Categoria</TableHead>
-                <TableHead className="text-center">Estado</TableHead>
+                <TableHead className="hidden sm:table-cell">Nº Lançamentos</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -389,20 +383,20 @@ export default function RecurringTransactions() {
                   <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
                     {getCategoryLabel(rec.category_id)}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={rec.is_active ? "default" : "outline"}>
-                      {rec.is_active ? "Ativo" : "Pausado"}
-                    </Badge>
+                  <TableCell className="hidden sm:table-cell text-center text-muted-foreground">
+                    {(() => {
+                      const start = new Date(rec.start_date);
+                      const end = rec.end_date ? new Date(rec.end_date) : null;
+                      if (!end) return "—";
+                      const freqMonths = rec.frequency === "yearly" ? 12 : rec.frequency === "quarterly" ? 3 : 1;
+                      let count = 0;
+                      const cur = new Date(start);
+                      while (cur <= end) { count++; cur.setMonth(cur.getMonth() + freqMonths); }
+                      return count;
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => toggleActive.mutate({ id: rec.id, active: !rec.is_active })}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        title={rec.is_active ? "Pausar" : "Ativar"}
-                      >
-                        {rec.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </button>
                       {(isAdmin || isManager) && (
                         <>
                           <button
@@ -518,10 +512,9 @@ export default function RecurringTransactions() {
 
               <div>
                 <Label>Fim da recorrência</Label>
-                <Select value={form.end_mode} onValueChange={(v: "none" | "date" | "duration") => setForm({ ...form, end_mode: v, end_month: "", duration_months: "" })}>
+                <Select value={form.end_mode} onValueChange={(v: "date" | "duration") => setForm({ ...form, end_mode: v, end_month: "", duration_months: "" })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Sem fim</SelectItem>
                     <SelectItem value="date">Mês/Ano final</SelectItem>
                     <SelectItem value="duration">Duração em meses</SelectItem>
                   </SelectContent>
