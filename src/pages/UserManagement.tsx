@@ -48,12 +48,21 @@ export default function UserManagement() {
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string; newRole: AppRole }) => {
+    mutationFn: async ({ userId, newRole, oldRole, userName }: { userId: string; newRole: AppRole; oldRole: AppRole; userName: string }) => {
       const { error } = await supabase
         .from("user_roles")
         .update({ role: newRole })
         .eq("user_id", userId);
       if (error) throw error;
+      await logAudit({
+        entity_type: "user_role",
+        entity_id: userId,
+        action: "update",
+        changed_by: getAuditUser(user),
+        old_data: { role: oldRole },
+        new_data: { role: newRole },
+        metadata: { user_name: userName },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users-with-roles"] });
