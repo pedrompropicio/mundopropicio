@@ -236,6 +236,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Advanced Charts */}
+      <DashboardCharts transactions={transactions} events={events} categories={categories} />
+
       {/* Recent Transactions */}
       <div className="glass rounded-xl p-5">
         <div className="mb-4 flex items-center justify-between">
