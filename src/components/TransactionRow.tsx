@@ -138,18 +138,24 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         </td>
         <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
           <div className="flex items-center gap-1.5">
-            <span>{new Date(t.due_date ?? t.date).toLocaleDateString("pt-PT")}</span>
-            {isExpense && computedStatus !== "paid" && t.due_date && new Date(t.due_date) < new Date() && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-destructive">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  Vencido há {Math.floor((Date.now() - new Date(t.due_date).getTime()) / 86400000)} dia(s)
-                </TooltipContent>
-              </Tooltip>
+            {t.due_date ? (
+              <>
+                <span>{new Date(t.due_date).toLocaleDateString("pt-PT")}</span>
+                {computedStatus !== "paid" && new Date(t.due_date) < new Date() && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Vencido há {Math.floor((Date.now() - new Date(t.due_date).getTime()) / 86400000)} dia(s)
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </>
+            ) : (
+              <span className="text-muted-foreground/50 italic text-xs">Indefinido</span>
             )}
           </div>
         </td>
