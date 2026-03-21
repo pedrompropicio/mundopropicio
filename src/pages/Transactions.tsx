@@ -230,7 +230,7 @@ export default function Transactions() {
       const amount = Number(t.amount);
       const isPaid = t.status === "paid" || paidAmount >= amount;
 
-      if (!isPaid && due < today && t.status !== "pending") {
+      if (!isPaid && due < today) {
         overdue.push(t);
       } else if (due >= periodStart && due <= periodEnd) {
         inPeriod.push(t);
