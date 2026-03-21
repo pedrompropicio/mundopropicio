@@ -861,11 +861,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   <td className="py-1.5 pr-2">
                                     <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
                                   </td>
-                                  <td className="hidden py-1.5 pr-2 sm:table-cell">
-                                    <select value={inlineForm.category_id} onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })} className={inputClass}>
-                                      <option value="">—</option>
-                                      {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-                                    </select>
+                                   <td className="hidden py-1.5 pr-2 sm:table-cell">
+                                     <SearchableSelect
+                                       options={expenseCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+                                       value={inlineForm.category_id}
+                                       onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
+                                       placeholder="Categoria…"
+                                       searchPlaceholder="Pesquisar conta…"
+                                       className={inputClass}
+                                     />
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>

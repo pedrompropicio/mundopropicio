@@ -150,7 +150,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   );
 
   const eventOptions = events.map((ev) => ({ value: ev.id, label: ev.name }));
-  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: c.name }));
+  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
