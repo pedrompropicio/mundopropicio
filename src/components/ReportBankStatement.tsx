@@ -1,13 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Landmark, Lock } from "lucide-react";
+import { Download, Landmark, Lock, CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/export-bank-statement";
 import { useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
