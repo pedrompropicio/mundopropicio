@@ -686,14 +686,14 @@ export default function Transactions() {
           <div className="flex flex-wrap items-center gap-3 py-2">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Data pgto. de</label>
-              <Popover>
+              <Popover open={paidDateFromOpen} onOpenChange={setPaidDateFromOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateFrom && "text-muted-foreground")}>
                     {paidDateFrom ? format(paidDateFrom, "dd/MM/yyyy") : "Início"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateFrom} onSelect={setPaidDateFrom} locale={pt} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={paidDateFrom} onSelect={(d) => { setPaidDateFrom(d); setPaidDateFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
