@@ -333,6 +333,21 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
               onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }}
               className="space-y-4"
             >
+              {/* Account - first field */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta *</label>
+                <select
+                  value={form.account_id}
+                  onChange={(e) => setForm({ ...form, account_id: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Selecionar conta…</option>
+                  {activeAccounts.map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Operation type */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo de Operação *</label>
@@ -350,21 +365,6 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
                     {transactionType === "income" ? "Receita" : "Despesa"}
                   </Badge>
                 </div>
-              </div>
-
-              {/* Account */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta *</label>
-                <select
-                  value={form.account_id}
-                  onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="">Selecionar conta…</option>
-                  {activeAccounts.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
               </div>
 
               {/* Amount + Date */}
