@@ -11,6 +11,7 @@ import {
   FileCheck,
   BookOpen,
   ShieldCheck,
+  ShieldAlert,
   LogOut,
   Ticket,
   Landmark,
@@ -96,6 +97,19 @@ export function AppSidebar() {
             >
               <Database className="h-5 w-5 shrink-0" />
               <span className="hidden lg:block">Backups</span>
+            </RouterNavLink>
+            <RouterNavLink
+              to="/seguranca"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                location.pathname === "/seguranca"
+                  ? "bg-sidebar-accent text-foreground glow-primary"
+                  : "text-sidebar-foreground"
+              )}
+            >
+              <ShieldAlert className="h-5 w-5 shrink-0" />
+              <span className="hidden lg:block">Segurança</span>
             </RouterNavLink>
           </>
         )}

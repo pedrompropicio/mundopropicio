@@ -1,26 +1,33 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { Music2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { MfaVerify } from "@/components/MfaVerify";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"login" | "forgot" | "otp" | "new-password">("login");
+  const [mode, setMode] = useState<"login" | "forgot" | "otp" | "new-password" | "mfa">("login");
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+    // Check if MFA is required
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const hasTotp = factors?.totp && factors.totp.length > 0;
+    if (hasTotp) {
+      setMode("mfa");
     }
     setLoading(false);
   };
@@ -108,6 +115,7 @@ export default function Auth() {
             {mode === "forgot" && "Recuperar senha"}
             {mode === "otp" && "Introduza o código"}
             {mode === "new-password" && "Definir nova senha"}
+            {mode === "mfa" && "Verificação de segurança"}
           </p>
         </div>
 
@@ -264,6 +272,20 @@ export default function Auth() {
               {loading ? "A processar…" : "Definir senha"}
             </button>
           </form>
+        )}
+
+        {mode === "mfa" && (
+          <div className="glass rounded-xl p-6">
+            <MfaVerify
+              onVerified={() => {
+                toast({ title: "Autenticado!", description: "Verificação 2FA concluída." });
+              }}
+              onCancel={async () => {
+                await supabase.auth.signOut();
+                resetToLogin();
+              }}
+            />
+          </div>
         )}
       </div>
     </div>

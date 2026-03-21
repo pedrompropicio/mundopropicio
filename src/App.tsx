@@ -34,6 +34,7 @@ import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
 import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
+import SecurityDashboard from "./pages/SecurityDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -97,6 +98,7 @@ function ProtectedLayout() {
               </Route>
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="/backups" element={<DatabaseBackups />} />
+              <Route path="/seguranca" element={<SecurityDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

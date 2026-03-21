@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supplierSchema, validateForm } from "@/lib/validations";
 
 const supplierCategories = [
   "Som e Iluminação",
@@ -74,10 +75,12 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     onError: () => toast.error("Erro ao atualizar fornecedor"),
   });
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const payload = {
+    const raw = {
       name: fd.get("name") as string,
       trade_name: (fd.get("trade_name") as string) || null,
       nif: (fd.get("nif") as string) || null,
@@ -91,10 +94,17 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       category: (fd.get("category") as string) || null,
       notes: (fd.get("notes") as string) || null,
     };
+    const result = validateForm(supplierSchema, raw);
+    if (result.success === false) {
+      setValidationErrors(result.errors);
+      toast.error("Corrija os erros de validação");
+      return;
+    }
+    setValidationErrors({});
     if (isEditing) {
-      updateMutation.mutate(payload);
+      updateMutation.mutate(raw);
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate(raw);
     }
   };
 
