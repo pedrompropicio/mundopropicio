@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save } from "lucide-react";
+import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ const emptyForm: AccountForm = {
 export default function FinancialAccounts() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
@@ -356,13 +358,22 @@ export default function FinancialAccounts() {
                         </TableCell>
                         {isAdmin && (
                           <TableCell className="text-right">
-                            <button
-                              onClick={() => startEdit(acc)}
-                              className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
-                              title="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => navigate(`/relatorios/extrato-bancario?conta=${acc.id}`)}
+                                className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
+                                title="Ver extrato"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => startEdit(acc)}
+                                className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
