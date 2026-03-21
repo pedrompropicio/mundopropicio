@@ -384,7 +384,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={eventOptions}
               value={form.event_id}
-              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "" }); setPlExpanded(true); setShowProrationConfirm(false); }}
+              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" }); setPlExpanded(true); setShowProrationConfirm(false); setPlOverride(false); }}
               placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
               searchPlaceholder="Pesquisar evento…"
             />
