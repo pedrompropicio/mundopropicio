@@ -262,6 +262,8 @@ export default function RecurringTransactions() {
 
   const openEdit = (rec: any) => {
     setEditId(rec.id);
+    const startMonth = rec.start_date ? rec.start_date.slice(0, 7) : currentMonth;
+    const endMonth = rec.end_date ? rec.end_date.slice(0, 7) : "";
     setForm({
       description: rec.description,
       type: rec.type,
@@ -274,8 +276,10 @@ export default function RecurringTransactions() {
       specification: rec.specification ?? "",
       frequency: rec.frequency,
       day_of_month: rec.day_of_month,
-      start_date: rec.start_date,
-      end_date: rec.end_date ?? "",
+      start_month: startMonth,
+      end_mode: rec.end_date ? "date" : "none",
+      end_month: endMonth,
+      duration_months: "",
     });
     setShowForm(true);
   };
