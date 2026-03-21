@@ -59,9 +59,14 @@ interface RecurringForm {
   specification: string;
   frequency: string;
   day_of_month: number;
-  start_date: string;
-  end_date: string;
+  start_month: string; // YYYY-MM
+  end_mode: "none" | "date" | "duration";
+  end_month: string; // YYYY-MM
+  duration_months: string;
 }
+
+const now = new Date();
+const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
 const emptyForm: RecurringForm = {
   description: "",
@@ -75,8 +80,10 @@ const emptyForm: RecurringForm = {
   specification: "",
   frequency: "monthly",
   day_of_month: 1,
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: "",
+  start_month: currentMonth,
+  end_mode: "none",
+  end_month: "",
+  duration_months: "",
 };
 
 export default function RecurringTransactions() {
