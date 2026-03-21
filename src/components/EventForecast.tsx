@@ -512,16 +512,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           </td>
         )}
         <td className="hidden py-1.5 pr-2 sm:table-cell">
-          <select
+          <SearchableSelect
+            options={cats.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
             value={inlineForm.category_id}
-            onChange={(e) => setInlineForm({ ...inlineForm, category_id: e.target.value })}
+            onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
+            placeholder="Categoria…"
+            searchPlaceholder="Pesquisar conta…"
             className={inputClass}
-          >
-            <option value="">—</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
-            ))}
-          </select>
+          />
         </td>
         <td className="py-1.5 pr-2">
           <select
