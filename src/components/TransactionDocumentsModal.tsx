@@ -11,6 +11,24 @@ interface Props {
   onClose: () => void;
 }
 
+/** Extract the storage path from a file_url (supports both old public URLs and new path-only format) */
+function extractStoragePath(fileUrl: string): string {
+  // If it's already just a path (no http), return as-is
+  if (!fileUrl.startsWith("http")) return fileUrl;
+  // Old format: full public URL
+  const marker = "/storage/v1/object/public/transaction-documents/";
+  const idx = fileUrl.indexOf(marker);
+  if (idx !== -1) return fileUrl.substring(idx + marker.length);
+  // Fallback: try signed URL pattern
+  const signedMarker = "/storage/v1/object/sign/transaction-documents/";
+  const sIdx = fileUrl.indexOf(signedMarker);
+  if (sIdx !== -1) {
+    const pathWithQuery = fileUrl.substring(sIdx + signedMarker.length);
+    return pathWithQuery.split("?")[0];
+  }
+  return fileUrl;
+}
+
 export function TransactionDocumentsModal({ transactionId, transactionDescription, onClose }: Props) {
   const [uploading, setUploading] = useState(false);
   const queryClient = useQueryClient();
@@ -31,11 +49,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
 
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string }) => {
-      // Extract path from URL
-      const url = new URL(doc.file_url);
-      const pathParts = url.pathname.split("/storage/v1/object/public/transaction-documents/");
-      if (pathParts[1]) {
-        await supabase.storage.from("transaction-documents").remove([pathParts[1]]);
+      const storagePath = extractStoragePath(doc.file_url);
+      if (storagePath) {
+        await supabase.storage.from("transaction-documents").remove([storagePath]);
       }
       const { error } = await supabase.from("transaction_documents").delete().eq("id", doc.id);
       if (error) throw error;
@@ -68,14 +84,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         .upload(filePath, file);
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from("transaction-documents")
-        .getPublicUrl(filePath);
-
+      // Store just the path — signed URLs are generated on demand
       const { error: dbError } = await supabase.from("transaction_documents").insert({
         transaction_id: transactionId,
         name: file.name,
-        file_url: urlData.publicUrl,
+        file_url: filePath,
         doc_type: getDocType(file.name),
         uploaded_by: user?.email ?? "sistema",
       });
@@ -89,6 +102,18 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       setUploading(false);
       e.target.value = "";
     }
+  };
+
+  const handleOpenDocument = async (fileUrl: string) => {
+    const storagePath = extractStoragePath(fileUrl);
+    const { data, error } = await supabase.storage
+      .from("transaction-documents")
+      .createSignedUrl(storagePath, 3600); // 1 hour expiry
+    if (error || !data?.signedUrl) {
+      toast({ title: "Erro ao abrir documento", description: error?.message ?? "URL não disponível", variant: "destructive" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
   };
 
   return (
@@ -130,15 +155,13 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <a
-                    href={doc.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => handleOpenDocument(doc.file_url)}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                     title="Abrir"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
+                  </button>
                   <button
                     onClick={() => {
                       if (confirm("Remover este documento?")) {
