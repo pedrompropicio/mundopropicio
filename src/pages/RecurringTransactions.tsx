@@ -312,6 +312,12 @@ export default function RecurringTransactions() {
     setShowForm(true);
   };
 
+  const formatMonthYear = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    const [y, m] = dateStr.slice(0, 7).split("-");
+    return `${m}/${y}`;
+  };
+
   const freqLabel = (f: string) => FREQUENCIES.find((x) => x.value === f)?.label ?? f;
 
   const getCategoryLabel = (id: string | null) => {
