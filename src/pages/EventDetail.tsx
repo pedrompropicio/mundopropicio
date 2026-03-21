@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
@@ -72,6 +72,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 
 export default function EventDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
@@ -160,6 +161,35 @@ export default function EventDetail() {
     },
     onError: (err: any) => {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async () => {
+      // Delete related data first
+      await supabase.from("event_dates").delete().eq("event_id", id!);
+      await supabase.from("event_forecasts").delete().eq("event_id", id!);
+      await supabase.from("event_cache_configs").delete().eq("event_id", id!);
+      // Delete ticket lots via zones
+      const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
+      if (zones && zones.length > 0) {
+        const zoneIds = zones.map(z => z.id);
+        await supabase.from("event_ticket_lots").delete().in("zone_id", zoneIds);
+        await supabase.from("ticket_sales").delete().in("zone_id", zoneIds);
+      }
+      await supabase.from("event_ticket_zones").delete().eq("event_id", id!);
+      // Delete the event itself
+      const { error } = await supabase.from("events").delete().eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events_full"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      toast({ title: "Evento eliminado com sucesso!" });
+      navigate("/eventos");
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao eliminar", description: err.message, variant: "destructive" });
     },
   });
 
@@ -268,6 +298,19 @@ export default function EventDetail() {
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors disabled:opacity-50"
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Reativar Evento
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  if (confirm("Tem a certeza que deseja eliminar este evento? Esta ação é irreversível e eliminará todos os dados associados (previsões, bilhetes, cachês).")) {
+                    deleteEventMutation.mutate();
+                  }
+                }}
+                disabled={deleteEventMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> {deleteEventMutation.isPending ? "A eliminar…" : "Eliminar"}
               </button>
             )}
           </div>
