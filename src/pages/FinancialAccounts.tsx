@@ -431,6 +431,12 @@ export default function FinancialAccounts() {
           )}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="operations">
+          <FinancialOperationsTab accounts={accounts} isAdmin={isAdmin} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
