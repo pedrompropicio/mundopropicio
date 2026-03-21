@@ -42,16 +42,19 @@ export default function ReportMovementReconciliation() {
     },
   });
 
+  const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
+  const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
+
   const { data: allTransactions = [] } = useQuery({
-    queryKey: ["movement-report-tx", dateFrom, dateTo, fullPeriod],
+    queryKey: ["movement-report-tx", dateFromStr, dateToStr, fullPeriod],
     queryFn: async () => {
       let q = supabase
         .from("transactions")
         .select("*, events(name, parent_event_id), suppliers(name), financial_accounts(name)")
         .order("date", { ascending: true });
       if (!fullPeriod) {
-        if (dateFrom) q = q.gte("date", dateFrom);
-        if (dateTo) q = q.lte("date", dateTo);
+        if (dateFromStr) q = q.gte("date", dateFromStr);
+        if (dateToStr) q = q.lte("date", dateToStr);
       }
       const { data, error } = await q;
       if (error) throw error;
