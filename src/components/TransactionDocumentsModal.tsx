@@ -174,7 +174,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                   <button
                     onClick={() => {
                       if (confirm("Remover este documento?")) {
-                        deleteMutation.mutate({ id: doc.id, file_url: doc.file_url });
+                        deleteMutation.mutate({ id: doc.id, file_url: doc.file_url, name: doc.name });
                       }
                     }}
                     className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors"
