@@ -37,6 +37,7 @@ const emptyForm: TransactionForm = {
   date: new Date().toISOString().split("T")[0],
   due_date: "",
   specification: "",
+  pl_override_note: "",
 };
 
 const formatDueDateInput = (value: string) => {
