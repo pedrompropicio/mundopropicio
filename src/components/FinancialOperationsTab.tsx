@@ -198,7 +198,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
               category_id: form.category_id,
               account_id: form.account_id,
               date: format(txDate, "yyyy-MM-dd"),
-              status: transactionType === "income" ? "approved" : "to_pay",
+              status: "approved",
               iva_rate: 0,
               paid_amount: 0,
             });
