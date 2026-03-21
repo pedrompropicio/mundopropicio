@@ -203,6 +203,7 @@ export default function Transactions() {
         const amount = Number(t.amount);
         return paidAmount < amount || t.status !== "paid";
       })
+      .filter((t) => !onlyPending || t.status === "pending")
   );
 
   // Paid transactions filtered by payment date range
