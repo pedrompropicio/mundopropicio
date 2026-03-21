@@ -60,7 +60,10 @@ function ProtectedLayout() {
           alt="Mundo Propício Entretenimento"
           className="h-9 object-contain"
         />
-        <GlobalSearch />
+        <div className="flex items-center gap-2">
+          <GlobalSearch />
+          <NotificationBell />
+        </div>
       </header>
       <div className="flex pt-14">
         <AppSidebar />
