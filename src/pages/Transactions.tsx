@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, Eye, ArrowRightLeft } from "lucide-react";
+import { Plus, ShieldCheck, Filter, Eye, ArrowRightLeft, CalendarDays } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -30,8 +30,11 @@ import {
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
-  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
+  const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
+  const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -167,38 +170,85 @@ export default function Transactions() {
     },
   });
 
-  const sortTransactionsByDueDate = <T extends { due_date: string | null; date: string; created_at: string }>(items: T[]) => {
+  const sortByDueDate = <T extends { due_date: string | null; date: string; created_at: string }>(items: T[]) => {
     return [...items].sort((a, b) => {
       const aPrimary = a.due_date ?? a.date;
       const bPrimary = b.due_date ?? b.date;
-
-      if (aPrimary !== bPrimary) {
-        return aPrimary.localeCompare(bPrimary);
-      }
-
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
-      }
-
+      if (aPrimary !== bPrimary) return aPrimary.localeCompare(bPrimary);
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
       return a.created_at.localeCompare(b.created_at);
     });
   };
 
-  // Default: only open (not paid) transactions
-  const filtered = sortTransactionsByDueDate(
-    (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
-      .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
-      .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
-      .filter((t) => {
-        const paidAmount = Number(t.paid_amount ?? 0);
-        const amount = Number(t.amount);
-        return paidAmount < amount || t.status !== "paid";
-      })
-      .filter((t) => !onlyPending || t.status === "pending")
-  );
+  // Base filter (type, event, account, open only)
+  const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
+    .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+    .filter((t) => {
+      const paidAmount = Number(t.paid_amount ?? 0);
+      const amount = Number(t.amount);
+      return paidAmount < amount || t.status !== "paid";
+    })
+    .filter((t) => !onlyPending || t.status === "pending");
 
-  // Paid transactions filtered by payment date range
-  const paidTransactions = sortTransactionsByDueDate(
+  // Group transactions: overdue, period, no-date
+  const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdue: typeof baseFiltered = [];
+    const inPeriod: typeof baseFiltered = [];
+    const noDate: typeof baseFiltered = [];
+    const outOfPeriod: typeof baseFiltered = []; // not shown but needed for separation
+
+    // Compute period end date
+    let periodEnd: Date;
+    if (duePeriod === "day") {
+      periodEnd = new Date(today);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (duePeriod === "week") {
+      periodEnd = new Date(today);
+      periodEnd.setDate(periodEnd.getDate() + 7);
+    } else if (duePeriod === "month") {
+      periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else {
+      // range
+      periodEnd = rangeTo ? new Date(rangeTo) : new Date(today.getFullYear() + 10, 0, 1);
+      periodEnd.setHours(23, 59, 59, 999);
+    }
+
+    const periodStart = duePeriod === "range" && rangeFrom ? new Date(rangeFrom) : today;
+    if (duePeriod === "range" && rangeFrom) periodStart.setHours(0, 0, 0, 0);
+
+    baseFiltered.forEach((t) => {
+      if (!t.due_date) {
+        noDate.push(t);
+        return;
+      }
+      const due = new Date(t.due_date);
+      const paidAmount = Number(t.paid_amount ?? 0);
+      const amount = Number(t.amount);
+      const isPaid = t.status === "paid" || paidAmount >= amount;
+
+      if (!isPaid && due < today && t.status !== "pending") {
+        overdue.push(t);
+      } else if (due >= periodStart && due <= periodEnd) {
+        inPeriod.push(t);
+      } else {
+        // Outside period — still show but in period group for completeness
+        inPeriod.push(t);
+      }
+    });
+
+    return {
+      overdueGroup: sortByDueDate(overdue),
+      periodGroup: sortByDueDate(inPeriod),
+      noDateGroup: sortByDueDate(noDate),
+    };
+  }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
+
+  const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
+  const paidTransactions = sortByDueDate(
     (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
@@ -400,6 +450,62 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
+        {/* Period filter */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="text-sm font-normal">
+              <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+              {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex flex-col gap-1">
+              {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setDuePeriod(val)}
+                  className={cn(
+                    "rounded px-3 py-1.5 text-sm text-left transition-colors",
+                    duePeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              {duePeriod === "range" && (
+                <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">De</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeFrom && "text-muted-foreground")}>
+                          {rangeFrom ? format(rangeFrom, "dd/MM/yyyy") : "Início"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={rangeFrom} onSelect={setRangeFrom} locale={pt} className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Até</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeTo && "text-muted-foreground")}>
+                          {rangeTo ? format(rangeTo, "dd/MM/yyyy") : "Fim"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={rangeTo} onSelect={setRangeTo} locale={pt} className="p-3 pointer-events-auto" />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         {/* Filtro Aguardando */}
         <Button
           variant={onlyPending ? "default" : "outline"}
@@ -467,7 +573,19 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filtered.map((t) => (
+                {overdueGroup.length > 0 && (
+                  <tr>
+                    <td colSpan={10} className="pt-4 pb-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive">
+                          🔴 Vencidas ({overdueGroup.length})
+                        </span>
+                        <div className="flex-1 border-t border-destructive/20" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {overdueGroup.map((t) => (
                   <TransactionRow
                     key={t.id}
                     transaction={t}
@@ -478,15 +596,73 @@ export default function Transactions() {
                     showSelectColumn={isAdmin && pendingInView.length > 0}
                     eventCompleted={(t.events as any)?.status === "completed"}
                     onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => {
-                      approveMutation.mutate(id);
-                    }}
+                    onApprove={(id) => approveMutation.mutate(id)}
                     onPayment={(id) => setShowPaymentId(id)}
                     onDocs={(id) => setShowDocsId(id)}
                     onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => {
-                      deleteMutation.mutate(id);
-                    }}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                  />
+                ))}
+
+                {periodGroup.length > 0 && (
+                  <tr>
+                    <td colSpan={10} className="pt-4 pb-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                          📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
+                        </span>
+                        <div className="flex-1 border-t border-primary/20" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {periodGroup.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    transaction={t}
+                    isAdmin={isAdmin}
+                    selectable={isAdmin && t.status === "pending"}
+                    selected={selectedIds.has(t.id)}
+                    onToggleSelect={() => toggleSelect(t.id)}
+                    showSelectColumn={isAdmin && pendingInView.length > 0}
+                    eventCompleted={(t.events as any)?.status === "completed"}
+                    onEdit={(id) => setEditingId(id)}
+                    onApprove={(id) => approveMutation.mutate(id)}
+                    onPayment={(id) => setShowPaymentId(id)}
+                    onDocs={(id) => setShowDocsId(id)}
+                    onAudit={(id) => setShowAuditId(id)}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                  />
+                ))}
+
+                {noDateGroup.length > 0 && (
+                  <tr>
+                    <td colSpan={10} className="pt-4 pb-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                          ➖ Sem data de vencimento ({noDateGroup.length})
+                        </span>
+                        <div className="flex-1 border-t border-border/30" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {noDateGroup.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    transaction={t}
+                    isAdmin={isAdmin}
+                    selectable={isAdmin && t.status === "pending"}
+                    selected={selectedIds.has(t.id)}
+                    onToggleSelect={() => toggleSelect(t.id)}
+                    showSelectColumn={isAdmin && pendingInView.length > 0}
+                    eventCompleted={(t.events as any)?.status === "completed"}
+                    onEdit={(id) => setEditingId(id)}
+                    onApprove={(id) => approveMutation.mutate(id)}
+                    onPayment={(id) => setShowPaymentId(id)}
+                    onDocs={(id) => setShowDocsId(id)}
+                    onAudit={(id) => setShowAuditId(id)}
+                    onDelete={(id) => deleteMutation.mutate(id)}
                   />
                 ))}
               </tbody>
