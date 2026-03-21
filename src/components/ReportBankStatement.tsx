@@ -1,20 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Landmark, Lock } from "lucide-react";
+import { Download, Landmark, Lock, CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/export-bank-statement";
 import { useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
   const [searchParams] = useSearchParams();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(searchParams.get("conta") ?? "");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateFromOpen, setDateFromOpen] = useState(false);
+  const [dateToOpen, setDateToOpen] = useState(false);
   const [generated, setGenerated] = useState(false);
 
   const { data: accounts = [] } = useQuery({
@@ -26,8 +34,11 @@ export default function ReportBankStatement() {
     },
   });
 
+  const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
+  const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
+
   const { data: transactions = [] } = useQuery({
-    queryKey: ["bank-statement-tx", selectedAccountId, dateFrom, dateTo],
+    queryKey: ["bank-statement-tx", selectedAccountId, dateFromStr, dateToStr],
     queryFn: async () => {
       if (!selectedAccountId) return [];
       let q = supabase
@@ -35,8 +46,8 @@ export default function ReportBankStatement() {
         .select("*, events(name), suppliers(name)")
         .eq("account_id", selectedAccountId)
         .order("date", { ascending: true });
-      if (dateFrom) q = q.gte("date", dateFrom);
-      if (dateTo) q = q.lte("date", dateTo);
+      if (dateFromStr) q = q.gte("date", dateFromStr);
+      if (dateToStr) q = q.lte("date", dateToStr);
       const { data, error } = await q;
       if (error) throw error;
       return data;
@@ -81,24 +92,24 @@ export default function ReportBankStatement() {
 
   // Fetch all transactions for opening balance calculation
   const { data: allAccountTx = [] } = useQuery({
-    queryKey: ["bank-statement-all-tx", selectedAccountId, dateFrom],
+    queryKey: ["bank-statement-all-tx", selectedAccountId, dateFromStr],
     queryFn: async () => {
-      if (!selectedAccountId || !dateFrom) return [];
+      if (!selectedAccountId || !dateFromStr) return [];
       const { data, error } = await supabase
         .from("transactions")
         .select("type, amount")
         .eq("account_id", selectedAccountId)
-        .lt("date", dateFrom);
+        .lt("date", dateFromStr);
       if (error) throw error;
       return data;
     },
-    enabled: generated && !!selectedAccountId && !!dateFrom,
+    enabled: generated && !!selectedAccountId && !!dateFromStr,
   });
 
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
     let bal = Number(selectedAccount.initial_balance ?? 0);
-    if (dateFrom) {
+    if (dateFromStr) {
       allAccountTx.forEach((t: any) => {
         const amt = Number(t.amount);
         if (t.type === "income") bal += amt;
@@ -150,17 +161,31 @@ export default function ReportBankStatement() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Início</label>
-            <input type="date" value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value); setGenerated(false); }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+            <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Selecionar…"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateFrom} onSelect={(d) => { setDateFrom(d); setGenerated(false); setDateFromOpen(false); }} locale={pt} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Fim</label>
-            <input type="date" value={dateTo}
-              onChange={(e) => { setDateTo(e.target.value); setGenerated(false); }}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+            <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTo ? format(dateTo, "dd/MM/yyyy") : "Selecionar…"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateTo} onSelect={(d) => { setDateTo(d); setGenerated(false); setDateToOpen(false); }} locale={pt} initialFocus className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex items-end">
             <button
@@ -191,7 +216,7 @@ export default function ReportBankStatement() {
           {/* Export buttons */}
           <div className="flex items-center justify-end gap-2">
             <button
-              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFrom, dateTo)}
+              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
               disabled={lines.length === 0}
               className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
             >
@@ -199,7 +224,7 @@ export default function ReportBankStatement() {
               <span className="hidden sm:inline">Exportar PDF</span>
             </button>
             <button
-              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFrom, dateTo)}
+              onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
               disabled={lines.length === 0}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
             >
@@ -254,7 +279,7 @@ export default function ReportBankStatement() {
                 <TableBody>
                   {/* Opening balance row */}
                   <TableRow className="bg-secondary/20">
-                    <TableCell className="font-medium text-xs">{dateFrom || "—"}</TableCell>
+                    <TableCell className="font-medium text-xs">{dateFromStr || "—"}</TableCell>
                     <TableCell colSpan={2} className="font-bold text-xs uppercase tracking-wider">Saldo Inicial</TableCell>
                     <TableCell className="text-right">—</TableCell>
                     <TableCell className="text-right">—</TableCell>
@@ -295,7 +320,7 @@ export default function ReportBankStatement() {
 
                   {/* Closing balance row */}
                   <TableRow className="border-t-2 border-primary/30 bg-primary/5">
-                    <TableCell className="font-medium text-xs">{dateTo || "—"}</TableCell>
+                    <TableCell className="font-medium text-xs">{dateToStr || "—"}</TableCell>
                     <TableCell colSpan={2} className="font-bold text-xs uppercase tracking-wider">Saldo Final</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-success">{formatCurrency(totalIncome)}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-warning">{formatCurrency(totalExpense)}</TableCell>

@@ -1,4 +1,3 @@
-import React, { lazy } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
@@ -38,7 +37,7 @@ import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import NotFound from "./pages/NotFound";
-import DatePickerDemo from "./components/DatePickerDemo";
+
 
 const queryClient = new QueryClient();
 
@@ -101,7 +100,7 @@ function ProtectedLayout() {
                 <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
                 <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
               </Route>
-              <Route path="/demo-datepicker" element={<React.Suspense fallback={<div>Loading...</div>}><DatePickerDemo /></React.Suspense>} />
+              
               <Route path="/utilizadores" element={<UserManagement />} />
               <Route path="/backups" element={<DatabaseBackups />} />
               <Route path="/seguranca" element={<SecurityDashboard />} />
