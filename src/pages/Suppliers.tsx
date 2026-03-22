@@ -218,7 +218,6 @@ export default function Suppliers() {
                   <th className="hidden pb-3 text-left font-medium md:table-cell">Categoria</th>
                   <th className="hidden pb-3 text-left font-medium lg:table-cell">Email</th>
                   <th className="hidden pb-3 text-left font-medium lg:table-cell">Telefone</th>
-                  <th className="pb-3 text-center font-medium">Rating</th>
                   <th className="pb-3 text-center font-medium">Ações</th>
                 </tr>
               </thead>
