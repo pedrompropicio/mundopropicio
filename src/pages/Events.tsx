@@ -63,10 +63,14 @@ export default function Events() {
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
-    const saved = localStorage.getItem("events-view-mode");
-    return saved === "list" ? "list" : "cards";
+  const [viewMode, setViewModeState] = useState<"cards" | "list">(() => {
+    try { const s = localStorage.getItem("events-view-mode"); if (s === "list") return "list"; } catch {}
+    return "cards";
   });
+  const setViewMode = useCallback((mode: "cards" | "list") => {
+    setViewModeState(mode);
+    try { localStorage.setItem("events-view-mode", mode); } catch {}
+  }, []);
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
