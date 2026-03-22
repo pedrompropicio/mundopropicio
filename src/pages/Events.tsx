@@ -719,9 +719,15 @@ export default function Events() {
             <thead>
               <tr className="border-b border-border/50 text-left text-xs font-medium text-muted-foreground">
                 <th className="px-4 py-3">Evento</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Data</th>
-                <th className="px-4 py-3 hidden md:table-cell">Local</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Estado</th>
+                <th className="px-4 py-3 hidden sm:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("date")}>
+                  <div className="flex items-center gap-1">Data <SortIcon field="date" /></div>
+                </th>
+                <th className="px-4 py-3 hidden md:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("location")}>
+                  <div className="flex items-center gap-1">Local <SortIcon field="location" /></div>
+                </th>
+                <th className="px-4 py-3 hidden sm:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("status")}>
+                  <div className="flex items-center gap-1">Estado <SortIcon field="status" /></div>
+                </th>
                 <th className="px-4 py-3 text-right">Receitas</th>
                 <th className="px-4 py-3 text-right">Despesas</th>
                 <th className="px-4 py-3 text-right hidden sm:table-cell">Lucro</th>
