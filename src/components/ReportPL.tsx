@@ -728,7 +728,17 @@ export default function ReportPL() {
 
                           return (
                             <TableRow key={i} className={rowClass}>
-                              <TableCell className={labelClass}>{line.label}</TableCell>
+                              <TableCell className={labelClass}>
+                                <span className="inline-flex items-center gap-1.5">
+                                  {line.label}
+                                  {hasOverride && (
+                                    <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
+                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                      {line.overrideCount} fora do P&L
+                                    </span>
+                                  )}
+                                </span>
+                              </TableCell>
                               <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.quantity != null ? line.quantity.toLocaleString("pt-PT") : ""}
                               </TableCell>
