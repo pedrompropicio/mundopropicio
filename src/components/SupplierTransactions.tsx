@@ -109,7 +109,6 @@ function TransactionLine({ tx }: { tx: any }) {
         <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
           <span>{format(new Date(tx.date), "dd/MM/yyyy")}</span>
           {tx.events?.name && <span className="text-primary">🎤 {tx.events.name}</span>}
-          {tx.suppliers?.name && <span>· {tx.suppliers.trade_name || tx.suppliers.name}</span>}
           {tx.specification && <span>· {tx.specification}</span>}
           {isOverdue && (
             <span className="flex items-center gap-0.5 text-destructive font-medium">
