@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, Eye, ArrowRightLeft, CalendarDays } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -21,23 +21,22 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
+  const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
+  const [paidPeriod, setPaidPeriod] = useState<"yesterday" | "week" | "month" | "range">("week");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
+  const [paidPeriodPopoverOpen, setPaidPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
   const [rangeFromOpen, setRangeFromOpen] = useState(false);
   const [rangeToOpen, setRangeToOpen] = useState(false);
-  const [paidDateFromOpen, setPaidDateFromOpen] = useState(false);
-  const [paidDateToOpen, setPaidDateToOpen] = useState(false);
+  const [paidRangeFrom, setPaidRangeFrom] = useState<Date | undefined>(undefined);
+  const [paidRangeTo, setPaidRangeTo] = useState<Date | undefined>(undefined);
+  const [paidRangeFromOpen, setPaidRangeFromOpen] = useState(false);
+  const [paidRangeToOpen, setPaidRangeToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
@@ -47,10 +46,7 @@ export default function Transactions() {
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showPaidDialog, setShowPaidDialog] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [paidDateFrom, setPaidDateFrom] = useState<Date | undefined>(undefined);
-  const [paidDateTo, setPaidDateTo] = useState<Date | undefined>(undefined);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
 
@@ -298,26 +294,51 @@ export default function Transactions() {
   }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
-  const paidTransactions = sortByDueDate(
-    (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+
+  // Paid transactions filtered by payment_date period
+  const paidTransactions = useMemo(() => {
+    const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
-        if (paidAmount < amount && t.status !== "paid") return false;
-        if (!paidDateFrom && !paidDateTo) return true;
-        const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
-        if (!paymentDate) return false;
-        if (paidDateFrom && paymentDate < paidDateFrom) return false;
-        if (paidDateTo) {
-          const endOfDay = new Date(paidDateTo);
-          endOfDay.setHours(23, 59, 59, 999);
-          if (paymentDate > endOfDay) return false;
-        }
-        return true;
-      })
-  );
+        return paidAmount >= amount || t.status === "paid";
+      });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let periodStart: Date;
+    let periodEnd: Date;
+
+    if (paidPeriod === "yesterday") {
+      periodStart = new Date(today);
+      periodStart.setDate(periodStart.getDate() - 1);
+      periodEnd = new Date(periodStart);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (paidPeriod === "week") {
+      periodStart = new Date(today);
+      periodStart.setDate(periodStart.getDate() - 7);
+      periodEnd = new Date(today);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (paidPeriod === "month") {
+      periodStart = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+      periodEnd = new Date(today);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else {
+      periodStart = paidRangeFrom ? new Date(paidRangeFrom) : new Date(2000, 0, 1);
+      periodEnd = paidRangeTo ? new Date(paidRangeTo) : new Date(today.getFullYear() + 10, 0, 1);
+      periodEnd.setHours(23, 59, 59, 999);
+    }
+    periodStart.setHours(0, 0, 0, 0);
+
+    return sortByDueDate(base.filter((t) => {
+      const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
+      if (!paymentDate) return false;
+      return paymentDate >= periodStart && paymentDate <= periodEnd;
+    }));
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -500,82 +521,156 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
-        {/* Period filter */}
-        <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-sm font-normal">
-              <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-              {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <div className="flex flex-col gap-1">
-              {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => { setDuePeriod(val); if (val !== "range") setPeriodPopoverOpen(false); }}
-                  className={cn(
-                    "rounded px-3 py-1.5 text-sm text-left transition-colors",
-                    duePeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-              {duePeriod === "range" && (
-                <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">De</label>
-                    <Popover open={rangeFromOpen} onOpenChange={setRangeFromOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeFrom && "text-muted-foreground")}>
-                          {rangeFrom ? format(rangeFrom, "dd/MM/yyyy") : "Início"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeFrom} onSelect={(d) => { setRangeFrom(d); setRangeFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
-                      </PopoverContent>
-                    </Popover>
+        {/* Period filter (open view only) */}
+        {viewMode === "open" && (
+          <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="text-sm font-normal">
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <div className="flex flex-col gap-1">
+                {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => { setDuePeriod(val); if (val !== "range") setPeriodPopoverOpen(false); }}
+                    className={cn(
+                      "rounded px-3 py-1.5 text-sm text-left transition-colors",
+                      duePeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {duePeriod === "range" && (
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">De</label>
+                      <Popover open={rangeFromOpen} onOpenChange={setRangeFromOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeFrom && "text-muted-foreground")}>
+                            {rangeFrom ? format(rangeFrom, "dd/MM/yyyy") : "Início"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={rangeFrom} onSelect={(d) => { setRangeFrom(d); setRangeFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Até</label>
+                      <Popover open={rangeToOpen} onOpenChange={setRangeToOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeTo && "text-muted-foreground")}>
+                            {rangeTo ? format(rangeTo, "dd/MM/yyyy") : "Fim"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={rangeTo} onSelect={(d) => { setRangeTo(d); setRangeToOpen(false); setPeriodPopoverOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Até</label>
-                    <Popover open={rangeToOpen} onOpenChange={setRangeToOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !rangeTo && "text-muted-foreground")}>
-                          {rangeTo ? format(rangeTo, "dd/MM/yyyy") : "Fim"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={rangeTo} onSelect={(d) => { setRangeTo(d); setRangeToOpen(false); setPeriodPopoverOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
-                      </PopoverContent>
-                    </Popover>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Filtro Aprovação (open view only) */}
+        {viewMode === "open" && (
+          <Button
+            variant={onlyPending ? "default" : "outline"}
+            size="sm"
+            className="text-sm font-normal"
+            onClick={() => setOnlyPending(!onlyPending)}
+          >
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            Aprovação
+          </Button>
+        )}
+
+        {/* Toggle Em Aberto / Liquidadas */}
+        <div className="flex items-center rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setViewMode("open")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Em Aberto
+          </button>
+          <button
+            onClick={() => setViewMode("paid")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Liquidadas
+          </button>
+        </div>
+
+        {/* Period filter for paid view */}
+        {viewMode === "paid" && (
+          <Popover modal={false} open={paidPeriodPopoverOpen} onOpenChange={setPaidPeriodPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="text-sm font-normal">
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                {paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <div className="flex flex-col gap-1">
+                {([["yesterday", "Ontem"], ["week", "Última Semana"], ["month", "Último Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => { setPaidPeriod(val); if (val !== "range") setPaidPeriodPopoverOpen(false); }}
+                    className={cn(
+                      "rounded px-3 py-1.5 text-sm text-left transition-colors",
+                      paidPeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {paidPeriod === "range" && (
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">De</label>
+                      <Popover open={paidRangeFromOpen} onOpenChange={setPaidRangeFromOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !paidRangeFrom && "text-muted-foreground")}>
+                            {paidRangeFrom ? format(paidRangeFrom, "dd/MM/yyyy") : "Início"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={paidRangeFrom} onSelect={(d) => { setPaidRangeFrom(d); setPaidRangeFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Até</label>
+                      <Popover open={paidRangeToOpen} onOpenChange={setPaidRangeToOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !paidRangeTo && "text-muted-foreground")}>
+                            {paidRangeTo ? format(paidRangeTo, "dd/MM/yyyy") : "Fim"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={paidRangeTo} onSelect={(d) => { setPaidRangeTo(d); setPaidRangeToOpen(false); setPaidPeriodPopoverOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Filtro Aprovação */}
-        <Button
-          variant={onlyPending ? "default" : "outline"}
-          size="sm"
-          className="text-sm font-normal"
-          onClick={() => setOnlyPending(!onlyPending)}
-        >
-          <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-          Aprovação
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-sm font-normal"
-          onClick={() => setShowPaidDialog(true)}
-        >
-          <Eye className="mr-1.5 h-3.5 w-3.5" />
-          Ver Liquidadas
-        </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
 
         {isAdmin && selectedPendingCount > 0 && (
           <button
@@ -593,219 +688,182 @@ export default function Transactions() {
       <div className="glass rounded-xl p-5">
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar transações…</p>
-        ) : filtered.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  {isAdmin && pendingInView.length > 0 && (
-                    <th className="pb-3 pr-2 text-center font-medium w-8">
-                      <input
-                        type="checkbox"
-                        checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
-                        onChange={toggleSelectAll}
-                        className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
-                        title="Selecionar todas pendentes"
-                      />
-                    </th>
+        ) : viewMode === "open" ? (
+          /* ===== OPEN TRANSACTIONS VIEW ===== */
+          filtered.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                    {isAdmin && pendingInView.length > 0 && (
+                      <th className="pb-3 pr-2 text-center font-medium w-8">
+                        <input
+                          type="checkbox"
+                          checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
+                          onChange={toggleSelectAll}
+                          className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                          title="Selecionar todas pendentes"
+                        />
+                      </th>
+                    )}
+                    <th className="pb-3 text-left font-medium">Descrição</th>
+                    <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
+                    <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
+                    <th className="pb-3 text-left font-medium">Estado</th>
+                    <th className="pb-3 text-left font-medium">Data Vcto</th>
+                    <th className="pb-3 text-right font-medium">Pago</th>
+                    <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-3 text-center font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {overdueGroup.length > 0 && (
+                    <tr>
+                      <td colSpan={10} className="pt-4 pb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive">
+                            🔴 Vencidas ({overdueGroup.length})
+                          </span>
+                          <div className="flex-1 border-t border-destructive/20" />
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                  <th className="pb-3 text-left font-medium">Descrição</th>
-                  <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
-                  <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                  <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
-                  <th className="pb-3 text-left font-medium">Estado</th>
-                  <th className="pb-3 text-left font-medium">Data Vcto</th>
-                  <th className="pb-3 text-right font-medium">Pago</th>
-                  <th className="pb-3 text-right font-medium">Valor c/IVA</th>
-                  <th className="pb-3 text-center font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {overdueGroup.length > 0 && (
-                  <tr>
-                    <td colSpan={10} className="pt-4 pb-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive">
-                          🔴 Vencidas ({overdueGroup.length})
-                        </span>
-                        <div className="flex-1 border-t border-destructive/20" />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {overdueGroup.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    transaction={t}
-                    isAdmin={isAdmin}
-                    selectable={isAdmin && t.status === "pending"}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={() => toggleSelect(t.id)}
-                    showSelectColumn={isAdmin && pendingInView.length > 0}
-                    eventCompleted={(t.events as any)?.status === "completed"}
-                    onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onPayment={(id) => setShowPaymentId(id)}
-                    onDocs={(id) => setShowDocsId(id)}
-                    onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
+                  {overdueGroup.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={isAdmin && t.status === "pending"}
+                      selected={selectedIds.has(t.id)}
+                      onToggleSelect={() => toggleSelect(t.id)}
+                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
 
-                {periodGroup.length > 0 && (
-                  <tr>
-                    <td colSpan={10} className="pt-4 pb-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-                          📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
-                        </span>
-                        <div className="flex-1 border-t border-primary/20" />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {periodGroup.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    transaction={t}
-                    isAdmin={isAdmin}
-                    selectable={isAdmin && t.status === "pending"}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={() => toggleSelect(t.id)}
-                    showSelectColumn={isAdmin && pendingInView.length > 0}
-                    eventCompleted={(t.events as any)?.status === "completed"}
-                    onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onPayment={(id) => setShowPaymentId(id)}
-                    onDocs={(id) => setShowDocsId(id)}
-                    onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
+                  {periodGroup.length > 0 && (
+                    <tr>
+                      <td colSpan={10} className="pt-4 pb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                            📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
+                          </span>
+                          <div className="flex-1 border-t border-primary/20" />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {periodGroup.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={isAdmin && t.status === "pending"}
+                      selected={selectedIds.has(t.id)}
+                      onToggleSelect={() => toggleSelect(t.id)}
+                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
 
-                {noDateGroup.length > 0 && (
-                  <tr>
-                    <td colSpan={10} className="pt-4 pb-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                          ➖ Sem data de vencimento ({noDateGroup.length})
-                        </span>
-                        <div className="flex-1 border-t border-border/30" />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {noDateGroup.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    transaction={t}
-                    isAdmin={isAdmin}
-                    selectable={isAdmin && t.status === "pending"}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={() => toggleSelect(t.id)}
-                    showSelectColumn={isAdmin && pendingInView.length > 0}
-                    eventCompleted={(t.events as any)?.status === "completed"}
-                    onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onPayment={(id) => setShowPaymentId(id)}
-                    onDocs={(id) => setShowDocsId(id)}
-                    onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Dialog de Contas Pagas */}
-      <Dialog open={showPaidDialog} onOpenChange={setShowPaidDialog}>
-        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Transações Liquidadas</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex flex-wrap items-center gap-3 py-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Data pgto. de</label>
-              <Popover open={paidDateFromOpen} onOpenChange={setPaidDateFromOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateFrom && "text-muted-foreground")}>
-                    {paidDateFrom ? format(paidDateFrom, "dd/MM/yyyy") : "Início"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateFrom} onSelect={(d) => { setPaidDateFrom(d); setPaidDateFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+                  {noDateGroup.length > 0 && (
+                    <tr>
+                      <td colSpan={10} className="pt-4 pb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                            ➖ Sem data de vencimento ({noDateGroup.length})
+                          </span>
+                          <div className="flex-1 border-t border-border/30" />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {noDateGroup.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={isAdmin && t.status === "pending"}
+                      selected={selectedIds.has(t.id)}
+                      onToggleSelect={() => toggleSelect(t.id)}
+                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Data pgto. até</label>
-              <Popover open={paidDateToOpen} onOpenChange={setPaidDateToOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateTo && "text-muted-foreground")}>
-                    {paidDateTo ? format(paidDateTo, "dd/MM/yyyy") : "Fim"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateTo} onSelect={(d) => { setPaidDateTo(d); setPaidDateToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
-            </div>
-            {(paidDateFrom || paidDateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setPaidDateFrom(undefined); setPaidDateTo(undefined); }} className="mt-5 text-xs">
-                Limpar datas
-              </Button>
-            )}
-            <span className="ml-auto mt-5 text-xs text-muted-foreground">
-              {paidTransactions.length} transação(ões)
-            </span>
-          </div>
-
-          <div className="overflow-y-auto flex-1 -mx-6 px-6">
-            {paidTransactions.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">Sem transações pagas no período selecionado.</p>
-            ) : (
+          )
+        ) : (
+          /* ===== PAID TRANSACTIONS VIEW ===== */
+          paidTransactions.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">Sem transações liquidadas no período selecionado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="flex items-center justify-end mb-3">
+                <span className="text-xs text-muted-foreground">{paidTransactions.length} transação(ões)</span>
+              </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="pb-3 text-left font-medium">Descrição</th>
                     <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
                     <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                    <th className="pb-3 text-left font-medium">Dt. Pgto</th>
-                    <th className="pb-3 text-right font-medium">Valor</th>
+                    <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
+                    <th className="pb-3 text-left font-medium">Estado</th>
+                    <th className="pb-3 text-left font-medium">Data Vcto</th>
+                    <th className="pb-3 text-right font-medium">Pago</th>
+                    <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-3 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {paidTransactions.map((t) => {
-                    const isExpense = t.type === "expense";
-                    return (
-                      <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
-                        <td className="py-2.5 pr-4">
-                          <p className="font-medium">{t.description}</p>
-                          {t.specification && <p className="text-xs text-muted-foreground">{t.specification}</p>}
-                          {(t.financial_accounts as any)?.name && <p className="text-xs text-primary/70">📌 {(t.financial_accounts as any).name}</p>}
-                        </td>
-                        <td className="hidden py-2.5 pr-4 text-muted-foreground sm:table-cell">{(t.events as any)?.name ?? "—"}</td>
-                        <td className="hidden py-2.5 pr-4 text-muted-foreground md:table-cell">{(t.suppliers as any)?.name ?? "—"}</td>
-                        <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">
-                          {t.payment_date ? new Date(t.payment_date).toLocaleDateString("pt-PT") : "—"}
-                        </td>
-                        <td className={`py-2.5 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
-                          {isExpense ? "-" : "+"}{formatCurrency(Number(t.amount))}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {paidTransactions.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={false}
+                      selected={false}
+                      onToggleSelect={() => {}}
+                      showSelectColumn={false}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
                 </tbody>
               </table>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 }
