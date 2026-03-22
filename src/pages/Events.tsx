@@ -766,7 +766,12 @@ export default function Events() {
                           <p className="text-xs text-muted-foreground sm:hidden mt-0.5">{formatDate(event.date)}</p>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{formatDate(event.date)}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                        {isMultiDay && event.subEvents.length > 0
+                          ? `${formatDate(event.subEvents[0].date)}${event.subEvents.length > 1 ? ` — ${formatDate(event.subEvents[event.subEvents.length - 1].date)}` : ""}`
+                          : formatDate(event.date)
+                        }
+                      </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         {locationDisplay ? (
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
