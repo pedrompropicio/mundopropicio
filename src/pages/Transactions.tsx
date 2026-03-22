@@ -679,219 +679,182 @@ export default function Transactions() {
       <div className="glass rounded-xl p-5">
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar transações…</p>
-        ) : filtered.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                  {isAdmin && pendingInView.length > 0 && (
-                    <th className="pb-3 pr-2 text-center font-medium w-8">
-                      <input
-                        type="checkbox"
-                        checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
-                        onChange={toggleSelectAll}
-                        className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
-                        title="Selecionar todas pendentes"
-                      />
-                    </th>
+        ) : viewMode === "open" ? (
+          /* ===== OPEN TRANSACTIONS VIEW ===== */
+          filtered.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                    {isAdmin && pendingInView.length > 0 && (
+                      <th className="pb-3 pr-2 text-center font-medium w-8">
+                        <input
+                          type="checkbox"
+                          checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
+                          onChange={toggleSelectAll}
+                          className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                          title="Selecionar todas pendentes"
+                        />
+                      </th>
+                    )}
+                    <th className="pb-3 text-left font-medium">Descrição</th>
+                    <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
+                    <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
+                    <th className="pb-3 text-left font-medium">Estado</th>
+                    <th className="pb-3 text-left font-medium">Data Vcto</th>
+                    <th className="pb-3 text-right font-medium">Pago</th>
+                    <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-3 text-center font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {overdueGroup.length > 0 && (
+                    <tr>
+                      <td colSpan={10} className="pt-4 pb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive">
+                            🔴 Vencidas ({overdueGroup.length})
+                          </span>
+                          <div className="flex-1 border-t border-destructive/20" />
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                  <th className="pb-3 text-left font-medium">Descrição</th>
-                  <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
-                  <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                  <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
-                  <th className="pb-3 text-left font-medium">Estado</th>
-                  <th className="pb-3 text-left font-medium">Data Vcto</th>
-                  <th className="pb-3 text-right font-medium">Pago</th>
-                  <th className="pb-3 text-right font-medium">Valor c/IVA</th>
-                  <th className="pb-3 text-center font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {overdueGroup.length > 0 && (
-                  <tr>
-                    <td colSpan={10} className="pt-4 pb-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs font-semibold text-destructive">
-                          🔴 Vencidas ({overdueGroup.length})
-                        </span>
-                        <div className="flex-1 border-t border-destructive/20" />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {overdueGroup.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    transaction={t}
-                    isAdmin={isAdmin}
-                    selectable={isAdmin && t.status === "pending"}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={() => toggleSelect(t.id)}
-                    showSelectColumn={isAdmin && pendingInView.length > 0}
-                    eventCompleted={(t.events as any)?.status === "completed"}
-                    onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onPayment={(id) => setShowPaymentId(id)}
-                    onDocs={(id) => setShowDocsId(id)}
-                    onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
+                  {overdueGroup.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={isAdmin && t.status === "pending"}
+                      selected={selectedIds.has(t.id)}
+                      onToggleSelect={() => toggleSelect(t.id)}
+                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
 
-                {periodGroup.length > 0 && (
-                  <tr>
-                    <td colSpan={10} className="pt-4 pb-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-                          📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
-                        </span>
-                        <div className="flex-1 border-t border-primary/20" />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {periodGroup.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    transaction={t}
-                    isAdmin={isAdmin}
-                    selectable={isAdmin && t.status === "pending"}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={() => toggleSelect(t.id)}
-                    showSelectColumn={isAdmin && pendingInView.length > 0}
-                    eventCompleted={(t.events as any)?.status === "completed"}
-                    onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onPayment={(id) => setShowPaymentId(id)}
-                    onDocs={(id) => setShowDocsId(id)}
-                    onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
+                  {periodGroup.length > 0 && (
+                    <tr>
+                      <td colSpan={10} className="pt-4 pb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                            📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
+                          </span>
+                          <div className="flex-1 border-t border-primary/20" />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {periodGroup.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={isAdmin && t.status === "pending"}
+                      selected={selectedIds.has(t.id)}
+                      onToggleSelect={() => toggleSelect(t.id)}
+                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
 
-                {noDateGroup.length > 0 && (
-                  <tr>
-                    <td colSpan={10} className="pt-4 pb-2 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                          ➖ Sem data de vencimento ({noDateGroup.length})
-                        </span>
-                        <div className="flex-1 border-t border-border/30" />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {noDateGroup.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    transaction={t}
-                    isAdmin={isAdmin}
-                    selectable={isAdmin && t.status === "pending"}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={() => toggleSelect(t.id)}
-                    showSelectColumn={isAdmin && pendingInView.length > 0}
-                    eventCompleted={(t.events as any)?.status === "completed"}
-                    onEdit={(id) => setEditingId(id)}
-                    onApprove={(id) => approveMutation.mutate(id)}
-                    onPayment={(id) => setShowPaymentId(id)}
-                    onDocs={(id) => setShowDocsId(id)}
-                    onAudit={(id) => setShowAuditId(id)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Dialog de Contas Pagas */}
-      <Dialog open={showPaidDialog} onOpenChange={setShowPaidDialog}>
-        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Transações Liquidadas</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex flex-wrap items-center gap-3 py-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Data pgto. de</label>
-              <Popover open={paidDateFromOpen} onOpenChange={setPaidDateFromOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateFrom && "text-muted-foreground")}>
-                    {paidDateFrom ? format(paidDateFrom, "dd/MM/yyyy") : "Início"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateFrom} onSelect={(d) => { setPaidDateFrom(d); setPaidDateFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
+                  {noDateGroup.length > 0 && (
+                    <tr>
+                      <td colSpan={10} className="pt-4 pb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                            ➖ Sem data de vencimento ({noDateGroup.length})
+                          </span>
+                          <div className="flex-1 border-t border-border/30" />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {noDateGroup.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={isAdmin && t.status === "pending"}
+                      selected={selectedIds.has(t.id)}
+                      onToggleSelect={() => toggleSelect(t.id)}
+                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Data pgto. até</label>
-              <Popover open={paidDateToOpen} onOpenChange={setPaidDateToOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-36 justify-start text-left font-normal", !paidDateTo && "text-muted-foreground")}>
-                    {paidDateTo ? format(paidDateTo, "dd/MM/yyyy") : "Fim"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={paidDateTo} onSelect={(d) => { setPaidDateTo(d); setPaidDateToOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
-                </PopoverContent>
-              </Popover>
-            </div>
-            {(paidDateFrom || paidDateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setPaidDateFrom(undefined); setPaidDateTo(undefined); }} className="mt-5 text-xs">
-                Limpar datas
-              </Button>
-            )}
-            <span className="ml-auto mt-5 text-xs text-muted-foreground">
-              {paidTransactions.length} transação(ões)
-            </span>
-          </div>
-
-          <div className="overflow-y-auto flex-1 -mx-6 px-6">
-            {paidTransactions.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">Sem transações pagas no período selecionado.</p>
-            ) : (
+          )
+        ) : (
+          /* ===== PAID TRANSACTIONS VIEW ===== */
+          paidTransactions.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">Sem transações liquidadas no período selecionado.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="flex items-center justify-end mb-3">
+                <span className="text-xs text-muted-foreground">{paidTransactions.length} transação(ões)</span>
+              </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="pb-3 text-left font-medium">Descrição</th>
                     <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
                     <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                    <th className="pb-3 text-left font-medium">Dt. Pgto</th>
-                    <th className="pb-3 text-right font-medium">Valor</th>
+                    <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
+                    <th className="pb-3 text-left font-medium">Estado</th>
+                    <th className="pb-3 text-left font-medium">Data Vcto</th>
+                    <th className="pb-3 text-right font-medium">Pago</th>
+                    <th className="pb-3 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-3 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {paidTransactions.map((t) => {
-                    const isExpense = t.type === "expense";
-                    return (
-                      <tr key={t.id} className="hover:bg-secondary/20 transition-colors">
-                        <td className="py-2.5 pr-4">
-                          <p className="font-medium">{t.description}</p>
-                          {t.specification && <p className="text-xs text-muted-foreground">{t.specification}</p>}
-                          {(t.financial_accounts as any)?.name && <p className="text-xs text-primary/70">📌 {(t.financial_accounts as any).name}</p>}
-                        </td>
-                        <td className="hidden py-2.5 pr-4 text-muted-foreground sm:table-cell">{(t.events as any)?.name ?? "—"}</td>
-                        <td className="hidden py-2.5 pr-4 text-muted-foreground md:table-cell">{(t.suppliers as any)?.name ?? "—"}</td>
-                        <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">
-                          {t.payment_date ? new Date(t.payment_date).toLocaleDateString("pt-PT") : "—"}
-                        </td>
-                        <td className={`py-2.5 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
-                          {isExpense ? "-" : "+"}{formatCurrency(Number(t.amount))}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {paidTransactions.map((t) => (
+                    <TransactionRow
+                      key={t.id}
+                      transaction={t}
+                      isAdmin={isAdmin}
+                      selectable={false}
+                      selected={false}
+                      onToggleSelect={() => {}}
+                      showSelectColumn={false}
+                      eventCompleted={(t.events as any)?.status === "completed"}
+                      onEdit={(id) => setEditingId(id)}
+                      onApprove={(id) => approveMutation.mutate(id)}
+                      onPayment={(id) => setShowPaymentId(id)}
+                      onDocs={(id) => setShowDocsId(id)}
+                      onAudit={(id) => setShowAuditId(id)}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                    />
+                  ))}
                 </tbody>
               </table>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 }
