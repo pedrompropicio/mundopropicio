@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
 import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
+import { VenueReservationsPanel } from "@/components/calendar/VenueReservationsPanel";
 import { WeeklyView } from "@/components/calendar/WeeklyView";
 import { AgendaView } from "@/components/calendar/AgendaView";
 import { AnnualView } from "@/components/calendar/AnnualView";
