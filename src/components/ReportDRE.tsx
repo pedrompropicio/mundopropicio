@@ -480,7 +480,7 @@ export default function ReportDRE() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners)}
+          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events)}
           disabled={activeEvents.length === 0}
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF
