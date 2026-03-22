@@ -308,6 +308,15 @@ export default function EventCalendar() {
           </Button>
           <Button
             size="sm"
+            variant={showReservationsPanel ? "default" : "outline"}
+            onClick={() => setShowReservationsPanel((v) => !v)}
+            className="gap-1.5"
+          >
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Reservas</span>
+          </Button>
+          <Button
+            size="sm"
             onClick={() => setShowReservationModal(true)}
             className="gap-1.5"
           >
