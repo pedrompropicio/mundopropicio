@@ -119,6 +119,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       payment_terms: (fd.get("payment_terms") as string) || null,
       category: (fd.get("category") as string) || null,
       notes: (fd.get("notes") as string) || null,
+      is_partner: fd.get("is_partner") === "on",
     };
     const result = validateForm(supplierSchema, raw);
     if (result.success === false) {
@@ -141,7 +142,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[60]">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-4">
@@ -208,6 +209,10 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
           <div className="grid gap-2">
             <Label htmlFor="sup-notes">Notas</Label>
             <Textarea id="sup-notes" name="notes" rows={2} defaultValue={s?.notes ?? ""} />
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="sup-is-partner" name="is_partner" defaultChecked={s?.is_partner ?? false} className="h-4 w-4 rounded border-border" />
+            <Label htmlFor="sup-is-partner" className="cursor-pointer">Parceiro / Sócio (não aparece nos relatórios de fornecedores)</Label>
           </div>
           <button type="submit" disabled={isPending}
             className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50">

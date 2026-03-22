@@ -10,7 +10,8 @@ export default function ReportSuppliersPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name, nif, category, is_active")
+        .select("id, name, nif, category, is_active, is_partner")
+        .eq("is_partner", false)
         .order("name");
       if (error) throw error;
       return data;

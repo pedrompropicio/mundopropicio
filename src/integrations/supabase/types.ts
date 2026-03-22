@@ -919,6 +919,7 @@ export type Database = {
           iban: string | null
           id: string
           is_active: boolean
+          is_partner: boolean
           name: string
           nif: string | null
           notes: string | null
@@ -937,6 +938,7 @@ export type Database = {
           iban?: string | null
           id?: string
           is_active?: boolean
+          is_partner?: boolean
           name: string
           nif?: string | null
           notes?: string | null
@@ -955,6 +957,7 @@ export type Database = {
           iban?: string | null
           id?: string
           is_active?: boolean
+          is_partner?: boolean
           name?: string
           nif?: string | null
           notes?: string | null

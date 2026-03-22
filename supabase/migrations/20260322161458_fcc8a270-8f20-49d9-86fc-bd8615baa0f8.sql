@@ -1,0 +1,1 @@
+ALTER TABLE public.suppliers ADD COLUMN is_partner boolean NOT NULL DEFAULT false;

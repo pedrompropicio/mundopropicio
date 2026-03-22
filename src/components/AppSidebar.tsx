@@ -35,7 +35,7 @@ export function AppSidebar() {
     { to: "/transacoes", icon: ArrowUpDown, label: "Transações", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas", show: hasPermission("manage_categories") || isAdmin },
     { to: "/contas", icon: Landmark, label: "Contas", show: hasPermission("manage_accounts") || hasPermission("view_balances") || isAdmin },
-    { to: "/fornecedores", icon: Users, label: "Fornecedores", show: hasPermission("manage_suppliers") || isAdmin },
+    { to: "/fornecedores", icon: Users, label: "Fornecedores / Parceiros", show: hasPermission("manage_suppliers") || isAdmin },
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
     { to: "/bilhetes", icon: Ticket, label: "Gestão Bilhetes", show: hasPermission("manage_tickets") || isAdmin },
