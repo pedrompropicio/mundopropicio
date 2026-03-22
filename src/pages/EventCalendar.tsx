@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileDown, ArrowRightCircle, Trash2, LayoutGrid, List, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileDown, ArrowRightCircle, Trash2, LayoutGrid, List, Calendar, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
 import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
+import { VenueReservationsPanel } from "@/components/calendar/VenueReservationsPanel";
 import { WeeklyView } from "@/components/calendar/WeeklyView";
 import { AgendaView } from "@/components/calendar/AgendaView";
 import { AnnualView } from "@/components/calendar/AnnualView";
@@ -50,6 +51,7 @@ export default function EventCalendar() {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const [showReservationsPanel, setShowReservationsPanel] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date();
@@ -303,6 +305,15 @@ export default function EventCalendar() {
           >
             <CalendarClock className="h-4 w-4" />
             <span className="hidden sm:inline">Programados</span>
+          </Button>
+          <Button
+            size="sm"
+            variant={showReservationsPanel ? "default" : "outline"}
+            onClick={() => setShowReservationsPanel((v) => !v)}
+            className="gap-1.5"
+          >
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Reservas</span>
           </Button>
           <Button
             size="sm"
@@ -651,6 +662,25 @@ export default function EventCalendar() {
         open={showScheduledPanel}
         onOpenChange={setShowScheduledPanel}
         events={calendarEvents.filter((e) => !e.isReservation)}
+      />
+
+      {/* Venue reservations panel */}
+      <VenueReservationsPanel
+        open={showReservationsPanel}
+        onOpenChange={setShowReservationsPanel}
+        reservations={venueReservationsRaw.map((r) => {
+          const venue = venues.find((v) => v.id === r.venue_id);
+          const city = r.city_id
+            ? cities.find((c) => c.id === r.city_id)
+            : venue ? cities.find((c) => c.id === venue.city_id) : null;
+          return {
+            id: r.id,
+            date: r.date,
+            venue_name: venue?.name || "Sala",
+            city_name: city?.name || "",
+            notes: r.notes,
+          };
+        })}
       />
 
       {/* Venue reservation modal */}
