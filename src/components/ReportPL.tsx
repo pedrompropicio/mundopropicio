@@ -30,6 +30,8 @@ interface PLLine {
   isSubTotal?: boolean;
   quantity?: number;
   unitPrice?: number;
+  overrideCount?: number;
+  overrideNote?: string;
 }
 
 function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
@@ -147,6 +149,16 @@ function buildPL(
     }));
   }
 
+  // Build override tracking: which category names have "fora do P&L" transactions
+  const overrideByCatName: Record<string, { count: number; notes: string[] }> = {};
+  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
+    const catInfo = lookup[t.category_id];
+    const catName = catInfo?.name ?? "Sem categoria";
+    if (!overrideByCatName[catName]) overrideByCatName[catName] = { count: 0, notes: [] };
+    overrideByCatName[catName].count++;
+    overrideByCatName[catName].notes.push(t.pl_override_note);
+  });
+
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
   const tInc = transactions.filter((t) => t.type === "income");
@@ -223,6 +235,15 @@ function buildPL(
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
 
+  // Helper to enrich a detail line with override info
+  const enrichWithOverride = (line: PLLine, detailName: string): PLLine => {
+    const ov = overrideByCatName[detailName];
+    if (ov) {
+      return { ...line, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+    }
+    return line;
+  };
+
   lines.push(plLine({
     label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
     forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
@@ -237,22 +258,22 @@ function buildPL(
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(plLine({
+        lines.push(enrichWithOverride(plLine({
           label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
         }
       });
     } else {
-      lines.push(plLine({
+      lines.push(enrichWithOverride(plLine({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -278,18 +299,18 @@ function buildPL(
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(plLine({
+        lines.push(enrichWithOverride(plLine({
           label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
       });
     } else {
-      lines.push(plLine({
+      lines.push(enrichWithOverride(plLine({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
     }
   });
 
@@ -688,11 +709,13 @@ export default function ReportPL() {
                       </TableHeader>
                       <TableBody>
                         {pl.map((line, i) => {
+                          const hasOverride = (line.overrideCount ?? 0) > 0;
                           const rowClass = line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
                             : line.isGroupHeader ? "bg-secondary/10 border-t border-border/20"
                             : line.isSubTotal ? "bg-muted/20 border-t border-border/20"
+                            : hasOverride ? "bg-warning/5 border-l-2 border-l-warning"
                             : line.subIndent ? "bg-muted/10" : "";
                           const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
                           const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
@@ -705,7 +728,17 @@ export default function ReportPL() {
 
                           return (
                             <TableRow key={i} className={rowClass}>
-                              <TableCell className={labelClass}>{line.label}</TableCell>
+                              <TableCell className={labelClass}>
+                                <span className="inline-flex items-center gap-1.5">
+                                  {line.label}
+                                  {hasOverride && (
+                                    <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
+                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                      {line.overrideCount} fora do P&L
+                                    </span>
+                                  )}
+                                </span>
+                              </TableCell>
                               <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
                                 {line.quantity != null ? line.quantity.toLocaleString("pt-PT") : ""}
                               </TableCell>
@@ -729,45 +762,6 @@ export default function ReportPL() {
                       </TableBody>
                     </Table>
                   )}
-
-                  {/* Override transactions section */}
-                  {(() => {
-                    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
-                    if (overrideTxs.length === 0) return null;
-                    const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
-                    return (
-                      <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-warning" />
-                          <span className="text-sm font-semibold text-warning">Transações Fora do P&L ({overrideTxs.length})</span>
-                        </div>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-xs">Descrição</TableHead>
-                              <TableHead className="text-xs">Tipo</TableHead>
-                              <TableHead className="text-xs">Categoria</TableHead>
-                              <TableHead className="text-xs text-right">Valor (€)</TableHead>
-                              <TableHead className="text-xs">Estado</TableHead>
-                              <TableHead className="text-xs">Justificação</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {overrideTxs.map((t: any) => (
-                              <TableRow key={t.id} className="bg-warning/5">
-                                <TableCell className="text-sm">{t.description}</TableCell>
-                                <TableCell className="text-xs">{t.type === "income" ? "Receita" : "Despesa"}</TableCell>
-                                <TableCell className="text-xs">{catMap[t.category_id] ?? "—"}</TableCell>
-                                <TableCell className="text-right font-mono text-sm">{formatCurrency(Number(t.amount))}</TableCell>
-                                <TableCell className="text-xs">{t.status === "pending" ? "Aguardando" : t.status === "approved" ? "Aprovado" : t.status}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate" title={t.pl_override_note}>{t.pl_override_note}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    );
-                  })()}
                 </div>
               )}
             </div>
