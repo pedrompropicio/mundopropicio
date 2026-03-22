@@ -485,7 +485,7 @@ export default function ReportDRE() {
                   </span>
                   {evt.hasPartners && evt.retainedEx !== null && (
                     <span className={`font-mono text-xs ${evt.retainedEx >= 0 ? "text-success/70" : "text-destructive/70"}`}>
-                      (Retido: {formatCurrency(evt.retainedEx)})
+                      (MP: {formatCurrency(evt.retainedEx)})
                     </span>
                   )}
                 </div>
