@@ -51,6 +51,7 @@ export default function EventCalendar() {
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const [showReservationsPanel, setShowReservationsPanel] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date();
