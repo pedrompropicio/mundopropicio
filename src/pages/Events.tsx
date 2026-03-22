@@ -64,6 +64,8 @@ export default function Events() {
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
 
   // Fetch cities and venues for display on cards
