@@ -110,8 +110,9 @@ function buildDRE(
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
 
-  // Partner distribution section
-  const eventPartners = partners.filter((p: any) => p.event_id === eventId);
+  // Partner distribution section — sub-events inherit from parent
+  const resolvedPartnerId = parentEventId || eventId;
+  const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
     eventPartners.forEach((p: any) => {
