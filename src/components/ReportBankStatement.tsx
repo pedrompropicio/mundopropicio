@@ -306,6 +306,7 @@ export default function ReportBankStatement() {
                   <TableRow className="bg-secondary/20">
                     <TableCell className="font-medium text-xs">{dateFromStr || "—"}</TableCell>
                     <TableCell colSpan={2} className="font-bold text-xs uppercase tracking-wider">Saldo Inicial</TableCell>
+                    <TableCell />
                     <TableCell className="text-right">—</TableCell>
                     <TableCell className="text-right">—</TableCell>
                     <TableCell className={`text-right font-mono font-bold ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
