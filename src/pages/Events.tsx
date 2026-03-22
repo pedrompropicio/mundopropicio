@@ -698,42 +698,85 @@ export default function Events() {
                 const profit = event.totalIncome - event.totalExpenses;
                 const eventType = event.event_type as EventType;
                 const locationDisplay = getLocationDisplay(event);
+                const isMultiDay = eventType === "multi_day" && event.subEvents?.length > 0;
                 return (
-                  <tr key={event.id} className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <Link to={`/eventos/${event.id}`} className="group">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium group-hover:text-primary transition-colors">{event.name}</span>
-                          <EventTypeBadge type={eventType} />
-                        </div>
-                        <p className="text-xs text-muted-foreground sm:hidden mt-0.5">{formatDate(event.date)}</p>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{formatDate(event.date)}</td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      {locationDisplay ? (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          <span className="truncate max-w-[180px]">{locationDisplay}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/50">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <EventStatusBadge status={event.status as any} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-sm font-medium text-success">{formatCurrency(event.totalIncome)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-sm font-medium text-warning">{formatCurrency(event.totalExpenses)}</td>
-                    <td className={`px-4 py-3 text-right font-mono text-sm font-bold hidden sm:table-cell ${profit >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(profit)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link to={`/eventos/${event.id}`} className="text-muted-foreground hover:text-primary transition-colors">
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={event.id} className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <Link to={`/eventos/${event.id}`} className="group">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium group-hover:text-primary transition-colors">{event.name}</span>
+                            <EventTypeBadge type={eventType} />
+                            {isMultiDay && (
+                              <span className="text-[10px] text-muted-foreground">{event.subEvents.length} datas</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground sm:hidden mt-0.5">{formatDate(event.date)}</p>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{formatDate(event.date)}</td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {locationDisplay ? (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[180px]">{locationDisplay}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <EventStatusBadge status={event.status as any} />
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-medium text-success">{formatCurrency(event.totalIncome)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-sm font-medium text-warning">{formatCurrency(event.totalExpenses)}</td>
+                      <td className={`px-4 py-3 text-right font-mono text-sm font-bold hidden sm:table-cell ${profit >= 0 ? "text-success" : "text-destructive"}`}>
+                        {formatCurrency(profit)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link to={`/eventos/${event.id}`} className="text-muted-foreground hover:text-primary transition-colors">
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </td>
+                    </tr>
+                    {isMultiDay && event.subEvents.map((sub: any) => {
+                      const subLocation = getLocationDisplay(sub);
+                      return (
+                        <tr key={sub.id} className="border-b border-border/20 last:border-0 hover:bg-secondary/20 transition-colors bg-secondary/10">
+                          <td className="px-4 py-2.5 pl-10">
+                            <Link to={`/eventos/${sub.id}`} className="group">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">└</span>
+                                <span className="text-sm group-hover:text-primary transition-colors">{sub.name}</span>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">{formatDate(sub.date)}</td>
+                          <td className="px-4 py-2.5 hidden md:table-cell">
+                            {subLocation ? (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate max-w-[180px]">{subLocation}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 hidden sm:table-cell">
+                            <EventStatusBadge status={sub.status as any} />
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground" colSpan={1}>—</td>
+                          <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground" colSpan={1}>—</td>
+                          <td className="px-4 py-2.5 hidden sm:table-cell"></td>
+                          <td className="px-4 py-2.5">
+                            <Link to={`/eventos/${sub.id}`} className="text-muted-foreground hover:text-primary transition-colors">
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
                 );
               })}
             </tbody>
