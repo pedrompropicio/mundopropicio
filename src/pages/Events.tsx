@@ -383,7 +383,7 @@ export default function Events() {
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
-              onClick={() => { setViewMode("cards"); localStorage.setItem("events-view-mode", "cards"); }}
+              onClick={() => setViewMode("cards")}
               className={`rounded-md p-1.5 transition-all ${viewMode === "cards" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               title="Vista em cartões"
             >
