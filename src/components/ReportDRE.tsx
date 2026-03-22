@@ -297,7 +297,8 @@ export default function ReportDRE() {
 
   const eventSummaries = activeEvents.map((e) => {
     const evtTx = getEffectiveTransactions(e.id);
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId);
+    const calcBasis = (e as any).partner_calc_basis || "net_result";
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.label === "RESULTADO LÍQUIDO");
