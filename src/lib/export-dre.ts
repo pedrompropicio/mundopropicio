@@ -214,8 +214,8 @@ export function exportDREToExcel(
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
 
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
     summaryRows.push([
@@ -234,8 +234,8 @@ export function exportDREToExcel(
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     if (evtTx.length === 0 && dre.length <= 3) return;
     const rows: any[][] = [
       [`DRE - ${evt.name}`],
