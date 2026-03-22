@@ -40,7 +40,8 @@ function buildDRE(
   eventId: string,
   ticketCategoryId: string | null,
   partners: any[],
-  calcBasis: string
+  calcBasis: string,
+  parentEventId?: string | null
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -109,8 +110,9 @@ function buildDRE(
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
 
-  // Partner distribution section
-  const eventPartners = partners.filter((p: any) => p.event_id === eventId);
+  // Partner distribution section — sub-events inherit from parent
+  const resolvedPartnerId = parentEventId || eventId;
+  const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
     eventPartners.forEach((p: any) => {
@@ -309,8 +311,9 @@ export default function ReportDRE() {
 
   const eventSummaries = activeEvents.map((e) => {
     const evtTx = getEffectiveTransactions(e.id);
-    const calcBasis = (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis);
+    const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
+    const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.label === "RESULTADO LÍQUIDO");
@@ -465,8 +468,9 @@ export default function ReportDRE() {
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
           const evtTx = getEffectiveTransactions(evt.id);
-          const calcBasis = (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis) : [];
+          const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
+          const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
+          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">

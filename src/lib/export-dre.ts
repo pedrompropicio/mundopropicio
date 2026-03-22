@@ -102,10 +102,13 @@ function buildDREForExport(
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
 
-  // Partner distribution section
-  const eventPartners = partners.filter((p: any) => p.event_id === eventId);
+  // Partner distribution section — sub-events inherit from parent
   const eventData = events.find((e: any) => e.id === eventId);
-  const calcBasis = eventData?.partner_calc_basis || "net_result";
+  const parentEventId = eventData?.parent_event_id;
+  const resolvedPartnerId = parentEventId || eventId;
+  const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
+  const parentData = parentEventId ? events.find((e: any) => e.id === parentEventId) : null;
+  const calcBasis = parentData?.partner_calc_basis || eventData?.partner_calc_basis || "net_result";
 
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
