@@ -349,7 +349,7 @@ function buildPLForExport(
         }
       });
     } else {
-      lines.push(pl({
+      lines.push(enrichLine(pl({
         label: group.groupName,
         forecast: group.fBase,
         actual: group.tBase,
@@ -359,7 +359,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
