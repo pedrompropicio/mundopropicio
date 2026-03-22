@@ -147,6 +147,24 @@ function buildDREForExport(
   return lines;
 }
 
+// Build effective transactions for a sub-event, including prorated parent transactions
+function getEffectiveTransactionsForExport(
+  eventId: string,
+  transactions: any[],
+  allEvents: any[]
+) {
+  let evtTx = transactions.filter((t: any) => t.event_id === eventId);
+  const evt = allEvents.find((e: any) => e.id === eventId);
+  if (evt?.parent_event_id) {
+    const siblingCount = allEvents.filter((e: any) => e.parent_event_id === evt.parent_event_id).length || 1;
+    const parentTx = transactions
+      .filter((t: any) => t.event_id === evt.parent_event_id)
+      .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+    evtTx = [...evtTx, ...parentTx];
+  }
+  return evtTx;
+}
+
 // Helper to compute event-level summary with ticket source logic
 function computeEventSummary(
   evtTx: any[],
