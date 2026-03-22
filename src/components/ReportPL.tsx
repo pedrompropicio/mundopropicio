@@ -149,6 +149,16 @@ function buildPL(
     }));
   }
 
+  // Build override tracking: which category names have "fora do P&L" transactions
+  const overrideByCatName: Record<string, { count: number; notes: string[] }> = {};
+  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
+    const catInfo = lookup[t.category_id];
+    const catName = catInfo?.name ?? "Sem categoria";
+    if (!overrideByCatName[catName]) overrideByCatName[catName] = { count: 0, notes: [] };
+    overrideByCatName[catName].count++;
+    overrideByCatName[catName].notes.push(t.pl_override_note);
+  });
+
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
   const tInc = transactions.filter((t) => t.type === "income");
@@ -225,6 +235,15 @@ function buildPL(
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
 
+  // Helper to enrich a detail line with override info
+  const enrichWithOverride = (line: PLLine, detailName: string): PLLine => {
+    const ov = overrideByCatName[detailName];
+    if (ov) {
+      return { ...line, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+    }
+    return line;
+  };
+
   lines.push(plLine({
     label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
     forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
@@ -239,22 +258,22 @@ function buildPL(
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(plLine({
+        lines.push(enrichWithOverride(plLine({
           label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
         }
       });
     } else {
-      lines.push(plLine({
+      lines.push(enrichWithOverride(plLine({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -280,18 +299,18 @@ function buildPL(
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(plLine({
+        lines.push(enrichWithOverride(plLine({
           label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
       });
     } else {
-      lines.push(plLine({
+      lines.push(enrichWithOverride(plLine({
         label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
     }
   });
 
