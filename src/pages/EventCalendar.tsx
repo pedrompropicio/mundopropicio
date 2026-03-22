@@ -664,6 +664,25 @@ export default function EventCalendar() {
         events={calendarEvents.filter((e) => !e.isReservation)}
       />
 
+      {/* Venue reservations panel */}
+      <VenueReservationsPanel
+        open={showReservationsPanel}
+        onOpenChange={setShowReservationsPanel}
+        reservations={venueReservationsRaw.map((r) => {
+          const venue = venues.find((v) => v.id === r.venue_id);
+          const city = r.city_id
+            ? cities.find((c) => c.id === r.city_id)
+            : venue ? cities.find((c) => c.id === venue.city_id) : null;
+          return {
+            id: r.id,
+            date: r.date,
+            venue_name: venue?.name || "Sala",
+            city_name: city?.name || "",
+            notes: r.notes,
+          };
+        })}
+      />
+
       {/* Venue reservation modal */}
       <VenueReservationModal
         open={showReservationModal}
