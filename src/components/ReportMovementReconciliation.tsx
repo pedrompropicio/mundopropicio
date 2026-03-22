@@ -92,7 +92,26 @@ export default function ReportMovementReconciliation() {
     enabled: generated && txIds.length > 0,
   });
 
-  const accountNameMap = useMemo(() => {
+  const { data: docCounts = {} } = useQuery({
+    queryKey: ["tx-doc-counts-mr", txIds],
+    queryFn: async () => {
+      if (txIds.length === 0) return {};
+      const batchSize = 200;
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < txIds.length; i += batchSize) {
+        const batch = txIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("transaction_documents")
+          .select("transaction_id")
+          .in("transaction_id", batch);
+        if (error) throw error;
+        data.forEach((d: any) => { counts[d.transaction_id] = (counts[d.transaction_id] || 0) + 1; });
+      }
+      return counts;
+    },
+    enabled: generated && txIds.length > 0,
+  });
+
     const map: Record<string, string> = {};
     accounts.forEach((a: any) => { map[a.id] = a.name; });
     return map;
