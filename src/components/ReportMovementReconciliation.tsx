@@ -112,6 +112,7 @@ export default function ReportMovementReconciliation() {
     enabled: generated && txIds.length > 0,
   });
 
+  const accountNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     accounts.forEach((a: any) => { map[a.id] = a.name; });
     return map;
