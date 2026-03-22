@@ -541,7 +541,7 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
-        {/* Filtro Aguardando */}
+        {/* Filtro Aprovação */}
         <Button
           variant={onlyPending ? "default" : "outline"}
           size="sm"
@@ -549,7 +549,7 @@ export default function Transactions() {
           onClick={() => setOnlyPending(!onlyPending)}
         >
           <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-          Aguardando
+          Aprovação
         </Button>
 
         <Button
