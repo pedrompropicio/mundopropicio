@@ -63,6 +63,7 @@ export default function Events() {
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const queryClient = useQueryClient();
 
   // Fetch cities and venues for display on cards
