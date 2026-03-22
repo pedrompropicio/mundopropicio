@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Landmark, Lock, CalendarIcon } from "lucide-react";
+import { Download, Landmark, Lock, CalendarIcon, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/export-bank-statement";
 import { useSearchParams } from "react-router-dom";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 
 export default function ReportBankStatement() {
   const { isAdmin } = useAuth();
@@ -24,6 +25,7 @@ export default function ReportBankStatement() {
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
@@ -106,6 +108,24 @@ export default function ReportBankStatement() {
     enabled: generated && !!selectedAccountId && !!dateFromStr,
   });
 
+  const txIdsForDocs = useMemo(() => transactions.map((t: any) => t.id), [transactions]);
+
+  const { data: docCounts = {} } = useQuery({
+    queryKey: ["tx-doc-counts-bs", txIdsForDocs],
+    queryFn: async () => {
+      if (txIdsForDocs.length === 0) return {};
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id")
+        .in("transaction_id", txIdsForDocs);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((d: any) => { counts[d.transaction_id] = (counts[d.transaction_id] || 0) + 1; });
+      return counts;
+    },
+    enabled: generated && txIdsForDocs.length > 0,
+  });
+
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
     let bal = Number(selectedAccount.initial_balance ?? 0);
@@ -141,6 +161,7 @@ export default function ReportBankStatement() {
   const totalExpense = lines.filter((l) => l.signedAmount < 0).reduce((s, l) => s + Math.abs(l.signedAmount), 0);
 
   return (
+    <>
     <div className="space-y-6">
       {/* Filters */}
       <div className="glass rounded-xl p-4 space-y-4">
@@ -271,7 +292,12 @@ export default function ReportBankStatement() {
                     <TableHead>Data</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Evento</TableHead>
+                    <TableHead className="text-center w-10">
+                      <Paperclip className="h-3.5 w-3.5 mx-auto" />
+                    </TableHead>
                     <TableHead className="text-right">Entrada (€)</TableHead>
+                    <TableHead className="text-right">Saída (€)</TableHead>
+                    <TableHead className="text-right">Saldo (€)</TableHead>
                     <TableHead className="text-right">Saída (€)</TableHead>
                     <TableHead className="text-right">Saldo (€)</TableHead>
                   </TableRow>
@@ -281,6 +307,7 @@ export default function ReportBankStatement() {
                   <TableRow className="bg-secondary/20">
                     <TableCell className="font-medium text-xs">{dateFromStr || "—"}</TableCell>
                     <TableCell colSpan={2} className="font-bold text-xs uppercase tracking-wider">Saldo Inicial</TableCell>
+                    <TableCell />
                     <TableCell className="text-right">—</TableCell>
                     <TableCell className="text-right">—</TableCell>
                     <TableCell className={`text-right font-mono font-bold ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
@@ -302,6 +329,20 @@ export default function ReportBankStatement() {
                       <TableCell className="text-sm text-muted-foreground">
                         {line.events?.name ?? "—"}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {(docCounts as Record<string, number>)[line.id] ? (
+                          <button
+                            onClick={() => setDocsModal({ id: line.id, description: line.description })}
+                            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                            title="Ver documentos anexados"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                            <span className="font-medium">{(docCounts as Record<string, number>)[line.id]}</span>
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         {line.signedAmount > 0 ? (
                           <span className="text-success">{formatCurrency(line.signedAmount)}</span>
@@ -322,6 +363,7 @@ export default function ReportBankStatement() {
                   <TableRow className="border-t-2 border-primary/30 bg-primary/5">
                     <TableCell className="font-medium text-xs">{dateToStr || "—"}</TableCell>
                     <TableCell colSpan={2} className="font-bold text-xs uppercase tracking-wider">Saldo Final</TableCell>
+                    <TableCell />
                     <TableCell className="text-right font-mono font-semibold text-success">{formatCurrency(totalIncome)}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-warning">{formatCurrency(totalExpense)}</TableCell>
                     <TableCell className={`text-right font-mono font-bold ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
@@ -335,5 +377,14 @@ export default function ReportBankStatement() {
         </>
       )}
     </div>
+
+    {docsModal && (
+      <TransactionDocumentsModal
+        transactionId={docsModal.id}
+        transactionDescription={docsModal.description}
+        onClose={() => setDocsModal(null)}
+      />
+    )}
+  </>
   );
 }

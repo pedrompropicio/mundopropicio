@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { FileSpreadsheet, FileText, ArrowLeftRight, CalendarIcon } from "lucide-react";
+import { FileSpreadsheet, FileText, ArrowLeftRight, CalendarIcon, Paperclip } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { exportMovementReconciliationToExcel, exportMovementReconciliationToPDF } from "@/lib/export-movement-reconciliation";
@@ -12,6 +12,7 @@ import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 
 export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
@@ -23,6 +24,7 @@ export default function ReportMovementReconciliation() {
   const [dateToOpen, setDateToOpen] = useState(false);
   const [fullPeriod, setFullPeriod] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
@@ -86,6 +88,26 @@ export default function ReportMovementReconciliation() {
         if (data) results.push(...data);
       }
       return results;
+    },
+    enabled: generated && txIds.length > 0,
+  });
+
+  const { data: docCounts = {} } = useQuery({
+    queryKey: ["tx-doc-counts-mr", txIds],
+    queryFn: async () => {
+      if (txIds.length === 0) return {};
+      const batchSize = 200;
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < txIds.length; i += batchSize) {
+        const batch = txIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("transaction_documents")
+          .select("transaction_id")
+          .in("transaction_id", batch);
+        if (error) throw error;
+        data.forEach((d: any) => { counts[d.transaction_id] = (counts[d.transaction_id] || 0) + 1; });
+      }
+      return counts;
     },
     enabled: generated && txIds.length > 0,
   });
@@ -342,10 +364,11 @@ export default function ReportMovementReconciliation() {
                         <th className="py-2 px-1">Vcto</th>
                         <th className="py-2 px-1">Dt Pgto</th>
                         <th className="py-2 px-1">Nº Doc</th>
+                        <th className="py-2 px-1 text-center"><Paperclip className="h-3 w-3 mx-auto" /></th>
                       </tr>
                     );
 
-                    const totalCols = 14;
+                    const totalCols = 15;
                     const groupEntries = Array.from(grouped.entries());
 
                     return (
@@ -392,6 +415,20 @@ export default function ReportMovementReconciliation() {
                                 <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.dueDate ? new Date(m.dueDate).toLocaleDateString("pt-PT") : "—"}</td>
                                 <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.paymentDate ? new Date(m.paymentDate).toLocaleDateString("pt-PT") : "—"}</td>
                                 <td className="py-1.5 px-1 text-muted-foreground">{m.invoiceRef || "—"}</td>
+                                <td className="py-1.5 px-1 text-center">
+                                  {(docCounts as Record<string, number>)[m.id] ? (
+                                    <button
+                                      onClick={() => setDocsModal({ id: m.id, description: m.description })}
+                                      className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
+                                      title="Ver documentos anexados"
+                                    >
+                                      <Paperclip className="h-3 w-3" />
+                                      <span className="font-medium">{(docCounts as Record<string, number>)[m.id]}</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted-foreground/30">—</span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </>
@@ -404,7 +441,7 @@ export default function ReportMovementReconciliation() {
                           <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalPaid)}</td>
                           <td className="py-2 px-1 text-right font-mono text-destructive">{formatCurrency(totalOpenExpenses)}</td>
-                          <td colSpan={3} />
+                          <td colSpan={4} />
                         </tr>
                         <tr className="bg-primary/5 font-bold text-[10px]">
                           <td colSpan={6} className="py-2 px-2 uppercase tracking-wider">Totais Receitas</td>
@@ -413,7 +450,7 @@ export default function ReportMovementReconciliation() {
                           <td className="py-2 px-1 text-right font-mono text-success">{formatCurrency(totalIncome)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalReceived)}</td>
                           <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalOpenIncome)}</td>
-                          <td colSpan={3} />
+                          <td colSpan={4} />
                         </tr>
                         <tr className="bg-primary/10 font-bold text-[10px] border-t border-primary/30">
                           <td colSpan={6} className="py-2 px-2 uppercase tracking-wider">Saldo</td>
@@ -422,7 +459,7 @@ export default function ReportMovementReconciliation() {
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalIncome - totalExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalReceived - totalPaid)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalOpenIncome - totalOpenExpenses)}</td>
-                          <td colSpan={3} />
+                          <td colSpan={4} />
                         </tr>
                       </tbody>
                     );
@@ -433,6 +470,14 @@ export default function ReportMovementReconciliation() {
           </>
         )}
       </div>
+
+      {docsModal && (
+        <TransactionDocumentsModal
+          transactionId={docsModal.id}
+          transactionDescription={docsModal.description}
+          onClose={() => setDocsModal(null)}
+        />
+      )}
     </>
   );
 }
