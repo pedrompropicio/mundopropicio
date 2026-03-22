@@ -297,7 +297,7 @@ export default function EventCalendar() {
         <div className="flex gap-2 shrink-0">
           <Button
             size="sm"
-            variant="outline"
+            variant={showScheduledPanel ? "default" : "outline"}
             onClick={() => setShowScheduledPanel((v) => !v)}
             className="gap-1.5"
           >
