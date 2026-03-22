@@ -709,11 +709,13 @@ export default function ReportPL() {
                       </TableHeader>
                       <TableBody>
                         {pl.map((line, i) => {
+                          const hasOverride = (line.overrideCount ?? 0) > 0;
                           const rowClass = line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
                             : line.isGroupHeader ? "bg-secondary/10 border-t border-border/20"
                             : line.isSubTotal ? "bg-muted/20 border-t border-border/20"
+                            : hasOverride ? "bg-warning/5 border-l-2 border-l-warning"
                             : line.subIndent ? "bg-muted/10" : "";
                           const labelClass = `${line.subIndent ? "pl-12 text-xs" : line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isSubTotal ? "pl-12 text-xs font-semibold" : ""} ${!line.isSubTotal && line.subIndent ? "italic" : ""} ${line.isTotal || line.isGrandTotal ? "font-bold text-xs uppercase tracking-wider" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
                           const valClass = `text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`;
