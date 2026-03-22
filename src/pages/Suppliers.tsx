@@ -234,16 +234,6 @@ export default function Suppliers() {
                     <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{s.category || "—"}</td>
                     <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell truncate max-w-[180px]">{s.email || "—"}</td>
                     <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">{s.phone || "—"}</td>
-                    <td className="py-3 text-center">
-                      {s.rating ? (
-                        <div className="inline-flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                          <span className="text-xs font-medium">{s.rating}/5</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
                     <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
                         <button
