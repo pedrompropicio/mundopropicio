@@ -415,6 +415,20 @@ export default function ReportMovementReconciliation() {
                                 <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.dueDate ? new Date(m.dueDate).toLocaleDateString("pt-PT") : "—"}</td>
                                 <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.paymentDate ? new Date(m.paymentDate).toLocaleDateString("pt-PT") : "—"}</td>
                                 <td className="py-1.5 px-1 text-muted-foreground">{m.invoiceRef || "—"}</td>
+                                <td className="py-1.5 px-1 text-center">
+                                  {(docCounts as Record<string, number>)[m.id] ? (
+                                    <button
+                                      onClick={() => setDocsModal({ id: m.id, description: m.description })}
+                                      className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
+                                      title="Ver documentos anexados"
+                                    >
+                                      <Paperclip className="h-3 w-3" />
+                                      <span className="font-medium">{(docCounts as Record<string, number>)[m.id]}</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted-foreground/30">—</span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </>
