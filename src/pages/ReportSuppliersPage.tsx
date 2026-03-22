@@ -67,13 +67,13 @@ export default function ReportSuppliersPage() {
           <p className="text-sm text-muted-foreground">Resumo financeiro por fornecedor</p>
         </div>
         {supplierStats.length > 0 && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => exportSuppliersToPDF(supplierStats)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            <FileText className="h-4 w-4" />
-            PDF
-          </button>
+            <FileText className="mr-1.5 h-4 w-4" /> PDF
+          </Button>
         )}
       </div>
 

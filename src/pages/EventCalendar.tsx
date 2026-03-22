@@ -547,7 +547,7 @@ export default function EventCalendar() {
                 )
               }
             >
-              <FileDown className="h-3.5 w-3.5" />
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
               PDF
             </Button>
           )}
