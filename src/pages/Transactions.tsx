@@ -30,14 +30,19 @@ import {
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
+  const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
+  const [paidPeriod, setPaidPeriod] = useState<"yesterday" | "week" | "month" | "range">("week");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
+  const [paidPeriodPopoverOpen, setPaidPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
   const [rangeTo, setRangeTo] = useState<Date | undefined>(undefined);
   const [rangeFromOpen, setRangeFromOpen] = useState(false);
   const [rangeToOpen, setRangeToOpen] = useState(false);
-  const [paidDateFromOpen, setPaidDateFromOpen] = useState(false);
-  const [paidDateToOpen, setPaidDateToOpen] = useState(false);
+  const [paidRangeFrom, setPaidRangeFrom] = useState<Date | undefined>(undefined);
+  const [paidRangeTo, setPaidRangeTo] = useState<Date | undefined>(undefined);
+  const [paidRangeFromOpen, setPaidRangeFromOpen] = useState(false);
+  const [paidRangeToOpen, setPaidRangeToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
@@ -47,10 +52,7 @@ export default function Transactions() {
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showPaidDialog, setShowPaidDialog] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [paidDateFrom, setPaidDateFrom] = useState<Date | undefined>(undefined);
-  const [paidDateTo, setPaidDateTo] = useState<Date | undefined>(undefined);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
 
