@@ -25,6 +25,7 @@ export default function ReportBankStatement() {
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
