@@ -1,16 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Star, FileText, Phone, Mail, Building2, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Star, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type ViewMode = "grid" | "list";
+type SortField = "name" | "trade_name";
+type SortDir = "asc" | "desc";
 
 export default function Suppliers() {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -38,12 +46,22 @@ export default function Suppliers() {
     },
   });
 
-  const filtered = suppliers.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    ((s as any).trade_name && (s as any).trade_name.toLowerCase().includes(search.toLowerCase())) ||
-    (s.nif && s.nif.includes(search)) ||
-    (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = useMemo(() => {
+    const list = suppliers.filter((s) =>
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      (s.trade_name && s.trade_name.toLowerCase().includes(search.toLowerCase())) ||
+      (s.nif && s.nif.includes(search)) ||
+      (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
+    );
+    list.sort((a, b) => {
+      const valA = (sortField === "trade_name" ? (a.trade_name || a.name) : a.name).toLowerCase();
+      const valB = (sortField === "trade_name" ? (b.trade_name || b.name) : b.name).toLowerCase();
+      return sortDir === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    });
+    return list;
+  }, [suppliers, search, sortField, sortDir]);
+
+  const toggleSort = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
 
   return (
     <div className="space-y-6">
@@ -67,7 +85,6 @@ export default function Suppliers() {
         editingSupplier={editingSupplier}
       />
 
-      {/* Delete confirmation */}
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingId(null)}>
           <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -94,23 +111,61 @@ export default function Suppliers() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Pesquisar por nome, NIF ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+      {/* Search + Controls */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Pesquisar por nome, NIF ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+            <SelectTrigger className="w-[160px] h-9 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Nome Entidade</SelectItem>
+              <SelectItem value="trade_name">Nome Fantasia</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            onClick={toggleSort}
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 h-9 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title={sortDir === "asc" ? "A → Z" : "Z → A"}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            {sortDir === "asc" ? "A→Z" : "Z→A"}
+          </button>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-2 transition-colors ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}
+              title="Vista em grelha"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}
+              title="Vista em lista"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="text-center text-muted-foreground py-12">A carregar...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center text-muted-foreground py-12">Nenhum fornecedor encontrado</div>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((s) => (
             <div key={s.id} className="glass rounded-xl p-5 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-foreground">{s.name}</h3>
-                  {(s as any).trade_name && <p className="text-xs text-foreground/70">{(s as any).trade_name}</p>}
+                  {s.trade_name && <p className="text-xs text-foreground/70">{s.trade_name}</p>}
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
                 <div className="flex items-center gap-1 ml-2 shrink-0">
@@ -142,13 +197,75 @@ export default function Suppliers() {
                 {s.phone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {s.phone}</p>}
                 {s.contact_name && <p className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> {s.contact_name}</p>}
                 {s.iban && <p className="text-xs truncate">IBAN: {s.iban}</p>}
-                {(s as any).swift_bic && <p className="text-xs">SWIFT: {(s as any).swift_bic}</p>}
+                {s.swift_bic && <p className="text-xs">SWIFT: {s.swift_bic}</p>}
               </div>
               {s.payment_terms && (
                 <p className="text-xs text-muted-foreground">Pagamento: {s.payment_terms}</p>
               )}
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="glass rounded-xl p-5">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="pb-3 text-left font-medium">Nome Entidade</th>
+                  <th className="hidden pb-3 text-left font-medium sm:table-cell">Nome Fantasia</th>
+                  <th className="hidden pb-3 text-left font-medium md:table-cell">NIF</th>
+                  <th className="hidden pb-3 text-left font-medium md:table-cell">Categoria</th>
+                  <th className="hidden pb-3 text-left font-medium lg:table-cell">Email</th>
+                  <th className="hidden pb-3 text-left font-medium lg:table-cell">Telefone</th>
+                  <th className="pb-3 text-center font-medium">Rating</th>
+                  <th className="pb-3 text-center font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {filtered.map((s) => (
+                  <tr key={s.id} className="hover:bg-secondary/20 transition-colors">
+                    <td className="py-3 pr-4">
+                      <p className="font-medium text-foreground">{s.name}</p>
+                      <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
+                    </td>
+                    <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{s.trade_name || "—"}</td>
+                    <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{s.nif || "—"}</td>
+                    <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{s.category || "—"}</td>
+                    <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell truncate max-w-[180px]">{s.email || "—"}</td>
+                    <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">{s.phone || "—"}</td>
+                    <td className="py-3 text-center">
+                      {s.rating ? (
+                        <div className="inline-flex items-center gap-1">
+                          <Star className="h-3.5 w-3.5 fill-warning text-warning" />
+                          <span className="text-xs font-medium">{s.rating}/5</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingId(s.id)}
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
