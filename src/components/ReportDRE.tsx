@@ -462,7 +462,7 @@ export default function ReportDRE() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={`grid gap-4 ${hasGlobalPartners ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Receitas</p>
           <p className="mt-1 text-lg font-bold text-success">{formatCurrency(globalIncEx)}</p>
@@ -480,6 +480,21 @@ export default function ReportDRE() {
           </p>
           <p className="text-xs text-muted-foreground">c/ IVA: {formatCurrency(globalResultInc)}</p>
         </div>
+        {hasGlobalPartners && (
+          <div className="glass rounded-xl p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado MP</p>
+            <p className={`mt-1 text-lg font-bold ${globalRetained >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(globalRetained)}
+            </p>
+            <div className="mt-1 space-y-0.5">
+              {Object.values(globalPartnerShares).map((p, i) => (
+                <p key={i} className="text-xs text-amber-500 truncate">
+                  {p.name}: {formatCurrency(p.total)}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
