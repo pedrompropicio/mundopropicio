@@ -376,5 +376,14 @@ export default function ReportBankStatement() {
         </>
       )}
     </div>
+
+    {docsModal && (
+      <TransactionDocumentsModal
+        transactionId={docsModal.id}
+        transactionDescription={docsModal.description}
+        onClose={() => setDocsModal(null)}
+      />
+    )}
+  </>
   );
 }
