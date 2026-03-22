@@ -146,7 +146,7 @@ export function formatCurrency(value: number): string {
   const fixed = abs.toFixed(2);
   const [intPart, decPart] = fixed.split(".");
   const withDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${sign}${withDots},${decPart} €`;
+  return `${sign}${withDots},${decPart}\u00A0€`;
 }
 
 export function formatCurrencyDecimal(value: number): string {
