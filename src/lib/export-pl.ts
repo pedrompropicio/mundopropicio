@@ -698,13 +698,30 @@ export function exportPLToPDF(
         doc.setFont("helvetica", "italic");
         doc.setFontSize(6);
         doc.setTextColor(120, 120, 120);
+      } else if ((line.overrideCount ?? 0) > 0) {
+        // Override line — light yellow background with left accent
+        doc.setFillColor(255, 250, 230);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFillColor(245, 180, 50);
+        doc.rect(marginLeft, y - 1, 1.5, rowH + 1, "F");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6.5);
       }
 
       const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do P&L]` : "";
       doc.text(label, colX[0] + 2, y + 4);
+      if (overrideSuffix) {
+        const labelWidth = doc.getTextWidth(label);
+        doc.setFontSize(5);
+        doc.setTextColor(180, 120, 0);
+        doc.text(overrideSuffix, colX[0] + 2 + labelWidth + 1, y + 4);
+        doc.setFontSize(6.5);
+        doc.setTextColor(0, 0, 0);
+      }
 
       if (line.quantity != null) {
         doc.text(line.quantity.toLocaleString("pt-PT"), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
