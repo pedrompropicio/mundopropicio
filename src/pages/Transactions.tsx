@@ -583,26 +583,85 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
-        {/* Filtro Aprovação */}
-        <Button
-          variant={onlyPending ? "default" : "outline"}
-          size="sm"
-          className="text-sm font-normal"
-          onClick={() => setOnlyPending(!onlyPending)}
-        >
-          <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-          Aprovação
-        </Button>
+        {/* Toggle Em Aberto / Liquidadas */}
+        <div className="flex items-center rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setViewMode("open")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Em Aberto
+          </button>
+          <button
+            onClick={() => setViewMode("paid")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Liquidadas
+          </button>
+        </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-sm font-normal"
-          onClick={() => setShowPaidDialog(true)}
-        >
-          <Eye className="mr-1.5 h-3.5 w-3.5" />
-          Ver Liquidadas
-        </Button>
+        {/* Period filter for paid view */}
+        {viewMode === "paid" && (
+          <Popover modal={false} open={paidPeriodPopoverOpen} onOpenChange={setPaidPeriodPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="text-sm font-normal">
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                {paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <div className="flex flex-col gap-1">
+                {([["yesterday", "Ontem"], ["week", "Última Semana"], ["month", "Último Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => { setPaidPeriod(val); if (val !== "range") setPaidPeriodPopoverOpen(false); }}
+                    className={cn(
+                      "rounded px-3 py-1.5 text-sm text-left transition-colors",
+                      paidPeriod === val ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {paidPeriod === "range" && (
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-border/50">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">De</label>
+                      <Popover open={paidRangeFromOpen} onOpenChange={setPaidRangeFromOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !paidRangeFrom && "text-muted-foreground")}>
+                            {paidRangeFrom ? format(paidRangeFrom, "dd/MM/yyyy") : "Início"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={paidRangeFrom} onSelect={(d) => { setPaidRangeFrom(d); setPaidRangeFromOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Até</label>
+                      <Popover open={paidRangeToOpen} onOpenChange={setPaidRangeToOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("w-full justify-start text-left font-normal", !paidRangeTo && "text-muted-foreground")}>
+                            {paidRangeTo ? format(paidRangeTo, "dd/MM/yyyy") : "Fim"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={paidRangeTo} onSelect={(d) => { setPaidRangeTo(d); setPaidRangeToOpen(false); setPaidPeriodPopoverOpen(false); }} locale={pt} className="p-3 pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
 
         {isAdmin && selectedPendingCount > 0 && (
           <button
