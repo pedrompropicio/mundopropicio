@@ -24,29 +24,41 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Authenticate caller
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user: caller }, error: authError } = await callerClient.auth.getUser();
-    if (authError || !caller) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims?.sub) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const callerId = claimsData.claims.sub;
+    const callerEmail = typeof claimsData.claims.email === "string" ? claimsData.claims.email : undefined;
+    const callerUserMetadata =
+      claimsData.claims.user_metadata && typeof claimsData.claims.user_metadata === "object"
+        ? claimsData.claims.user_metadata as Record<string, unknown>
+        : undefined;
+
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check caller role: must be admin or manager
-    const { data: roleData } = await adminClient
+    const { data: roleRows, error: roleError } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", caller.id)
-      .single();
+      .eq("user_id", callerId);
 
-    const callerRole = roleData?.role;
-    if (callerRole !== "admin" && callerRole !== "manager") {
+    if (roleError) {
+      return new Response(JSON.stringify({ error: roleError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const callerRoles = new Set((roleRows ?? []).map((row) => row.role));
+    if (!callerRoles.has("admin") && !callerRoles.has("manager")) {
       return new Response(
         JSON.stringify({ error: "Apenas administradores e managers podem aprovar transações" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -61,11 +73,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch transactions to validate current state
+    const uniqueIds = [...new Set(transaction_ids.filter((id) => typeof id === "string" && id.length > 0))];
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
       .select("id, status, type, event_id, amount")
-      .in("id", transaction_ids);
+      .in("id", uniqueIds);
 
     if (fetchError) {
       return new Response(JSON.stringify({ error: fetchError.message }), {
@@ -75,74 +87,75 @@ Deno.serve(async (req) => {
     }
 
     if (!transactions || transactions.length === 0) {
-      return new Response(JSON.stringify({ error: "Nenhuma transação encontrada" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Validate: only pending or overdue transactions can be approved
-    const invalidTx = transactions.filter(
-      (t) => t.status !== "pending" && t.status !== "overdue"
-    );
-    if (invalidTx.length > 0) {
       return new Response(
         JSON.stringify({
-          error: `${invalidTx.length} transação(ões) não podem ser aprovadas (estado atual: ${[...new Set(invalidTx.map((t) => t.status))].join(", ")})`,
-          invalid_ids: invalidTx.map((t) => t.id),
+          success: true,
+          approved_count: 0,
+          approved_ids: [],
+          skipped_count: uniqueIds.length,
+          skipped_ids: uniqueIds,
+          message: "Nenhuma transação encontrada para aprovar.",
         }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate: transactions already paid cannot be approved
-    const paidTx = transactions.filter((t) => t.status === "paid");
-    if (paidTx.length > 0) {
-      return new Response(
-        JSON.stringify({ error: "Transações já pagas não podem ser aprovadas" }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const approvableTx = transactions.filter((t) => t.status === "pending" || t.status === "overdue");
+    const skippedTx = transactions.filter((t) => t.status !== "pending" && t.status !== "overdue");
+    const missingIds = uniqueIds.filter((id) => !transactions.some((t) => t.id === id));
+    const approvedIds = approvableTx.map((t) => t.id);
+    const skippedIds = [...skippedTx.map((t) => t.id), ...missingIds];
+    const callerName =
+      (typeof callerUserMetadata?.full_name === "string" && callerUserMetadata.full_name) ||
+      callerEmail ||
+      "sistema";
+
+    if (approvedIds.length > 0) {
+      const auditEntries = approvedIds.map((id) => ({
+        transaction_id: id,
+        changed_by: callerName,
+        field_name: "status",
+        old_value: approvableTx.find((t) => t.id === id)?.status ?? "pending",
+        new_value: "approved",
+      }));
+
+      const { error: auditError } = await adminClient
+        .from("transaction_audit_log")
+        .insert(auditEntries);
+
+      if (auditError) {
+        console.error("Audit log error:", auditError);
+      }
+
+      const { error: updateError } = await adminClient
+        .from("transactions")
+        .update({ status: "approved" })
+        .in("id", approvedIds);
+
+      if (updateError) {
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
-    const validIds = transactions.map((t) => t.id);
-    const callerName = caller.user_metadata?.full_name ?? caller.email ?? "sistema";
-
-    // Write audit log entries (server-side, tamper-proof)
-    const auditEntries = validIds.map((id) => ({
-      transaction_id: id,
-      changed_by: callerName,
-      field_name: "status",
-      old_value: transactions.find((t) => t.id === id)?.status ?? "pending",
-      new_value: "approved",
-    }));
-
-    const { error: auditError } = await adminClient
-      .from("transaction_audit_log")
-      .insert(auditEntries);
-
-    if (auditError) {
-      console.error("Audit log error:", auditError);
-      // Don't block approval for audit failure, but log it
-    }
-
-    // Update transaction statuses
-    const { error: updateError } = await adminClient
-      .from("transactions")
-      .update({ status: "approved" })
-      .in("id", validIds);
-
-    if (updateError) {
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const skippedStatuses = [...new Set(skippedTx.map((t) => t.status))];
+    const message = approvedIds.length === 0
+      ? "Nenhuma transação pendente encontrada para aprovar."
+      : skippedIds.length > 0
+        ? `${approvedIds.length} transação(ões) aprovada(s); ${skippedIds.length} ignorada(s).`
+        : undefined;
 
     return new Response(
       JSON.stringify({
         success: true,
-        approved_count: validIds.length,
-        approved_ids: validIds,
+        approved_count: approvedIds.length,
+        approved_ids: approvedIds,
+        skipped_count: skippedIds.length,
+        skipped_ids: skippedIds,
+        skipped_statuses: skippedStatuses,
+        message,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

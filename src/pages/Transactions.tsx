@@ -121,9 +121,21 @@ export default function Transactions() {
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast({ title: "Transação aprovada!" });
+      if (data?.approved_count > 0) {
+        toast({
+          title: "Transação aprovada!",
+          description: data?.skipped_count > 0 ? "Alguns itens já não estavam pendentes e foram ignorados." : undefined,
+        });
+        return;
+      }
+
+      toast({
+        title: "Nenhuma transação aprovada",
+        description: data?.message ?? "A transação já não estava pendente.",
+        variant: "destructive",
+      });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
@@ -139,10 +151,28 @@ export default function Transactions() {
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (_data, ids) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedIds(new Set());
-      toast({ title: `${ids.length} transação(ões) aprovada(s)!` });
+
+      if (data?.approved_count > 0 && data?.skipped_count > 0) {
+        toast({
+          title: `${data.approved_count} transação(ões) aprovada(s)!`,
+          description: `${data.skipped_count} já não estavam pendentes e foram ignoradas.`,
+        });
+        return;
+      }
+
+      if (data?.approved_count > 0) {
+        toast({ title: `${data.approved_count} transação(ões) aprovada(s)!` });
+        return;
+      }
+
+      toast({
+        title: "Nenhuma transação aprovada",
+        description: data?.message ?? "As transações selecionadas já não estavam pendentes.",
+        variant: "destructive",
+      });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
