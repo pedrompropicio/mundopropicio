@@ -1,7 +1,14 @@
 import { useMemo } from "react";
-import { Building2, ChevronRight, MapPin } from "lucide-react";
+import { Building2, ChevronRight, MapPin, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { exportVenueReservationsPanelPDF } from "@/lib/export-venue-reservations-panel";
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 interface VenueReservation {
   id: string;
@@ -31,6 +38,18 @@ export function VenueReservationsPanel({ open, onOpenChange, reservations }: Ven
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [reservations, todayStr]);
 
+  // Group by month
+  const groupedByMonth = useMemo(() => {
+    const groups = new Map<string, VenueReservation[]>();
+    upcoming.forEach((r) => {
+      const d = new Date(r.date + "T12:00:00");
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    });
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [upcoming]);
+
   if (!open) return null;
 
   return (
@@ -40,12 +59,25 @@ export function VenueReservationsPanel({ open, onOpenChange, reservations }: Ven
           <Building2 className="h-4 w-4 text-purple-400" />
           Salas Reservadas ({upcoming.length})
         </h3>
-        <button
-          onClick={() => onOpenChange(false)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Fechar
-        </button>
+        <div className="flex items-center gap-2">
+          {upcoming.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 gap-1 text-xs"
+              onClick={() => exportVenueReservationsPanelPDF(upcoming)}
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF
+            </Button>
+          )}
+          <button
+            onClick={() => onOpenChange(false)}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
       </div>
 
       {upcoming.length === 0 ? (
@@ -53,35 +85,48 @@ export function VenueReservationsPanel({ open, onOpenChange, reservations }: Ven
           Sem reservas de sala futuras
         </p>
       ) : (
-        <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
-          {upcoming.map((r) => {
-            const dateFormatted = new Date(r.date + "T12:00:00").toLocaleDateString("pt-PT", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            });
+        <div className="space-y-4 max-h-[500px] overflow-y-auto">
+          {groupedByMonth.map(([monthKey, items]) => {
+            const [year, month] = monthKey.split("-");
+            const monthLabel = `${MONTH_NAMES[parseInt(month) - 1]} ${year}`;
+
             return (
-              <button
-                key={r.id}
-                onClick={() => navigate(`/eventos?from_reservation=${r.id}`)}
-                className="w-full flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/30 transition-colors text-left group"
-              >
-                <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-purple-500" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate italic">
-                    {r.notes || `Reserva — ${r.venue_name}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    {dateFormatted} • {r.venue_name}
-                    {r.city_name ? ` • ${r.city_name}` : ""}
-                  </p>
+              <div key={monthKey}>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 sticky top-0 bg-background/80 backdrop-blur-sm py-1">
+                  {monthLabel} ({items.length})
+                </h4>
+                <div className="space-y-1">
+                  {items.map((r) => {
+                    const dateFormatted = new Date(r.date + "T12:00:00").toLocaleDateString("pt-PT", {
+                      day: "2-digit",
+                      month: "short",
+                    });
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => navigate(`/eventos?from_reservation=${r.id}`)}
+                        className="w-full flex items-center gap-3 rounded-lg p-2.5 hover:bg-secondary/30 transition-colors text-left group"
+                      >
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-purple-500" />
+                        <div className="w-16 shrink-0">
+                          <p className="text-xs font-medium">{dateFormatted}</p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate italic">
+                            {r.notes || `Reserva — ${r.venue_name}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            {r.venue_name}
+                            {r.city_name ? ` • ${r.city_name}` : ""}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium shrink-0 bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                  Reserva
-                </span>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-              </button>
+              </div>
             );
           })}
         </div>
