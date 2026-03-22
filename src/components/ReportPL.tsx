@@ -30,6 +30,8 @@ interface PLLine {
   isSubTotal?: boolean;
   quantity?: number;
   unitPrice?: number;
+  overrideCount?: number;
+  overrideNote?: string;
 }
 
 function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
