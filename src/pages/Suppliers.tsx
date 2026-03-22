@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Star, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown } from "lucide-react";
+import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { Input } from "@/components/ui/input";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ export default function Suppliers() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -202,6 +204,11 @@ export default function Suppliers() {
               {s.payment_terms && (
                 <p className="text-xs text-muted-foreground">Pagamento: {s.payment_terms}</p>
               )}
+              <SupplierTransactions
+                supplierId={s.id}
+                isOpen={expandedId === s.id}
+                onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
+              />
             </div>
           ))}
         </div>
@@ -222,8 +229,9 @@ export default function Suppliers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filtered.map((s) => (
-                  <tr key={s.id} className="hover:bg-secondary/20 transition-colors">
+              {filtered.map((s) => (
+                <React.Fragment key={s.id}>
+                  <tr className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}>
                     <td className="py-3 pr-4">
                       <p className="font-medium text-foreground">{s.name}</p>
                       <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
@@ -243,7 +251,7 @@ export default function Suppliers() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="py-3 text-center">
+                    <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
@@ -262,7 +270,19 @@ export default function Suppliers() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  {expandedId === s.id && (
+                    <tr>
+                      <td colSpan={8} className="px-4 pb-4">
+                        <SupplierTransactions
+                          supplierId={s.id}
+                          isOpen={true}
+                          onToggle={() => setExpandedId(null)}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
               </tbody>
             </table>
           </div>
