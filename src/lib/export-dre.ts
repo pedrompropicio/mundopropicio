@@ -247,7 +247,8 @@ export function exportDREToPDF(
   ticketLots: any[] = [],
   ticketSales: any[] = [],
   ticketCategoryId: string | null = null,
-  partners: any[] = []
+  partners: any[] = [],
+  allEvents: any[] = []
 ) {
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
