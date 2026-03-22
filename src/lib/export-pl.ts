@@ -533,9 +533,10 @@ export function exportPLToExcel(
     ];
     plLines.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "      " : line.isGroupHeader ? "  " : "";
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do P&L)` : "";
       if (isComparison) {
         rows.push([
-          prefix + line.label,
+          prefix + line.label + overrideSuffix,
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
@@ -548,7 +549,7 @@ export function exportPLToExcel(
         ]);
       } else {
         rows.push([
-          prefix + line.label,
+          prefix + line.label + overrideSuffix,
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
@@ -557,23 +558,6 @@ export function exportPLToExcel(
         ]);
       }
     });
-
-    // Add "Fora do P&L" override transactions
-    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
-    if (overrideTxs.length > 0) {
-      rows.push([]);
-      rows.push([`⚠ Transações Fora do P&L (${overrideTxs.length})`]);
-      rows.push(["Descrição", "Categoria", "Valor (€)", "Justificação"]);
-      const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
-      overrideTxs.forEach((t: any) => {
-        rows.push([
-          t.description || "",
-          catMap[t.category_id] || "—",
-          Number(t.amount),
-          t.pl_override_note || "",
-        ]);
-      });
-    }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = isComparison
