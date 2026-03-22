@@ -328,6 +328,20 @@ export default function ReportBankStatement() {
                       <TableCell className="text-sm text-muted-foreground">
                         {line.events?.name ?? "—"}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {(docCounts as Record<string, number>)[line.id] ? (
+                          <button
+                            onClick={() => setDocsModal({ id: line.id, description: line.description })}
+                            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                            title="Ver documentos anexados"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                            <span className="font-medium">{(docCounts as Record<string, number>)[line.id]}</span>
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         {line.signedAmount > 0 ? (
                           <span className="text-success">{formatCurrency(line.signedAmount)}</span>
