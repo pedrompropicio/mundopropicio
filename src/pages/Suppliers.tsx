@@ -254,6 +254,13 @@ export default function Suppliers() {
                     <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                          className={`rounded-lg p-1.5 transition-colors ${expandedId === s.id ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                          title="Ver contratações"
+                        >
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${expandedId === s.id ? "rotate-180" : ""}`} />
+                        </button>
+                        <button
                           onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
                           className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                           title="Editar"
