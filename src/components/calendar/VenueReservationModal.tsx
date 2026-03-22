@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,21 +7,47 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
+
+interface EditReservation {
+  id: string;
+  date: string;
+  venue_id: string;
+  city_id: string | null;
+  notes: string | null;
+}
 
 interface VenueReservationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultDate?: string;
+  editReservation?: EditReservation | null;
 }
 
-export function VenueReservationModal({ open, onOpenChange, defaultDate }: VenueReservationModalProps) {
+export function VenueReservationModal({ open, onOpenChange, defaultDate, editReservation }: VenueReservationModalProps) {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState(defaultDate || new Date().toISOString().slice(0, 10));
   const [cityId, setCityId] = useState("");
   const [venueId, setVenueId] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const isEditing = !!editReservation;
+
+  // Populate fields when editing
+  useEffect(() => {
+    if (editReservation && open) {
+      setDate(editReservation.date);
+      setVenueId(editReservation.venue_id);
+      setCityId(editReservation.city_id || "");
+      setNotes(editReservation.notes || "");
+    } else if (!editReservation && open) {
+      setDate(defaultDate || new Date().toISOString().slice(0, 10));
+      setVenueId("");
+      setCityId("");
+      setNotes("");
+    }
+  }, [editReservation, open, defaultDate]);
 
   const { data: cities = [] } = useQuery({
     queryKey: ["calendar-cities"],
@@ -56,23 +82,31 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
     setSaving(true);
     try {
       const selectedVenue = venues.find((v) => v.id === venueId);
-      const { error } = await supabase.from("venue_reservations").insert({
+      const payload = {
         date,
         venue_id: venueId,
         city_id: cityId || selectedVenue?.city_id || null,
         notes: notes.trim() || null,
-      });
-      if (error) throw error;
+      };
 
-      toast.success("Reserva de sala criada com sucesso");
+      if (isEditing) {
+        const { error } = await supabase
+          .from("venue_reservations")
+          .update(payload)
+          .eq("id", editReservation!.id);
+        if (error) throw error;
+        toast.success("Reserva atualizada com sucesso");
+      } else {
+        const { error } = await supabase.from("venue_reservations").insert(payload);
+        if (error) throw error;
+        toast.success("Reserva de sala criada com sucesso");
+      }
+
       queryClient.invalidateQueries({ queryKey: ["venue-reservations"] });
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
       onOpenChange(false);
-      setNotes("");
-      setVenueId("");
-      setCityId("");
     } catch (err: any) {
-      toast.error("Erro ao criar reserva: " + err.message);
+      toast.error(`Erro ao ${isEditing ? "atualizar" : "criar"} reserva: ` + err.message);
     } finally {
       setSaving(false);
     }
@@ -83,8 +117,8 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5 text-primary" />
-            Adicionar Reserva de Sala
+            {isEditing ? <Pencil className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
+            {isEditing ? "Editar Reserva de Sala" : "Adicionar Reserva de Sala"}
           </DialogTitle>
         </DialogHeader>
 
@@ -95,7 +129,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              autoFocus
+              autoFocus={!isEditing}
             />
           </div>
 
@@ -136,7 +170,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate }: Venue
               Cancelar
             </Button>
             <Button className="flex-1" onClick={handleSave} disabled={saving}>
-              {saving ? "A guardar..." : "Criar Reserva"}
+              {saving ? "A guardar..." : isEditing ? "Guardar Alterações" : "Criar Reserva"}
             </Button>
           </div>
         </div>

@@ -50,6 +50,7 @@ export default function EventCalendar() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
+  const [editingReservation, setEditingReservation] = useState<{ id: string; date: string; venue_id: string; city_id: string | null; notes: string | null } | null>(null);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
   const [showReservationsPanel, setShowReservationsPanel] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
@@ -676,17 +677,37 @@ export default function EventCalendar() {
           return {
             id: r.id,
             date: r.date,
+            venue_id: r.venue_id,
+            city_id: r.city_id,
             venue_name: venue?.name || "Sala",
             city_name: city?.name || "",
             notes: r.notes,
           };
         })}
+        onEdit={(r) => {
+          setEditingReservation({ id: r.id, date: r.date, venue_id: r.venue_id, city_id: r.city_id, notes: r.notes });
+          setShowReservationModal(true);
+        }}
+        onDelete={(id) => deleteReservationMutation.mutate(id)}
+        onConvertToEvent={(r) => {
+          convertToEventMutation.mutate({
+            id: r.id,
+            date: r.date,
+            venue_id: r.venue_id,
+            city_id: r.city_id,
+            notes: r.notes,
+          });
+        }}
       />
 
       {/* Venue reservation modal */}
       <VenueReservationModal
         open={showReservationModal}
-        onOpenChange={setShowReservationModal}
+        onOpenChange={(open) => {
+          setShowReservationModal(open);
+          if (!open) setEditingReservation(null);
+        }}
+        editReservation={editingReservation}
       />
     </div>
   );
