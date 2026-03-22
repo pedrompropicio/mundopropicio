@@ -229,6 +229,7 @@ export default function Suppliers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
+              <tbody className="divide-y divide-border/30">
               {filtered.map((s) => (
                 <React.Fragment key={s.id}>
                   <tr className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}>
@@ -283,6 +284,7 @@ export default function Suppliers() {
                   )}
                 </React.Fragment>
               ))}
+              </tbody>
             </table>
           </div>
         </div>
