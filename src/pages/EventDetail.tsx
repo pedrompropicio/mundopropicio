@@ -619,6 +619,10 @@ export default function EventDetail() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="partners">
+          <EventPartnersTab eventId={event.id} eventStatus={event.status} />
+        </TabsContent>
       </Tabs>
 
       {/* Confirmation dialog */}
