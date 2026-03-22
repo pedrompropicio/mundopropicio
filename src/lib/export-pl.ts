@@ -24,6 +24,7 @@ interface PLLine {
   isSubTotal?: boolean;
   quantity?: number;
   unitPrice?: number;
+  overrideCount?: number;
 }
 
 function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
@@ -217,6 +218,19 @@ function buildPLForExport(
     }));
   }
 
+  // Build override tracking by category name
+  const overrideByCatName: Record<string, number> = {};
+  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
+    const catInfo = lookup[t.category_id];
+    const catName = catInfo?.name ?? "Sem categoria";
+    overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
+  });
+
+  const enrichLine = (line: PLLine, detailName: string): PLLine => {
+    const cnt = overrideByCatName[detailName];
+    return cnt ? { ...line, overrideCount: cnt } : line;
+  };
+
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
   const tInc = transactions.filter((t) => t.type === "income");
@@ -318,7 +332,7 @@ function buildPLForExport(
         actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(pl({
+        lines.push(enrichLine(pl({
           label: d.name,
           forecast: d.fBase,
           actual: d.tBase,
@@ -328,14 +342,14 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
         if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
         }
       });
     } else {
-      lines.push(pl({
+      lines.push(enrichLine(pl({
         label: group.groupName,
         forecast: group.fBase,
         actual: group.tBase,
@@ -345,7 +359,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
       if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
         ticketLines.forEach((tl) => lines.push(tl));
         ticketLinesInserted = true;
@@ -382,7 +396,7 @@ function buildPLForExport(
         actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(pl({
+        lines.push(enrichLine(pl({
           label: d.name,
           forecast: d.fBase,
           actual: d.tBase,
@@ -392,10 +406,10 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
       });
     } else {
-      lines.push(pl({
+      lines.push(enrichLine(pl({
         label: group.groupName,
         forecast: group.fBase,
         actual: group.tBase,
@@ -405,7 +419,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
     }
   });
 
@@ -519,9 +533,10 @@ export function exportPLToExcel(
     ];
     plLines.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "      " : line.isGroupHeader ? "  " : "";
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do P&L)` : "";
       if (isComparison) {
         rows.push([
-          prefix + line.label,
+          prefix + line.label + overrideSuffix,
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
@@ -534,7 +549,7 @@ export function exportPLToExcel(
         ]);
       } else {
         rows.push([
-          prefix + line.label,
+          prefix + line.label + overrideSuffix,
           line.quantity != null ? line.quantity : "",
           line.unitPrice != null ? line.unitPrice : "",
           line.forecast,
@@ -543,23 +558,6 @@ export function exportPLToExcel(
         ]);
       }
     });
-
-    // Add "Fora do P&L" override transactions
-    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
-    if (overrideTxs.length > 0) {
-      rows.push([]);
-      rows.push([`⚠ Transações Fora do P&L (${overrideTxs.length})`]);
-      rows.push(["Descrição", "Categoria", "Valor (€)", "Justificação"]);
-      const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
-      overrideTxs.forEach((t: any) => {
-        rows.push([
-          t.description || "",
-          catMap[t.category_id] || "—",
-          Number(t.amount),
-          t.pl_override_note || "",
-        ]);
-      });
-    }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = isComparison
@@ -700,13 +698,30 @@ export function exportPLToPDF(
         doc.setFont("helvetica", "italic");
         doc.setFontSize(6);
         doc.setTextColor(120, 120, 120);
+      } else if ((line.overrideCount ?? 0) > 0) {
+        // Override line — light yellow background with left accent
+        doc.setFillColor(255, 250, 230);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFillColor(245, 180, 50);
+        doc.rect(marginLeft, y - 1, 1.5, rowH + 1, "F");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6.5);
       }
 
       const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do P&L]` : "";
       doc.text(label, colX[0] + 2, y + 4);
+      if (overrideSuffix) {
+        const labelWidth = doc.getTextWidth(label);
+        doc.setFontSize(5);
+        doc.setTextColor(180, 120, 0);
+        doc.text(overrideSuffix, colX[0] + 2 + labelWidth + 1, y + 4);
+        doc.setFontSize(6.5);
+        doc.setTextColor(0, 0, 0);
+      }
 
       if (line.quantity != null) {
         doc.text(line.quantity.toLocaleString("pt-PT"), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
@@ -741,51 +756,6 @@ export function exportPLToPDF(
       y += rowH;
     });
 
-    // "Fora do P&L" override transactions section
-    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
-    if (overrideTxs.length > 0) {
-      y += 4;
-      checkNewPage(12 + overrideTxs.length * 7);
-
-      doc.setFillColor(255, 243, 205);
-      doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(120, 80, 0);
-      doc.text(`⚠ Transações Fora do P&L (${overrideTxs.length})`, marginLeft + 2, y + 5);
-      doc.setTextColor(0, 0, 0);
-      y += 9;
-
-      // Sub-header
-      doc.setFillColor(255, 248, 225);
-      doc.rect(marginLeft, y - 1, contentWidth, 7, "F");
-      doc.setFontSize(6);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(80, 80, 80);
-      const overColW = [contentWidth * 0.30, contentWidth * 0.20, contentWidth * 0.15, contentWidth * 0.35];
-      const overColX = [marginLeft];
-      for (let i = 1; i < overColW.length; i++) overColX.push(overColX[i - 1] + overColW[i - 1]);
-      doc.text("Descrição", overColX[0] + 2, y + 4.5);
-      doc.text("Categoria", overColX[1] + 2, y + 4.5);
-      doc.text("Valor (€)", overColX[2] + overColW[2] - 2, y + 4.5, { align: "right" });
-      doc.text("Justificação", overColX[3] + 2, y + 4.5);
-      doc.setTextColor(0, 0, 0);
-      y += 7;
-
-      const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
-      overrideTxs.forEach((t: any) => {
-        checkNewPage(7);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(6);
-        doc.text((t.description || "").substring(0, 45), overColX[0] + 2, y + 4);
-        doc.text((catMap[t.category_id] || "—").substring(0, 30), overColX[1] + 2, y + 4);
-        doc.text(fmtVal(Number(t.amount)), overColX[2] + overColW[2] - 2, y + 4, { align: "right" });
-        doc.setTextColor(100, 100, 100);
-        doc.text((t.pl_override_note || "").substring(0, 55), overColX[3] + 2, y + 4);
-        doc.setTextColor(0, 0, 0);
-        y += 7;
-      });
-    }
 
     y += 8;
   });
