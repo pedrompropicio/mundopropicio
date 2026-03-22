@@ -229,8 +229,9 @@ export default function Suppliers() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filtered.map((s) => (
-                  <tr key={s.id} className="hover:bg-secondary/20 transition-colors">
+              {filtered.map((s) => (
+                <React.Fragment key={s.id}>
+                  <tr className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}>
                     <td className="py-3 pr-4">
                       <p className="font-medium text-foreground">{s.name}</p>
                       <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
@@ -250,7 +251,7 @@ export default function Suppliers() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="py-3 text-center">
+                    <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
@@ -280,61 +281,8 @@ export default function Suppliers() {
                       </td>
                     </tr>
                   )}
-                  </>;
-                  return (
-                    <tbody key={s.id} className="divide-y divide-border/30">
-                    <tr className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}>
-                      <td className="py-3 pr-4">
-                        <p className="font-medium text-foreground">{s.name}</p>
-                        <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
-                      </td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{s.trade_name || "—"}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{s.nif || "—"}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{s.category || "—"}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell truncate max-w-[180px]">{s.email || "—"}</td>
-                      <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">{s.phone || "—"}</td>
-                      <td className="py-3 text-center">
-                        {s.rating ? (
-                          <div className="inline-flex items-center gap-1">
-                            <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                            <span className="text-xs font-medium">{s.rating}/5</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
-                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                            title="Editar"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingId(s.id)}
-                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {expandedId === s.id && (
-                      <tr>
-                        <td colSpan={8} className="px-4 pb-4">
-                          <SupplierTransactions
-                            supplierId={s.id}
-                            isOpen={true}
-                            onToggle={() => setExpandedId(null)}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                    </tbody>
-              </tbody>
+                </React.Fragment>
+              ))}
             </table>
           </div>
         </div>
