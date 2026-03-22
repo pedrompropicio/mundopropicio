@@ -108,6 +108,24 @@ export default function ReportBankStatement() {
     enabled: generated && !!selectedAccountId && !!dateFromStr,
   });
 
+  const txIdsForDocs = useMemo(() => transactions.map((t: any) => t.id), [transactions]);
+
+  const { data: docCounts = {} } = useQuery({
+    queryKey: ["tx-doc-counts-bs", txIdsForDocs],
+    queryFn: async () => {
+      if (txIdsForDocs.length === 0) return {};
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id")
+        .in("transaction_id", txIdsForDocs);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((d: any) => { counts[d.transaction_id] = (counts[d.transaction_id] || 0) + 1; });
+      return counts;
+    },
+    enabled: generated && txIdsForDocs.length > 0,
+  });
+
   const openingBalance = (() => {
     if (!canSeeBalance || !selectedAccount) return 0;
     let bal = Number(selectedAccount.initial_balance ?? 0);
