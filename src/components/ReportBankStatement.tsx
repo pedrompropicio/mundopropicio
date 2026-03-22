@@ -362,6 +362,7 @@ export default function ReportBankStatement() {
                   <TableRow className="border-t-2 border-primary/30 bg-primary/5">
                     <TableCell className="font-medium text-xs">{dateToStr || "—"}</TableCell>
                     <TableCell colSpan={2} className="font-bold text-xs uppercase tracking-wider">Saldo Final</TableCell>
+                    <TableCell />
                     <TableCell className="text-right font-mono font-semibold text-success">{formatCurrency(totalIncome)}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-warning">{formatCurrency(totalExpense)}</TableCell>
                     <TableCell className={`text-right font-mono font-bold ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
