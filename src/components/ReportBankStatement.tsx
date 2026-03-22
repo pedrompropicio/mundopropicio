@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Landmark, Lock, CalendarIcon, Paperclip } from "lucide-react";
+import { FileText, FileSpreadsheet, Landmark, Lock, CalendarIcon, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/export-bank-statement";
 import { useSearchParams } from "react-router-dom";
