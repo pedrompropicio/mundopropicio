@@ -543,6 +543,24 @@ export function exportPLToExcel(
         ]);
       }
     });
+
+    // Add "Fora do P&L" override transactions
+    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
+    if (overrideTxs.length > 0) {
+      rows.push([]);
+      rows.push([`⚠ Transações Fora do P&L (${overrideTxs.length})`]);
+      rows.push(["Descrição", "Categoria", "Valor (€)", "Justificação"]);
+      const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
+      overrideTxs.forEach((t: any) => {
+        rows.push([
+          t.description || "",
+          catMap[t.category_id] || "—",
+          Number(t.amount),
+          t.pl_override_note || "",
+        ]);
+      });
+    }
+
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = isComparison
       ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }]
