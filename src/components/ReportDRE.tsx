@@ -22,6 +22,8 @@ interface DRELine {
   isGrandTotal?: boolean;
   isGroupHeader?: boolean;
   indent?: boolean;
+  isDistribution?: boolean;
+  isRetained?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
