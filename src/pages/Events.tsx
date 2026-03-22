@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,10 +63,14 @@ export default function Events() {
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
-    const saved = localStorage.getItem("events-view-mode");
-    return saved === "list" ? "list" : "cards";
+  const [viewMode, setViewModeState] = useState<"cards" | "list">(() => {
+    try { const s = localStorage.getItem("events-view-mode"); if (s === "list") return "list"; } catch {}
+    return "cards";
   });
+  const setViewMode = useCallback((mode: "cards" | "list") => {
+    setViewModeState(mode);
+    try { localStorage.setItem("events-view-mode", mode); } catch {}
+  }, []);
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
@@ -379,14 +383,14 @@ export default function Events() {
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
-              onClick={() => { setViewMode("cards"); localStorage.setItem("events-view-mode", "cards"); }}
+              onClick={() => setViewMode("cards")}
               className={`rounded-md p-1.5 transition-all ${viewMode === "cards" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               title="Vista em cartões"
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
             <button
-              onClick={() => { setViewMode("list"); localStorage.setItem("events-view-mode", "list"); }}
+              onClick={() => setViewMode("list")}
               className={`rounded-md p-1.5 transition-all ${viewMode === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               title="Vista em lista"
             >
