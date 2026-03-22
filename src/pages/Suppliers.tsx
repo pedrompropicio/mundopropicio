@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Star, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown } from "lucide-react";
+import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown } from "lucide-react";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { Input } from "@/components/ui/input";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
@@ -171,12 +171,6 @@ export default function Suppliers() {
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
                 <div className="flex items-center gap-1 ml-2 shrink-0">
-                  {s.rating && (
-                    <div className="flex items-center gap-1 mr-1">
-                      <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                      <span className="text-xs font-medium">{s.rating}/5</span>
-                    </div>
-                  )}
                   <button
                     onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
@@ -224,7 +218,6 @@ export default function Suppliers() {
                   <th className="hidden pb-3 text-left font-medium md:table-cell">Categoria</th>
                   <th className="hidden pb-3 text-left font-medium lg:table-cell">Email</th>
                   <th className="hidden pb-3 text-left font-medium lg:table-cell">Telefone</th>
-                  <th className="pb-3 text-center font-medium">Rating</th>
                   <th className="pb-3 text-center font-medium">Ações</th>
                 </tr>
               </thead>
@@ -241,16 +234,6 @@ export default function Suppliers() {
                     <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{s.category || "—"}</td>
                     <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell truncate max-w-[180px]">{s.email || "—"}</td>
                     <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">{s.phone || "—"}</td>
-                    <td className="py-3 text-center">
-                      {s.rating ? (
-                        <div className="inline-flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                          <span className="text-xs font-medium">{s.rating}/5</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
                     <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
                         <button
