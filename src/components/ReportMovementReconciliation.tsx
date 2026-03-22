@@ -364,10 +364,11 @@ export default function ReportMovementReconciliation() {
                         <th className="py-2 px-1">Vcto</th>
                         <th className="py-2 px-1">Dt Pgto</th>
                         <th className="py-2 px-1">Nº Doc</th>
+                        <th className="py-2 px-1 text-center"><Paperclip className="h-3 w-3 mx-auto" /></th>
                       </tr>
                     );
 
-                    const totalCols = 14;
+                    const totalCols = 15;
                     const groupEntries = Array.from(grouped.entries());
 
                     return (
