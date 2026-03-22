@@ -206,6 +206,15 @@ export default function ReportDRE() {
     },
   });
 
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["event-partners-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_partners").select("*, suppliers(name)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Find the "Venda de Bilhetes" category ID
   const ticketCategoryId = categories.find(
     (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes")
