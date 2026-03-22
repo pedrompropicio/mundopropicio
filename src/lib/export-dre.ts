@@ -15,6 +15,8 @@ interface DRELine {
   isGrandTotal?: boolean;
   isGroupHeader?: boolean;
   indent?: boolean;
+  isDistribution?: boolean;
+  isRetained?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
@@ -29,7 +31,9 @@ function buildDREForExport(
   ticketLots: any[],
   ticketSales: any[],
   eventId: string,
-  ticketCategoryId: string | null
+  ticketCategoryId: string | null,
+  partners: any[] = [],
+  events: any[] = []
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -98,6 +102,45 @@ function buildDREForExport(
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
 
+  // Partner distribution section
+  const eventPartners = partners.filter((p: any) => p.event_id === eventId);
+  const eventData = events.find((e: any) => e.id === eventId);
+  const calcBasis = eventData?.partner_calc_basis || "net_result";
+
+  if (eventPartners.length > 0) {
+    let totalDistribution = 0;
+    eventPartners.forEach((p: any) => {
+      let base: number;
+      if (calcBasis === "gross_revenue") {
+        base = totalIncEx;
+      } else if (calcBasis === "net_result_gross_expenses") {
+        base = totalIncEx - totalExpInc;
+      } else {
+        const expBase = p.expense_includes_iva ? totalExpInc : totalExpEx;
+        base = totalIncEx - expBase;
+      }
+      const share = base * (Number(p.percentage) / 100);
+      totalDistribution += share;
+      const supplierName = p.suppliers?.name || "Sócio";
+      lines.push({
+        label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
+        amountExIva: share,
+        ivaAmount: 0,
+        amountIncIva: share,
+        isDistribution: true,
+        indent: true,
+      });
+    });
+    const retained = resEx - totalDistribution;
+    lines.push({
+      label: "RESULTADO MUNDO PROPÍCIO",
+      amountExIva: retained,
+      ivaAmount: 0,
+      amountIncIva: retained,
+      isRetained: true,
+    });
+  }
+
   return lines;
 }
 
@@ -110,16 +153,20 @@ function computeEventSummary(
   ticketLots: any[],
   ticketSales: any[],
   eventId: string,
-  ticketCategoryId: string | null
+  ticketCategoryId: string | null,
+  partners: any[] = [],
+  events: any[] = []
 ) {
-  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId);
+  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events);
   const rev = dre.find((l) => l.label === "RECEITAS");
   const exp = dre.find((l) => l.label === "DESPESAS");
+  const retained = dre.find((l) => l.isRetained);
   return {
     incEx: rev?.amountExIva ?? 0,
     incInc: rev?.amountIncIva ?? 0,
     expEx: exp?.amountExIva ?? 0,
     expInc: exp?.amountIncIva ?? 0,
+    retainedEx: retained?.amountExIva ?? null,
   };
 }
 
@@ -131,7 +178,8 @@ export function exportDREToExcel(
   ticketZones: any[] = [],
   ticketLots: any[] = [],
   ticketSales: any[] = [],
-  ticketCategoryId: string | null = null
+  ticketCategoryId: string | null = null,
+  partners: any[] = []
 ) {
   const wb = XLSX.utils.book_new();
 
@@ -139,29 +187,34 @@ export function exportDREToExcel(
     ["RELATÓRIO DRE - RESUMO GERAL"],
     [`Fonte de receita de bilhetes: ${ticketRevenueSource === "ticket_sales" ? "Vendas da gestão de bilhetes" : "Transações registadas"}`],
     [],
-    ["Evento", "Transações", "Receitas S/IVA", "IVA Receitas", "Receitas C/IVA", "Despesas S/IVA", "IVA Despesas", "Despesas C/IVA", "Resultado S/IVA", "Resultado C/IVA"],
+    ["Evento", "Transações", "Receitas S/IVA", "IVA Receitas", "Receitas C/IVA", "Despesas S/IVA", "IVA Despesas", "Despesas C/IVA", "Resultado S/IVA", "Resultado C/IVA", "Resultado MP"],
   ];
 
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
 
   events.forEach((evt) => {
     const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
-    summaryRows.push([evt.name, evtTx.length, summary.incEx, summary.incInc - summary.incEx, summary.incInc, summary.expEx, summary.expInc - summary.expEx, summary.expInc, summary.incEx - summary.expEx, summary.incInc - summary.expInc]);
+    summaryRows.push([
+      evt.name, evtTx.length, summary.incEx, summary.incInc - summary.incEx, summary.incInc,
+      summary.expEx, summary.expInc - summary.expEx, summary.expInc,
+      summary.incEx - summary.expEx, summary.incInc - summary.expInc,
+      summary.retainedEx !== null ? summary.retainedEx : "",
+    ]);
   });
 
   summaryRows.push([]);
   summaryRows.push(["TOTAL", "", gIncEx, gIncInc - gIncEx, gIncInc, gExpEx, gExpInc - gExpEx, gExpInc, gIncEx - gExpEx, gIncInc - gExpInc]);
 
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryWs["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  summaryWs["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
     const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
     if (evtTx.length === 0 && dre.length <= 3) return;
     const rows: any[][] = [
       [`DRE - ${evt.name}`],
@@ -190,7 +243,8 @@ export function exportDREToPDF(
   ticketZones: any[] = [],
   ticketLots: any[] = [],
   ticketSales: any[] = [],
-  ticketCategoryId: string | null = null
+  ticketCategoryId: string | null = null,
+  partners: any[] = []
 ) {
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -232,7 +286,7 @@ export function exportDREToPDF(
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
     const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
   });
 
@@ -240,7 +294,7 @@ export function exportDREToPDF(
   let isFirstEventPage = true;
   events.forEach((evt) => {
     const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     if (!isFirstEventPage) {
@@ -274,7 +328,17 @@ export function exportDREToPDF(
       checkNewPage(8);
       const rowH = 7;
 
-      if (line.isGrandTotal) {
+      if (line.isRetained) {
+        doc.setFillColor(220, 235, 255);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+      } else if (line.isDistribution) {
+        doc.setFillColor(245, 248, 255);
+        doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+      } else if (line.isGrandTotal) {
         doc.setFillColor(230, 240, 255);
         doc.rect(marginLeft, y - 1, contentWidth, rowH + 1, "F");
         doc.setFont("helvetica", "bold");
