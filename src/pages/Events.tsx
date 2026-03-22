@@ -378,7 +378,7 @@ export default function Events() {
               <LayoutGrid className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setViewMode("list")}
+              onClick={() => { setViewMode("list"); localStorage.setItem("events-view-mode", "list"); }}
               className={`rounded-md p-1.5 transition-all ${viewMode === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               title="Vista em lista"
             >
