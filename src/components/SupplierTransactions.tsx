@@ -17,7 +17,7 @@ export function SupplierTransactions({ supplierId, isOpen, onToggle }: SupplierT
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, paid_amount, status, type, date, due_date, specification, supplier_id, event_id, events(name), suppliers(name, trade_name)")
+        .select("id, description, amount, paid_amount, status, type, date, due_date, specification, event_id, events(name)")
         .eq("supplier_id", supplierId)
         .order("date", { ascending: false });
       if (error) throw error;
