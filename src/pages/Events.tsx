@@ -637,7 +637,7 @@ export default function Events() {
         <p className="py-8 text-center text-muted-foreground">Sem eventos registados.</p>
       ) : viewMode === "cards" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {events.map((event: any) => {
+          {sortedEvents.map((event: any) => {
             const profit = event.totalIncome - event.totalExpenses;
             const budgetUsed = event.budget > 0 ? (event.totalExpenses / event.budget) * 100 : 0;
             const eventType = event.event_type as EventType;
