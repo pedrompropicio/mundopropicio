@@ -374,6 +374,155 @@ export function exportDREToPDF(
     y += 8;
   });
 
+  // Tour summary pages for parent events whose sub-events are in the list
+  const eventsSource = allEvents.length > 0 ? allEvents : events;
+  const parentIds = [...new Set(events.filter((e: any) => e.parent_event_id).map((e: any) => e.parent_event_id))];
+  parentIds.forEach((parentId) => {
+    const parentEvt = eventsSource.find((e: any) => e.id === parentId);
+    if (!parentEvt) return;
+    const childEvts = events.filter((e: any) => e.parent_event_id === parentId);
+    if (childEvts.length === 0) return;
+
+    // Build summaries for each child
+    const childSummaries = childEvts.map((child: any) => {
+      const childTx = transactions.filter((t: any) => t.event_id === child.id);
+      // Add prorated parent transactions
+      const siblingCount = eventsSource.filter((e: any) => e.parent_event_id === parentId).length || 1;
+      const parentTx = transactions
+        .filter((t: any) => t.event_id === parentId)
+        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+      const effectiveTx = [...childTx, ...parentTx];
+      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource);
+      return { name: child.name, ...summary };
+    });
+
+    const tourIncEx = childSummaries.reduce((s, c) => s + c.incEx, 0);
+    const tourExpEx = childSummaries.reduce((s, c) => s + c.expEx, 0);
+    const tourExpInc = childSummaries.reduce((s, c) => s + c.expInc, 0);
+    const tourResultEx = tourIncEx - tourExpEx;
+
+    // New page for tour summary
+    doc.addPage();
+    y = 14;
+
+    try {
+      doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
+      y += 22;
+    } catch {
+      y += 4;
+    }
+
+    doc.setFillColor(60, 60, 80);
+    doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Resumo da Turnê — ${parentEvt.name}`, marginLeft + 4, y + 7);
+    doc.setTextColor(0, 0, 0);
+    y += 14;
+
+    // Summary table header
+    const sumColWidths = [contentWidth * 0.34, contentWidth * 0.22, contentWidth * 0.22, contentWidth * 0.22];
+    const sumColX = [marginLeft, marginLeft + sumColWidths[0], marginLeft + sumColWidths[0] + sumColWidths[1], marginLeft + sumColWidths[0] + sumColWidths[1] + sumColWidths[2]];
+
+    doc.setFillColor(30, 30, 40);
+    doc.rect(marginLeft, y, contentWidth, 8, "F");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Sub-evento", sumColX[0] + 2, y + 5.5);
+    doc.text("Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
+    doc.text("Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text("Resultado Líquido", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y += 10;
+
+    // Child rows
+    childSummaries.forEach((child) => {
+      checkNewPage(8);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(child.name, sumColX[0] + 2, y + 4);
+      doc.setTextColor(34, 139, 34);
+      doc.text(fmtVal(child.incEx), sumColX[1] + sumColWidths[1] - 2, y + 4, { align: "right" });
+      doc.setTextColor(200, 120, 0);
+      doc.text(fmtVal(child.expEx), sumColX[2] + sumColWidths[2] - 2, y + 4, { align: "right" });
+      const resColor = child.incEx - child.expEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+      doc.setTextColor(resColor[0], resColor[1], resColor[2]);
+      doc.text(fmtVal(child.incEx - child.expEx), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 7;
+    });
+
+    // Total row
+    checkNewPage(10);
+    doc.setFillColor(230, 240, 255);
+    doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("TOTAL TURNÊ", sumColX[0] + 2, y + 5);
+    doc.setTextColor(34, 139, 34);
+    doc.text(fmtVal(tourIncEx), sumColX[1] + sumColWidths[1] - 2, y + 5, { align: "right" });
+    doc.setTextColor(200, 120, 0);
+    doc.text(fmtVal(tourExpEx), sumColX[2] + sumColWidths[2] - 2, y + 5, { align: "right" });
+    const tourResColor = tourResultEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+    doc.setTextColor(tourResColor[0], tourResColor[1], tourResColor[2]);
+    doc.text(fmtVal(tourResultEx), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y += 12;
+
+    // Partner distribution
+    const tourPartners = partners.filter((p: any) => p.event_id === parentId);
+    const calcBasis = parentEvt.partner_calc_basis || "net_result";
+    if (tourPartners.length > 0) {
+      checkNewPage(20 + tourPartners.length * 7);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Distribuição de Resultados", marginLeft + 2, y + 4);
+      y += 8;
+
+      let tourTotalDist = 0;
+      tourPartners.forEach((p: any) => {
+        let base: number;
+        if (calcBasis === "gross_revenue") {
+          base = tourIncEx;
+        } else if (calcBasis === "net_result_gross_expenses") {
+          base = tourIncEx - tourExpInc;
+        } else {
+          const expBase = p.expense_includes_iva ? tourExpInc : tourExpEx;
+          base = tourIncEx - expBase;
+        }
+        const share = base * (Number(p.percentage) / 100);
+        tourTotalDist += share;
+        const supplierName = p.suppliers?.name || "Sócio";
+
+        doc.setFillColor(245, 248, 255);
+        doc.rect(marginLeft, y - 1, contentWidth, 7, "F");
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.text(`  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`, sumColX[0] + 2, y + 4);
+        doc.setTextColor(200, 150, 0);
+        doc.text(fmtVal(share), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        y += 7;
+      });
+
+      // Retained result
+      const retained = tourResultEx - tourTotalDist;
+      checkNewPage(10);
+      doc.setFillColor(220, 235, 255);
+      doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("RESULTADO MUNDO PROPÍCIO", sumColX[0] + 2, y + 5);
+      const retColor = retained >= 0 ? [34, 139, 34] : [200, 50, 50];
+      doc.setTextColor(retColor[0], retColor[1], retColor[2]);
+      doc.text(fmtVal(retained), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 10;
+    }
+  });
+
   // Global summary box at the end
   checkNewPage(30);
   y += 4;
