@@ -204,6 +204,11 @@ export default function Suppliers() {
               {s.payment_terms && (
                 <p className="text-xs text-muted-foreground">Pagamento: {s.payment_terms}</p>
               )}
+              <SupplierTransactions
+                supplierId={s.id}
+                isOpen={expandedId === s.id}
+                onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
+              />
             </div>
           ))}
         </div>
