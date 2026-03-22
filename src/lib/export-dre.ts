@@ -147,6 +147,24 @@ function buildDREForExport(
   return lines;
 }
 
+// Build effective transactions for a sub-event, including prorated parent transactions
+function getEffectiveTransactionsForExport(
+  eventId: string,
+  transactions: any[],
+  allEvents: any[]
+) {
+  let evtTx = transactions.filter((t: any) => t.event_id === eventId);
+  const evt = allEvents.find((e: any) => e.id === eventId);
+  if (evt?.parent_event_id) {
+    const siblingCount = allEvents.filter((e: any) => e.parent_event_id === evt.parent_event_id).length || 1;
+    const parentTx = transactions
+      .filter((t: any) => t.event_id === evt.parent_event_id)
+      .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
+    evtTx = [...evtTx, ...parentTx];
+  }
+  return evtTx;
+}
+
 // Helper to compute event-level summary with ticket source logic
 function computeEventSummary(
   evtTx: any[],
@@ -182,8 +200,10 @@ export function exportDREToExcel(
   ticketLots: any[] = [],
   ticketSales: any[] = [],
   ticketCategoryId: string | null = null,
-  partners: any[] = []
+  partners: any[] = [],
+  allEvents: any[] = []
 ) {
+  const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
 
   const summaryRows: any[][] = [
@@ -196,8 +216,8 @@ export function exportDREToExcel(
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
 
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
     summaryRows.push([
@@ -216,8 +236,8 @@ export function exportDREToExcel(
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     if (evtTx.length === 0 && dre.length <= 3) return;
     const rows: any[][] = [
       [`DRE - ${evt.name}`],
@@ -250,6 +270,7 @@ export function exportDREToPDF(
   partners: any[] = [],
   allEvents: any[] = []
 ) {
+  const eventsSource = allEvents.length > 0 ? allEvents : events;
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -289,16 +310,16 @@ export function exportDREToPDF(
   // Compute global summary totals
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
   });
 
   // Per-event DRE
   let isFirstEventPage = true;
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     if (!isFirstEventPage) {
@@ -375,7 +396,6 @@ export function exportDREToPDF(
   });
 
   // Tour summary pages for parent events whose sub-events are in the list
-  const eventsSource = allEvents.length > 0 ? allEvents : events;
   const parentIds = [...new Set(events.filter((e: any) => e.parent_event_id).map((e: any) => e.parent_event_id))];
   parentIds.forEach((parentId) => {
     const parentEvt = eventsSource.find((e: any) => e.id === parentId);
@@ -385,13 +405,7 @@ export function exportDREToPDF(
 
     // Build summaries for each child
     const childSummaries = childEvts.map((child: any) => {
-      const childTx = transactions.filter((t: any) => t.event_id === child.id);
-      // Add prorated parent transactions
-      const siblingCount = eventsSource.filter((e: any) => e.parent_event_id === parentId).length || 1;
-      const parentTx = transactions
-        .filter((t: any) => t.event_id === parentId)
-        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
-      const effectiveTx = [...childTx, ...parentTx];
+      const effectiveTx = getEffectiveTransactionsForExport(child.id, transactions, eventsSource);
       const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource);
       return { name: child.name, ...summary };
     });
