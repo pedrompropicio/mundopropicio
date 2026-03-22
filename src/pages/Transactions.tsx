@@ -15,7 +15,7 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransferFormModal } from "@/components/TransferFormModal";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";

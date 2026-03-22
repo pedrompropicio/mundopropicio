@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportContasPagarToExcel, exportContasPagarToPDF } from "@/lib/export-contas-pagar";
 import { FileSpreadsheet, FileText, Filter, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
