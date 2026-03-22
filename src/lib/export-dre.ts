@@ -396,7 +396,6 @@ export function exportDREToPDF(
   });
 
   // Tour summary pages for parent events whose sub-events are in the list
-  const eventsSource = allEvents.length > 0 ? allEvents : events;
   const parentIds = [...new Set(events.filter((e: any) => e.parent_event_id).map((e: any) => e.parent_event_id))];
   parentIds.forEach((parentId) => {
     const parentEvt = eventsSource.find((e: any) => e.id === parentId);
