@@ -282,9 +282,34 @@ export default function ReportDRE() {
     return false;
   });
 
-  const activeEvents = selectedEventIds.length > 0
-    ? eventsWithTransactions.filter((e) => selectedEventIds.includes(e.id))
-    : eventsWithTransactions;
+  // When a parent event is selected, expand it into its sub-events
+  const expandedActiveEvents = (() => {
+    const base = selectedEventIds.length > 0
+      ? eventsWithTransactions.filter((e) => selectedEventIds.includes(e.id))
+      : eventsWithTransactions;
+    const result: typeof base = [];
+    base.forEach((e) => {
+      const children = childrenByParent[e.id];
+      if (children && children.length > 0) {
+        // Parent selected: replace with its sub-events
+        const childEvents = eventsWithTransactions.filter((c) => children.includes(c.id));
+        childEvents.forEach((c) => {
+          if (!result.some((r) => r.id === c.id)) result.push(c);
+        });
+      } else {
+        if (!result.some((r) => r.id === e.id)) result.push(e);
+      }
+    });
+    return result;
+  })();
+
+  // Track which parent events were selected (for tour summary)
+  const selectedParentIds = (() => {
+    const ids = selectedEventIds.length > 0 ? selectedEventIds : eventsWithTransactions.map((e) => e.id);
+    return ids.filter((id) => childrenByParent[id] && childrenByParent[id].length > 0);
+  })();
+
+  const activeEvents = expandedActiveEvents;
 
   // Helper: get effective transactions for an event (with proration)
   function getEffectiveTransactions(eventId: string) {
