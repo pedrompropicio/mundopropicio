@@ -300,26 +300,51 @@ export default function Transactions() {
   }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
-  const paidTransactions = sortByDueDate(
-    (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+
+  // Paid transactions filtered by payment_date period
+  const paidTransactions = useMemo(() => {
+    const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
-        if (paidAmount < amount && t.status !== "paid") return false;
-        if (!paidDateFrom && !paidDateTo) return true;
-        const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
-        if (!paymentDate) return false;
-        if (paidDateFrom && paymentDate < paidDateFrom) return false;
-        if (paidDateTo) {
-          const endOfDay = new Date(paidDateTo);
-          endOfDay.setHours(23, 59, 59, 999);
-          if (paymentDate > endOfDay) return false;
-        }
-        return true;
-      })
-  );
+        return paidAmount >= amount || t.status === "paid";
+      });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let periodStart: Date;
+    let periodEnd: Date;
+
+    if (paidPeriod === "yesterday") {
+      periodStart = new Date(today);
+      periodStart.setDate(periodStart.getDate() - 1);
+      periodEnd = new Date(periodStart);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (paidPeriod === "week") {
+      periodStart = new Date(today);
+      periodStart.setDate(periodStart.getDate() - 7);
+      periodEnd = new Date(today);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (paidPeriod === "month") {
+      periodStart = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+      periodEnd = new Date(today);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else {
+      periodStart = paidRangeFrom ? new Date(paidRangeFrom) : new Date(2000, 0, 1);
+      periodEnd = paidRangeTo ? new Date(paidRangeTo) : new Date(today.getFullYear() + 10, 0, 1);
+      periodEnd.setHours(23, 59, 59, 999);
+    }
+    periodStart.setHours(0, 0, 0, 0);
+
+    return sortByDueDate(base.filter((t) => {
+      const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
+      if (!paymentDate) return false;
+      return paymentDate >= periodStart && paymentDate <= periodEnd;
+    }));
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
