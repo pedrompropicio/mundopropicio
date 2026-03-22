@@ -144,7 +144,7 @@ export default function Events() {
           event_type: eventType,
           totalIncome,
           totalExpenses,
-          subEvents: subEventsMap[e.id] || [],
+          subEvents: (subEventsMap[e.id] || []).sort((a: any, b: any) => a.date.localeCompare(b.date)),
         };
       });
     },
