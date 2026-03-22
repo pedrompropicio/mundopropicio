@@ -38,7 +38,9 @@ function buildDRE(
   ticketLots: any[],
   ticketSales: any[],
   eventId: string,
-  ticketCategoryId: string | null
+  ticketCategoryId: string | null,
+  partners: any[],
+  calcBasis: string
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -65,7 +67,6 @@ function buildDRE(
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
   const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
 
-  // Add ticket sales as a separate group if applicable
   if (useTicketSales && hasTicketMgmt && ticketIncomeExIva > 0) {
     incGroups.push({
       groupName: "Venda de Bilhetes (Gestão)",
@@ -107,6 +108,42 @@ function buildDRE(
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
+
+  // Partner distribution section
+  const eventPartners = partners.filter((p: any) => p.event_id === eventId);
+  if (eventPartners.length > 0) {
+    let totalDistribution = 0;
+    eventPartners.forEach((p: any) => {
+      let base: number;
+      if (calcBasis === "gross_revenue") {
+        base = totalIncEx;
+      } else {
+        // net_result - check if partner uses expense with IVA
+        const expBase = p.expense_includes_iva ? totalExpInc : totalExpEx;
+        base = totalIncEx - expBase;
+      }
+      const share = base * (Number(p.percentage) / 100);
+      totalDistribution += share;
+      const supplierName = p.suppliers?.name || "Sócio";
+      lines.push({
+        label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
+        amountExIva: share,
+        ivaAmount: 0,
+        amountIncIva: share,
+        isDistribution: true,
+        indent: true,
+      });
+    });
+    const retained = resEx - totalDistribution;
+    lines.push({
+      label: "RESULTADO RETIDO (Mundo Propício)",
+      amountExIva: retained,
+      ivaAmount: 0,
+      amountIncIva: retained,
+      isRetained: true,
+    });
+  }
+
   return lines;
 }
 
