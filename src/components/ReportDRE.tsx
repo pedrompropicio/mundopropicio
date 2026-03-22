@@ -136,7 +136,7 @@ function buildDRE(
     });
     const retained = resEx - totalDistribution;
     lines.push({
-      label: "RESULTADO RETIDO (Mundo Propício)",
+      label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
