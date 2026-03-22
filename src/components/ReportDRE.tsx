@@ -311,6 +311,7 @@ export default function ReportDRE() {
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.label === "RESULTADO LÍQUIDO");
+    const retainedLine = dre.find((l) => l.isRetained);
 
     return {
       ...e,
@@ -320,7 +321,9 @@ export default function ReportDRE() {
       totalExpInc: expLine?.amountIncIva ?? 0,
       resultEx: resLine?.amountExIva ?? 0,
       resultInc: resLine?.amountIncIva ?? 0,
+      retainedEx: retainedLine?.amountExIva ?? null,
       txCount: evtTx.length,
+      hasPartners: !!retainedLine,
     };
   });
 
