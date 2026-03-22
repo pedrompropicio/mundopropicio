@@ -620,7 +620,7 @@ export default function EventDetail() {
           )}
         </TabsContent>
 
-        {!event?.parent_event_id && (
+        {!event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partners">
             <EventPartnersTab eventId={event.id} eventStatus={event.status} />
           </TabsContent>
