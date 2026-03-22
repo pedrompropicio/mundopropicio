@@ -347,8 +347,16 @@ export default function Events() {
   const sortedEvents = [...events].sort((a: any, b: any) => {
     if (!sortField) return 0;
     const dir = sortDir === "asc" ? 1 : -1;
+    const getEffectiveDate = (e: any) => {
+      if (e.event_type === "multi_day" && e.subEvents?.length > 0) {
+        return e.subEvents[0].date; // already sorted by date
+      }
+      return e.date;
+    };
     if (sortField === "date") {
-      return (a.date > b.date ? 1 : a.date < b.date ? -1 : 0) * dir;
+      const dA = getEffectiveDate(a);
+      const dB = getEffectiveDate(b);
+      return (dA > dB ? 1 : dA < dB ? -1 : 0) * dir;
     }
     if (sortField === "location") {
       const locA = (getLocationDisplay(a) || "").toLowerCase();
