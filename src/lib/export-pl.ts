@@ -218,6 +218,19 @@ function buildPLForExport(
     }));
   }
 
+  // Build override tracking by category name
+  const overrideByCatName: Record<string, number> = {};
+  transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
+    const catInfo = lookup[t.category_id];
+    const catName = catInfo?.name ?? "Sem categoria";
+    overrideByCatName[catName] = (overrideByCatName[catName] || 0) + 1;
+  });
+
+  const enrichLine = (line: PLLine, detailName: string): PLLine => {
+    const cnt = overrideByCatName[detailName];
+    return cnt ? { ...line, overrideCount: cnt } : line;
+  };
+
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
   const tInc = transactions.filter((t) => t.type === "income");
