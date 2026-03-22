@@ -310,15 +310,15 @@ export function exportDREToPDF(
   // Compute global summary totals
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
   });
 
   // Per-event DRE
   let isFirstEventPage = true;
   events.forEach((evt) => {
-    const evtTx = transactions.filter((t: any) => t.event_id === evt.id);
+    const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
     const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, events);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
