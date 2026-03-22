@@ -282,9 +282,34 @@ export default function ReportDRE() {
     return false;
   });
 
-  const activeEvents = selectedEventIds.length > 0
-    ? eventsWithTransactions.filter((e) => selectedEventIds.includes(e.id))
-    : eventsWithTransactions;
+  // When a parent event is selected, expand it into its sub-events
+  const expandedActiveEvents = (() => {
+    const base = selectedEventIds.length > 0
+      ? eventsWithTransactions.filter((e) => selectedEventIds.includes(e.id))
+      : eventsWithTransactions;
+    const result: typeof base = [];
+    base.forEach((e) => {
+      const children = childrenByParent[e.id];
+      if (children && children.length > 0) {
+        // Parent selected: replace with its sub-events
+        const childEvents = eventsWithTransactions.filter((c) => children.includes(c.id));
+        childEvents.forEach((c) => {
+          if (!result.some((r) => r.id === c.id)) result.push(c);
+        });
+      } else {
+        if (!result.some((r) => r.id === e.id)) result.push(e);
+      }
+    });
+    return result;
+  })();
+
+  // Track which parent events were selected (for tour summary)
+  const selectedParentIds = (() => {
+    const ids = selectedEventIds.length > 0 ? selectedEventIds : eventsWithTransactions.map((e) => e.id);
+    return ids.filter((id) => childrenByParent[id] && childrenByParent[id].length > 0);
+  })();
+
+  const activeEvents = expandedActiveEvents;
 
   // Helper: get effective transactions for an event (with proration)
   function getEffectiveTransactions(eventId: string) {
@@ -579,6 +604,100 @@ export default function ReportDRE() {
           <p className="py-8 text-center text-muted-foreground">Sem eventos registados.</p>
         )}
       </div>
+
+      {/* Tour summary panels for selected parent events */}
+      {selectedParentIds.map((parentId) => {
+        const parentEvt = events.find((e) => e.id === parentId);
+        if (!parentEvt) return null;
+        const childIds = childrenByParent[parentId] || [];
+        const childSummaries = eventSummaries.filter((s) => childIds.includes(s.id));
+        if (childSummaries.length === 0) return null;
+
+        const tourIncEx = childSummaries.reduce((s, c) => s + c.totalIncEx, 0);
+        const tourExpEx = childSummaries.reduce((s, c) => s + c.totalExpEx, 0);
+        const tourResultEx = tourIncEx - tourExpEx;
+
+        // Compute partner distribution for the tour
+        const calcBasis = (parentEvt as any).partner_calc_basis || "net_result";
+        const tourPartners = eventPartners.filter((p: any) => p.event_id === parentId);
+        let tourTotalDistribution = 0;
+        const tourPartnerShares = tourPartners.map((p: any) => {
+          let base: number;
+          if (calcBasis === "gross_revenue") {
+            base = tourIncEx;
+          } else if (calcBasis === "net_result_gross_expenses") {
+            const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
+            base = tourIncEx - tourExpInc;
+          } else {
+            const expBase = p.expense_includes_iva
+              ? childSummaries.reduce((s, c) => s + c.totalExpInc, 0)
+              : tourExpEx;
+            base = tourIncEx - expBase;
+          }
+          const share = base * (Number(p.percentage) / 100);
+          tourTotalDistribution += share;
+          return { name: p.suppliers?.name || "Sócio", percentage: Number(p.percentage), share };
+        });
+        const tourRetained = tourResultEx - tourTotalDistribution;
+
+        return (
+          <div key={`tour-summary-${parentId}`} className="glass rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              <p className="font-semibold text-sm">Resumo da Turnê — {parentEvt.name}</p>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sub-evento</TableHead>
+                  <TableHead className="text-right">Receitas S/IVA</TableHead>
+                  <TableHead className="text-right">Despesas S/IVA</TableHead>
+                  <TableHead className="text-right">Resultado Líquido</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {childSummaries.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="text-sm font-medium">{c.name}</TableCell>
+                    <TableCell className="text-right font-mono text-success">{formatCurrency(c.totalIncEx)}</TableCell>
+                    <TableCell className="text-right font-mono text-warning">{formatCurrency(c.totalExpEx)}</TableCell>
+                    <TableCell className={`text-right font-mono font-bold ${c.resultEx >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(c.resultEx)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-t-2 border-primary/30 bg-primary/5">
+                  <TableCell className="font-bold text-sm">TOTAL TURNÊ</TableCell>
+                  <TableCell className="text-right font-mono font-bold text-success">{formatCurrency(tourIncEx)}</TableCell>
+                  <TableCell className="text-right font-mono font-bold text-warning">{formatCurrency(tourExpEx)}</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${tourResultEx >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatCurrency(tourResultEx)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+
+            {tourPartners.length > 0 && (
+              <div className="border-t border-border/30 pt-3 space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Distribuição de Resultados</p>
+                {tourPartnerShares.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground italic">{p.name} ({p.percentage.toFixed(1)}%)</span>
+                    <span className="font-mono text-amber-500">{formatCurrency(p.share)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between text-sm border-t border-accent/40 pt-2">
+                  <span className="font-bold">RESULTADO MUNDO PROPÍCIO</span>
+                  <span className={`font-mono font-bold ${tourRetained >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatCurrency(tourRetained)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
