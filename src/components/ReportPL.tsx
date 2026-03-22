@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, Download, BarChart3, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
@@ -596,22 +597,22 @@ export default function ReportPL() {
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        <button
-          onClick={() => exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
-          disabled={activeEvents.length === 0}
-          className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Exportar PDF</span>
-        </button>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
           disabled={activeEvents.length === 0}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Exportar Excel</span>
-        </button>
+          <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
+          disabled={activeEvents.length === 0}
+        >
+          <FileText className="mr-1.5 h-4 w-4" /> PDF
+        </Button>
       </div>
 
       {/* Global summary cards */}

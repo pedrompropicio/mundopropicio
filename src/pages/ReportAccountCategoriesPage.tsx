@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { exportAccountCategoriesToPDF } from "@/lib/export-account-categories";
 
 export default function ReportAccountCategoriesPage() {
@@ -34,13 +35,13 @@ export default function ReportAccountCategoriesPage() {
           <p className="text-sm text-muted-foreground">Visão hierárquica do plano de contas</p>
         </div>
         {categories.length > 0 && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => exportAccountCategoriesToPDF(categories)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            <FileText className="h-4 w-4" />
-            PDF
-          </button>
+            <FileText className="mr-1.5 h-4 w-4" /> PDF
+          </Button>
         )}
       </div>
 

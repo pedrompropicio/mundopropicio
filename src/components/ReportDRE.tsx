@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, FileText, Download, Info } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 
@@ -367,22 +368,22 @@ export default function ReportDRE() {
       )}
 
       <div className="flex items-center justify-end gap-2">
-        <button
-          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId)}
-          disabled={activeEvents.length === 0}
-          className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Exportar PDF</span>
-        </button>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId)}
           disabled={activeEvents.length === 0}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
         >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Exportar Excel</span>
-        </button>
+          <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId)}
+          disabled={activeEvents.length === 0}
+        >
+          <FileText className="mr-1.5 h-4 w-4" /> PDF
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

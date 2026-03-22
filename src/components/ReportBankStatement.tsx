@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Landmark, Lock, CalendarIcon, Paperclip } from "lucide-react";
+import { FileText, FileSpreadsheet, Landmark, Lock, CalendarIcon, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/export-bank-statement";
 import { useSearchParams } from "react-router-dom";
@@ -236,22 +236,22 @@ export default function ReportBankStatement() {
         <>
           {/* Export buttons */}
           <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
-              disabled={lines.length === 0}
-              className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-all hover:bg-destructive/20 disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Exportar PDF</span>
-            </button>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => exportBankStatementToExcel(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
               disabled={lines.length === 0}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary disabled:opacity-50"
             >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Exportar Excel</span>
-            </button>
+              <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportBankStatementToPDF(selectedAccount!, lines, openingBalance, closingBalance, dateFromStr, dateToStr)}
+              disabled={lines.length === 0}
+            >
+              <FileText className="mr-1.5 h-4 w-4" /> PDF
+            </Button>
           </div>
 
           {/* Summary cards */}

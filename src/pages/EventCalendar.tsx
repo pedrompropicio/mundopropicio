@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileDown, ArrowRightCircle, Trash2, LayoutGrid, List, Calendar, Building2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileText, ArrowRightCircle, Trash2, LayoutGrid, List, Calendar, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -547,7 +547,7 @@ export default function EventCalendar() {
                 )
               }
             >
-              <FileDown className="h-3.5 w-3.5" />
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
               PDF
             </Button>
           )}

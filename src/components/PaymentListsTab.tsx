@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
 
@@ -595,12 +596,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               <button onClick={handleCopyWhatsApp} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
                 <Copy className="h-4 w-4" /> WhatsApp
               </button>
-              <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 rounded-lg bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">
-                <FileText className="h-4 w-4" /> PDF
-              </button>
-              <button onClick={() => handleExport("excel")} className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                <FileSpreadsheet className="h-4 w-4" /> Excel
-              </button>
+              <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
+                <FileText className="mr-1.5 h-4 w-4" /> PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
+                <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+              </Button>
             </div>
           )}
         </div>

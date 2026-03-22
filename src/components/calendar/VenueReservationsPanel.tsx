@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Building2, ChevronRight, MapPin, FileDown, MoreHorizontal, Pencil, Trash2, ArrowRightCircle } from "lucide-react";
+import { Building2, ChevronRight, MapPin, FileText, MoreHorizontal, Pencil, Trash2, ArrowRightCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,15 +88,15 @@ export function VenueReservationsPanel({
           </h3>
           <div className="flex items-center gap-2">
             {upcoming.length > 0 && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 gap-1 text-xs"
-                onClick={() => exportVenueReservationsPanelPDF(upcoming)}
-              >
-                <FileDown className="h-3.5 w-3.5" />
-                PDF
-              </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => exportVenueReservationsPanelPDF(upcoming)}
+            >
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              PDF
+            </Button>
             )}
             <button
               onClick={() => onOpenChange(false)}
