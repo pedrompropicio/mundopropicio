@@ -723,6 +723,52 @@ export function exportPLToPDF(
       y += rowH;
     });
 
+    // "Fora do P&L" override transactions section
+    const overrideTxs = evtT.filter((t: any) => t.pl_override_note);
+    if (overrideTxs.length > 0) {
+      y += 4;
+      checkNewPage(12 + overrideTxs.length * 7);
+
+      doc.setFillColor(255, 243, 205);
+      doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(120, 80, 0);
+      doc.text(`⚠ Transações Fora do P&L (${overrideTxs.length})`, marginLeft + 2, y + 5);
+      doc.setTextColor(0, 0, 0);
+      y += 9;
+
+      // Sub-header
+      doc.setFillColor(255, 248, 225);
+      doc.rect(marginLeft, y - 1, contentWidth, 7, "F");
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(80, 80, 80);
+      const overColW = [contentWidth * 0.30, contentWidth * 0.20, contentWidth * 0.15, contentWidth * 0.35];
+      const overColX = [marginLeft];
+      for (let i = 1; i < overColW.length; i++) overColX.push(overColX[i - 1] + overColW[i - 1]);
+      doc.text("Descrição", overColX[0] + 2, y + 4.5);
+      doc.text("Categoria", overColX[1] + 2, y + 4.5);
+      doc.text("Valor (€)", overColX[2] + overColW[2] - 2, y + 4.5, { align: "right" });
+      doc.text("Justificação", overColX[3] + 2, y + 4.5);
+      doc.setTextColor(0, 0, 0);
+      y += 7;
+
+      const catMap = Object.fromEntries(categories.map((c: any) => [c.id, c.name]));
+      overrideTxs.forEach((t: any) => {
+        checkNewPage(7);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.text((t.description || "").substring(0, 45), overColX[0] + 2, y + 4);
+        doc.text((catMap[t.category_id] || "—").substring(0, 30), overColX[1] + 2, y + 4);
+        doc.text(fmtVal(Number(t.amount)), overColX[2] + overColW[2] - 2, y + 4, { align: "right" });
+        doc.setTextColor(100, 100, 100);
+        doc.text((t.pl_override_note || "").substring(0, 55), overColX[3] + 2, y + 4);
+        doc.setTextColor(0, 0, 0);
+        y += 7;
+      });
+    }
+
     y += 8;
   });
 
