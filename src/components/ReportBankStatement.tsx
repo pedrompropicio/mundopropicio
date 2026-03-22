@@ -161,6 +161,7 @@ export default function ReportBankStatement() {
   const totalExpense = lines.filter((l) => l.signedAmount < 0).reduce((s, l) => s + Math.abs(l.signedAmount), 0);
 
   return (
+    <>
     <div className="space-y-6">
       {/* Filters */}
       <div className="glass rounded-xl p-4 space-y-4">
