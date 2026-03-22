@@ -257,6 +257,21 @@ export default function Transactions() {
     if (duePeriod === "range" && rangeFrom) periodStart.setHours(0, 0, 0, 0);
 
     baseFiltered.forEach((t) => {
+      // When "Aprovação" filter is active, show ALL pending regardless of period
+      if (onlyPending) {
+        if (!t.due_date) {
+          noDate.push(t);
+        } else {
+          const due = new Date(t.due_date);
+          if (due < today) {
+            overdue.push(t);
+          } else {
+            inPeriod.push(t);
+          }
+        }
+        return;
+      }
+
       if (!t.due_date) {
         noDate.push(t);
         return;
@@ -541,7 +556,7 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
-        {/* Filtro Aguardando */}
+        {/* Filtro Aprovação */}
         <Button
           variant={onlyPending ? "default" : "outline"}
           size="sm"
@@ -549,7 +564,7 @@ export default function Transactions() {
           onClick={() => setOnlyPending(!onlyPending)}
         >
           <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-          Aguardando
+          Aprovação
         </Button>
 
         <Button
