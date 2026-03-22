@@ -270,6 +270,7 @@ export function exportDREToPDF(
   partners: any[] = [],
   allEvents: any[] = []
 ) {
+  const eventsSource = allEvents.length > 0 ? allEvents : events;
   const doc = new jsPDF({ orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
