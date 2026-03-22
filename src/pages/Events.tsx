@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route } from "lucide-react";
+import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List } from "lucide-react";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
