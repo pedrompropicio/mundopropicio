@@ -735,7 +735,7 @@ export default function Events() {
               </tr>
             </thead>
             <tbody>
-              {events.map((event: any) => {
+              {sortedEvents.map((event: any) => {
                 const profit = event.totalIncome - event.totalExpenses;
                 const eventType = event.event_type as EventType;
                 const locationDisplay = getLocationDisplay(event);
