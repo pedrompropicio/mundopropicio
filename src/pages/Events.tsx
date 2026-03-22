@@ -63,7 +63,10 @@ export default function Events() {
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
+    const saved = localStorage.getItem("events-view-mode");
+    return saved === "list" ? "list" : "cards";
+  });
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
@@ -141,7 +144,7 @@ export default function Events() {
           event_type: eventType,
           totalIncome,
           totalExpenses,
-          subEvents: subEventsMap[e.id] || [],
+          subEvents: (subEventsMap[e.id] || []).sort((a: any, b: any) => a.date.localeCompare(b.date)),
         };
       });
     },
@@ -344,8 +347,16 @@ export default function Events() {
   const sortedEvents = [...events].sort((a: any, b: any) => {
     if (!sortField) return 0;
     const dir = sortDir === "asc" ? 1 : -1;
+    const getEffectiveDate = (e: any) => {
+      if (e.event_type === "multi_day" && e.subEvents?.length > 0) {
+        return e.subEvents[0].date; // already sorted by date
+      }
+      return e.date;
+    };
     if (sortField === "date") {
-      return (a.date > b.date ? 1 : a.date < b.date ? -1 : 0) * dir;
+      const dA = getEffectiveDate(a);
+      const dB = getEffectiveDate(b);
+      return (dA > dB ? 1 : dA < dB ? -1 : 0) * dir;
     }
     if (sortField === "location") {
       const locA = (getLocationDisplay(a) || "").toLowerCase();
@@ -368,14 +379,14 @@ export default function Events() {
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
             <button
-              onClick={() => setViewMode("cards")}
+              onClick={() => { setViewMode("cards"); localStorage.setItem("events-view-mode", "cards"); }}
               className={`rounded-md p-1.5 transition-all ${viewMode === "cards" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               title="Vista em cartões"
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setViewMode("list")}
+              onClick={() => { setViewMode("list"); localStorage.setItem("events-view-mode", "list"); }}
               className={`rounded-md p-1.5 transition-all ${viewMode === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               title="Vista em lista"
             >
@@ -755,7 +766,12 @@ export default function Events() {
                           <p className="text-xs text-muted-foreground sm:hidden mt-0.5">{formatDate(event.date)}</p>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{formatDate(event.date)}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                        {isMultiDay && event.subEvents.length > 0
+                          ? `${formatDate(event.subEvents[0].date)}${event.subEvents.length > 1 ? ` — ${formatDate(event.subEvents[event.subEvents.length - 1].date)}` : ""}`
+                          : formatDate(event.date)
+                        }
+                      </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         {locationDisplay ? (
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
