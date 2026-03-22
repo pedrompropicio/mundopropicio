@@ -9,6 +9,7 @@ import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
+import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -415,6 +416,7 @@ export default function EventDetail() {
           <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
           <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
+          <TabsTrigger value="partners">Sócios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -616,6 +618,10 @@ export default function EventDetail() {
               <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined} parentEventId={(selectedSubEvent && eventType === "multi_day" ? id : undefined) || (event?.parent_event_id ? event.parent_event_id : undefined)} />
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="partners">
+          <EventPartnersTab eventId={event.id} eventStatus={event.status} />
         </TabsContent>
       </Tabs>
 

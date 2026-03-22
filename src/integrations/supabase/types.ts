@@ -357,6 +357,54 @@ export type Database = {
           },
         ]
       }
+      event_partners: {
+        Row: {
+          created_at: string
+          event_id: string
+          expense_includes_iva: boolean
+          id: string
+          notes: string | null
+          percentage: number
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          expense_includes_iva?: boolean
+          id?: string
+          notes?: string | null
+          percentage?: number
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          expense_includes_iva?: boolean
+          id?: string
+          notes?: string | null
+          percentage?: number
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_partners_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_partners_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_lots: {
         Row: {
           created_at: string
@@ -444,6 +492,7 @@ export type Database = {
           location: string | null
           name: string
           parent_event_id: string | null
+          partner_calc_basis: string
           pl_mode: string
           status: string
           tickets_sold: number
@@ -461,6 +510,7 @@ export type Database = {
           location?: string | null
           name: string
           parent_event_id?: string | null
+          partner_calc_basis?: string
           pl_mode?: string
           status?: string
           tickets_sold?: number
@@ -478,6 +528,7 @@ export type Database = {
           location?: string | null
           name?: string
           parent_event_id?: string | null
+          partner_calc_basis?: string
           pl_mode?: string
           status?: string
           tickets_sold?: number
