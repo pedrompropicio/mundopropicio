@@ -483,6 +483,11 @@ export default function ReportDRE() {
                   <span className={`font-mono font-bold ${evt.resultEx >= 0 ? "text-success" : "text-destructive"}`}>
                     {formatCurrency(evt.resultEx)}
                   </span>
+                  {evt.hasPartners && evt.retainedEx !== null && (
+                    <span className={`font-mono text-xs ${evt.retainedEx >= 0 ? "text-success/70" : "text-destructive/70"}`}>
+                      (Retido: {formatCurrency(evt.retainedEx)})
+                    </span>
+                  )}
                 </div>
               </button>
 
