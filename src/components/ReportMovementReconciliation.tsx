@@ -24,6 +24,7 @@ export default function ReportMovementReconciliation() {
   const [dateToOpen, setDateToOpen] = useState(false);
   const [fullPeriod, setFullPeriod] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [docsModal, setDocsModal] = useState<{ id: string; description: string } | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts"],
