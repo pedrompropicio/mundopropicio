@@ -200,8 +200,10 @@ export function exportDREToExcel(
   ticketLots: any[] = [],
   ticketSales: any[] = [],
   ticketCategoryId: string | null = null,
-  partners: any[] = []
+  partners: any[] = [],
+  allEvents: any[] = []
 ) {
+  const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
 
   const summaryRows: any[][] = [
