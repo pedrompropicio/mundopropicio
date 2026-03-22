@@ -409,7 +409,7 @@ function buildPLForExport(
         }), d.name));
       });
     } else {
-      lines.push(pl({
+      lines.push(enrichLine(pl({
         label: group.groupName,
         forecast: group.fBase,
         actual: group.tBase,
@@ -419,7 +419,7 @@ function buildPLForExport(
         forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva,
         actualTotal: group.tBase + group.tIva,
-      }));
+      }), group.groupName));
     }
   });
 
