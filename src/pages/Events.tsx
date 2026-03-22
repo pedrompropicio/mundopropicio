@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List } from "lucide-react";
+import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
@@ -64,6 +64,8 @@ export default function Events() {
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
 
   // Fetch cities and venues for display on cards
@@ -322,6 +324,39 @@ export default function Events() {
     }
     return event.location;
   };
+
+  const statusOrder: Record<string, number> = { active: 0, planning: 1, confirmed: 2, completed: 3, cancelled: 4 };
+
+  const toggleSort = (field: "date" | "location" | "status") => {
+    if (sortField === field) {
+      setSortDir(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: "date" | "location" | "status" }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
+  };
+
+  const sortedEvents = [...events].sort((a: any, b: any) => {
+    if (!sortField) return 0;
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sortField === "date") {
+      return (a.date > b.date ? 1 : a.date < b.date ? -1 : 0) * dir;
+    }
+    if (sortField === "location") {
+      const locA = (getLocationDisplay(a) || "").toLowerCase();
+      const locB = (getLocationDisplay(b) || "").toLowerCase();
+      return locA.localeCompare(locB) * dir;
+    }
+    if (sortField === "status") {
+      return ((statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)) * dir;
+    }
+    return 0;
+  });
 
   return (
     <div className="space-y-6">
@@ -602,7 +637,7 @@ export default function Events() {
         <p className="py-8 text-center text-muted-foreground">Sem eventos registados.</p>
       ) : viewMode === "cards" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {events.map((event: any) => {
+          {sortedEvents.map((event: any) => {
             const profit = event.totalIncome - event.totalExpenses;
             const budgetUsed = event.budget > 0 ? (event.totalExpenses / event.budget) * 100 : 0;
             const eventType = event.event_type as EventType;
@@ -684,9 +719,15 @@ export default function Events() {
             <thead>
               <tr className="border-b border-border/50 text-left text-xs font-medium text-muted-foreground">
                 <th className="px-4 py-3">Evento</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Data</th>
-                <th className="px-4 py-3 hidden md:table-cell">Local</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Estado</th>
+                <th className="px-4 py-3 hidden sm:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("date")}>
+                  <div className="flex items-center gap-1">Data <SortIcon field="date" /></div>
+                </th>
+                <th className="px-4 py-3 hidden md:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("location")}>
+                  <div className="flex items-center gap-1">Local <SortIcon field="location" /></div>
+                </th>
+                <th className="px-4 py-3 hidden sm:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("status")}>
+                  <div className="flex items-center gap-1">Estado <SortIcon field="status" /></div>
+                </th>
                 <th className="px-4 py-3 text-right">Receitas</th>
                 <th className="px-4 py-3 text-right">Despesas</th>
                 <th className="px-4 py-3 text-right hidden sm:table-cell">Lucro</th>
@@ -694,7 +735,7 @@ export default function Events() {
               </tr>
             </thead>
             <tbody>
-              {events.map((event: any) => {
+              {sortedEvents.map((event: any) => {
                 const profit = event.totalIncome - event.totalExpenses;
                 const eventType = event.event_type as EventType;
                 const locationDisplay = getLocationDisplay(event);
