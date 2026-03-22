@@ -396,7 +396,7 @@ function buildPLForExport(
         actualTotal: group.tBase + group.tIva,
       }));
       group.details.forEach((d) => {
-        lines.push(pl({
+        lines.push(enrichLine(pl({
           label: d.name,
           forecast: d.fBase,
           actual: d.tBase,
@@ -406,7 +406,7 @@ function buildPLForExport(
           forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva,
           actualTotal: d.tBase + d.tIva,
-        }));
+        }), d.name));
       });
     } else {
       lines.push(pl({
