@@ -468,8 +468,9 @@ export default function ReportDRE() {
         {eventSummaries.map((evt) => {
           const isOpen = expandedEvent === evt.id;
           const evtTx = getEffectiveTransactions(evt.id);
-          const calcBasis = (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis) : [];
+          const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
+          const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
+          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
