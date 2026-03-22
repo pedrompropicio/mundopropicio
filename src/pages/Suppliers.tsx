@@ -171,12 +171,6 @@ export default function Suppliers() {
                   {s.category && <span className="text-xs text-muted-foreground">{s.category}</span>}
                 </div>
                 <div className="flex items-center gap-1 ml-2 shrink-0">
-                  {s.rating && (
-                    <div className="flex items-center gap-1 mr-1">
-                      <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                      <span className="text-xs font-medium">{s.rating}/5</span>
-                    </div>
-                  )}
                   <button
                     onClick={() => { setEditingSupplier(s); setIsOpen(true); }}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
