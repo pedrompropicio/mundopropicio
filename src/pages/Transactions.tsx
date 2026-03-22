@@ -579,6 +579,19 @@ export default function Transactions() {
           </Popover>
         )}
 
+        {/* Filtro Aprovação (open view only) */}
+        {viewMode === "open" && (
+          <Button
+            variant={onlyPending ? "default" : "outline"}
+            size="sm"
+            className="text-sm font-normal"
+            onClick={() => setOnlyPending(!onlyPending)}
+          >
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            Aprovação
+          </Button>
+        )}
+
         {/* Toggle Em Aberto / Liquidadas */}
         <div className="flex items-center rounded-lg border border-border overflow-hidden">
           <button
