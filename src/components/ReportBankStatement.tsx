@@ -291,7 +291,12 @@ export default function ReportBankStatement() {
                     <TableHead>Data</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Evento</TableHead>
+                    <TableHead className="text-center w-10">
+                      <Paperclip className="h-3.5 w-3.5 mx-auto" />
+                    </TableHead>
                     <TableHead className="text-right">Entrada (€)</TableHead>
+                    <TableHead className="text-right">Saída (€)</TableHead>
+                    <TableHead className="text-right">Saldo (€)</TableHead>
                     <TableHead className="text-right">Saída (€)</TableHead>
                     <TableHead className="text-right">Saldo (€)</TableHead>
                   </TableRow>
