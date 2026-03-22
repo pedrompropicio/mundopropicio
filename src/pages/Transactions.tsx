@@ -469,7 +469,7 @@ export default function Transactions() {
                 : `${selectedEventIds.size} evento(s)`}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
             <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
               <Checkbox
                 checked={selectedEventIds.size === events.length && events.length > 0}
@@ -487,6 +487,11 @@ export default function Transactions() {
                 <span className="text-sm">{e.name}</span>
               </div>
             ))}
+            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
+              <PopoverClose asChild>
+                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
+              </PopoverClose>
+            </div>
           </PopoverContent>
         </Popover>
 
