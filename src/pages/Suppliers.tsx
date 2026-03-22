@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Search, Star, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown } from "lucide-react";
+import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { Input } from "@/components/ui/input";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { toast } from "sonner";
