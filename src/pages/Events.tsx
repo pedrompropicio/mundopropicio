@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route } from "lucide-react";
+import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List } from "lucide-react";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
@@ -63,6 +63,7 @@ export default function Events() {
   const [form, setForm] = useState<EventForm>({ ...emptyForm });
   const [newFestivalDate, setNewFestivalDate] = useState("");
   const [reservationId, setReservationId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const queryClient = useQueryClient();
 
   // Fetch cities and venues for display on cards
@@ -329,13 +330,31 @@ export default function Events() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Eventos</h1>
           <p className="text-sm text-muted-foreground">Gestão e acompanhamento financeiro por evento</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo Evento</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border border-border bg-secondary/50 p-0.5">
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`rounded-md p-1.5 transition-all ${viewMode === "cards" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              title="Vista em cartões"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`rounded-md p-1.5 transition-all ${viewMode === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              title="Vista em lista"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Evento</span>
+          </button>
+        </div>
       </div>
 
       {/* Creation Form Modal */}
@@ -581,7 +600,7 @@ export default function Events() {
         <p className="py-8 text-center text-muted-foreground">A carregar eventos…</p>
       ) : events.length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">Sem eventos registados.</p>
-      ) : (
+      ) : viewMode === "cards" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {events.map((event: any) => {
             const profit = event.totalIncome - event.totalExpenses;
@@ -658,6 +677,67 @@ export default function Events() {
               </Link>
             );
           })}
+        </div>
+      ) : (
+        <div className="glass rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/50 text-left text-xs font-medium text-muted-foreground">
+                <th className="px-4 py-3">Evento</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Data</th>
+                <th className="px-4 py-3 hidden md:table-cell">Local</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Estado</th>
+                <th className="px-4 py-3 text-right">Receitas</th>
+                <th className="px-4 py-3 text-right">Despesas</th>
+                <th className="px-4 py-3 text-right hidden sm:table-cell">Lucro</th>
+                <th className="px-4 py-3 w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event: any) => {
+                const profit = event.totalIncome - event.totalExpenses;
+                const eventType = event.event_type as EventType;
+                const locationDisplay = getLocationDisplay(event);
+                return (
+                  <tr key={event.id} className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link to={`/eventos/${event.id}`} className="group">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium group-hover:text-primary transition-colors">{event.name}</span>
+                          <EventTypeBadge type={eventType} />
+                        </div>
+                        <p className="text-xs text-muted-foreground sm:hidden mt-0.5">{formatDate(event.date)}</p>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{formatDate(event.date)}</td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {locationDisplay ? (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate max-w-[180px]">{locationDisplay}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <EventStatusBadge status={event.status as any} />
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-sm font-medium text-success">{formatCurrency(event.totalIncome)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-sm font-medium text-warning">{formatCurrency(event.totalExpenses)}</td>
+                    <td className={`px-4 py-3 text-right font-mono text-sm font-bold hidden sm:table-cell ${profit >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(profit)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link to={`/eventos/${event.id}`} className="text-muted-foreground hover:text-primary transition-colors">
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
