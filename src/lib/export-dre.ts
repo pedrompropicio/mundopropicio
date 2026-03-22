@@ -405,13 +405,7 @@ export function exportDREToPDF(
 
     // Build summaries for each child
     const childSummaries = childEvts.map((child: any) => {
-      const childTx = transactions.filter((t: any) => t.event_id === child.id);
-      // Add prorated parent transactions
-      const siblingCount = eventsSource.filter((e: any) => e.parent_event_id === parentId).length || 1;
-      const parentTx = transactions
-        .filter((t: any) => t.event_id === parentId)
-        .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
-      const effectiveTx = [...childTx, ...parentTx];
+      const effectiveTx = getEffectiveTransactionsForExport(child.id, transactions, eventsSource);
       const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource);
       return { name: child.name, ...summary };
     });
