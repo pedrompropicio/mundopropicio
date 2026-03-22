@@ -298,8 +298,6 @@ export default function ReportBankStatement() {
                     <TableHead className="text-right">Entrada (€)</TableHead>
                     <TableHead className="text-right">Saída (€)</TableHead>
                     <TableHead className="text-right">Saldo (€)</TableHead>
-                    <TableHead className="text-right">Saída (€)</TableHead>
-                    <TableHead className="text-right">Saldo (€)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
