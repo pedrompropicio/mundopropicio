@@ -231,7 +231,7 @@ export default function Suppliers() {
               <tbody className="divide-y divide-border/30">
               {filtered.map((s) => (
                 <React.Fragment key={s.id}>
-                  <tr className="hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}>
+                  <tr className="hover:bg-secondary/20 transition-colors">
                     <td className="py-3 pr-4">
                       <p className="font-medium text-foreground">{s.name}</p>
                       <p className="text-xs text-muted-foreground sm:hidden">{s.trade_name}</p>
