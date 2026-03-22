@@ -117,8 +117,12 @@ function buildDRE(
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
+      } else if (calcBasis === "net_result_gross_expenses") {
+        // Receitas s/IVA - Despesas c/IVA, but per-partner flag can override
+        const expBase = p.expense_includes_iva ? totalExpInc : totalExpInc;
+        base = totalIncEx - expBase;
       } else {
-        // net_result - check if partner uses expense with IVA
+        // net_result: Receitas s/IVA - Despesas s/IVA, per-partner flag can use c/IVA
         const expBase = p.expense_includes_iva ? totalExpInc : totalExpEx;
         base = totalIncEx - expBase;
       }

@@ -123,12 +123,18 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           value={event?.partner_calc_basis || "net_result"}
           onValueChange={(v) => canEdit && updateCalcBasis.mutate(v)}
           disabled={!canEdit}
-          className="flex flex-col gap-2 sm:flex-row sm:gap-6"
+          className="flex flex-col gap-2"
         >
           <div className="flex items-center gap-2">
             <RadioGroupItem value="net_result" id="cb-net" />
             <Label htmlFor="cb-net" className="text-sm cursor-pointer">
-              Resultado Líquido (Receitas − Despesas s/ IVA)
+              Resultado Líquido (Receitas s/ IVA − Despesas s/ IVA)
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="net_result_gross_expenses" id="cb-net-gross" />
+            <Label htmlFor="cb-net-gross" className="text-sm cursor-pointer">
+              Resultado Líquido (Receitas s/ IVA − Despesas c/ IVA)
             </Label>
           </div>
           <div className="flex items-center gap-2">
