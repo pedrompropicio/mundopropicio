@@ -441,7 +441,7 @@ export default function ReportMovementReconciliation() {
                           <td className="py-2 px-1 text-right font-mono text-warning">{formatCurrency(totalExpenses)}</td>
                           <td className="py-2 px-1 text-right font-mono">{formatCurrency(totalPaid)}</td>
                           <td className="py-2 px-1 text-right font-mono text-destructive">{formatCurrency(totalOpenExpenses)}</td>
-                          <td colSpan={3} />
+                          <td colSpan={4} />
                         </tr>
                         <tr className="bg-primary/5 font-bold text-[10px]">
                           <td colSpan={6} className="py-2 px-2 uppercase tracking-wider">Totais Receitas</td>
