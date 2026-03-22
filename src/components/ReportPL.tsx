@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, Download, BarChart3, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
