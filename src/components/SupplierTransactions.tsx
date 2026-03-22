@@ -17,7 +17,7 @@ export function SupplierTransactions({ supplierId, isOpen, onToggle }: SupplierT
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, paid_amount, status, type, date, due_date, specification, supplier_id, event_id, events(name), suppliers(name, trade_name)")
+        .select("id, description, amount, paid_amount, status, type, date, due_date, specification, event_id, events(name)")
         .eq("supplier_id", supplierId)
         .order("date", { ascending: false });
       if (error) throw error;
@@ -109,7 +109,6 @@ function TransactionLine({ tx }: { tx: any }) {
         <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
           <span>{format(new Date(tx.date), "dd/MM/yyyy")}</span>
           {tx.events?.name && <span className="text-primary">🎤 {tx.events.name}</span>}
-          {tx.suppliers?.name && <span>· {tx.suppliers.trade_name || tx.suppliers.name}</span>}
           {tx.specification && <span>· {tx.specification}</span>}
           {isOverdue && (
             <span className="flex items-center gap-0.5 text-destructive font-medium">
