@@ -1,0 +1,1 @@
+ALTER TABLE public.suppliers DROP COLUMN rating;

@@ -873,7 +873,6 @@ export type Database = {
           notes: string | null
           payment_terms: string | null
           phone: string | null
-          rating: number | null
           swift_bic: string | null
           trade_name: string | null
           updated_at: string
@@ -892,7 +891,6 @@ export type Database = {
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
-          rating?: number | null
           swift_bic?: string | null
           trade_name?: string | null
           updated_at?: string
@@ -911,7 +909,6 @@ export type Database = {
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
-          rating?: number | null
           swift_bic?: string | null
           trade_name?: string | null
           updated_at?: string
