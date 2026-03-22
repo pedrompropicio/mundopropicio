@@ -325,6 +325,39 @@ export default function Events() {
     return event.location;
   };
 
+  const statusOrder: Record<string, number> = { active: 0, planning: 1, confirmed: 2, completed: 3, cancelled: 4 };
+
+  const toggleSort = (field: "date" | "location" | "status") => {
+    if (sortField === field) {
+      setSortDir(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: "date" | "location" | "status" }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
+  };
+
+  const sortedEvents = [...events].sort((a: any, b: any) => {
+    if (!sortField) return 0;
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sortField === "date") {
+      return (a.date > b.date ? 1 : a.date < b.date ? -1 : 0) * dir;
+    }
+    if (sortField === "location") {
+      const locA = (getLocationDisplay(a) || "").toLowerCase();
+      const locB = (getLocationDisplay(b) || "").toLowerCase();
+      return locA.localeCompare(locB) * dir;
+    }
+    if (sortField === "status") {
+      return ((statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)) * dir;
+    }
+    return 0;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
