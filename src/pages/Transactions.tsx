@@ -15,7 +15,7 @@ import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModa
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransferFormModal } from "@/components/TransferFormModal";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -469,7 +469,7 @@ export default function Transactions() {
                 : `${selectedEventIds.size} evento(s)`}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
             <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
               <Checkbox
                 checked={selectedEventIds.size === events.length && events.length > 0}
@@ -487,6 +487,11 @@ export default function Transactions() {
                 <span className="text-sm">{e.name}</span>
               </div>
             ))}
+            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
+              <PopoverClose asChild>
+                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
+              </PopoverClose>
+            </div>
           </PopoverContent>
         </Popover>
 
@@ -500,7 +505,7 @@ export default function Transactions() {
                 : `${selectedAccountIds.size} conta(s)`}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-60 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
             <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
               <Checkbox
                 checked={selectedAccountIds.size === accounts.length && accounts.length > 0}
@@ -518,6 +523,11 @@ export default function Transactions() {
                 <span className="text-sm">{a.name}</span>
               </div>
             ))}
+            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
+              <PopoverClose asChild>
+                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
+              </PopoverClose>
+            </div>
           </PopoverContent>
         </Popover>
 
