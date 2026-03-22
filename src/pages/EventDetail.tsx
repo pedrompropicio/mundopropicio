@@ -416,7 +416,7 @@ export default function EventDetail() {
           <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
           <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
-          <TabsTrigger value="partners">Sócios</TabsTrigger>
+          {!event?.parent_event_id && <TabsTrigger value="partners">Sócios</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -620,9 +620,11 @@ export default function EventDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="partners">
-          <EventPartnersTab eventId={event.id} eventStatus={event.status} />
-        </TabsContent>
+        {!event?.parent_event_id && (
+          <TabsContent value="partners">
+            <EventPartnersTab eventId={event.id} eventStatus={event.status} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Confirmation dialog */}
