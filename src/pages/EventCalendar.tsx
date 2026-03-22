@@ -50,6 +50,7 @@ export default function EventCalendar() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
+  const [editingReservation, setEditingReservation] = useState<{ id: string; date: string; venue_id: string; city_id: string | null; notes: string | null } | null>(null);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
   const [showReservationsPanel, setShowReservationsPanel] = useState(false);
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
