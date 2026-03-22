@@ -119,6 +119,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       payment_terms: (fd.get("payment_terms") as string) || null,
       category: (fd.get("category") as string) || null,
       notes: (fd.get("notes") as string) || null,
+      is_partner: fd.get("is_partner") === "on",
     };
     const result = validateForm(supplierSchema, raw);
     if (result.success === false) {
