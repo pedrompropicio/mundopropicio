@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -27,7 +26,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [percentage, setPercentage] = useState("");
-  const [expenseIncludesIva, setExpenseIncludesIva] = useState(false);
   const [notes, setNotes] = useState("");
 
   const { data: event } = useQuery({
@@ -80,7 +78,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         event_id: eventId,
         supplier_id: selectedSupplier,
         percentage: Number(percentage),
-        expense_includes_iva: expenseIncludesIva,
         notes: notes || null,
       });
       if (error) throw error;
@@ -90,7 +87,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setShowForm(false);
       setSelectedSupplier("");
       setPercentage("");
-      setExpenseIncludesIva(false);
       setNotes("");
       toast({ title: "Sócio adicionado" });
     },
@@ -224,11 +220,12 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
-                <SupplierFormModal
-                  open={showNewSupplier}
-                  onOpenChange={setShowNewSupplier}
-                  onCreated={(id) => setSelectedSupplier(id)}
-                />
+                    <SupplierFormModal
+                      open={showNewSupplier}
+                      onOpenChange={setShowNewSupplier}
+                      onCreated={(id) => setSelectedSupplier(id)}
+                      defaultIsPartner
+                    />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Percentagem (%)</Label>
@@ -242,16 +239,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                   placeholder={`Máx: ${(100 - totalPercentage).toFixed(1)}%`}
                 />
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="exp-iva"
-                checked={expenseIncludesIva}
-                onCheckedChange={(v) => setExpenseIncludesIva(!!v)}
-              />
-              <Label htmlFor="exp-iva" className="text-sm cursor-pointer">
-                Despesas consideradas com IVA (ex: sócios BR)
-              </Label>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Notas (opcional)</Label>
