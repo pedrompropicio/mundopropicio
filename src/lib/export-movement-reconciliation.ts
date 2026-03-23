@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 function fmtDate(d: string) {
   if (!d) return "—";
