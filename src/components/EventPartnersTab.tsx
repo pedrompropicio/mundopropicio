@@ -109,6 +109,21 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
     },
   });
 
+  const updatePartner = useMutation({
+    mutationFn: async ({ id, percentage: pct, notes: n }: { id: string; percentage: number; notes: string }) => {
+      const { error } = await supabase.from("event_partners").update({ percentage: pct, notes: n || null }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event-partners", eventId] });
+      setEditingId(null);
+      toast({ title: "Participação atualizada" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
   const usedSupplierIds = partners.map((p: any) => p.supplier_id);
   const availableSuppliers = suppliers.filter((s: any) => !usedSupplierIds.includes(s.id));
 
