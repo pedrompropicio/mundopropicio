@@ -269,10 +269,13 @@ export function exportDREToExcel(
       rows.push(["Rubrica", "Valor (€)"]);
       dre.forEach((line) => {
         const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+        const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
+          (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
+        const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
         const val = line.isExpenseSide ? line.amountIncIva
           : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
           : line.amountExIva;
-        rows.push([`${prefix}${line.label}`, val]);
+        rows.push([`${prefix}${displayLabel}`, val]);
       });
     } else {
       rows.push(["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"]);
