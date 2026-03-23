@@ -165,7 +165,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
               <TableRow>
                 <TableHead>Sócio</TableHead>
                 <TableHead className="text-right">%</TableHead>
-                <TableHead className="text-center">Despesa c/ IVA</TableHead>
+                
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-10" />}
               </TableRow>
