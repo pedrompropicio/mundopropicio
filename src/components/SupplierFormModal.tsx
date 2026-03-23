@@ -161,17 +161,19 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
               <Label htmlFor="sup-nif">NIF</Label>
               <Input id="sup-nif" name="nif" defaultValue={s?.nif ?? ""} />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="sup-category">Categoria</Label>
-              <Select name="category" defaultValue={s?.category ?? undefined}>
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                <SelectContent>
-                  {supplierCategories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!defaultIsPartner && (
+              <div className="grid gap-2">
+                <Label htmlFor="sup-category">Categoria</Label>
+                <Select name="category" defaultValue={s?.category ?? undefined}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {supplierCategories.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
