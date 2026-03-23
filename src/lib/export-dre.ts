@@ -669,7 +669,7 @@ export function exportDREToPDF(
   doc.text(fmtVal(globalResult), marginLeft + thirdW * 2 + 4, y + 14);
   doc.setTextColor(0, 0, 0);
 
-  const reportLabel = brasilMode ? "Relatório DRE Brasil" : "Relatório DRE";
+  const reportLabel = brasilMode ? "DRE - Demonstrativo de Resultado" : "Relatório DRE";
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
