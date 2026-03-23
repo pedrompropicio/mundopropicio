@@ -129,6 +129,8 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<AuthRoute />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/*" element={<ProtectedLayout />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
         </BrowserRouter>
