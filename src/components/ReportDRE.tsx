@@ -133,10 +133,9 @@ function buildDRE(
         base = totalIncEx;
       } else if (calcBasis === "net_result_gross_expenses") {
         base = totalIncEx - totalExpInc;
-      } else {
-        const expBase = p.expense_includes_iva ? totalExpInc : totalExpEx;
-        base = totalIncEx - expBase;
-      }
+    } else {
+      base = resEx; // Standard DRE: always ex-VAT
+    }
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
