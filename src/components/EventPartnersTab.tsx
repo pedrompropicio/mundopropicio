@@ -201,7 +201,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
           <div className="border border-border/50 rounded-lg p-4 space-y-4 bg-secondary/10">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Fornecedor (Sócio)</Label>
+                <Label className="text-xs">Parceiro / Sócio</Label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <SearchableSelect
