@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Trash2, Plus, Users, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { SupplierFormModal } from "@/components/SupplierFormModal";
 
 interface Props {
   eventId: string;
@@ -23,6 +24,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const canEdit = (isAdmin || isManager) && !["completed"].includes(eventStatus);
 
   const [showForm, setShowForm] = useState(false);
+  const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [percentage, setPercentage] = useState("");
   const [expenseIncludesIva, setExpenseIncludesIva] = useState(false);
@@ -204,11 +206,28 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Fornecedor (Sócio)</Label>
-                <SearchableSelect
-                  options={availableSuppliers.map((s: any) => ({ value: s.id, label: s.name }))}
-                  value={selectedSupplier}
-                  onValueChange={setSelectedSupplier}
-                  placeholder="Selecionar fornecedor..."
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={availableSuppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+                      value={selectedSupplier}
+                      onValueChange={setSelectedSupplier}
+                      placeholder="Selecionar fornecedor..."
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewSupplier(true)}
+                    className="rounded-lg border border-border bg-background p-2 hover:bg-secondary transition-colors"
+                    title="Cadastrar novo fornecedor"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                <SupplierFormModal
+                  open={showNewSupplier}
+                  onOpenChange={setShowNewSupplier}
+                  onCreated={(id) => setSelectedSupplier(id)}
                 />
               </div>
               <div className="space-y-1.5">
