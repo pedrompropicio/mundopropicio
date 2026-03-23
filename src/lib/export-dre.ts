@@ -134,7 +134,10 @@ function buildDREForExport(
         indent: true,
       });
     });
-    const retained = resEx - totalDistribution;
+    let retained = resEx - totalDistribution;
+    if (resEx < 0 && retained > 0) {
+      retained = 0;
+    }
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,
