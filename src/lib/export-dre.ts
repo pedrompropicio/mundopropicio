@@ -255,18 +255,35 @@ export function exportDREToExcel(
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
     const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     if (evtTx.length === 0 && dre.length <= 3) return;
+
+    const evtData = allEventsSource.find((e: any) => e.id === evt.id);
+    const parentData = evtData?.parent_event_id ? allEventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
+    const evtCalcBasis = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
+    const isGrossExp = evtCalcBasis === "net_result_gross_expenses";
+
     const rows: any[][] = [
       [`DRE - ${evt.name}`],
       [],
-      ["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"],
     ];
-    dre.forEach((line) => {
-      const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
-      rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
-    });
+    if (isGrossExp) {
+      rows.push(["Rubrica", "Valor (€)"]);
+      dre.forEach((line) => {
+        const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+        const val = line.isExpenseSide ? line.amountIncIva
+          : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+          : line.amountExIva;
+        rows.push([`${prefix}${line.label}`, val]);
+      });
+    } else {
+      rows.push(["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"]);
+      dre.forEach((line) => {
+        const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+        rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
+      });
+    }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = isGrossExp ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
