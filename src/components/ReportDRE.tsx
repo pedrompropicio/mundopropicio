@@ -117,16 +117,24 @@ function buildDRE(
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
-    // Standard DRE: always use net result ex-VAT as distribution base
-    // calcBasis variations only apply in DRE Brasil
-    const distributionBase = resEx;
 
     eventPartners.forEach((p: any) => {
-      const share = distributionBase * (Number(p.percentage) / 100);
+      // Each partner's distribution base depends on their expense_includes_iva flag
+      let base: number;
+      if (calcBasis === "gross_revenue") {
+        base = totalIncEx;
+      } else if (p.expense_includes_iva) {
+        // Partner calculates with expenses inc-IVA → smaller base → smaller share
+        base = totalIncEx - totalExpInc;
+      } else {
+        base = resEx;
+      }
+      const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
+      const ivaLabel = p.expense_includes_iva ? " (c/IVA)" : "";
       lines.push({
-        label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
+        label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)${ivaLabel}`,
         amountExIva: share,
         ivaAmount: 0,
         amountIncIva: share,
@@ -134,8 +142,8 @@ function buildDRE(
         indent: true,
       });
     });
-    // MP retained = Resultado Líquido (s/IVA) - total distributed
-    // MP always benefits from the real net result (without VAT on expenses)
+    // MP retained = real net result (s/IVA) minus total distributed
+    // MP benefits because partners with c/IVA get less
     const retained = resEx - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
