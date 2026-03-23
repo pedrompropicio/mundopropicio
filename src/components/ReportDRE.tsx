@@ -110,7 +110,7 @@ function buildDRE(
   // Always: Resultado Líquido = Receitas s/IVA - Despesas s/IVA
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
-  lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
+  lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: 0, amountIncIva: 0, isGrandTotal: true });
 
   // Partner distribution section — sub-events inherit from parent
   const resolvedPartnerId = parentEventId || eventId;
