@@ -282,7 +282,7 @@ export function exportDREToExcel(
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     const rows: any[][] = [
-      [`${brasilMode ? "DRE Brasil" : "DRE"} - ${evt.name}`],
+      [`${brasilMode ? "DRE - Demonstrativo de Resultado" : "DRE"} - ${evt.name}`],
       [],
     ];
     if (brasilMode) {
