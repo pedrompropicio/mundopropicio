@@ -586,9 +586,9 @@ export default function ReportDRE() {
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
-                              <TableCell className={valClass(line.amountExIva)}>{formatCurrency(Math.abs(line.amountExIva))}</TableCell>
-                              <TableCell className={valClass(line.ivaAmount)}>{formatCurrency(Math.abs(line.ivaAmount))}</TableCell>
-                              <TableCell className={valClass(line.amountIncIva)}>{formatCurrency(Math.abs(line.amountIncIva))}</TableCell>
+                              <TableCell className={valClass(line.amountExIva)}>{formatCurrency(line.amountExIva)}</TableCell>
+                              <TableCell className={valClass(line.ivaAmount)}>{formatCurrency(line.ivaAmount)}</TableCell>
+                              <TableCell className={valClass(line.amountIncIva)}>{formatCurrency(line.amountIncIva)}</TableCell>
                             </TableRow>
                           );
                         })}
