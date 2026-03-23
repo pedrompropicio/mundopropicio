@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX suppliers_name_unique ON public.suppliers (LOWER(TRIM(name))) WHERE is_active = true;
