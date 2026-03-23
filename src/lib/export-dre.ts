@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
