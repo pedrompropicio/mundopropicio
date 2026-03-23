@@ -212,7 +212,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <Textarea id="sup-notes" name="notes" rows={2} defaultValue={s?.notes ?? ""} />
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="sup-is-partner" name="is_partner" defaultChecked={s?.is_partner ?? false} className="h-4 w-4 rounded border-border" />
+            <input type="checkbox" id="sup-is-partner" name="is_partner" defaultChecked={s?.is_partner ?? defaultIsPartner ?? false} className="h-4 w-4 rounded border-border" />
             <Label htmlFor="sup-is-partner" className="cursor-pointer">Parceiro / Sócio (não aparece nos relatórios de fornecedores)</Label>
           </div>
           <button type="submit" disabled={isPending}
