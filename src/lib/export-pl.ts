@@ -518,6 +518,7 @@ export function exportPLToExcel(
   summaryWs["!cols"] = isComparison
     ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
     : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  applyPTNumberFormat(summaryWs);
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   eventsToExport.forEach((evt) => {
