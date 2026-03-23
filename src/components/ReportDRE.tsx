@@ -622,10 +622,14 @@ export default function ReportDRE() {
                             const displayVal = line.isExpenseSide ? line.amountIncIva
                               : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
                               : line.amountExIva;
+                            const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
+                              (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
+                            const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
+                            const formattedVal = displayVal < 0 ? `-${formatCurrency(Math.abs(displayVal))}` : formatCurrency(displayVal);
                             return (
                               <TableRow key={i} className={rowClass}>
-                                <TableCell className={labelClass}>{line.label}</TableCell>
-                                <TableCell className={valClass(displayVal)}>{formatCurrency(Math.abs(displayVal))}</TableCell>
+                                <TableCell className={labelClass}>{displayLabel}</TableCell>
+                                <TableCell className={valClass(displayVal)}>{formattedVal}</TableCell>
                               </TableRow>
                             );
                           }
