@@ -24,6 +24,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const canEdit = (isAdmin || isManager) && !["completed"].includes(eventStatus);
 
   const [showForm, setShowForm] = useState(false);
+  const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [percentage, setPercentage] = useState("");
   const [expenseIncludesIva, setExpenseIncludesIva] = useState(false);
