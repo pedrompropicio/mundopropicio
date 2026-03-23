@@ -224,11 +224,12 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
-                <SupplierFormModal
-                  open={showNewSupplier}
-                  onOpenChange={setShowNewSupplier}
-                  onCreated={(id) => setSelectedSupplier(id)}
-                />
+                    <SupplierFormModal
+                      open={showNewSupplier}
+                      onOpenChange={setShowNewSupplier}
+                      onCreated={(id) => setSelectedSupplier(id)}
+                      defaultIsPartner
+                    />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Percentagem (%)</Label>
