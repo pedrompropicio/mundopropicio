@@ -624,7 +624,7 @@ export function exportPLToPDF(
   }
 
   function fmtVal(v: number): string {
-    return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+    return formatCurrency(v);
   }
 
   try {
