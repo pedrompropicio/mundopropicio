@@ -1,0 +1,1 @@
+ALTER TABLE public.event_cache_configs ADD COLUMN fixed_deduction_percentage numeric NOT NULL DEFAULT 0;

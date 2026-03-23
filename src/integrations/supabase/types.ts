@@ -173,6 +173,7 @@ export type Database = {
           created_at: string
           event_id: string
           fixed_amount: number
+          fixed_deduction_percentage: number
           id: string
           percentage: number
           updated_at: string
@@ -183,6 +184,7 @@ export type Database = {
           created_at?: string
           event_id: string
           fixed_amount?: number
+          fixed_deduction_percentage?: number
           id?: string
           percentage?: number
           updated_at?: string
@@ -193,6 +195,7 @@ export type Database = {
           created_at?: string
           event_id?: string
           fixed_amount?: number
+          fixed_deduction_percentage?: number
           id?: string
           percentage?: number
           updated_at?: string
