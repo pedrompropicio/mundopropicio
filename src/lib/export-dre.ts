@@ -307,6 +307,7 @@ export function exportDREToExcel(
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = brasilMode ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    applyPTNumberFormat(ws);
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
