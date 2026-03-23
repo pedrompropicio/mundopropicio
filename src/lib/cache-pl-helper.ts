@@ -9,6 +9,7 @@ export interface CacheConfig {
   cache_type: string;
   fixed_amount: number;
   percentage: number;
+  fixed_deduction_percentage: number;
 }
 
 export interface CacheDeduction {
