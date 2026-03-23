@@ -664,6 +664,7 @@ export default function ReportDRE() {
         const tourExpEx = childSummaries.reduce((s, c) => s + c.totalExpEx, 0);
         const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
         const tourResultEx = tourIncEx - tourExpEx;
+        const calcBasis = (parentEvt as any).partner_calc_basis || "net_result";
         const isGrossExpMode = calcBasis === "net_result_gross_expenses";
 
         // Consistent base for the tour
