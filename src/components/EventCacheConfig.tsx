@@ -183,10 +183,27 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
   // Toggle deduction category
   const toggleDeductionMutation = useMutation({
     mutationFn: async ({ configId, categoryId, add }: { configId: string; categoryId: string; add: boolean }) => {
+  // Toggle deduction category
+  const toggleDeductionMutation = useMutation({
+    mutationFn: async ({ configId, categoryId, add }: { configId: string; categoryId: string; add: boolean }) => {
       if (add) {
         const { error } = await supabase.from("event_cache_deductions" as any).insert({
           cache_config_id: configId,
           category_id: categoryId,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("event_cache_deductions" as any)
+          .delete()
+          .eq("cache_config_id", configId)
+          .eq("category_id", categoryId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_deductions"] });
+    },
   });
 
   // Update fixed deduction percentage
@@ -200,30 +217,6 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
-    },
-  });
-
-  // Toggle deduction category
-  const toggleDeductionMutation = useMutation({
-    mutationFn: async ({ configId, categoryId, add }: { configId: string; categoryId: string; add: boolean }) => {
-      if (add) {
-        const { error } = await supabase.from("event_cache_deductions" as any).insert({
-          cache_config_id: configId,
-          category_id: categoryId,
-        });
-        if (error) throw error;
-      } else {
-      } else {
-        const { error } = await supabase
-          .from("event_cache_deductions" as any)
-          .delete()
-          .eq("cache_config_id", configId)
-          .eq("category_id", categoryId);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_cache_deductions"] });
     },
   });
 
