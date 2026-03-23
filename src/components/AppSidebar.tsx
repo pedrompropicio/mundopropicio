@@ -121,6 +121,7 @@ export function AppSidebar() {
                         ? "bg-sidebar-accent text-foreground glow-primary"
                         : "text-sidebar-foreground"
                     )}
+                    title={item.label}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     <span className="hidden lg:block">{item.label}</span>
