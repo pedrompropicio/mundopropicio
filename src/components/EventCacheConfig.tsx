@@ -201,6 +201,9 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_cache_deductions"] });
     },
+    onError: (err: any) => {
+      toast({ title: "Erro ao atualizar dedução", description: err.message, variant: "destructive" });
+    },
   });
 
   // Update fixed deduction percentage
