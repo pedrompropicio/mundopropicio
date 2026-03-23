@@ -386,7 +386,10 @@ export default function ReportDRE() {
     });
   });
   const hasGlobalPartners = Object.keys(globalPartnerShares).length > 0;
-  const globalRetained = globalResultEx - globalTotalDistribution;
+  let globalRetained = globalResultEx - globalTotalDistribution;
+  if (globalResultEx < 0 && globalRetained > 0) {
+    globalRetained = 0;
+  }
 
   const toggle = (id: string) => setExpandedEvent((prev) => (prev === id ? null : id));
 
