@@ -104,9 +104,11 @@ function ProtectedLayout() {
                 <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
               </Route>
               
-              <Route path="/utilizadores" element={<UserManagement />} />
-              <Route path="/backups" element={<DatabaseBackups />} />
-              <Route path="/seguranca" element={<SecurityDashboard />} />
+              
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/admin/utilizadores" element={<UserManagement />} />
+              <Route path="/admin/backups" element={<DatabaseBackups />} />
+              <Route path="/admin/seguranca" element={<SecurityDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
