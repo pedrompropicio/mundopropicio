@@ -680,7 +680,7 @@ export function exportDREToPDF(
   }
 
   const filename = brasilMode
-    ? `DRE_Brasil_${new Date().toISOString().slice(0, 10)}.pdf`
+    ? `DRE_Demonstrativo_Resultado_${new Date().toISOString().slice(0, 10)}.pdf`
     : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(filename);
 }
