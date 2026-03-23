@@ -244,16 +244,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="exp-iva"
-                checked={expenseIncludesIva}
-                onCheckedChange={(v) => setExpenseIncludesIva(!!v)}
-              />
-              <Label htmlFor="exp-iva" className="text-sm cursor-pointer">
-                Despesas consideradas com IVA (ex: sócios BR)
-              </Label>
-            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Notas (opcional)</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações..." />
