@@ -250,7 +250,7 @@ export function exportDREToExcel(
     }
   });
 
-  const reportTitle = brasilMode ? "RELATÓRIO DRE BRASIL - RESUMO GERAL" : "RELATÓRIO DRE - RESUMO GERAL";
+  const reportTitle = brasilMode ? "DRE - DEMONSTRATIVO DE RESULTADO - RESUMO GERAL" : "RELATÓRIO DRE - RESUMO GERAL";
   const summaryRows: any[][] = [
     [reportTitle],
     [`Fonte de receita de bilhetes: ${ticketRevenueSource === "ticket_sales" ? "Vendas da gestão de bilhetes" : "Transações registadas"}`],
