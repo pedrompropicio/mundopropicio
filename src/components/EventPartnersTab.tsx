@@ -27,7 +27,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [percentage, setPercentage] = useState("");
-  const [expenseIncludesIva, setExpenseIncludesIva] = useState(false);
   const [notes, setNotes] = useState("");
 
   const { data: event } = useQuery({
