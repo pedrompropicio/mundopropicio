@@ -592,9 +592,15 @@ export default function ReportDRE() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Rubrica</TableHead>
-                          <TableHead className="text-right">S/ IVA (€)</TableHead>
-                          <TableHead className="text-right">IVA (€)</TableHead>
-                          <TableHead className="text-right">C/ IVA (€)</TableHead>
+                          {isGrossExpMode ? (
+                            <TableHead className="text-right">Valor (€)</TableHead>
+                          ) : (
+                            <>
+                              <TableHead className="text-right">S/ IVA (€)</TableHead>
+                              <TableHead className="text-right">IVA (€)</TableHead>
+                              <TableHead className="text-right">C/ IVA (€)</TableHead>
+                            </>
+                          )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -610,6 +616,20 @@ export default function ReportDRE() {
                           const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal || line.isRetained ? "font-bold text-xs uppercase tracking-wider" : line.isDistribution ? "text-sm italic text-muted-foreground" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
                           const valClass = (amt: number) =>
                             `text-right font-mono ${line.isRetained ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}` : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
+
+                          if (isGrossExpMode) {
+                            // In gross_expenses mode: revenues show ex-IVA, expenses show inc-IVA, result/distribution show their value
+                            const displayVal = line.isExpenseSide ? line.amountIncIva
+                              : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+                              : line.amountExIva;
+                            return (
+                              <TableRow key={i} className={rowClass}>
+                                <TableCell className={labelClass}>{line.label}</TableCell>
+                                <TableCell className={valClass(displayVal)}>{formatCurrency(Math.abs(displayVal))}</TableCell>
+                              </TableRow>
+                            );
+                          }
+
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
