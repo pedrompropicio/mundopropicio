@@ -10,34 +10,21 @@ import {
   Users,
   FileCheck,
   BookOpen,
-  ShieldCheck,
-  ShieldAlert,
   LogOut,
   Ticket,
   Landmark,
-  Database,
   KeyRound,
   RefreshCw,
   Settings,
-  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 export function AppSidebar() {
   const location = useLocation();
   const { isAdmin, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
-
-  const adminPaths = ["/utilizadores", "/backups", "/seguranca"];
-  const isAdminActive = adminPaths.some((p) => location.pathname.startsWith(p));
-  const [adminOpen, setAdminOpen] = useState(isAdminActive);
 
   const navItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard", show: true },
@@ -52,12 +39,7 @@ export function AppSidebar() {
     { to: "/bilhetes", icon: Ticket, label: "Gestão Bilhetes", show: hasPermission("manage_tickets") || isAdmin },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
-  ];
-
-  const adminItems = [
-    { to: "/utilizadores", icon: ShieldCheck, label: "Utilizadores" },
-    { to: "/backups", icon: Database, label: "Backups" },
-    { to: "/seguranca", icon: ShieldAlert, label: "Segurança" },
+    { to: "/admin", icon: Settings, label: "Admin", show: isAdmin },
   ];
 
   return (
@@ -80,57 +62,13 @@ export function AppSidebar() {
                   ? "bg-sidebar-accent text-foreground glow-primary"
                   : "text-sidebar-foreground"
               )}
+              title={item.label}
             >
               <item.icon className="h-5 w-5 shrink-0" />
               <span className="hidden lg:block">{item.label}</span>
             </RouterNavLink>
           );
         })}
-
-        {isAdmin && (
-          <Collapsible open={adminOpen} onOpenChange={setAdminOpen}>
-            <CollapsibleTrigger
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                isAdminActive
-                  ? "bg-sidebar-accent text-foreground glow-primary"
-                  : "text-sidebar-foreground"
-              )}
-            >
-              <Settings className="h-5 w-5 shrink-0" />
-              <span className="hidden lg:block flex-1 text-left">Admin</span>
-              <ChevronDown
-                className={cn(
-                  "hidden lg:block h-4 w-4 shrink-0 transition-transform duration-200",
-                  adminOpen && "rotate-180"
-                )}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-0.5 mt-0.5">
-              {adminItems.map((item) => {
-                const isActive = location.pathname === item.to;
-                return (
-                  <RouterNavLink
-                    key={item.to}
-                    to={item.to}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all lg:pl-8",
-                      "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      isActive
-                        ? "bg-sidebar-accent text-foreground glow-primary"
-                        : "text-sidebar-foreground"
-                    )}
-                    title={item.label}
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    <span className="hidden lg:block">{item.label}</span>
-                  </RouterNavLink>
-                );
-              })}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
       </nav>
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
