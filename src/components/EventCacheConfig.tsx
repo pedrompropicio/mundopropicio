@@ -201,7 +201,18 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
     },
+  });
+
+  // Toggle deduction category
+  const toggleDeductionMutation = useMutation({
+    mutationFn: async ({ configId, categoryId, add }: { configId: string; categoryId: string; add: boolean }) => {
+      if (add) {
+        const { error } = await supabase.from("event_cache_deductions" as any).insert({
+          cache_config_id: configId,
+          category_id: categoryId,
+        });
         if (error) throw error;
+      } else {
       } else {
         const { error } = await supabase
           .from("event_cache_deductions" as any)
