@@ -115,15 +115,23 @@ function buildDRE(
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
+    // Compute the consistent base for the entire distribution (used for retained calc)
+    let consistentBase: number;
+    if (calcBasis === "gross_revenue") {
+      consistentBase = totalIncEx;
+    } else if (calcBasis === "net_result_gross_expenses") {
+      consistentBase = totalIncEx - totalExpInc;
+    } else {
+      consistentBase = resEx; // default net_result
+    }
+
     eventPartners.forEach((p: any) => {
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
       } else if (calcBasis === "net_result_gross_expenses") {
-        // Receitas s/IVA - Despesas c/IVA for all partners
         base = totalIncEx - totalExpInc;
       } else {
-        // net_result: Receitas s/IVA - Despesas s/IVA, per-partner flag can use c/IVA
         const expBase = p.expense_includes_iva ? totalExpInc : totalExpEx;
         base = totalIncEx - expBase;
       }
@@ -139,12 +147,8 @@ function buildDRE(
         indent: true,
       });
     });
-    let retained = resEx - totalDistribution;
-    // When the event has a loss (resEx < 0), partner contributions (negative shares)
-    // should not make MP's result positive — everyone shares the loss
-    if (resEx < 0 && retained > 0) {
-      retained = 0;
-    }
+    // Retained uses the same base as the distribution to stay consistent
+    const retained = consistentBase - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,

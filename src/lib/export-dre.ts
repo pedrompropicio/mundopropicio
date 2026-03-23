@@ -112,6 +112,15 @@ function buildDREForExport(
 
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
+    let consistentBase: number;
+    if (calcBasis === "gross_revenue") {
+      consistentBase = totalIncEx;
+    } else if (calcBasis === "net_result_gross_expenses") {
+      consistentBase = totalIncEx - totalExpInc;
+    } else {
+      consistentBase = resEx;
+    }
+
     eventPartners.forEach((p: any) => {
       let base: number;
       if (calcBasis === "gross_revenue") {
@@ -134,10 +143,7 @@ function buildDREForExport(
         indent: true,
       });
     });
-    let retained = resEx - totalDistribution;
-    if (resEx < 0 && retained > 0) {
-      retained = 0;
-    }
+    const retained = consistentBase - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,
