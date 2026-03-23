@@ -9,6 +9,7 @@ import {
   FolderTree,
   ArrowLeftRight,
   FileSearch,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
