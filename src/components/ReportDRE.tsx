@@ -580,8 +580,17 @@ export default function ReportDRE() {
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
                               <TableCell className={valClass(line.amountExIva)}>{formatCurrency(line.amountExIva)}</TableCell>
-                              <TableCell className={valClass(line.ivaAmount)}>{formatCurrency(line.ivaAmount)}</TableCell>
-                              <TableCell className={valClass(line.amountIncIva)}>{formatCurrency(line.amountIncIva)}</TableCell>
+                              {line.isGrandTotal || line.isDistribution || line.isRetained ? (
+                                <>
+                                  <TableCell />
+                                  <TableCell />
+                                </>
+                              ) : (
+                                <>
+                                  <TableCell className={valClass(line.ivaAmount)}>{formatCurrency(line.ivaAmount)}</TableCell>
+                                  <TableCell className={valClass(line.amountIncIva)}>{formatCurrency(line.amountIncIva)}</TableCell>
+                                </>
+                              )}
                             </TableRow>
                           );
                         })}
