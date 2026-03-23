@@ -117,25 +117,13 @@ function buildDRE(
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
-    let consistentBase: number;
-    if (calcBasis === "gross_revenue") {
-      consistentBase = totalIncEx;
-    } else if (calcBasis === "net_result_gross_expenses") {
-      // For partner calc, use receitas s/IVA - despesas c/IVA as distribution base
-      consistentBase = totalIncEx - totalExpInc;
-    } else {
-      consistentBase = resEx;
-    }
+    // Standard DRE: always use net result ex-VAT as distribution base
+    // calcBasis variations only apply in DRE Brasil
+    const distributionBase = resEx;
 
     eventPartners.forEach((p: any) => {
-      let base: number;
-      if (calcBasis === "gross_revenue") {
-        base = totalIncEx;
-      } else if (calcBasis === "net_result_gross_expenses") {
-        base = totalIncEx - totalExpInc;
-    } else {
-      base = resEx; // Standard DRE: always ex-VAT
-    }
+      const share = distributionBase * (Number(p.percentage) / 100);
+      totalDistribution += share;
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
