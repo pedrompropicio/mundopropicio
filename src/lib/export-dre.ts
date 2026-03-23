@@ -114,6 +114,8 @@ function buildDREForExport(
   } else {
     lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
   }
+  const resolvedPartnerId = parentEventId || eventId;
+  const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
 
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
