@@ -438,7 +438,10 @@ export function exportDREToPDF(
         doc.setFontSize(8);
       }
 
-      const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
+      const isBilheteira = isGrossExp && !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
+        (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
+      const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
+      const label = line.indent ? `        ${displayLabel}` : line.isGroupHeader ? `  ${displayLabel}` : displayLabel;
       doc.text(label, colX[0] + 2, y + 4);
 
       if (isGrossExp) {
@@ -446,7 +449,8 @@ export function exportDREToPDF(
         const val = line.isExpenseSide ? line.amountIncIva
           : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
           : line.amountExIva;
-        doc.text(fmtVal(Math.abs(val)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+        const formattedVal = val < 0 ? `-${fmtVal(Math.abs(val))}` : fmtVal(val);
+        doc.text(formattedVal, colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
       } else {
         doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
         doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
