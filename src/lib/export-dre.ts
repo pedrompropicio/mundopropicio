@@ -647,6 +647,17 @@ export function exportDREToPDF(
     }
   });
 
+  // Determine if all events use gross_expenses mode for global summary
+  const allGrossExpPdf = events.every((evt) => {
+    const evtData = eventsSource.find((e: any) => e.id === evt.id);
+    const parentData = evtData?.parent_event_id ? eventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
+    const cb = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
+    return cb === "net_result_gross_expenses";
+  });
+
+  const globalExpDisplay = allGrossExpPdf ? gExpInc : gExpEx;
+  const globalResult = gIncEx - globalExpDisplay;
+
   // Global summary box at the end
   checkNewPage(30);
   y += 4;
@@ -661,15 +672,15 @@ export function exportDREToPDF(
   doc.text(fmtVal(gIncEx), marginLeft + 4, y + 14);
   doc.setFontSize(8);
   doc.setTextColor(200, 120, 0);
-  doc.text("Total Despesas", marginLeft + thirdW + 4, y + 6);
+  doc.text(allGrossExpPdf ? "Total Despesas C/IVA" : "Total Despesas", marginLeft + thirdW + 4, y + 6);
   doc.setFontSize(11);
-  doc.text(fmtVal(gExpEx), marginLeft + thirdW + 4, y + 14);
+  doc.text(fmtVal(globalExpDisplay), marginLeft + thirdW + 4, y + 14);
   doc.setFontSize(8);
-  const resColor = gIncEx - gExpEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+  const resColor = globalResult >= 0 ? [34, 139, 34] : [200, 50, 50];
   doc.setTextColor(resColor[0], resColor[1], resColor[2]);
-  doc.text("Resultado Líquido", marginLeft + thirdW * 2 + 4, y + 6);
+  doc.text("Resultado", marginLeft + thirdW * 2 + 4, y + 6);
   doc.setFontSize(11);
-  doc.text(fmtVal(gIncEx - gExpEx), marginLeft + thirdW * 2 + 4, y + 14);
+  doc.text(fmtVal(globalResult), marginLeft + thirdW * 2 + 4, y + 14);
   doc.setTextColor(0, 0, 0);
 
   const totalPages = doc.getNumberOfPages();
