@@ -56,6 +56,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
       onOpenChange(false);
       toast.success("Fornecedor criado com sucesso");
       onCreated?.(data.id);
