@@ -56,10 +56,39 @@ export default function Auth() {
       return;
     }
     setLoading(true);
+
+    // Server-side rate limit check
+    try {
+      const { data: rateCheck } = await supabase.functions.invoke("check-login-rate", {
+        body: { email, action: "check" },
+      });
+      if (rateCheck?.blocked) {
+        toast({
+          title: "Acesso bloqueado",
+          description: "Demasiadas tentativas. Aguarde 15 minutos antes de tentar novamente.",
+          variant: "destructive",
+        });
+        startLockout();
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // If rate-limit check fails, continue with client-side protection
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
+
+      // Record failure server-side (also triggers alerts if threshold reached)
+      try {
+        await supabase.functions.invoke("check-login-rate", {
+          body: { email, action: "record_failure" },
+        });
+      } catch {
+        // Silently fail - client-side protection still active
+      }
 
       // Log failed attempt to audit
       logAudit({
@@ -73,7 +102,6 @@ export default function Auth() {
       if (newAttempts >= MAX_ATTEMPTS) {
         startLockout();
 
-        // Log lockout to audit
         logAudit({
           entity_type: "auth",
           entity_id: email,
@@ -98,6 +126,16 @@ export default function Auth() {
       setLoading(false);
       return;
     }
+
+    // Record success server-side
+    try {
+      await supabase.functions.invoke("check-login-rate", {
+        body: { email, action: "record_success" },
+      });
+    } catch {
+      // Silently fail
+    }
+
     // Reset on success
     setFailedAttempts(0);
     setLockoutCount(0);
