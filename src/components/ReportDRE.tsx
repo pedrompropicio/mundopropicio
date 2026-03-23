@@ -24,6 +24,8 @@ interface DRELine {
   indent?: boolean;
   isDistribution?: boolean;
   isRetained?: boolean;
+  /** Marks this line as an expense line */
+  isExpenseSide?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
