@@ -120,15 +120,22 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     return deductions.filter((d: any) => d.cache_config_id === configId);
   };
 
-  // Calculate deduction amount for a config
+  // Calculate deduction amount for a config (categories + fixed %)
   const calculateDeductionAmount = (configId: string) => {
     const configDeductions = getDeductionsForConfig(configId);
     const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
 
-    // Sum forecasts that match deduction categories
-    return forecasts
+    const categoryAmount = forecasts
       .filter((f) => f.type === "expense" && deductionCategoryIds.includes(f.category_id))
-      .reduce((s, f) => s + Number(f.amount), 0); // amount is already sem IVA
+      .reduce((s, f) => s + Number(f.amount), 0);
+
+    return categoryAmount;
+  };
+
+  // Calculate fixed percentage deduction
+  const calculateFixedPctDeduction = (config: any) => {
+    const pct = Number(config.fixed_deduction_percentage) || 0;
+    return ticketRevenueNet * (pct / 100);
   };
 
   // Calculate variable cachê
