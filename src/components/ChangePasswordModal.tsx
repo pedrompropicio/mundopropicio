@@ -18,12 +18,18 @@ interface ChangePasswordModalProps {
 }
 
 export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalProps) {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentPassword) {
+      toast({ title: "Erro", description: "Introduza a palavra-passe atual.", variant: "destructive" });
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       toast({ title: "Erro", description: "As senhas não coincidem.", variant: "destructive" });
@@ -36,12 +42,33 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
     }
 
     setLoading(true);
+
+    // Re-authenticate with current password first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) {
+      toast({ title: "Erro", description: "Não foi possível verificar o utilizador.", variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      toast({ title: "Erro", description: "Palavra-passe atual incorreta.", variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password: newPassword });
 
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Sucesso", description: "Palavra-passe alterada com sucesso." });
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       onOpenChange(false);
@@ -56,6 +83,17 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
           <DialogTitle>Alterar Palavra-passe</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Palavra-passe atual</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="new-password">Nova palavra-passe</Label>
             <Input
