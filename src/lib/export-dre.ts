@@ -361,6 +361,12 @@ export function exportDREToPDF(
     }
     isFirstEventPage = false;
 
+    // Determine if this event uses gross_expenses mode
+    const evtData = eventsSource.find((e: any) => e.id === evt.id);
+    const parentEvtData = evtData?.parent_event_id ? eventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
+    const evtCalcBasis = parentEvtData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
+    const isGrossExp = evtCalcBasis === "net_result_gross_expenses";
+
     try {
       doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
       y += 22;
@@ -380,7 +386,20 @@ export function exportDREToPDF(
     doc.setTextColor(0, 0, 0);
     y += 14;
 
-    drawTableHeader();
+    // Draw table header depending on mode
+    if (isGrossExp) {
+      doc.setFillColor(30, 30, 40);
+      doc.rect(marginLeft, y, contentWidth, 8, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text("Rubrica", colX[0] + 2, y + 5.5);
+      doc.text("Valor (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 10;
+    } else {
+      drawTableHeader();
+    }
 
     dre.forEach((line) => {
       checkNewPage(8);
@@ -418,9 +437,18 @@ export function exportDREToPDF(
 
       const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
-      doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
-      doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
-      doc.text(fmtVal(Math.abs(line.amountIncIva)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+
+      if (isGrossExp) {
+        // Single value column: revenues ex-IVA, expenses inc-IVA
+        const val = line.isExpenseSide ? line.amountIncIva
+          : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+          : line.amountExIva;
+        doc.text(fmtVal(Math.abs(val)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      } else {
+        doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(Math.abs(line.amountIncIva)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      }
 
       y += rowH;
     });
