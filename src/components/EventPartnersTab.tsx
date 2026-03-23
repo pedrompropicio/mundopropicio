@@ -79,7 +79,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         event_id: eventId,
         supplier_id: selectedSupplier,
         percentage: Number(percentage),
-        expense_includes_iva: expenseIncludesIva,
         notes: notes || null,
       });
       if (error) throw error;
