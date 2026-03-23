@@ -17,6 +17,7 @@ interface DRELine {
   indent?: boolean;
   isDistribution?: boolean;
   isRetained?: boolean;
+  isExpenseSide?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
