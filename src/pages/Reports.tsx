@@ -24,6 +24,7 @@ import {
 
 const allReportItems = [
   { to: "/relatorios/dre", icon: BarChart3, label: "DRE", permission: "view_report_dre" },
+  { to: "/relatorios/dre-brasil", icon: Globe, label: "DRE Brasil", permission: "view_report_dre" },
   { to: "/relatorios/pl", icon: TrendingUp, label: "P&L", permission: "view_report_pl" },
   { to: "/relatorios/fluxo-caixa", icon: ArrowLeftRight, label: "Fluxo de Caixa", permission: "view_report_cashflow" },
   { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário", permission: "view_report_bank_statement" },
