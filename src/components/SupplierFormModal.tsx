@@ -40,6 +40,7 @@ interface SupplierFormModalProps {
   onOpenChange: (open: boolean) => void;
   onCreated?: (id: string) => void;
   editingSupplier?: any;
+  defaultIsPartner?: boolean;
 }
 
 export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier }: SupplierFormModalProps) {
