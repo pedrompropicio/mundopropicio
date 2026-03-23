@@ -614,22 +614,20 @@ export default function ReportDRE() {
         // Compute partner distribution for the tour
         const tourPartners = eventPartners.filter((p: any) => p.event_id === parentId);
         let tourTotalDistribution = 0;
+        const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
         const tourPartnerShares = tourPartners.map((p: any) => {
           let base: number;
           if (calcBasis === "gross_revenue") {
             base = tourIncEx;
-          } else if (calcBasis === "net_result_gross_expenses") {
-            const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
+          } else if (p.expense_includes_iva) {
             base = tourIncEx - tourExpInc;
           } else {
-            const expBase = p.expense_includes_iva
-              ? childSummaries.reduce((s, c) => s + c.totalExpInc, 0)
-              : tourExpEx;
-            base = tourIncEx - expBase;
+            base = tourIncEx - tourExpEx;
           }
           const share = base * (Number(p.percentage) / 100);
           tourTotalDistribution += share;
-          return { name: p.suppliers?.name || "Sócio", percentage: Number(p.percentage), share };
+          const ivaLabel = p.expense_includes_iva ? " (c/IVA)" : "";
+          return { name: `${p.suppliers?.name || "Sócio"}${ivaLabel}`, percentage: Number(p.percentage), share };
         });
         // MP retained from the real net result (s/IVA)
         const tourRetained = tourResultEx - tourTotalDistribution;
