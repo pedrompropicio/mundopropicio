@@ -408,7 +408,7 @@ export function exportDREToPDF(
       y += 4;
     }
 
-    const titlePrefix = brasilMode ? "DRE Brasil" : "DRE";
+    const titlePrefix = brasilMode ? "DRE - Demonstrativo de Resultado" : "DRE";
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
