@@ -43,7 +43,7 @@ interface SupplierFormModalProps {
   defaultIsPartner?: boolean;
 }
 
-export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier }: SupplierFormModalProps) {
+export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner }: SupplierFormModalProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isEditing = !!editingSupplier;
