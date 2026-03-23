@@ -121,30 +121,26 @@ export function buildDREForExport(
 
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
-    let consistentBase: number;
-    if (calcBasis === "gross_revenue") {
-      consistentBase = totalIncEx;
-    } else if (calcBasis === "net_result_gross_expenses") {
-      consistentBase = totalIncEx - totalExpInc;
-    } else {
-      consistentBase = resEx;
-    }
 
     eventPartners.forEach((p: any) => {
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
-      } else if (calcBasis === "net_result_gross_expenses") {
+      } else if (brasilMode) {
+        // Brasil mode: all partners use expenses inc-IVA
+        base = totalIncEx - totalExpInc;
+      } else if (p.expense_includes_iva) {
+        // Standard mode: per-partner flag
         base = totalIncEx - totalExpInc;
       } else {
-        const expBase = p.expense_includes_iva ? totalExpInc : totalExpEx;
-        base = totalIncEx - expBase;
+        base = resEx;
       }
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
+      const ivaLabel = !brasilMode && p.expense_includes_iva ? " (c/IVA)" : "";
       lines.push({
-        label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
+        label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)${ivaLabel}`,
         amountExIva: share,
         ivaAmount: 0,
         amountIncIva: share,
@@ -153,9 +149,9 @@ export function buildDREForExport(
       });
     });
 
-    // In Brasil mode, retained = consistentBase - totalDistribution (residual with VAT expenses)
+    // In Brasil mode, retained = resultGrossExp - totalDistribution
     // In standard mode, retained = resEx - totalDistribution (MP benefits from real net result)
-    const retained = brasilMode ? consistentBase - totalDistribution : resEx - totalDistribution;
+    const retained = brasilMode ? (totalIncEx - totalExpInc) - totalDistribution : resEx - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,
