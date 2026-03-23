@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("pt-PT");
