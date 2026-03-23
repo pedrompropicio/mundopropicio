@@ -313,7 +313,7 @@ export function exportDREToExcel(
   });
 
   const filename = brasilMode
-    ? `DRE_Brasil_${new Date().toISOString().slice(0, 10)}.xlsx`
+    ? `DRE_Demonstrativo_Resultado_${new Date().toISOString().slice(0, 10)}.xlsx`
     : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
