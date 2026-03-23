@@ -626,7 +626,7 @@ export default function ReportDRE() {
           }
           const share = base * (Number(p.percentage) / 100);
           tourTotalDistribution += share;
-          const ivaLabel = p.expense_includes_iva ? " (c/IVA)" : "";
+          const ivaLabel = p.expense_includes_iva ? ` (c/IVA: ${formatCurrency(tourExpInc)})` : "";
           return { name: `${p.suppliers?.name || "Sócio"}${ivaLabel}`, percentage: Number(p.percentage), share };
         });
         // MP retained from the real net result (s/IVA)
