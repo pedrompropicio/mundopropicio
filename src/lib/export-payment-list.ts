@@ -79,6 +79,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     { wch: 14 },
     { wch: 14 },
   ];
+  applyPTNumberFormat(ws);
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
   XLSX.writeFile(wb, `Contas_Pagar_${data.payment_date}.xlsx`);
 }
