@@ -499,6 +499,8 @@ export function exportDREToPDF(
     // Summary table header
     const sumColWidths = [contentWidth * 0.34, contentWidth * 0.22, contentWidth * 0.22, contentWidth * 0.22];
     const sumColX = [marginLeft, marginLeft + sumColWidths[0], marginLeft + sumColWidths[0] + sumColWidths[1], marginLeft + sumColWidths[0] + sumColWidths[1] + sumColWidths[2]];
+    const calcBasis = parentEvt.partner_calc_basis || "net_result";
+    const isGrossExp = calcBasis === "net_result_gross_expenses";
 
     doc.setFillColor(30, 30, 40);
     doc.rect(marginLeft, y, contentWidth, 8, "F");
@@ -507,10 +509,20 @@ export function exportDREToPDF(
     doc.setFont("helvetica", "bold");
     doc.text("Sub-evento", sumColX[0] + 2, y + 5.5);
     doc.text("Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text("Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
-    doc.text("Resultado Líquido", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text(isGrossExp ? "Despesas C/IVA" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text("Resultado", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
+
+    // Consistent base for tour
+    let tourConsistentBase: number;
+    if (calcBasis === "gross_revenue") {
+      tourConsistentBase = tourIncEx;
+    } else if (isGrossExp) {
+      tourConsistentBase = tourIncEx - tourExpInc;
+    } else {
+      tourConsistentBase = tourResultEx;
+    }
 
     // Child rows
     childSummaries.forEach((child) => {
@@ -521,10 +533,12 @@ export function exportDREToPDF(
       doc.setTextColor(34, 139, 34);
       doc.text(fmtVal(child.incEx), sumColX[1] + sumColWidths[1] - 2, y + 4, { align: "right" });
       doc.setTextColor(200, 120, 0);
-      doc.text(fmtVal(child.expEx), sumColX[2] + sumColWidths[2] - 2, y + 4, { align: "right" });
-      const resColor = child.incEx - child.expEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+      const childExpDisplay = isGrossExp ? child.expInc : child.expEx;
+      doc.text(fmtVal(childExpDisplay), sumColX[2] + sumColWidths[2] - 2, y + 4, { align: "right" });
+      const childResult = isGrossExp ? child.incEx - child.expInc : child.incEx - child.expEx;
+      const resColor = childResult >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setTextColor(resColor[0], resColor[1], resColor[2]);
-      doc.text(fmtVal(child.incEx - child.expEx), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
+      doc.text(fmtVal(childResult), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
       y += 7;
     });
@@ -539,16 +553,17 @@ export function exportDREToPDF(
     doc.setTextColor(34, 139, 34);
     doc.text(fmtVal(tourIncEx), sumColX[1] + sumColWidths[1] - 2, y + 5, { align: "right" });
     doc.setTextColor(200, 120, 0);
-    doc.text(fmtVal(tourExpEx), sumColX[2] + sumColWidths[2] - 2, y + 5, { align: "right" });
-    const tourResColor = tourResultEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+    const tourExpDisplay = isGrossExp ? tourExpInc : tourExpEx;
+    doc.text(fmtVal(tourExpDisplay), sumColX[2] + sumColWidths[2] - 2, y + 5, { align: "right" });
+    const tourResult = isGrossExp ? tourConsistentBase : tourResultEx;
+    const tourResColor = tourResult >= 0 ? [34, 139, 34] : [200, 50, 50];
     doc.setTextColor(tourResColor[0], tourResColor[1], tourResColor[2]);
-    doc.text(fmtVal(tourResultEx), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
+    doc.text(fmtVal(tourResult), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 12;
 
     // Partner distribution
     const tourPartners = partners.filter((p: any) => p.event_id === parentId);
-    const calcBasis = parentEvt.partner_calc_basis || "net_result";
     if (tourPartners.length > 0) {
       checkNewPage(20 + tourPartners.length * 7);
       doc.setFontSize(9);
@@ -561,7 +576,7 @@ export function exportDREToPDF(
         let base: number;
         if (calcBasis === "gross_revenue") {
           base = tourIncEx;
-        } else if (calcBasis === "net_result_gross_expenses") {
+        } else if (isGrossExp) {
           base = tourIncEx - tourExpInc;
         } else {
           const expBase = p.expense_includes_iva ? tourExpInc : tourExpEx;
@@ -582,8 +597,8 @@ export function exportDREToPDF(
         y += 7;
       });
 
-      // Retained result
-      const retained = tourResultEx - tourTotalDist;
+      // Retained result using consistent base
+      const retained = tourConsistentBase - tourTotalDist;
       checkNewPage(10);
       doc.setFillColor(220, 235, 255);
       doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
