@@ -6,6 +6,7 @@ import type { PLMode } from "@/components/ReportPL";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface PLLine {
   label: string;
