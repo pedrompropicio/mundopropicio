@@ -377,6 +377,8 @@ export default function ReportDRE() {
   // Compute global partner distributions across all displayed events
   const globalPartnerShares: Record<string, { name: string; total: number }> = {};
   let globalTotalDistribution = 0;
+  let globalRetainedSum = 0;
+  let hasAnyRetained = false;
   eventSummaries.forEach((evt) => {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
@@ -388,12 +390,14 @@ export default function ReportDRE() {
       globalPartnerShares[key].total += l.amountExIva;
       globalTotalDistribution += l.amountExIva;
     });
+    const retainedLine = dre.find((l) => l.isRetained);
+    if (retainedLine) {
+      globalRetainedSum += retainedLine.amountExIva;
+      hasAnyRetained = true;
+    }
   });
   const hasGlobalPartners = Object.keys(globalPartnerShares).length > 0;
-  let globalRetained = globalResultEx - globalTotalDistribution;
-  if (globalResultEx < 0 && globalRetained > 0) {
-    globalRetained = 0;
-  }
+  const globalRetained = hasAnyRetained ? globalRetainedSum : globalResultEx - globalTotalDistribution;
 
   const toggle = (id: string) => setExpandedEvent((prev) => (prev === id ? null : id));
 
