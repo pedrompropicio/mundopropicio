@@ -61,7 +61,13 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       toast.success("Fornecedor criado com sucesso");
       onCreated?.(data.id);
     },
-    onError: () => toast.error("Erro ao criar fornecedor"),
+    onError: (err: any) => {
+      if (err?.message?.includes("suppliers_name_unique")) {
+        toast.error("Já existe um fornecedor/parceiro com este nome");
+      } else {
+        toast.error("Erro ao criar fornecedor");
+      }
+    },
   });
 
   const updateMutation = useMutation({
