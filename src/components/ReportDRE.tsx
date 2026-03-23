@@ -124,8 +124,6 @@ function buildDRE(
     eventPartners.forEach((p: any) => {
       const share = distributionBase * (Number(p.percentage) / 100);
       totalDistribution += share;
-      const share = base * (Number(p.percentage) / 100);
-      totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
