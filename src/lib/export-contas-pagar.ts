@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrencyDecimal, formatDate } from "@/lib/mock-data";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface ContasPagarItem {
   description: string;
@@ -86,6 +87,7 @@ export function exportContasPagarToExcel(data: ContasPagarExport) {
     { wch: 4 }, { wch: 12 }, { wch: 22 }, { wch: 20 }, { wch: 30 }, { wch: 20 },
     { wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
   ];
+  applyPTNumberFormat(ws);
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
 
   const filename = `Contas_Pagar_${new Date().toISOString().slice(0, 10)}.xlsx`;

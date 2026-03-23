@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 function fmtDate(d: string) {
   if (!d) return "—";
@@ -97,6 +98,7 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
     { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 15 },
   ];
+  applyPTNumberFormat(ws);
 
   XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
   const fileName = dateFrom && dateTo ? `Movimentacoes_${dateFrom}_${dateTo}.xlsx` : `Movimentacoes_Completo.xlsx`;

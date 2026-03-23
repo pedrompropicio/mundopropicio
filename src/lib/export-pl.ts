@@ -6,6 +6,7 @@ import type { PLMode } from "@/components/ReportPL";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface PLLine {
   label: string;
@@ -517,6 +518,7 @@ export function exportPLToExcel(
   summaryWs["!cols"] = isComparison
     ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
     : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  applyPTNumberFormat(summaryWs);
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   eventsToExport.forEach((evt) => {
@@ -563,6 +565,7 @@ export function exportPLToExcel(
     ws["!cols"] = isComparison
       ? [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }]
       : [{ wch: 35 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 18 }];
+    applyPTNumberFormat(ws);
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });

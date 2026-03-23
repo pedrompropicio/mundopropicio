@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrencyDecimal, formatDate } from "@/lib/mock-data";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface PaymentItem {
   description: string;
@@ -78,6 +79,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     { wch: 14 },
     { wch: 14 },
   ];
+  applyPTNumberFormat(ws);
   XLSX.utils.book_append_sheet(wb, ws, "Contas a Pagar");
   XLSX.writeFile(wb, `Contas_Pagar_${data.payment_date}.xlsx`);
 }

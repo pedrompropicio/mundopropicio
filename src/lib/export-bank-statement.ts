@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("pt-PT");
@@ -46,6 +47,7 @@ export function exportBankStatementToExcel(
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 12 }, { wch: 35 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  applyPTNumberFormat(ws);
   XLSX.utils.book_append_sheet(wb, ws, "Extrato");
   XLSX.writeFile(wb, `Extrato_${account.name.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

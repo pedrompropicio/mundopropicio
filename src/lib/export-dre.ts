@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
+import { applyPTNumberFormat } from "@/lib/excel-format";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -249,7 +250,7 @@ export function exportDREToExcel(
     }
   });
 
-  const reportTitle = brasilMode ? "RELATÓRIO DRE BRASIL - RESUMO GERAL" : "RELATÓRIO DRE - RESUMO GERAL";
+  const reportTitle = brasilMode ? "DRE - DEMONSTRATIVO DE RESULTADO - RESUMO GERAL" : "RELATÓRIO DRE - RESUMO GERAL";
   const summaryRows: any[][] = [
     [reportTitle],
     [`Fonte de receita de bilhetes: ${ticketRevenueSource === "ticket_sales" ? "Vendas da gestão de bilhetes" : "Transações registadas"}`],
@@ -272,6 +273,7 @@ export function exportDREToExcel(
   summaryWs["!cols"] = brasilMode
     ? [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
     : [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  applyPTNumberFormat(summaryWs);
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
@@ -280,7 +282,7 @@ export function exportDREToExcel(
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     const rows: any[][] = [
-      [`${brasilMode ? "DRE Brasil" : "DRE"} - ${evt.name}`],
+      [`${brasilMode ? "DRE - Demonstrativo de Resultado" : "DRE"} - ${evt.name}`],
       [],
     ];
     if (brasilMode) {
@@ -305,12 +307,13 @@ export function exportDREToExcel(
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = brasilMode ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    applyPTNumberFormat(ws);
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
   const filename = brasilMode
-    ? `DRE_Brasil_${new Date().toISOString().slice(0, 10)}.xlsx`
+    ? `DRE_Demonstrativo_Resultado_${new Date().toISOString().slice(0, 10)}.xlsx`
     : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
@@ -405,7 +408,7 @@ export function exportDREToPDF(
       y += 4;
     }
 
-    const titlePrefix = brasilMode ? "DRE Brasil" : "DRE";
+    const titlePrefix = brasilMode ? "DRE - Demonstrativo de Resultado" : "DRE";
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
@@ -513,7 +516,7 @@ export function exportDREToPDF(
       y += 4;
     }
 
-    const titlePrefix = brasilMode ? "Resumo da Turnê (Brasil)" : "Resumo da Turnê";
+    const titlePrefix = brasilMode ? "Resumo da Turnê (DRE)" : "Resumo da Turnê";
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
@@ -666,7 +669,7 @@ export function exportDREToPDF(
   doc.text(fmtVal(globalResult), marginLeft + thirdW * 2 + 4, y + 14);
   doc.setTextColor(0, 0, 0);
 
-  const reportLabel = brasilMode ? "Relatório DRE Brasil" : "Relatório DRE";
+  const reportLabel = brasilMode ? "DRE - Demonstrativo de Resultado" : "Relatório DRE";
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
@@ -677,7 +680,7 @@ export function exportDREToPDF(
   }
 
   const filename = brasilMode
-    ? `DRE_Brasil_${new Date().toISOString().slice(0, 10)}.pdf`
+    ? `DRE_Demonstrativo_Resultado_${new Date().toISOString().slice(0, 10)}.pdf`
     : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(filename);
 }
