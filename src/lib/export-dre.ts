@@ -672,7 +672,7 @@ export function exportDREToPDF(
   doc.text(fmtVal(gIncEx), marginLeft + 4, y + 14);
   doc.setFontSize(8);
   doc.setTextColor(200, 120, 0);
-  doc.text(allGrossExpPdf ? "Total Despesas C/IVA" : "Total Despesas", marginLeft + thirdW + 4, y + 6);
+  doc.text("Total Despesas", marginLeft + thirdW + 4, y + 6);
   doc.setFontSize(11);
   doc.text(fmtVal(globalExpDisplay), marginLeft + thirdW + 4, y + 14);
   doc.setFontSize(8);
