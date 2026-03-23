@@ -25,6 +25,7 @@ import TicketManagement from "./pages/TicketManagement";
 import EventCalendar from "./pages/EventCalendar";
 import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
+import ReportDREBrasilPage from "./pages/ReportDREBrasilPage";
 import ReportPLPage from "./pages/ReportPLPage";
 import ReportBankStatementPage from "./pages/ReportBankStatementPage";
 import ReportCashFlowPage from "./pages/ReportCashFlowPage";
