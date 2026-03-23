@@ -132,7 +132,7 @@ function buildDRE(
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
-      const ivaLabel = p.expense_includes_iva ? ` (c/IVA: ${formatCurrency(totalExpInc)})` : "";
+      const ivaLabel = p.expense_includes_iva ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)${ivaLabel}`,
         amountExIva: share,
