@@ -542,7 +542,7 @@ export function exportDREToPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Sub-evento", sumColX[0] + 2, y + 5.5);
-    doc.text("Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
+    doc.text(isGrossExp ? "Receitas (€)" : "Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
     doc.text(isGrossExp ? "Despesas C/IVA" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
     doc.text("Resultado", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
