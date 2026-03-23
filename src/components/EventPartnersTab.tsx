@@ -88,7 +88,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setShowForm(false);
       setSelectedSupplier("");
       setPercentage("");
-      setExpenseIncludesIva(false);
       setNotes("");
       toast({ title: "Sócio adicionado" });
     },
