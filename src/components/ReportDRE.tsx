@@ -139,7 +139,12 @@ function buildDRE(
         indent: true,
       });
     });
-    const retained = resEx - totalDistribution;
+    let retained = resEx - totalDistribution;
+    // When the event has a loss (resEx < 0), partner contributions (negative shares)
+    // should not make MP's result positive — everyone shares the loss
+    if (resEx < 0 && retained > 0) {
+      retained = 0;
+    }
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,
