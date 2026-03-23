@@ -194,7 +194,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 const otherTotal = partners.reduce((sum: number, op: any) => op.id === p.id ? sum : sum + Number(op.percentage), 0);
                 const maxPct = 100 - otherTotal;
                 return (
-                  <TableRow key={p.id} className="[&>td]:py-2">
+                  <TableRow key={p.id} className="[&>td]:py-1 [&>td]:px-2">
                     <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
                     <TableCell className="text-right font-mono">
                       {isEditing ? (
