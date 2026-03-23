@@ -185,25 +185,74 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <TableHead className="text-right">%</TableHead>
                 
                 <TableHead>Notas</TableHead>
-                {canEdit && <TableHead className="w-10" />}
+                {canEdit && <TableHead className="w-20" />}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {partners.map((p: any) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
-                  <TableCell className="text-right font-mono">{Number(p.percentage).toFixed(1)}%</TableCell>
-                  
-                  <TableCell className="text-muted-foreground text-sm">{p.notes || "—"}</TableCell>
-                  {canEdit && (
-                    <TableCell>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removePartner.mutate(p.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+              {partners.map((p: any) => {
+                const isEditing = editingId === p.id;
+                const otherTotal = partners.reduce((sum: number, op: any) => op.id === p.id ? sum : sum + Number(op.percentage), 0);
+                const maxPct = 100 - otherTotal;
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {isEditing ? (
+                        <Input
+                          type="number" min="0" max={maxPct} step="0.1"
+                          value={editPercentage}
+                          onChange={(e) => setEditPercentage(e.target.value)}
+                          className="h-7 w-20 text-right ml-auto"
+                        />
+                      ) : (
+                        <>{Number(p.percentage).toFixed(1)}%</>
+                      )}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell className="text-muted-foreground text-sm">
+                      {isEditing ? (
+                        <Input
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          className="h-7"
+                          placeholder="Observações..."
+                        />
+                      ) : (
+                        p.notes || "—"
+                      )}
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {isEditing ? (
+                            <>
+                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                onClick={() => updatePartner.mutate({ id: p.id, percentage: Number(editPercentage), notes: editNotes })}
+                                disabled={!editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
+                              >
+                                <Check className="h-3.5 w-3.5 text-green-600" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                onClick={() => { setEditingId(p.id); setEditPercentage(String(p.percentage)); setEditNotes(p.notes || ""); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => removePartner.mutate(p.id)}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
