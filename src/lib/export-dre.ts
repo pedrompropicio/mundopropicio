@@ -516,7 +516,7 @@ export function exportDREToPDF(
       y += 4;
     }
 
-    const titlePrefix = brasilMode ? "Resumo da Turnê (Brasil)" : "Resumo da Turnê";
+    const titlePrefix = brasilMode ? "Resumo da Turnê (DRE)" : "Resumo da Turnê";
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
