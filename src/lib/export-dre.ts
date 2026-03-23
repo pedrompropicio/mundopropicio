@@ -477,9 +477,9 @@ export function exportDREToPDF(
       } else {
         const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
         doc.text(label, colX[0] + 2, y + 4);
-        doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
-        doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
-        doc.text(fmtVal(Math.abs(line.amountIncIva)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(line.amountExIva), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(line.ivaAmount), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(line.amountIncIva), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
       }
 
       y += rowH;
