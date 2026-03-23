@@ -98,6 +98,7 @@ export function exportMovementReconciliationToExcel(params: MovementExportParams
     { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 15 },
   ];
+  applyPTNumberFormat(ws);
 
   XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
   const fileName = dateFrom && dateTo ? `Movimentacoes_${dateFrom}_${dateTo}.xlsx` : `Movimentacoes_Completo.xlsx`;
