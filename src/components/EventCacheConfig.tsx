@@ -387,8 +387,8 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                     {isVariable && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         Receita s/ IVA ({formatCurrency(ticketRevenueNet)})
-                        {deductionAmount > 0 && ` − Descontos (${formatCurrency(deductionAmount)})`}
-                        {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - deductionAmount))}`}
+                        {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
+                        {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - totalDeduction))}`}
                       </p>
                     )}
                   </div>
