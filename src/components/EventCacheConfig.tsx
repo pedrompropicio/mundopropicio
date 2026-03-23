@@ -140,8 +140,10 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
 
   // Calculate variable cachê
   const calculateVariableCache = (config: any) => {
-    const deductionAmount = calculateDeductionAmount(config.id);
-    const baseForCalc = ticketRevenueNet - deductionAmount;
+    const categoryDeduction = calculateDeductionAmount(config.id);
+    const fixedPctDeduction = calculateFixedPctDeduction(config);
+    const totalDeduction = categoryDeduction + fixedPctDeduction;
+    const baseForCalc = ticketRevenueNet - totalDeduction;
     const pct = Number(config.percentage) || 0;
     return Math.max(0, baseForCalc * (pct / 100));
   };
