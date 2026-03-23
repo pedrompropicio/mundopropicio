@@ -187,7 +187,20 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
         const { error } = await supabase.from("event_cache_deductions" as any).insert({
           cache_config_id: configId,
           category_id: categoryId,
-        });
+  });
+
+  // Update fixed deduction percentage
+  const updateFixedDeductionMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: number }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ fixed_deduction_percentage: value })
+        .eq("id", configId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
         if (error) throw error;
       } else {
         const { error } = await supabase
