@@ -17,6 +17,7 @@ interface DRELine {
   indent?: boolean;
   isDistribution?: boolean;
   isRetained?: boolean;
+  isExpenseSide?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
@@ -88,27 +89,33 @@ function buildDREForExport(
     }
   });
 
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true });
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true });
-      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
+      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true, isExpenseSide: true }));
     } else {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
 
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
-  lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
+  const resultGrossExp = totalIncEx - totalExpInc;
 
-  // Partner distribution section — sub-events inherit from parent
   const eventData = events.find((e: any) => e.id === eventId);
   const parentEventId = eventData?.parent_event_id;
-  const resolvedPartnerId = parentEventId || eventId;
-  const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   const parentData = parentEventId ? events.find((e: any) => e.id === parentEventId) : null;
   const calcBasis = parentData?.partner_calc_basis || eventData?.partner_calc_basis || "net_result";
+  const isGrossExpMode = calcBasis === "net_result_gross_expenses";
+
+  if (isGrossExpMode) {
+    lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
+  } else {
+    lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
+  }
+  const resolvedPartnerId = parentEventId || eventId;
+  const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
 
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
@@ -248,18 +255,35 @@ export function exportDREToExcel(
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
     const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     if (evtTx.length === 0 && dre.length <= 3) return;
+
+    const evtData = allEventsSource.find((e: any) => e.id === evt.id);
+    const parentData = evtData?.parent_event_id ? allEventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
+    const evtCalcBasis = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
+    const isGrossExp = evtCalcBasis === "net_result_gross_expenses";
+
     const rows: any[][] = [
       [`DRE - ${evt.name}`],
       [],
-      ["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"],
     ];
-    dre.forEach((line) => {
-      const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
-      rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
-    });
+    if (isGrossExp) {
+      rows.push(["Rubrica", "Valor (€)"]);
+      dre.forEach((line) => {
+        const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+        const val = line.isExpenseSide ? line.amountIncIva
+          : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+          : line.amountExIva;
+        rows.push([`${prefix}${line.label}`, val]);
+      });
+    } else {
+      rows.push(["Rubrica", "Valor S/IVA (€)", "IVA (€)", "Valor C/IVA (€)"]);
+      dre.forEach((line) => {
+        const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
+        rows.push([`${prefix}${line.label}`, line.amountExIva, line.ivaAmount, line.amountIncIva]);
+      });
+    }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = isGrossExp ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
@@ -337,6 +361,12 @@ export function exportDREToPDF(
     }
     isFirstEventPage = false;
 
+    // Determine if this event uses gross_expenses mode
+    const evtData = eventsSource.find((e: any) => e.id === evt.id);
+    const parentEvtData = evtData?.parent_event_id ? eventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
+    const evtCalcBasis = parentEvtData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
+    const isGrossExp = evtCalcBasis === "net_result_gross_expenses";
+
     try {
       doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
       y += 22;
@@ -356,7 +386,20 @@ export function exportDREToPDF(
     doc.setTextColor(0, 0, 0);
     y += 14;
 
-    drawTableHeader();
+    // Draw table header depending on mode
+    if (isGrossExp) {
+      doc.setFillColor(30, 30, 40);
+      doc.rect(marginLeft, y, contentWidth, 8, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text("Rubrica", colX[0] + 2, y + 5.5);
+      doc.text("Valor (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 10;
+    } else {
+      drawTableHeader();
+    }
 
     dre.forEach((line) => {
       checkNewPage(8);
@@ -394,9 +437,18 @@ export function exportDREToPDF(
 
       const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
       doc.text(label, colX[0] + 2, y + 4);
-      doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
-      doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
-      doc.text(fmtVal(Math.abs(line.amountIncIva)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+
+      if (isGrossExp) {
+        // Single value column: revenues ex-IVA, expenses inc-IVA
+        const val = line.isExpenseSide ? line.amountIncIva
+          : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+          : line.amountExIva;
+        doc.text(fmtVal(Math.abs(val)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      } else {
+        doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
+        doc.text(fmtVal(Math.abs(line.amountIncIva)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
+      }
 
       y += rowH;
     });
@@ -447,6 +499,8 @@ export function exportDREToPDF(
     // Summary table header
     const sumColWidths = [contentWidth * 0.34, contentWidth * 0.22, contentWidth * 0.22, contentWidth * 0.22];
     const sumColX = [marginLeft, marginLeft + sumColWidths[0], marginLeft + sumColWidths[0] + sumColWidths[1], marginLeft + sumColWidths[0] + sumColWidths[1] + sumColWidths[2]];
+    const calcBasis = parentEvt.partner_calc_basis || "net_result";
+    const isGrossExp = calcBasis === "net_result_gross_expenses";
 
     doc.setFillColor(30, 30, 40);
     doc.rect(marginLeft, y, contentWidth, 8, "F");
@@ -455,10 +509,20 @@ export function exportDREToPDF(
     doc.setFont("helvetica", "bold");
     doc.text("Sub-evento", sumColX[0] + 2, y + 5.5);
     doc.text("Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text("Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
-    doc.text("Resultado Líquido", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.text(isGrossExp ? "Despesas C/IVA" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text("Resultado", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
+
+    // Consistent base for tour
+    let tourConsistentBase: number;
+    if (calcBasis === "gross_revenue") {
+      tourConsistentBase = tourIncEx;
+    } else if (isGrossExp) {
+      tourConsistentBase = tourIncEx - tourExpInc;
+    } else {
+      tourConsistentBase = tourResultEx;
+    }
 
     // Child rows
     childSummaries.forEach((child) => {
@@ -469,10 +533,12 @@ export function exportDREToPDF(
       doc.setTextColor(34, 139, 34);
       doc.text(fmtVal(child.incEx), sumColX[1] + sumColWidths[1] - 2, y + 4, { align: "right" });
       doc.setTextColor(200, 120, 0);
-      doc.text(fmtVal(child.expEx), sumColX[2] + sumColWidths[2] - 2, y + 4, { align: "right" });
-      const resColor = child.incEx - child.expEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+      const childExpDisplay = isGrossExp ? child.expInc : child.expEx;
+      doc.text(fmtVal(childExpDisplay), sumColX[2] + sumColWidths[2] - 2, y + 4, { align: "right" });
+      const childResult = isGrossExp ? child.incEx - child.expInc : child.incEx - child.expEx;
+      const resColor = childResult >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setTextColor(resColor[0], resColor[1], resColor[2]);
-      doc.text(fmtVal(child.incEx - child.expEx), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
+      doc.text(fmtVal(childResult), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
       y += 7;
     });
@@ -487,16 +553,17 @@ export function exportDREToPDF(
     doc.setTextColor(34, 139, 34);
     doc.text(fmtVal(tourIncEx), sumColX[1] + sumColWidths[1] - 2, y + 5, { align: "right" });
     doc.setTextColor(200, 120, 0);
-    doc.text(fmtVal(tourExpEx), sumColX[2] + sumColWidths[2] - 2, y + 5, { align: "right" });
-    const tourResColor = tourResultEx >= 0 ? [34, 139, 34] : [200, 50, 50];
+    const tourExpDisplay = isGrossExp ? tourExpInc : tourExpEx;
+    doc.text(fmtVal(tourExpDisplay), sumColX[2] + sumColWidths[2] - 2, y + 5, { align: "right" });
+    const tourResult = isGrossExp ? tourConsistentBase : tourResultEx;
+    const tourResColor = tourResult >= 0 ? [34, 139, 34] : [200, 50, 50];
     doc.setTextColor(tourResColor[0], tourResColor[1], tourResColor[2]);
-    doc.text(fmtVal(tourResultEx), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
+    doc.text(fmtVal(tourResult), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 12;
 
     // Partner distribution
     const tourPartners = partners.filter((p: any) => p.event_id === parentId);
-    const calcBasis = parentEvt.partner_calc_basis || "net_result";
     if (tourPartners.length > 0) {
       checkNewPage(20 + tourPartners.length * 7);
       doc.setFontSize(9);
@@ -509,7 +576,7 @@ export function exportDREToPDF(
         let base: number;
         if (calcBasis === "gross_revenue") {
           base = tourIncEx;
-        } else if (calcBasis === "net_result_gross_expenses") {
+        } else if (isGrossExp) {
           base = tourIncEx - tourExpInc;
         } else {
           const expBase = p.expense_includes_iva ? tourExpInc : tourExpEx;
@@ -530,8 +597,8 @@ export function exportDREToPDF(
         y += 7;
       });
 
-      // Retained result
-      const retained = tourResultEx - tourTotalDist;
+      // Retained result using consistent base
+      const retained = tourConsistentBase - tourTotalDist;
       checkNewPage(10);
       doc.setFillColor(220, 235, 255);
       doc.rect(marginLeft, y - 1, contentWidth, 8, "F");

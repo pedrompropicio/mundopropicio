@@ -24,6 +24,8 @@ interface DRELine {
   indent?: boolean;
   isDistribution?: boolean;
   isRetained?: boolean;
+  /** Marks this line as an expense line */
+  isExpenseSide?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
@@ -85,6 +87,8 @@ function buildDRE(
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalExpInc = totalExpEx + totalExpIva;
 
+  const isGrossExpMode = calcBasis === "net_result_gross_expenses";
+
   const lines: DRELine[] = [];
   lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncIva, amountIncIva: totalIncInc, isTotal: true });
   incGroups.forEach((group) => {
@@ -96,19 +100,25 @@ function buildDRE(
     }
   });
 
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true });
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true });
-      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true }));
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
+      group.details.forEach((d) => lines.push({ label: d.name, amountExIva: d.base, ivaAmount: d.iva, amountIncIva: d.base + d.iva, indent: true, isExpenseSide: true }));
     } else {
-      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
+      lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
 
+  // In gross_expenses mode, result = Revenue ex-IVA - Expenses inc-IVA
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
-  lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
+  const resultGrossExp = totalIncEx - totalExpInc;
+  if (isGrossExpMode) {
+    lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
+  } else {
+    lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
+  }
 
   // Partner distribution section — sub-events inherit from parent
   const resolvedPartnerId = parentEventId || eventId;
@@ -350,7 +360,7 @@ export default function ReportDRE() {
     const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
-    const resLine = dre.find((l) => l.label === "RESULTADO LÍQUIDO");
+    const resLine = dre.find((l) => l.isGrandTotal);
     const retainedLine = dre.find((l) => l.isRetained);
 
     return {
@@ -544,6 +554,7 @@ export default function ReportDRE() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
+          const isGrossExpMode = calcBasis === "net_result_gross_expenses";
           const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id) : [];
 
           return (
@@ -581,9 +592,15 @@ export default function ReportDRE() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Rubrica</TableHead>
-                          <TableHead className="text-right">S/ IVA (€)</TableHead>
-                          <TableHead className="text-right">IVA (€)</TableHead>
-                          <TableHead className="text-right">C/ IVA (€)</TableHead>
+                          {isGrossExpMode ? (
+                            <TableHead className="text-right">Valor (€)</TableHead>
+                          ) : (
+                            <>
+                              <TableHead className="text-right">S/ IVA (€)</TableHead>
+                              <TableHead className="text-right">IVA (€)</TableHead>
+                              <TableHead className="text-right">C/ IVA (€)</TableHead>
+                            </>
+                          )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -599,6 +616,20 @@ export default function ReportDRE() {
                           const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal || line.isRetained ? "font-bold text-xs uppercase tracking-wider" : line.isDistribution ? "text-sm italic text-muted-foreground" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
                           const valClass = (amt: number) =>
                             `text-right font-mono ${line.isRetained ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}` : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${amt >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
+
+                          if (isGrossExpMode) {
+                            // In gross_expenses mode: revenues show ex-IVA, expenses show inc-IVA, result/distribution show their value
+                            const displayVal = line.isExpenseSide ? line.amountIncIva
+                              : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+                              : line.amountExIva;
+                            return (
+                              <TableRow key={i} className={rowClass}>
+                                <TableCell className={labelClass}>{line.label}</TableCell>
+                                <TableCell className={valClass(displayVal)}>{formatCurrency(Math.abs(displayVal))}</TableCell>
+                              </TableRow>
+                            );
+                          }
+
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
@@ -631,30 +662,41 @@ export default function ReportDRE() {
 
         const tourIncEx = childSummaries.reduce((s, c) => s + c.totalIncEx, 0);
         const tourExpEx = childSummaries.reduce((s, c) => s + c.totalExpEx, 0);
+        const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
         const tourResultEx = tourIncEx - tourExpEx;
+        const calcBasis = (parentEvt as any).partner_calc_basis || "net_result";
+        const isGrossExpMode = calcBasis === "net_result_gross_expenses";
+
+        // Consistent base for the tour
+        let tourConsistentBase: number;
+        if (calcBasis === "gross_revenue") {
+          tourConsistentBase = tourIncEx;
+        } else if (isGrossExpMode) {
+          tourConsistentBase = tourIncEx - tourExpInc;
+        } else {
+          tourConsistentBase = tourResultEx;
+        }
 
         // Compute partner distribution for the tour
-        const calcBasis = (parentEvt as any).partner_calc_basis || "net_result";
         const tourPartners = eventPartners.filter((p: any) => p.event_id === parentId);
         let tourTotalDistribution = 0;
         const tourPartnerShares = tourPartners.map((p: any) => {
           let base: number;
           if (calcBasis === "gross_revenue") {
             base = tourIncEx;
-          } else if (calcBasis === "net_result_gross_expenses") {
-            const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
+          } else if (isGrossExpMode) {
             base = tourIncEx - tourExpInc;
           } else {
-            const expBase = p.expense_includes_iva
-              ? childSummaries.reduce((s, c) => s + c.totalExpInc, 0)
-              : tourExpEx;
+            const expBase = p.expense_includes_iva ? tourExpInc : tourExpEx;
             base = tourIncEx - expBase;
           }
           const share = base * (Number(p.percentage) / 100);
           tourTotalDistribution += share;
           return { name: p.suppliers?.name || "Sócio", percentage: Number(p.percentage), share };
         });
-        const tourRetained = tourResultEx - tourTotalDistribution;
+        const tourRetained = tourConsistentBase - tourTotalDistribution;
+
+        const tourResult = isGrossExpMode ? tourConsistentBase : tourResultEx;
 
         return (
           <div key={`tour-summary-${parentId}`} className="glass rounded-xl p-4 space-y-4">
@@ -668,27 +710,31 @@ export default function ReportDRE() {
                 <TableRow>
                   <TableHead>Sub-evento</TableHead>
                   <TableHead className="text-right">Receitas S/IVA</TableHead>
-                  <TableHead className="text-right">Despesas S/IVA</TableHead>
-                  <TableHead className="text-right">Resultado Líquido</TableHead>
+                  <TableHead className="text-right">{isGrossExpMode ? "Despesas C/IVA" : "Despesas S/IVA"}</TableHead>
+                  <TableHead className="text-right">Resultado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {childSummaries.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="text-sm font-medium">{c.name}</TableCell>
-                    <TableCell className="text-right font-mono text-success">{formatCurrency(c.totalIncEx)}</TableCell>
-                    <TableCell className="text-right font-mono text-warning">{formatCurrency(c.totalExpEx)}</TableCell>
-                    <TableCell className={`text-right font-mono font-bold ${c.resultEx >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(c.resultEx)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {childSummaries.map((c) => {
+                  const cExpDisplay = isGrossExpMode ? c.totalExpInc : c.totalExpEx;
+                  const cResult = isGrossExpMode ? c.totalIncEx - c.totalExpInc : c.resultEx;
+                  return (
+                    <TableRow key={c.id}>
+                      <TableCell className="text-sm font-medium">{c.name}</TableCell>
+                      <TableCell className="text-right font-mono text-success">{formatCurrency(c.totalIncEx)}</TableCell>
+                      <TableCell className="text-right font-mono text-warning">{formatCurrency(cExpDisplay)}</TableCell>
+                      <TableCell className={`text-right font-mono font-bold ${cResult >= 0 ? "text-success" : "text-destructive"}`}>
+                        {formatCurrency(cResult)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 <TableRow className="border-t-2 border-primary/30 bg-primary/5">
                   <TableCell className="font-bold text-sm">TOTAL TURNÊ</TableCell>
                   <TableCell className="text-right font-mono font-bold text-success">{formatCurrency(tourIncEx)}</TableCell>
-                  <TableCell className="text-right font-mono font-bold text-warning">{formatCurrency(tourExpEx)}</TableCell>
-                  <TableCell className={`text-right font-mono font-bold ${tourResultEx >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatCurrency(tourResultEx)}
+                  <TableCell className="text-right font-mono font-bold text-warning">{formatCurrency(isGrossExpMode ? tourExpInc : tourExpEx)}</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${tourResult >= 0 ? "text-success" : "text-destructive"}`}>
+                    {formatCurrency(tourResult)}
                   </TableCell>
                 </TableRow>
               </TableBody>
