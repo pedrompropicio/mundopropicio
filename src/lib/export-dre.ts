@@ -24,7 +24,7 @@ function calcAmountWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
-function buildDREForExport(
+export function buildDREForExport(
   transactions: any[],
   categories: any[],
   ticketRevenueSource: TicketRevenueSource,
@@ -34,7 +34,9 @@ function buildDREForExport(
   eventId: string,
   ticketCategoryId: string | null,
   partners: any[] = [],
-  events: any[] = []
+  events: any[] = [],
+  /** When true, uses the "Brasil" mode: single-column, expenses inc-IVA */
+  brasilMode: boolean = false
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -107,13 +109,13 @@ function buildDREForExport(
   const parentEventId = eventData?.parent_event_id;
   const parentData = parentEventId ? events.find((e: any) => e.id === parentEventId) : null;
   const calcBasis = parentData?.partner_calc_basis || eventData?.partner_calc_basis || "net_result";
-  const isGrossExpMode = calcBasis === "net_result_gross_expenses";
 
-  if (isGrossExpMode) {
+  if (brasilMode) {
     lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
   } else {
     lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: resInc - resEx, amountIncIva: resInc, isGrandTotal: true });
   }
+
   const resolvedPartnerId = parentEventId || eventId;
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
 
@@ -150,7 +152,10 @@ function buildDREForExport(
         indent: true,
       });
     });
-    const retained = consistentBase - totalDistribution;
+
+    // In Brasil mode, retained = consistentBase - totalDistribution (residual with VAT expenses)
+    // In standard mode, retained = resEx - totalDistribution (MP benefits from real net result)
+    const retained = brasilMode ? consistentBase - totalDistribution : resEx - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
       amountExIva: retained,
@@ -164,7 +169,7 @@ function buildDREForExport(
 }
 
 // Build effective transactions for a sub-event, including prorated parent transactions
-function getEffectiveTransactionsForExport(
+export function getEffectiveTransactionsForExport(
   eventId: string,
   transactions: any[],
   allEvents: any[]
@@ -182,7 +187,7 @@ function getEffectiveTransactionsForExport(
 }
 
 // Helper to compute event-level summary with ticket source logic
-function computeEventSummary(
+export function computeEventSummary(
   evtTx: any[],
   categories: any[],
   ticketRevenueSource: TicketRevenueSource,
@@ -192,9 +197,10 @@ function computeEventSummary(
   eventId: string,
   ticketCategoryId: string | null,
   partners: any[] = [],
-  events: any[] = []
+  events: any[] = [],
+  brasilMode: boolean = false
 ) {
-  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events);
+  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode);
   const rev = dre.find((l) => l.label === "RECEITAS");
   const exp = dre.find((l) => l.label === "DESPESAS");
   const retained = dre.find((l) => l.isRetained);
@@ -217,28 +223,21 @@ export function exportDREToExcel(
   ticketSales: any[] = [],
   ticketCategoryId: string | null = null,
   partners: any[] = [],
-  allEvents: any[] = []
+  allEvents: any[] = [],
+  brasilMode: boolean = false
 ) {
   const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
-
-  // Determine if all events use gross_expenses mode
-  const allGrossExp = events.every((evt) => {
-    const evtData = allEventsSource.find((e: any) => e.id === evt.id);
-    const parentData = evtData?.parent_event_id ? allEventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
-    const cb = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
-    return cb === "net_result_gross_expenses";
-  });
 
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
 
   const eventRows: any[][] = [];
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
-    if (allGrossExp) {
+    if (brasilMode) {
       const result = summary.incEx - summary.expInc;
       eventRows.push([
         evt.name, evtTx.length, summary.incEx, summary.expInc, result,
@@ -254,13 +253,14 @@ export function exportDREToExcel(
     }
   });
 
+  const reportTitle = brasilMode ? "RELATÓRIO DRE BRASIL - RESUMO GERAL" : "RELATÓRIO DRE - RESUMO GERAL";
   const summaryRows: any[][] = [
-    ["RELATÓRIO DRE - RESUMO GERAL"],
+    [reportTitle],
     [`Fonte de receita de bilhetes: ${ticketRevenueSource === "ticket_sales" ? "Vendas da gestão de bilhetes" : "Transações registadas"}`],
     [],
   ];
 
-  if (allGrossExp) {
+  if (brasilMode) {
     summaryRows.push(["Evento", "Transações", "Receitas (€)", "Despesas C/IVA (€)", "Resultado (€)", "Resultado MP (€)"]);
     eventRows.forEach((r) => summaryRows.push(r));
     summaryRows.push([]);
@@ -273,26 +273,21 @@ export function exportDREToExcel(
   }
 
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryWs["!cols"] = allGrossExp
+  summaryWs["!cols"] = brasilMode
     ? [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
     : [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
-    const evtData = allEventsSource.find((e: any) => e.id === evt.id);
-    const parentData = evtData?.parent_event_id ? allEventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
-    const evtCalcBasis = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
-    const isGrossExp = evtCalcBasis === "net_result_gross_expenses";
-
     const rows: any[][] = [
-      [`DRE - ${evt.name}`],
+      [`${brasilMode ? "DRE Brasil" : "DRE"} - ${evt.name}`],
       [],
     ];
-    if (isGrossExp) {
+    if (brasilMode) {
       rows.push(["Rubrica", "Valor (€)"]);
       dre.forEach((line) => {
         const prefix = line.indent ? `    ` : line.isGroupHeader ? `  ` : '';
@@ -313,12 +308,15 @@ export function exportDREToExcel(
     }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = isGrossExp ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = brasilMode ? [{ wch: 30 }, { wch: 18 }] : [{ wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
     const sheetName = evt.name.substring(0, 31).replace(/[\\/*?[\]:]/g, "");
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  XLSX.writeFile(wb, `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const filename = brasilMode
+    ? `DRE_Brasil_${new Date().toISOString().slice(0, 10)}.xlsx`
+    : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
 }
 
 export function exportDREToPDF(
@@ -331,7 +329,8 @@ export function exportDREToPDF(
   ticketSales: any[] = [],
   ticketCategoryId: string | null = null,
   partners: any[] = [],
-  allEvents: any[] = []
+  allEvents: any[] = [],
+  brasilMode: boolean = false
 ) {
   const eventsSource = allEvents.length > 0 ? allEvents : events;
   const doc = new jsPDF({ orientation: "portrait" });
@@ -366,6 +365,18 @@ export function exportDREToPDF(
     y += 10;
   }
 
+  function drawBrasilTableHeader() {
+    doc.setFillColor(30, 30, 40);
+    doc.rect(marginLeft, y, contentWidth, 8, "F");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Rubrica", colX[0] + 2, y + 5.5);
+    doc.text("Valor (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y += 10;
+  }
+
   function fmtVal(v: number): string {
     return v.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
   }
@@ -374,7 +385,7 @@ export function exportDREToPDF(
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
   });
 
@@ -382,7 +393,7 @@ export function exportDREToPDF(
   let isFirstEventPage = true;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     if (!isFirstEventPage) {
@@ -391,12 +402,6 @@ export function exportDREToPDF(
     }
     isFirstEventPage = false;
 
-    // Determine if this event uses gross_expenses mode
-    const evtData = eventsSource.find((e: any) => e.id === evt.id);
-    const parentEvtData = evtData?.parent_event_id ? eventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
-    const evtCalcBasis = parentEvtData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
-    const isGrossExp = evtCalcBasis === "net_result_gross_expenses";
-
     try {
       doc.addImage(logoHorizontal, "PNG", marginLeft, y, 60, 17);
       y += 22;
@@ -404,29 +409,21 @@ export function exportDREToPDF(
       y += 4;
     }
 
+    const titlePrefix = brasilMode ? "DRE Brasil" : "DRE";
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(`DRE — ${evt.name}`, marginLeft + 4, y + 7);
+    doc.text(`${titlePrefix} — ${evt.name}`, marginLeft + 4, y + 7);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(`${evtTx.length} transações`, pageWidth - marginRight - 4, y + 7, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 14;
 
-    // Draw table header depending on mode
-    if (isGrossExp) {
-      doc.setFillColor(30, 30, 40);
-      doc.rect(marginLeft, y, contentWidth, 8, "F");
-      doc.setFontSize(8);
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.text("Rubrica", colX[0] + 2, y + 5.5);
-      doc.text("Valor (€)", colX[3] + colWidths[3] - 2, y + 5.5, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      y += 10;
+    if (brasilMode) {
+      drawBrasilTableHeader();
     } else {
       drawTableHeader();
     }
@@ -465,20 +462,21 @@ export function exportDREToPDF(
         doc.setFontSize(8);
       }
 
-      const isBilheteira = isGrossExp && !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
-        (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
-      const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
-      const label = line.indent ? `        ${displayLabel}` : line.isGroupHeader ? `  ${displayLabel}` : displayLabel;
-      doc.text(label, colX[0] + 2, y + 4);
+      if (brasilMode) {
+        const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
+          (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
+        const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
+        const label = line.indent ? `        ${displayLabel}` : line.isGroupHeader ? `  ${displayLabel}` : displayLabel;
+        doc.text(label, colX[0] + 2, y + 4);
 
-      if (isGrossExp) {
-        // Single value column: revenues ex-IVA, expenses inc-IVA
         const val = line.isExpenseSide ? line.amountIncIva
           : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
           : line.amountExIva;
         const formattedVal = val < 0 ? `-${fmtVal(Math.abs(val))}` : fmtVal(val);
         doc.text(formattedVal, colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
       } else {
+        const label = line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
+        doc.text(label, colX[0] + 2, y + 4);
         doc.text(fmtVal(Math.abs(line.amountExIva)), colX[1] + colWidths[1] - 2, y + 4, { align: "right" });
         doc.text(fmtVal(Math.abs(line.ivaAmount)), colX[2] + colWidths[2] - 2, y + 4, { align: "right" });
         doc.text(fmtVal(Math.abs(line.amountIncIva)), colX[3] + colWidths[3] - 2, y + 4, { align: "right" });
@@ -498,10 +496,9 @@ export function exportDREToPDF(
     const childEvts = events.filter((e: any) => e.parent_event_id === parentId);
     if (childEvts.length === 0) return;
 
-    // Build summaries for each child
     const childSummaries = childEvts.map((child: any) => {
       const effectiveTx = getEffectiveTransactionsForExport(child.id, transactions, eventsSource);
-      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource);
+      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode);
       return { name: child.name, ...summary };
     });
 
@@ -510,7 +507,6 @@ export function exportDREToPDF(
     const tourExpInc = childSummaries.reduce((s, c) => s + c.expInc, 0);
     const tourResultEx = tourIncEx - tourExpEx;
 
-    // New page for tour summary
     doc.addPage();
     y = 14;
 
@@ -521,20 +517,19 @@ export function exportDREToPDF(
       y += 4;
     }
 
+    const titlePrefix = brasilMode ? "Resumo da Turnê (Brasil)" : "Resumo da Turnê";
     doc.setFillColor(60, 60, 80);
     doc.roundedRect(marginLeft, y, contentWidth, 10, 1, 1, "F");
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(`Resumo da Turnê — ${parentEvt.name}`, marginLeft + 4, y + 7);
+    doc.text(`${titlePrefix} — ${parentEvt.name}`, marginLeft + 4, y + 7);
     doc.setTextColor(0, 0, 0);
     y += 14;
 
-    // Summary table header
     const sumColWidths = [contentWidth * 0.34, contentWidth * 0.22, contentWidth * 0.22, contentWidth * 0.22];
     const sumColX = [marginLeft, marginLeft + sumColWidths[0], marginLeft + sumColWidths[0] + sumColWidths[1], marginLeft + sumColWidths[0] + sumColWidths[1] + sumColWidths[2]];
     const calcBasis = parentEvt.partner_calc_basis || "net_result";
-    const isGrossExp = calcBasis === "net_result_gross_expenses";
 
     doc.setFillColor(30, 30, 40);
     doc.rect(marginLeft, y, contentWidth, 8, "F");
@@ -542,8 +537,8 @@ export function exportDREToPDF(
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.text("Sub-evento", sumColX[0] + 2, y + 5.5);
-    doc.text(isGrossExp ? "Receitas (€)" : "Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text(isGrossExp ? "Despesas C/IVA" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text("Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
+    doc.text(brasilMode ? "Despesas C/IVA" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
     doc.text("Resultado", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
@@ -552,7 +547,7 @@ export function exportDREToPDF(
     let tourConsistentBase: number;
     if (calcBasis === "gross_revenue") {
       tourConsistentBase = tourIncEx;
-    } else if (isGrossExp) {
+    } else if (brasilMode) {
       tourConsistentBase = tourIncEx - tourExpInc;
     } else {
       tourConsistentBase = tourResultEx;
@@ -567,9 +562,9 @@ export function exportDREToPDF(
       doc.setTextColor(34, 139, 34);
       doc.text(fmtVal(child.incEx), sumColX[1] + sumColWidths[1] - 2, y + 4, { align: "right" });
       doc.setTextColor(200, 120, 0);
-      const childExpDisplay = isGrossExp ? child.expInc : child.expEx;
+      const childExpDisplay = brasilMode ? child.expInc : child.expEx;
       doc.text(fmtVal(childExpDisplay), sumColX[2] + sumColWidths[2] - 2, y + 4, { align: "right" });
-      const childResult = isGrossExp ? child.incEx - child.expInc : child.incEx - child.expEx;
+      const childResult = brasilMode ? child.incEx - child.expInc : child.incEx - child.expEx;
       const resColor = childResult >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setTextColor(resColor[0], resColor[1], resColor[2]);
       doc.text(fmtVal(childResult), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
@@ -587,9 +582,9 @@ export function exportDREToPDF(
     doc.setTextColor(34, 139, 34);
     doc.text(fmtVal(tourIncEx), sumColX[1] + sumColWidths[1] - 2, y + 5, { align: "right" });
     doc.setTextColor(200, 120, 0);
-    const tourExpDisplay = isGrossExp ? tourExpInc : tourExpEx;
+    const tourExpDisplay = brasilMode ? tourExpInc : tourExpEx;
     doc.text(fmtVal(tourExpDisplay), sumColX[2] + sumColWidths[2] - 2, y + 5, { align: "right" });
-    const tourResult = isGrossExp ? tourConsistentBase : tourResultEx;
+    const tourResult = brasilMode ? tourConsistentBase : tourResultEx;
     const tourResColor = tourResult >= 0 ? [34, 139, 34] : [200, 50, 50];
     doc.setTextColor(tourResColor[0], tourResColor[1], tourResColor[2]);
     doc.text(fmtVal(tourResult), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
@@ -610,7 +605,7 @@ export function exportDREToPDF(
         let base: number;
         if (calcBasis === "gross_revenue") {
           base = tourIncEx;
-        } else if (isGrossExp) {
+        } else if (calcBasis === "net_result_gross_expenses") {
           base = tourIncEx - tourExpInc;
         } else {
           const expBase = p.expense_includes_iva ? tourExpInc : tourExpEx;
@@ -631,8 +626,8 @@ export function exportDREToPDF(
         y += 7;
       });
 
-      // Retained result using consistent base
-      const retained = tourConsistentBase - tourTotalDist;
+      // Retained result
+      const retained = brasilMode ? tourConsistentBase - tourTotalDist : tourResultEx - tourTotalDist;
       checkNewPage(10);
       doc.setFillColor(220, 235, 255);
       doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
@@ -647,18 +642,10 @@ export function exportDREToPDF(
     }
   });
 
-  // Determine if all events use gross_expenses mode for global summary
-  const allGrossExpPdf = events.every((evt) => {
-    const evtData = eventsSource.find((e: any) => e.id === evt.id);
-    const parentData = evtData?.parent_event_id ? eventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
-    const cb = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
-    return cb === "net_result_gross_expenses";
-  });
-
-  const globalExpDisplay = allGrossExpPdf ? gExpInc : gExpEx;
+  // Global summary box at the end
+  const globalExpDisplay = brasilMode ? gExpInc : gExpEx;
   const globalResult = gIncEx - globalExpDisplay;
 
-  // Global summary box at the end
   checkNewPage(30);
   y += 4;
   doc.setFillColor(245, 245, 250);
@@ -683,14 +670,18 @@ export function exportDREToPDF(
   doc.text(fmtVal(globalResult), marginLeft + thirdW * 2 + 4, y + 14);
   doc.setTextColor(0, 0, 0);
 
+  const reportLabel = brasilMode ? "Relatório DRE Brasil" : "Relatório DRE";
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text(`Mundo Propício - Relatório DRE`, marginLeft, pageHeight - 8);
+    doc.text(`Mundo Propício - ${reportLabel}`, marginLeft, pageHeight - 8);
     doc.text(`Página ${p}/${totalPages}`, pageWidth - marginRight, pageHeight - 8, { align: "right" });
   }
 
-  doc.save(`DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const filename = brasilMode
+    ? `DRE_Brasil_${new Date().toISOString().slice(0, 10)}.pdf`
+    : `DRE_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
 }
