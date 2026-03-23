@@ -84,6 +84,17 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="current-password">Palavra-passe atual</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="new-password">Nova palavra-passe</Label>
             <Input
               id="new-password"
