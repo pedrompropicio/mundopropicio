@@ -165,7 +165,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
               <TableRow>
                 <TableHead>Sócio</TableHead>
                 <TableHead className="text-right">%</TableHead>
-                <TableHead className="text-center">Despesa c/ IVA</TableHead>
+                
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-10" />}
               </TableRow>
@@ -175,7 +175,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
                   <TableCell className="text-right font-mono">{Number(p.percentage).toFixed(1)}%</TableCell>
-                  <TableCell className="text-center">{p.expense_includes_iva ? "Sim" : "Não"}</TableCell>
+                  
                   <TableCell className="text-muted-foreground text-sm">{p.notes || "—"}</TableCell>
                   {canEdit && (
                     <TableCell>
