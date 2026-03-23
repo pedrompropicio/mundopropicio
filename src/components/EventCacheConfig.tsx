@@ -120,21 +120,30 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     return deductions.filter((d: any) => d.cache_config_id === configId);
   };
 
-  // Calculate deduction amount for a config
+  // Calculate deduction amount for a config (categories + fixed %)
   const calculateDeductionAmount = (configId: string) => {
     const configDeductions = getDeductionsForConfig(configId);
     const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
 
-    // Sum forecasts that match deduction categories
-    return forecasts
+    const categoryAmount = forecasts
       .filter((f) => f.type === "expense" && deductionCategoryIds.includes(f.category_id))
-      .reduce((s, f) => s + Number(f.amount), 0); // amount is already sem IVA
+      .reduce((s, f) => s + Number(f.amount), 0);
+
+    return categoryAmount;
+  };
+
+  // Calculate fixed percentage deduction
+  const calculateFixedPctDeduction = (config: any) => {
+    const pct = Number(config.fixed_deduction_percentage) || 0;
+    return ticketRevenueNet * (pct / 100);
   };
 
   // Calculate variable cachê
   const calculateVariableCache = (config: any) => {
-    const deductionAmount = calculateDeductionAmount(config.id);
-    const baseForCalc = ticketRevenueNet - deductionAmount;
+    const categoryDeduction = calculateDeductionAmount(config.id);
+    const fixedPctDeduction = calculateFixedPctDeduction(config);
+    const totalDeduction = categoryDeduction + fixedPctDeduction;
+    const baseForCalc = ticketRevenueNet - totalDeduction;
     const pct = Number(config.percentage) || 0;
     return Math.max(0, baseForCalc * (pct / 100));
   };
@@ -191,6 +200,20 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_cache_deductions"] });
+    },
+  });
+
+  // Update fixed deduction percentage
+  const updateFixedDeductionMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: number }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ fixed_deduction_percentage: value })
+        .eq("id", configId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
     },
   });
 
@@ -353,7 +376,9 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
-            const deductionAmount = isVariable ? calculateDeductionAmount(config.id) : 0;
+            const categoryDeduction = isVariable ? calculateDeductionAmount(config.id) : 0;
+            const fixedPctDeduction = isVariable ? calculateFixedPctDeduction(config) : 0;
+            const totalDeduction = categoryDeduction + fixedPctDeduction;
             const variableValue = isVariable ? calculateVariableCache(config) : 0;
             const displayValue = isVariable ? variableValue : Number(config.fixed_amount);
 
@@ -376,8 +401,8 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                     {isVariable && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         Receita s/ IVA ({formatCurrency(ticketRevenueNet)})
-                        {deductionAmount > 0 && ` − Descontos (${formatCurrency(deductionAmount)})`}
-                        {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - deductionAmount))}`}
+                        {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
+                        {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - totalDeduction))}`}
                       </p>
                     )}
                   </div>
@@ -407,56 +432,91 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
 
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && (
-                  <div className="border-t border-border bg-muted/30 p-3 space-y-2 animate-fade-in">
-                    <div className="flex items-center gap-1.5">
-                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Descontos na Cabeça — Selecione as contas de despesa a subtrair da receita
-                      </span>
+                  <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
+                    {/* Fixed percentage deduction */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Percent className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Desconto Percentual Fixo
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="100"
+                          value={Number(config.fixed_deduction_percentage) || ""}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            updateFixedDeductionMutation.mutate({ configId: config.id, value: val });
+                          }}
+                          className={`${inputClass} max-w-[100px]`}
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-muted-foreground">% sobre a receita líquida</span>
+                        {fixedPctDeduction > 0 && (
+                          <span className="ml-auto font-mono text-xs font-semibold text-warning">
+                            − {formatCurrency(fixedPctDeduction)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {expenseDetailCategories.map((cat) => {
-                        const isChecked = deductionCategoryIds.has(cat.id);
-                        // Find forecast amount for this category
-                        const forecastAmount = forecasts
-                          .filter((f) => f.type === "expense" && f.category_id === cat.id)
-                          .reduce((s, f) => s + Number(f.amount), 0);
 
-                        return (
-                          <label
-                            key={cat.id}
-                            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer hover:bg-background transition-colors ${
-                              isChecked ? "bg-background" : ""
-                            }`}
-                          >
-                            <Checkbox
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                toggleDeductionMutation.mutate({
-                                  configId: config.id,
-                                  categoryId: cat.id,
-                                  add: !!checked,
-                                });
-                              }}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="flex-1 text-foreground">
-                              <span className="text-muted-foreground">{cat.code}</span> {cat.name}
-                            </span>
-                            {forecastAmount > 0 && (
-                              <span className="font-mono text-muted-foreground">{formatCurrency(forecastAmount)}</span>
-                            )}
-                          </label>
-                        );
-                      })}
+                    {/* Category-based deductions */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Descontos por Conta — Despesas a subtrair da receita
+                        </span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {expenseDetailCategories.map((cat) => {
+                          const isChecked = deductionCategoryIds.has(cat.id);
+                          const forecastAmount = forecasts
+                            .filter((f) => f.type === "expense" && f.category_id === cat.id)
+                            .reduce((s, f) => s + Number(f.amount), 0);
+
+                          return (
+                            <label
+                              key={cat.id}
+                              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer hover:bg-background transition-colors ${
+                                isChecked ? "bg-background" : ""
+                              }`}
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={(checked) => {
+                                  toggleDeductionMutation.mutate({
+                                    configId: config.id,
+                                    categoryId: cat.id,
+                                    add: !!checked,
+                                  });
+                                }}
+                                className="h-3.5 w-3.5"
+                              />
+                              <span className="flex-1 text-foreground">
+                                <span className="text-muted-foreground">{cat.code}</span> {cat.name}
+                              </span>
+                              {forecastAmount > 0 && (
+                                <span className="font-mono text-muted-foreground">{formatCurrency(forecastAmount)}</span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
-                    {configDeductions.length > 0 && (
+
+                    {/* Totals */}
+                    {totalDeduction > 0 && (
                       <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">
-                          {configDeductions.length} conta(s) selecionada(s)
+                          Total descontos na cabeça
                         </span>
                         <span className="font-mono font-semibold text-warning">
-                          − {formatCurrency(deductionAmount)}
+                          − {formatCurrency(totalDeduction)}
                         </span>
                       </div>
                     )}
