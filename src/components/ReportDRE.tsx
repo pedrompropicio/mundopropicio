@@ -360,7 +360,7 @@ export default function ReportDRE() {
     const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
-    const resLine = dre.find((l) => l.label === "RESULTADO LÍQUIDO");
+    const resLine = dre.find((l) => l.isGrandTotal);
     const retainedLine = dre.find((l) => l.isRetained);
 
     return {
