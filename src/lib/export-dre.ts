@@ -222,33 +222,60 @@ export function exportDREToExcel(
   const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
 
-  const summaryRows: any[][] = [
-    ["RELATÓRIO DRE - RESUMO GERAL"],
-    [`Fonte de receita de bilhetes: ${ticketRevenueSource === "ticket_sales" ? "Vendas da gestão de bilhetes" : "Transações registadas"}`],
-    [],
-    ["Evento", "Transações", "Receitas S/IVA", "IVA Receitas", "Receitas C/IVA", "Despesas S/IVA", "IVA Despesas", "Despesas C/IVA", "Resultado S/IVA", "Resultado C/IVA", "Resultado MP"],
-  ];
+  // Determine if all events use gross_expenses mode
+  const allGrossExp = events.every((evt) => {
+    const evtData = allEventsSource.find((e: any) => e.id === evt.id);
+    const parentData = evtData?.parent_event_id ? allEventsSource.find((e: any) => e.id === evtData.parent_event_id) : null;
+    const cb = parentData?.partner_calc_basis || evtData?.partner_calc_basis || "net_result";
+    return cb === "net_result_gross_expenses";
+  });
 
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
 
+  const eventRows: any[][] = [];
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
     const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
-    summaryRows.push([
-      evt.name, evtTx.length, summary.incEx, summary.incInc - summary.incEx, summary.incInc,
-      summary.expEx, summary.expInc - summary.expEx, summary.expInc,
-      summary.incEx - summary.expEx, summary.incInc - summary.expInc,
-      summary.retainedEx !== null ? summary.retainedEx : "",
-    ]);
+    if (allGrossExp) {
+      const result = summary.incEx - summary.expInc;
+      eventRows.push([
+        evt.name, evtTx.length, summary.incEx, summary.expInc, result,
+        summary.retainedEx !== null ? summary.retainedEx : "",
+      ]);
+    } else {
+      eventRows.push([
+        evt.name, evtTx.length, summary.incEx, summary.incInc - summary.incEx, summary.incInc,
+        summary.expEx, summary.expInc - summary.expEx, summary.expInc,
+        summary.incEx - summary.expEx, summary.incInc - summary.expInc,
+        summary.retainedEx !== null ? summary.retainedEx : "",
+      ]);
+    }
   });
 
-  summaryRows.push([]);
-  summaryRows.push(["TOTAL", "", gIncEx, gIncInc - gIncEx, gIncInc, gExpEx, gExpInc - gExpEx, gExpInc, gIncEx - gExpEx, gIncInc - gExpInc]);
+  const summaryRows: any[][] = [
+    ["RELATÓRIO DRE - RESUMO GERAL"],
+    [`Fonte de receita de bilhetes: ${ticketRevenueSource === "ticket_sales" ? "Vendas da gestão de bilhetes" : "Transações registadas"}`],
+    [],
+  ];
+
+  if (allGrossExp) {
+    summaryRows.push(["Evento", "Transações", "Receitas (€)", "Despesas C/IVA (€)", "Resultado (€)", "Resultado MP (€)"]);
+    eventRows.forEach((r) => summaryRows.push(r));
+    summaryRows.push([]);
+    summaryRows.push(["TOTAL", "", gIncEx, gExpInc, gIncEx - gExpInc]);
+  } else {
+    summaryRows.push(["Evento", "Transações", "Receitas S/IVA", "IVA Receitas", "Receitas C/IVA", "Despesas S/IVA", "IVA Despesas", "Despesas C/IVA", "Resultado S/IVA", "Resultado C/IVA", "Resultado MP"]);
+    eventRows.forEach((r) => summaryRows.push(r));
+    summaryRows.push([]);
+    summaryRows.push(["TOTAL", "", gIncEx, gIncInc - gIncEx, gIncInc, gExpEx, gExpInc - gExpEx, gExpInc, gIncEx - gExpEx, gIncInc - gExpInc]);
+  }
 
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryWs["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  summaryWs["!cols"] = allGrossExp
+    ? [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
+    : [{ wch: 30 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
 
   events.forEach((evt) => {
