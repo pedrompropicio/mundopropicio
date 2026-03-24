@@ -206,9 +206,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             )}
-            <button onClick={() => onDocs(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Documentos">
-              <Paperclip className="h-3.5 w-3.5" />
-            </button>
+            <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
             <button onClick={() => onAudit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Histórico de alterações">
               <History className="h-3.5 w-3.5" />
             </button>
