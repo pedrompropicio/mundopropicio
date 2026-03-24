@@ -40,6 +40,7 @@ interface Props {
   childEventIds?: string[];
   expenseOnly?: boolean;
   parentEventId?: string;
+  eventStatus?: string;
 }
 
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId }: Props) {
