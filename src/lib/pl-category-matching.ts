@@ -74,7 +74,7 @@ const CATEGORY_CODE_SYNONYMS: Record<string, string[]> = {
   "3.1.03": ["fotografia", "fotografo", "fotógrafo", "photo"],
   "3.1.04": ["assessoria imprensa", "press office", "relacoes publicas", "relações públicas"],
   "3.2.01": ["instagram", "facebook", "meta ads", "google ads", "digital", "trafego pago", "tráfego pago", "campanha digital"],
-  "3.2.02": ["mupi", "outdoor", "ooh", "jcdecaux", "dream media", "flyer", "panfletagem", "pulseira", "pulseiras", "merchandising fisico"],
+  "3.2.02": ["mupi", "mupis", "outdoor", "outdoors", "ooh", "out of home", "painel led", "ecran led", "ecra led", "ecrã led", "led comercial", "jcdecaux", "mop", "dream media", "flyer", "panfletagem", "pulseira", "pulseiras", "merchandising fisico", "midia exterior", "mídia exterior", "publicidade rua"],
   "3.2.03": ["influencer", "influencers", "criador conteudo", "criador conteúdo"],
   "3.2.04": ["radio", "rádio", "tv", "televisao", "televisão", "midia tradicional", "mídia tradicional"],
   "4.1.01": ["producao executiva", "produção executiva", "equipa producao", "equipe produção"],
