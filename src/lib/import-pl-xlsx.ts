@@ -200,8 +200,9 @@ export async function importPLToEvent(
   rows: ParsedRow[],
   eventId: string,
   eventDate: string,
-  categories: { id: string; name: string; code: string; type: string }[],
-  userEmail: string
+  categories: { id: string; name: string; code: string; type: string; parent_id?: string | null }[],
+  userEmail: string,
+  parentEventId?: string
 ): Promise<ImportResult> {
   let created = 0;
   const errors: string[] = [];
@@ -225,8 +226,98 @@ export async function importPLToEvent(
     return null;
   }
 
-  for (const row of rows) {
-    const categoryId = matchCategory(row.description);
+  // Sort rows by category code (chart of accounts order)
+  const sortedRows = [...rows].map((row) => {
+    const catId = matchCategory(row.description);
+    const cat = catId ? categories.find((c) => c.id === catId) : null;
+    return { ...row, _categoryId: catId, _categoryCode: cat?.code ?? "Z.Z.ZZ" };
+  }).sort((a, b) => {
+    const pa = a._categoryCode.split(".").map(Number);
+    const pb = b._categoryCode.split(".").map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  });
+
+  // Check if we need to resolve cachê from cache config
+  // Detect cachê rows with zero amount
+  const cacheRowIndices = sortedRows
+    .map((r, i) => ({ idx: i, row: r }))
+    .filter(({ row }) => {
+      const n = norm(row.description);
+      return (n.includes("cache") || n.includes("cachê") || n.includes("caches")) && row.baseAmount === 0 && row.total === 0;
+    });
+
+  if (cacheRowIndices.length > 0) {
+    // Fetch cache configs for this event (or parent event)
+    const lookupEventId = parentEventId || eventId;
+    const { data: cacheConfigs } = await supabase
+      .from("event_cache_configs")
+      .select("*")
+      .eq("event_id", lookupEventId);
+
+    if (cacheConfigs && cacheConfigs.length > 0) {
+      const configIds = cacheConfigs.map((c) => c.id);
+      const { data: deductions } = await supabase
+        .from("event_cache_deductions")
+        .select("*")
+        .in("cache_config_id", configIds);
+
+      // Get ticket revenue for cache calculation
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", eventId);
+      
+      let ticketRevenueNet = 0;
+      if (zones && zones.length > 0) {
+        const zoneIds = zones.map((z) => z.id);
+        const { data: lots } = await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds);
+        if (lots) {
+          ticketRevenueNet = lots.reduce((sum, lot) => {
+            const netPrice = lot.price / (1 + (lot.iva_rate || 6) / 100);
+            return sum + netPrice * lot.quantity;
+          }, 0);
+        }
+      }
+
+      // Get existing forecasts for deduction calculation
+      const { data: existingForecasts } = await supabase
+        .from("event_forecasts")
+        .select("type, category_id, amount")
+        .eq("event_id", eventId);
+
+      const cacheLines = calculateCacheLinesForPL(
+        cacheConfigs as unknown as CacheConfig[],
+        (deductions || []) as unknown as CacheDeduction[],
+        ticketRevenueNet,
+        existingForecasts || []
+      );
+
+      const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
+
+      // Replace the first zero-value cachê row with the calculated total
+      if (totalCacheAmount > 0 && cacheRowIndices.length > 0) {
+        const firstIdx = cacheRowIndices[0].idx;
+        sortedRows[firstIdx] = {
+          ...sortedRows[firstIdx],
+          baseAmount: totalCacheAmount,
+          ivaAmount: 0,
+          total: totalCacheAmount,
+          ivaRate: 0,
+        };
+        // Remove additional zero cachê rows (keep only the first)
+        for (let i = cacheRowIndices.length - 1; i >= 1; i--) {
+          sortedRows.splice(cacheRowIndices[i].idx, 1);
+        }
+      }
+    }
+  }
+
+  for (const row of sortedRows) {
+    const categoryId = (row as any)._categoryId ?? matchCategory(row.description);
     const totalWithIva = row.baseAmount * (1 + row.ivaRate / 100);
 
     // Create forecast (auto-approved)
