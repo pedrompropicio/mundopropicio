@@ -67,7 +67,7 @@ Regras:
 - Seguros → 2.7.02
 - Alfândega, IGAC → 2.7.03
 - Anúncios Instagram/Facebook, digital → 3.2.01
-- Campanha mupis, outdoors, OOH, JCDecaux, MOP, Dream Media → 3.2.02
+- Campanha mupis, outdoors, OOH (Out of Home), painéis LED rua, ecrãs LED zonas comerciais, JCDecaux, MOP, Dream Media → 3.2.02
 - Rádio, TV, Record, Tropical FM → 3.2.04
 - Spot, reels, audiovisual → 3.1.01
 - Panfletagem, flyer, confecção flyer → 3.2.02
