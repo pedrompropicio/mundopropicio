@@ -595,6 +595,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       groupMap[groupName].items.push(item);
     });
 
+    // Sort items within each group by category code
+    groups.forEach((g) => {
+      g.items.sort((a, b) => {
+        const codeA = catLookup[a.category_id]?.code ?? "Z.Z";
+        const codeB = catLookup[b.category_id]?.code ?? "Z.Z";
+        return compareHierarchicalCodes(codeA, codeB);
+      });
+    });
+
     return groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
   };
 
