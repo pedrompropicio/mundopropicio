@@ -391,11 +391,14 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
         preco_unitario: parseFloat(r.preco_unitario) || 0,
       }));
 
-      if (rows.length === 0) {
+      // Filter out lots with price < 1.00€
+      const filteredRows = rows.filter(r => r.preco_unitario >= 1.00);
+
+      if (filteredRows.length === 0) {
         toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
       } else {
-        setPreview(rows);
-        toast({ title: `${rows.length} linhas extraídas do PDF` });
+        setPreview(filteredRows);
+        toast({ title: `${filteredRows.length} linhas extraídas do PDF` });
       }
     } catch (err: any) {
       toast({ title: "Erro ao extrair dados do PDF", description: err.message, variant: "destructive" });
