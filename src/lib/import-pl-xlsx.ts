@@ -42,6 +42,13 @@ function norm(s: string): string {
   return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
+function toSentenceCase(s: string): string {
+  if (!s) return s;
+  const trimmed = s.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
 function isCacheDescription(desc: string): boolean {
   const n = norm(desc);
   return n.includes("cache");
@@ -143,7 +150,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
 
     for (let i = headerIdx + 1; i < raw.length; i++) {
       const row = raw[i];
-      const desc = String(row[descIdx] ?? "").trim();
+      const desc = toSentenceCase(String(row[descIdx] ?? "").trim());
       if (!desc) continue;
 
       const costRaw = costIdx >= 0 ? row[costIdx] : "";
@@ -171,7 +178,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
       const ivaRate = snapIvaRate(calculatedRate);
 
-      const specification = specIdx >= 0 ? String(row[specIdx] ?? "").trim() || null : null;
+      const specification = specIdx >= 0 ? toSentenceCase(String(row[specIdx] ?? "").trim()) || null : null;
 
       let status: "paid" | "approved" = "paid";
       if (statusIdx >= 0) {
