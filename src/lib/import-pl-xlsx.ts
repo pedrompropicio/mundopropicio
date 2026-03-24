@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { createExpenseCategoryMatcher, getExpenseLeafCategories, normalizeCategoryCodeKey } from "@/lib/pl-category-matching";
 
 export interface ParsedRow {
   description: string;
@@ -213,12 +214,10 @@ interface ImportResult {
  */
 async function matchCategoriesWithAI(
   rows: ParsedRow[],
-  categories: { id: string; name: string; code: string; type: string }[]
+  categories: { id: string; name: string; code: string; type: string; parent_id?: string | null }[]
 ): Promise<Record<number, string>> {
-  const leafCategories = categories.filter((c) => {
-    const parts = c.code.split(".");
-    return parts.length >= 3 && c.type === "expense";
-  });
+  const leafCategories = getExpenseLeafCategories(categories);
+  const matchCategoryFallback = createExpenseCategoryMatcher(leafCategories);
 
   const descriptions = rows.map((r) => ({
     description: r.description,
@@ -232,21 +231,36 @@ async function matchCategoriesWithAI(
 
     if (error || !data?.matches) {
       console.warn("AI category matching failed:", error);
-      return {};
+      return rows.reduce<Record<number, string>>((acc, row, index) => {
+        const match = matchCategoryFallback(row);
+        if (match) acc[index] = match;
+        return acc;
+      }, {});
     }
 
     const codeToId: Record<string, string> = {};
-    leafCategories.forEach((c) => { codeToId[c.code] = c.id; });
+    leafCategories.forEach((c) => { codeToId[normalizeCategoryCodeKey(c.code)] = c.id; });
 
     const result: Record<number, string> = {};
     for (const match of data.matches) {
-      const catId = codeToId[match.category_code];
+      const catId = codeToId[normalizeCategoryCodeKey(match.category_code)];
       if (catId) result[match.index] = catId;
     }
+
+    rows.forEach((row, index) => {
+      if (result[index]) return;
+      const fallbackCategoryId = matchCategoryFallback(row);
+      if (fallbackCategoryId) result[index] = fallbackCategoryId;
+    });
+
     return result;
   } catch (e) {
     console.warn("AI category matching error:", e);
-    return {};
+    return rows.reduce<Record<number, string>>((acc, row, index) => {
+      const match = matchCategoryFallback(row);
+      if (match) acc[index] = match;
+      return acc;
+    }, {});
   }
 }
 
@@ -271,21 +285,13 @@ export async function importPLToEvent(
   const aiMatches = await matchCategoriesWithAI(rows, categories);
 
   // Fallback: simple word matching
-  const expenseCategories = categories.filter((c) => c.type === "expense");
-  function matchCategoryFallback(description: string): string | null {
-    const descNorm = norm(description);
-    for (const cat of expenseCategories) {
-      const catNorm = norm(cat.name);
-      const words = catNorm.split(/\s+/).filter((w) => w.length > 3);
-      if (words.some((w) => descNorm.includes(w))) return cat.id;
-    }
-    return null;
-  }
+  const expenseCategories = getExpenseLeafCategories(categories);
+  const matchCategoryFallback = createExpenseCategoryMatcher(expenseCategories);
 
   // Sort rows by AI-matched category code
   const sortedRows = [...rows].map((row, originalIndex) => {
     const aiCatId = aiMatches[originalIndex];
-    const catId = aiCatId || matchCategoryFallback(row.description);
+    const catId = aiCatId || matchCategoryFallback(row);
     const cat = catId ? categories.find((c) => c.id === catId) : null;
     return { ...row, _categoryId: catId, _categoryCode: cat?.code ?? "Z.Z.ZZ" };
   }).sort((a, b) => compareHierarchicalCodes(a._categoryCode, b._categoryCode));
@@ -361,7 +367,7 @@ export async function importPLToEvent(
   }
 
   for (const row of sortedRows) {
-    const categoryId = (row as any)._categoryId ?? matchCategoryFallback(row.description);
+    const categoryId = (row as any)._categoryId ?? matchCategoryFallback(row);
 
     // Skip rows that still have zero amount after cache resolution (formula errors without resolution)
     if (row.baseAmount === 0 && row.total === 0 && row.hasFormulaError) {
