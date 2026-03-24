@@ -8,18 +8,20 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 
-type EventType = "simple" | "festival" | "multi_day";
+type EventType = "simple" | "festival" | "multi_day" | "tour";
 
 const eventTypeLabels: Record<EventType, string> = {
   simple: "Evento Simples",
   festival: "Festival",
   multi_day: "Múltiplos Dias",
+  tour: "Turnê",
 };
 
 const eventTypeIcons: Record<EventType, typeof Calendar> = {
   simple: Calendar,
   festival: Layers,
   multi_day: Route,
+  tour: Plane,
 };
 
 interface SubEventForm {
