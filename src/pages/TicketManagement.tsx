@@ -437,7 +437,7 @@ export default function TicketManagement() {
 
           {/* Zones / Lots detail */}
           <div className="space-y-3">
-            {zones.map((zone) => {
+            {sortedZones.map((zone) => {
               const zoneLots = getZoneLots(zone.id);
               const isExpanded = expandedZones.has(zone.id);
 
