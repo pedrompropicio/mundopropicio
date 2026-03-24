@@ -359,8 +359,8 @@ export function EventTicketing({ eventId }: Props) {
             <span className="text-success font-bold">€</span> Receita Bruta
           </div>
           <p className="font-mono text-lg font-bold text-success">{formatCurrency(totalGrossRevenue)}</p>
-          {totalTickets > 0 && (
-            <p className="text-xs text-muted-foreground">Preço médio: {formatCurrency(totalGrossRevenue / totalTickets)}</p>
+          {totalCapacity > 0 && (
+            <p className="text-xs text-muted-foreground">Preço médio: {formatCurrency(totalGrossRevenue / totalCapacity)}</p>
           )}
         </div>
         <div className="glass rounded-xl p-4 space-y-1">
