@@ -208,6 +208,43 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }));
   }, [parentForecasts, siblingCount, parentEventId]);
 
+  const parentCacheConfigs = useMemo(
+    () => cacheConfigs.filter((config) => config.event_id === parentEventId),
+    [cacheConfigs, parentEventId]
+  );
+
+  const parentCacheLines = useMemo(() => {
+    if (!parentEventId || parentCacheConfigs.length === 0) return [] as CachePLLine[];
+    return calculateCacheLinesForPL(
+      parentCacheConfigs,
+      cacheDeductions,
+      ticketRevenueNet,
+      parentForecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    );
+  }, [parentEventId, parentCacheConfigs, cacheDeductions, ticketRevenueNet, parentForecasts]);
+
+  const proratedParentCacheExpenses = useMemo(() => {
+    if (!parentEventId || parentCacheLines.length === 0) return [];
+    return parentCacheLines.map((line, index) => ({
+      id: `parent-cache-${index}`,
+      event_id: parentEventId,
+      type: "expense",
+      description: line.artistName || "Cachê",
+      amount: Number(line.amount) / siblingCount,
+      iva_rate: 0,
+      status: "approved",
+      category_id: categories.find((category: any) => category.code === "2.1.01")?.id ?? null,
+      _prorated: true,
+      _originalAmount: Number(line.amount),
+      _siblingCount: siblingCount,
+    }));
+  }, [parentEventId, parentCacheLines, siblingCount, categories]);
+
+  const allProratedParentExpenses = useMemo(
+    () => [...proratedParentExpenses, ...proratedParentCacheExpenses],
+    [proratedParentExpenses, proratedParentCacheExpenses]
+  );
+
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const ticketRevenueNet = ticketLots.reduce((s, l) => {
@@ -620,12 +657,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   // Groups for prorated parent expenses (separate from own expenses)
   const proratedExpenseGroups = useMemo(() => {
-    if (proratedParentExpenses.length === 0) return [];
-    return groupForecasts(proratedParentExpenses);
-  }, [proratedParentExpenses, catLookup]);
+    if (allProratedParentExpenses.length === 0) return [];
+    return groupForecasts(allProratedParentExpenses);
+  }, [allProratedParentExpenses, catLookup]);
 
-  const proratedExpenseBase = proratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const proratedExpenseIva = proratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const proratedExpenseBase = allProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
+  const proratedExpenseIva = allProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
 
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
@@ -1113,7 +1150,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         );
                       })}
                       {/* Prorated parent expenses */}
-                      {proratedParentExpenses.length > 0 && (
+                      {allProratedParentExpenses.length > 0 && (
                         <>
                           <tr className="bg-primary/5 border-t-2 border-primary/20">
                             <td colSpan={8} className="py-2.5 pl-2">
@@ -1161,7 +1198,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       </tfoot>
                     )}
                   </table>
-                  {expenseForecasts.length === 0 && addingType !== "expense" && proratedParentExpenses.length === 0 && (
+                  {expenseForecasts.length === 0 && addingType !== "expense" && allProratedParentExpenses.length === 0 && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
                   )}
                 </div>
