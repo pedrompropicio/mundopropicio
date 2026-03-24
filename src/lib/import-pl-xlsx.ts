@@ -96,7 +96,21 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
     const costIdx = findColumn(headers, "custo", "valor", "base");
     const ivaIdx = findColumn(headers, "iva");
     const totalIdx = findColumn(headers, "total");
-    const statusIdx = findColumn(headers, "status", "estado");
+    let statusIdx = findColumn(headers, "status", "estado");
+
+    // If status column header is empty, try to detect by checking data values in the column after TOTAL
+    if (statusIdx < 0 && totalIdx >= 0) {
+      const candidateIdx = totalIdx + 1;
+      if (candidateIdx < headers.length) {
+        const statusKeywords = ["pago", "lancado", "lançado", "fluxo", "pendente", "aberto", "outros"];
+        let matchCount = 0;
+        for (let r = headerIdx + 1; r < Math.min(raw.length, headerIdx + 20); r++) {
+          const val = norm(String(raw[r]?.[candidateIdx] ?? ""));
+          if (val && statusKeywords.some((kw) => val.includes(kw))) matchCount++;
+        }
+        if (matchCount >= 2) statusIdx = candidateIdx;
+      }
+    }
 
     // Attachment columns: everything after the known columns (typically col G onwards)
     const knownCols = new Set([descIdx, specIdx, costIdx, ivaIdx, totalIdx, statusIdx].filter((i) => i >= 0));
@@ -123,9 +137,19 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       const total = parseNum(totalRaw);
 
       // Determine base and IVA amounts
-      let finalBase = cost || (total - iva) || total;
-      let finalIva = iva || (total > 0 && cost > 0 ? total - cost : 0);
-      if (finalBase <= 0 && total > 0) { finalBase = total; finalIva = 0; }
+      // When total < cost (e.g. rateio/split), use total as the real amount
+      let finalBase: number;
+      let finalIva: number;
+      if (total > 0 && cost > 0 && total < cost) {
+        // Total is the actual amount (after split), cost is the full pre-split value
+        finalBase = total - iva;
+        finalIva = iva;
+        if (finalBase <= 0) { finalBase = total; finalIva = 0; }
+      } else {
+        finalBase = cost || (total - iva) || total;
+        finalIva = iva || (total > 0 && cost > 0 ? total - cost : 0);
+        if (finalBase <= 0 && total > 0) { finalBase = total; finalIva = 0; }
+      }
 
       // Calculate IVA rate
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
