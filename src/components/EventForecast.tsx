@@ -453,7 +453,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         let totalCreated = 0;
         const allErrors: string[] = [];
         for (const { sheet, childEvent } of matchedSheets) {
-          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system");
+          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system", eventId);
           totalCreated += result.created;
           allErrors.push(...result.errors);
           queryClient.invalidateQueries({ queryKey: ["event_forecasts", childEvent.id] });
@@ -487,7 +487,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           }
         }
         if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o P&L deste evento?`)) return;
-        const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system");
+        const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system", parentEventId);
         queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
         queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
         queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -593,6 +593,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         groups.push(groupMap[groupName]);
       }
       groupMap[groupName].items.push(item);
+    });
+
+    // Sort items within each group by category code
+    groups.forEach((g) => {
+      g.items.sort((a, b) => {
+        const codeA = catLookup[a.category_id]?.code ?? "Z.Z";
+        const codeB = catLookup[b.category_id]?.code ?? "Z.Z";
+        return compareHierarchicalCodes(codeA, codeB);
+      });
     });
 
     return groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
