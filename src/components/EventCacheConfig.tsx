@@ -303,28 +303,30 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
               <button
                 type="button"
                 onClick={() => setCacheType("fixed")}
-                className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all text-left ${
                   cacheType === "fixed"
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-muted-foreground hover:border-primary/40"
                 }`}
               >
-                <DollarSign className="h-3.5 w-3.5 mb-1" />
-                <span className="block font-semibold">Cachê Fixo</span>
-                <span className="block text-[10px] opacity-70 mt-0.5">Valor definido manualmente</span>
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="h-3 w-3" />
+                  <span className="font-semibold">Fixo</span>
+                </div>
               </button>
               <button
                 type="button"
                 onClick={() => setCacheType("variable")}
-                className={`rounded-lg border p-3 text-xs font-medium transition-all text-left ${
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all text-left ${
                   cacheType === "variable"
                     ? "border-warning bg-warning/10 text-warning"
                     : "border-border bg-background text-muted-foreground hover:border-warning/40"
                 }`}
               >
-                <Percent className="h-3.5 w-3.5 mb-1" />
-                <span className="block font-semibold">Cachê Variável</span>
-                <span className="block text-[10px] opacity-70 mt-0.5">% sobre receita de bilhetes</span>
+                <div className="flex items-center gap-1.5">
+                  <Percent className="h-3 w-3" />
+                  <span className="font-semibold">Variável</span>
+                </div>
               </button>
             </div>
           </div>
@@ -364,11 +366,11 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
               <div className="mt-2">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Base de cálculo</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 p-2 text-xs cursor-pointer">
+                  <label className="flex items-center gap-1.5 rounded border border-primary bg-primary/10 px-2 py-1 text-xs cursor-pointer">
                     <input type="radio" name="revenueBasis" value="net" defaultChecked className="accent-primary" />
                     <span>Receita s/ IVA</span>
                   </label>
-                  <label className="flex items-center gap-2 rounded-lg border border-border p-2 text-xs cursor-pointer hover:border-primary/40">
+                  <label className="flex items-center gap-1.5 rounded border border-border px-2 py-1 text-xs cursor-pointer hover:border-primary/40">
                     <input type="radio" name="revenueBasis" value="gross" className="accent-primary" />
                     <span>Receita c/ IVA</span>
                   </label>
@@ -508,7 +510,7 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                                   queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
                                 });
                             }}
-                            className={`rounded-lg border p-2 text-xs font-medium transition-all ${
+                            className={`rounded border px-2 py-1 text-xs font-medium transition-all ${
                               (config.cache_revenue_basis || "net") === opt.value
                                 ? "border-primary bg-primary/10 text-primary"
                                 : "border-border bg-background text-muted-foreground hover:border-primary/40"
