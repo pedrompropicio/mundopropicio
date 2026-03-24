@@ -109,6 +109,20 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
     mutationFn: async () => {
       if (!eventId || preview.length === 0) throw new Error("Selecione evento e ficheiro");
 
+      // Check if event is completed and has no pre-existing ticketing setup
+      const selectedEvent = events.find(e => e.id === eventId);
+      const isCompleted = selectedEvent?.status === "completed";
+
+      const { data: preExistingZones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", eventId)
+        .limit(1);
+      const hadPlanning = (preExistingZones?.length ?? 0) > 0;
+
+      // For completed events without prior planning, use sold qty as capacity (no planning data)
+      const salesOnlyMode = loadType === "realizado" && isCompleted && !hadPlanning;
+
       const zoneMap = new Map<string, ParsedRow[]>();
       preview.forEach(r => {
         const existing = zoneMap.get(r.zona) || [];
@@ -127,7 +141,9 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
         if (existingZones && existingZones.length > 0) {
           zoneId = existingZones[0].id;
         } else {
-          const totalCap = lots.reduce((s, l) => s + l.quantidade, 0);
+          const totalCap = salesOnlyMode
+            ? lots.reduce((s, l) => s + (l.quantidade_vendida || 0), 0)
+            : lots.reduce((s, l) => s + l.quantidade, 0);
           const { data: newZone, error } = await supabase
             .from("event_ticket_zones")
             .insert({ event_id: eventId, name: zoneName, total_capacity: totalCap })
@@ -148,11 +164,12 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
 
         for (let i = 0; i < sortedLots.length; i++) {
           const lot = sortedLots[i];
-          // quantity = total loaded capacity (both modes); sales tracked separately
+          // In salesOnlyMode (completed event, no prior planning): capacity = sold qty only
+          const lotQuantity = salesOnlyMode ? (lot.quantidade_vendida || 0) : lot.quantidade;
           const { error } = await supabase.from("event_ticket_lots").insert({
             zone_id: zoneId,
             name: lot.lote,
-            quantity: lot.quantidade,
+            quantity: lotQuantity,
             price: lot.preco,
             iva_rate: lot.iva_rate || 6,
             lot_number: baseNumber + i + 1,
