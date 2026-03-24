@@ -141,7 +141,9 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
         if (existingZones && existingZones.length > 0) {
           zoneId = existingZones[0].id;
         } else {
-          const totalCap = lots.reduce((s, l) => s + l.quantidade, 0);
+          const totalCap = salesOnlyMode
+            ? lots.reduce((s, l) => s + (l.quantidade_vendida || 0), 0)
+            : lots.reduce((s, l) => s + l.quantidade, 0);
           const { data: newZone, error } = await supabase
             .from("event_ticket_zones")
             .insert({ event_id: eventId, name: zoneName, total_capacity: totalCap })
