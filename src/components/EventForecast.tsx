@@ -351,6 +351,38 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     bulkApproveMutation.mutate(items);
   };
 
+  const generateHistoricalMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
+        body: { event_id: eventId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: `${data.created} transação(ões) gerada(s) com sucesso!`, description: data.errors?.length > 0 ? `${data.errors.length} erro(s) parciais` : undefined });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao gerar transações", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleGenerateHistorical = () => {
+    const approvedWithoutTx = forecasts.filter((f) => f.status === "approved" && !f.transaction_id);
+    if (approvedWithoutTx.length === 0) {
+      toast({ title: "Nenhuma previsão aprovada sem transação vinculada", variant: "destructive" });
+      return;
+    }
+    if (!window.confirm(`Isto irá criar ${approvedWithoutTx.length} transação(ões) na conta "Histórico / Ajuste" com estado Pago. Continuar?`)) return;
+    generateHistoricalMutation.mutate();
+  };
+
+  const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
