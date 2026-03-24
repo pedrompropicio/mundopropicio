@@ -228,9 +228,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       parentCacheConfigs,
       cacheDeductions,
       ticketRevenueNet,
-      parentForecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+      parentForecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+      ticketRevenueGross
     );
-  }, [parentEventId, parentCacheConfigs, cacheDeductions, ticketRevenueNet, parentForecasts]);
+  }, [parentEventId, parentCacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, parentForecasts]);
 
   const proratedParentCacheExpenses = useMemo(() => {
     if (!parentEventId || parentCacheLines.length === 0) return [];
@@ -270,9 +271,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       cacheConfigs,
       cacheDeductions,
       ticketRevenueNet,
-      forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+      forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+      ticketRevenueGross
     );
-  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, forecasts]);
+  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, forecasts]);
   const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
 
   const saveMutation = useMutation({
