@@ -453,7 +453,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         let totalCreated = 0;
         const allErrors: string[] = [];
         for (const { sheet, childEvent } of matchedSheets) {
-          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system");
+          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system", eventId);
           totalCreated += result.created;
           allErrors.push(...result.errors);
           queryClient.invalidateQueries({ queryKey: ["event_forecasts", childEvent.id] });
