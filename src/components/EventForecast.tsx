@@ -237,7 +237,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
-      const payload = {
+      const isCompletedEvent = eventStatus === "completed";
+      const payload: any = {
         event_id: eventId,
         type: form.type,
         description: form.description,
@@ -247,6 +248,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
       };
+      // Auto-approve forecasts on completed (historical) events
+      if (!id && isCompletedEvent) {
+        payload.status = "approved";
+        payload.approved_at = new Date().toISOString();
+        payload.approved_by = user?.email || "system";
+      }
       if (id) {
         const { error } = await supabase.from("event_forecasts").update(payload).eq("id", id);
         if (error) throw error;
