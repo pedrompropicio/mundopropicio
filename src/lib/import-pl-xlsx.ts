@@ -150,7 +150,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
 
     for (let i = headerIdx + 1; i < raw.length; i++) {
       const row = raw[i];
-      const desc = String(row[descIdx] ?? "").trim();
+      const desc = toSentenceCase(String(row[descIdx] ?? "").trim());
       if (!desc) continue;
 
       const costRaw = costIdx >= 0 ? row[costIdx] : "";
