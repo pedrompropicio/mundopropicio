@@ -37,6 +37,7 @@ REGRAS IMPORTANTES:
 - "Qt." vendida é a quantidade de bilhetes efectivamente vendidos (coluna de vendas, não a coluna total/disponível).
 - "P. UN." é o preço unitário.
 - Ignora linhas com quantidade 0.
+- DESCARTA linhas com preço unitário inferior a 1,00€ (cortesias/camarotes sem venda real).
 - Extrai TODOS os dados de vendas que encontrares no documento.`
         : `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
 
@@ -75,6 +76,7 @@ CAMPOS:
 REGRAS:
 - Extrai TODOS os lotes, mesmo com quantidade 0.
 - Ignora linhas "SOMA" e "TOTAL" (são subtotais).
+- DESCARTA lotes com preço unitário inferior a 1,00€ (ex: 0,01€ são bilhetes de cortesia/camarotes sem venda real).
 - quantidade_vendida pode ser MENOR ou IGUAL a quantidade_total.
 - O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.`;
 
