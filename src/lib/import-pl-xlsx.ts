@@ -23,6 +23,10 @@ export interface ParsedSheet {
 
 const STANDARD_IVA_RATES = [0, 6, 13, 23];
 
+function roundMoney(value: number): number {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
 function snapIvaRate(calculated: number): number {
   let closest = STANDARD_IVA_RATES[0];
   let minDiff = Math.abs(calculated - closest);
@@ -35,6 +39,11 @@ function snapIvaRate(calculated: number): number {
 
 function norm(s: string): string {
   return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function isCacheDescription(desc: string): boolean {
+  const n = norm(desc);
+  return n.includes("cache");
 }
 
 function findColumn(headers: string[], ...keywords: string[]): number {
@@ -69,6 +78,7 @@ function parseNum(val: any): number {
 function isSkippableLine(desc: string, costRaw: any, totalRaw: any): boolean {
   const n = norm(desc);
   if (n.startsWith("total") || n.startsWith("subtotal")) return true;
+  if (isCacheDescription(desc)) return false;
   // If raw values contain formula errors, this is a real data row — don't skip
   if (hasFormulaError(costRaw) || hasFormulaError(totalRaw)) return false;
   const costVal = parseNum(costRaw);
@@ -177,9 +187,9 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       rows.push({
         description: desc,
         specification,
-        baseAmount: Math.abs(finalBase),
-        ivaAmount: Math.abs(finalIva),
-        total: Math.abs(total || finalBase + finalIva),
+        baseAmount: roundMoney(Math.abs(finalBase)),
+        ivaAmount: roundMoney(Math.abs(finalIva)),
+        total: roundMoney(Math.abs(total || finalBase + finalIva)),
         ivaRate,
         attachments,
         status,
@@ -284,8 +294,7 @@ export async function importPLToEvent(
   const cacheRowIndices = sortedRows
     .map((r, i) => ({ idx: i, row: r }))
     .filter(({ row }) => {
-      const n = norm(row.description);
-      return (n.includes("cache") || n.includes("cachê") || n.includes("caches")) &&
+      return isCacheDescription(row.description) &&
         (row.baseAmount === 0 && row.total === 0);
     });
 
@@ -338,9 +347,9 @@ export async function importPLToEvent(
         const firstIdx = cacheRowIndices[0].idx;
         sortedRows[firstIdx] = {
           ...sortedRows[firstIdx],
-          baseAmount: totalCacheAmount,
+          baseAmount: roundMoney(totalCacheAmount),
           ivaAmount: 0,
-          total: totalCacheAmount,
+          total: roundMoney(totalCacheAmount),
           ivaRate: 0,
           hasFormulaError: false,
         };
@@ -360,7 +369,7 @@ export async function importPLToEvent(
       continue;
     }
 
-    const totalWithIva = row.baseAmount * (1 + row.ivaRate / 100);
+    const totalWithIva = roundMoney(row.total || (row.baseAmount * (1 + row.ivaRate / 100)));
 
     const { data: forecast, error: forecastError } = await supabase
       .from("event_forecasts")
@@ -369,7 +378,7 @@ export async function importPLToEvent(
         type: "expense" as const,
         description: row.description,
         specification: row.specification,
-        amount: row.baseAmount,
+        amount: roundMoney(row.baseAmount),
         iva_rate: row.ivaRate,
         category_id: categoryId,
         status: "approved",
