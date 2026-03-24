@@ -148,10 +148,12 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
 
         for (let i = 0; i < sortedLots.length; i++) {
           const lot = sortedLots[i];
+          // In "realizado" mode, quantity = sold (no forecast); in "previsto", quantity = total capacity
+          const lotQuantity = loadType === "realizado" ? lot.quantidade_vendida : lot.quantidade;
           const { error } = await supabase.from("event_ticket_lots").insert({
             zone_id: zoneId,
             name: lot.lote,
-            quantity: lot.quantidade,
+            quantity: lotQuantity,
             price: lot.preco,
             iva_rate: lot.iva_rate || 6,
             lot_number: baseNumber + i + 1,
