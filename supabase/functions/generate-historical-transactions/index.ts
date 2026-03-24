@@ -62,13 +62,20 @@ Deno.serve(async (req) => {
     // Get event info
     const { data: event, error: eventError } = await adminClient
       .from("events")
-      .select("id, name, date")
+      .select("id, name, date, status")
       .eq("id", event_id)
       .single();
 
     if (eventError || !event) {
       return new Response(JSON.stringify({ error: "Evento não encontrado" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (event.status !== "completed") {
+      return new Response(JSON.stringify({ error: "Apenas eventos concluídos permitem gerar transações históricas" }), {
+        status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
