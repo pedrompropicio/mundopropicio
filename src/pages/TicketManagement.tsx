@@ -415,7 +415,7 @@ export default function TicketManagement() {
 
           {/* Zone progress bars */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {zones.map((zone) => {
+            {sortedZones.map((zone) => {
               const cap = getZoneCapacity(zone.id);
               const sold = getZoneSold(zone.id);
               const pct = cap > 0 ? Math.round((sold / cap) * 100) : 0;
