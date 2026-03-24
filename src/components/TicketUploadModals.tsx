@@ -141,16 +141,20 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
           .from("event_ticket_lots")
           .select("id")
           .eq("zone_id", zoneId);
-        let lotNumber = (existingLots?.length || 0) + 1;
+        const baseNumber = (existingLots?.length || 0);
 
-        for (const lot of lots) {
+        // Sort lots by price ASC before assigning lot_number
+        const sortedLots = [...lots].sort((a, b) => a.preco - b.preco);
+
+        for (let i = 0; i < sortedLots.length; i++) {
+          const lot = sortedLots[i];
           const { error } = await supabase.from("event_ticket_lots").insert({
             zone_id: zoneId,
             name: lot.lote,
             quantity: lot.quantidade,
             price: lot.preco,
             iva_rate: lot.iva_rate || 6,
-            lot_number: lotNumber++,
+            lot_number: baseNumber + i + 1,
           });
           if (error) throw error;
 
