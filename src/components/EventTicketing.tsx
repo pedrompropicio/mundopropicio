@@ -395,7 +395,7 @@ export function EventTicketing({ eventId }: Props) {
           <p className="py-6 text-center text-muted-foreground text-sm">A carregar…</p>
         ) : (
           <div className="space-y-3">
-            {zones.map((zone) => {
+            {sortedZones.map((zone) => {
               const zoneLots = getZoneLots(zone.id);
               const zoneGross = getZoneGrossRevenue(zone.id);
               const zoneNet = getZoneNetRevenue(zone.id);
