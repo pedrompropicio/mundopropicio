@@ -150,6 +150,42 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  // Fetch ticket sales revenue for the event(s)
+  const { data: ticketSalesRevenue = 0 } = useQuery({
+    queryKey: ["event_ticket_revenue", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
+    queryFn: async () => {
+      // Get zones for all relevant event IDs
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .in("event_id", allEventIds);
+      if (!zones || zones.length === 0) return 0;
+
+      const zoneIds = zones.map(z => z.id);
+      // Get lots for those zones to know IVA rates
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, iva_rate")
+        .in("zone_id", zoneIds);
+
+      // Get all ticket sales
+      const { data: sales } = await supabase
+        .from("ticket_sales")
+        .select("lot_id, quantity, unit_price")
+        .in("lot_id", lots?.map(l => l.id) || []);
+
+      if (!sales || sales.length === 0) return 0;
+
+      // Build lot IVA map
+      const lotIvaMap = new Map<string, number>();
+      lots?.forEach(l => lotIvaMap.set(l.id, l.iva_rate || 6));
+
+      // Calculate gross revenue from ticket sales
+      return sales.reduce((sum, s) => sum + (s.quantity * Number(s.unit_price)), 0);
+    },
+    enabled: !!id,
+  });
+
   const changeStatusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
       const { error } = await supabase
@@ -215,7 +251,10 @@ export default function EventDetail() {
 
   const incomeTransactions = eventTransactions.filter((t) => t.type === "income");
   const expenseTransactions = eventTransactions.filter((t) => t.type === "expense");
-  const totalIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  const transactionIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  // If ticket sales exist, use them as revenue source; otherwise fall back to transactions
+  const hasTicketSales = ticketSalesRevenue > 0;
+  const totalIncome = hasTicketSales ? ticketSalesRevenue : transactionIncome;
   const totalExpenses = expenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const profit = totalIncome - totalExpenses;
 
@@ -383,6 +422,7 @@ export default function EventDetail() {
           value={formatCurrency(totalIncome)}
           icon={TrendingUp}
           variant="accent"
+          subtitle={hasTicketSales ? "Via bilheteira" : (transactionIncome > 0 ? "Via transações" : undefined)}
         />
         <StatCard
           title={isGlobalView ? "Despesas (Global)" : "Despesas"}
