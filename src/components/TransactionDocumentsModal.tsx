@@ -175,7 +175,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           <p className="text-center text-sm text-muted-foreground py-4">Nenhum documento anexado.</p>
         ) : (
           <div className="space-y-2">
-            {documents.map((doc) => (
+            {realDocs.map((doc) => (
               <div key={doc.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
                 <FileText className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
