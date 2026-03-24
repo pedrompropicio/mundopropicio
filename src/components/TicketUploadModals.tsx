@@ -26,6 +26,7 @@ interface ParsedRow {
   zona: string;
   lote: string;
   quantidade: number;
+  quantidade_vendida: number;
   preco: number;
   iva_rate?: number;
 }
