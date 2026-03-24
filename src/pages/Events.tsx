@@ -2,26 +2,24 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List, ChevronUp, ChevronDown, ArrowUpDown, Plane } from "lucide-react";
+import { MapPin, Ticket, ArrowRight, Plus, X, Calendar, Layers, Route, LayoutGrid, List, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 
-type EventType = "simple" | "festival" | "multi_day" | "tour";
+type EventType = "simple" | "festival" | "multi_day";
 
 const eventTypeLabels: Record<EventType, string> = {
   simple: "Evento Simples",
   festival: "Festival",
   multi_day: "Múltiplos Dias",
-  tour: "Turnê",
 };
 
 const eventTypeIcons: Record<EventType, typeof Calendar> = {
   simple: Calendar,
   festival: Layers,
   multi_day: Route,
-  tour: Plane,
 };
 
 interface SubEventForm {
@@ -316,7 +314,6 @@ export default function Events() {
       simple: "bg-blue-500/15 text-blue-400",
       festival: "bg-purple-500/15 text-purple-400",
       multi_day: "bg-amber-500/15 text-amber-400",
-      tour: "bg-green-500/15 text-green-400",
     };
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[type]}`}>
