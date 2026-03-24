@@ -35,7 +35,10 @@ serve(async (req) => {
             content: `Você é um assistente especializado em contabilidade de eventos musicais e espetáculos em Portugal. Seu trabalho é classificar despesas de acordo com o plano de contas fornecido.
 
 Regras:
-- Sempre escolha a categoria de nível mais específico (L3, com código tipo X.Y.ZZ)
+- Escolha sempre uma categoria FINAL da lista fornecida (sem filhos), mesmo que o código tenha apenas 2 níveis.
+- Nunca invente categorias nem retorne código fora da lista.
+- Nunca deixe itens sem resposta; devolva um match para todos os índices.
+- Use descrição e especificação em conjunto para decidir.
 - Cachê, cachês de artistas → 2.1.01
 - DJ → 2.1.02
 - Passagens, aéreo, voos → 2.2.01
@@ -78,21 +81,30 @@ Regras:
 - Brigada médica → 4.4.02
 - Bombeiros → 4.4.03
 - Bolt (transfer) → 2.2.03
-- Barreiras anti-pânico → 2.4.05`
+- Barreiras anti-pânico → 2.4.05
+- Transferência interna, repasse interno → 10.3
+- Ordenados, salários, folha → 10.4.01
+- Taxas bancárias, comissões MBWay → 10.6.01
+- Contabilidade → 10.7.04
+- Jurídico, advogado → 10.7.05
+- Consultoria → 10.7.06
+- Softwares, SaaS, licenças → 10.7.10
+- Cloud, hosting, servidor → 10.7.11`
           },
           {
             role: "user",
             content: `Classifique cada despesa abaixo na categoria mais adequada do plano de contas.
 
-PLANO DE CONTAS (use apenas categorias L3 com código X.Y.ZZ):
+PLANO DE CONTAS (use apenas categorias finais listadas abaixo):
 ${categoryList}
 
 DESPESAS A CLASSIFICAR:
 ${descList}
 
-Retorne um JSON array com o código da categoria para cada despesa, na mesma ordem.`
+ Retorne um match para cada despesa, na mesma ordem.`
           }
         ],
+        temperature: 0.1,
         tools: [
           {
             type: "function",
@@ -104,6 +116,7 @@ Retorne um JSON array com o código da categoria para cada despesa, na mesma ord
                 properties: {
                   matches: {
                     type: "array",
+                    minItems: descriptions.length,
                     items: {
                       type: "object",
                       properties: {
@@ -111,10 +124,12 @@ Retorne um JSON array com o código da categoria para cada despesa, na mesma ord
                         category_code: { type: "string" },
                       },
                       required: ["index", "category_code"],
+                      additionalProperties: false,
                     }
                   }
                 },
                 required: ["matches"],
+                additionalProperties: false,
               }
             }
           }
