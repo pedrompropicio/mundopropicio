@@ -403,41 +403,99 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (allWarnings.length > 0) {
         toast({ title: "Avisos na leitura", description: allWarnings.join("; "), variant: "destructive" });
       }
-      // Let user pick sheet if multiple have data
       const sheetsWithData = sheets.filter((s) => s.rows.length > 0);
       if (sheetsWithData.length === 0) {
         toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
         return;
       }
-      let selectedRows = sheetsWithData[0].rows;
-      if (sheetsWithData.length > 1) {
-        const sheetNames = sheetsWithData.map((s) => `${s.sheetName} (${s.rows.length} linhas)`).join("\n");
-        const choice = window.prompt(
-          `O ficheiro tem ${sheetsWithData.length} abas com dados:\n\n${sheetNames}\n\nDigite o número da aba (1-${sheetsWithData.length}) ou "todas" para importar tudo:`,
-          "1"
-        );
-        if (!choice) return;
-        if (choice.toLowerCase() === "todas" || choice.toLowerCase() === "all") {
-          selectedRows = sheetsWithData.flatMap((s) => s.rows);
-        } else {
-          const idx = parseInt(choice) - 1;
-          if (idx >= 0 && idx < sheetsWithData.length) {
-            selectedRows = sheetsWithData[idx].rows;
+
+      // Parent event with child events: distribute tabs to matching sub-events
+      if (childEventIds && childEventIds.length > 0 && sheetsWithData.length > 1) {
+        const { data: childEvents } = await supabase
+          .from("events")
+          .select("id, name, date, city_id, cities:city_id(name)")
+          .in("id", childEventIds);
+        
+        if (!childEvents || childEvents.length === 0) {
+          toast({ title: "Nenhum sub-evento encontrado", variant: "destructive" });
+          return;
+        }
+
+        const normStr = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+        // Match each sheet to a child event by name similarity
+        const matchedSheets: { sheet: typeof sheetsWithData[0]; childEvent: any }[] = [];
+        const unmatchedSheets: string[] = [];
+
+        for (const sheet of sheetsWithData) {
+          const sheetNorm = normStr(sheet.sheetName);
+          const match = childEvents.find((ce: any) => {
+            const cityName = (ce.cities as any)?.name || "";
+            const eventName = ce.name || "";
+            return normStr(cityName) === sheetNorm || normStr(eventName).includes(sheetNorm) || sheetNorm.includes(normStr(cityName));
+          });
+          if (match) {
+            matchedSheets.push({ sheet, childEvent: match });
           } else {
-            toast({ title: "Opção inválida", variant: "destructive" });
-            return;
+            unmatchedSheets.push(sheet.sheetName);
           }
         }
+
+        if (matchedSheets.length === 0) {
+          toast({ title: "Nenhuma aba corresponde aos sub-eventos", description: `Abas: ${sheetsWithData.map(s => s.sheetName).join(", ")}. Sub-eventos: ${childEvents.map((ce: any) => (ce.cities as any)?.name || ce.name).join(", ")}`, variant: "destructive" });
+          return;
+        }
+
+        const summary = matchedSheets.map(m => `${m.sheet.sheetName} → ${(m.childEvent.cities as any)?.name || m.childEvent.name} (${m.sheet.rows.length} linhas)`).join("\n");
+        const unmatchedMsg = unmatchedSheets.length > 0 ? `\n\nAbas sem correspondência (ignoradas): ${unmatchedSheets.join(", ")}` : "";
+        if (!window.confirm(`Distribuir importação:\n\n${summary}${unmatchedMsg}\n\nConfirmar?`)) return;
+
+        let totalCreated = 0;
+        const allErrors: string[] = [];
+        for (const { sheet, childEvent } of matchedSheets) {
+          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system");
+          totalCreated += result.created;
+          allErrors.push(...result.errors);
+          queryClient.invalidateQueries({ queryKey: ["event_forecasts", childEvent.id] });
+          queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", childEvent.id] });
+        }
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        toast({
+          title: `${totalCreated} linha(s) importada(s) em ${matchedSheets.length} sub-evento(s)!`,
+          description: allErrors.length > 0 ? `${allErrors.length} erro(s): ${allErrors[0]}` : undefined,
+        });
+      } else {
+        // Single event import (sub-event or simple event)
+        let selectedRows = sheetsWithData[0].rows;
+        if (sheetsWithData.length > 1) {
+          const sheetNames = sheetsWithData.map((s) => `${s.sheetName} (${s.rows.length} linhas)`).join("\n");
+          const choice = window.prompt(
+            `O ficheiro tem ${sheetsWithData.length} abas com dados:\n\n${sheetNames}\n\nDigite o número da aba (1-${sheetsWithData.length}) ou "todas" para importar tudo:`,
+            "1"
+          );
+          if (!choice) return;
+          if (choice.toLowerCase() === "todas" || choice.toLowerCase() === "all") {
+            selectedRows = sheetsWithData.flatMap((s) => s.rows);
+          } else {
+            const idx = parseInt(choice) - 1;
+            if (idx >= 0 && idx < sheetsWithData.length) {
+              selectedRows = sheetsWithData[idx].rows;
+            } else {
+              toast({ title: "Opção inválida", variant: "destructive" });
+              return;
+            }
+          }
+        }
+        if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o P&L deste evento?`)) return;
+        const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system");
+        queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+        queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        toast({
+          title: `${result.created} linha(s) importada(s) com sucesso!`,
+          description: result.errors.length > 0 ? `${result.errors.length} erro(s): ${result.errors[0]}` : undefined,
+        });
       }
-      if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o P&L deste evento?`)) return;
-      const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system");
-      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast({
-        title: `${result.created} linha(s) importada(s) com sucesso!`,
-        description: result.errors.length > 0 ? `${result.errors.length} erro(s): ${result.errors[0]}` : undefined,
-      });
     } catch (err: any) {
       toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
     } finally {
