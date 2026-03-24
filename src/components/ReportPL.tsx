@@ -88,6 +88,7 @@ function buildPL(
   const evtZones = ticketZones; // Already filtered by caller
   let ticketForecastNet = 0;
   let ticketForecastIva = 0;
+  let ticketForecastGross = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
   let totalTicketActualNet = 0;
@@ -109,6 +110,7 @@ function buildPL(
         const lotIva = (grossPrice - netPrice) * qty;
         ticketForecastNet += lotNet;
         ticketForecastIva += lotIva;
+        ticketForecastGross += grossPrice * qty;
         zoneNet += lotNet;
         zoneIva += lotIva;
         zoneQty += qty;
@@ -176,7 +178,8 @@ function buildPL(
     eventCacheConfigs,
     cacheDeductions,
     ticketForecastNet,
-    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+    ticketForecastGross
   );
   const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
 
