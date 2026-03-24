@@ -3,7 +3,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,9 +40,10 @@ interface Props {
   childEventIds?: string[];
   expenseOnly?: boolean;
   parentEventId?: string;
+  eventStatus?: string;
 }
 
-export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus }: Props) {
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -350,6 +351,38 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     bulkApproveMutation.mutate(items);
   };
 
+  const generateHistoricalMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
+        body: { event_id: eventId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: `${data.created} transação(ões) gerada(s) com sucesso!`, description: data.errors?.length > 0 ? `${data.errors.length} erro(s) parciais` : undefined });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao gerar transações", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleGenerateHistorical = () => {
+    const approvedWithoutTx = forecasts.filter((f) => f.status === "approved" && !f.transaction_id);
+    if (approvedWithoutTx.length === 0) {
+      toast({ title: "Nenhuma previsão aprovada sem transação vinculada", variant: "destructive" });
+      return;
+    }
+    if (!window.confirm(`Isto irá criar ${approvedWithoutTx.length} transação(ões) na conta "Histórico / Ajuste" com estado Pago. Continuar?`)) return;
+    generateHistoricalMutation.mutate();
+  };
+
+  const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -614,14 +647,26 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             <TabsTrigger value="forecasts">Previsões</TabsTrigger>
             <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
           </TabsList>
-          {canApprove && (
-            <button
-              onClick={() => setShowCopyModal(true)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <Copy className="h-3.5 w-3.5" /> Copiar P&L
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {isAdmin && approvedWithoutTxCount > 0 && (
+              <button
+                onClick={handleGenerateHistorical}
+                disabled={generateHistoricalMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <History className="h-3.5 w-3.5" />
+                {generateHistoricalMutation.isPending ? "A gerar…" : `Gerar Transações (${approvedWithoutTxCount})`}
+              </button>
+            )}
+            {canApprove && (
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copiar P&L
+              </button>
+            )}
+          </div>
         </div>
 
         <TabsContent value="forecasts">
