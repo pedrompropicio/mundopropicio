@@ -208,6 +208,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }));
   }, [parentForecasts, siblingCount, parentEventId]);
 
+  // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
+  const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  const ticketRevenueNet = ticketLots.reduce((s, l) => {
+    const rate = Number((l as any).iva_rate ?? 6);
+    return s + l.quantity * (Number(l.price) / (1 + rate / 100));
+  }, 0);
+  const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
+  const ticketRevenue = ticketRevenueNet; // P&L uses net values
+
   const parentCacheConfigs = useMemo(
     () => cacheConfigs.filter((config) => config.event_id === parentEventId),
     [cacheConfigs, parentEventId]
@@ -244,15 +253,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     () => [...proratedParentExpenses, ...proratedParentCacheExpenses],
     [proratedParentExpenses, proratedParentCacheExpenses]
   );
-
-  // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
-  const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
-  const ticketRevenueNet = ticketLots.reduce((s, l) => {
-    const rate = Number((l as any).iva_rate ?? 6);
-    return s + l.quantity * (Number(l.price) / (1 + rate / 100));
-  }, 0);
-  const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
-  const ticketRevenue = ticketRevenueNet; // P&L uses net values
 
   // Actual ticket sales: unit_price also includes IVA, extract net
   const ticketActualRevenueGross = ticketSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
