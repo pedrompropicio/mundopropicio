@@ -700,12 +700,29 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
               </button>
             )}
             {canApprove && (
-              <button
-                onClick={() => setShowCopyModal(true)}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              >
-                <Copy className="h-3.5 w-3.5" /> Copiar P&L
-              </button>
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleImportXlsx}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importingXlsx}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {importingXlsx ? "A importar…" : "Importar XLSX"}
+                </button>
+                <button
+                  onClick={() => setShowCopyModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copiar P&L
+                </button>
+              </>
             )}
           </div>
         </div>
