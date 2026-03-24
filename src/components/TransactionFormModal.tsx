@@ -212,6 +212,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
   });
 
+  const ticketRevenueGross = useMemo(() => {
+    return ticketLots.reduce((s, l: any) => s + Number(l.quantity) * Number(l.price), 0);
+  }, [ticketLots]);
+
   const ticketRevenueNet = useMemo(() => {
     return ticketLots.reduce((s, l: any) => {
       const rate = Number(l.iva_rate ?? 6);
@@ -401,7 +405,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   cacheConfigs,
                   cacheDeductions,
                   ticketRevenueNet,
-                  eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+                  eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+                  ticketRevenueGross
                 )
               : [];
             const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
