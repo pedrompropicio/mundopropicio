@@ -26,6 +26,7 @@ interface ParsedRow {
   zona: string;
   lote: string;
   quantidade: number;
+  quantidade_vendida: number;
   preco: number;
   iva_rate?: number;
 }
@@ -86,6 +87,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
         zona: String(r.zona || "Geral"),
         lote: String(r.lote || "Lote"),
         quantidade: parseInt(r.quantidade) || 0,
+        quantidade_vendida: parseInt(r.quantidade_vendida) ?? parseInt(r.quantidade) ?? 0,
         preco: parseFloat(r.preco) || 0,
         iva_rate: parseInt(r.iva_rate) || 6,
       }));
@@ -152,7 +154,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
           });
           if (error) throw error;
 
-          if (loadType === "realizado") {
+          if (loadType === "realizado" && lot.quantidade_vendida > 0) {
             const { data: createdLots } = await supabase
               .from("event_ticket_lots")
               .select("id")
@@ -165,7 +167,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
               await supabase.from("ticket_sales").insert({
                 lot_id: createdLots[0].id,
                 sale_date: new Date().toISOString().slice(0, 10),
-                quantity: lot.quantidade,
+                quantity: lot.quantidade_vendida,
                 unit_price: lot.preco,
                 notes: "Carga total via upload PDF",
               });
@@ -283,7 +285,8 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                       <tr>
                         <th className="text-left px-3 py-1">Zona</th>
                         <th className="text-left px-3 py-1">Lote</th>
-                        <th className="text-right px-3 py-1">Qtd</th>
+                        <th className="text-right px-3 py-1">Total</th>
+                        <th className="text-right px-3 py-1">Vendidos</th>
                         <th className="text-right px-3 py-1">Preço</th>
                         <th className="text-right px-3 py-1">IVA</th>
                       </tr>
@@ -294,6 +297,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                           <td className="px-3 py-1">{r.zona}</td>
                           <td className="px-3 py-1">{r.lote}</td>
                           <td className="px-3 py-1 text-right font-mono">{r.quantidade.toLocaleString()}</td>
+                          <td className="px-3 py-1 text-right font-mono">{r.quantidade_vendida.toLocaleString()}</td>
                           <td className="px-3 py-1 text-right font-mono">{r.preco.toFixed(2)}€</td>
                           <td className="px-3 py-1 text-right font-mono">{r.iva_rate}%</td>
                         </tr>
