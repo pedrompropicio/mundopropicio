@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -254,7 +254,7 @@ export default function TicketManagement() {
   });
 
   // Computed values
-  const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId);
+  const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
   const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
   const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
   const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
@@ -263,6 +263,15 @@ export default function TicketManagement() {
   const getZoneCapacity = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
   const getZoneForecastRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0);
+
+  // Sort zones by max lot price (most expensive first)
+  const sortedZones = useMemo(() => {
+    return [...zones].sort((a, b) => {
+      const maxPriceA = Math.max(0, ...lots.filter(l => l.zone_id === a.id).map(l => Number(l.price)));
+      const maxPriceB = Math.max(0, ...lots.filter(l => l.zone_id === b.id).map(l => Number(l.price)));
+      return maxPriceB - maxPriceA;
+    });
+  }, [zones, lots]);
 
   const totalCapacity = zones.reduce((s, z) => s + getZoneCapacity(z.id), 0);
   const totalSold = zones.reduce((s, z) => s + getZoneSold(z.id), 0);
@@ -406,7 +415,7 @@ export default function TicketManagement() {
 
           {/* Zone progress bars */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {zones.map((zone) => {
+            {sortedZones.map((zone) => {
               const cap = getZoneCapacity(zone.id);
               const sold = getZoneSold(zone.id);
               const pct = cap > 0 ? Math.round((sold / cap) * 100) : 0;
@@ -428,7 +437,7 @@ export default function TicketManagement() {
 
           {/* Zones / Lots detail */}
           <div className="space-y-3">
-            {zones.map((zone) => {
+            {sortedZones.map((zone) => {
               const zoneLots = getZoneLots(zone.id);
               const isExpanded = expandedZones.has(zone.id);
 
@@ -644,7 +653,7 @@ export default function TicketManagement() {
                   <SelectValue placeholder="Selecione o lote…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {zones.map((zone) => {
+                  {sortedZones.map((zone) => {
                     const zoneLots = getZoneLots(zone.id);
                     return zoneLots.map((lot) => (
                       <SelectItem key={lot.id} value={lot.id}>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
@@ -246,7 +246,7 @@ export function EventTicketing({ eventId }: Props) {
   };
 
   // Totals — gross, net, IVA
-  const getZoneLots = (zoneId: string) => allLots.filter((l) => l.zone_id === zoneId);
+  const getZoneLots = (zoneId: string) => allLots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
   const getZoneGrossRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const getZoneNetRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => {
     const rate = Number((l as any).iva_rate ?? 6);
@@ -257,6 +257,15 @@ export function EventTicketing({ eventId }: Props) {
     return s + l.quantity * ivaFromGross(Number(l.price), rate);
   }, 0);
   const getZoneTotalTickets = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
+
+  // Sort zones by max lot price (most expensive first)
+  const sortedZones = useMemo(() => {
+    return [...zones].sort((a, b) => {
+      const maxPriceA = Math.max(0, ...allLots.filter(l => l.zone_id === a.id).map(l => Number(l.price)));
+      const maxPriceB = Math.max(0, ...allLots.filter(l => l.zone_id === b.id).map(l => Number(l.price)));
+      return maxPriceB - maxPriceA;
+    });
+  }, [zones, allLots]);
 
   const totalGrossRevenue = zones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
   const totalNetRevenue = zones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
@@ -386,7 +395,7 @@ export function EventTicketing({ eventId }: Props) {
           <p className="py-6 text-center text-muted-foreground text-sm">A carregar…</p>
         ) : (
           <div className="space-y-3">
-            {zones.map((zone) => {
+            {sortedZones.map((zone) => {
               const zoneLots = getZoneLots(zone.id);
               const zoneGross = getZoneGrossRevenue(zone.id);
               const zoneNet = getZoneNetRevenue(zone.id);
@@ -540,7 +549,7 @@ export function EventTicketing({ eventId }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {zones.map((z) => {
+              {sortedZones.map((z) => {
                 const gross = getZoneGrossRevenue(z.id);
                 const net = getZoneNetRevenue(z.id);
                 const iva = getZoneIva(z.id);
