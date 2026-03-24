@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
+import { compareHierarchicalCodes } from "@/lib/utils";
 
 export interface ParsedRow {
   description: string;
@@ -11,6 +12,7 @@ export interface ParsedRow {
   ivaRate: number;
   attachments: string[];
   status: "paid" | "approved";
+  hasFormulaError?: boolean;
 }
 
 export interface ParsedSheet {
@@ -47,24 +49,30 @@ function parseStatus(val: string): "paid" | "approved" | null {
   if (!n) return null;
   if (n === "pago" || n === "lancado" || n === "lançado") return "paid";
   if (n.includes("pago parcial") || n.includes("pagar") || n.includes("pendente") || n.includes("aberto") || n.includes("fluxo") || n.includes("outros")) return "approved";
-  // Unknown status — treat as paid
   return "paid";
+}
+
+function hasFormulaError(val: any): boolean {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim();
+  return s.includes("#REF") || s.includes("#VALUE") || s.includes("#N/A") || s.includes("#DIV");
 }
 
 function parseNum(val: any): number {
   if (val === null || val === undefined) return 0;
   const s = String(val).trim();
-  if (s === "" || s.includes("#REF") || s.includes("#VALUE") || s.includes("#N/A") || s.includes("#DIV")) return 0;
+  if (s === "" || hasFormulaError(val)) return 0;
   const cleaned = s.replace(/[^\d.,-]/g, "").replace(",", ".");
   return parseFloat(cleaned) || 0;
 }
 
-function isSkippableLine(desc: string, cost: any, total: any): boolean {
+function isSkippableLine(desc: string, costRaw: any, totalRaw: any): boolean {
   const n = norm(desc);
   if (n.startsWith("total") || n.startsWith("subtotal")) return true;
-  // Section headers: have description but no cost/total values
-  const costVal = parseNum(cost);
-  const totalVal = parseNum(total);
+  // If raw values contain formula errors, this is a real data row — don't skip
+  if (hasFormulaError(costRaw) || hasFormulaError(totalRaw)) return false;
+  const costVal = parseNum(costRaw);
+  const totalVal = parseNum(totalRaw);
   if (costVal === 0 && totalVal === 0) return true;
   return false;
 }
@@ -99,7 +107,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
     const totalIdx = findColumn(headers, "total");
     let statusIdx = findColumn(headers, "status", "estado");
 
-    // If status column header is empty, try to detect by checking data values in the column after TOTAL
+    // If status column header is empty, try to detect by checking data values
     if (statusIdx < 0 && totalIdx >= 0) {
       const candidateIdx = totalIdx + 1;
       if (candidateIdx < headers.length) {
@@ -113,7 +121,6 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       }
     }
 
-    // Attachment columns: everything after the known columns (typically col G onwards)
     const knownCols = new Set([descIdx, specIdx, costIdx, ivaIdx, totalIdx, statusIdx].filter((i) => i >= 0));
     const maxKnown = Math.max(...knownCols, 0);
     const attachStartIdx = maxKnown + 1;
@@ -133,16 +140,14 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
 
       if (isSkippableLine(desc, costRaw, totalRaw)) continue;
 
+      const rowHasFormulaError = hasFormulaError(costRaw) || hasFormulaError(totalRaw);
       const cost = parseNum(costRaw);
       const iva = ivaIdx >= 0 ? parseNum(row[ivaIdx]) : 0;
       const total = parseNum(totalRaw);
 
-      // Determine base and IVA amounts
-      // When total < cost (e.g. rateio/split), use total as the real amount
       let finalBase: number;
       let finalIva: number;
       if (total > 0 && cost > 0 && total < cost) {
-        // Total is the actual amount (after split), cost is the full pre-split value
         finalBase = total - iva;
         finalIva = iva;
         if (finalBase <= 0) { finalBase = total; finalIva = 0; }
@@ -152,21 +157,17 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
         if (finalBase <= 0 && total > 0) { finalBase = total; finalIva = 0; }
       }
 
-      // Calculate IVA rate
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
       const ivaRate = snapIvaRate(calculatedRate);
 
-      // Specification
       const specification = specIdx >= 0 ? String(row[specIdx] ?? "").trim() || null : null;
 
-      // Status
-      let status: "paid" | "approved" = "paid"; // default
+      let status: "paid" | "approved" = "paid";
       if (statusIdx >= 0) {
         const parsed = parseStatus(String(row[statusIdx] ?? ""));
         if (parsed) status = parsed;
       }
 
-      // Attachments: collect non-empty values from columns after the last known column
       const attachments: string[] = [];
       for (let c = attachStartIdx; c < row.length; c++) {
         const val = String(row[c] ?? "").trim();
@@ -182,6 +183,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
         ivaRate,
         attachments,
         status,
+        hasFormulaError: rowHasFormulaError,
       });
     }
 
@@ -196,6 +198,48 @@ interface ImportResult {
   errors: string[];
 }
 
+/**
+ * Use AI to match expense descriptions to chart of accounts categories.
+ */
+async function matchCategoriesWithAI(
+  rows: ParsedRow[],
+  categories: { id: string; name: string; code: string; type: string }[]
+): Promise<Record<number, string>> {
+  const leafCategories = categories.filter((c) => {
+    const parts = c.code.split(".");
+    return parts.length >= 3 && c.type === "expense";
+  });
+
+  const descriptions = rows.map((r) => ({
+    description: r.description,
+    specification: r.specification,
+  }));
+
+  try {
+    const { data, error } = await supabase.functions.invoke("match-categories", {
+      body: { descriptions, categories: leafCategories },
+    });
+
+    if (error || !data?.matches) {
+      console.warn("AI category matching failed:", error);
+      return {};
+    }
+
+    const codeToId: Record<string, string> = {};
+    leafCategories.forEach((c) => { codeToId[c.code] = c.id; });
+
+    const result: Record<number, string> = {};
+    for (const match of data.matches) {
+      const catId = codeToId[match.category_code];
+      if (catId) result[match.index] = catId;
+    }
+    return result;
+  } catch (e) {
+    console.warn("AI category matching error:", e);
+    return {};
+  }
+}
+
 export async function importPLToEvent(
   rows: ParsedRow[],
   eventId: string,
@@ -207,16 +251,18 @@ export async function importPLToEvent(
   let created = 0;
   const errors: string[] = [];
 
-  // Find "Histórico / Ajuste" account
   const { data: histAccount } = await supabase
     .from("financial_accounts")
     .select("id")
     .eq("name", "Histórico / Ajuste")
     .single();
 
-  const expenseCategories = categories.filter((c) => c.type === "expense");
+  // Use AI to match categories
+  const aiMatches = await matchCategoriesWithAI(rows, categories);
 
-  function matchCategory(description: string): string | null {
+  // Fallback: simple word matching
+  const expenseCategories = categories.filter((c) => c.type === "expense");
+  function matchCategoryFallback(description: string): string | null {
     const descNorm = norm(description);
     for (const cat of expenseCategories) {
       const catNorm = norm(cat.name);
@@ -226,32 +272,24 @@ export async function importPLToEvent(
     return null;
   }
 
-  // Sort rows by category code (chart of accounts order)
-  const sortedRows = [...rows].map((row) => {
-    const catId = matchCategory(row.description);
+  // Sort rows by AI-matched category code
+  const sortedRows = [...rows].map((row, originalIndex) => {
+    const aiCatId = aiMatches[originalIndex];
+    const catId = aiCatId || matchCategoryFallback(row.description);
     const cat = catId ? categories.find((c) => c.id === catId) : null;
     return { ...row, _categoryId: catId, _categoryCode: cat?.code ?? "Z.Z.ZZ" };
-  }).sort((a, b) => {
-    const pa = a._categoryCode.split(".").map(Number);
-    const pb = b._categoryCode.split(".").map(Number);
-    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-      const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-      if (diff !== 0) return diff;
-    }
-    return 0;
-  });
+  }).sort((a, b) => compareHierarchicalCodes(a._categoryCode, b._categoryCode));
 
-  // Check if we need to resolve cachê from cache config
-  // Detect cachê rows with zero amount
+  // Resolve cachê from cache config for rows with zero/formula-error amounts
   const cacheRowIndices = sortedRows
     .map((r, i) => ({ idx: i, row: r }))
     .filter(({ row }) => {
       const n = norm(row.description);
-      return (n.includes("cache") || n.includes("cachê") || n.includes("caches")) && row.baseAmount === 0 && row.total === 0;
+      return (n.includes("cache") || n.includes("cachê") || n.includes("caches")) &&
+        (row.baseAmount === 0 && row.total === 0);
     });
 
   if (cacheRowIndices.length > 0) {
-    // Fetch cache configs for this event (or parent event)
     const lookupEventId = parentEventId || eventId;
     const { data: cacheConfigs } = await supabase
       .from("event_cache_configs")
@@ -265,12 +303,11 @@ export async function importPLToEvent(
         .select("*")
         .in("cache_config_id", configIds);
 
-      // Get ticket revenue for cache calculation
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
         .eq("event_id", eventId);
-      
+
       let ticketRevenueNet = 0;
       if (zones && zones.length > 0) {
         const zoneIds = zones.map((z) => z.id);
@@ -283,7 +320,6 @@ export async function importPLToEvent(
         }
       }
 
-      // Get existing forecasts for deduction calculation
       const { data: existingForecasts } = await supabase
         .from("event_forecasts")
         .select("type, category_id, amount")
@@ -298,7 +334,6 @@ export async function importPLToEvent(
 
       const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
 
-      // Replace the first zero-value cachê row with the calculated total
       if (totalCacheAmount > 0 && cacheRowIndices.length > 0) {
         const firstIdx = cacheRowIndices[0].idx;
         sortedRows[firstIdx] = {
@@ -307,8 +342,8 @@ export async function importPLToEvent(
           ivaAmount: 0,
           total: totalCacheAmount,
           ivaRate: 0,
+          hasFormulaError: false,
         };
-        // Remove additional zero cachê rows (keep only the first)
         for (let i = cacheRowIndices.length - 1; i >= 1; i--) {
           sortedRows.splice(cacheRowIndices[i].idx, 1);
         }
@@ -317,10 +352,16 @@ export async function importPLToEvent(
   }
 
   for (const row of sortedRows) {
-    const categoryId = (row as any)._categoryId ?? matchCategory(row.description);
+    const categoryId = (row as any)._categoryId ?? matchCategoryFallback(row.description);
+
+    // Skip rows that still have zero amount after cache resolution (formula errors without resolution)
+    if (row.baseAmount === 0 && row.total === 0 && row.hasFormulaError) {
+      errors.push(`"${row.description}": valor com erro de fórmula (#REF!) — ignorado`);
+      continue;
+    }
+
     const totalWithIva = row.baseAmount * (1 + row.ivaRate / 100);
 
-    // Create forecast (auto-approved)
     const { data: forecast, error: forecastError } = await supabase
       .from("event_forecasts")
       .insert({
@@ -343,7 +384,6 @@ export async function importPLToEvent(
       continue;
     }
 
-    // Create transaction
     const isPaid = row.status === "paid";
     const { data: newTx, error: txError } = await supabase
       .from("transactions")
@@ -369,10 +409,8 @@ export async function importPLToEvent(
       continue;
     }
 
-    // Link forecast to transaction
     await supabase.from("event_forecasts").update({ transaction_id: newTx.id }).eq("id", forecast!.id);
 
-    // Store attachments as document references
     if (row.attachments.length > 0 && newTx) {
       const docs = row.attachments.map((att) => ({
         transaction_id: newTx.id,
