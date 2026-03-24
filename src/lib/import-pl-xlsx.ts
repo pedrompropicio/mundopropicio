@@ -178,7 +178,7 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
       const ivaRate = snapIvaRate(calculatedRate);
 
-      const specification = specIdx >= 0 ? String(row[specIdx] ?? "").trim() || null : null;
+      const specification = specIdx >= 0 ? toSentenceCase(String(row[specIdx] ?? "").trim()) || null : null;
 
       let status: "paid" | "approved" = "paid";
       if (statusIdx >= 0) {
