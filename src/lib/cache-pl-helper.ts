@@ -10,6 +10,7 @@ export interface CacheConfig {
   fixed_amount: number;
   percentage: number;
   fixed_deduction_percentage: number;
+  cache_revenue_basis?: string;
 }
 
 export interface CacheDeduction {
@@ -32,7 +33,8 @@ export function calculateCacheLinesForPL(
   configs: CacheConfig[],
   deductions: CacheDeduction[],
   ticketRevenueNet: number,
-  forecasts: { type: string; category_id: string | null; amount: number }[]
+  forecasts: { type: string; category_id: string | null; amount: number }[],
+  ticketRevenueGross?: number
 ): CachePLLine[] {
   return configs.map((config) => {
     if (config.cache_type === "fixed") {
@@ -43,7 +45,8 @@ export function calculateCacheLinesForPL(
       };
     }
 
-    // Variable: percentage over (ticketRevenueNet - deduction expenses)
+    // Variable: percentage over (revenue - deduction expenses)
+    const basis = config.cache_revenue_basis === "gross" ? (ticketRevenueGross ?? ticketRevenueNet) : ticketRevenueNet;
     const configDeductions = deductions.filter(
       (d) => d.cache_config_id === config.id
     );
@@ -58,9 +61,9 @@ export function calculateCacheLinesForPL(
       )
       .reduce((s, f) => s + Number(f.amount), 0);
 
-    const fixedPctDeduction = ticketRevenueNet * ((Number(config.fixed_deduction_percentage) || 0) / 100);
+    const fixedPctDeduction = basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
     const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
-    const baseForCalc = ticketRevenueNet - totalDeduction;
+    const baseForCalc = basis - totalDeduction;
     const pct = Number(config.percentage) || 0;
     const amount = Math.max(0, baseForCalc * (pct / 100));
 
