@@ -87,6 +87,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
         zona: String(r.zona || "Geral"),
         lote: String(r.lote || "Lote"),
         quantidade: parseInt(r.quantidade) || 0,
+        quantidade_vendida: parseInt(r.quantidade_vendida) ?? parseInt(r.quantidade) ?? 0,
         preco: parseFloat(r.preco) || 0,
         iva_rate: parseInt(r.iva_rate) || 6,
       }));
