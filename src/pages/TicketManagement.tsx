@@ -653,7 +653,7 @@ export default function TicketManagement() {
                   <SelectValue placeholder="Selecione o lote…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {zones.map((zone) => {
+                  {sortedZones.map((zone) => {
                     const zoneLots = getZoneLots(zone.id);
                     return zoneLots.map((lot) => (
                       <SelectItem key={lot.id} value={lot.id}>
