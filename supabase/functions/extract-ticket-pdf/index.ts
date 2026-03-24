@@ -75,6 +75,7 @@ CAMPOS:
 REGRAS:
 - Extrai TODOS os lotes, mesmo com quantidade 0.
 - Ignora linhas "SOMA" e "TOTAL" (são subtotais).
+- DESCARTA lotes com preço unitário inferior a 1,00€ (ex: 0,01€ são bilhetes de cortesia/camarotes sem venda real).
 - quantidade_vendida pode ser MENOR ou IGUAL a quantidade_total.
 - O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.`;
 
