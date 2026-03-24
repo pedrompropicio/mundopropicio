@@ -549,7 +549,7 @@ export function EventTicketing({ eventId }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {zones.map((z) => {
+              {sortedZones.map((z) => {
                 const gross = getZoneGrossRevenue(z.id);
                 const net = getZoneNetRevenue(z.id);
                 const iva = getZoneIva(z.id);
