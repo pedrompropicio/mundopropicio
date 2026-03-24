@@ -254,7 +254,7 @@ export default function TicketManagement() {
   });
 
   // Computed values
-  const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId);
+  const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
   const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
   const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
   const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);

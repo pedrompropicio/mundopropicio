@@ -246,7 +246,7 @@ export function EventTicketing({ eventId }: Props) {
   };
 
   // Totals — gross, net, IVA
-  const getZoneLots = (zoneId: string) => allLots.filter((l) => l.zone_id === zoneId);
+  const getZoneLots = (zoneId: string) => allLots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
   const getZoneGrossRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const getZoneNetRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => {
     const rate = Number((l as any).iva_rate ?? 6);
