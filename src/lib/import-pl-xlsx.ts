@@ -42,6 +42,13 @@ function norm(s: string): string {
   return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
+function toSentenceCase(s: string): string {
+  if (!s) return s;
+  const trimmed = s.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
 function isCacheDescription(desc: string): boolean {
   const n = norm(desc);
   return n.includes("cache");
