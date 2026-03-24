@@ -536,16 +536,17 @@ export function EventTicketing({ eventId }: Props) {
       {zones.length > 0 && allLots.length > 0 && (
         <div className="glass rounded-xl p-5">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Resumo de Receita por Zona</h3>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ borderSpacing: 0 }}>
             <thead>
               <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="pb-2 text-left font-medium">Zona</th>
-                <th className="pb-2 text-right font-medium">Bilhetes</th>
-                <th className="pb-2 text-right font-medium">Capacidade</th>
-                <th className="pb-2 text-right font-medium">Preço Médio</th>
-                <th className="pb-2 text-right font-medium">Valor s/IVA</th>
-                <th className="pb-2 text-right font-medium">IVA</th>
-                <th className="pb-2 text-right font-medium">Total c/IVA</th>
+                <th className="pb-2 text-right font-medium pl-4">Bilhetes</th>
+                <th className="pb-2 text-right font-medium pl-4">Capacidade</th>
+                <th className="pb-2 text-right font-medium pl-6">Preço Médio</th>
+                <th className="pb-2 text-right font-medium pl-6">Valor s/IVA</th>
+                <th className="pb-2 text-right font-medium pl-6">IVA</th>
+                <th className="pb-2 text-right font-medium pl-6">Total c/IVA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
@@ -557,12 +558,12 @@ export function EventTicketing({ eventId }: Props) {
                 return (
                   <tr key={z.id}>
                     <td className="py-2.5 font-medium">{z.name}</td>
-                    <td className="py-2.5 text-right font-mono">{tix.toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono text-muted-foreground">{(z.total_capacity ?? 0).toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono text-muted-foreground">{tix > 0 ? formatCurrency(gross / tix) : "—"}</td>
-                    <td className="py-2.5 text-right font-mono">{formatCurrency(net)}</td>
-                    <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(iva)}</td>
-                    <td className="py-2.5 text-right font-mono font-semibold text-success">{formatCurrency(gross)}</td>
+                    <td className="py-2.5 text-right font-mono pl-4">{tix.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{(z.total_capacity ?? 0).toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{tix > 0 ? formatCurrency(gross / tix) : "—"}</td>
+                    <td className="py-2.5 text-right font-mono pl-6">{formatCurrency(net)}</td>
+                    <td className="py-2.5 text-right font-mono text-xs text-muted-foreground pl-6">{formatCurrency(iva)}</td>
+                    <td className="py-2.5 text-right font-mono font-semibold text-success pl-6">{formatCurrency(gross)}</td>
                   </tr>
                 );
               })}
@@ -570,15 +571,16 @@ export function EventTicketing({ eventId }: Props) {
             <tfoot>
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2.5">Total</td>
-                <td className="py-2.5 text-right font-mono">{totalTickets.toLocaleString()}</td>
-                <td className="py-2.5 text-right font-mono text-muted-foreground">{totalCapacity.toLocaleString()}</td>
-                <td className="py-2.5 text-right font-mono text-muted-foreground">{totalTickets > 0 ? formatCurrency(totalGrossRevenue / totalTickets) : "—"}</td>
-                <td className="py-2.5 text-right font-mono">{formatCurrency(totalNetRevenue)}</td>
-                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(totalIva)}</td>
-                <td className="py-2.5 text-right font-mono text-success">{formatCurrency(totalGrossRevenue)}</td>
+                <td className="py-2.5 text-right font-mono pl-4">{totalTickets.toLocaleString()}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{totalCapacity.toLocaleString()}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{totalTickets > 0 ? formatCurrency(totalGrossRevenue / totalTickets) : "—"}</td>
+                <td className="py-2.5 text-right font-mono pl-6">{formatCurrency(totalNetRevenue)}</td>
+                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground pl-6">{formatCurrency(totalIva)}</td>
+                <td className="py-2.5 text-right font-mono text-success pl-6">{formatCurrency(totalGrossRevenue)}</td>
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       )}
     </div>
