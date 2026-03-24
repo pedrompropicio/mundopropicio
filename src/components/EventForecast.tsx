@@ -3,7 +3,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +12,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
+import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
 
 interface InlineForm {
   type: string;
@@ -49,7 +50,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [importingXlsx, setImportingXlsx] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
   const canApprove = isAdmin || isManager;
@@ -388,6 +391,37 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     generateHistoricalMutation.mutate();
   };
 
+  const handleImportXlsx = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImportingXlsx(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const { rows, warnings } = parseXlsxPL(buffer);
+      if (warnings.length > 0) {
+        toast({ title: "Avisos na leitura", description: warnings.join("; "), variant: "destructive" });
+      }
+      if (rows.length === 0) {
+        toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
+        return;
+      }
+      if (!window.confirm(`Importar ${rows.length} linha(s) de despesa para o P&L deste evento?`)) return;
+      const result = await importPLToEvent(rows, eventId, eventDate, categories, user?.email || "system");
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({
+        title: `${result.created} linha(s) importada(s) com sucesso!`,
+        description: result.errors.length > 0 ? `${result.errors.length} erro(s): ${result.errors[0]}` : undefined,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
+    } finally {
+      setImportingXlsx(false);
+    }
+  };
+
   const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
 
   const toggleSelect = (id: string) => {
@@ -666,12 +700,29 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
               </button>
             )}
             {canApprove && (
-              <button
-                onClick={() => setShowCopyModal(true)}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              >
-                <Copy className="h-3.5 w-3.5" /> Copiar P&L
-              </button>
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleImportXlsx}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importingXlsx}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {importingXlsx ? "A importar…" : "Importar XLSX"}
+                </button>
+                <button
+                  onClick={() => setShowCopyModal(true)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copiar P&L
+                </button>
+              </>
             )}
           </div>
         </div>
