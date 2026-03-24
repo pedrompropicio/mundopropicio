@@ -38,20 +38,23 @@ REGRAS IMPORTANTES:
 - "P. UN." é o preço unitário.
 - Ignora linhas com quantidade 0.
 - Extrai TODOS os dados de vendas que encontrares no documento.`
-        : `Analisa este PDF de bilheteira/relatório de vendas. Extrai os dados de zonas, lotes, quantidades e preços. Devolve APENAS um JSON válido com a seguinte estrutura:
+        : `Analisa este PDF de bilheteira/relatório de vendas (ex: Ticketline). Extrai os dados de zonas, lotes, quantidades e preços. Devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "rows": [
-    { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 1000, "preco": 30.00, "iva_rate": 6 }
+    { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 1000, "quantidade_vendida": 800, "preco": 30.00, "iva_rate": 6 }
   ]
 }
 REGRAS IMPORTANTES:
 - Cada linha do relatório que NÃO seja "SOMA" ou "TOTAL" é um lote a extrair.
 - A "Zona" é a parte antes do " - " no nome (ex: "Balcão 1 - Lote 2" → zona="Balcão 1", lote="Lote 2"). Se tiver "Lote Promoc." ou "Lote Prom." mantém esse nome.
-- Se o nome não tiver " - ", usa o nome completo como zona e "Lote 1" como lote.
-- "Qt." total (primeira coluna de quantidade) é o número total de bilhetes disponíveis para esse lote.
+- Se o nome não tiver " - ", usa o nome completo como zona e o "Tipo de Bilhete" como nome do lote (ex: "Campanha | Colaboradores" → zona="Campanha", lote="Colaboradores").
+- NÃO incluas o "Tipo de Bilhete" (ex: "Normal", "Worten") no nome do lote.
+- "Qt." na PRIMEIRA coluna é o número TOTAL de bilhetes disponíveis para esse lote ("quantidade").
+- A SEGUNDA coluna "Qt." é o número de bilhetes VENDIDOS ("quantidade_vendida"). Pode ser menor ou igual à quantidade total.
 - "P. UN." é o preço unitário.
 - Se a taxa de IVA não estiver disponível, usa 6.
-- Extrai TODOS os lotes, mesmo os com quantidade 0.`;
+- Extrai TODOS os lotes, mesmo os com quantidade 0.
+- IMPORTANTE: quantidade e quantidade_vendida são valores DIFERENTES. A quantidade é a capacidade total, a quantidade_vendida é quantos foram efectivamente vendidos.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
