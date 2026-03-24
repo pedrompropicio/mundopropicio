@@ -22,8 +22,40 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
+function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
+  const { data: docs = [] } = useQuery({
+    queryKey: ["transaction_documents_summary", transactionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("id, file_url")
+        .eq("transaction_id", transactionId);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const refDocs = docs.filter((d) => d.file_url.startsWith("ref://"));
+  const realDocs = docs.filter((d) => !d.file_url.startsWith("ref://"));
+  const hasPendingRef = refDocs.length > 0 && realDocs.length === 0;
+  const hasRealDocs = realDocs.length > 0;
+  const count = realDocs.length;
+
+  return (
+    <button onClick={onClick} className="relative rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Documentos">
+      <Paperclip className="h-3.5 w-3.5" />
+      {hasPendingRef && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-warning text-[7px] font-bold text-warning-foreground">!</span>
+      )}
+      {hasRealDocs && !hasPendingRef && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-success text-[7px] font-bold text-success-foreground">{count > 9 ? "+" : count}</span>
+      )}
+    </button>
+  );
+}
+
 export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
-  const [expanded, setExpanded] = useState(false);
 
   const { data: movements = [] } = useQuery({
     queryKey: ["transaction-movements", t.id],

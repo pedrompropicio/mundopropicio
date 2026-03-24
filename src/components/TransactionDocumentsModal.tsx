@@ -125,6 +125,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     window.open(data.signedUrl, "_blank");
   };
 
+  const refDocs = documents.filter((d) => d.file_url.startsWith("ref://"));
+  const realDocs = documents.filter((d) => !d.file_url.startsWith("ref://"));
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -138,6 +141,24 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           </button>
         </div>
 
+        {/* Pending references from import */}
+        {refDocs.length > 0 && realDocs.length === 0 && (
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            <p className="font-semibold mb-0.5">📎 Referência pendente da importação:</p>
+            {refDocs.map((d) => (
+              <p key={d.id} className="font-mono">{d.file_url.replace("ref://", "")}</p>
+            ))}
+          </div>
+        )}
+        {refDocs.length > 0 && realDocs.length > 0 && (
+          <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+            <p className="font-semibold">✓ Referência da importação associada</p>
+            {refDocs.map((d) => (
+              <p key={d.id} className="font-mono text-muted-foreground">{d.file_url.replace("ref://", "")}</p>
+            ))}
+          </div>
+        )}
+
         {/* Upload */}
         <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 transition-colors hover:border-primary/50 hover:bg-primary/5 ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
           <Upload className="h-5 w-5 text-muted-foreground" />
@@ -147,10 +168,10 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           <input type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
         </label>
 
-        {/* Documents list */}
+        {/* Documents list (only real docs) */}
         {isLoading ? (
           <p className="text-center text-sm text-muted-foreground py-4">A carregar…</p>
-        ) : documents.length === 0 ? (
+        ) : realDocs.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-4">Nenhum documento anexado.</p>
         ) : (
           <div className="space-y-2">
