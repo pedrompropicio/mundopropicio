@@ -154,7 +154,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
           });
           if (error) throw error;
 
-          if (loadType === "realizado") {
+          if (loadType === "realizado" && lot.quantidade_vendida > 0) {
             const { data: createdLots } = await supabase
               .from("event_ticket_lots")
               .select("id")
@@ -167,7 +167,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
               await supabase.from("ticket_sales").insert({
                 lot_id: createdLots[0].id,
                 sale_date: new Date().toISOString().slice(0, 10),
-                quantity: lot.quantidade,
+                quantity: lot.quantidade_vendida,
                 unit_price: lot.preco,
                 notes: "Carga total via upload PDF",
               });
