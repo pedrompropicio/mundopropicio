@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil,
 } from "lucide-react";
+import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/TicketUploadModals";
 
 interface SaleForm {
   lot_id: string;
