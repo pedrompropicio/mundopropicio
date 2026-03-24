@@ -258,6 +258,15 @@ export function EventTicketing({ eventId }: Props) {
   }, 0);
   const getZoneTotalTickets = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
 
+  // Sort zones by max lot price (most expensive first)
+  const sortedZones = useMemo(() => {
+    return [...zones].sort((a, b) => {
+      const maxPriceA = Math.max(0, ...allLots.filter(l => l.zone_id === a.id).map(l => Number(l.price)));
+      const maxPriceB = Math.max(0, ...allLots.filter(l => l.zone_id === b.id).map(l => Number(l.price)));
+      return maxPriceB - maxPriceA;
+    });
+  }, [zones, allLots]);
+
   const totalGrossRevenue = zones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
   const totalNetRevenue = zones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
   const totalIva = zones.reduce((s, z) => s + getZoneIva(z.id), 0);
