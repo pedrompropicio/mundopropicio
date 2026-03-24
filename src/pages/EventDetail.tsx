@@ -251,7 +251,10 @@ export default function EventDetail() {
 
   const incomeTransactions = eventTransactions.filter((t) => t.type === "income");
   const expenseTransactions = eventTransactions.filter((t) => t.type === "expense");
-  const totalIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  const transactionIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  // If ticket sales exist, use them as revenue source; otherwise fall back to transactions
+  const hasTicketSales = ticketSalesRevenue > 0;
+  const totalIncome = hasTicketSales ? ticketSalesRevenue : transactionIncome;
   const totalExpenses = expenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const profit = totalIncome - totalExpenses;
 
