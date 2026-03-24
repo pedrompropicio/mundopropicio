@@ -648,7 +648,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            {isAdmin && approvedWithoutTxCount > 0 && (
+            {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
               <button
                 onClick={handleGenerateHistorical}
                 disabled={generateHistoricalMutation.isPending}
