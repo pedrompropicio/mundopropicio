@@ -12,6 +12,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
+import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
 
 interface InlineForm {
   type: string;
