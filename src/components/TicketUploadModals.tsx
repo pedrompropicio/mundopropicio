@@ -8,8 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
-import { read, utils } from "xlsx";
+import { Upload, FileText, AlertCircle, Loader2 } from "lucide-react";
 
 interface Event {
   id: string;
@@ -38,57 +37,17 @@ interface ParsedSaleRow {
   preco_unitario: number;
 }
 
-function normalizeHeader(h: string): string {
-  return h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-}
-
-function parseFile(file: File): Promise<Record<string, any>[]> {
+function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = read(data, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = utils.sheet_to_json<Record<string, any>>(ws);
-        resolve(rows);
-      } catch (err) {
-        reject(err);
-      }
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix
+      const base64 = result.split(",")[1];
+      resolve(base64);
     };
     reader.onerror = () => reject(new Error("Erro ao ler ficheiro"));
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-function mapTotalRows(rows: Record<string, any>[]): ParsedRow[] {
-  return rows.map((row, idx) => {
-    const keys = Object.keys(row);
-    const normalized: Record<string, any> = {};
-    keys.forEach(k => { normalized[normalizeHeader(k)] = row[k]; });
-
-    const zona = String(normalized["zona"] || normalized["zone"] || "Geral").trim();
-    const lote = String(normalized["lote"] || normalized["lot"] || `Lote ${idx + 1}`).trim();
-    const quantidade = parseInt(normalized["quantidade"] || normalized["qty"] || normalized["quantity"] || "0") || 0;
-    const preco = parseFloat(normalized["preco"] || normalized["price"] || normalized["valor"] || "0") || 0;
-    const iva_rate = parseInt(normalized["iva"] || normalized["iva_rate"] || "6") || 6;
-
-    return { zona, lote, quantidade, preco, iva_rate };
-  });
-}
-
-function mapSaleRows(rows: Record<string, any>[]): ParsedSaleRow[] {
-  return rows.map((row, idx) => {
-    const keys = Object.keys(row);
-    const normalized: Record<string, any> = {};
-    keys.forEach(k => { normalized[normalizeHeader(k)] = row[k]; });
-
-    const zona = String(normalized["zona"] || normalized["zone"] || "").trim();
-    const lote = String(normalized["lote"] || normalized["lot"] || "").trim();
-    const quantidade = parseInt(normalized["quantidade"] || normalized["qty"] || normalized["quantity"] || "0") || 0;
-    const preco_unitario = parseFloat(normalized["preco"] || normalized["preco_unitario"] || normalized["price"] || normalized["valor"] || "0") || 0;
-
-    return { zona, lote, quantidade, preco_unitario };
+    reader.readAsDataURL(file);
   });
 }
 
@@ -99,19 +58,48 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
   const [loadType, setLoadType] = useState<"realizado" | "previsto">("realizado");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedRow[]>([]);
+  const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (f.size > 10 * 1024 * 1024) {
+      toast({ title: "Ficheiro demasiado grande", description: "Máximo 10MB", variant: "destructive" });
+      return;
+    }
     setFile(f);
+    setPreview([]);
+    setExtracting(true);
+
     try {
-      const rows = await parseFile(f);
-      const mapped = mapTotalRows(rows);
-      setPreview(mapped);
-    } catch {
-      toast({ title: "Erro ao ler ficheiro", variant: "destructive" });
+      const base64 = await fileToBase64(f);
+      const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
+        body: { pdf_base64: base64, extraction_type: "total" },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
+        zona: String(r.zona || "Geral"),
+        lote: String(r.lote || "Lote"),
+        quantidade: parseInt(r.quantidade) || 0,
+        preco: parseFloat(r.preco) || 0,
+        iva_rate: parseInt(r.iva_rate) || 6,
+      }));
+
+      if (rows.length === 0) {
+        toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
+      } else {
+        setPreview(rows);
+        toast({ title: `${rows.length} linhas extraídas do PDF` });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao extrair dados do PDF", description: err.message, variant: "destructive" });
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -119,7 +107,6 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
     mutationFn: async () => {
       if (!eventId || preview.length === 0) throw new Error("Selecione evento e ficheiro");
 
-      // Group by zone
       const zoneMap = new Map<string, ParsedRow[]>();
       preview.forEach(r => {
         const existing = zoneMap.get(r.zona) || [];
@@ -128,7 +115,6 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
       });
 
       for (const [zoneName, lots] of zoneMap) {
-        // Check if zone already exists
         const { data: existingZones } = await supabase
           .from("event_ticket_zones")
           .select("id, name")
@@ -149,7 +135,6 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
           zoneId = newZone.id;
         }
 
-        // Get existing lots count for lot_number
         const { data: existingLots } = await supabase
           .from("event_ticket_lots")
           .select("id")
@@ -167,9 +152,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
           });
           if (error) throw error;
 
-          // If "realizado", also create sales records
           if (loadType === "realizado") {
-            // Find the lot just created
             const { data: createdLots } = await supabase
               .from("event_ticket_lots")
               .select("id")
@@ -184,7 +167,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                 sale_date: new Date().toISOString().slice(0, 10),
                 quantity: lot.quantidade,
                 unit_price: lot.preco,
-                notes: "Carga total via upload",
+                notes: "Carga total via upload PDF",
               });
             }
           }
@@ -209,6 +192,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
     setLoadType("realizado");
     setFile(null);
     setPreview([]);
+    setExtracting(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -224,7 +208,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              <FileText className="h-5 w-5 text-primary" />
               Carga de Bilhete Total
             </DialogTitle>
           </DialogHeader>
@@ -266,23 +250,27 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
             </div>
 
             <div>
-              <Label>Ficheiro (Excel / CSV)</Label>
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5">
-                <Upload className="h-5 w-5 text-muted-foreground" />
+              <Label>Ficheiro PDF</Label>
+              <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5 ${extracting ? "opacity-50 pointer-events-none" : ""}`}>
+                {extracting ? (
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                ) : (
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                )}
                 <span className="text-sm text-muted-foreground">
-                  {file ? file.name : "Clique para selecionar ficheiro"}
+                  {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar PDF (max 10MB)"}
                 </span>
-                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".csv,.xls,.xlsx" />
+                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf" disabled={extracting} />
               </label>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Colunas esperadas: Zona, Lote, Quantidade, Preço, IVA (opcional)
+                A IA extrairá automaticamente zonas, lotes, quantidades e preços do PDF
               </p>
             </div>
 
             {preview.length > 0 && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  Pré-visualização — {preview.length} linhas
+                  Dados extraídos — {preview.length} linhas
                 </div>
                 <div className="max-h-40 overflow-y-auto">
                   <table className="w-full text-xs">
@@ -296,7 +284,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.slice(0, 20).map((r, i) => (
+                      {preview.map((r, i) => (
                         <tr key={i} className="border-t border-border/30">
                           <td className="px-3 py-1">{r.zona}</td>
                           <td className="px-3 py-1">{r.lote}</td>
@@ -307,9 +295,6 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                       ))}
                     </tbody>
                   </table>
-                  {preview.length > 20 && (
-                    <p className="text-[10px] text-muted-foreground text-center py-1">…e mais {preview.length - 20} linhas</p>
-                  )}
                 </div>
               </div>
             )}
@@ -319,7 +304,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
               onClick={() => uploadMutation.mutate()}
-              disabled={!eventId || preview.length === 0 || uploadMutation.isPending}
+              disabled={!eventId || preview.length === 0 || uploadMutation.isPending || extracting}
             >
               {uploadMutation.isPending ? "A importar…" : `Importar ${loadType === "realizado" ? "Realizado" : "Previsto"}`}
             </Button>
@@ -337,19 +322,47 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedSaleRow[]>([]);
+  const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (f.size > 10 * 1024 * 1024) {
+      toast({ title: "Ficheiro demasiado grande", description: "Máximo 10MB", variant: "destructive" });
+      return;
+    }
     setFile(f);
+    setPreview([]);
+    setExtracting(true);
+
     try {
-      const rows = await parseFile(f);
-      const mapped = mapSaleRows(rows);
-      setPreview(mapped);
-    } catch {
-      toast({ title: "Erro ao ler ficheiro", variant: "destructive" });
+      const base64 = await fileToBase64(f);
+      const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
+        body: { pdf_base64: base64, extraction_type: "daily_sales" },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const rows: ParsedSaleRow[] = (data.rows || []).map((r: any) => ({
+        zona: String(r.zona || ""),
+        lote: String(r.lote || ""),
+        quantidade: parseInt(r.quantidade) || 0,
+        preco_unitario: parseFloat(r.preco_unitario) || 0,
+      }));
+
+      if (rows.length === 0) {
+        toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
+      } else {
+        setPreview(rows);
+        toast({ title: `${rows.length} linhas extraídas do PDF` });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao extrair dados do PDF", description: err.message, variant: "destructive" });
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -357,7 +370,6 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
     mutationFn: async () => {
       if (!eventId || preview.length === 0) throw new Error("Selecione evento e ficheiro");
 
-      // Fetch zones and lots for this event
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id, name")
@@ -377,7 +389,6 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
       let skipped = 0;
 
       for (const row of preview) {
-        // Find matching lot by name (and optionally zone)
         let matchedLot = lots.find(l => {
           const lotMatch = l.name.toLowerCase() === row.lote.toLowerCase();
           if (row.zona) {
@@ -387,7 +398,6 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
           return lotMatch;
         });
 
-        // Fallback: match just by lot name
         if (!matchedLot) {
           matchedLot = lots.find(l => l.name.toLowerCase() === row.lote.toLowerCase());
         }
@@ -402,7 +412,7 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
           sale_date: saleDate,
           quantity: row.quantidade,
           unit_price: row.preco_unitario || Number(matchedLot.price),
-          notes: "Upload de vendas diária",
+          notes: "Upload de vendas diária via PDF",
         });
 
         if (error) throw error;
@@ -413,7 +423,6 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
         toast({
           title: `${imported} vendas importadas, ${skipped} ignoradas`,
           description: "Algumas linhas não corresponderam a lotes existentes.",
-          variant: "default",
         });
       }
     },
@@ -431,6 +440,7 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
     setSaleDate(new Date().toISOString().slice(0, 10));
     setFile(null);
     setPreview([]);
+    setExtracting(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -444,7 +454,7 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              <FileText className="h-5 w-5 text-primary" />
               Upload de Vendas Diárias
             </DialogTitle>
           </DialogHeader>
@@ -472,23 +482,27 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
             </div>
 
             <div>
-              <Label>Ficheiro (Excel / CSV)</Label>
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5">
-                <Upload className="h-5 w-5 text-muted-foreground" />
+              <Label>Ficheiro PDF</Label>
+              <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5 ${extracting ? "opacity-50 pointer-events-none" : ""}`}>
+                {extracting ? (
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                ) : (
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                )}
                 <span className="text-sm text-muted-foreground">
-                  {file ? file.name : "Clique para selecionar ficheiro"}
+                  {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar PDF (max 10MB)"}
                 </span>
-                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".csv,.xls,.xlsx" />
+                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf" disabled={extracting} />
               </label>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Colunas esperadas: Zona (opcional), Lote, Quantidade, Preço (opcional, usa preço do lote)
+                A IA extrairá automaticamente lotes, quantidades e preços do PDF
               </p>
             </div>
 
             {preview.length > 0 && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  Pré-visualização — {preview.length} linhas
+                  Dados extraídos — {preview.length} linhas
                 </div>
                 <div className="max-h-40 overflow-y-auto">
                   <table className="w-full text-xs">
@@ -501,7 +515,7 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.slice(0, 20).map((r, i) => (
+                      {preview.map((r, i) => (
                         <tr key={i} className="border-t border-border/30">
                           <td className="px-3 py-1">{r.zona || "—"}</td>
                           <td className="px-3 py-1">{r.lote}</td>
@@ -511,9 +525,6 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
                       ))}
                     </tbody>
                   </table>
-                  {preview.length > 20 && (
-                    <p className="text-[10px] text-muted-foreground text-center py-1">…e mais {preview.length - 20} linhas</p>
-                  )}
                 </div>
               </div>
             )}
@@ -523,7 +534,7 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
               onClick={() => uploadMutation.mutate()}
-              disabled={!eventId || !saleDate || preview.length === 0 || uploadMutation.isPending}
+              disabled={!eventId || !saleDate || preview.length === 0 || uploadMutation.isPending || extracting}
             >
               {uploadMutation.isPending ? "A importar…" : "Importar Vendas"}
             </Button>
