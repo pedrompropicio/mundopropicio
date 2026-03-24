@@ -137,9 +137,19 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       const total = parseNum(totalRaw);
 
       // Determine base and IVA amounts
-      let finalBase = cost || (total - iva) || total;
-      let finalIva = iva || (total > 0 && cost > 0 ? total - cost : 0);
-      if (finalBase <= 0 && total > 0) { finalBase = total; finalIva = 0; }
+      // When total < cost (e.g. rateio/split), use total as the real amount
+      let finalBase: number;
+      let finalIva: number;
+      if (total > 0 && cost > 0 && total < cost) {
+        // Total is the actual amount (after split), cost is the full pre-split value
+        finalBase = total - iva;
+        finalIva = iva;
+        if (finalBase <= 0) { finalBase = total; finalIva = 0; }
+      } else {
+        finalBase = cost || (total - iva) || total;
+        finalIva = iva || (total > 0 && cost > 0 ? total - cost : 0);
+        if (finalBase <= 0 && total > 0) { finalBase = total; finalIva = 0; }
+      }
 
       // Calculate IVA rate
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
