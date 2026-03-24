@@ -242,9 +242,14 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                   <Label htmlFor="previsto" className="cursor-pointer font-normal">Previsto</Label>
                 </div>
               </RadioGroup>
-              {loadType === "previsto" && selectedEvent && selectedEvent.status !== "planning" && (
-                <p className="text-xs text-warning mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Carga prevista é normalmente usada para eventos em planeamento
+              {loadType === "previsto" && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Cria zonas e lotes sem registar vendas
+                </p>
+              )}
+              {loadType === "realizado" && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> Cria zonas, lotes e regista vendas automaticamente
                 </p>
               )}
             </div>
