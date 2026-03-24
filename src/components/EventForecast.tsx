@@ -647,14 +647,26 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             <TabsTrigger value="forecasts">Previsões</TabsTrigger>
             <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
           </TabsList>
-          {canApprove && (
-            <button
-              onClick={() => setShowCopyModal(true)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <Copy className="h-3.5 w-3.5" /> Copiar P&L
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {isAdmin && approvedWithoutTxCount > 0 && (
+              <button
+                onClick={handleGenerateHistorical}
+                disabled={generateHistoricalMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <History className="h-3.5 w-3.5" />
+                {generateHistoricalMutation.isPending ? "A gerar…" : `Gerar Transações (${approvedWithoutTxCount})`}
+              </button>
+            )}
+            {canApprove && (
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copiar P&L
+              </button>
+            )}
+          </div>
         </div>
 
         <TabsContent value="forecasts">
