@@ -55,8 +55,15 @@ export function buildDREForExport(
       .filter((l: any) => eventZones.some((z: any) => z.id === l.zone_id))
       .map((l: any) => l.id);
     const eventTicketSalesData = ticketSales.filter((s: any) => eventLotIds.includes(s.lot_id));
-    ticketIncomeExIva = eventTicketSalesData.reduce((sum: number, s: any) => sum + Number(s.quantity) * Number(s.unit_price), 0);
-    ticketIncomeIncIva = calcAmountWithIva(ticketIncomeExIva, 23);
+    // Prices include IVA (6% for tickets) — extract net and gross
+    const ticketGross = eventTicketSalesData.reduce((sum: number, s: any) => sum + Number(s.quantity) * Number(s.unit_price), 0);
+    const ticketNet = eventTicketSalesData.reduce((sum: number, s: any) => {
+      const lot = ticketLots.find((l: any) => l.id === s.lot_id);
+      const rate = Number(lot?.iva_rate ?? 6);
+      return sum + Number(s.quantity) * (Number(s.unit_price) / (1 + rate / 100));
+    }, 0);
+    ticketIncomeExIva = ticketNet;
+    ticketIncomeIncIva = ticketGross;
   }
 
   const expenses = transactions.filter((t) => t.type === "expense");

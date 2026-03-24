@@ -60,8 +60,15 @@ function buildDRE(
       .filter((l) => eventZones.some((z) => z.id === l.zone_id))
       .map((l) => l.id);
     const eventTicketSales = ticketSales.filter((s) => eventLotIds.includes(s.lot_id));
-    ticketIncomeExIva = eventTicketSales.reduce((sum, s) => sum + Number(s.quantity) * Number(s.unit_price), 0);
-    ticketIncomeIncIva = calcAmountWithIva(ticketIncomeExIva, 23);
+    // Prices include IVA (6% for tickets) — extract net and gross
+    const ticketGross = eventTicketSales.reduce((sum, s) => sum + Number(s.quantity) * Number(s.unit_price), 0);
+    const ticketNet = eventTicketSales.reduce((sum, s) => {
+      const lot = ticketLots.find((l) => l.id === s.lot_id);
+      const rate = Number((lot as any)?.iva_rate ?? 6);
+      return sum + Number(s.quantity) * (Number(s.unit_price) / (1 + rate / 100));
+    }, 0);
+    ticketIncomeExIva = ticketNet;
+    ticketIncomeIncIva = ticketGross;
   }
 
   const expenses = transactions.filter((t) => t.type === "expense");
