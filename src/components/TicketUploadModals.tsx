@@ -285,7 +285,8 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                       <tr>
                         <th className="text-left px-3 py-1">Zona</th>
                         <th className="text-left px-3 py-1">Lote</th>
-                        <th className="text-right px-3 py-1">Qtd</th>
+                        <th className="text-right px-3 py-1">Total</th>
+                        <th className="text-right px-3 py-1">Vendidos</th>
                         <th className="text-right px-3 py-1">Preço</th>
                         <th className="text-right px-3 py-1">IVA</th>
                       </tr>
@@ -296,6 +297,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
                           <td className="px-3 py-1">{r.zona}</td>
                           <td className="px-3 py-1">{r.lote}</td>
                           <td className="px-3 py-1 text-right font-mono">{r.quantidade.toLocaleString()}</td>
+                          <td className="px-3 py-1 text-right font-mono">{r.quantidade_vendida.toLocaleString()}</td>
                           <td className="px-3 py-1 text-right font-mono">{r.preco.toFixed(2)}€</td>
                           <td className="px-3 py-1 text-right font-mono">{r.iva_rate}%</td>
                         </tr>
