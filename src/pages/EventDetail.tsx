@@ -422,6 +422,7 @@ export default function EventDetail() {
           value={formatCurrency(totalIncome)}
           icon={TrendingUp}
           variant="accent"
+          subtitle={hasTicketSales ? "Via bilheteira" : (transactionIncome > 0 ? "Via transações" : undefined)}
         />
         <StatCard
           title={isGlobalView ? "Despesas (Global)" : "Despesas"}
