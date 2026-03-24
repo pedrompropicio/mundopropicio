@@ -88,6 +88,7 @@ function buildPL(
   const evtZones = ticketZones; // Already filtered by caller
   let ticketForecastNet = 0;
   let ticketForecastIva = 0;
+  let ticketForecastGross = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
   let totalTicketActualNet = 0;
@@ -109,6 +110,7 @@ function buildPL(
         const lotIva = (grossPrice - netPrice) * qty;
         ticketForecastNet += lotNet;
         ticketForecastIva += lotIva;
+        ticketForecastGross += grossPrice * qty;
         zoneNet += lotNet;
         zoneIva += lotIva;
         zoneQty += qty;
@@ -176,7 +178,8 @@ function buildPL(
     eventCacheConfigs,
     cacheDeductions,
     ticketForecastNet,
-    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    forecasts.map((f) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+    ticketForecastGross
   );
   const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
 
@@ -495,6 +498,7 @@ export default function ReportPL() {
     const ticketEventIds = getTicketEventIds(e.id);
     const evtZones = ticketZones.filter((z: any) => ticketEventIds.includes(z.event_id));
     let ticketRev = 0;
+    let ticketGross = 0;
     let ticketActualRev = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
@@ -502,6 +506,7 @@ export default function ReportPL() {
         const ivaRate = Number(lot.iva_rate ?? 6);
         const netPrice = Number(lot.price) / (1 + ivaRate / 100);
         ticketRev += netPrice * Number(lot.quantity);
+        ticketGross += Number(lot.price) * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualRev += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -516,7 +521,8 @@ export default function ReportPL() {
       eventCaches,
       allCacheDeductions,
       ticketRev,
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+      ticketGross
     );
     const totalCache = cacheLines.reduce((s, c) => s + c.amount, 0);
     const totalFExp = fExp + totalCache;

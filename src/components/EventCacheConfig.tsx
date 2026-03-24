@@ -102,7 +102,11 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     },
   });
 
-  // Calculate net ticket revenue (sem IVA)
+  // Calculate ticket revenues
+  const ticketRevenueGross = useMemo(() => {
+    return ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  }, [ticketLots]);
+
   const ticketRevenueNet = useMemo(() => {
     return ticketLots.reduce((s, l) => {
       const rate = Number((l as any).iva_rate ?? 6);
@@ -135,7 +139,8 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
   // Calculate fixed percentage deduction
   const calculateFixedPctDeduction = (config: any) => {
     const pct = Number(config.fixed_deduction_percentage) || 0;
-    return ticketRevenueNet * (pct / 100);
+    const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
+    return basis * (pct / 100);
   };
 
   // Calculate variable cachê
@@ -143,7 +148,8 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
     const categoryDeduction = calculateDeductionAmount(config.id);
     const fixedPctDeduction = calculateFixedPctDeduction(config);
     const totalDeduction = categoryDeduction + fixedPctDeduction;
-    const baseForCalc = ticketRevenueNet - totalDeduction;
+    const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
+    const baseForCalc = basis - totalDeduction;
     const pct = Number(config.percentage) || 0;
     return Math.max(0, baseForCalc * (pct / 100));
   };
@@ -157,7 +163,8 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
         cache_type: cacheType,
         fixed_amount: cacheType === "fixed" ? (parseFloat(fixedAmount) || 0) : 0,
         percentage: cacheType === "variable" ? (parseFloat(percentage) || 0) : 0,
-      });
+        cache_revenue_basis: cacheType === "variable" ? (document.querySelector<HTMLInputElement>('input[name="revenueBasis"]:checked')?.value || "net") : "net",
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -244,7 +251,7 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
         return total + calculateVariableCache(config);
       }
     }, 0);
-  }, [cacheConfigs, ticketRevenueNet, forecasts, deductions]);
+  }, [cacheConfigs, ticketRevenueNet, ticketRevenueGross, forecasts, deductions]);
 
   const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
@@ -317,7 +324,7 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
               >
                 <Percent className="h-3.5 w-3.5 mb-1" />
                 <span className="block font-semibold">Cachê Variável</span>
-                <span className="block text-[10px] opacity-70 mt-0.5">% sobre receita líquida</span>
+                <span className="block text-[10px] opacity-70 mt-0.5">% sobre receita de bilhetes</span>
               </button>
             </div>
           </div>
@@ -354,6 +361,19 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                 <Info className="inline h-3 w-3 mr-0.5" />
                 Após adicionar, configure os descontos na cabeça (despesas a subtrair da receita antes do cálculo).
               </p>
+              <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Base de cálculo</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 p-2 text-xs cursor-pointer">
+                    <input type="radio" name="revenueBasis" value="net" defaultChecked className="accent-primary" />
+                    <span>Receita s/ IVA</span>
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border border-border p-2 text-xs cursor-pointer hover:border-primary/40">
+                    <input type="radio" name="revenueBasis" value="gross" className="accent-primary" />
+                    <span>Receita c/ IVA</span>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 
@@ -458,12 +478,45 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                           className={`${inputClass} max-w-[100px]`}
                           placeholder="0"
                         />
-                        <span className="text-xs text-muted-foreground">% sobre a receita líquida</span>
+                        <span className="text-xs text-muted-foreground">
+                          % sobre a receita {config.cache_revenue_basis === "gross" ? "c/ IVA" : "s/ IVA"}
+                        </span>
                         {fixedPctDeduction > 0 && (
                           <span className="ml-auto font-mono text-xs font-semibold text-warning">
                             − {formatCurrency(fixedPctDeduction)}
                           </span>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Revenue basis toggle */}
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Base de cálculo</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: "net", label: "Receita s/ IVA" },
+                          { value: "gross", label: "Receita c/ IVA" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              supabase
+                                .from("event_cache_configs" as any)
+                                .update({ cache_revenue_basis: opt.value })
+                                .eq("id", config.id)
+                                .then(() => {
+                                  queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+                                });
+                            }}
+                            className={`rounded-lg border p-2 text-xs font-medium transition-all ${
+                              (config.cache_revenue_basis || "net") === opt.value
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
 

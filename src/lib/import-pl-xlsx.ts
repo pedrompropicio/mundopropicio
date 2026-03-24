@@ -324,6 +324,7 @@ export async function importPLToEvent(
         .eq("event_id", eventId);
 
       let ticketRevenueNet = 0;
+      let ticketRevenueGross = 0;
       if (zones && zones.length > 0) {
         const zoneIds = zones.map((z) => z.id);
         const { data: lots } = await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds);
@@ -332,6 +333,7 @@ export async function importPLToEvent(
             const netPrice = lot.price / (1 + (lot.iva_rate || 6) / 100);
             return sum + netPrice * lot.quantity;
           }, 0);
+          ticketRevenueGross = lots.reduce((sum, lot) => sum + lot.price * lot.quantity, 0);
         }
       }
 
@@ -344,7 +346,8 @@ export async function importPLToEvent(
         cacheConfigs as unknown as CacheConfig[],
         (deductions || []) as unknown as CacheDeduction[],
         ticketRevenueNet,
-        existingForecasts || []
+        existingForecasts || [],
+        ticketRevenueGross
       );
 
       const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);

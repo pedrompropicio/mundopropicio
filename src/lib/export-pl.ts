@@ -140,6 +140,7 @@ function buildPLForExport(
   const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
   let ticketForecastNet = 0;
   let ticketForecastIva = 0;
+  let ticketForecastGross = 0;
   const ticketLines: PLLine[] = [];
   let totalTicketQty = 0;
   let totalTicketActualNet = 0;
@@ -161,6 +162,7 @@ function buildPLForExport(
         const lotIva = (grossPrice - netPrice) * qty;
         ticketForecastNet += lotNet;
         ticketForecastIva += lotIva;
+        ticketForecastGross += grossPrice * qty;
         zoneNet += lotNet;
         zoneIva += lotIva;
         zoneQty += qty;
@@ -247,7 +249,8 @@ function buildPLForExport(
     eventCacheConfigs,
     cacheDeductions,
     ticketForecastNet,
-    forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+    forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+    ticketForecastGross
   );
   const totalCacheAmount = cachePLLines.reduce((s, c) => s + c.amount, 0);
 
@@ -484,17 +487,23 @@ export function exportPLToExcel(
         }, 0);
       });
     });
-    const cachePLLines = calculateCacheLinesForPL(
-      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
-      cacheDeductions,
-      evtZones.reduce((sum: number, zone: any) => {
+    const evtTicketNet = evtZones.reduce((sum: number, zone: any) => {
         const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
         return sum + zoneLots.reduce((lotSum: number, lot: any) => {
           const ivaRate = Number(lot.iva_rate ?? 6);
           return lotSum + Number(lot.quantity) * (Number(lot.price) / (1 + ivaRate / 100));
         }, 0);
-      }, 0),
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+      }, 0);
+    const evtTicketGross = evtZones.reduce((sum: number, zone: any) => {
+        const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+        return sum + zoneLots.reduce((lotSum: number, lot: any) => lotSum + Number(lot.quantity) * Number(lot.price), 0);
+      }, 0);
+    const cachePLLines = calculateCacheLinesForPL(
+      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+      cacheDeductions,
+      evtTicketNet,
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+      evtTicketGross
     );
     const totalCache = cachePLLines.reduce((s, c) => s + c.amount, 0);
     const fExp = fExpBase + totalCache;
@@ -780,6 +789,7 @@ export function exportPLToPDF(
     const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualRevNet = 0;
     let ticketForecastNet = 0;
+    let ticketForecastGross = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
@@ -788,6 +798,7 @@ export function exportPLToPDF(
         const lotForecastNet = netPrice * Number(lot.quantity);
         evtFInc += lotForecastNet;
         ticketForecastNet += lotForecastNet;
+        ticketForecastGross += Number(lot.price) * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualRevNet += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -799,7 +810,8 @@ export function exportPLToPDF(
       cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
       cacheDeductions,
       ticketForecastNet,
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+      ticketForecastGross
     ).reduce((sum, line) => sum + line.amount, 0);
     gFInc += evtFInc;
     gFExp += evtFExpBase + totalCache;
@@ -834,6 +846,7 @@ export function exportPLToPDF(
     const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualNet = 0;
     let ticketForecastNet = 0;
+    let ticketForecastGross2 = 0;
     evtZones.forEach((zone: any) => {
       const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
       zoneLots.forEach((lot: any) => {
@@ -842,6 +855,7 @@ export function exportPLToPDF(
         const lotForecastNet = netPrice * Number(lot.quantity);
         evtFInc += lotForecastNet;
         ticketForecastNet += lotForecastNet;
+        ticketForecastGross2 += Number(lot.price) * Number(lot.quantity);
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
         ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
           const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
@@ -853,7 +867,8 @@ export function exportPLToPDF(
       cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
       cacheDeductions,
       ticketForecastNet,
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) }))
+      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+      ticketForecastGross2
     ).reduce((sum, line) => sum + line.amount, 0);
     const fResult = evtFInc - evtFExp;
     const tResult = (evtTInc + ticketActualNet) - evtTExp;

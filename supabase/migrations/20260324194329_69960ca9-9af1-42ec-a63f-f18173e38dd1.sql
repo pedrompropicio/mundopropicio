@@ -1,0 +1,1 @@
+ALTER TABLE public.event_cache_configs ADD COLUMN cache_revenue_basis text NOT NULL DEFAULT 'net';
