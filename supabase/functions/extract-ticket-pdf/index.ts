@@ -24,7 +24,7 @@ serve(async (req) => {
 
     const systemPrompt =
       extraction_type === "daily_sales"
-        ? `Analisa este PDF de vendas de bilhetes. Extrai os dados e devolve APENAS um JSON válido com a seguinte estrutura:
+        ? `Analisa este PDF de vendas diárias de bilhetes (formato Ticketline). Extrai os dados e devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "rows": [
     { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 100, "preco_unitario": 25.00 }
@@ -38,23 +38,47 @@ REGRAS IMPORTANTES:
 - "P. UN." é o preço unitário.
 - Ignora linhas com quantidade 0.
 - Extrai TODOS os dados de vendas que encontrares no documento.`
-        : `Analisa este PDF de bilheteira/relatório de vendas (ex: Ticketline). Extrai os dados de zonas, lotes, quantidades e preços. Devolve APENAS um JSON válido com a seguinte estrutura:
+        : `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
+
+ESTRUTURA DO RELATÓRIO TICKETLINE:
+- O relatório apresenta colunas em pares de Qt./Valor.
+- 1ª Qt. = quantidade TOTAL de bilhetes carregados/configurados para o lote.
+- 1º Valor = valor total das vendas realizadas (NÃO é qt × preço, é apenas das vendas).
+- 2ª Qt. = quantidade de bilhetes VENDIDOS.
+- 2º Valor = confirmação do valor vendido.
+- Colunas seguintes: quebra por canal de venda (online, presencial, etc.).
+- Últimas colunas de Qt sem Valor: bilhetes não vendidos (reservados, cortesias, não atribuídos, etc.).
+- A diferença entre 1ª Qt e 2ª Qt são os bilhetes não vendidos.
+
+REGRAS DE AGRUPAMENTO TICKETLINE:
+- Cada lote é identificado como "Zona - Lote" (ex: "Balcão 1 - Lote 2").
+- As linhas "SOMA" agrupam lotes. Se uma "SOMA" agrupa múltiplas linhas, TODAS pertencem à MESMA ZONA.
+- Linhas com nomes como "Campanha | Colaboradores" ou "Campanha | [nome]" que apareçam DENTRO de um grupo SOMA com outros lotes da mesma zona, devem ser tratadas como um LOTE dessa zona (ex: se agrupado com "Balcão 2 - Lote Promoc.", a zona é "Balcão 2" e o lote é "Campanha Colaboradores").
+- O "Tipo de Bilhete" (ex: "Normal", "Worten") é o tipo do bilhete e NÃO deve ser incluído no nome do lote.
+- Se uma zona não tem " - " no nome (ex: "Mobilidade Reduzida"), usa o nome completo como zona e "Lote 1" como lote.
+
+Devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "rows": [
-    { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 1000, "quantidade_vendida": 800, "preco": 30.00, "iva_rate": 6 }
+    { "zona": "Balcão 1", "lote": "Lote 2", "quantidade_total": 354, "quantidade_vendida": 348, "preco": 68.00, "iva_rate": 6 }
   ]
 }
-REGRAS IMPORTANTES:
-- Cada linha do relatório que NÃO seja "SOMA" ou "TOTAL" é um lote a extrair.
-- A "Zona" é a parte antes do " - " no nome (ex: "Balcão 1 - Lote 2" → zona="Balcão 1", lote="Lote 2"). Se tiver "Lote Promoc." ou "Lote Prom." mantém esse nome.
-- Se o nome não tiver " - ", usa o nome completo como zona e o "Tipo de Bilhete" como nome do lote (ex: "Campanha | Colaboradores" → zona="Campanha", lote="Colaboradores").
-- NÃO incluas o "Tipo de Bilhete" (ex: "Normal", "Worten") no nome do lote.
-- "Qt." na PRIMEIRA coluna é o número TOTAL de bilhetes disponíveis para esse lote ("quantidade").
-- A SEGUNDA coluna "Qt." é o número de bilhetes VENDIDOS ("quantidade_vendida"). Pode ser menor ou igual à quantidade total.
-- "P. UN." é o preço unitário.
-- Se a taxa de IVA não estiver disponível, usa 6.
-- Extrai TODOS os lotes, mesmo os com quantidade 0.
-- IMPORTANTE: quantidade e quantidade_vendida são valores DIFERENTES. A quantidade é a capacidade total, a quantidade_vendida é quantos foram efectivamente vendidos.`;
+
+CAMPOS:
+- "zona": nome da zona (parte antes do " - ")
+- "lote": nome do lote (parte depois do " - ", ou "Campanha Colaboradores" para campanhas)
+- "quantidade_total": 1ª coluna Qt. (total de bilhetes configurados)
+- "quantidade_vendida": 2ª coluna Qt. (bilhetes efectivamente vendidos)
+- "preco": P. UN. (preço unitário)
+- "iva_rate": taxa de IVA (se não disponível, usa 6)
+
+REGRAS:
+- Extrai TODOS os lotes, mesmo com quantidade 0.
+- Ignora linhas "SOMA" e "TOTAL" (são subtotais).
+- quantidade_vendida pode ser MENOR ou IGUAL a quantidade_total.
+- O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.`;
+
+
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
