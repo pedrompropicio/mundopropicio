@@ -30,18 +30,28 @@ serve(async (req) => {
     { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 100, "preco_unitario": 25.00 }
   ]
 }
-Se não conseguires identificar a zona, usa "Geral". Se não conseguires identificar o lote, usa "Lote 1", "Lote 2", etc.
-Se o preço unitário não estiver disponível, usa 0.
-Extrai TODOS os dados de vendas que encontrares no documento.`
-        : `Analisa este PDF de bilheteira. Extrai os dados de zonas, lotes, quantidades e preços. Devolve APENAS um JSON válido com a seguinte estrutura:
+REGRAS IMPORTANTES:
+- Cada linha do relatório que NÃO seja "SOMA" ou "TOTAL" é um lote a extrair.
+- A "Zona" é a parte antes do " - " no nome (ex: "Balcão 1 - Lote 2" → zona="Balcão 1", lote="Lote 2").
+- Se o nome não tiver " - ", usa o nome completo como zona e "Lote 1" como lote.
+- "Qt." vendida é a quantidade de bilhetes efectivamente vendidos (coluna de vendas, não a coluna total/disponível).
+- "P. UN." é o preço unitário.
+- Ignora linhas com quantidade 0.
+- Extrai TODOS os dados de vendas que encontrares no documento.`
+        : `Analisa este PDF de bilheteira/relatório de vendas. Extrai os dados de zonas, lotes, quantidades e preços. Devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "rows": [
     { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 1000, "preco": 30.00, "iva_rate": 6 }
   ]
 }
-Se não conseguires identificar a zona, usa "Geral". Se não conseguires identificar o lote, usa "Lote 1", "Lote 2", etc.
-Se a taxa de IVA não estiver disponível, usa 6.
-Extrai TODOS os dados de bilhetes que encontrares no documento.`;
+REGRAS IMPORTANTES:
+- Cada linha do relatório que NÃO seja "SOMA" ou "TOTAL" é um lote a extrair.
+- A "Zona" é a parte antes do " - " no nome (ex: "Balcão 1 - Lote 2" → zona="Balcão 1", lote="Lote 2"). Se tiver "Lote Promoc." ou "Lote Prom." mantém esse nome.
+- Se o nome não tiver " - ", usa o nome completo como zona e "Lote 1" como lote.
+- "Qt." total (primeira coluna de quantidade) é o número total de bilhetes disponíveis para esse lote.
+- "P. UN." é o preço unitário.
+- Se a taxa de IVA não estiver disponível, usa 6.
+- Extrai TODOS os lotes, mesmo os com quantidade 0.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
