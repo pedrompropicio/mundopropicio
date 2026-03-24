@@ -398,16 +398,39 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     setImportingXlsx(true);
     try {
       const buffer = await file.arrayBuffer();
-      const { rows, warnings } = parseXlsxPL(buffer);
-      if (warnings.length > 0) {
-        toast({ title: "Avisos na leitura", description: warnings.join("; "), variant: "destructive" });
+      const sheets = parseXlsxPL(buffer);
+      const allWarnings = sheets.flatMap((s) => s.warnings);
+      if (allWarnings.length > 0) {
+        toast({ title: "Avisos na leitura", description: allWarnings.join("; "), variant: "destructive" });
       }
-      if (rows.length === 0) {
+      // Let user pick sheet if multiple have data
+      const sheetsWithData = sheets.filter((s) => s.rows.length > 0);
+      if (sheetsWithData.length === 0) {
         toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
         return;
       }
-      if (!window.confirm(`Importar ${rows.length} linha(s) de despesa para o P&L deste evento?`)) return;
-      const result = await importPLToEvent(rows, eventId, eventDate, categories, user?.email || "system");
+      let selectedRows = sheetsWithData[0].rows;
+      if (sheetsWithData.length > 1) {
+        const sheetNames = sheetsWithData.map((s) => `${s.sheetName} (${s.rows.length} linhas)`).join("\n");
+        const choice = window.prompt(
+          `O ficheiro tem ${sheetsWithData.length} abas com dados:\n\n${sheetNames}\n\nDigite o número da aba (1-${sheetsWithData.length}) ou "todas" para importar tudo:`,
+          "1"
+        );
+        if (!choice) return;
+        if (choice.toLowerCase() === "todas" || choice.toLowerCase() === "all") {
+          selectedRows = sheetsWithData.flatMap((s) => s.rows);
+        } else {
+          const idx = parseInt(choice) - 1;
+          if (idx >= 0 && idx < sheetsWithData.length) {
+            selectedRows = sheetsWithData[idx].rows;
+          } else {
+            toast({ title: "Opção inválida", variant: "destructive" });
+            return;
+          }
+        }
+      }
+      if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o P&L deste evento?`)) return;
+      const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system");
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
