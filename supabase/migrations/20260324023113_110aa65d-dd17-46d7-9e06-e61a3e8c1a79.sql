@@ -1,0 +1,1 @@
+UPDATE events SET event_type = 'multi_day' WHERE id = '61295b26-d5a1-4548-92c1-acfd36953932';
