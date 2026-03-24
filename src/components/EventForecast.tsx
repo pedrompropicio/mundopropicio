@@ -391,6 +391,37 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     generateHistoricalMutation.mutate();
   };
 
+  const handleImportXlsx = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImportingXlsx(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const { rows, warnings } = parseXlsxPL(buffer);
+      if (warnings.length > 0) {
+        toast({ title: "Avisos na leitura", description: warnings.join("; "), variant: "destructive" });
+      }
+      if (rows.length === 0) {
+        toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
+        return;
+      }
+      if (!window.confirm(`Importar ${rows.length} linha(s) de despesa para o P&L deste evento?`)) return;
+      const result = await importPLToEvent(rows, eventId, eventDate, categories, user?.email || "system");
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({
+        title: `${result.created} linha(s) importada(s) com sucesso!`,
+        description: result.errors.length > 0 ? `${result.errors.length} erro(s): ${result.errors[0]}` : undefined,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
+    } finally {
+      setImportingXlsx(false);
+    }
+  };
+
   const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
 
   const toggleSelect = (id: string) => {
