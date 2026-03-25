@@ -191,12 +191,12 @@ export function createExpenseCategoryMatcher(categories: ExpenseCategoryLite[]) 
       let score = 0;
 
       // Context-based disambiguation for LED/ecrã
-      const isLedRelated = ["2.3.02", "3.2.02"].includes(item.category.code);
+      const isLedRelated = ["2.3.02", "3.1.06"].includes(item.category.code);
       if (isLedRelated) {
         const ledTerms = ["led", "ecran", "ecra", "ecrã", "painel led"];
         const hasLedTerm = ledTerms.some((t) => includesPhrase(fullText, t));
         if (hasLedTerm) {
-          if (item.category.code === "3.2.02" && hasAdvertisingContext && !hasTechnicalContext) {
+          if (item.category.code === "3.1.06" && hasAdvertisingContext && !hasTechnicalContext) {
             score += 6;
           } else if (item.category.code === "2.3.02" && hasTechnicalContext && !hasAdvertisingContext) {
             score += 6;
