@@ -68,17 +68,15 @@ const CATEGORY_CODE_SYNONYMS: Record<string, string[]> = {
   "2.8.03": ["cctv", "camera seguranca", "câmera segurança", "videovigilancia", "videovigilância"],
   "2.8.04": ["radio comunicacao", "rádio comunicação", "intercom", "walkie", "walkie talkie"],
 
-  // 3.1 - Criação de Conteúdo
+  // 3.1 - Marketing/Divulgação
   "3.1.01": ["spot", "reels", "video", "vídeo", "audiovisual", "captacao", "captação", "filmagem"],
   "3.1.02": ["social media", "conteudo social", "conteúdo social", "gestao redes", "gestão redes"],
   "3.1.03": ["fotografia", "fotografo", "fotógrafo", "photo"],
   "3.1.04": ["assessoria imprensa", "press office", "relacoes publicas", "relações públicas"],
-
-  // 3.2 - Divulgação
-  "3.2.01": ["instagram", "facebook", "meta ads", "google ads", "digital", "trafego pago", "tráfego pago", "campanha digital", "anuncio digital", "anúncio digital"],
-  "3.2.02": ["mupi", "mupis", "outdoor", "outdoors", "ooh", "out of home", "painel led rua", "painel led comercial", "ecran led rua", "ecrã led rua", "ecra led", "ecrã led comercial", "led comercial", "jcdecaux", "mop", "dream media", "flyer", "panfletagem", "pulseira", "pulseiras", "merchandising fisico", "midia exterior", "mídia exterior", "publicidade rua", "publicidade exterior"],
-  "3.2.03": ["influencer", "influencers", "criador conteudo", "criador conteúdo"],
-  "3.2.04": ["radio", "rádio", "tv", "televisao", "televisão", "midia tradicional", "mídia tradicional", "record", "tropical fm"],
+  "3.1.05": ["instagram", "facebook", "meta ads", "google ads", "digital", "trafego pago", "tráfego pago", "campanha digital", "anuncio digital", "anúncio digital"],
+  "3.1.06": ["mupi", "mupis", "outdoor", "outdoors", "ooh", "out of home", "painel led rua", "painel led comercial", "ecran led rua", "ecrã led rua", "ecra led", "ecrã led comercial", "led comercial", "jcdecaux", "mop", "dream media", "flyer", "panfletagem", "pulseira", "pulseiras", "merchandising fisico", "midia exterior", "mídia exterior", "publicidade rua", "publicidade exterior"],
+  "3.1.07": ["influencer", "influencers", "criador conteudo", "criador conteúdo"],
+  "3.1.08": ["radio", "rádio", "tv", "televisao", "televisão", "midia tradicional", "mídia tradicional", "record", "tropical fm"],
 
   // 4.1 - Produção
   "4.1.01": ["producao executiva", "produção executiva", "equipa producao", "equipe produção"],
@@ -121,7 +119,7 @@ const CATEGORY_CODE_SYNONYMS: Record<string, string[]> = {
   "10.7.12": ["equipamento", "equipamentos", "hardware", "monitor", "impressora"],
 };
 
-// Context-sensitive disambiguation: LED/ecrã can be technical (2.3.02) or advertising (3.2.02)
+// Context-sensitive disambiguation: LED/ecrã can be technical (2.3.02) or advertising (3.1.06)
 const CONTEXT_ADVERTISING = new Set([
   "ooh", "rua", "comercial", "publicidade", "outdoor", "mupi", "jcdecaux", "mop", "dream media",
   "divulgacao", "divulgação", "marketing", "campanha",
@@ -193,12 +191,12 @@ export function createExpenseCategoryMatcher(categories: ExpenseCategoryLite[]) 
       let score = 0;
 
       // Context-based disambiguation for LED/ecrã
-      const isLedRelated = ["2.3.02", "3.2.02"].includes(item.category.code);
+      const isLedRelated = ["2.3.02", "3.1.06"].includes(item.category.code);
       if (isLedRelated) {
         const ledTerms = ["led", "ecran", "ecra", "ecrã", "painel led"];
         const hasLedTerm = ledTerms.some((t) => includesPhrase(fullText, t));
         if (hasLedTerm) {
-          if (item.category.code === "3.2.02" && hasAdvertisingContext && !hasTechnicalContext) {
+          if (item.category.code === "3.1.06" && hasAdvertisingContext && !hasTechnicalContext) {
             score += 6;
           } else if (item.category.code === "2.3.02" && hasTechnicalContext && !hasAdvertisingContext) {
             score += 6;
