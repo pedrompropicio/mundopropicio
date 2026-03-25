@@ -282,11 +282,6 @@ export async function importPLToEvent(
   let created = 0;
   const errors: string[] = [];
 
-  const { data: histAccount } = await supabase
-    .from("financial_accounts")
-    .select("id")
-    .eq("name", "Histórico / Ajuste")
-    .single();
 
   // Use AI to match categories
   const aiMatches = await matchCategoriesWithAI(rows, categories);
