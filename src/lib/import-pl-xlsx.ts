@@ -397,9 +397,7 @@ export async function importPLToEvent(
         amount: roundMoney(row.baseAmount),
         iva_rate: row.ivaRate,
         category_id: categoryId,
-        status: "approved",
-        approved_at: new Date().toISOString(),
-        approved_by: userEmail,
+        status: "draft",
       })
       .select("id")
       .single();
