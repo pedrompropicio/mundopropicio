@@ -93,22 +93,20 @@ MAPEAMENTO DE REFERÊNCIA POR PALAVRAS-CHAVE (use como guia principal):
 - CCTV, câmera segurança, videovigilância → 2.8.03
 - Rádio comunicação, walkie talkie, intercom → 2.8.04
 
-### 3 — COMUNICAÇÃO E MARKETING ###
-# 3.1 - Criação de Conteúdo
+### 3 — MARKETING/DIVULGAÇÃO ###
+# 3.1 - Marketing/Divulgação
 - Spot, reels, vídeo, audiovisual, captação, filmagem → 3.1.01 (Audiovisual)
 - Social media, conteúdo social, gestão redes → 3.1.02 (Social Media)
 - Fotografia, fotógrafo → 3.1.03 (Fotografia)
 - Assessoria imprensa, press office, relações públicas → 3.1.04 (Assessoria)
-
-# 3.2 - Divulgação
-- Instagram, Facebook, Meta Ads, Google Ads, digital, tráfego pago, campanha digital → 3.2.01 (Digital)
-- OOH, Out of Home, mupi, mupis, outdoor, outdoors, painel LED (publicitário/rua), ecrã LED (zona comercial), JCDecaux, MOP, Dream Media, flyer, panfletagem, pulseira, merchandising → 3.2.02 (OOH/Material)
-- Influencer, criador conteúdo → 3.2.03 (Influencers)
-- Rádio (publicidade), TV, Record, Tropical FM, mídia tradicional → 3.2.04 (Rádio/TV)
+- Instagram, Facebook, Meta Ads, Google Ads, digital, tráfego pago, campanha digital → 3.1.05 (Digital)
+- OOH, Out of Home, mupi, mupis, outdoor, outdoors, painel LED (publicitário/rua), ecrã LED (zona comercial), JCDecaux, MOP, Dream Media, flyer, panfletagem, pulseira, merchandising → 3.1.06 (OOH/Material)
+- Influencer, criador conteúdo → 3.1.07 (Influencers)
+- Rádio (publicidade), TV, Record, Tropical FM, mídia tradicional → 3.1.08 (Rádio/TV)
 
 ATENÇÃO sobre LED/Ecrã:
 - LED, ecrã, painel LED em contexto de PALCO ou TÉCNICO → 2.3.02 (Som e Luz)
-- LED, ecrã, painel LED em contexto de RUA, PUBLICIDADE, OOH, zona comercial → 3.2.02 (OOH/Material)
+- LED, ecrã, painel LED em contexto de RUA, PUBLICIDADE, OOH, zona comercial → 3.1.06 (OOH/Material)
 
 ### 4 — EQUIPAS E MÃO DE OBRA ###
 # 4.1 - Produção

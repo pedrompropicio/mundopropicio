@@ -119,7 +119,7 @@ const CATEGORY_CODE_SYNONYMS: Record<string, string[]> = {
   "10.7.12": ["equipamento", "equipamentos", "hardware", "monitor", "impressora"],
 };
 
-// Context-sensitive disambiguation: LED/ecrã can be technical (2.3.02) or advertising (3.2.02)
+// Context-sensitive disambiguation: LED/ecrã can be technical (2.3.02) or advertising (3.1.06)
 const CONTEXT_ADVERTISING = new Set([
   "ooh", "rua", "comercial", "publicidade", "outdoor", "mupi", "jcdecaux", "mop", "dream media",
   "divulgacao", "divulgação", "marketing", "campanha",
