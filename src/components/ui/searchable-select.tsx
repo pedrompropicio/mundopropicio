@@ -80,7 +80,7 @@ export function SearchableSelect({
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-[200px] overflow-y-auto p-1">
+        <div className="max-h-[min(400px,60vh)] overflow-y-auto p-1">
           {/* Empty option */}
           <button
             type="button"
