@@ -312,7 +312,11 @@ export default function Transactions() {
     let periodStart: Date;
     let periodEnd: Date;
 
-    if (paidPeriod === "yesterday") {
+    if (paidPeriod === "all") {
+      periodStart = new Date(2000, 0, 1);
+      periodEnd = new Date(today.getFullYear() + 10, 0, 1);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (paidPeriod === "yesterday") {
       periodStart = new Date(today);
       periodStart.setDate(periodStart.getDate() - 1);
       periodEnd = new Date(periodStart);
