@@ -26,7 +26,7 @@ export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
-  const [paidPeriod, setPaidPeriod] = useState<"yesterday" | "week" | "month" | "range">("week");
+  const [paidPeriod, setPaidPeriod] = useState<"all" | "yesterday" | "week" | "month" | "range">("all");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [paidPeriodPopoverOpen, setPaidPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
