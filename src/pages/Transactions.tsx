@@ -617,7 +617,7 @@ export default function Transactions() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="flex flex-col gap-1">
-                {([["yesterday", "Ontem"], ["week", "Última Semana"], ["month", "Último Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                {([["all", "Todas"], ["yesterday", "Ontem"], ["week", "Última Semana"], ["month", "Último Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
                   <button
                     key={val}
                     onClick={() => { setPaidPeriod(val); if (val !== "range") setPaidPeriodPopoverOpen(false); }}
