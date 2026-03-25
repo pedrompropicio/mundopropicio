@@ -376,7 +376,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         if (updateError) throw updateError;
       }
 
-      // Update event status to "active" on approval
+      // Update event status to "active" on approval (only for planning/confirmed events, not completed)
       await supabase
         .from("events")
         .update({ status: "active" })
