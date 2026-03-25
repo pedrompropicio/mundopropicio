@@ -26,7 +26,7 @@ export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
-  const [paidPeriod, setPaidPeriod] = useState<"yesterday" | "week" | "month" | "range">("week");
+  const [paidPeriod, setPaidPeriod] = useState<"all" | "yesterday" | "week" | "month" | "range">("all");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [paidPeriodPopoverOpen, setPaidPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
@@ -312,7 +312,11 @@ export default function Transactions() {
     let periodStart: Date;
     let periodEnd: Date;
 
-    if (paidPeriod === "yesterday") {
+    if (paidPeriod === "all") {
+      periodStart = new Date(2000, 0, 1);
+      periodEnd = new Date(today.getFullYear() + 10, 0, 1);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else if (paidPeriod === "yesterday") {
       periodStart = new Date(today);
       periodStart.setDate(periodStart.getDate() - 1);
       periodEnd = new Date(periodStart);
@@ -608,12 +612,12 @@ export default function Transactions() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="text-sm font-normal">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                {paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
+                {paidPeriod === "all" ? "Todas" : paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="flex flex-col gap-1">
-                {([["yesterday", "Ontem"], ["week", "Última Semana"], ["month", "Último Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                {([["all", "Todas"], ["yesterday", "Ontem"], ["week", "Última Semana"], ["month", "Último Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
                   <button
                     key={val}
                     onClick={() => { setPaidPeriod(val); if (val !== "range") setPaidPeriodPopoverOpen(false); }}
