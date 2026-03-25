@@ -282,11 +282,6 @@ export async function importPLToEvent(
   let created = 0;
   const errors: string[] = [];
 
-  const { data: histAccount } = await supabase
-    .from("financial_accounts")
-    .select("id")
-    .eq("name", "Histórico / Ajuste")
-    .single();
 
   // Use AI to match categories
   const aiMatches = await matchCategoriesWithAI(rows, categories);
@@ -385,9 +380,7 @@ export async function importPLToEvent(
       continue;
     }
 
-    const totalWithIva = roundMoney(row.total || (row.baseAmount * (1 + row.ivaRate / 100)));
-
-    const { data: forecast, error: forecastError } = await supabase
+    const { error: forecastError } = await supabase
       .from("event_forecasts")
       .insert({
         event_id: eventId,
@@ -398,50 +391,11 @@ export async function importPLToEvent(
         iva_rate: row.ivaRate,
         category_id: categoryId,
         status: "draft",
-      })
-      .select("id")
-      .single();
+      });
 
     if (forecastError) {
       errors.push(`Previsão "${row.description}": ${forecastError.message}`);
       continue;
-    }
-
-    const { data: newTx, error: txError } = await supabase
-      .from("transactions")
-      .insert({
-        description: row.description,
-        specification: row.specification,
-        type: "expense",
-        amount: totalWithIva,
-        iva_rate: row.ivaRate,
-        event_id: eventId,
-        category_id: categoryId,
-        date: eventDate,
-        status: "pending",
-        paid_amount: 0,
-        payment_date: null,
-        account_id: null,
-      })
-      .select("id")
-      .single();
-
-    if (txError) {
-      errors.push(`Transação "${row.description}": ${txError.message}`);
-      continue;
-    }
-
-    await supabase.from("event_forecasts").update({ transaction_id: newTx.id }).eq("id", forecast!.id);
-
-    if (row.attachments.length > 0 && newTx) {
-      const docs = row.attachments.map((att) => ({
-        transaction_id: newTx.id,
-        name: att,
-        file_url: att.startsWith("http") ? att : `ref://${att}`,
-        doc_type: "link_externo" as const,
-        uploaded_by: userEmail,
-      }));
-      await supabase.from("transaction_documents").insert(docs);
     }
 
     created++;
