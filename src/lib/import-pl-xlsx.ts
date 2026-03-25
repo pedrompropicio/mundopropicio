@@ -407,7 +407,6 @@ export async function importPLToEvent(
       continue;
     }
 
-    const isPaid = row.status === "paid";
     const { data: newTx, error: txError } = await supabase
       .from("transactions")
       .insert({
@@ -419,10 +418,10 @@ export async function importPLToEvent(
         event_id: eventId,
         category_id: categoryId,
         date: eventDate,
-        status: isPaid ? "paid" : "approved",
-        paid_amount: isPaid ? totalWithIva : 0,
-        payment_date: isPaid ? eventDate : null,
-        account_id: isPaid && histAccount ? histAccount.id : null,
+        status: "pending",
+        paid_amount: 0,
+        payment_date: null,
+        account_id: null,
       })
       .select("id")
       .single();
