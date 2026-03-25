@@ -612,7 +612,7 @@ export default function Transactions() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="text-sm font-normal">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                {paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
+                {paidPeriod === "all" ? "Todas" : paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
