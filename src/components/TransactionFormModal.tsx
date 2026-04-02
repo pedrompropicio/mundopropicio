@@ -728,7 +728,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             return (
               <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Orçamento P&L</span>
+                  <span className="text-muted-foreground">Orçamento BP</span>
                   <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted">
