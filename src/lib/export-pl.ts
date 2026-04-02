@@ -670,7 +670,7 @@ export function exportPLToPDF(
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(`P&L — ${evt.name}`, marginLeft + 4, y + 7);
+    doc.text(`BP — ${evt.name}`, marginLeft + 4, y + 7);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(`${evtF.length} previsões · ${evtT.length} transações`, pageWidth - marginRight - 4, y + 7, { align: "right" });
