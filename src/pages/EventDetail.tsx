@@ -634,7 +634,7 @@ export default function EventDetail() {
                       .select("*")
                       .eq("event_id", sourceId);
                     if (!sourceForecasts || sourceForecasts.length === 0) {
-                      toast({ title: "A data de origem não tem previsões no P&L", variant: "destructive" });
+                      toast({ title: "A data de origem não tem previsões no BP", variant: "destructive" });
                       return;
                     }
                     await supabase.from("event_forecasts").insert(
