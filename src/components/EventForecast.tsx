@@ -52,6 +52,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
