@@ -9,6 +9,7 @@ import { PasswordStrengthIndicator, validatePassword } from "@/components/Passwo
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
+const RECOVERY_OTP_LENGTH = 8;
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -148,27 +149,36 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendRecoveryCode = async () => {
     if (!email) {
       toast({ title: "Erro", description: "Introduza o seu email.", variant: "destructive" });
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       setMode("otp");
-      toast({ title: "Código enviado", description: "Verifique o seu email para o código de 6 dígitos." });
+      toast({ title: "Código enviado", description: `Verifique o seu email para o código de ${RECOVERY_OTP_LENGTH} dígitos.` });
     }
+
     setLoading(false);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendRecoveryCode();
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length !== 6) {
-      toast({ title: "Erro", description: "Introduza o código de 6 dígitos.", variant: "destructive" });
+    if (otpCode.length !== RECOVERY_OTP_LENGTH) {
+      toast({ title: "Erro", description: `Introduza o código de ${RECOVERY_OTP_LENGTH} dígitos.`, variant: "destructive" });
       return;
     }
     setLoading(true);
