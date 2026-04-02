@@ -219,12 +219,18 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   // Build template props from payload.data (HookData structure)
+  // The webhook may send `token` as the full token_hash (>6 chars).
+  // For OTP flows the user only sees a 6-digit code, so we only display
+  // tokens that are exactly 6 numeric digits; otherwise omit.
+  const rawToken = payload.data.token
+  const otpToken = rawToken && /^\d{6}$/.test(rawToken) ? rawToken : undefined
+
   const templateProps = {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
     recipient: payload.data.email,
     confirmationUrl: payload.data.url,
-    token: payload.data.token,
+    token: otpToken,
     email: payload.data.email,
     newEmail: payload.data.new_email,
   }
