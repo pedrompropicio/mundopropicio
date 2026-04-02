@@ -536,7 +536,7 @@ export function exportPLToExcel(
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
     const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
     const rows: any[][] = [
-      [`P&L - ${evt.name}`],
+      [`Business Plan - ${evt.name}`],
       [],
       isComparison
         ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)", "Real s/ IVA (€)", "IVA Real (€)", "Total Real (€)", "Variação (€)"]
