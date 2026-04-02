@@ -90,7 +90,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", targetEventId] });
-      toast({ title: `P&L copiado com sucesso! (${sourceForecastCount} linhas)` });
+      toast({ title: `BP copiado com sucesso! (${sourceForecastCount} linhas)` });
       onClose();
     },
     onError: (err: any) => {
