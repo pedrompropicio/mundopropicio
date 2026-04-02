@@ -150,7 +150,7 @@ export function NotificationBell() {
         id: "pending-forecasts",
         type: "pending_approval",
         severity: "info",
-        title: "Previsões P&L pendentes",
+        title: "Previsões BP pendentes",
         description: `${pendingForecasts.length} previsão(ões) em ${evtNames.length} evento(s)`,
         path: evtNames.length === 1 ? `/eventos/${eventIds[0]}` : "/eventos",
       });

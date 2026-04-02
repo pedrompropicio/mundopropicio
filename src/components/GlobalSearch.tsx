@@ -40,7 +40,7 @@ const PAGES = [
   { label: "Gestão Bilhetes", path: "/bilhetes", icon: Ticket },
   { label: "Transações Recorrentes", path: "/recorrentes", icon: BarChart3 },
   { label: "Relatórios — DRE", path: "/relatorios/dre", icon: BarChart3 },
-  { label: "Relatórios — P&L", path: "/relatorios/pl", icon: BarChart3 },
+  { label: "Relatórios — Business Plan", path: "/relatorios/pl", icon: BarChart3 },
   { label: "Relatórios — Fluxo de Caixa", path: "/relatorios/fluxo-caixa", icon: BarChart3 },
   { label: "Relatórios — Extrato", path: "/relatorios/extrato", icon: BarChart3 },
   { label: "Relatórios — Contas a Pagar", path: "/relatorios/contas-pagar", icon: BarChart3 },

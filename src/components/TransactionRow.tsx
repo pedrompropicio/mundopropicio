@@ -154,7 +154,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning cursor-help">
-                        Fora do P&L
+                        Fora do BP
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
