@@ -152,7 +152,7 @@ function buildPL(
     }));
   }
 
-  // Build override tracking: which category names have "fora do P&L" transactions
+  // Build override tracking: which category names have "fora do BP" transactions
   const overrideByCatName: Record<string, { count: number; notes: string[] }> = {};
   transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
     const catInfo = lookup[t.category_id];

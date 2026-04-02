@@ -215,7 +215,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return s + l.quantity * (Number(l.price) / (1 + rate / 100));
   }, 0);
   const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
-  const ticketRevenue = ticketRevenueNet; // P&L uses net values
+  const ticketRevenue = ticketRevenueNet; // BP uses net values
 
   const parentCacheConfigs = useMemo(
     () => cacheConfigs.filter((config) => config.event_id === parentEventId),

@@ -26,7 +26,7 @@ export interface CachePLLine {
 }
 
 /**
- * Calculate cachê lines for a given event to inject into P&L as expenses.
+ * Calculate cachê lines for a given event to inject into BP as expenses.
  * Returns individual artist lines + total.
  */
 export function calculateCacheLinesForPL(

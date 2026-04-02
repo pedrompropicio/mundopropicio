@@ -140,7 +140,7 @@ export function NotificationBell() {
       });
     }
 
-    // 4. Pending P&L forecasts
+    // 4. Pending BP forecasts
     if (pendingForecasts.length > 0) {
       const eventIds = [...new Set(pendingForecasts.map((f) => f.event_id))];
       const evtNames = eventIds

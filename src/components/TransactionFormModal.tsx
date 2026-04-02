@@ -716,7 +716,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Budget indicator for P&L */}
+          {/* Budget indicator for BP */}
           {hasPL && form.category_id && form.event_id && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
