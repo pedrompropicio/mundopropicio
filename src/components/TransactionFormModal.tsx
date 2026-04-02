@@ -306,7 +306,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
     if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       if (!form.category_id) {
-        toast({ title: "Evento com P&L: selecione uma categoria existente no P&L", variant: "destructive" });
+        toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
         return;
       }
       if (!allowedCategoryIds.includes(form.category_id)) {
