@@ -911,7 +911,7 @@ export function exportPLToPDF(
     doc.setPage(p);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text("Mundo Propício - Relatório P&L", marginLeft, pageHeight - 8);
+    doc.text("Mundo Propício - Relatório Business Plan", marginLeft, pageHeight - 8);
     doc.text(`Página ${p}/${totalPages}`, pageWidth - marginRight, pageHeight - 8, { align: "right" });
   }
 
