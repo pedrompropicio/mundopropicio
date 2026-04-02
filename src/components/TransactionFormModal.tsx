@@ -634,7 +634,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               options={categoryOptions}
               value={form.category_id}
               onValueChange={(v) => setForm({ ...form, category_id: v })}
-              placeholder={hasPLRestriction && !plOverride ? "Selecionar do P&L…" : "Selecionar categoria…"}
+              placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
           </div>
