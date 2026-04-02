@@ -1240,92 +1240,157 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit: (item: any) => void; onDelete: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
-  indented?: boolean; readOnly?: boolean;
+  indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
 }) {
+  const [showAuditLog, setShowAuditLog] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
-  const isProrated = item._prorated;
+
+  const { data: auditLogs = [] } = useQuery({
+    queryKey: ["forecast_audit_log", item.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("forecast_audit_log" as any)
+        .select("*")
+        .eq("forecast_id", item.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: showAuditLog,
+  });
+
+  const hasAuditLogs = auditLogs.length > 0;
+  const colCount = isExpense ? 8 : 7;
 
   return (
-    <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
-      <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
-        <div className="flex items-center gap-2">
-          {readOnly ? (
-            <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
-          ) : isDraft && isAdmin && onToggleSelect ? (
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => onToggleSelect(item.id)}
-              className="h-3.5 w-3.5 shrink-0"
-            />
-          ) : isApproved ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
-          ) : (
-            <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
-          )}
-          <div>
-            <p className="font-medium">{item.description}</p>
-            {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-            {isApproved && item.transaction_id && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                <Link2 className="h-3 w-3" /> Transação criada
-              </p>
+    <>
+      <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
+        <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
+          <div className="flex items-center gap-2">
+            {readOnly ? (
+              <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
+            ) : isDraft && isAdmin && onToggleSelect ? (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggleSelect(item.id)}
+                className="h-3.5 w-3.5 shrink-0"
+              />
+            ) : isApproved ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+            ) : (
+              <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
             )}
+            <div>
+              <p className="font-medium">{item.description}</p>
+              {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+              {isApproved && item.transaction_id && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <Link2 className="h-3 w-3" /> Transação criada
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-      </td>
-      {isExpense && (
-        <td className="py-2.5 pr-3 text-muted-foreground text-xs">
-          {item.specification || "—"}
         </td>
-      )}
-      <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
-        {item.account_categories ? `${item.account_categories.code} - ${item.account_categories.name}` : "—"}
-      </td>
-      <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
-      <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-        {formatCurrency(Number(item.amount))}
-      </td>
-      <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
-        {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
-      </td>
-      <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-        {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
-      </td>
-      <td className="py-2.5 text-right">
-        {readOnly ? (
-          <span className="text-[10px] text-primary/60 italic">rateio</span>
-        ) : (
-          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {isDraft && isAdmin && (
-              <button
-                onClick={() => onApprove(item)}
-                disabled={isApproving}
-                className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
-                title="Aprovar e criar transação"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {isDraft && (
-              <>
-                <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
-                  <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                </button>
-                <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </button>
-              </>
-            )}
-          </div>
+        {isExpense && (
+          <td className="py-2.5 pr-3 text-muted-foreground text-xs">
+            {item.specification || "—"}
+          </td>
         )}
-      </td>
-    </tr>
+        <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
+          {item.account_categories ? `${item.account_categories.code} - ${item.account_categories.name}` : "—"}
+        </td>
+        <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
+        <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+          {formatCurrency(Number(item.amount))}
+        </td>
+        <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
+          {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
+        </td>
+        <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
+          {formatCurrency(Number(item.amount) * (1 + Number(item.iva_rate) / 100))}
+        </td>
+        <td className="py-2.5 text-right">
+          {readOnly ? (
+            <span className="text-[10px] text-primary/60 italic">rateio</span>
+          ) : (
+            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {isApproved && isAdmin && onEditApproved && (
+                <button
+                  onClick={() => onEditApproved(item)}
+                  className="rounded p-1 hover:bg-primary/20"
+                  title="Alterar valor (aprovado)"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-primary" />
+                </button>
+              )}
+              {isApproved && !readOnly && (
+                <button
+                  onClick={() => setShowAuditLog(!showAuditLog)}
+                  className="rounded p-1 hover:bg-secondary"
+                  title="Histórico de alterações"
+                >
+                  {showAuditLog ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                </button>
+              )}
+              {isDraft && isAdmin && (
+                <button
+                  onClick={() => onApprove(item)}
+                  disabled={isApproving}
+                  className="rounded px-2 py-1 text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors disabled:opacity-50"
+                  title="Aprovar e criar transação"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {isDraft && (
+                <>
+                  <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                    <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </td>
+      </tr>
+      {showAuditLog && (
+        <tr>
+          <td colSpan={colCount} className="py-0">
+            <div className="bg-muted/20 border-l-2 border-primary/30 ml-6 my-1 rounded-r-lg px-3 py-2 space-y-1.5 animate-fade-in">
+              {auditLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Sem alterações registadas</p>
+              ) : (
+                auditLogs.map((log: any) => (
+                  <div key={log.id} className="text-xs space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <History className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{log.field_name}:</span>
+                      <span className="text-muted-foreground">{log.old_value}</span>
+                      <span>→</span>
+                      <span className="font-medium">{log.new_value}</span>
+                      <span className="text-muted-foreground ml-auto text-[10px]">{format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}</span>
+                    </div>
+                    {log.observation && (
+                      <p className="text-muted-foreground italic pl-5">"{log.observation}"</p>
+                    )}
+                    <p className="text-muted-foreground text-[10px] pl-5">por {log.changed_by}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
