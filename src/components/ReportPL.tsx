@@ -8,6 +8,16 @@ import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
@@ -339,6 +349,7 @@ export default function ReportPL() {
   const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
 
   const toggleAuditLine = (key: string) => {
     setExpandedAuditLines((prev) => {
@@ -639,12 +650,43 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
+          onClick={() => setShowPdfDialog(true)}
           disabled={activeEvents.length === 0}
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF
         </Button>
       </div>
+
+      <AlertDialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exportar PDF do Business Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja incluir o histórico de alterações (log de auditoria) no PDF?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions);
+                setShowPdfDialog(false);
+              }}
+            >
+              Sem log
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs);
+                setShowPdfDialog(false);
+              }}
+              className="bg-primary"
+            >
+              Com log de alterações
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Global summary cards */}
       <div className={`grid gap-4 sm:grid-cols-2 ${mode === "comparison" ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
