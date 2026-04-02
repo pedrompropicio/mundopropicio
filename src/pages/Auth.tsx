@@ -339,7 +339,7 @@ export default function Auth() {
             <p className="text-sm text-muted-foreground text-center">
               Introduza o código de {RECOVERY_OTP_LENGTH} dígitos enviado para <strong className="text-foreground">{email}</strong>
             </p>
-            <div className="flex justify-center">
+            <div className="flex justify-center overflow-x-auto">
               <InputOTP maxLength={RECOVERY_OTP_LENGTH} value={otpCode} onChange={setOtpCode}>
                 <InputOTPGroup>
                   {Array.from({ length: RECOVERY_OTP_LENGTH }, (_, index) => (

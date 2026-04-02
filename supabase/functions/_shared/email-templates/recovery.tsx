@@ -31,14 +31,13 @@ export const RecoveryEmail = ({
         <Heading style={h1}>Recuperar senha</Heading>
         <Text style={text}>
           Recebemos um pedido para redefinir a sua senha em {siteName}. Use o
-          código abaixo para continuar:
+          código abaixo para continuar na aplicação:
         </Text>
         {token ? (
           <Text style={codeStyle}>{token}</Text>
-        ) : null}
-        {!token && confirmationUrl ? (
+        ) : confirmationUrl ? (
           <Text style={text}>
-            Clique no link abaixo para redefinir a sua senha: {confirmationUrl}
+            Se preferir, também pode redefinir a senha diretamente por este link: {confirmationUrl}
           </Text>
         ) : null}
         <Text style={footer}>
