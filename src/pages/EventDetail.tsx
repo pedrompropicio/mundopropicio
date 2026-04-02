@@ -625,7 +625,7 @@ export default function EventDetail() {
             <div className="space-y-4">
               {eventType === "multi_day" && selectedSubEvent && subEvents.length > 1 && (
                 <CopyFromSelector
-                  label="Copiar P&L de"
+                  label="Copiar BP de"
                   currentId={selectedSubEvent}
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
