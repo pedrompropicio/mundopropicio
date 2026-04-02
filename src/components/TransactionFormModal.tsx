@@ -639,7 +639,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* Justification field when P&L override is active */}
+          {/* Justification field when BP override is active */}
           {plOverride && (
             <div>
               <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>

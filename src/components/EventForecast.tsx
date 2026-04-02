@@ -1206,7 +1206,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </div>
               </div>
 
-              {/* P&L summary row */}
+              {/* BP summary row */}
               {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
                 <div className="glass rounded-xl p-4 flex items-center justify-between">
                   <span className="text-sm font-semibold">Resultado Previsto</span>
