@@ -337,23 +337,20 @@ export default function Auth() {
         {mode === "otp" && (
           <form onSubmit={handleVerifyOtp} className="glass rounded-xl p-6 space-y-4">
             <p className="text-sm text-muted-foreground text-center">
-              Introduza o código de 6 dígitos enviado para <strong className="text-foreground">{email}</strong>
+              Introduza o código de {RECOVERY_OTP_LENGTH} dígitos enviado para <strong className="text-foreground">{email}</strong>
             </p>
             <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+              <InputOTP maxLength={RECOVERY_OTP_LENGTH} value={otpCode} onChange={setOtpCode}>
                 <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
+                  {Array.from({ length: RECOVERY_OTP_LENGTH }, (_, index) => (
+                    <InputOTPSlot key={index} index={index} />
+                  ))}
                 </InputOTPGroup>
               </InputOTP>
             </div>
             <button
               type="submit"
-              disabled={loading || otpCode.length !== 6}
+              disabled={loading || otpCode.length !== RECOVERY_OTP_LENGTH}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
             >
               {loading ? "A verificar…" : "Verificar código"}
@@ -361,7 +358,7 @@ export default function Auth() {
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                onClick={handleForgotPassword as any}
+                onClick={() => void sendRecoveryCode()}
                 disabled={loading}
                 className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
               >
