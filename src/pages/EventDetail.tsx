@@ -296,7 +296,7 @@ export default function EventDetail() {
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
             event.pl_mode === "active" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
           }`}>
-            P&L {event.pl_mode === "active" ? "Ativo" : "Passivo"}
+            BP {event.pl_mode === "active" ? "Ativo" : "Passivo"}
           </span>
           <div className="ml-auto flex gap-2">
             <button
