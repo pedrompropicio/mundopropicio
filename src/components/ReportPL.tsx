@@ -839,7 +839,6 @@ export default function ReportPL() {
                                 </TableRow>
                               )}
                             </React.Fragment>
-                            </TableRow>
                           );
                         })}
                       </TableBody>
