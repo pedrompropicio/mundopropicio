@@ -1278,7 +1278,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
   return (
     <>
-      <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "opacity-60" : "group hover:bg-muted/30 transition-colors"}>
+      <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "group opacity-60 hover:opacity-100 hover:bg-muted/30 transition-all" : "group hover:bg-muted/30 transition-colors"}>
         <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
           <div className="flex items-center gap-2">
             {readOnly ? (
