@@ -796,7 +796,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
-            Estado do P&L
+            Estado do BP
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
