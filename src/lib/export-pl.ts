@@ -26,6 +26,7 @@ interface PLLine {
   quantity?: number;
   unitPrice?: number;
   overrideCount?: number;
+  categoryName?: string;
 }
 
 function pl(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
