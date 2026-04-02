@@ -619,7 +619,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 onClick={() => { setPlOverride(!plOverride); setForm({ ...form, category_id: "", pl_override_note: "" }); }}
                 className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {plOverride ? "⚠️ Categoria fora do P&L — Clique para reverter" : "Categoria não prevista? Clique aqui"}
+                {plOverride ? "⚠️ Categoria fora do BP — Clique para reverter" : "Categoria não prevista? Clique aqui"}
               </button>
             </div>
           )}
