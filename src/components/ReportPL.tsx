@@ -666,9 +666,9 @@ export default function ReportPL() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold truncate">{evt.name}</p>
                     {evt.overrideCount > 0 && (
-                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning" title={`${evt.overrideCount} transação(ões) fora do P&L`}>
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning" title={`${evt.overrideCount} transação(ões) fora do BP`}>
                         <AlertTriangle className="h-3 w-3" />
-                        {evt.overrideCount} fora do P&L
+                        {evt.overrideCount} fora do BP
                       </span>
                     )}
                   </div>
