@@ -56,7 +56,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         .eq("event_id", selectedEventId);
       if (fetchErr) throw fetchErr;
       if (!sourceForecasts || sourceForecasts.length === 0) {
-        throw new Error("O evento selecionado não tem previsões no P&L");
+        throw new Error("O evento selecionado não tem previsões no BP");
       }
 
       // If replace mode, delete existing forecasts
