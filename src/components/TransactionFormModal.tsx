@@ -611,7 +611,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
 
-          {/* P&L Override toggle — only when restriction is active */}
+          {/* BP Override toggle — only when restriction is active */}
           {hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && (
             <div className="flex items-center gap-2">
               <button
