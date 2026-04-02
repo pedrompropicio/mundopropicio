@@ -692,7 +692,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-warning">Lançamento no evento-pai (rateio)</p>
                   <p className="text-xs text-muted-foreground">
-                    Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e P&L.
+                    Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e BP.
                     Se pretende lançar para uma cidade específica, selecione a data correspondente.
                   </p>
                 </div>
