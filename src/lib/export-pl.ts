@@ -724,7 +724,7 @@ export function exportPLToPDF(
       }
 
       const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
-      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do P&L]` : "";
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do BP]` : "";
       doc.text(label, colX[0] + 2, y + 4);
       if (overrideSuffix) {
         const labelWidth = doc.getTextWidth(label);
