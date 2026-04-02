@@ -9,6 +9,7 @@ import { PasswordStrengthIndicator, validatePassword } from "@/components/Passwo
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
+const RECOVERY_OTP_LENGTH = 8;
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -148,27 +149,36 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendRecoveryCode = async () => {
     if (!email) {
       toast({ title: "Erro", description: "Introduza o seu email.", variant: "destructive" });
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       setMode("otp");
-      toast({ title: "Código enviado", description: "Verifique o seu email para o código de 6 dígitos." });
+      toast({ title: "Código enviado", description: `Verifique o seu email para o código de ${RECOVERY_OTP_LENGTH} dígitos.` });
     }
+
     setLoading(false);
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendRecoveryCode();
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length !== 6) {
-      toast({ title: "Erro", description: "Introduza o código de 6 dígitos.", variant: "destructive" });
+    if (otpCode.length !== RECOVERY_OTP_LENGTH) {
+      toast({ title: "Erro", description: `Introduza o código de ${RECOVERY_OTP_LENGTH} dígitos.`, variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -327,23 +337,20 @@ export default function Auth() {
         {mode === "otp" && (
           <form onSubmit={handleVerifyOtp} className="glass rounded-xl p-6 space-y-4">
             <p className="text-sm text-muted-foreground text-center">
-              Introduza o código de 6 dígitos enviado para <strong className="text-foreground">{email}</strong>
+              Introduza o código de {RECOVERY_OTP_LENGTH} dígitos enviado para <strong className="text-foreground">{email}</strong>
             </p>
-            <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+            <div className="flex justify-center overflow-x-auto">
+              <InputOTP maxLength={RECOVERY_OTP_LENGTH} value={otpCode} onChange={setOtpCode}>
                 <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
+                  {Array.from({ length: RECOVERY_OTP_LENGTH }, (_, index) => (
+                    <InputOTPSlot key={index} index={index} />
+                  ))}
                 </InputOTPGroup>
               </InputOTP>
             </div>
             <button
               type="submit"
-              disabled={loading || otpCode.length !== 6}
+              disabled={loading || otpCode.length !== RECOVERY_OTP_LENGTH}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50 glow-primary"
             >
               {loading ? "A verificar…" : "Verificar código"}
@@ -351,7 +358,7 @@ export default function Auth() {
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                onClick={handleForgotPassword as any}
+                onClick={() => void sendRecoveryCode()}
                 disabled={loading}
                 className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors"
               >

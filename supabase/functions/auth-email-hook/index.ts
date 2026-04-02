@@ -61,7 +61,7 @@ const SAMPLE_DATA: Record<string, object> = {
   },
   recovery: {
     siteName: SITE_NAME,
-    token: '123456',
+    token: '12345678',
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
   invite: {
@@ -219,11 +219,11 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   // Build template props from payload.data (HookData structure)
-  // The webhook may send `token` as the full token_hash (>6 chars).
-  // For OTP flows the user only sees a 6-digit code, so we only display
-  // tokens that are exactly 6 numeric digits; otherwise omit.
+  // Recovery emails in this project use numeric OTP codes.
+  // The backend is currently issuing 8-digit recovery tokens, so we keep
+  // numeric tokens and only fall back to the link if the token is missing or non-numeric.
   const rawToken = payload.data.token
-  const otpToken = rawToken && /^\d{6}$/.test(rawToken) ? rawToken : undefined
+  const otpToken = rawToken && /^\d{6,10}$/.test(rawToken) ? rawToken : undefined
 
   const templateProps = {
     siteName: SITE_NAME,
