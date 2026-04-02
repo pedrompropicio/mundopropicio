@@ -336,8 +336,18 @@ function buildPL(
 
 export default function ReportPL() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
+
+  const toggleAuditLine = (key: string) => {
+    setExpandedAuditLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
