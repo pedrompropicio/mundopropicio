@@ -166,7 +166,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
               <span className="font-medium">{selectedEvent.name}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Linhas no P&L:</span>
+              <span className="text-muted-foreground">Linhas no BP:</span>
               <span className="font-mono font-medium">{sourceForecastCount}</span>
             </div>
 
