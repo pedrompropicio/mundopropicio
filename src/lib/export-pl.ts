@@ -456,7 +456,7 @@ export function exportPLToExcel(
   const hierarchy = buildEventHierarchyMaps(allEvents);
 
   const summaryRows: any[][] = [
-    [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
+    [isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO"],
     [],
     isComparison
       ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
