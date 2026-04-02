@@ -1,9 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle, History } from "lucide-react";
+import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface PLLine {
   unitPrice?: number;
   overrideCount?: number;
   overrideNote?: string;
+  categoryName?: string;
 }
 
 function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
@@ -242,10 +244,11 @@ function buildPL(
   // Helper to enrich a detail line with override info
   const enrichWithOverride = (line: PLLine, detailName: string): PLLine => {
     const ov = overrideByCatName[detailName];
+    const enriched = { ...line, categoryName: detailName };
     if (ov) {
-      return { ...line, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+      return { ...enriched, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
     }
-    return line;
+    return enriched;
   };
 
   lines.push(plLine({
@@ -333,8 +336,18 @@ function buildPL(
 
 export default function ReportPL() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
+
+  const toggleAuditLine = (key: string) => {
+    setExpandedAuditLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -414,6 +427,18 @@ export default function ReportPL() {
       const { data, error } = await supabase.from("event_cache_deductions").select("*");
       if (error) throw error;
       return data as CacheDeduction[];
+    },
+  });
+
+  const { data: forecastAuditLogs = [] } = useQuery({
+    queryKey: ["forecast-audit-logs-report"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("forecast_audit_log")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -733,37 +758,87 @@ export default function ReportPL() {
                           const fIva = showAbs ? Math.abs(line.forecastIva) : line.forecastIva;
                           const fTotal = showAbs ? Math.abs(line.forecastTotal) : line.forecastTotal;
 
+                          // Find audit logs for this category line
+                          const lineLogs = (line.categoryName && !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal && !line.subIndent)
+                            ? (() => {
+                                const catForecasts = evtF.filter((f: any) => {
+                                  const cat = categories.find((c: any) => c.id === f.category_id);
+                                  return cat?.name === line.categoryName;
+                                });
+                                const forecastIds = catForecasts.map((f: any) => f.id);
+                                return forecastAuditLogs.filter((log: any) => forecastIds.includes(log.forecast_id));
+                              })()
+                            : [];
+                          const hasAuditLogs = lineLogs.length > 0;
+                          const auditKey = `${evt.id}-${i}`;
+                          const isAuditOpen = expandedAuditLines.has(auditKey);
+                          const colCount = 6 + (mode === "comparison" ? 2 : 0);
+
                           return (
-                            <TableRow key={i} className={rowClass}>
-                              <TableCell className={labelClass}>
-                                <span className="inline-flex items-center gap-1.5">
-                                  {line.label}
-                                  {hasOverride && (
-                                    <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
-                                      <AlertTriangle className="h-2.5 w-2.5" />
-                                      {line.overrideCount} fora do BP
-                                    </span>
-                                  )}
-                                </span>
-                              </TableCell>
-                              <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
-                                {line.quantity != null ? line.quantity.toLocaleString("pt-PT") : ""}
-                              </TableCell>
-                              <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
-                                {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
-                              </TableCell>
-                              <TableCell className={valClass}>{formatCurrency(fBase)}</TableCell>
-                              <TableCell className={ivaClass}>{formatCurrency(fIva)}</TableCell>
-                              <TableCell className={valClass}>{formatCurrency(fTotal)}</TableCell>
-                              {mode === "comparison" && (
-                                <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
-                              )}
-                              {mode === "comparison" && (
-                                <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
-                                  {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
+                            <React.Fragment key={i}>
+                              <TableRow className={rowClass}>
+                                <TableCell className={labelClass}>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    {line.label}
+                                    {hasOverride && (
+                                      <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
+                                        <AlertTriangle className="h-2.5 w-2.5" />
+                                        {line.overrideCount} fora do BP
+                                      </span>
+                                    )}
+                                    {hasAuditLogs && (
+                                      <button
+                                        onClick={() => toggleAuditLine(auditKey)}
+                                        className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                                        title="Ver histórico de alterações"
+                                      >
+                                        <History className="h-2.5 w-2.5" />
+                                        {lineLogs.length}
+                                      </button>
+                                    )}
+                                  </span>
                                 </TableCell>
+                                <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
+                                  {line.quantity != null ? line.quantity.toLocaleString("pt-PT") : ""}
+                                </TableCell>
+                                <TableCell className={`text-right font-mono ${line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs text-muted-foreground" : "text-muted-foreground"}`}>
+                                  {line.unitPrice != null ? formatCurrency(line.unitPrice) : ""}
+                                </TableCell>
+                                <TableCell className={valClass}>{formatCurrency(fBase)}</TableCell>
+                                <TableCell className={ivaClass}>{formatCurrency(fIva)}</TableCell>
+                                <TableCell className={valClass}>{formatCurrency(fTotal)}</TableCell>
+                                {mode === "comparison" && (
+                                  <TableCell className={valClass}>{line.subIndent ? (line.actual > 0 ? formatCurrency(line.actual) : "—") : (line.isGrandTotal ? formatCurrency(line.actual) : formatCurrency(Math.abs(line.actual)))}</TableCell>
+                                )}
+                                {mode === "comparison" && (
+                                  <TableCell className={`text-right font-mono ${line.isGrandTotal ? "text-base font-bold" : line.isTotal ? "font-semibold" : line.isSubTotal ? "text-xs font-semibold" : line.subIndent ? "text-xs" : ""} ${line.variance >= 0 ? "text-success" : "text-destructive"}`}>
+                                    {line.subIndent ? "—" : `${line.variance >= 0 ? "+" : ""}${formatCurrency(line.variance)}`}
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                              {isAuditOpen && hasAuditLogs && (
+                                <TableRow className="bg-muted/30">
+                                  <TableCell colSpan={colCount} className="p-0">
+                                    <div className="px-10 py-2 space-y-1.5">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                                        <History className="h-3 w-3" /> Histórico de Alterações
+                                      </p>
+                                      {lineLogs.map((log: any) => (
+                                        <div key={log.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs rounded-md bg-background/60 px-3 py-1.5 border border-border/30">
+                                          <span className="text-muted-foreground">{format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}</span>
+                                          <span className="font-medium text-primary">{log.field_name}:</span>
+                                          <span className="text-destructive line-through">{log.old_value}</span>
+                                          <span>→</span>
+                                          <span className="font-medium text-foreground">{log.new_value}</span>
+                                          {log.observation && <span className="text-muted-foreground italic">"{log.observation}"</span>}
+                                          <span className="text-muted-foreground text-[10px]">por {log.changed_by}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
                               )}
-                            </TableRow>
+                            </React.Fragment>
                           );
                         })}
                       </TableBody>
