@@ -35,9 +35,10 @@ export const RecoveryEmail = ({
         </Text>
         {token ? (
           <Text style={codeStyle}>{token}</Text>
-        ) : confirmationUrl ? (
+        ) : null}
+        {!token && confirmationUrl ? (
           <Text style={text}>
-            Se não conseguir usar o código, aceda a: {confirmationUrl}
+            Clique no link abaixo para redefinir a sua senha: {confirmationUrl}
           </Text>
         ) : null}
         <Text style={footer}>
