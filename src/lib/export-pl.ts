@@ -544,7 +544,7 @@ export function exportPLToExcel(
     ];
     plLines.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "      " : line.isGroupHeader ? "  " : "";
-      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do P&L)` : "";
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do BP)` : "";
       if (isComparison) {
         rows.push([
           prefix + line.label + overrideSuffix,
