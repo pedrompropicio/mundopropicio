@@ -1,5 +1,5 @@
 /**
- * Shared helper to calculate cachê values for P&L integration.
+ * Shared helper to calculate cachê values for BP integration.
  */
 
 export interface CacheConfig {
