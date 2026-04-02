@@ -152,7 +152,7 @@ function buildPL(
     }));
   }
 
-  // Build override tracking: which category names have "fora do P&L" transactions
+  // Build override tracking: which category names have "fora do BP" transactions
   const overrideByCatName: Record<string, { count: number; notes: string[] }> = {};
   transactions.filter((t: any) => t.pl_override_note).forEach((t: any) => {
     const catInfo = lookup[t.category_id];
@@ -666,9 +666,9 @@ export default function ReportPL() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold truncate">{evt.name}</p>
                     {evt.overrideCount > 0 && (
-                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning" title={`${evt.overrideCount} transação(ões) fora do P&L`}>
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning" title={`${evt.overrideCount} transação(ões) fora do BP`}>
                         <AlertTriangle className="h-3 w-3" />
-                        {evt.overrideCount} fora do P&L
+                        {evt.overrideCount} fora do BP
                       </span>
                     )}
                   </div>
@@ -741,7 +741,7 @@ export default function ReportPL() {
                                   {hasOverride && (
                                     <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
                                       <AlertTriangle className="h-2.5 w-2.5" />
-                                      {line.overrideCount} fora do P&L
+                                      {line.overrideCount} fora do BP
                                     </span>
                                   )}
                                 </span>

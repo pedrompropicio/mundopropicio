@@ -456,7 +456,7 @@ export function exportPLToExcel(
   const hierarchy = buildEventHierarchyMaps(allEvents);
 
   const summaryRows: any[][] = [
-    [isComparison ? "RELATÓRIO P&L - PREVISÃO vs REALIZADO" : "RELATÓRIO P&L - PREVISÃO"],
+    [isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO"],
     [],
     isComparison
       ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
@@ -536,7 +536,7 @@ export function exportPLToExcel(
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
     const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
     const rows: any[][] = [
-      [`P&L - ${evt.name}`],
+      [`Business Plan - ${evt.name}`],
       [],
       isComparison
         ? ["Rubrica", "Qtd", "Preço Unit. (€)", "Valor s/ IVA (€)", "IVA (€)", "Total (€)", "Real s/ IVA (€)", "IVA Real (€)", "Total Real (€)", "Variação (€)"]
@@ -544,7 +544,7 @@ export function exportPLToExcel(
     ];
     plLines.forEach((line) => {
       const prefix = line.subIndent ? "      " : line.indent ? "      " : line.isGroupHeader ? "  " : "";
-      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do P&L)` : "";
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` ⚠ (${line.overrideCount} fora do BP)` : "";
       if (isComparison) {
         rows.push([
           prefix + line.label + overrideSuffix,
@@ -579,7 +579,7 @@ export function exportPLToExcel(
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  XLSX.writeFile(wb, `PL_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(wb, `BP_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 export function exportPLToPDF(
@@ -645,7 +645,7 @@ export function exportPLToPDF(
 
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(isComparison ? "Relatório P&L — Previsão vs Realizado" : "Relatório P&L — Previsão", marginLeft, y);
+  doc.text(isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão", marginLeft, y);
   y += 7;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
@@ -670,7 +670,7 @@ export function exportPLToPDF(
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(`P&L — ${evt.name}`, marginLeft + 4, y + 7);
+    doc.text(`BP — ${evt.name}`, marginLeft + 4, y + 7);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(`${evtF.length} previsões · ${evtT.length} transações`, pageWidth - marginRight - 4, y + 7, { align: "right" });
@@ -724,7 +724,7 @@ export function exportPLToPDF(
       }
 
       const label = line.subIndent ? `       ${line.label}` : line.indent ? `        ${line.label}` : line.isGroupHeader ? `  ${line.label}` : line.label;
-      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do P&L]` : "";
+      const overrideSuffix = (line.overrideCount ?? 0) > 0 ? ` [${line.overrideCount} fora do BP]` : "";
       doc.text(label, colX[0] + 2, y + 4);
       if (overrideSuffix) {
         const labelWidth = doc.getTextWidth(label);
@@ -911,9 +911,9 @@ export function exportPLToPDF(
     doc.setPage(p);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text("Mundo Propício - Relatório P&L", marginLeft, pageHeight - 8);
+    doc.text("Mundo Propício - Relatório Business Plan", marginLeft, pageHeight - 8);
     doc.text(`Página ${p}/${totalPages}`, pageWidth - marginRight, pageHeight - 8, { align: "right" });
   }
 
-  doc.save(`PL_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`BP_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
 }

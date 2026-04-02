@@ -245,7 +245,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
-      // Auto-approve only if event has P&L forecasts and category matches
+      // Auto-approve only if event has BP forecasts and category matches
       const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
         (f) => f.type === data.type && f.category_id === data.category_id
       );
@@ -306,19 +306,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
     if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       if (!form.category_id) {
-        toast({ title: "Evento com P&L: selecione uma categoria existente no P&L", variant: "destructive" });
+        toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
         return;
       }
       if (!allowedCategoryIds.includes(form.category_id)) {
-        toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
+        toast({ title: "Esta categoria não existe no BP do evento", variant: "destructive" });
         return;
       }
     }
     if (plOverride && !form.pl_override_note.trim()) {
-      toast({ title: "Justificação obrigatória para categorias fora do P&L", variant: "destructive" });
+      toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
-    // Warning (non-blocking) when amount exceeds P&L forecast
+    // Warning (non-blocking) when amount exceeds BP forecast
     if (hasPL && form.event_id && form.category_id) {
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
@@ -327,7 +327,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       const remaining = forecast - used;
       if (forecast > 0 && newAmount > remaining) {
         toast({
-          title: "⚠️ Valor ultrapassa o previsto no P&L",
+          title: "⚠️ Valor ultrapassa o previsto no BP",
           description: `Previsto: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€ | Lançando: ${newAmount.toFixed(2)}€`,
         });
       }
@@ -383,8 +383,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Evento {rootFlags.event_required ? "*" : ""}
-              {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
-              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(P&L Passivo)</span>}
+              {isActivePL && <span className="ml-1 text-success">(BP Ativo)</span>}
+              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(BP Passivo)</span>}
             </label>
             <SearchableSelect
               options={eventOptions}
@@ -395,7 +395,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* P&L forecast lines — auto-expand when event selected */}
+          {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
 
@@ -525,7 +525,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             return (
               <div className="rounded-lg border border-border/50 bg-secondary/20 p-3 space-y-2">
                 <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-                  P&L{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
+                  BP{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
                 <p className="text-[10px] text-muted-foreground">Clique numa linha para preencher automaticamente os dados da transação</p>
                 <div
@@ -607,11 +607,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {hasPL && form.event_id && !plExpanded && (
             <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-              P&L — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
+              BP — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
             </button>
           )}
 
-          {/* P&L Override toggle — only when restriction is active */}
+          {/* BP Override toggle — only when restriction is active */}
           {hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && (
             <div className="flex items-center gap-2">
               <button
@@ -619,7 +619,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 onClick={() => { setPlOverride(!plOverride); setForm({ ...form, category_id: "", pl_override_note: "" }); }}
                 className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {plOverride ? "⚠️ Categoria fora do P&L — Clique para reverter" : "Categoria não prevista? Clique aqui"}
+                {plOverride ? "⚠️ Categoria fora do BP — Clique para reverter" : "Categoria não prevista? Clique aqui"}
               </button>
             </div>
           )}
@@ -628,18 +628,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Categoria {hasPLRestriction && !plOverride ? "*" : ""}
-              {plOverride && <span className="ml-1 text-warning font-semibold">⚠️ Fora do P&L</span>}
+              {plOverride && <span className="ml-1 text-warning font-semibold">⚠️ Fora do BP</span>}
             </label>
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
               onValueChange={(v) => setForm({ ...form, category_id: v })}
-              placeholder={hasPLRestriction && !plOverride ? "Selecionar do P&L…" : "Selecionar categoria…"}
+              placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
           </div>
 
-          {/* Justification field when P&L override is active */}
+          {/* Justification field when BP override is active */}
           {plOverride && (
             <div>
               <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
@@ -692,7 +692,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-warning">Lançamento no evento-pai (rateio)</p>
                   <p className="text-xs text-muted-foreground">
-                    Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e P&L.
+                    Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e BP.
                     Se pretende lançar para uma cidade específica, selecione a data correspondente.
                   </p>
                 </div>
@@ -716,7 +716,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Budget indicator for P&L */}
+          {/* Budget indicator for BP */}
           {hasPL && form.category_id && form.event_id && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
@@ -728,7 +728,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             return (
               <div className={`rounded-lg border p-3 space-y-1.5 ${exceedsForcast ? "border-warning bg-warning/10" : "border-border/50 bg-secondary/30"}`}>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Orçamento P&L</span>
+                  <span className="text-muted-foreground">Orçamento BP</span>
                   <span className="font-mono font-medium">{pct.toFixed(0)}% utilizado</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted">

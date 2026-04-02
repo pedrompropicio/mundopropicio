@@ -484,9 +484,9 @@ export default function Events() {
                 </div>
               </div>
 
-              {/* P&L Mode */}
+              {/* BP Mode */}
               <div>
-                <label className="mb-2 block text-xs font-medium text-muted-foreground">Modo P&L *</label>
+                <label className="mb-2 block text-xs font-medium text-muted-foreground">Modo BP *</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -497,8 +497,8 @@ export default function Events() {
                         : "border-border bg-background text-muted-foreground hover:border-success/40"
                     }`}
                   >
-                    <span className="block font-semibold">P&L Ativo</span>
-                    <span className="block text-[10px] opacity-70 mt-0.5">Controla saldo por categoria do P&L</span>
+                    <span className="block font-semibold">BP Ativo</span>
+                    <span className="block text-[10px] opacity-70 mt-0.5">Controla saldo por categoria do BP</span>
                   </button>
                   <button
                     type="button"
@@ -509,7 +509,7 @@ export default function Events() {
                         : "border-border bg-background text-muted-foreground hover:border-primary/40"
                     }`}
                   >
-                    <span className="block font-semibold">P&L Passivo</span>
+                    <span className="block font-semibold">BP Passivo</span>
                     <span className="block text-[10px] opacity-70 mt-0.5">Transações livres sem controlo</span>
                   </button>
                 </div>

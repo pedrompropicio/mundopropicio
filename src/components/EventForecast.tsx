@@ -137,7 +137,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: ticketLots.length > 0,
   });
 
-  // Fetch cache configs for this event and its child events (for consolidated P&L)
+  // Fetch cache configs for this event and its child events (for consolidated BP)
   const { data: cacheConfigs = [] } = useQuery({
     queryKey: ["event_cache_configs", ticketEventIds.join(",")],
     queryFn: async () => {
@@ -208,14 +208,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }));
   }, [parentForecasts, siblingCount, parentEventId]);
 
-  // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
+  // Ticket revenue: price includes IVA ("por dentro"), extract net value for BP
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const ticketRevenueNet = ticketLots.reduce((s, l) => {
     const rate = Number((l as any).iva_rate ?? 6);
     return s + l.quantity * (Number(l.price) / (1 + rate / 100));
   }, 0);
   const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
-  const ticketRevenue = ticketRevenueNet; // P&L uses net values
+  const ticketRevenue = ticketRevenueNet; // BP uses net values
 
   const parentCacheConfigs = useMemo(
     () => cacheConfigs.filter((config) => config.event_id === parentEventId),
@@ -525,7 +525,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             }
           }
         }
-        if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o P&L deste evento?`)) return;
+        if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o BP deste evento?`)) return;
         const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system", parentEventId);
         queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
         queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
@@ -796,7 +796,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
-            Estado do P&L
+            Estado do BP
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
@@ -849,7 +849,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
                 >
-                  <Copy className="h-3.5 w-3.5" /> Copiar P&L
+                  <Copy className="h-3.5 w-3.5" /> Copiar BP
                 </button>
               </>
             )}
@@ -1206,7 +1206,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </div>
               </div>
 
-              {/* P&L summary row */}
+              {/* BP summary row */}
               {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
                 <div className="glass rounded-xl p-4 flex items-center justify-between">
                   <span className="text-sm font-semibold">Resultado Previsto</span>

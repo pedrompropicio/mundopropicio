@@ -56,7 +56,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         .eq("event_id", selectedEventId);
       if (fetchErr) throw fetchErr;
       if (!sourceForecasts || sourceForecasts.length === 0) {
-        throw new Error("O evento selecionado não tem previsões no P&L");
+        throw new Error("O evento selecionado não tem previsões no BP");
       }
 
       // If replace mode, delete existing forecasts
@@ -90,11 +90,11 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", targetEventId] });
-      toast({ title: `P&L copiado com sucesso! (${sourceForecastCount} linhas)` });
+      toast({ title: `BP copiado com sucesso! (${sourceForecastCount} linhas)` });
       onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao copiar P&L", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao copiar BP", description: err.message, variant: "destructive" });
     },
   });
 
@@ -109,7 +109,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <Copy className="h-5 w-5 text-primary" /> Copiar P&L
+            <Copy className="h-5 w-5 text-primary" /> Copiar Business Plan
           </h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary">
             <X className="h-5 w-5" />
@@ -117,7 +117,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Copiar previsões de P&L de outro evento para <span className="font-semibold text-foreground">{targetEventName}</span>
+          Copiar previsões de BP de outro evento para <span className="font-semibold text-foreground">{targetEventName}</span>
         </p>
 
         {/* Search */}
@@ -166,7 +166,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
               <span className="font-medium">{selectedEvent.name}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Linhas no P&L:</span>
+              <span className="text-muted-foreground">Linhas no BP:</span>
               <span className="font-mono font-medium">{sourceForecastCount}</span>
             </div>
 
@@ -175,7 +175,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-warning">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  <span>O evento de destino já tem {existingForecastCount} linhas no P&L</span>
+                  <span>O evento de destino já tem {existingForecastCount} linhas no BP</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -216,7 +216,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         >
           {copyMutation.isPending
             ? "A copiar…"
-            : `Copiar ${sourceForecastCount} linhas de P&L`}
+            : `Copiar ${sourceForecastCount} linhas de BP`}
         </button>
       </div>
     </div>

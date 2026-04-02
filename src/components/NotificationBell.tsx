@@ -140,7 +140,7 @@ export function NotificationBell() {
       });
     }
 
-    // 4. Pending P&L forecasts
+    // 4. Pending BP forecasts
     if (pendingForecasts.length > 0) {
       const eventIds = [...new Set(pendingForecasts.map((f) => f.event_id))];
       const evtNames = eventIds
@@ -150,7 +150,7 @@ export function NotificationBell() {
         id: "pending-forecasts",
         type: "pending_approval",
         severity: "info",
-        title: "Previsões P&L pendentes",
+        title: "Previsões BP pendentes",
         description: `${pendingForecasts.length} previsão(ões) em ${evtNames.length} evento(s)`,
         path: evtNames.length === 1 ? `/eventos/${eventIds[0]}` : "/eventos",
       });

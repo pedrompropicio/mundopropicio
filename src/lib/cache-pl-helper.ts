@@ -1,5 +1,5 @@
 /**
- * Shared helper to calculate cachê values for P&L integration.
+ * Shared helper to calculate cachê values for BP integration.
  */
 
 export interface CacheConfig {
@@ -26,7 +26,7 @@ export interface CachePLLine {
 }
 
 /**
- * Calculate cachê lines for a given event to inject into P&L as expenses.
+ * Calculate cachê lines for a given event to inject into BP as expenses.
  * Returns individual artist lines + total.
  */
 export function calculateCacheLinesForPL(

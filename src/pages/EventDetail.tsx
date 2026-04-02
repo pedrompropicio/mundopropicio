@@ -296,7 +296,7 @@ export default function EventDetail() {
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
             event.pl_mode === "active" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
           }`}>
-            P&L {event.pl_mode === "active" ? "Ativo" : "Passivo"}
+            BP {event.pl_mode === "active" ? "Ativo" : "Passivo"}
           </span>
           <div className="ml-auto flex gap-2">
             <button
@@ -409,7 +409,7 @@ export default function EventDetail() {
           </div>
           {isGlobalView && (
             <p className="mt-2 text-[11px] text-muted-foreground">
-              ℹ️ Transações do evento-pai são custos partilhados (rateio igual por {subEventCount} datas nos relatórios DRE/P&L).
+              ℹ️ Transações do evento-pai são custos partilhados (rateio igual por {subEventCount} datas nos relatórios DRE/BP).
             </p>
           )}
         </div>
@@ -455,7 +455,7 @@ export default function EventDetail() {
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
           <TabsTrigger value="cache">Cachê</TabsTrigger>
-          <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
+          <TabsTrigger value="forecast">Business Plan</TabsTrigger>
           {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners">Sócios</TabsTrigger>}
         </TabsList>
 
@@ -625,7 +625,7 @@ export default function EventDetail() {
             <div className="space-y-4">
               {eventType === "multi_day" && selectedSubEvent && subEvents.length > 1 && (
                 <CopyFromSelector
-                  label="Copiar P&L de"
+                  label="Copiar BP de"
                   currentId={selectedSubEvent}
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
@@ -634,7 +634,7 @@ export default function EventDetail() {
                       .select("*")
                       .eq("event_id", sourceId);
                     if (!sourceForecasts || sourceForecasts.length === 0) {
-                      toast({ title: "A data de origem não tem previsões no P&L", variant: "destructive" });
+                      toast({ title: "A data de origem não tem previsões no BP", variant: "destructive" });
                       return;
                     }
                     await supabase.from("event_forecasts").insert(
@@ -651,7 +651,7 @@ export default function EventDetail() {
                       }))
                     );
                     queryClient.invalidateQueries({ queryKey: ["event_forecasts", selectedSubEvent] });
-                    toast({ title: "P&L copiado com sucesso!" });
+                    toast({ title: "BP copiado com sucesso!" });
                   }}
                 />
               )}

@@ -59,7 +59,7 @@ export const ALL_PERMISSIONS = [
   { key: "manage_categories", label: "Gerir Plano de Contas", group: "Operacional" },
   { key: "manage_calendar", label: "Gerir Calendário", group: "Operacional" },
   { key: "view_report_dre", label: "Relatório DRE", group: "Relatórios" },
-  { key: "view_report_pl", label: "Relatório P&L", group: "Relatórios" },
+  { key: "view_report_pl", label: "Relatório Business Plan", group: "Relatórios" },
   { key: "view_report_cashflow", label: "Relatório Fluxo de Caixa", group: "Relatórios" },
   { key: "view_report_bank_statement", label: "Relatório Extrato Bancário", group: "Relatórios" },
   { key: "view_report_contas_pagar", label: "Relatório Contas a Pagar", group: "Relatórios" },
