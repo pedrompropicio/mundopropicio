@@ -327,7 +327,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       const remaining = forecast - used;
       if (forecast > 0 && newAmount > remaining) {
         toast({
-          title: "⚠️ Valor ultrapassa o previsto no P&L",
+          title: "⚠️ Valor ultrapassa o previsto no BP",
           description: `Previsto: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€ | Lançando: ${newAmount.toFixed(2)}€`,
         });
       }
