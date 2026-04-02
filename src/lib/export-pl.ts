@@ -585,7 +585,8 @@ export function exportPLToExcel(
 export function exportPLToPDF(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
-  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
+  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
+  auditLogs: any[] = []
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
