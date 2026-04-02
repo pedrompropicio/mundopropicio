@@ -395,7 +395,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* P&L forecast lines — auto-expand when event selected */}
+          {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
             const typeForecasts = eventForecasts.filter(f => f.type === form.type);
 
