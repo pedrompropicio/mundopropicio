@@ -244,10 +244,11 @@ function buildPL(
   // Helper to enrich a detail line with override info
   const enrichWithOverride = (line: PLLine, detailName: string): PLLine => {
     const ov = overrideByCatName[detailName];
+    const enriched = { ...line, categoryName: detailName };
     if (ov) {
-      return { ...line, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+      return { ...enriched, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
     }
-    return line;
+    return enriched;
   };
 
   lines.push(plLine({
