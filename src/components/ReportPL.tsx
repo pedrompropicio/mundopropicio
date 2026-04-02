@@ -419,6 +419,18 @@ export default function ReportPL() {
     },
   });
 
+  const { data: forecastAuditLogs = [] } = useQuery({
+    queryKey: ["forecast-audit-logs-report"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("forecast_audit_log")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Build proration map
   const subEventParentMap: Record<string, string> = {};
   const subCountByParent: Record<string, number> = {};
