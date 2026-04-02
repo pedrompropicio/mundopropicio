@@ -849,7 +849,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
                 >
-                  <Copy className="h-3.5 w-3.5" /> Copiar P&L
+                  <Copy className="h-3.5 w-3.5" /> Copiar BP
                 </button>
               </>
             )}
