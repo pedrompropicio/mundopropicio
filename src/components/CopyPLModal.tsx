@@ -175,7 +175,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-warning">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  <span>O evento de destino já tem {existingForecastCount} linhas no P&L</span>
+                  <span>O evento de destino já tem {existingForecastCount} linhas no BP</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
