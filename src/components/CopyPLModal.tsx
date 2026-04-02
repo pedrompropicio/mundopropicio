@@ -109,7 +109,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <Copy className="h-5 w-5 text-primary" /> Copiar P&L
+            <Copy className="h-5 w-5 text-primary" /> Copiar Business Plan
           </h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary">
             <X className="h-5 w-5" />
