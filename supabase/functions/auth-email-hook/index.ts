@@ -207,7 +207,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   // The email action type is in payload.data.action_type (e.g., "signup", "recovery")
   // payload.type is the hook event type ("auth")
   const emailType = payload.data.action_type
-  console.log('Received auth event', { emailType, email: payload.data.email, run_id })
+  console.log('Received auth event', { emailType, email: payload.data.email, run_id, tokenLength: payload.data.token?.length, tokenPreview: payload.data.token?.substring(0, 3) + '...', hasUrl: !!payload.data.url })
 
   const EmailTemplate = EMAIL_TEMPLATES[emailType]
   if (!EmailTemplate) {
@@ -219,12 +219,18 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   // Build template props from payload.data (HookData structure)
+  // The webhook may send `token` as the full token_hash (>6 chars).
+  // For OTP flows the user only sees a 6-digit code, so we only display
+  // tokens that are exactly 6 numeric digits; otherwise omit.
+  const rawToken = payload.data.token
+  const otpToken = rawToken && /^\d{6}$/.test(rawToken) ? rawToken : undefined
+
   const templateProps = {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
     recipient: payload.data.email,
     confirmationUrl: payload.data.url,
-    token: payload.data.token,
+    token: otpToken,
     email: payload.data.email,
     newEmail: payload.data.new_email,
   }
