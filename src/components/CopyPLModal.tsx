@@ -94,7 +94,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao copiar P&L", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao copiar BP", description: err.message, variant: "destructive" });
     },
   });
 
