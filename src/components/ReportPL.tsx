@@ -349,6 +349,7 @@ export default function ReportPL() {
   const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
 
   const toggleAuditLine = (key: string) => {
     setExpandedAuditLines((prev) => {
