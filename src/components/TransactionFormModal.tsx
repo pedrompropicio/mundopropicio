@@ -315,7 +315,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
     if (plOverride && !form.pl_override_note.trim()) {
-      toast({ title: "Justificação obrigatória para categorias fora do P&L", variant: "destructive" });
+      toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
     // Warning (non-blocking) when amount exceeds P&L forecast
