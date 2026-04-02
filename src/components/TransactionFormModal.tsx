@@ -310,7 +310,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
       if (!allowedCategoryIds.includes(form.category_id)) {
-        toast({ title: "Esta categoria não existe no P&L do evento", variant: "destructive" });
+        toast({ title: "Esta categoria não existe no BP do evento", variant: "destructive" });
         return;
       }
     }
