@@ -741,7 +741,7 @@ export default function ReportPL() {
                                   {hasOverride && (
                                     <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
                                       <AlertTriangle className="h-2.5 w-2.5" />
-                                      {line.overrideCount} fora do P&L
+                                      {line.overrideCount} fora do BP
                                     </span>
                                   )}
                                 </span>

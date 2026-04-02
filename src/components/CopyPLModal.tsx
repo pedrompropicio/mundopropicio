@@ -216,7 +216,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         >
           {copyMutation.isPending
             ? "A copiar…"
-            : `Copiar ${sourceForecastCount} linhas de P&L`}
+            : `Copiar ${sourceForecastCount} linhas de BP`}
         </button>
       </div>
     </div>

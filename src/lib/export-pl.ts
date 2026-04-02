@@ -915,5 +915,5 @@ export function exportPLToPDF(
     doc.text(`Página ${p}/${totalPages}`, pageWidth - marginRight, pageHeight - 8, { align: "right" });
   }
 
-  doc.save(`PL_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`BP_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
