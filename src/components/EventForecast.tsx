@@ -1227,6 +1227,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         </TabsContent>
       </Tabs>
 
+      {editApprovedForecast && (
+        <ForecastEditModal
+          forecast={editApprovedForecast}
+          onClose={() => setEditApprovedForecast(null)}
+        />
+      )}
+
       {showCopyModal && (
         <CopyPLModal
           targetEventId={eventId}
