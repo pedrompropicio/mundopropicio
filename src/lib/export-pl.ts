@@ -232,7 +232,8 @@ function buildPLForExport(
 
   const enrichLine = (line: PLLine, detailName: string): PLLine => {
     const cnt = overrideByCatName[detailName];
-    return cnt ? { ...line, overrideCount: cnt } : line;
+    const enriched = { ...line, categoryName: detailName };
+    return cnt ? { ...enriched, overrideCount: cnt } : enriched;
   };
 
   const fInc = forecasts.filter((f) => f.type === "income");
