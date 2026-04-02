@@ -769,6 +769,33 @@ export function exportPLToPDF(
       doc.setTextColor(0, 0, 0);
 
       y += rowH;
+
+      // Render audit logs for this category if requested
+      if (auditLogs.length > 0 && line.categoryName && !line.isTotal && !line.isGrandTotal && !line.isGroupHeader && !line.isSubTotal && !line.subIndent) {
+        const catForecasts = evtF.filter((f: any) => {
+          const cat = categories.find((c: any) => c.id === f.category_id);
+          return cat?.name === line.categoryName;
+        });
+        const forecastIds = catForecasts.map((f: any) => f.id);
+        const lineLogs = auditLogs.filter((log: any) => forecastIds.includes(log.forecast_id));
+        if (lineLogs.length > 0) {
+          lineLogs.forEach((log: any) => {
+            checkNewPage(6);
+            doc.setFillColor(245, 245, 255);
+            doc.rect(marginLeft, y - 1, contentWidth, 5, "F");
+            doc.setFillColor(100, 100, 200);
+            doc.rect(marginLeft, y - 1, 1, 5, "F");
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(5);
+            doc.setTextColor(100, 100, 130);
+            const logDate = new Date(log.created_at).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+            const logText = `${logDate} | ${log.field_name}: ${log.old_value} → ${log.new_value}${log.observation ? ` — "${log.observation}"` : ""} (por ${log.changed_by})`;
+            doc.text(`          ${logText}`, colX[0] + 2, y + 2.5);
+            doc.setTextColor(0, 0, 0);
+            y += 5;
+          });
+        }
+      }
     });
 
 
