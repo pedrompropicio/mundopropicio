@@ -383,8 +383,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Evento {rootFlags.event_required ? "*" : ""}
-              {isActivePL && <span className="ml-1 text-success">(P&L Ativo)</span>}
-              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(P&L Passivo)</span>}
+              {isActivePL && <span className="ml-1 text-success">(BP Ativo)</span>}
+              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(BP Passivo)</span>}
             </label>
             <SearchableSelect
               options={eventOptions}
