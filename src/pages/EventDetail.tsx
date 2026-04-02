@@ -651,7 +651,7 @@ export default function EventDetail() {
                       }))
                     );
                     queryClient.invalidateQueries({ queryKey: ["event_forecasts", selectedSubEvent] });
-                    toast({ title: "P&L copiado com sucesso!" });
+                    toast({ title: "BP copiado com sucesso!" });
                   }}
                 />
               )}
