@@ -318,7 +318,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
       return;
     }
-    // Warning (non-blocking) when amount exceeds P&L forecast
+    // Warning (non-blocking) when amount exceeds BP forecast
     if (hasPL && form.event_id && form.category_id) {
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
