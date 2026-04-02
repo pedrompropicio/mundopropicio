@@ -117,7 +117,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Copiar previsões de P&L de outro evento para <span className="font-semibold text-foreground">{targetEventName}</span>
+          Copiar previsões de BP de outro evento para <span className="font-semibold text-foreground">{targetEventName}</span>
         </p>
 
         {/* Search */}
