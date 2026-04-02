@@ -137,7 +137,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: ticketLots.length > 0,
   });
 
-  // Fetch cache configs for this event and its child events (for consolidated P&L)
+  // Fetch cache configs for this event and its child events (for consolidated BP)
   const { data: cacheConfigs = [] } = useQuery({
     queryKey: ["event_cache_configs", ticketEventIds.join(",")],
     queryFn: async () => {
