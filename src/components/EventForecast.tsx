@@ -208,7 +208,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }));
   }, [parentForecasts, siblingCount, parentEventId]);
 
-  // Ticket revenue: price includes IVA ("por dentro"), extract net value for P&L
+  // Ticket revenue: price includes IVA ("por dentro"), extract net value for BP
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const ticketRevenueNet = ticketLots.reduce((s, l) => {
     const rate = Number((l as any).iva_rate ?? 6);
