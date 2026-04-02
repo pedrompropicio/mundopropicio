@@ -455,7 +455,7 @@ export default function EventDetail() {
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
           <TabsTrigger value="cache">Cachê</TabsTrigger>
-          <TabsTrigger value="forecast">P&L Previsão</TabsTrigger>
+          <TabsTrigger value="forecast">Business Plan</TabsTrigger>
           {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners">Sócios</TabsTrigger>}
         </TabsList>
 
