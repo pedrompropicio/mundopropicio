@@ -602,6 +602,47 @@ export type Database = {
         }
         Relationships: []
       }
+      forecast_audit_log: {
+        Row: {
+          changed_by: string
+          created_at: string
+          field_name: string
+          forecast_id: string
+          id: string
+          new_value: string | null
+          observation: string | null
+          old_value: string | null
+        }
+        Insert: {
+          changed_by?: string
+          created_at?: string
+          field_name: string
+          forecast_id: string
+          id?: string
+          new_value?: string | null
+          observation?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          changed_by?: string
+          created_at?: string
+          field_name?: string
+          forecast_id?: string
+          id?: string
+          new_value?: string | null
+          observation?: string | null
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_audit_log_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_attempts: {
         Row: {
           attempted_at: string
