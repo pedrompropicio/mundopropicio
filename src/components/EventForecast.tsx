@@ -525,7 +525,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             }
           }
         }
-        if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o P&L deste evento?`)) return;
+        if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o BP deste evento?`)) return;
         const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system", parentEventId);
         queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
         queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
