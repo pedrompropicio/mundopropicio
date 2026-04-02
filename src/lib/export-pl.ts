@@ -579,7 +579,7 @@ export function exportPLToExcel(
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  XLSX.writeFile(wb, `PL_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.writeFile(wb, `BP_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 export function exportPLToPDF(
