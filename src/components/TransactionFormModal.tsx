@@ -245,7 +245,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
-      // Auto-approve only if event has P&L forecasts and category matches
+      // Auto-approve only if event has BP forecasts and category matches
       const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
         (f) => f.type === data.type && f.category_id === data.category_id
       );
