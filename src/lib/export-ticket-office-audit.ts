@@ -182,9 +182,9 @@ export function exportTicketOfficeAuditToExcel(
 export function exportTicketOfficeAuditToPDF(
   syntheticData: SyntheticOffice[],
   analyticalData: AnalyticalOffice[],
-  viewMode: "synthetic" | "analytical",
-  groupBy?: "type" | "event"
+  options: TicketOfficeAuditPDFOptions
 ) {
+  const { viewMode, groupBy, detailLevel = 3 } = options;
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -202,13 +202,13 @@ export function exportTicketOfficeAuditToPDF(
     return false;
   }
 
-  // Logo
   try {
     doc.addImage(logoHorizontal, "PNG", ml, y, 60, 17);
     y += 22;
-  } catch { y += 4; }
+  } catch {
+    y += 4;
+  }
 
-  // Title
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text("Auditoria de Bilheteiras", ml, y);
@@ -216,12 +216,12 @@ export function exportTicketOfficeAuditToPDF(
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  const viewLabel = viewMode === "synthetic" ? "Sintético" : `Analítico (${groupBy === "event" ? "Por Evento" : "Por Categoria"})`;
+  const analyticalLabel = `${detailLevel}º Nível${groupBy ? ` — ${groupBy === "event" ? "Por Evento" : "Por Categoria"}` : ""}`;
+  const viewLabel = viewMode === "synthetic" ? "Sintético" : `Analítico (${analyticalLabel})`;
   doc.text(`Vista: ${viewLabel} — Gerado em ${new Date().toLocaleDateString("pt-PT")}`, ml, y);
   doc.setTextColor(0, 0, 0);
   y += 8;
 
-  // Summary bar
   const grandTotals = syntheticData.reduce(
     (acc, d) => ({
       sales: acc.sales + d.totalSales,
@@ -269,10 +269,9 @@ export function exportTicketOfficeAuditToPDF(
   if (viewMode === "synthetic") {
     renderSyntheticPDF(doc, syntheticData, ml, cw, pageHeight, y, checkPage);
   } else {
-    renderAnalyticalPDF(doc, analyticalData, ml, cw, pageHeight, y, checkPage);
+    renderAnalyticalPDF(doc, analyticalData, ml, cw, pageHeight, y, checkPage, detailLevel);
   }
 
-  // Footer
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
@@ -282,7 +281,8 @@ export function exportTicketOfficeAuditToPDF(
     doc.text(`Página ${p}/${totalPages}`, pageWidth - mr, pageHeight - 8, { align: "right" });
   }
 
-  doc.save(`Auditoria_Bilheteiras_${viewMode === "synthetic" ? "Sintetico" : "Analitico"}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const fileSuffix = viewMode === "synthetic" ? "Sintetico" : `Analitico_N${detailLevel}`;
+  doc.save(`Auditoria_Bilheteiras_${fileSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // ─── Synthetic PDF ───
