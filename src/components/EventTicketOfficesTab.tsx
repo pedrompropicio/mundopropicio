@@ -247,6 +247,7 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
                     </button>
                   )}
                 </div>
+              </div>
 
               {/* Commission notes */}
               <div>
