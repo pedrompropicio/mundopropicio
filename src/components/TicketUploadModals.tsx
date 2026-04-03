@@ -494,7 +494,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
-        <Upload className="h-4 w-4 mr-2" /> Vendas Diárias
+        <Upload className="h-4 w-4 mr-2" /> Vendas por Período
       </Button>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
