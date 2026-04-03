@@ -98,12 +98,20 @@ export default function TicketOffices() {
           <p className="text-sm text-muted-foreground">Gestão de bilheteiras e pontos de venda</p>
         </div>
         {canManage && (
-          <button
-            onClick={() => { setEditingOffice(null); setIsOpen(true); }}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
-          >
-            <Plus className="h-4 w-4" /> Nova Bilheteira
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImport(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary/80"
+            >
+              <Upload className="h-4 w-4" /> Importar Vendas
+            </button>
+            <button
+              onClick={() => { setEditingOffice(null); setIsOpen(true); }}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
+            >
+              <Plus className="h-4 w-4" /> Nova Bilheteira
+            </button>
+          </div>
         )}
       </div>
 
