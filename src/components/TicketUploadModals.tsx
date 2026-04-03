@@ -428,46 +428,64 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
         .select("id, name, zone_id, price")
         .in("zone_id", zoneIds);
 
-      if (!lots || lots.length === 0) throw new Error("Este evento não tem lotes configurados.");
-
       let imported = 0;
       let skipped = 0;
+      const notesText = saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`;
 
       for (const row of preview) {
-        let matchedLot = lots.find(l => {
-          const lotMatch = l.name.toLowerCase() === row.lote.toLowerCase();
-          if (row.zona) {
-            const zone = zones.find(z => z.id === l.zone_id);
-            return lotMatch && zone?.name.toLowerCase() === row.zona.toLowerCase();
+        // Try to match by lot first
+        let matchedLot: any = null;
+        if (row.lote && lots && lots.length > 0) {
+          matchedLot = lots.find(l => {
+            const lotMatch = l.name.toLowerCase() === row.lote.toLowerCase();
+            if (row.zona) {
+              const zone = zones.find(z => z.id === l.zone_id);
+              return lotMatch && zone?.name.toLowerCase() === row.zona.toLowerCase();
+            }
+            return lotMatch;
+          });
+          if (!matchedLot) {
+            matchedLot = lots.find(l => l.name.toLowerCase() === row.lote.toLowerCase());
           }
-          return lotMatch;
-        });
-
-        if (!matchedLot) {
-          matchedLot = lots.find(l => l.name.toLowerCase() === row.lote.toLowerCase());
         }
 
-        if (!matchedLot) {
+        if (matchedLot) {
+          const { error } = await supabase.from("ticket_sales").insert({
+            lot_id: matchedLot.id,
+            zone_id: matchedLot.zone_id || null,
+            sale_date: saleDateFrom,
+            quantity: row.quantidade,
+            unit_price: row.preco_unitario || Number(matchedLot.price),
+            notes: notesText,
+          });
+          if (error) throw error;
+          imported++;
+        } else if (row.zona) {
+          // Zone-only match (no lot)
+          const matchedZone = zones.find(z => z.name.toLowerCase() === row.zona.toLowerCase());
+          if (matchedZone) {
+            const { error } = await supabase.from("ticket_sales").insert({
+              zone_id: matchedZone.id,
+              lot_id: null,
+              sale_date: saleDateFrom,
+              quantity: row.quantidade,
+              unit_price: row.preco_unitario || 0,
+              notes: notesText,
+            });
+            if (error) throw error;
+            imported++;
+          } else {
+            skipped++;
+          }
+        } else {
           skipped++;
-          continue;
         }
-
-        const { error } = await supabase.from("ticket_sales").insert({
-          lot_id: matchedLot.id,
-          sale_date: saleDateFrom === saleDateTo ? saleDateFrom : `${saleDateFrom}`,
-          quantity: row.quantidade,
-          unit_price: row.preco_unitario || Number(matchedLot.price),
-          notes: saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`,
-        });
-
-        if (error) throw error;
-        imported++;
       }
 
       if (skipped > 0) {
         toast({
           title: `${imported} vendas importadas, ${skipped} ignoradas`,
-          description: "Algumas linhas não corresponderam a lotes existentes.",
+          description: "Algumas linhas não corresponderam a zonas/lotes existentes.",
         });
       }
     },

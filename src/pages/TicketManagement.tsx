@@ -19,6 +19,7 @@ import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/Ticket
 import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
 
 interface SaleForm {
+  zone_id: string;
   lot_id: string;
   sale_date: string;
   quantity: string;
@@ -27,6 +28,7 @@ interface SaleForm {
 }
 
 const emptySale: SaleForm = {
+  zone_id: "",
   lot_id: "",
   sale_date: new Date().toISOString().slice(0, 10),
   quantity: "",
@@ -107,25 +109,48 @@ export default function TicketManagement() {
   const { data: sales = [] } = useQuery({
     queryKey: ["ticket-sales", selectedEventId],
     queryFn: async () => {
+      const zoneIds = zones.map((z) => z.id);
       const lotIds = lots.map((l) => l.id);
-      if (lotIds.length === 0) return [];
-      const { data, error } = await supabase.from("ticket_sales").select("*").in("lot_id", lotIds).order("sale_date", { ascending: false });
-      if (error) throw error;
-      return data;
+      if (zoneIds.length === 0) return [];
+      // Fetch sales by lot_id OR zone_id
+      const queries = [];
+      if (lotIds.length > 0) {
+        queries.push(supabase.from("ticket_sales").select("*").in("lot_id", lotIds).order("sale_date", { ascending: false }));
+      }
+      queries.push(supabase.from("ticket_sales").select("*").in("zone_id", zoneIds).is("lot_id", null).order("sale_date", { ascending: false }));
+      const results = await Promise.all(queries);
+      const allSales: any[] = [];
+      const seenIds = new Set<string>();
+      for (const r of results) {
+        if (r.error) throw r.error;
+        for (const s of (r.data || [])) {
+          if (!seenIds.has(s.id)) { seenIds.add(s.id); allSales.push(s); }
+        }
+      }
+      return allSales;
     },
-    enabled: lots.length > 0,
+    enabled: zones.length > 0,
   });
 
   // Mutations
   const saveSaleMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        lot_id: saleForm.lot_id,
+      const payload: any = {
         sale_date: saleForm.sale_date,
         quantity: parseInt(saleForm.quantity) || 0,
         unit_price: parseFloat(saleForm.unit_price) || 0,
         notes: saleForm.notes || null,
       };
+      const lotId = saleForm.lot_id && saleForm.lot_id !== "__none__" ? saleForm.lot_id : null;
+      if (lotId) {
+        payload.lot_id = lotId;
+        // Also set zone_id from the lot
+        const lot = lots.find(l => l.id === saleForm.lot_id);
+        if (lot) payload.zone_id = lot.zone_id;
+      } else if (saleForm.zone_id) {
+        payload.zone_id = saleForm.zone_id;
+        payload.lot_id = null;
+      }
       if (editingSaleId) {
         const { error } = await supabase.from("ticket_sales").update(payload).eq("id", editingSaleId);
         if (error) throw error;
@@ -258,13 +283,20 @@ export default function TicketManagement() {
   // Computed values
   const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
   const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
+  const getZoneOnlySales = (zoneId: string) => sales.filter((s) => s.zone_id === zoneId && !s.lot_id);
   const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
   const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
 
-  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0);
-  const getZoneCapacity = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
+  const getZoneOnlySold = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity), 0);
+  const getZoneOnlyRevenue = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
+  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0) + getZoneOnlySold(zoneId);
+  const getZoneCapacity = (zoneId: string) => {
+    const lotsCap = getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
+    const zone = zones.find(z => z.id === zoneId);
+    return lotsCap > 0 ? lotsCap : (zone?.total_capacity ?? 0);
+  };
   const getZoneForecastRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
-  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0);
+  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0) + getZoneOnlyRevenue(zoneId);
 
   // Sort zones by max lot price (most expensive first)
   const sortedZones = useMemo(() => {
@@ -289,10 +321,11 @@ export default function TicketManagement() {
     });
   };
 
-  const openSaleModal = (lotId?: string) => {
+  const openSaleModal = (lotId?: string, zoneId?: string) => {
     const lot = lotId ? lots.find((l) => l.id === lotId) : null;
     setSaleForm({
       ...emptySale,
+      zone_id: zoneId || (lot ? lot.zone_id : ""),
       lot_id: lotId || "",
       unit_price: lot ? String(lot.price) : "",
     });
@@ -302,7 +335,8 @@ export default function TicketManagement() {
 
   const openEditSale = (sale: any) => {
     setSaleForm({
-      lot_id: sale.lot_id,
+      zone_id: sale.zone_id || "",
+      lot_id: sale.lot_id || "",
       sale_date: sale.sale_date,
       quantity: String(sale.quantity),
       unit_price: String(sale.unit_price),
@@ -393,7 +427,7 @@ export default function TicketManagement() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
+              <Button onClick={() => openSaleModal()} disabled={zones.length === 0}>
                 <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
               <TotalTicketLoadModal events={events} selectedEventId={selectedEventId} />
@@ -583,30 +617,42 @@ export default function TicketManagement() {
                         </TableBody>
                       </Table>
 
-                      {isAdmin && addingLotZoneId !== zone.id && (
-                        <Button variant="ghost" size="sm" className="mt-2" onClick={() => { setAddingLotZoneId(zone.id); setNewLotForm({ name: "", quantity: "", price: "" }); }}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Novo Lote
+                      <div className="flex gap-2 mt-2">
+                        {isAdmin && addingLotZoneId !== zone.id && (
+                          <Button variant="ghost" size="sm" onClick={() => { setAddingLotZoneId(zone.id); setNewLotForm({ name: "", quantity: "", price: "" }); }}>
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Novo Lote
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => openSaleModal(undefined, zone.id)}>
+                          <ShoppingCart className="h-3.5 w-3.5 mr-1" /> Venda Directa (Zona)
                         </Button>
-                      )}
+                      </div>
 
-                      {/* Recent sales for this zone */}
-                      {zoneLots.some((l) => getLotSales(l.id).length > 0) && (
+                      {/* Recent sales for this zone (lot-based + zone-only) */}
+                      {(zoneLots.some((l) => getLotSales(l.id).length > 0) || getZoneOnlySales(zone.id).length > 0) && (
                         <div className="mt-4">
                           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Vendas Recentes — {zone.name}</p>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {zoneLots.flatMap((l) =>
-                              getLotSales(l.id).map((sale) => ({
+                            {[
+                              ...zoneLots.flatMap((l) =>
+                                getLotSales(l.id).map((sale) => ({
+                                  ...sale,
+                                  lotName: l.name,
+                                  lotNumber: l.lot_number,
+                                }))
+                              ),
+                              ...getZoneOnlySales(zone.id).map((sale) => ({
                                 ...sale,
-                                lotName: l.name,
-                                lotNumber: l.lot_number,
-                              }))
-                            )
+                                lotName: null,
+                                lotNumber: null,
+                              })),
+                            ]
                               .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
                               .slice(0, 10)
                               .map((sale: any) => (
                                 <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
                                   <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
-                                  <span className="flex-1 truncate">{sale.lotNumber}º {sale.lotName}</span>
+                                  <span className="flex-1 truncate">{sale.lotName ? `${sale.lotNumber}º ${sale.lotName}` : "Venda directa"}</span>
                                   <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
                                   <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
                                   <div className="flex gap-1">
@@ -655,26 +701,41 @@ export default function TicketManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Lote</Label>
-              <Select value={saleForm.lot_id} onValueChange={(v) => {
-                const lot = lots.find((l) => l.id === v);
-                setSaleForm({ ...saleForm, lot_id: v, unit_price: lot ? String(lot.price) : saleForm.unit_price });
+              <Label>Zona</Label>
+              <Select value={saleForm.zone_id} onValueChange={(v) => {
+                setSaleForm({ ...saleForm, zone_id: v, lot_id: "", unit_price: "" });
               }}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione o lote…" />
+                  <SelectValue placeholder="Selecione a zona…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sortedZones.map((zone) => {
-                    const zoneLots = getZoneLots(zone.id);
-                    return zoneLots.map((lot) => (
-                      <SelectItem key={lot.id} value={lot.id}>
-                        {zone.name} — {lot.name} ({formatCurrency(Number(lot.price))})
-                      </SelectItem>
-                    ));
-                  })}
+                  {sortedZones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            {saleForm.zone_id && getZoneLots(saleForm.zone_id).length > 0 && (
+              <div>
+                <Label>Lote <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Select value={saleForm.lot_id} onValueChange={(v) => {
+                  const lot = lots.find((l) => l.id === v);
+                  setSaleForm({ ...saleForm, lot_id: v, unit_price: lot ? String(lot.price) : saleForm.unit_price });
+                }}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Sem lote (venda por zona)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem lote (venda por zona)</SelectItem>
+                    {getZoneLots(saleForm.zone_id).map((lot) => (
+                      <SelectItem key={lot.id} value={lot.id}>
+                        {lot.name} ({formatCurrency(Number(lot.price))})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Data da Venda</Label>
@@ -689,10 +750,10 @@ export default function TicketManagement() {
               <Label>Preço Unitário (€)</Label>
               <Input type="number" step="0.01" min="0" className="mt-1" value={saleForm.unit_price} onChange={(e) => setSaleForm({ ...saleForm, unit_price: e.target.value })} />
             </div>
-            {saleForm.lot_id && saleForm.quantity && (
+            {(saleForm.zone_id || saleForm.lot_id) && saleForm.quantity && (
               <div className="rounded-lg bg-success/10 p-3 text-sm">
                 <p className="font-medium">Total: <span className="font-mono text-success">{formatCurrency((parseInt(saleForm.quantity) || 0) * (parseFloat(saleForm.unit_price) || 0))}</span></p>
-                {(() => {
+                {saleForm.lot_id && saleForm.lot_id !== "__none__" && (() => {
                   const lot = lots.find((l) => l.id === saleForm.lot_id);
                   if (!lot) return null;
                   const currentSold = getLotSold(lot.id) - (editingSaleId ? (parseInt(saleForm.quantity) || 0) : 0);
@@ -714,7 +775,11 @@ export default function TicketManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={() => saveSaleMutation.mutate()} disabled={!saleForm.lot_id || !saleForm.quantity || saveSaleMutation.isPending}>
+            <Button onClick={() => {
+              // Normalize __none__ to empty
+              if (saleForm.lot_id === "__none__") setSaleForm(prev => ({ ...prev, lot_id: "" }));
+              saveSaleMutation.mutate();
+            }} disabled={(!saleForm.zone_id && !saleForm.lot_id) || !saleForm.quantity || saveSaleMutation.isPending}>
               {editingSaleId ? "Atualizar" : "Registar"}
             </Button>
           </DialogFooter>
