@@ -60,6 +60,10 @@ export default function ReportTicketOfficeAudit() {
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [analyticalGroupBy, setAnalyticalGroupBy] = useState<AnalyticalGroupBy>("type");
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfOfficeFilter, setPdfOfficeFilter] = useState<string>("all");
+  const [pdfExportFormat, setPdfExportFormat] = useState<TicketOfficeAuditPdfFormat>("synthetic");
+  const [pdfAnalyticalGroupBy, setPdfAnalyticalGroupBy] = useState<AnalyticalGroupBy>("type");
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
