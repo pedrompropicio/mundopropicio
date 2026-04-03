@@ -40,12 +40,14 @@ import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/
 import { FileText, FileSpreadsheet } from "lucide-react";
 
 type ViewMode = "synthetic" | "analytical";
+type AnalyticalGroupBy = "event" | "type";
 
 interface AnalyticalLine {
   date: string;
   type: "sale" | "expense" | "transfer" | "income";
   description: string;
   eventName: string;
+  eventId?: string;
   amount: number;
   runningBalance?: number;
 }
@@ -55,6 +57,7 @@ export default function ReportTicketOfficeAudit() {
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [analyticalGroupBy, setAnalyticalGroupBy] = useState<AnalyticalGroupBy>("type");
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
@@ -251,6 +254,7 @@ export default function ReportTicketOfficeAudit() {
               type: "sale",
               description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
               eventName: eventNameMap[eventId] || "",
+              eventId: eventId,
               amount: s.quantity * Number(s.unit_price),
             });
           });
@@ -271,6 +275,7 @@ export default function ReportTicketOfficeAudit() {
                 type: "expense",
                 description: `${t.description}${supplierName}`,
                 eventName: evName,
+                eventId: t.event_id,
                 amount: -amt,
               });
             } else if (t.type === "expense" && !t.event_id) {
@@ -279,6 +284,7 @@ export default function ReportTicketOfficeAudit() {
                 type: "transfer",
                 description: `${t.description}${supplierName}`,
                 eventName: "—",
+                eventId: undefined,
                 amount: -amt,
               });
             } else if (t.type === "income") {
@@ -287,6 +293,7 @@ export default function ReportTicketOfficeAudit() {
                 type: "income",
                 description: `${t.description}${supplierName}`,
                 eventName: evName || "—",
+                eventId: t.event_id || undefined,
                 amount: amt,
               });
             }
@@ -435,6 +442,27 @@ export default function ReportTicketOfficeAudit() {
             Analítico
           </Button>
         </div>
+
+        {viewMode === "analytical" && (
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            <Button
+              variant={analyticalGroupBy === "type" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5 text-xs"
+              onClick={() => { setAnalyticalGroupBy("type"); setExpandedCategories(new Set()); }}
+            >
+              Por Categoria
+            </Button>
+            <Button
+              variant={analyticalGroupBy === "event" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5 text-xs"
+              onClick={() => { setAnalyticalGroupBy("event"); setExpandedCategories(new Set()); }}
+            >
+              Por Evento
+            </Button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 ml-auto">
           <Button variant="outline" size="sm" onClick={handleExportExcel}>
@@ -622,27 +650,8 @@ export default function ReportTicketOfficeAudit() {
           {filteredData.map((office: any) => {
             const lines: AnalyticalLine[] = analyticalData[office.officeId] || [];
 
-            // Group lines into categories
-            const categories = [
-              { key: "sales", label: "Bilhetes Vendidos", icon: <TrendingUp className="h-4 w-4" />, color: "text-emerald-500" },
-              { key: "expenses", label: "Despesas e Custos Pagos", icon: <TrendingDown className="h-4 w-4" />, color: "text-amber-500" },
-              { key: "transfers", label: "Adiantamentos / Transferências", icon: <ArrowRightLeft className="h-4 w-4" />, color: "text-muted-foreground" },
-            ];
-
-            const grouped: Record<string, AnalyticalLine[]> = {
-              sales: lines.filter((l) => l.type === "sale" || l.type === "income"),
-              expenses: lines.filter((l) => l.type === "expense"),
-              transfers: lines.filter((l) => l.type === "transfer"),
-            };
-
-            const categoryTotals: Record<string, number> = {
-              sales: grouped.sales.reduce((s, l) => s + l.amount, 0),
-              expenses: grouped.expenses.reduce((s, l) => s + Math.abs(l.amount), 0),
-              transfers: grouped.transfers.reduce((s, l) => s + Math.abs(l.amount), 0),
-            };
-
-            const toggleCategory = (catKey: string) => {
-              const fullKey = `${office.officeId}-${catKey}`;
+            const toggleKey = (key: string) => {
+              const fullKey = `${office.officeId}-${key}`;
               setExpandedCategories((prev) => {
                 const next = new Set(prev);
                 if (next.has(fullKey)) next.delete(fullKey);
@@ -669,85 +678,34 @@ export default function ReportTicketOfficeAudit() {
 
                   {lines.length === 0 ? (
                     <div className="text-center py-6 text-sm text-muted-foreground">Sem movimentações</div>
+                  ) : analyticalGroupBy === "type" ? (
+                    /* ── GROUP BY TYPE (Categoria) ── */
+                    <AnalyticalByType
+                      officeId={office.officeId}
+                      lines={lines}
+                      expandedCategories={expandedCategories}
+                      toggleKey={toggleKey}
+                    />
                   ) : (
-                    <div>
-                      {categories.map((cat) => {
-                        const catLines = grouped[cat.key];
-                        if (catLines.length === 0) return null;
-                        const isOpen = expandedCategories.has(`${office.officeId}-${cat.key}`);
-                        const total = categoryTotals[cat.key];
+                    /* ── GROUP BY EVENT ── */
+                    <AnalyticalByEvent
+                      officeId={office.officeId}
+                      lines={lines}
+                      expandedCategories={expandedCategories}
+                      toggleKey={toggleKey}
+                    />
+                  )}
 
-                        return (
-                          <div key={cat.key}>
-                            {/* Category header row — Level 1 */}
-                            <div
-                              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
-                              onClick={() => toggleCategory(cat.key)}
-                            >
-                              <div className="flex items-center gap-2">
-                                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                                <span className={cn("", cat.color)}>{cat.icon}</span>
-                                <span className="font-medium text-sm">{cat.label}</span>
-                                <Badge variant="secondary" className="text-[10px] ml-1">{catLines.length}</Badge>
-                              </div>
-                              <span className={cn("font-mono font-semibold text-sm", cat.color)}>
-                                {cat.key === "sales" ? formatCurrency(total) : formatCurrency(total)}
-                              </span>
-                            </div>
-
-                            {/* Detail rows — Level 2 */}
-                            {isOpen && (
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-muted/10">
-                                    <TableHead className="w-24 text-xs">Data</TableHead>
-                                    <TableHead className="text-xs">Descrição</TableHead>
-                                    <TableHead className="text-xs">Evento</TableHead>
-                                    <TableHead className="text-right w-28 text-xs">
-                                      {cat.key === "sales" ? "Valor" : "Valor"}
-                                    </TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {catLines.map((line, idx) => (
-                                    <TableRow key={idx} className="bg-muted/5">
-                                      <TableCell className="text-xs font-mono">
-                                        {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
-                                      </TableCell>
-                                      <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
-                                        {line.description}
-                                      </TableCell>
-                                      <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                                        {line.eventName}
-                                      </TableCell>
-                                      <TableCell className={cn("text-right font-mono text-sm", cat.color)}>
-                                        {formatCurrency(Math.abs(line.amount))}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                  <TableRow className="bg-muted/20 font-semibold">
-                                    <TableCell colSpan={3} className="text-right text-xs">Subtotal</TableCell>
-                                    <TableCell className={cn("text-right font-mono text-sm", cat.color)}>
-                                      {formatCurrency(total)}
-                                    </TableCell>
-                                  </TableRow>
-                                </TableBody>
-                              </Table>
-                            )}
-                          </div>
-                        );
-                      })}
-
-                      {/* Balance summary */}
-                      <div className="flex items-center justify-between px-4 py-3 border-t-2 bg-muted/30">
-                        <span className="font-semibold text-sm">SALDO PREVISTO</span>
-                        <span className={cn(
-                          "font-mono font-bold text-base",
-                          office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400"
-                        )}>
-                          {formatCurrency(office.expectedBalance)}
-                        </span>
-                      </div>
+                  {/* Balance summary */}
+                  {lines.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t-2 bg-muted/30">
+                      <span className="font-semibold text-sm">SALDO PREVISTO</span>
+                      <span className={cn(
+                        "font-mono font-bold text-base",
+                        office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400"
+                      )}>
+                        {formatCurrency(office.expectedBalance)}
+                      </span>
                     </div>
                   )}
                 </CardContent>
@@ -756,6 +714,275 @@ export default function ReportTicketOfficeAudit() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Analytical sub-components ───
+
+function AnalyticalByType({ officeId, lines, expandedCategories, toggleKey }: {
+  officeId: string;
+  lines: AnalyticalLine[];
+  expandedCategories: Set<string>;
+  toggleKey: (key: string) => void;
+}) {
+  const categories = [
+    { key: "sales", label: "Bilhetes Vendidos", icon: <TrendingUp className="h-4 w-4" />, color: "text-emerald-500" },
+    { key: "expenses", label: "Despesas e Custos Pagos", icon: <TrendingDown className="h-4 w-4" />, color: "text-amber-500" },
+    { key: "transfers", label: "Adiantamentos / Transferências", icon: <ArrowRightLeft className="h-4 w-4" />, color: "text-muted-foreground" },
+  ];
+
+  const grouped: Record<string, AnalyticalLine[]> = {
+    sales: lines.filter((l) => l.type === "sale" || l.type === "income"),
+    expenses: lines.filter((l) => l.type === "expense"),
+    transfers: lines.filter((l) => l.type === "transfer"),
+  };
+
+  return (
+    <div>
+      {categories.map((cat) => {
+        const catLines = grouped[cat.key];
+        if (catLines.length === 0) return null;
+        const isOpen = expandedCategories.has(`${officeId}-${cat.key}`);
+        const total = catLines.reduce((s, l) => s + Math.abs(l.amount), 0);
+
+        // Within each category, group by event
+        const byEvent: Record<string, AnalyticalLine[]> = {};
+        catLines.forEach((l) => {
+          const evKey = l.eventName || "—";
+          if (!byEvent[evKey]) byEvent[evKey] = [];
+          byEvent[evKey].push(l);
+        });
+
+        return (
+          <div key={cat.key}>
+            <div
+              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
+              onClick={() => toggleKey(cat.key)}
+            >
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                <span className={cn("", cat.color)}>{cat.icon}</span>
+                <span className="font-medium text-sm">{cat.label}</span>
+                <Badge variant="secondary" className="text-[10px] ml-1">{catLines.length}</Badge>
+              </div>
+              <span className={cn("font-mono font-semibold text-sm", cat.color)}>
+                {formatCurrency(total)}
+              </span>
+            </div>
+
+            {isOpen && (
+              <div>
+                {Object.entries(byEvent).map(([evName, evLines]) => {
+                  const evTotal = evLines.reduce((s, l) => s + Math.abs(l.amount), 0);
+                  const subKey = `${cat.key}-ev-${evName}`;
+                  const isEvOpen = expandedCategories.has(`${officeId}-${subKey}`);
+
+                  return (
+                    <div key={evName}>
+                      <div
+                        className="flex items-center justify-between px-6 py-2 cursor-pointer hover:bg-muted/20 transition-colors border-b bg-muted/5"
+                        onClick={() => toggleKey(subKey)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isEvOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                          <span className="text-sm text-muted-foreground">{evName}</span>
+                          <Badge variant="outline" className="text-[10px]">{evLines.length}</Badge>
+                        </div>
+                        <span className={cn("font-mono text-sm", cat.color)}>{formatCurrency(evTotal)}</span>
+                      </div>
+                      {isEvOpen && (
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/10">
+                              <TableHead className="w-24 text-xs">Data</TableHead>
+                              <TableHead className="text-xs">Descrição</TableHead>
+                              <TableHead className="text-right w-28 text-xs">Valor</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {evLines.map((line, idx) => (
+                              <TableRow key={idx} className="bg-muted/5">
+                                <TableCell className="text-xs font-mono">
+                                  {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
+                                </TableCell>
+                                <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
+                                  {line.description}
+                                </TableCell>
+                                <TableCell className={cn("text-right font-mono text-sm", cat.color)}>
+                                  {formatCurrency(Math.abs(line.amount))}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
+  officeId: string;
+  lines: AnalyticalLine[];
+  expandedCategories: Set<string>;
+  toggleKey: (key: string) => void;
+}) {
+  const byEvent: Record<string, { lines: AnalyticalLine[]; sales: number; expenses: number; transfers: number }> = {};
+  const noEventLines: AnalyticalLine[] = [];
+
+  lines.forEach((l) => {
+    if (!l.eventId && l.type === "transfer") {
+      noEventLines.push(l);
+      return;
+    }
+    const evKey = l.eventName || "Sem evento";
+    if (!byEvent[evKey]) byEvent[evKey] = { lines: [], sales: 0, expenses: 0, transfers: 0 };
+    byEvent[evKey].lines.push(l);
+    if (l.type === "sale" || l.type === "income") byEvent[evKey].sales += l.amount;
+    else if (l.type === "expense") byEvent[evKey].expenses += Math.abs(l.amount);
+    else if (l.type === "transfer") byEvent[evKey].transfers += Math.abs(l.amount);
+  });
+
+  const typeCategories = [
+    { key: "sales", label: "Bilhetes Vendidos", types: ["sale", "income"], color: "text-emerald-500" },
+    { key: "expenses", label: "Despesas e Custos", types: ["expense"], color: "text-amber-500" },
+    { key: "transfers", label: "Transferências", types: ["transfer"], color: "text-muted-foreground" },
+  ];
+
+  return (
+    <div>
+      {Object.entries(byEvent).map(([evName, data]) => {
+        const evBalance = data.sales - data.expenses - data.transfers;
+        const isOpen = expandedCategories.has(`${officeId}-ev-${evName}`);
+
+        return (
+          <div key={evName}>
+            <div
+              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
+              onClick={() => toggleKey(`ev-${evName}`)}
+            >
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                <span className="font-medium text-sm">{evName}</span>
+                <Badge variant="secondary" className="text-[10px] ml-1">{data.lines.length}</Badge>
+              </div>
+              <div className="flex items-center gap-4 text-sm font-mono">
+                <span className="text-emerald-500">{formatCurrency(data.sales)}</span>
+                <span className="text-amber-500">{formatCurrency(data.expenses)}</span>
+                <span className={cn("font-semibold", evBalance >= 0 ? "text-emerald-500" : "text-red-400")}>{formatCurrency(evBalance)}</span>
+              </div>
+            </div>
+
+            {isOpen && (
+              <div>
+                {typeCategories.map((tc) => {
+                  const tcLines = data.lines.filter((l) => tc.types.includes(l.type));
+                  if (tcLines.length === 0) return null;
+                  const tcTotal = tcLines.reduce((s, l) => s + Math.abs(l.amount), 0);
+                  const subKey = `ev-${evName}-${tc.key}`;
+                  const isSubOpen = expandedCategories.has(`${officeId}-${subKey}`);
+
+                  return (
+                    <div key={tc.key}>
+                      <div
+                        className="flex items-center justify-between px-6 py-2 cursor-pointer hover:bg-muted/20 transition-colors border-b bg-muted/5"
+                        onClick={() => toggleKey(subKey)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isSubOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                          <span className={cn("text-sm", tc.color)}>{tc.label}</span>
+                          <Badge variant="outline" className="text-[10px]">{tcLines.length}</Badge>
+                        </div>
+                        <span className={cn("font-mono text-sm", tc.color)}>{formatCurrency(tcTotal)}</span>
+                      </div>
+                      {isSubOpen && (
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/10">
+                              <TableHead className="w-24 text-xs">Data</TableHead>
+                              <TableHead className="text-xs">Descrição</TableHead>
+                              <TableHead className="text-right w-28 text-xs">Valor</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {tcLines.map((line, idx) => (
+                              <TableRow key={idx} className="bg-muted/5">
+                                <TableCell className="text-xs font-mono">
+                                  {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
+                                </TableCell>
+                                <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
+                                  {line.description}
+                                </TableCell>
+                                <TableCell className={cn("text-right font-mono text-sm", tc.color)}>
+                                  {formatCurrency(Math.abs(line.amount))}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {noEventLines.length > 0 && (() => {
+        const isOpen = expandedCategories.has(`${officeId}-ev-no-event`);
+        const total = noEventLines.reduce((s, l) => s + Math.abs(l.amount), 0);
+        return (
+          <div>
+            <div
+              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
+              onClick={() => toggleKey("ev-no-event")}
+            >
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                <span className="font-medium text-sm text-muted-foreground">Adiantamentos / Transferências (sem evento)</span>
+                <Badge variant="secondary" className="text-[10px] ml-1">{noEventLines.length}</Badge>
+              </div>
+              <span className="font-mono font-semibold text-sm text-muted-foreground">{formatCurrency(total)}</span>
+            </div>
+            {isOpen && (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/10">
+                    <TableHead className="w-24 text-xs">Data</TableHead>
+                    <TableHead className="text-xs">Descrição</TableHead>
+                    <TableHead className="text-right w-28 text-xs">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {noEventLines.map((line, idx) => (
+                    <TableRow key={idx} className="bg-muted/5">
+                      <TableCell className="text-xs font-mono">
+                        {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
+                        {line.description}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                        {formatCurrency(Math.abs(line.amount))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
