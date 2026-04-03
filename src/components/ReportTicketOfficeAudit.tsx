@@ -205,12 +205,6 @@ export default function ReportTicketOfficeAudit() {
             .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
         : 0;
 
-      const incomeOnAccount = accountId
-        ? accountTxns
-            .filter((t: any) => t.account_id === accountId && t.type === "income")
-            .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
-        : 0;
-
       const totalSales = events.reduce((s: number, e: any) => s + e.totalSales, 0);
       const totalDirectExpenses = events.reduce((s: number, e: any) => s + e.totalExpenses, 0);
 
@@ -221,7 +215,7 @@ export default function ReportTicketOfficeAudit() {
         totalSales,
         totalDirectExpenses,
         totalTransfers: transfers,
-        expectedBalance: totalSales - totalDirectExpenses - transfers + incomeOnAccount,
+        expectedBalance: totalSales - totalDirectExpenses - transfers,
         events,
       };
     });
