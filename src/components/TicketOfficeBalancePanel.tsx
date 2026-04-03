@@ -105,14 +105,9 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
       .filter((t: any) => t.type === "expense" && !t.event_id)
       .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
-    // Income on the account (transfers in - shouldn't normally happen but just in case)
-    const totalIncome = accountTxns
-      .filter((t: any) => t.type === "income")
-      .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-
     const totalSales = Object.values(eventMap).reduce((s, e) => s + e.sales, 0);
     const totalDirectExpenses = Object.values(eventMap).reduce((s, e) => s + e.directExpenses, 0);
-    const globalBalance = totalSales - totalDirectExpenses - totalTransfersOut + totalIncome;
+    const globalBalance = totalSales - totalDirectExpenses - totalTransfersOut;
 
     const activeEvents = Object.values(eventMap).filter((e) => e.status !== "completed");
     const hasInconsistency = activeEvents.length === 0 && Math.abs(globalBalance) > 0.01;
