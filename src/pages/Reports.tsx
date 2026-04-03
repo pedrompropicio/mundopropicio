@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   FileSearch,
   Globe,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -33,6 +34,7 @@ const allReportItems = [
   { to: "/relatorios/fornecedores", icon: Users, label: "Fornecedores", permission: "view_report_suppliers" },
   { to: "/relatorios/plano-contas", icon: FolderTree, label: "Plano de Contas", permission: "view_report_categories" },
   { to: "/relatorios/movimentacoes", icon: FileSearch, label: "Movimentações", permission: "view_report_movements" },
+  { to: "/relatorios/bilheteiras", icon: Ticket, label: "Auditoria Bilheteiras", permission: "view_report_movements" },
 ];
 
 export default function Reports() {
