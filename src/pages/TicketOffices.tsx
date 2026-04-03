@@ -8,6 +8,7 @@ import { TicketOfficeFormModal } from "@/components/TicketOfficeFormModal";
 import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
+import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
