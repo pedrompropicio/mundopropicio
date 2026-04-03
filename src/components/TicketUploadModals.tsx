@@ -454,10 +454,10 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
 
         const { error } = await supabase.from("ticket_sales").insert({
           lot_id: matchedLot.id,
-          sale_date: saleDate,
+          sale_date: saleDateFrom === saleDateTo ? saleDateFrom : `${saleDateFrom}`,
           quantity: row.quantidade,
           unit_price: row.preco_unitario || Number(matchedLot.price),
-          notes: "Upload de vendas diária via PDF",
+          notes: saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`,
         });
 
         if (error) throw error;
