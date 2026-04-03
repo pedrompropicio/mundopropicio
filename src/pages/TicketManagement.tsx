@@ -321,22 +321,31 @@ export default function TicketManagement() {
         <p className="text-sm text-muted-foreground">Registe vendas, acompanhe a ocupação e gerencie lotes de bilhetes</p>
       </div>
 
-      {/* Event selector */}
+      {/* Event selector + bulk import */}
       <div className="glass rounded-xl p-4">
-        <Label className="text-sm font-medium">Selecionar Evento</Label>
-        <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-          <SelectTrigger className="mt-2 w-full max-w-md">
-            <SelectValue placeholder="Escolha um evento…" />
-          </SelectTrigger>
-          <SelectContent>
-            {events.map((e) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1">
+            <Label className="text-sm font-medium">Selecionar Evento</Label>
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger className="mt-2 w-full max-w-md">
+                <SelectValue placeholder="Escolha um evento…" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" /> Importar Vendas (Bilheteira)
+          </Button>
+        </div>
       </div>
+
+      <TicketOfficeSalesImport open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
 
       {selectedEventId && (
         <>
