@@ -287,16 +287,10 @@ export default function ReportTicketOfficeAudit() {
                 eventId: undefined,
                 amount: -amt,
               });
-            } else if (t.type === "income") {
-              lines.push({
-                date: t.date,
-                type: "income",
-                description: `${t.description}${supplierName}`,
-                eventName: evName || "—",
-                eventId: t.event_id || undefined,
-                amount: amt,
-              });
             }
+            // Income transactions on ticket office accounts are NOT included
+            // because the revenue is already captured via ticket_sales records.
+            // Including them would double-count sales.
           });
       }
 
