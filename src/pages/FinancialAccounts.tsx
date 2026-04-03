@@ -16,6 +16,7 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
+  { value: "ticket_office", label: "Bilheteira", icon: Wallet },
   { value: "credit_card", label: "Cartão de Crédito", icon: CreditCard },
   { value: "debit_card", label: "Cartão de Débito", icon: CreditCard },
   { value: "cash", label: "Caixa", icon: Banknote },
