@@ -885,7 +885,7 @@ function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
   return (
     <div>
       {Object.entries(byEvent).map(([evName, data]) => {
-        const evBalance = data.sales - data.expenses - data.transfers;
+        const evBalance = data.sales - data.expenses;
         const isOpen = expandedCategories.has(`${officeId}-ev-${evName}`);
 
         return (
