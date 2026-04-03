@@ -165,7 +165,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
       const toInsert = matchedRows.map((r) => ({
         zone_id: r.matched_zone_id!,
-        lot_id: r.matched_lot_id!,
+        lot_id: r.matched_lot_id || null,
         sale_date: r.date,
         quantity: r.quantity,
         unit_price: r.unit_price,
