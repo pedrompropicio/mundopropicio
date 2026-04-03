@@ -360,7 +360,8 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
 export function DailySalesUploadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
   const [open, setOpen] = useState(false);
   const [eventId, setEventId] = useState(preSelectedEventId || "");
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saleDateFrom, setSaleDateFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [saleDateTo, setSaleDateTo] = useState(new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedSaleRow[]>([]);
   const [extracting, setExtracting] = useState(false);
