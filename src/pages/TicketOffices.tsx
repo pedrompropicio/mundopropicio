@@ -228,6 +228,8 @@ export default function TicketOffices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TicketOfficeSalesImport open={showImport} onClose={() => setShowImport(false)} />
     </div>
   );
 }
