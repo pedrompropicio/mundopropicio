@@ -141,8 +141,9 @@ export default function TicketManagement() {
         unit_price: parseFloat(saleForm.unit_price) || 0,
         notes: saleForm.notes || null,
       };
-      if (saleForm.lot_id) {
-        payload.lot_id = saleForm.lot_id;
+      const lotId = saleForm.lot_id && saleForm.lot_id !== "__none__" ? saleForm.lot_id : null;
+      if (lotId) {
+        payload.lot_id = lotId;
         // Also set zone_id from the lot
         const lot = lots.find(l => l.id === saleForm.lot_id);
         if (lot) payload.zone_id = lot.zone_id;
