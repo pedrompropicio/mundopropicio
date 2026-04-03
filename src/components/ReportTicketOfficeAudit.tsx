@@ -443,6 +443,27 @@ export default function ReportTicketOfficeAudit() {
           </Button>
         </div>
 
+        {viewMode === "analytical" && (
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            <Button
+              variant={analyticalGroupBy === "type" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5 text-xs"
+              onClick={() => { setAnalyticalGroupBy("type"); setExpandedCategories(new Set()); }}
+            >
+              Por Categoria
+            </Button>
+            <Button
+              variant={analyticalGroupBy === "event" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5 text-xs"
+              onClick={() => { setAnalyticalGroupBy("event"); setExpandedCategories(new Set()); }}
+            >
+              Por Evento
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 ml-auto">
           <Button variant="outline" size="sm" onClick={handleExportExcel}>
             <FileSpreadsheet className="h-4 w-4 mr-1" />
