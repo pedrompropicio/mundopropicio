@@ -217,15 +217,36 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
                     </span>
                   )}
                 </div>
-                {canManage && !a.is_conciliated && (
-                  <button
-                    onClick={() => setDeletingId(a.id)}
-                    className="rounded-md p-1 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+                <div className="flex items-center gap-1">
+                  {canManage && !a.is_conciliated && (
+                    <>
+                      <button
+                        onClick={() => conciliateMutation.mutate(a.id)}
+                        disabled={conciliateMutation.isPending}
+                        className="rounded-md p-1 text-muted-foreground hover:bg-emerald-500/20 hover:text-emerald-500 transition-colors"
+                        title="Marcar como conciliada"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(a.id)}
+                        className="rounded-md p-1 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                  {canManage && a.is_conciliated && (
+                    <button
+                      onClick={() => unconciliateMutation.mutate(a.id)}
+                      disabled={unconciliateMutation.isPending}
+                      className="rounded-md p-1 text-emerald-500 hover:bg-amber-500/20 hover:text-amber-500 transition-colors"
+                      title="Reverter conciliação"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
 
               {/* Commission notes */}
               <div>
