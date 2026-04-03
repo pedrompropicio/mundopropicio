@@ -16,6 +16,7 @@ import {
   KeyRound,
   RefreshCw,
   Settings,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
