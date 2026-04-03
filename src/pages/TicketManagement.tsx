@@ -695,26 +695,41 @@ export default function TicketManagement() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Lote</Label>
-              <Select value={saleForm.lot_id} onValueChange={(v) => {
-                const lot = lots.find((l) => l.id === v);
-                setSaleForm({ ...saleForm, lot_id: v, unit_price: lot ? String(lot.price) : saleForm.unit_price });
+              <Label>Zona</Label>
+              <Select value={saleForm.zone_id} onValueChange={(v) => {
+                setSaleForm({ ...saleForm, zone_id: v, lot_id: "", unit_price: "" });
               }}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione o lote…" />
+                  <SelectValue placeholder="Selecione a zona…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sortedZones.map((zone) => {
-                    const zoneLots = getZoneLots(zone.id);
-                    return zoneLots.map((lot) => (
-                      <SelectItem key={lot.id} value={lot.id}>
-                        {zone.name} — {lot.name} ({formatCurrency(Number(lot.price))})
-                      </SelectItem>
-                    ));
-                  })}
+                  {sortedZones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            {saleForm.zone_id && getZoneLots(saleForm.zone_id).length > 0 && (
+              <div>
+                <Label>Lote <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Select value={saleForm.lot_id} onValueChange={(v) => {
+                  const lot = lots.find((l) => l.id === v);
+                  setSaleForm({ ...saleForm, lot_id: v, unit_price: lot ? String(lot.price) : saleForm.unit_price });
+                }}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Sem lote (venda por zona)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem lote (venda por zona)</SelectItem>
+                    {getZoneLots(saleForm.zone_id).map((lot) => (
+                      <SelectItem key={lot.id} value={lot.id}>
+                        {lot.name} ({formatCurrency(Number(lot.price))})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Data da Venda</Label>
@@ -729,10 +744,10 @@ export default function TicketManagement() {
               <Label>Preço Unitário (€)</Label>
               <Input type="number" step="0.01" min="0" className="mt-1" value={saleForm.unit_price} onChange={(e) => setSaleForm({ ...saleForm, unit_price: e.target.value })} />
             </div>
-            {saleForm.lot_id && saleForm.quantity && (
+            {(saleForm.zone_id || saleForm.lot_id) && saleForm.quantity && (
               <div className="rounded-lg bg-success/10 p-3 text-sm">
                 <p className="font-medium">Total: <span className="font-mono text-success">{formatCurrency((parseInt(saleForm.quantity) || 0) * (parseFloat(saleForm.unit_price) || 0))}</span></p>
-                {(() => {
+                {saleForm.lot_id && saleForm.lot_id !== "__none__" && (() => {
                   const lot = lots.find((l) => l.id === saleForm.lot_id);
                   if (!lot) return null;
                   const currentSold = getLotSold(lot.id) - (editingSaleId ? (parseInt(saleForm.quantity) || 0) : 0);
@@ -754,7 +769,11 @@ export default function TicketManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
-            <Button onClick={() => saveSaleMutation.mutate()} disabled={!saleForm.lot_id || !saleForm.quantity || saveSaleMutation.isPending}>
+            <Button onClick={() => {
+              // Normalize __none__ to empty
+              if (saleForm.lot_id === "__none__") setSaleForm(prev => ({ ...prev, lot_id: "" }));
+              saveSaleMutation.mutate();
+            }} disabled={(!saleForm.zone_id && !saleForm.lot_id) || !saleForm.quantity || saveSaleMutation.isPending}>
               {editingSaleId ? "Atualizar" : "Registar"}
             </Button>
           </DialogFooter>
