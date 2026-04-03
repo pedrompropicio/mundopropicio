@@ -346,8 +346,12 @@ export default function ReportTicketOfficeAudit() {
     );
   }, [filteredData]);
 
-  const buildExportData = () => {
-    const syntheticExport = filteredData.map((d: any) => ({
+  const buildExportData = (officeFilter = selectedOffice) => {
+    const exportSource = officeFilter === "all"
+      ? auditData
+      : auditData.filter((d: any) => d.officeId === officeFilter);
+
+    const syntheticExport = exportSource.map((d: any) => ({
       officeName: d.officeName,
       totalSales: d.totalSales,
       totalDirectExpenses: d.totalDirectExpenses,
@@ -363,7 +367,7 @@ export default function ReportTicketOfficeAudit() {
       })),
     }));
 
-    const analyticalExport = filteredData.map((d: any) => ({
+    const analyticalExport = exportSource.map((d: any) => ({
       officeName: d.officeName,
       expectedBalance: d.expectedBalance,
       lines: analyticalData[d.officeId] || [],
@@ -377,9 +381,24 @@ export default function ReportTicketOfficeAudit() {
     exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
   };
 
-  const handleExportPDF = () => {
-    const { syntheticExport, analyticalExport } = buildExportData();
-    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
+  const openPDFDialog = () => {
+    setPdfOfficeFilter(selectedOffice);
+    setPdfAnalyticalGroupBy(analyticalGroupBy);
+    setPdfExportFormat(viewMode === "synthetic" ? "synthetic" : "analytical-3");
+    setPdfDialogOpen(true);
+  };
+
+  const handleConfirmPDFExport = () => {
+    const { syntheticExport, analyticalExport } = buildExportData(pdfOfficeFilter);
+    const pdfViewMode = pdfExportFormat === "synthetic" ? "synthetic" : "analytical";
+    const detailLevel = pdfExportFormat === "analytical-2" ? 2 : 3;
+
+    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, {
+      viewMode: pdfViewMode,
+      groupBy: pdfViewMode === "analytical" ? pdfAnalyticalGroupBy : undefined,
+      detailLevel: pdfViewMode === "analytical" ? detailLevel : undefined,
+    });
+    setPdfDialogOpen(false);
   };
 
   const typeLabel = (type: string) => {
