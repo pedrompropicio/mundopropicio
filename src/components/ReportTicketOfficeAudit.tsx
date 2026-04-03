@@ -344,6 +344,42 @@ export default function ReportTicketOfficeAudit() {
     );
   }, [filteredData]);
 
+  const buildExportData = () => {
+    const syntheticExport = filteredData.map((d: any) => ({
+      officeName: d.officeName,
+      totalSales: d.totalSales,
+      totalDirectExpenses: d.totalDirectExpenses,
+      totalTransfers: d.totalTransfers,
+      expectedBalance: d.expectedBalance,
+      events: d.events.map((e: any) => ({
+        eventName: e.eventName,
+        eventStatus: e.eventStatus,
+        isConciliated: e.isConciliated,
+        totalSales: e.totalSales,
+        totalExpenses: e.totalExpenses,
+        balance: e.balance,
+      })),
+    }));
+
+    const analyticalExport = filteredData.map((d: any) => ({
+      officeName: d.officeName,
+      expectedBalance: d.expectedBalance,
+      lines: analyticalData[d.officeId] || [],
+    }));
+
+    return { syntheticExport, analyticalExport };
+  };
+
+  const handleExportExcel = () => {
+    const { syntheticExport, analyticalExport } = buildExportData();
+    exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode);
+  };
+
+  const handleExportPDF = () => {
+    const { syntheticExport, analyticalExport } = buildExportData();
+    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, viewMode);
+  };
+
   const typeLabel = (type: string) => {
     switch (type) {
       case "sale": return "Venda";
