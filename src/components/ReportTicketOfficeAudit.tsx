@@ -275,6 +275,7 @@ export default function ReportTicketOfficeAudit() {
                 type: "expense",
                 description: `${t.description}${supplierName}`,
                 eventName: evName,
+                eventId: t.event_id,
                 amount: -amt,
               });
             } else if (t.type === "expense" && !t.event_id) {
@@ -283,6 +284,7 @@ export default function ReportTicketOfficeAudit() {
                 type: "transfer",
                 description: `${t.description}${supplierName}`,
                 eventName: "—",
+                eventId: undefined,
                 amount: -amt,
               });
             } else if (t.type === "income") {
@@ -291,6 +293,7 @@ export default function ReportTicketOfficeAudit() {
                 type: "income",
                 description: `${t.description}${supplierName}`,
                 eventName: evName || "—",
+                eventId: t.event_id || undefined,
                 amount: amt,
               });
             }
