@@ -733,6 +733,19 @@ export default function ReportTicketOfficeAudit() {
           })}
         </div>
       )}
+
+      <TicketOfficeAuditPdfDialog
+        open={pdfDialogOpen}
+        onOpenChange={setPdfDialogOpen}
+        format={pdfExportFormat}
+        onFormatChange={setPdfExportFormat}
+        officeFilter={pdfOfficeFilter}
+        onOfficeFilterChange={setPdfOfficeFilter}
+        analyticalGroupBy={pdfAnalyticalGroupBy}
+        onAnalyticalGroupByChange={setPdfAnalyticalGroupBy}
+        offices={offices.map((office: any) => ({ id: office.id, name: office.name }))}
+        onConfirm={handleConfirmPDFExport}
+      />
     </div>
   );
 }
