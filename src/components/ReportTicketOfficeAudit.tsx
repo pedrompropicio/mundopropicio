@@ -54,6 +54,7 @@ export default function ReportTicketOfficeAudit() {
   const [selectedOffice, setSelectedOffice] = useState<string>("all");
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
@@ -625,7 +626,37 @@ export default function ReportTicketOfficeAudit() {
       {viewMode === "analytical" && (
         <div className="space-y-4">
           {filteredData.map((office: any) => {
-            const lines = analyticalData[office.officeId] || [];
+            const lines: AnalyticalLine[] = analyticalData[office.officeId] || [];
+
+            // Group lines into categories
+            const categories = [
+              { key: "sales", label: "Bilhetes Vendidos", icon: <TrendingUp className="h-4 w-4" />, color: "text-emerald-500" },
+              { key: "expenses", label: "Despesas e Custos Pagos", icon: <TrendingDown className="h-4 w-4" />, color: "text-amber-500" },
+              { key: "transfers", label: "Adiantamentos / Transferências", icon: <ArrowRightLeft className="h-4 w-4" />, color: "text-muted-foreground" },
+            ];
+
+            const grouped: Record<string, AnalyticalLine[]> = {
+              sales: lines.filter((l) => l.type === "sale" || l.type === "income"),
+              expenses: lines.filter((l) => l.type === "expense"),
+              transfers: lines.filter((l) => l.type === "transfer"),
+            };
+
+            const categoryTotals: Record<string, number> = {
+              sales: grouped.sales.reduce((s, l) => s + l.amount, 0),
+              expenses: grouped.expenses.reduce((s, l) => s + Math.abs(l.amount), 0),
+              transfers: grouped.transfers.reduce((s, l) => s + Math.abs(l.amount), 0),
+            };
+
+            const toggleCategory = (catKey: string) => {
+              const fullKey = `${office.officeId}-${catKey}`;
+              setExpandedCategories((prev) => {
+                const next = new Set(prev);
+                if (next.has(fullKey)) next.delete(fullKey);
+                else next.add(fullKey);
+                return next;
+              });
+            };
+
             return (
               <Card key={office.officeId}>
                 <CardContent className="p-0">
@@ -641,70 +672,89 @@ export default function ReportTicketOfficeAudit() {
                       </span>
                     </div>
                   </div>
+
                   {lines.length === 0 ? (
                     <div className="text-center py-6 text-sm text-muted-foreground">Sem movimentações</div>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-24">Data</TableHead>
-                          <TableHead className="w-28">Tipo</TableHead>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Evento</TableHead>
-                          <TableHead className="text-right w-28">Entrada</TableHead>
-                          <TableHead className="text-right w-28">Saída</TableHead>
-                          <TableHead className="text-right w-28">Saldo</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {lines.map((line: AnalyticalLine, idx: number) => (
-                          <TableRow key={idx}>
-                            <TableCell className="text-xs font-mono">
-                              {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={cn("text-[10px]", typeColor(line.type))}>
-                                {typeLabel(line.type)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm max-w-[250px] truncate" title={line.description}>
-                              {line.description}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
-                              {line.eventName}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm text-emerald-500">
-                              {line.amount > 0 ? formatCurrency(line.amount) : ""}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm text-amber-500">
-                              {line.amount < 0 ? formatCurrency(Math.abs(line.amount)) : ""}
-                            </TableCell>
-                            <TableCell className={cn(
-                              "text-right font-mono text-sm font-medium",
-                              (line.runningBalance ?? 0) >= 0 ? "text-emerald-500" : "text-red-400"
-                            )}>
-                              {formatCurrency(line.runningBalance ?? 0)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {/* Totals row */}
-                        <TableRow className="border-t-2 font-semibold bg-muted/30">
-                          <TableCell colSpan={4} className="text-right">TOTAL</TableCell>
-                          <TableCell className="text-right font-mono text-emerald-500">
-                            {formatCurrency(lines.filter((l: AnalyticalLine) => l.amount > 0).reduce((s: number, l: AnalyticalLine) => s + l.amount, 0))}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-amber-500">
-                            {formatCurrency(Math.abs(lines.filter((l: AnalyticalLine) => l.amount < 0).reduce((s: number, l: AnalyticalLine) => s + l.amount, 0)))}
-                          </TableCell>
-                          <TableCell className={cn(
-                            "text-right font-mono font-bold",
-                            office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400"
-                          )}>
-                            {formatCurrency(office.expectedBalance)}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                    <div>
+                      {categories.map((cat) => {
+                        const catLines = grouped[cat.key];
+                        if (catLines.length === 0) return null;
+                        const isOpen = expandedCategories.has(`${office.officeId}-${cat.key}`);
+                        const total = categoryTotals[cat.key];
+
+                        return (
+                          <div key={cat.key}>
+                            {/* Category header row — Level 1 */}
+                            <div
+                              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors border-b"
+                              onClick={() => toggleCategory(cat.key)}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                <span className={cn("", cat.color)}>{cat.icon}</span>
+                                <span className="font-medium text-sm">{cat.label}</span>
+                                <Badge variant="secondary" className="text-[10px] ml-1">{catLines.length}</Badge>
+                              </div>
+                              <span className={cn("font-mono font-semibold text-sm", cat.color)}>
+                                {cat.key === "sales" ? formatCurrency(total) : formatCurrency(total)}
+                              </span>
+                            </div>
+
+                            {/* Detail rows — Level 2 */}
+                            {isOpen && (
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-muted/10">
+                                    <TableHead className="w-24 text-xs">Data</TableHead>
+                                    <TableHead className="text-xs">Descrição</TableHead>
+                                    <TableHead className="text-xs">Evento</TableHead>
+                                    <TableHead className="text-right w-28 text-xs">
+                                      {cat.key === "sales" ? "Valor" : "Valor"}
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {catLines.map((line, idx) => (
+                                    <TableRow key={idx} className="bg-muted/5">
+                                      <TableCell className="text-xs font-mono">
+                                        {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
+                                      </TableCell>
+                                      <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
+                                        {line.description}
+                                      </TableCell>
+                                      <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
+                                        {line.eventName}
+                                      </TableCell>
+                                      <TableCell className={cn("text-right font-mono text-sm", cat.color)}>
+                                        {formatCurrency(Math.abs(line.amount))}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  <TableRow className="bg-muted/20 font-semibold">
+                                    <TableCell colSpan={3} className="text-right text-xs">Subtotal</TableCell>
+                                    <TableCell className={cn("text-right font-mono text-sm", cat.color)}>
+                                      {formatCurrency(total)}
+                                    </TableCell>
+                                  </TableRow>
+                                </TableBody>
+                              </Table>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Balance summary */}
+                      <div className="flex items-center justify-between px-4 py-3 border-t-2 bg-muted/30">
+                        <span className="font-semibold text-sm">SALDO PREVISTO</span>
+                        <span className={cn(
+                          "font-mono font-bold text-base",
+                          office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400"
+                        )}>
+                          {formatCurrency(office.expectedBalance)}
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
