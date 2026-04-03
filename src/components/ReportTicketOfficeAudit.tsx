@@ -40,12 +40,14 @@ import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/
 import { FileText, FileSpreadsheet } from "lucide-react";
 
 type ViewMode = "synthetic" | "analytical";
+type AnalyticalGroupBy = "event" | "type";
 
 interface AnalyticalLine {
   date: string;
   type: "sale" | "expense" | "transfer" | "income";
   description: string;
   eventName: string;
+  eventId?: string;
   amount: number;
   runningBalance?: number;
 }
@@ -55,6 +57,7 @@ export default function ReportTicketOfficeAudit() {
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [analyticalGroupBy, setAnalyticalGroupBy] = useState<AnalyticalGroupBy>("type");
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
