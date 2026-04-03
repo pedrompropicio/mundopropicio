@@ -34,6 +34,7 @@ import ReportPaymentListsPage from "./pages/ReportPaymentListsPage";
 import ReportSuppliersPage from "./pages/ReportSuppliersPage";
 import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
 import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
+import ReportTicketOfficeAuditPage from "./pages/ReportTicketOfficeAuditPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
