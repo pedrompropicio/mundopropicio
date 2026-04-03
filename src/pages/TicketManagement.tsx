@@ -135,13 +135,21 @@ export default function TicketManagement() {
   // Mutations
   const saveSaleMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        lot_id: saleForm.lot_id,
+      const payload: any = {
         sale_date: saleForm.sale_date,
         quantity: parseInt(saleForm.quantity) || 0,
         unit_price: parseFloat(saleForm.unit_price) || 0,
         notes: saleForm.notes || null,
       };
+      if (saleForm.lot_id) {
+        payload.lot_id = saleForm.lot_id;
+        // Also set zone_id from the lot
+        const lot = lots.find(l => l.id === saleForm.lot_id);
+        if (lot) payload.zone_id = lot.zone_id;
+      } else if (saleForm.zone_id) {
+        payload.zone_id = saleForm.zone_id;
+        payload.lot_id = null;
+      }
       if (editingSaleId) {
         const { error } = await supabase.from("ticket_sales").update(payload).eq("id", editingSaleId);
         if (error) throw error;
