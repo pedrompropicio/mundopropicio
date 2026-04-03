@@ -36,6 +36,8 @@ import {
   LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/lib/export-ticket-office-audit";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 type ViewMode = "synthetic" | "analytical";
 
