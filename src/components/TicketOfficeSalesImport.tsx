@@ -119,6 +119,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
           }
 
           const status: ParsedSale["status"] = matchedEvent && matchedZone && matchedLot ? "matched"
+            : matchedEvent && matchedZone ? "matched"
             : matchedEvent ? "partial"
             : "unmatched";
 
