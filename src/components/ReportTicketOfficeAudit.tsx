@@ -254,6 +254,7 @@ export default function ReportTicketOfficeAudit() {
               type: "sale",
               description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
               eventName: eventNameMap[eventId] || "",
+              eventId: eventId,
               amount: s.quantity * Number(s.unit_price),
             });
           });
