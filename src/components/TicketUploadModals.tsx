@@ -360,7 +360,8 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
 export function DailySalesUploadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
   const [open, setOpen] = useState(false);
   const [eventId, setEventId] = useState(preSelectedEventId || "");
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saleDateFrom, setSaleDateFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [saleDateTo, setSaleDateTo] = useState(new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedSaleRow[]>([]);
   const [extracting, setExtracting] = useState(false);
@@ -453,10 +454,10 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
 
         const { error } = await supabase.from("ticket_sales").insert({
           lot_id: matchedLot.id,
-          sale_date: saleDate,
+          sale_date: saleDateFrom === saleDateTo ? saleDateFrom : `${saleDateFrom}`,
           quantity: row.quantidade,
           unit_price: row.preco_unitario || Number(matchedLot.price),
-          notes: "Upload de vendas diária via PDF",
+          notes: saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`,
         });
 
         if (error) throw error;
@@ -481,7 +482,9 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
   const handleClose = () => {
     setOpen(false);
     setEventId(preSelectedEventId || "");
-    setSaleDate(new Date().toISOString().slice(0, 10));
+    const today = new Date().toISOString().slice(0, 10);
+    setSaleDateFrom(today);
+    setSaleDateTo(today);
     setFile(null);
     setPreview([]);
     setExtracting(false);
@@ -491,15 +494,15 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
-        <Upload className="h-4 w-4 mr-2" /> Vendas Diárias
+        <Upload className="h-4 w-4 mr-2" /> Vendas por Período
       </Button>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Upload de Vendas Diárias
+              Upload de Vendas por Período
             </DialogTitle>
           </DialogHeader>
 
@@ -522,9 +525,15 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
               </div>
             )}
 
-            <div>
-              <Label>Data da Venda</Label>
-              <Input type="date" className="mt-1" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Data Início</Label>
+                <Input type="date" className="mt-1" value={saleDateFrom} onChange={(e) => setSaleDateFrom(e.target.value)} />
+              </div>
+              <div>
+                <Label>Data Fim</Label>
+                <Input type="date" className="mt-1" value={saleDateTo} onChange={(e) => setSaleDateTo(e.target.value)} />
+              </div>
             </div>
 
             <div>
@@ -580,7 +589,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
               onClick={() => uploadMutation.mutate()}
-              disabled={!eventId || !saleDate || preview.length === 0 || uploadMutation.isPending || extracting}
+              disabled={!eventId || !saleDateFrom || !saleDateTo || preview.length === 0 || uploadMutation.isPending || extracting}
             >
               {uploadMutation.isPending ? "A importar…" : "Importar Vendas"}
             </Button>
