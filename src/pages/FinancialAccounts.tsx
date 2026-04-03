@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText } from "lucide-react";
+import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +16,7 @@ import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
+  { value: "ticket_office", label: "Bilheteira", icon: Ticket },
   { value: "credit_card", label: "Cartão de Crédito", icon: CreditCard },
   { value: "debit_card", label: "Cartão de Débito", icon: CreditCard },
   { value: "cash", label: "Caixa", icon: Banknote },
@@ -58,9 +59,19 @@ export default function FinancialAccounts() {
       const { data, error } = await supabase
         .from("financial_accounts")
         .select("*")
+        .order("type")
         .order("name");
       if (error) throw error;
-      return data;
+      // Sort by ACCOUNT_TYPES order, then by name
+      const typeOrder = ACCOUNT_TYPES.map(t => t.value);
+      return (data || []).sort((a, b) => {
+        const ai = typeOrder.indexOf(a.type); 
+        const bi = typeOrder.indexOf(b.type);
+        const ta = ai >= 0 ? ai : typeOrder.length;
+        const tb = bi >= 0 ? bi : typeOrder.length;
+        if (ta !== tb) return ta - tb;
+        return a.name.localeCompare(b.name);
+      });
     },
   });
 
