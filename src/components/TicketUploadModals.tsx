@@ -482,7 +482,9 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
   const handleClose = () => {
     setOpen(false);
     setEventId(preSelectedEventId || "");
-    setSaleDate(new Date().toISOString().slice(0, 10));
+    const today = new Date().toISOString().slice(0, 10);
+    setSaleDateFrom(today);
+    setSaleDateTo(today);
     setFile(null);
     setPreview([]);
     setExtracting(false);
