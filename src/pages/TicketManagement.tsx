@@ -19,6 +19,7 @@ import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/Ticket
 import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
 
 interface SaleForm {
+  zone_id: string;
   lot_id: string;
   sale_date: string;
   quantity: string;
@@ -27,6 +28,7 @@ interface SaleForm {
 }
 
 const emptySale: SaleForm = {
+  zone_id: "",
   lot_id: "",
   sale_date: new Date().toISOString().slice(0, 10),
   quantity: "",
