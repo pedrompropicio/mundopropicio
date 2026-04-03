@@ -168,14 +168,28 @@ export default function TicketOffices() {
                 </div>
 
                 {office.financial_account_id && (
-                  <div className="flex items-center justify-between rounded-lg bg-secondary/40 px-3 py-2">
+                  <button
+                    onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
+                    className="flex w-full items-center justify-between rounded-lg bg-secondary/40 px-3 py-2 hover:bg-secondary/60 transition-colors"
+                  >
                     <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                       <Landmark className="h-3 w-3" /> Saldo
                     </span>
-                    <span className={`text-sm font-mono font-semibold ${balance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatCurrency(balance)}
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-mono font-semibold ${balance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                        {formatCurrency(balance)}
+                      </span>
+                      {expandedId === office.id ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </button>
+                )}
+
+                {expandedId === office.id && office.financial_account_id && (
+                  <TicketOfficeBalancePanel
+                    officeId={office.id}
+                    officeName={office.name}
+                    financialAccountId={office.financial_account_id}
+                  />
                 )}
 
                 {office.notes && (
