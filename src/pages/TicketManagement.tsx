@@ -617,11 +617,16 @@ export default function TicketManagement() {
                         </TableBody>
                       </Table>
 
-                      {isAdmin && addingLotZoneId !== zone.id && (
-                        <Button variant="ghost" size="sm" className="mt-2" onClick={() => { setAddingLotZoneId(zone.id); setNewLotForm({ name: "", quantity: "", price: "" }); }}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Novo Lote
+                      <div className="flex gap-2 mt-2">
+                        {isAdmin && addingLotZoneId !== zone.id && (
+                          <Button variant="ghost" size="sm" onClick={() => { setAddingLotZoneId(zone.id); setNewLotForm({ name: "", quantity: "", price: "" }); }}>
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Novo Lote
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => openSaleModal(undefined, zone.id)}>
+                          <ShoppingCart className="h-3.5 w-3.5 mr-1" /> Venda Directa (Zona)
                         </Button>
-                      )}
+                      </div>
 
                       {/* Recent sales for this zone (lot-based + zone-only) */}
                       {(zoneLots.some((l) => getLotSales(l.id).length > 0) || getZoneOnlySales(zone.id).length > 0) && (
