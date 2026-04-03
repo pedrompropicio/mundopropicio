@@ -589,7 +589,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
               onClick={() => uploadMutation.mutate()}
-              disabled={!eventId || !saleDate || preview.length === 0 || uploadMutation.isPending || extracting}
+              disabled={!eventId || !saleDateFrom || !saleDateTo || preview.length === 0 || uploadMutation.isPending || extracting}
             >
               {uploadMutation.isPending ? "A importar…" : "Importar Vendas"}
             </Button>
