@@ -36,6 +36,8 @@ import {
   LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/lib/export-ticket-office-audit";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 type ViewMode = "synthetic" | "analytical";
 
@@ -342,6 +344,42 @@ export default function ReportTicketOfficeAudit() {
     );
   }, [filteredData]);
 
+  const buildExportData = () => {
+    const syntheticExport = filteredData.map((d: any) => ({
+      officeName: d.officeName,
+      totalSales: d.totalSales,
+      totalDirectExpenses: d.totalDirectExpenses,
+      totalTransfers: d.totalTransfers,
+      expectedBalance: d.expectedBalance,
+      events: d.events.map((e: any) => ({
+        eventName: e.eventName,
+        eventStatus: e.eventStatus,
+        isConciliated: e.isConciliated,
+        totalSales: e.totalSales,
+        totalExpenses: e.totalExpenses,
+        balance: e.balance,
+      })),
+    }));
+
+    const analyticalExport = filteredData.map((d: any) => ({
+      officeName: d.officeName,
+      expectedBalance: d.expectedBalance,
+      lines: analyticalData[d.officeId] || [],
+    }));
+
+    return { syntheticExport, analyticalExport };
+  };
+
+  const handleExportExcel = () => {
+    const { syntheticExport, analyticalExport } = buildExportData();
+    exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode);
+  };
+
+  const handleExportPDF = () => {
+    const { syntheticExport, analyticalExport } = buildExportData();
+    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, viewMode);
+  };
+
   const typeLabel = (type: string) => {
     switch (type) {
       case "sale": return "Venda";
@@ -400,6 +438,17 @@ export default function ReportTicketOfficeAudit() {
           >
             <List className="h-3.5 w-3.5" />
             Analítico
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" />
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <FileText className="h-4 w-4 mr-1" />
+            PDF
           </Button>
         </div>
       </div>
