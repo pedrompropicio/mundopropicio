@@ -622,24 +622,31 @@ export default function TicketManagement() {
                         </Button>
                       )}
 
-                      {/* Recent sales for this zone */}
-                      {zoneLots.some((l) => getLotSales(l.id).length > 0) && (
+                      {/* Recent sales for this zone (lot-based + zone-only) */}
+                      {(zoneLots.some((l) => getLotSales(l.id).length > 0) || getZoneOnlySales(zone.id).length > 0) && (
                         <div className="mt-4">
                           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Vendas Recentes — {zone.name}</p>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {zoneLots.flatMap((l) =>
-                              getLotSales(l.id).map((sale) => ({
+                            {[
+                              ...zoneLots.flatMap((l) =>
+                                getLotSales(l.id).map((sale) => ({
+                                  ...sale,
+                                  lotName: l.name,
+                                  lotNumber: l.lot_number,
+                                }))
+                              ),
+                              ...getZoneOnlySales(zone.id).map((sale) => ({
                                 ...sale,
-                                lotName: l.name,
-                                lotNumber: l.lot_number,
-                              }))
-                            )
+                                lotName: null,
+                                lotNumber: null,
+                              })),
+                            ]
                               .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
                               .slice(0, 10)
                               .map((sale: any) => (
                                 <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
                                   <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
-                                  <span className="flex-1 truncate">{sale.lotNumber}º {sale.lotName}</span>
+                                  <span className="flex-1 truncate">{sale.lotName ? `${sale.lotNumber}º ${sale.lotName}` : "Venda directa"}</span>
                                   <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
                                   <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
                                   <div className="flex gap-1">
