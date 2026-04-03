@@ -109,13 +109,27 @@ export default function TicketManagement() {
   const { data: sales = [] } = useQuery({
     queryKey: ["ticket-sales", selectedEventId],
     queryFn: async () => {
+      const zoneIds = zones.map((z) => z.id);
       const lotIds = lots.map((l) => l.id);
-      if (lotIds.length === 0) return [];
-      const { data, error } = await supabase.from("ticket_sales").select("*").in("lot_id", lotIds).order("sale_date", { ascending: false });
-      if (error) throw error;
-      return data;
+      if (zoneIds.length === 0) return [];
+      // Fetch sales by lot_id OR zone_id
+      const queries = [];
+      if (lotIds.length > 0) {
+        queries.push(supabase.from("ticket_sales").select("*").in("lot_id", lotIds).order("sale_date", { ascending: false }));
+      }
+      queries.push(supabase.from("ticket_sales").select("*").in("zone_id", zoneIds).is("lot_id", null).order("sale_date", { ascending: false }));
+      const results = await Promise.all(queries);
+      const allSales: any[] = [];
+      const seenIds = new Set<string>();
+      for (const r of results) {
+        if (r.error) throw r.error;
+        for (const s of (r.data || [])) {
+          if (!seenIds.has(s.id)) { seenIds.add(s.id); allSales.push(s); }
+        }
+      }
+      return allSales;
     },
-    enabled: lots.length > 0,
+    enabled: zones.length > 0,
   });
 
   // Mutations
