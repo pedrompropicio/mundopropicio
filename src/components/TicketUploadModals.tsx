@@ -525,9 +525,15 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
               </div>
             )}
 
-            <div>
-              <Label>Data da Venda</Label>
-              <Input type="date" className="mt-1" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Data Início</Label>
+                <Input type="date" className="mt-1" value={saleDateFrom} onChange={(e) => setSaleDateFrom(e.target.value)} />
+              </div>
+              <div>
+                <Label>Data Fim</Label>
+                <Input type="date" className="mt-1" value={saleDateTo} onChange={(e) => setSaleDateTo(e.target.value)} />
+              </div>
             </div>
 
             <div>
