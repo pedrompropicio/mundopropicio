@@ -54,9 +54,9 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 // ── Total Ticket Load Modal ──
-export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
+export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
   const [open, setOpen] = useState(false);
-  const [eventId, setEventId] = useState("");
+  const [eventId, setEventId] = useState(preSelectedEventId || "");
   const [loadType, setLoadType] = useState<"realizado" | "previsto">("realizado");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedRow[]>([]);
