@@ -54,6 +54,7 @@ export default function ReportTicketOfficeAudit() {
   const [selectedOffice, setSelectedOffice] = useState<string>("all");
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
