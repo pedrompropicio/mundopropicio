@@ -2,11 +2,22 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Props {
   eventId: string;
+  eventDateId?: string | null;
+  eventStatus?: string;
 }
 
 interface ZoneForm {
@@ -33,8 +44,10 @@ function ivaFromGross(gross: number, ivaRate: number): number {
   return gross - netFromGross(gross, ivaRate);
 }
 
-export function EventTicketing({ eventId }: Props) {
+export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const { isAdmin, hasPermission } = useAuth();
+  const canManageOffices = isAdmin || hasPermission("manage_accounts");
   const [addingZone, setAddingZone] = useState(false);
   const [zoneForm, setZoneForm] = useState<ZoneForm>(emptyZone);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
@@ -44,6 +57,12 @@ export function EventTicketing({ eventId }: Props) {
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const zoneNameRef = useRef<HTMLInputElement>(null);
   const lotNameRef = useRef<HTMLInputElement>(null);
+
+  // Ticket offices state
+  const [addingOffice, setAddingOffice] = useState(false);
+  const [selectedOfficeId, setSelectedOfficeId] = useState("");
+  const [commissionNotes, setCommissionNotes] = useState("");
+  const [deletingOfficeId, setDeletingOfficeId] = useState<string | null>(null);
 
   useEffect(() => {
     if ((addingZone || editingZoneId) && zoneNameRef.current) {
@@ -91,6 +110,120 @@ export function EventTicketing({ eventId }: Props) {
       return data;
     },
     enabled: zones.length > 0,
+  });
+
+  // === Ticket Offices queries & mutations ===
+  const { data: officeAssignments = [] } = useQuery({
+    queryKey: ["event_ticket_office_assignments", eventId, eventDateId],
+    queryFn: async () => {
+      let q = supabase
+        .from("event_ticket_office_assignments")
+        .select("*, ticket_offices(id, name, contact_name)")
+        .eq("event_id", eventId);
+      if (eventDateId) {
+        q = q.eq("event_date_id", eventDateId);
+      } else {
+        q = q.is("event_date_id", null);
+      }
+      const { data, error } = await q.order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allTicketOffices = [] } = useQuery({
+    queryKey: ["ticket_offices_active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_offices")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const availableOffices = allTicketOffices.filter(
+    (to: any) => !officeAssignments.some((a: any) => a.ticket_office_id === to.id)
+  );
+
+  const addOfficeMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
+      const { error } = await supabase.from("event_ticket_office_assignments").insert({
+        event_id: eventId,
+        ticket_office_id: selectedOfficeId,
+        event_date_id: eventDateId || null,
+        commission_notes: commissionNotes.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      setAddingOffice(false);
+      setSelectedOfficeId("");
+      setCommissionNotes("");
+      sonnerToast.success("Bilheteira associada ao evento");
+    },
+    onError: (err: any) => sonnerToast.error("Erro", { description: err.message }),
+  });
+
+  const deleteOfficeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("event_ticket_office_assignments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      setDeletingOfficeId(null);
+      sonnerToast.success("Bilheteira desassociada");
+    },
+    onError: (err: any) => { sonnerToast.error("Erro", { description: err.message }); setDeletingOfficeId(null); },
+  });
+
+  const updateOfficeNotesMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({ commission_notes: notes.trim() || null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      sonnerToast.success("Notas atualizadas");
+    },
+  });
+
+  const conciliateOfficeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({ is_conciliated: true, conciliated_at: new Date().toISOString(), conciliated_by: user?.email || "system" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      sonnerToast.success("Bilheteira marcada como conciliada");
+    },
+    onError: (err: any) => sonnerToast.error("Erro", { description: err.message }),
+  });
+
+  const unconciliateOfficeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({ is_conciliated: false, conciliated_at: null, conciliated_by: null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      sonnerToast.success("Conciliação revertida");
+    },
   });
 
   // Zone CRUD
@@ -583,6 +716,126 @@ export function EventTicketing({ eventId }: Props) {
           </div>
         </div>
       )}
+
+      {/* === Bilheteiras Associadas === */}
+      <div className="glass rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <Store className="h-4 w-4" /> Bilheteiras Associadas
+          </h3>
+          {canManageOffices && (
+            <button
+              onClick={() => setAddingOffice(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" /> Associar Bilheteira
+            </button>
+          )}
+        </div>
+
+        {officeAssignments.length === 0 && !addingOffice ? (
+          <div className="py-6 text-center space-y-2">
+            <p className="text-sm text-muted-foreground">Nenhuma bilheteira associada a este evento.</p>
+            {canManageOffices && (
+              <button onClick={() => setAddingOffice(true)} className="text-xs text-primary hover:underline">
+                Associar bilheteira →
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {officeAssignments.map((a: any) => (
+              <div key={a.id} className="rounded-lg border border-border/50 p-3 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <Store className="h-4 w-4 text-primary" />
+                    <span className="font-semibold text-sm">{a.ticket_offices?.name}</span>
+                    {a.is_conciliated && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                        <CheckCircle2 className="h-3 w-3" /> Conciliada
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {canManageOffices && !a.is_conciliated && (
+                      <>
+                        <button onClick={() => conciliateOfficeMutation.mutate(a.id)} disabled={conciliateOfficeMutation.isPending} className="rounded-md p-1 text-muted-foreground hover:bg-emerald-500/20 hover:text-emerald-500 transition-colors" title="Marcar como conciliada">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => setDeletingOfficeId(a.id)} className="rounded-md p-1 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                    {canManageOffices && a.is_conciliated && (
+                      <button onClick={() => unconciliateOfficeMutation.mutate(a.id)} disabled={unconciliateOfficeMutation.isPending} className="rounded-md p-1 text-emerald-500 hover:bg-amber-500/20 hover:text-amber-500 transition-colors" title="Reverter conciliação">
+                        <Lock className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <Textarea
+                    defaultValue={a.commission_notes ?? ""}
+                    onBlur={(e) => {
+                      if (e.target.value !== (a.commission_notes ?? "")) {
+                        updateOfficeNotesMutation.mutate({ id: a.id, notes: e.target.value });
+                      }
+                    }}
+                    placeholder="Negociação de comissão (ex: 5% sobre vendas online)"
+                    rows={1}
+                    className="text-xs"
+                    disabled={!canManageOffices}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {addingOffice && (
+          <div className="rounded-lg border border-primary/30 p-3 space-y-3 mt-3 bg-primary/5">
+            <div>
+              <Label className="text-xs">Bilheteira *</Label>
+              <Select value={selectedOfficeId} onValueChange={setSelectedOfficeId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecione uma bilheteira" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableOffices.map((to: any) => (
+                    <SelectItem key={to.id} value={to.id}>{to.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Notas de comissão</Label>
+              <Textarea value={commissionNotes} onChange={(e) => setCommissionNotes(e.target.value)} placeholder="Termos da comissão" rows={2} className="mt-1 text-xs" />
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => addOfficeMutation.mutate()} disabled={!selectedOfficeId || addOfficeMutation.isPending} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50">
+                {addOfficeMutation.isPending ? "A guardar…" : "Associar"}
+              </button>
+              <button onClick={() => { setAddingOffice(false); setSelectedOfficeId(""); setCommissionNotes(""); }} className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desassociar bilheteira?</AlertDialogTitle>
+            <AlertDialogDescription>A bilheteira será removida deste evento. As vendas registadas não serão eliminadas.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletingOfficeId && deleteOfficeMutation.mutate(deletingOfficeId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Desassociar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

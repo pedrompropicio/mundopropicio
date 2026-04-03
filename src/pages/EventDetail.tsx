@@ -10,7 +10,7 @@ import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
-import { EventTicketOfficesTab } from "@/components/EventTicketOfficesTab";
+
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -458,7 +458,6 @@ export default function EventDetail() {
           <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">Business Plan</TabsTrigger>
           {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners">Sócios</TabsTrigger>}
-          <TabsTrigger value="ticket_offices">Bilheteiras</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -606,7 +605,7 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventTicketing eventId={selectedSubEvent || event.id} />
+              <EventTicketing eventId={selectedSubEvent || event.id} eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null} eventStatus={event.status} />
             </div>
           )}
         </TabsContent>
@@ -668,13 +667,6 @@ export default function EventDetail() {
           </TabsContent>
         )}
 
-        <TabsContent value="ticket_offices">
-          <EventTicketOfficesTab
-            eventId={selectedSubEvent || event.id}
-            eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null}
-            eventStatus={event.status}
-          />
-        </TabsContent>
       </Tabs>
 
       {/* Confirmation dialog */}
