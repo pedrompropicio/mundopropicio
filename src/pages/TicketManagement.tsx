@@ -426,7 +426,7 @@ export default function TicketManagement() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
+              <Button onClick={() => openSaleModal()} disabled={zones.length === 0}>
                 <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
               <TotalTicketLoadModal events={events} selectedEventId={selectedEventId} />
