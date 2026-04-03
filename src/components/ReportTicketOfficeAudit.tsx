@@ -771,7 +771,34 @@ function AnalyticalByType({ officeId, lines, expandedCategories, toggleKey }: {
               </span>
             </div>
 
-            {isOpen && (
+            {isOpen && cat.key === "transfers" ? (
+              /* Transfers: flat list, no event grouping */
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/10">
+                    <TableHead className="w-24 text-xs">Data</TableHead>
+                    <TableHead className="text-xs">Descrição</TableHead>
+                    <TableHead className="text-right w-28 text-xs">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {catLines.map((line, idx) => (
+                    <TableRow key={idx} className="bg-muted/5">
+                      <TableCell className="text-xs font-mono">
+                        {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[300px] truncate" title={line.description}>
+                        {line.description}
+                      </TableCell>
+                      <TableCell className={cn("text-right font-mono text-sm", cat.color)}>
+                        {formatCurrency(Math.abs(line.amount))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : isOpen ? (
+              /* Sales & Expenses: grouped by event */
               <div>
                 {Object.entries(byEvent).map(([evName, evLines]) => {
                   const evTotal = evLines.reduce((s, l) => s + Math.abs(l.amount), 0);
@@ -821,7 +848,7 @@ function AnalyticalByType({ officeId, lines, expandedCategories, toggleKey }: {
                   );
                 })}
               </div>
-            )}
+            ) : null}
           </div>
         );
       })}
@@ -839,7 +866,7 @@ function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
   const noEventLines: AnalyticalLine[] = [];
 
   lines.forEach((l) => {
-    if (!l.eventId && l.type === "transfer") {
+    if (l.type === "transfer") {
       noEventLines.push(l);
       return;
     }
@@ -848,19 +875,17 @@ function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
     byEvent[evKey].lines.push(l);
     if (l.type === "sale" || l.type === "income") byEvent[evKey].sales += l.amount;
     else if (l.type === "expense") byEvent[evKey].expenses += Math.abs(l.amount);
-    else if (l.type === "transfer") byEvent[evKey].transfers += Math.abs(l.amount);
   });
 
   const typeCategories = [
     { key: "sales", label: "Bilhetes Vendidos", types: ["sale", "income"], color: "text-emerald-500" },
     { key: "expenses", label: "Despesas e Custos", types: ["expense"], color: "text-amber-500" },
-    { key: "transfers", label: "Transferências", types: ["transfer"], color: "text-muted-foreground" },
   ];
 
   return (
     <div>
       {Object.entries(byEvent).map(([evName, data]) => {
-        const evBalance = data.sales - data.expenses - data.transfers;
+        const evBalance = data.sales - data.expenses;
         const isOpen = expandedCategories.has(`${officeId}-ev-${evName}`);
 
         return (
