@@ -880,7 +880,6 @@ function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
   const typeCategories = [
     { key: "sales", label: "Bilhetes Vendidos", types: ["sale", "income"], color: "text-emerald-500" },
     { key: "expenses", label: "Despesas e Custos", types: ["expense"], color: "text-amber-500" },
-    { key: "transfers", label: "Transferências", types: ["transfer"], color: "text-muted-foreground" },
   ];
 
   return (
