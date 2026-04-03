@@ -404,6 +404,17 @@ export default function ReportTicketOfficeAudit() {
             Analítico
           </Button>
         </div>
+
+        <div className="flex items-center gap-2 ml-auto">
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" />
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <FileText className="h-4 w-4 mr-1" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       {/* Summary cards */}
