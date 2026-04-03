@@ -282,13 +282,20 @@ export default function TicketManagement() {
   // Computed values
   const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
   const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
+  const getZoneOnlySales = (zoneId: string) => sales.filter((s) => s.zone_id === zoneId && !s.lot_id);
   const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
   const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
 
-  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0);
-  const getZoneCapacity = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
+  const getZoneOnlySold = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity), 0);
+  const getZoneOnlyRevenue = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
+  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0) + getZoneOnlySold(zoneId);
+  const getZoneCapacity = (zoneId: string) => {
+    const lotsCap = getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
+    const zone = zones.find(z => z.id === zoneId);
+    return lotsCap > 0 ? lotsCap : (zone?.total_capacity ?? 0);
+  };
   const getZoneForecastRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
-  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0);
+  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0) + getZoneOnlyRevenue(zoneId);
 
   // Sort zones by max lot price (most expensive first)
   const sortedZones = useMemo(() => {
