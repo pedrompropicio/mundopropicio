@@ -20,6 +20,7 @@ export default function TicketOffices() {
   const [editingOffice, setEditingOffice] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("manage_accounts");
