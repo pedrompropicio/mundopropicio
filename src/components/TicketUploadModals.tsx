@@ -500,9 +500,9 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Upload de Vendas Diárias
+              Upload de Vendas por Período
             </DialogTitle>
           </DialogHeader>
 
