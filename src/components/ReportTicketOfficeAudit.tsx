@@ -368,12 +368,12 @@ export default function ReportTicketOfficeAudit() {
 
   const handleExportExcel = () => {
     const { syntheticExport, analyticalExport } = buildExportData();
-    exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode);
+    exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
   };
 
   const handleExportPDF = () => {
     const { syntheticExport, analyticalExport } = buildExportData();
-    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, viewMode);
+    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
   };
 
   const typeLabel = (type: string) => {
