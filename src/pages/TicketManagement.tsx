@@ -313,10 +313,11 @@ export default function TicketManagement() {
     });
   };
 
-  const openSaleModal = (lotId?: string) => {
+  const openSaleModal = (lotId?: string, zoneId?: string) => {
     const lot = lotId ? lots.find((l) => l.id === lotId) : null;
     setSaleForm({
       ...emptySale,
+      zone_id: zoneId || (lot ? lot.zone_id : ""),
       lot_id: lotId || "",
       unit_price: lot ? String(lot.price) : "",
     });
