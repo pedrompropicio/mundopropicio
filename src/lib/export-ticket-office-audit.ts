@@ -361,48 +361,60 @@ function renderSyntheticPDF(
   });
 }
 
-// ─── Analytical PDF — mirrors on-screen hierarchy exactly ───
+// ─── Analytical PDF (configurable 2nd/3rd level) ───
 function renderAnalyticalPDF(
   doc: jsPDF,
   data: AnalyticalOffice[],
   ml: number, cw: number,
   _pageHeight: number,
   startY: number,
-  checkPage: (n: number) => boolean
+  checkPage: (n: number) => boolean,
+  detailLevel: 2 | 3 = 3
 ) {
   let y = startY;
-
-  // Column layout for line items: Date | Description | Value
   const dateX = ml + 16;
   const descX = ml + 42;
   const valX = ml + cw - 4;
 
+  function drawLineHeader() {
+    doc.setFillColor(245, 245, 250);
+    doc.rect(ml + 12, y, cw - 12, 6, "F");
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Data", dateX, y + 4);
+    doc.text("Descrição", descX, y + 4);
+    doc.text("Valor (€)", valX, y + 4, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y += 7;
+  }
+
   data.forEach((office, idx) => {
+    const drawOfficeHeader = (continued = false) => {
+      const officeTitle = continued ? `${office.officeName} (continuação)` : office.officeName;
+      doc.setFillColor(30, 30, 40);
+      doc.rect(ml, y, cw, 9, "F");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text(officeTitle, ml + 4, y + 6.5);
+      const obc = office.expectedBalance >= 0 ? [100, 220, 100] : [255, 120, 120];
+      doc.setTextColor(obc[0], obc[1], obc[2]);
+      doc.setFontSize(9);
+      doc.text(`Saldo: ${fmtVal(office.expectedBalance)}`, ml + cw - 4, y + 6.5, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 12;
+    };
+
     if (idx > 0) {
       doc.addPage();
       y = 14;
     }
+    drawOfficeHeader();
 
-    // ── Office header bar (matches card header on screen) ──
-    doc.setFillColor(30, 30, 40);
-    doc.rect(ml, y, cw, 9, "F");
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text(office.officeName, ml + 4, y + 6.5);
-    // Balance on the right
-    const obc = office.expectedBalance >= 0 ? [100, 220, 100] : [255, 120, 120];
-    doc.setTextColor(obc[0], obc[1], obc[2]);
-    doc.setFontSize(9);
-    doc.text(`Saldo: ${fmtVal(office.expectedBalance)}`, ml + cw - 4, y + 6.5, { align: "right" });
-    doc.setTextColor(0, 0, 0);
-    y += 12;
-
-    // Split lines
     const transferLines = office.lines.filter((l) => l.type === "transfer");
     const eventLines = office.lines.filter((l) => l.type !== "transfer");
 
-    // Group by event
     const byEvent: Record<string, { sales: AnalyticalLine[]; expenses: AnalyticalLine[] }> = {};
     eventLines.forEach((l) => {
       const evKey = l.eventName || "Sem evento";
@@ -411,35 +423,37 @@ function renderAnalyticalPDF(
       else if (l.type === "expense") byEvent[evKey].expenses.push(l);
     });
 
-    // ── Render each event (Level 1) ──
     Object.entries(byEvent).forEach(([evName, evData]) => {
       const salesTotal = evData.sales.reduce((s, l) => s + Math.abs(l.amount), 0);
       const expTotal = evData.expenses.reduce((s, l) => s + Math.abs(l.amount), 0);
       const evBalance = salesTotal - expTotal;
       const evLineCount = evData.sales.length + evData.expenses.length;
 
-      // Event header bar (matches the expandable row on screen)
-      if (checkPage(20)) { y = 14; }
-      doc.setFillColor(240, 242, 248);
-      doc.rect(ml, y, cw, 8, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(30, 30, 40);
-      doc.text(`${evName} (${evLineCount})`, ml + 4, y + 5.5);
+      const drawEventHeader = () => {
+        doc.setFillColor(240, 242, 248);
+        doc.rect(ml, y, cw, 8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(30, 30, 40);
+        doc.text(`${evName} (${evLineCount})`, ml + 4, y + 5.5);
+        doc.setFontSize(7.5);
+        doc.setTextColor(34, 139, 34);
+        doc.text(fmtVal(salesTotal), ml + cw - 100, y + 5.5, { align: "right" });
+        doc.setTextColor(200, 120, 0);
+        doc.text(fmtVal(expTotal), ml + cw - 52, y + 5.5, { align: "right" });
+        const evbc = evBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
+        doc.setTextColor(evbc[0], evbc[1], evbc[2]);
+        doc.text(fmtVal(evBalance), ml + cw - 4, y + 5.5, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        y += 10;
+      };
 
-      // Summary on right: sales | expenses | balance
-      doc.setFontSize(7.5);
-      doc.setTextColor(34, 139, 34);
-      doc.text(fmtVal(salesTotal), ml + cw - 100, y + 5.5, { align: "right" });
-      doc.setTextColor(200, 120, 0);
-      doc.text(fmtVal(expTotal), ml + cw - 52, y + 5.5, { align: "right" });
-      const evbc = evBalance >= 0 ? [34, 139, 34] : [200, 50, 50];
-      doc.setTextColor(evbc[0], evbc[1], evbc[2]);
-      doc.text(fmtVal(evBalance), ml + cw - 4, y + 5.5, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      y += 10;
+      if (checkPage(detailLevel === 3 ? 22 : 12)) {
+        y = 14;
+        drawOfficeHeader(true);
+      }
+      drawEventHeader();
 
-      // ── Sub-categories (Level 2): Sales + Expenses ──
       const subSections = [
         { label: "Bilhetes Vendidos", lines: evData.sales, color: [34, 139, 34] as number[] },
         { label: "Despesas e Custos", lines: evData.expenses, color: [200, 120, 0] as number[] },
@@ -449,39 +463,46 @@ function renderAnalyticalPDF(
         if (sub.lines.length === 0) return;
         const subTotal = sub.lines.reduce((s, l) => s + Math.abs(l.amount), 0);
 
-        // Sub-category header (indented, matches screen)
-        if (checkPage(12)) { y = 14; }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.setTextColor(sub.color[0], sub.color[1], sub.color[2]);
-        doc.text(`${sub.label} (${sub.lines.length})`, ml + 10, y + 4);
-        doc.text(fmtVal(subTotal), ml + cw - 4, y + 4, { align: "right" });
-        y += 6;
-
-        // Line header
-        doc.setFillColor(245, 245, 250);
-        doc.rect(ml + 12, y, cw - 12, 6, "F");
-        doc.setFontSize(6.5);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(100, 100, 100);
-        doc.text("Data", dateX, y + 4);
-        doc.text("Descrição", descX, y + 4);
-        doc.text("Valor (€)", valX, y + 4, { align: "right" });
-        doc.setTextColor(0, 0, 0);
-        y += 7;
-
-        // Line items (Level 3)
-        sub.lines.forEach((line) => {
-          if (checkPage(6)) { y = 14; }
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(6.5);
-          doc.text(fmtDate(line.date), dateX, y + 3.5);
-          doc.text(line.description.substring(0, 60), descX, y + 3.5);
+        const drawSubHeader = () => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
           doc.setTextColor(sub.color[0], sub.color[1], sub.color[2]);
-          doc.text(fmtVal(Math.abs(line.amount)), valX, y + 3.5, { align: "right" });
+          doc.text(`${sub.label} (${sub.lines.length})`, ml + 10, y + 4);
+          doc.text(fmtVal(subTotal), ml + cw - 4, y + 4, { align: "right" });
           doc.setTextColor(0, 0, 0);
-          y += 5.5;
-        });
+          y += 6;
+
+          if (detailLevel === 3) {
+            drawLineHeader();
+          }
+        };
+
+        if (checkPage(detailLevel === 3 ? 16 : 8)) {
+          y = 14;
+          drawOfficeHeader(true);
+          drawEventHeader();
+        }
+        drawSubHeader();
+
+        if (detailLevel === 3) {
+          sub.lines.forEach((line) => {
+            if (checkPage(6)) {
+              y = 14;
+              drawOfficeHeader(true);
+              drawEventHeader();
+              drawSubHeader();
+            }
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(6.5);
+            doc.text(fmtDate(line.date), dateX, y + 3.5);
+            doc.text(line.description.substring(0, 60), descX, y + 3.5);
+            doc.setTextColor(sub.color[0], sub.color[1], sub.color[2]);
+            doc.text(fmtVal(Math.abs(line.amount)), valX, y + 3.5, { align: "right" });
+            doc.setTextColor(0, 0, 0);
+            y += 5.5;
+          });
+        }
 
         y += 3;
       });
@@ -489,50 +510,57 @@ function renderAnalyticalPDF(
       y += 2;
     });
 
-    // ── Transfers section (generic, no event) ──
     if (transferLines.length > 0) {
       const transferTotal = transferLines.reduce((s, l) => s + Math.abs(l.amount), 0);
 
-      if (checkPage(16)) { y = 14; }
-      doc.setFillColor(240, 242, 248);
-      doc.rect(ml, y, cw, 8, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Adiantamentos / Transferências (${transferLines.length})`, ml + 4, y + 5.5);
-      doc.text(fmtVal(transferTotal), ml + cw - 4, y + 5.5, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      y += 10;
-
-      // Line header
-      doc.setFillColor(245, 245, 250);
-      doc.rect(ml + 12, y, cw - 12, 6, "F");
-      doc.setFontSize(6.5);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(100, 100, 100);
-      doc.text("Data", dateX, y + 4);
-      doc.text("Descrição", descX, y + 4);
-      doc.text("Valor (€)", valX, y + 4, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      y += 7;
-
-      transferLines.forEach((line) => {
-        if (checkPage(6)) { y = 14; }
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(6.5);
-        doc.text(fmtDate(line.date), dateX, y + 3.5);
-        doc.text(line.description.substring(0, 60), descX, y + 3.5);
+      const drawTransferHeader = () => {
+        doc.setFillColor(240, 242, 248);
+        doc.rect(ml, y, cw, 8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
-        doc.text(fmtVal(Math.abs(line.amount)), valX, y + 3.5, { align: "right" });
+        doc.text(`Adiantamentos / Transferências (${transferLines.length})`, ml + 4, y + 5.5);
+        doc.text(fmtVal(transferTotal), ml + cw - 4, y + 5.5, { align: "right" });
         doc.setTextColor(0, 0, 0);
-        y += 5.5;
-      });
+        y += 10;
+
+        if (detailLevel === 3) {
+          drawLineHeader();
+        }
+      };
+
+      if (checkPage(detailLevel === 3 ? 16 : 8)) {
+        y = 14;
+        drawOfficeHeader(true);
+      }
+      drawTransferHeader();
+
+      if (detailLevel === 3) {
+        transferLines.forEach((line) => {
+          if (checkPage(6)) {
+            y = 14;
+            drawOfficeHeader(true);
+            drawTransferHeader();
+          }
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6.5);
+          doc.text(fmtDate(line.date), dateX, y + 3.5);
+          doc.text(line.description.substring(0, 60), descX, y + 3.5);
+          doc.setTextColor(100, 100, 100);
+          doc.text(fmtVal(Math.abs(line.amount)), valX, y + 3.5, { align: "right" });
+          doc.setTextColor(0, 0, 0);
+          y += 5.5;
+        });
+      }
 
       y += 4;
     }
 
-    // ── Office balance footer (matches SALDO PREVISTO bar) ──
-    if (checkPage(10)) { y = 14; }
+    if (checkPage(10)) {
+      y = 14;
+      drawOfficeHeader(true);
+    }
     doc.setFillColor(230, 240, 255);
     doc.rect(ml, y, cw, 8, "F");
     doc.setFont("helvetica", "bold");
