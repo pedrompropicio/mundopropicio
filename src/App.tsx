@@ -106,6 +106,7 @@ function ProtectedLayout() {
                 <Route path="fornecedores" element={<ReportSuppliersPage />} />
                 <Route path="plano-contas" element={<ReportAccountCategoriesPage />} />
                 <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
+                <Route path="bilheteiras" element={<ReportTicketOfficeAuditPage />} />
               </Route>
               
               
