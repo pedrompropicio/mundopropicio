@@ -866,7 +866,7 @@ function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
   const noEventLines: AnalyticalLine[] = [];
 
   lines.forEach((l) => {
-    if (!l.eventId && l.type === "transfer") {
+    if (l.type === "transfer") {
       noEventLines.push(l);
       return;
     }
@@ -875,7 +875,6 @@ function AnalyticalByEvent({ officeId, lines, expandedCategories, toggleKey }: {
     byEvent[evKey].lines.push(l);
     if (l.type === "sale" || l.type === "income") byEvent[evKey].sales += l.amount;
     else if (l.type === "expense") byEvent[evKey].expenses += Math.abs(l.amount);
-    else if (l.type === "transfer") byEvent[evKey].transfers += Math.abs(l.amount);
   });
 
   const typeCategories = [
