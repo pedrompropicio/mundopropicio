@@ -291,6 +291,18 @@ export default function ReportTicketOfficeAudit() {
           });
       });
 
+      // Compute per-event sales totals for proportional commission distribution
+      const eventSalesMap: Record<string, number> = {};
+      assignedEventIds.forEach((eventId: string) => {
+        const eventZoneIds = allZones
+          .filter((z: any) => z.event_id === eventId)
+          .map((z: any) => z.id);
+        eventSalesMap[eventId] = allSales
+          .filter((s: any) => eventZoneIds.includes(s.zone_id) && (!s.ticket_office_id || s.ticket_office_id === office.id))
+          .reduce((sum: number, s: any) => sum + s.quantity * Number(s.unit_price), 0);
+      });
+      const totalOfficeSales = Object.values(eventSalesMap).reduce((s, v) => s + v, 0);
+
       // Transaction lines
       if (accountId) {
         accountTxns
@@ -301,6 +313,7 @@ export default function ReportTicketOfficeAudit() {
             const supplierName = t.suppliers?.name ? ` — ${t.suppliers.name}` : "";
 
             if (t.type === "expense" && t.event_id) {
+              // Event-specific expense
               lines.push({
                 date: t.date,
                 type: "expense",
@@ -309,7 +322,26 @@ export default function ReportTicketOfficeAudit() {
                 eventId: t.event_id,
                 amount: -amt,
               });
+            } else if (t.type === "expense" && !t.event_id && isCommission(t.description)) {
+              // Commission: distribute proportionally across events
+              if (totalOfficeSales > 0) {
+                assignedEventIds.forEach((eventId: string) => {
+                  const proportion = (eventSalesMap[eventId] || 0) / totalOfficeSales;
+                  if (proportion > 0) {
+                    const evCommission = amt * proportion;
+                    lines.push({
+                      date: t.date,
+                      type: "expense",
+                      description: `${t.description} (proporcional)${supplierName}`,
+                      eventName: eventNameMap[eventId] || "",
+                      eventId: eventId,
+                      amount: -evCommission,
+                    });
+                  }
+                });
+              }
             } else if (t.type === "expense" && !t.event_id) {
+              // Actual bank transfer (not commission)
               lines.push({
                 date: t.date,
                 type: "transfer",
@@ -321,7 +353,6 @@ export default function ReportTicketOfficeAudit() {
             }
             // Income transactions on ticket office accounts are NOT included
             // because the revenue is already captured via ticket_sales records.
-            // Including them would double-count sales.
           });
       }
 
