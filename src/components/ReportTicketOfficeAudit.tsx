@@ -488,7 +488,7 @@ export default function ReportTicketOfficeAudit() {
             <FileSpreadsheet className="h-4 w-4 mr-1" />
             Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+          <Button variant="outline" size="sm" onClick={openPDFDialog}>
             <FileText className="h-4 w-4 mr-1" />
             PDF
           </Button>
