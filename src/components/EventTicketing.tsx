@@ -44,7 +44,7 @@ function ivaFromGross(gross: number, ivaRate: number): number {
   return gross - netFromGross(gross, ivaRate);
 }
 
-export function EventTicketing({ eventId }: Props) {
+export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const [addingZone, setAddingZone] = useState(false);
   const [zoneForm, setZoneForm] = useState<ZoneForm>(emptyZone);
