@@ -46,6 +46,8 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 
 export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const { isAdmin, hasPermission } = useAuth();
+  const canManageOffices = isAdmin || hasPermission("manage_accounts");
   const [addingZone, setAddingZone] = useState(false);
   const [zoneForm, setZoneForm] = useState<ZoneForm>(emptyZone);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
@@ -55,6 +57,12 @@ export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const zoneNameRef = useRef<HTMLInputElement>(null);
   const lotNameRef = useRef<HTMLInputElement>(null);
+
+  // Ticket offices state
+  const [addingOffice, setAddingOffice] = useState(false);
+  const [selectedOfficeId, setSelectedOfficeId] = useState("");
+  const [commissionNotes, setCommissionNotes] = useState("");
+  const [deletingOfficeId, setDeletingOfficeId] = useState<string | null>(null);
 
   useEffect(() => {
     if ((addingZone || editingZoneId) && zoneNameRef.current) {
