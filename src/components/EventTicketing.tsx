@@ -112,6 +112,120 @@ export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
     enabled: zones.length > 0,
   });
 
+  // === Ticket Offices queries & mutations ===
+  const { data: officeAssignments = [] } = useQuery({
+    queryKey: ["event_ticket_office_assignments", eventId, eventDateId],
+    queryFn: async () => {
+      let q = supabase
+        .from("event_ticket_office_assignments")
+        .select("*, ticket_offices(id, name, contact_name)")
+        .eq("event_id", eventId);
+      if (eventDateId) {
+        q = q.eq("event_date_id", eventDateId);
+      } else {
+        q = q.is("event_date_id", null);
+      }
+      const { data, error } = await q.order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allTicketOffices = [] } = useQuery({
+    queryKey: ["ticket_offices_active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_offices")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const availableOffices = allTicketOffices.filter(
+    (to: any) => !officeAssignments.some((a: any) => a.ticket_office_id === to.id)
+  );
+
+  const addOfficeMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
+      const { error } = await supabase.from("event_ticket_office_assignments").insert({
+        event_id: eventId,
+        ticket_office_id: selectedOfficeId,
+        event_date_id: eventDateId || null,
+        commission_notes: commissionNotes.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      setAddingOffice(false);
+      setSelectedOfficeId("");
+      setCommissionNotes("");
+      sonnerToast.success("Bilheteira associada ao evento");
+    },
+    onError: (err: any) => sonnerToast.error("Erro", { description: err.message }),
+  });
+
+  const deleteOfficeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("event_ticket_office_assignments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      setDeletingOfficeId(null);
+      sonnerToast.success("Bilheteira desassociada");
+    },
+    onError: (err: any) => { sonnerToast.error("Erro", { description: err.message }); setDeletingOfficeId(null); },
+  });
+
+  const updateOfficeNotesMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({ commission_notes: notes.trim() || null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      sonnerToast.success("Notas atualizadas");
+    },
+  });
+
+  const conciliateOfficeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({ is_conciliated: true, conciliated_at: new Date().toISOString(), conciliated_by: user?.email || "system" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      sonnerToast.success("Bilheteira marcada como conciliada");
+    },
+    onError: (err: any) => sonnerToast.error("Erro", { description: err.message }),
+  });
+
+  const unconciliateOfficeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({ is_conciliated: false, conciliated_at: null, conciliated_by: null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      sonnerToast.success("Conciliação revertida");
+    },
+  });
+
   // Zone CRUD
   const saveZoneMutation = useMutation({
     mutationFn: async ({ form, id }: { form: ZoneForm; id: string | null }) => {
