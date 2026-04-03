@@ -220,7 +220,7 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
 
   const handleClose = () => {
     setOpen(false);
-    setEventId("");
+    setEventId(preSelectedEventId || "");
     setLoadType("realizado");
     setFile(null);
     setPreview([]);
