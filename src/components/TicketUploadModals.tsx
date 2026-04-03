@@ -246,21 +246,23 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label>Evento</Label>
-              <Select value={eventId} onValueChange={setEventId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione o evento…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map(e => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!preSelectedEventId && (
+              <div>
+                <Label>Evento</Label>
+                <Select value={eventId} onValueChange={setEventId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione o evento…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {events.map(e => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div>
               <Label>Tipo de Carga</Label>
