@@ -327,7 +327,8 @@ export default function TicketManagement() {
 
   const openEditSale = (sale: any) => {
     setSaleForm({
-      lot_id: sale.lot_id,
+      zone_id: sale.zone_id || "",
+      lot_id: sale.lot_id || "",
       sale_date: sale.sale_date,
       quantity: String(sale.quantity),
       unit_price: String(sale.unit_price),
