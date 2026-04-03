@@ -667,13 +667,6 @@ export default function EventDetail() {
           </TabsContent>
         )}
 
-        <TabsContent value="ticket_offices">
-          <EventTicketOfficesTab
-            eventId={selectedSubEvent || event.id}
-            eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null}
-            eventStatus={event.status}
-          />
-        </TabsContent>
       </Tabs>
 
       {/* Confirmation dialog */}
