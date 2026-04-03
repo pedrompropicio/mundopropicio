@@ -16,6 +16,7 @@ import {
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil,
 } from "lucide-react";
 import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/TicketUploadModals";
+import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
 
 interface SaleForm {
   lot_id: string;
