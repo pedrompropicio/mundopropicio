@@ -452,6 +452,70 @@ export type Database = {
           },
         ]
       }
+      event_ticket_office_assignments: {
+        Row: {
+          commission_notes: string | null
+          commission_type: string
+          conciliated_at: string | null
+          conciliated_by: string | null
+          created_at: string
+          event_date_id: string | null
+          event_id: string
+          id: string
+          is_conciliated: boolean
+          ticket_office_id: string
+          updated_at: string
+        }
+        Insert: {
+          commission_notes?: string | null
+          commission_type?: string
+          conciliated_at?: string | null
+          conciliated_by?: string | null
+          created_at?: string
+          event_date_id?: string | null
+          event_id: string
+          id?: string
+          is_conciliated?: boolean
+          ticket_office_id: string
+          updated_at?: string
+        }
+        Update: {
+          commission_notes?: string | null
+          commission_type?: string
+          conciliated_at?: string | null
+          conciliated_by?: string | null
+          created_at?: string
+          event_date_id?: string | null
+          event_id?: string
+          id?: string
+          is_conciliated?: boolean
+          ticket_office_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_office_assignments_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_office_assignments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_office_assignments_ticket_office_id_fkey"
+            columns: ["ticket_office_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_zones: {
         Row: {
           created_at: string
@@ -1100,6 +1164,53 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_offices: {
+        Row: {
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          financial_account_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          financial_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          financial_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_offices_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_sales: {
         Row: {
           created_at: string
@@ -1109,6 +1220,7 @@ export type Database = {
           notes: string | null
           quantity: number
           sale_date: string
+          ticket_office_id: string | null
           unit_price: number
           zone_id: string | null
         }
@@ -1120,6 +1232,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           sale_date?: string
+          ticket_office_id?: string | null
           unit_price?: number
           zone_id?: string | null
         }
@@ -1131,6 +1244,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           sale_date?: string
+          ticket_office_id?: string | null
           unit_price?: number
           zone_id?: string | null
         }
@@ -1140,6 +1254,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "event_ticket_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_sales_ticket_office_id_fkey"
+            columns: ["ticket_office_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_offices"
             referencedColumns: ["id"]
           },
           {
