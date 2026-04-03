@@ -59,9 +59,19 @@ export default function FinancialAccounts() {
       const { data, error } = await supabase
         .from("financial_accounts")
         .select("*")
+        .order("type")
         .order("name");
       if (error) throw error;
-      return data;
+      // Sort by ACCOUNT_TYPES order, then by name
+      const typeOrder = ACCOUNT_TYPES.map(t => t.value);
+      return (data || []).sort((a, b) => {
+        const ai = typeOrder.indexOf(a.type); 
+        const bi = typeOrder.indexOf(b.type);
+        const ta = ai >= 0 ? ai : typeOrder.length;
+        const tb = bi >= 0 ? bi : typeOrder.length;
+        if (ta !== tb) return ta - tb;
+        return a.name.localeCompare(b.name);
+      });
     },
   });
 
