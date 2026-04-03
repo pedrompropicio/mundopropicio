@@ -132,6 +132,46 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
     },
   });
 
+  const conciliateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({
+          is_conciliated: true,
+          conciliated_at: new Date().toISOString(),
+          conciliated_by: user?.email || "system",
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      toast.success("Bilheteira marcada como conciliada");
+    },
+    onError: (err: any) => {
+      toast.error("Erro", { description: err.message });
+    },
+  });
+
+  const unconciliateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("event_ticket_office_assignments")
+        .update({
+          is_conciliated: false,
+          conciliated_at: null,
+          conciliated_by: null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_office_assignments", eventId, eventDateId] });
+      toast.success("Conciliação revertida");
+    },
+  });
+
   if (isLoading) return <p className="py-8 text-center text-muted-foreground">A carregar…</p>;
 
   return (
