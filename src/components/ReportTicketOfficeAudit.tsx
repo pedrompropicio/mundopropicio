@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import TicketOfficeAuditPdfDialog, { type TicketOfficeAuditPdfFormat } from "@/components/TicketOfficeAuditPdfDialog";
 import {
   Store,
   TrendingUp,
@@ -34,10 +35,11 @@ import {
   ChevronRight,
   List,
   LayoutList,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/lib/export-ticket-office-audit";
-import { FileText, FileSpreadsheet } from "lucide-react";
 
 type ViewMode = "synthetic" | "analytical";
 type AnalyticalGroupBy = "event" | "type";

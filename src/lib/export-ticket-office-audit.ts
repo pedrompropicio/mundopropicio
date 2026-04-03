@@ -47,6 +47,12 @@ interface AnalyticalOffice {
   lines: AnalyticalLine[];
 }
 
+interface TicketOfficeAuditPDFOptions {
+  viewMode: "synthetic" | "analytical";
+  groupBy?: "type" | "event";
+  detailLevel?: 2 | 3;
+}
+
 // ═══════════════════════════ EXCEL ═══════════════════════════
 
 export function exportTicketOfficeAuditToExcel(
