@@ -42,6 +42,7 @@ export default function TicketManagement() {
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleForm, setSaleForm] = useState<SaleForm>(emptySale);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   // Admin lot editing
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
