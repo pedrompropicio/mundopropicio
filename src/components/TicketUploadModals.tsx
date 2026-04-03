@@ -20,6 +20,7 @@ interface Event {
 
 interface TicketUploadModalsProps {
   events: Event[];
+  selectedEventId?: string;
 }
 
 interface ParsedRow {
