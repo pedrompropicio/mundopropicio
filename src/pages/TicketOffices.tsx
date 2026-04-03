@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Phone, Mail, Building2, Pencil, Trash2, Landmark, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Search, Phone, Mail, Building2, Pencil, Trash2, Landmark, ToggleLeft, ToggleRight, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TicketOfficeFormModal } from "@/components/TicketOfficeFormModal";
+import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import {
