@@ -222,7 +222,9 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
             <div className="glass rounded-xl p-4 space-y-3">
               <h4 className="text-sm font-medium">Formato esperado (CSV/Excel)</h4>
               <p className="text-xs text-muted-foreground">
-                Colunas obrigatórias: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Lote</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong>
+                Colunas obrigatórias: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong>
+                <br />
+                Coluna opcional: <strong>Lote</strong> <span className="text-muted-foreground/70">(se não existir, a venda é registada por zona)</span>
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -231,7 +233,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                       <th className="pb-1 text-left">Data</th>
                       <th className="pb-1 text-left">Evento</th>
                       <th className="pb-1 text-left">Zona</th>
-                      <th className="pb-1 text-left">Lote</th>
+                      <th className="pb-1 text-left">Lote <span className="font-normal text-muted-foreground/60">(opc.)</span></th>
                       <th className="pb-1 text-right">Quantidade</th>
                       <th className="pb-1 text-right">Preço Unitário</th>
                     </tr>
@@ -244,6 +246,14 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                       <td>1º Lote</td>
                       <td className="text-right">150</td>
                       <td className="text-right">35.00</td>
+                    </tr>
+                    <tr className="opacity-60">
+                      <td className="py-1">2026-04-02</td>
+                      <td>Concerto Jazz</td>
+                      <td>Geral</td>
+                      <td>—</td>
+                      <td className="text-right">200</td>
+                      <td className="text-right">20.00</td>
                     </tr>
                   </tbody>
                 </table>
