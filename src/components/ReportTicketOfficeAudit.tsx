@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import TicketOfficeAuditPdfDialog, { type TicketOfficeAuditPdfFormat } from "@/components/TicketOfficeAuditPdfDialog";
 import {
   Store,
   TrendingUp,
@@ -34,10 +35,11 @@ import {
   ChevronRight,
   List,
   LayoutList,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportTicketOfficeAuditToExcel, exportTicketOfficeAuditToPDF } from "@/lib/export-ticket-office-audit";
-import { FileText, FileSpreadsheet } from "lucide-react";
 
 type ViewMode = "synthetic" | "analytical";
 type AnalyticalGroupBy = "event" | "type";
@@ -58,6 +60,10 @@ export default function ReportTicketOfficeAudit() {
   const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [analyticalGroupBy, setAnalyticalGroupBy] = useState<AnalyticalGroupBy>("type");
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfOfficeFilter, setPdfOfficeFilter] = useState<string>("all");
+  const [pdfExportFormat, setPdfExportFormat] = useState<TicketOfficeAuditPdfFormat>("synthetic");
+  const [pdfAnalyticalGroupBy, setPdfAnalyticalGroupBy] = useState<AnalyticalGroupBy>("type");
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
@@ -340,8 +346,12 @@ export default function ReportTicketOfficeAudit() {
     );
   }, [filteredData]);
 
-  const buildExportData = () => {
-    const syntheticExport = filteredData.map((d: any) => ({
+  const buildExportData = (officeFilter = selectedOffice) => {
+    const exportSource = officeFilter === "all"
+      ? auditData
+      : auditData.filter((d: any) => d.officeId === officeFilter);
+
+    const syntheticExport = exportSource.map((d: any) => ({
       officeName: d.officeName,
       totalSales: d.totalSales,
       totalDirectExpenses: d.totalDirectExpenses,
@@ -357,7 +367,7 @@ export default function ReportTicketOfficeAudit() {
       })),
     }));
 
-    const analyticalExport = filteredData.map((d: any) => ({
+    const analyticalExport = exportSource.map((d: any) => ({
       officeName: d.officeName,
       expectedBalance: d.expectedBalance,
       lines: analyticalData[d.officeId] || [],
@@ -371,9 +381,24 @@ export default function ReportTicketOfficeAudit() {
     exportTicketOfficeAuditToExcel(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
   };
 
-  const handleExportPDF = () => {
-    const { syntheticExport, analyticalExport } = buildExportData();
-    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, viewMode, analyticalGroupBy);
+  const openPDFDialog = () => {
+    setPdfOfficeFilter(selectedOffice);
+    setPdfAnalyticalGroupBy(analyticalGroupBy);
+    setPdfExportFormat(viewMode === "synthetic" ? "synthetic" : "analytical-3");
+    setPdfDialogOpen(true);
+  };
+
+  const handleConfirmPDFExport = () => {
+    const { syntheticExport, analyticalExport } = buildExportData(pdfOfficeFilter);
+    const pdfViewMode = pdfExportFormat === "synthetic" ? "synthetic" : "analytical";
+    const detailLevel = pdfExportFormat === "analytical-2" ? 2 : 3;
+
+    exportTicketOfficeAuditToPDF(syntheticExport, analyticalExport, {
+      viewMode: pdfViewMode,
+      groupBy: pdfViewMode === "analytical" ? pdfAnalyticalGroupBy : undefined,
+      detailLevel: pdfViewMode === "analytical" ? detailLevel : undefined,
+    });
+    setPdfDialogOpen(false);
   };
 
   const typeLabel = (type: string) => {
@@ -463,7 +488,7 @@ export default function ReportTicketOfficeAudit() {
             <FileSpreadsheet className="h-4 w-4 mr-1" />
             Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+          <Button variant="outline" size="sm" onClick={openPDFDialog}>
             <FileText className="h-4 w-4 mr-1" />
             PDF
           </Button>
@@ -708,6 +733,19 @@ export default function ReportTicketOfficeAudit() {
           })}
         </div>
       )}
+
+      <TicketOfficeAuditPdfDialog
+        open={pdfDialogOpen}
+        onOpenChange={setPdfDialogOpen}
+        format={pdfExportFormat}
+        onFormatChange={setPdfExportFormat}
+        officeFilter={pdfOfficeFilter}
+        onOfficeFilterChange={setPdfOfficeFilter}
+        analyticalGroupBy={pdfAnalyticalGroupBy}
+        onAnalyticalGroupByChange={setPdfAnalyticalGroupBy}
+        offices={offices.map((office: any) => ({ id: office.id, name: office.name }))}
+        onConfirm={handleConfirmPDFExport}
+      />
     </div>
   );
 }
