@@ -605,7 +605,7 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventTicketing eventId={selectedSubEvent || event.id} />
+              <EventTicketing eventId={selectedSubEvent || event.id} eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null} eventStatus={event.status} />
             </div>
           )}
         </TabsContent>
