@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
+import { format } from "date-fns";
 import {
   Select,
   SelectContent,
@@ -18,8 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Store,
   TrendingUp,
@@ -30,33 +32,26 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronRight,
+  List,
+  LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface EventBreakdown {
-  eventId: string;
-  eventName: string;
-  eventStatus: string;
-  isConciliated: boolean;
-  totalSales: number;
-  totalExpenses: number;
-  balance: number;
-}
+type ViewMode = "synthetic" | "analytical";
 
-interface OfficeAudit {
-  officeId: string;
-  officeName: string;
-  financialAccountId: string | null;
-  totalSales: number;
-  totalDirectExpenses: number;
-  totalTransfers: number;
-  expectedBalance: number;
-  events: EventBreakdown[];
+interface AnalyticalLine {
+  date: string;
+  type: "sale" | "expense" | "transfer" | "income";
+  description: string;
+  eventName: string;
+  amount: number;
+  runningBalance?: number;
 }
 
 export default function ReportTicketOfficeAudit() {
   const [selectedOffice, setSelectedOffice] = useState<string>("all");
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>("synthetic");
 
   // Fetch ticket offices
   const { data: offices = [], isLoading: loadingOffices } = useQuery({
@@ -83,31 +78,32 @@ export default function ReportTicketOfficeAudit() {
     },
   });
 
-  // Fetch all ticket zones and sales
+  // Fetch all ticket zones
   const { data: allZones = [] } = useQuery({
     queryKey: ["report_to_zones"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("id, event_id");
+        .select("id, event_id, name");
       if (error) throw error;
       return data;
     },
   });
 
   const zoneIds = allZones.map((z: any) => z.id);
+
+  // Fetch sales with date for analytical view
   const { data: allSales = [] } = useQuery({
     queryKey: ["report_to_sales", zoneIds.length],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
-      // Fetch in batches if needed
       const batchSize = 500;
       let allData: any[] = [];
       for (let i = 0; i < zoneIds.length; i += batchSize) {
         const batch = zoneIds.slice(i, i + batchSize);
         const { data, error } = await supabase
           .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, ticket_office_id")
+          .select("zone_id, quantity, unit_price, ticket_office_id, sale_date, notes")
           .in("zone_id", batch);
         if (error) throw error;
         allData = allData.concat(data || []);
@@ -127,9 +123,10 @@ export default function ReportTicketOfficeAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, event_id, description, status, date, supplier_id, suppliers(name)")
+        .select("id, account_id, type, amount, paid_amount, event_id, description, status, date, supplier_id, suppliers(name), events(name)")
         .in("account_id", accountIds)
-        .in("status", ["approved", "paid"]);
+        .in("status", ["approved", "paid"])
+        .order("date");
       if (error) throw error;
       return data;
     },
@@ -138,35 +135,38 @@ export default function ReportTicketOfficeAudit() {
   // Build zone-to-event map
   const zoneEventMap = useMemo(() => {
     const map: Record<string, string> = {};
-    allZones.forEach((z: any) => {
-      map[z.id] = z.event_id;
-    });
+    allZones.forEach((z: any) => { map[z.id] = z.event_id; });
     return map;
   }, [allZones]);
 
-  // Build office-to-account map
-  const officeAccountMap = useMemo(() => {
+  // Event name map from assignments
+  const eventNameMap = useMemo(() => {
     const map: Record<string, string> = {};
-    offices.forEach((o: any) => {
-      if (o.financial_account_id) map[o.id] = o.financial_account_id;
+    assignments.forEach((a: any) => {
+      if (a.events) map[a.event_id] = a.events.name;
     });
     return map;
-  }, [offices]);
+  }, [assignments]);
 
-  // Build complete audit data
-  const auditData: OfficeAudit[] = useMemo(() => {
+  // Zone name map
+  const zoneNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allZones.forEach((z: any) => { map[z.id] = z.name; });
+    return map;
+  }, [allZones]);
+
+  // Build synthetic audit data
+  const auditData = useMemo(() => {
     return offices.map((office: any) => {
       const officeAssignments = assignments.filter(
         (a: any) => a.ticket_office_id === office.id
       );
       const accountId = office.financial_account_id;
 
-      // Build event breakdown
-      const events: EventBreakdown[] = officeAssignments.map((a: any) => {
+      const events = officeAssignments.map((a: any) => {
         const ev = a.events;
         if (!ev) return null;
 
-        // Sales for this event from this office
         const eventZoneIds = allZones
           .filter((z: any) => z.event_id === a.event_id)
           .map((z: any) => z.id);
@@ -179,15 +179,9 @@ export default function ReportTicketOfficeAudit() {
           )
           .reduce((sum: number, s: any) => sum + s.quantity * Number(s.unit_price), 0);
 
-        // Direct expenses for this event from the office account
         const eventExpenses = accountId
           ? accountTxns
-              .filter(
-                (t: any) =>
-                  t.account_id === accountId &&
-                  t.type === "expense" &&
-                  t.event_id === a.event_id
-              )
+              .filter((t: any) => t.account_id === accountId && t.type === "expense" && t.event_id === a.event_id)
               .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
           : 0;
 
@@ -199,32 +193,23 @@ export default function ReportTicketOfficeAudit() {
           totalSales: officeSales,
           totalExpenses: eventExpenses,
           balance: officeSales - eventExpenses,
-        } as EventBreakdown;
-      }).filter(Boolean) as EventBreakdown[];
+        };
+      }).filter(Boolean);
 
-      // Transfers out (expenses without event_id on the office account)
       const transfers = accountId
         ? accountTxns
-            .filter(
-              (t: any) =>
-                t.account_id === accountId &&
-                t.type === "expense" &&
-                !t.event_id
-            )
+            .filter((t: any) => t.account_id === accountId && t.type === "expense" && !t.event_id)
             .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
         : 0;
 
-      // Income on account (transfers in)
       const incomeOnAccount = accountId
         ? accountTxns
-            .filter(
-              (t: any) => t.account_id === accountId && t.type === "income"
-            )
+            .filter((t: any) => t.account_id === accountId && t.type === "income")
             .reduce((sum: number, t: any) => sum + Number(t.paid_amount || t.amount), 0)
         : 0;
 
-      const totalSales = events.reduce((s, e) => s + e.totalSales, 0);
-      const totalDirectExpenses = events.reduce((s, e) => s + e.totalExpenses, 0);
+      const totalSales = events.reduce((s: number, e: any) => s + e.totalSales, 0);
+      const totalDirectExpenses = events.reduce((s: number, e: any) => s + e.totalExpenses, 0);
 
       return {
         officeId: office.id,
@@ -239,9 +224,102 @@ export default function ReportTicketOfficeAudit() {
     });
   }, [offices, assignments, allZones, allSales, accountTxns]);
 
+  // Build analytical lines per office
+  const analyticalData = useMemo(() => {
+    if (viewMode !== "analytical") return {};
+    const result: Record<string, AnalyticalLine[]> = {};
+
+    offices.forEach((office: any) => {
+      const lines: AnalyticalLine[] = [];
+      const officeAssignments = assignments.filter((a: any) => a.ticket_office_id === office.id);
+      const assignedEventIds = officeAssignments.map((a: any) => a.event_id);
+      const accountId = office.financial_account_id;
+
+      // Sales lines
+      assignedEventIds.forEach((eventId: string) => {
+        const eventZoneIds = allZones
+          .filter((z: any) => z.event_id === eventId)
+          .map((z: any) => z.id);
+
+        allSales
+          .filter(
+            (s: any) =>
+              eventZoneIds.includes(s.zone_id) &&
+              (!s.ticket_office_id || s.ticket_office_id === office.id)
+          )
+          .forEach((s: any) => {
+            const zoneName = zoneNameMap[s.zone_id] || "";
+            lines.push({
+              date: s.sale_date,
+              type: "sale",
+              description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
+              eventName: eventNameMap[eventId] || "",
+              amount: s.quantity * Number(s.unit_price),
+            });
+          });
+      });
+
+      // Transaction lines
+      if (accountId) {
+        accountTxns
+          .filter((t: any) => t.account_id === accountId)
+          .forEach((t: any) => {
+            const amt = Number(t.paid_amount || t.amount);
+            const evName = t.events?.name || eventNameMap[t.event_id] || "";
+            const supplierName = t.suppliers?.name ? ` — ${t.suppliers.name}` : "";
+
+            if (t.type === "expense" && t.event_id) {
+              lines.push({
+                date: t.date,
+                type: "expense",
+                description: `${t.description}${supplierName}`,
+                eventName: evName,
+                amount: -amt,
+              });
+            } else if (t.type === "expense" && !t.event_id) {
+              lines.push({
+                date: t.date,
+                type: "transfer",
+                description: `${t.description}${supplierName}`,
+                eventName: "—",
+                amount: -amt,
+              });
+            } else if (t.type === "income") {
+              lines.push({
+                date: t.date,
+                type: "income",
+                description: `${t.description}${supplierName}`,
+                eventName: evName || "—",
+                amount: amt,
+              });
+            }
+          });
+      }
+
+      // Sort by date, then type (sales first, then expenses)
+      lines.sort((a, b) => {
+        const d = a.date.localeCompare(b.date);
+        if (d !== 0) return d;
+        const typeOrder = { sale: 0, income: 1, expense: 2, transfer: 3 };
+        return typeOrder[a.type] - typeOrder[b.type];
+      });
+
+      // Add running balance
+      let balance = 0;
+      lines.forEach((l) => {
+        balance += l.amount;
+        l.runningBalance = balance;
+      });
+
+      result[office.id] = lines;
+    });
+
+    return result;
+  }, [viewMode, offices, assignments, allZones, allSales, accountTxns, zoneNameMap, eventNameMap]);
+
   const filteredData = selectedOffice === "all"
     ? auditData
-    : auditData.filter((d) => d.officeId === selectedOffice);
+    : auditData.filter((d: any) => d.officeId === selectedOffice);
 
   const toggleExpand = (id: string) => {
     setExpandedOffices((prev) => {
@@ -252,10 +330,9 @@ export default function ReportTicketOfficeAudit() {
     });
   };
 
-  // Grand totals
   const grandTotals = useMemo(() => {
     return filteredData.reduce(
-      (acc, d) => ({
+      (acc: any, d: any) => ({
         sales: acc.sales + d.totalSales,
         expenses: acc.expenses + d.totalDirectExpenses,
         transfers: acc.transfers + d.totalTransfers,
@@ -265,6 +342,26 @@ export default function ReportTicketOfficeAudit() {
     );
   }, [filteredData]);
 
+  const typeLabel = (type: string) => {
+    switch (type) {
+      case "sale": return "Venda";
+      case "expense": return "Despesa";
+      case "transfer": return "Transferência";
+      case "income": return "Receita";
+      default: return type;
+    }
+  };
+
+  const typeColor = (type: string) => {
+    switch (type) {
+      case "sale": return "text-emerald-500";
+      case "income": return "text-emerald-500";
+      case "expense": return "text-amber-500";
+      case "transfer": return "text-muted-foreground";
+      default: return "";
+    }
+  };
+
   if (loadingOffices) {
     return <Skeleton className="h-64 w-full" />;
   }
@@ -272,7 +369,7 @@ export default function ReportTicketOfficeAudit() {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Select value={selectedOffice} onValueChange={setSelectedOffice}>
           <SelectTrigger className="w-64">
             <SelectValue placeholder="Todas as bilheteiras" />
@@ -284,6 +381,27 @@ export default function ReportTicketOfficeAudit() {
             ))}
           </SelectContent>
         </Select>
+
+        <div className="flex items-center border rounded-lg overflow-hidden">
+          <Button
+            variant={viewMode === "synthetic" ? "default" : "ghost"}
+            size="sm"
+            className="rounded-none gap-1.5"
+            onClick={() => setViewMode("synthetic")}
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+            Sintético
+          </Button>
+          <Button
+            variant={viewMode === "analytical" ? "default" : "ghost"}
+            size="sm"
+            className="rounded-none gap-1.5"
+            onClick={() => setViewMode("analytical")}
+          >
+            <List className="h-3.5 w-3.5" />
+            Analítico
+          </Button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -337,164 +455,214 @@ export default function ReportTicketOfficeAudit() {
         </Card>
       </div>
 
-      {/* Office-level table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8"></TableHead>
-                <TableHead>Bilheteira</TableHead>
-                <TableHead className="text-right">Vendas</TableHead>
-                <TableHead className="text-right">Desp. Diretas</TableHead>
-                <TableHead className="text-right">Transferências</TableHead>
-                <TableHead className="text-right">Saldo Previsto</TableHead>
-                <TableHead className="text-center">Eventos</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData.length === 0 ? (
+      {/* === SYNTHETIC VIEW === */}
+      {viewMode === "synthetic" && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Nenhuma bilheteira encontrada
-                  </TableCell>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead>Bilheteira</TableHead>
+                  <TableHead className="text-right">Vendas</TableHead>
+                  <TableHead className="text-right">Desp. Diretas</TableHead>
+                  <TableHead className="text-right">Transferências</TableHead>
+                  <TableHead className="text-right">Saldo Previsto</TableHead>
+                  <TableHead className="text-center">Eventos</TableHead>
                 </TableRow>
-              ) : (
-                filteredData.map((office) => {
-                  const isExpanded = expandedOffices.has(office.officeId);
-                  return (
-                    <>
-                      <TableRow
-                        key={office.officeId}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => toggleExpand(office.officeId)}
-                      >
-                        <TableCell className="w-8 px-2">
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <Store className="h-4 w-4 text-muted-foreground" />
-                            {office.officeName}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-emerald-500">
-                          {formatCurrency(office.totalSales)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-amber-500">
-                          {formatCurrency(office.totalDirectExpenses)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {formatCurrency(office.totalTransfers)}
-                        </TableCell>
-                        <TableCell className={cn(
-                          "text-right font-mono font-semibold",
-                          office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400"
-                        )}>
-                          {formatCurrency(office.expectedBalance)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="secondary">{office.events.length}</Badge>
-                        </TableCell>
-                      </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      Nenhuma bilheteira encontrada
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredData.map((office: any) => {
+                    const isExpanded = expandedOffices.has(office.officeId);
+                    return (
+                      <>{/* office row */}
+                        <TableRow
+                          key={office.officeId}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => toggleExpand(office.officeId)}
+                        >
+                          <TableCell className="w-8 px-2">
+                            {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <Store className="h-4 w-4 text-muted-foreground" />
+                              {office.officeName}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(office.totalSales)}</TableCell>
+                          <TableCell className="text-right font-mono text-amber-500">{formatCurrency(office.totalDirectExpenses)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(office.totalTransfers)}</TableCell>
+                          <TableCell className={cn("text-right font-mono font-semibold", office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400")}>
+                            {formatCurrency(office.expectedBalance)}
+                          </TableCell>
+                          <TableCell className="text-center"><Badge variant="secondary">{office.events.length}</Badge></TableCell>
+                        </TableRow>
 
-                      {isExpanded && office.events.length > 0 && (
-                        <>
-                          <TableRow className="bg-muted/20">
-                            <TableCell></TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground">Evento</TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground text-right">Vendas</TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground text-right">Despesas</TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground text-right">Saldo</TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground text-center">Estado</TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground text-center">Conciliado</TableCell>
+                        {isExpanded && office.events.length > 0 && (
+                          <>
+                            <TableRow className="bg-muted/20">
+                              <TableCell></TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground">Evento</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-right">Vendas</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-right">Despesas</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-right">Saldo</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-center">Estado</TableCell>
+                              <TableCell className="text-xs font-semibold text-muted-foreground text-center">Conciliado</TableCell>
+                            </TableRow>
+                            {office.events.map((ev: any) => (
+                              <TableRow key={`${office.officeId}-${ev.eventId}`} className="bg-muted/10">
+                                <TableCell></TableCell>
+                                <TableCell className="text-sm pl-6">{ev.eventName}</TableCell>
+                                <TableCell className="text-right font-mono text-sm text-emerald-500">{formatCurrency(ev.totalSales)}</TableCell>
+                                <TableCell className="text-right font-mono text-sm text-amber-500">{formatCurrency(ev.totalExpenses)}</TableCell>
+                                <TableCell className={cn("text-right font-mono text-sm font-medium", ev.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
+                                  {formatCurrency(ev.balance)}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant={ev.eventStatus === "completed" ? "default" : "secondary"} className="text-[10px]">
+                                    {ev.eventStatus === "completed" ? "Finalizado" : ev.eventStatus === "confirmed" ? "Confirmado" : ev.eventStatus === "cancelled" ? "Cancelado" : "Planeamento"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {ev.isConciliated ? <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" /> : <AlertCircle className="h-4 w-4 text-muted-foreground/40 mx-auto" />}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {office.totalTransfers > 0 && (
+                              <TableRow className="bg-muted/10 border-t">
+                                <TableCell></TableCell>
+                                <TableCell className="text-sm pl-6 text-muted-foreground italic">Transferências para contas bancárias</TableCell>
+                                <TableCell></TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(office.totalTransfers)}</TableCell>
+                                <TableCell colSpan={3}></TableCell>
+                              </TableRow>
+                            )}
+                          </>
+                        )}
+                      </>
+                    );
+                  })
+                )}
+                {filteredData.length > 1 && (
+                  <TableRow className="border-t-2 font-semibold bg-muted/30">
+                    <TableCell></TableCell>
+                    <TableCell>TOTAL</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(grandTotals.sales)}</TableCell>
+                    <TableCell className="text-right font-mono text-amber-500">{formatCurrency(grandTotals.expenses)}</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(grandTotals.transfers)}</TableCell>
+                    <TableCell className={cn("text-right font-mono", grandTotals.balance >= 0 ? "text-emerald-500" : "text-red-400")}>
+                      {formatCurrency(grandTotals.balance)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary">{filteredData.reduce((s: number, d: any) => s + d.events.length, 0)}</Badge>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* === ANALYTICAL VIEW === */}
+      {viewMode === "analytical" && (
+        <div className="space-y-4">
+          {filteredData.map((office: any) => {
+            const lines = analyticalData[office.officeId] || [];
+            return (
+              <Card key={office.officeId}>
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <Store className="h-4 w-4 text-muted-foreground" />
+                      {office.officeName}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-muted-foreground">Saldo:</span>
+                      <span className={cn("font-mono font-bold", office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400")}>
+                        {formatCurrency(office.expectedBalance)}
+                      </span>
+                    </div>
+                  </div>
+                  {lines.length === 0 ? (
+                    <div className="text-center py-6 text-sm text-muted-foreground">Sem movimentações</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-24">Data</TableHead>
+                          <TableHead className="w-28">Tipo</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Evento</TableHead>
+                          <TableHead className="text-right w-28">Entrada</TableHead>
+                          <TableHead className="text-right w-28">Saída</TableHead>
+                          <TableHead className="text-right w-28">Saldo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lines.map((line: AnalyticalLine, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs font-mono">
+                              {format(new Date(line.date + "T00:00:00"), "dd/MM/yyyy")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={cn("text-[10px]", typeColor(line.type))}>
+                                {typeLabel(line.type)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[250px] truncate" title={line.description}>
+                              {line.description}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
+                              {line.eventName}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm text-emerald-500">
+                              {line.amount > 0 ? formatCurrency(line.amount) : ""}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm text-amber-500">
+                              {line.amount < 0 ? formatCurrency(Math.abs(line.amount)) : ""}
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-right font-mono text-sm font-medium",
+                              (line.runningBalance ?? 0) >= 0 ? "text-emerald-500" : "text-red-400"
+                            )}>
+                              {formatCurrency(line.runningBalance ?? 0)}
+                            </TableCell>
                           </TableRow>
-                          {office.events.map((ev) => (
-                            <TableRow key={`${office.officeId}-${ev.eventId}`} className="bg-muted/10">
-                              <TableCell></TableCell>
-                              <TableCell className="text-sm pl-6">{ev.eventName}</TableCell>
-                              <TableCell className="text-right font-mono text-sm text-emerald-500">
-                                {formatCurrency(ev.totalSales)}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-sm text-amber-500">
-                                {formatCurrency(ev.totalExpenses)}
-                              </TableCell>
-                              <TableCell className={cn(
-                                "text-right font-mono text-sm font-medium",
-                                ev.balance >= 0 ? "text-emerald-500" : "text-red-400"
-                              )}>
-                                {formatCurrency(ev.balance)}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant={ev.eventStatus === "completed" ? "default" : "secondary"} className="text-[10px]">
-                                  {ev.eventStatus === "completed" ? "Finalizado" : ev.eventStatus === "confirmed" ? "Confirmado" : ev.eventStatus === "cancelled" ? "Cancelado" : "Planeamento"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {ev.isConciliated ? (
-                                  <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {/* Subtotal row for transfers */}
-                          {office.totalTransfers > 0 && (
-                            <TableRow className="bg-muted/10 border-t">
-                              <TableCell></TableCell>
-                              <TableCell className="text-sm pl-6 text-muted-foreground italic">
-                                Transferências para contas bancárias
-                              </TableCell>
-                              <TableCell></TableCell>
-                              <TableCell className="text-right font-mono text-sm">
-                                {formatCurrency(office.totalTransfers)}
-                              </TableCell>
-                              <TableCell colSpan={3}></TableCell>
-                            </TableRow>
-                          )}
-                        </>
-                      )}
-                    </>
-                  );
-                })
-              )}
-
-              {/* Grand total row */}
-              {filteredData.length > 1 && (
-                <TableRow className="border-t-2 font-semibold bg-muted/30">
-                  <TableCell></TableCell>
-                  <TableCell>TOTAL</TableCell>
-                  <TableCell className="text-right font-mono text-emerald-500">
-                    {formatCurrency(grandTotals.sales)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-amber-500">
-                    {formatCurrency(grandTotals.expenses)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatCurrency(grandTotals.transfers)}
-                  </TableCell>
-                  <TableCell className={cn(
-                    "text-right font-mono",
-                    grandTotals.balance >= 0 ? "text-emerald-500" : "text-red-400"
-                  )}>
-                    {formatCurrency(grandTotals.balance)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary">
-                      {filteredData.reduce((s, d) => s + d.events.length, 0)}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        ))}
+                        {/* Totals row */}
+                        <TableRow className="border-t-2 font-semibold bg-muted/30">
+                          <TableCell colSpan={4} className="text-right">TOTAL</TableCell>
+                          <TableCell className="text-right font-mono text-emerald-500">
+                            {formatCurrency(lines.filter((l: AnalyticalLine) => l.amount > 0).reduce((s: number, l: AnalyticalLine) => s + l.amount, 0))}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-amber-500">
+                            {formatCurrency(Math.abs(lines.filter((l: AnalyticalLine) => l.amount < 0).reduce((s: number, l: AnalyticalLine) => s + l.amount, 0)))}
+                          </TableCell>
+                          <TableCell className={cn(
+                            "text-right font-mono font-bold",
+                            office.expectedBalance >= 0 ? "text-emerald-500" : "text-red-400"
+                          )}>
+                            {formatCurrency(office.expectedBalance)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
