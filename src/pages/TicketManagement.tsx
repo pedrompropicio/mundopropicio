@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import {
-  Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil,
+  Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload,
 } from "lucide-react";
 import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/TicketUploadModals";
+import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
 
 interface SaleForm {
   lot_id: string;
@@ -41,6 +42,7 @@ export default function TicketManagement() {
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleForm, setSaleForm] = useState<SaleForm>(emptySale);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   // Admin lot editing
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
@@ -319,22 +321,31 @@ export default function TicketManagement() {
         <p className="text-sm text-muted-foreground">Registe vendas, acompanhe a ocupação e gerencie lotes de bilhetes</p>
       </div>
 
-      {/* Event selector */}
+      {/* Event selector + bulk import */}
       <div className="glass rounded-xl p-4">
-        <Label className="text-sm font-medium">Selecionar Evento</Label>
-        <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-          <SelectTrigger className="mt-2 w-full max-w-md">
-            <SelectValue placeholder="Escolha um evento…" />
-          </SelectTrigger>
-          <SelectContent>
-            {events.map((e) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1">
+            <Label className="text-sm font-medium">Selecionar Evento</Label>
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger className="mt-2 w-full max-w-md">
+                <SelectValue placeholder="Escolha um evento…" />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" /> Importar Vendas (Bilheteira)
+          </Button>
+        </div>
       </div>
+
+      <TicketOfficeSalesImport open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
 
       {selectedEventId && (
         <>
@@ -385,8 +396,8 @@ export default function TicketManagement() {
               <Button onClick={() => openSaleModal()} disabled={lots.length === 0}>
                 <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
-              <TotalTicketLoadModal events={events} />
-              <DailySalesUploadModal events={events} />
+              <TotalTicketLoadModal events={events} selectedEventId={selectedEventId} />
+              <DailySalesUploadModal events={events} selectedEventId={selectedEventId} />
               {isAdmin && (
                 <Button variant="outline" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}>
                   <Plus className="h-4 w-4 mr-2" /> Nova Zona

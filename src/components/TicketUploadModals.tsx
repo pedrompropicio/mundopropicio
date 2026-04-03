@@ -20,6 +20,7 @@ interface Event {
 
 interface TicketUploadModalsProps {
   events: Event[];
+  selectedEventId?: string;
 }
 
 interface ParsedRow {
@@ -53,9 +54,9 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 // ── Total Ticket Load Modal ──
-export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
+export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
   const [open, setOpen] = useState(false);
-  const [eventId, setEventId] = useState("");
+  const [eventId, setEventId] = useState(preSelectedEventId || "");
   const [loadType, setLoadType] = useState<"realizado" | "previsto">("realizado");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedRow[]>([]);
@@ -219,7 +220,7 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
 
   const handleClose = () => {
     setOpen(false);
-    setEventId("");
+    setEventId(preSelectedEventId || "");
     setLoadType("realizado");
     setFile(null);
     setPreview([]);
@@ -245,21 +246,23 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label>Evento</Label>
-              <Select value={eventId} onValueChange={setEventId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione o evento…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map(e => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!preSelectedEventId && (
+              <div>
+                <Label>Evento</Label>
+                <Select value={eventId} onValueChange={setEventId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione o evento…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {events.map(e => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div>
               <Label>Tipo de Carga</Label>
@@ -354,9 +357,9 @@ export function TotalTicketLoadModal({ events }: TicketUploadModalsProps) {
 }
 
 // ── Daily Sales Upload Modal ──
-export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
+export function DailySalesUploadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
   const [open, setOpen] = useState(false);
-  const [eventId, setEventId] = useState("");
+  const [eventId, setEventId] = useState(preSelectedEventId || "");
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedSaleRow[]>([]);
@@ -477,7 +480,7 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
 
   const handleClose = () => {
     setOpen(false);
-    setEventId("");
+    setEventId(preSelectedEventId || "");
     setSaleDate(new Date().toISOString().slice(0, 10));
     setFile(null);
     setPreview([]);
@@ -501,21 +504,23 @@ export function DailySalesUploadModal({ events }: TicketUploadModalsProps) {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label>Evento</Label>
-              <Select value={eventId} onValueChange={setEventId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione o evento…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map(e => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!preSelectedEventId && (
+              <div>
+                <Label>Evento</Label>
+                <Select value={eventId} onValueChange={setEventId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione o evento…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {events.map(e => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div>
               <Label>Data da Venda</Label>
