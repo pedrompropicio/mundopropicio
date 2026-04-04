@@ -99,16 +99,15 @@ export default function TicketOffices() {
   });
 
   // Build zone -> event_id map for sales attribution
+  const assignmentEventIds = [...new Set(allAssignments.map((a: any) => a.event_id))];
   const { data: allZones = [] } = useQuery({
-    queryKey: ["ticket_office_zones_all", officeIds],
-    enabled: officeIds.length > 0,
+    queryKey: ["ticket_office_zones_all", assignmentEventIds],
+    enabled: assignmentEventIds.length > 0,
     queryFn: async () => {
-      const eventIds = [...new Set(allAssignments.map((a: any) => a.event_id))];
-      if (eventIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_ticket_zones")
         .select("id, event_id")
-        .in("event_id", eventIds);
+        .in("event_id", assignmentEventIds);
       if (error) throw error;
       return data || [];
     },
