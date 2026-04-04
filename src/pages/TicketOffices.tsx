@@ -196,7 +196,10 @@ export default function TicketOffices() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((office: any) => {
-            const balance = office.financial_account_id ? (balanceMap[office.financial_account_id] ?? 0) : 0;
+            const bal = office.financial_account_id ? officeBalances[office.financial_account_id] : null;
+            const retained = bal?.retained ?? 0;
+            const transferred = bal?.transferred ?? 0;
+            const bankBalance = bal?.bankBalance ?? 0;
             return (
               <div
                 key={office.id}
@@ -230,20 +233,44 @@ export default function TicketOffices() {
                 </div>
 
                 {office.financial_account_id && (
-                  <button
-                    onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
-                    className="flex w-full items-center justify-between rounded-lg bg-secondary/40 px-3 py-2 hover:bg-secondary/60 transition-colors"
-                  >
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Landmark className="h-3 w-3" /> Saldo
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-mono font-semibold ${balance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                        {formatCurrency(balance)}
-                      </span>
-                      {expandedId === office.id ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                  <div className="space-y-1.5">
+                    {/* Three balance indicators */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                          <Landmark className="h-2.5 w-2.5" /> Retido
+                        </p>
+                        <p className={`text-xs font-mono font-semibold ${retained >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(retained)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                          <ArrowRightLeft className="h-2.5 w-2.5" /> Transferido
+                        </p>
+                        <p className="text-xs font-mono font-semibold text-amber-500">
+                          {formatCurrency(transferred)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                          <Banknote className="h-2.5 w-2.5" /> Bancário
+                        </p>
+                        <p className={`text-xs font-mono font-semibold ${bankBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(bankBalance)}
+                        </p>
+                      </div>
                     </div>
-                  </button>
+
+                    {/* Expand button */}
+                    <button
+                      onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-secondary/20 px-3 py-1 hover:bg-secondary/40 transition-colors text-xs text-muted-foreground"
+                    >
+                      {expandedId === office.id ? "Ocultar detalhe" : "Ver detalhe"}
+                      {expandedId === office.id ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
+                  </div>
                 )}
 
                 {expandedId === office.id && office.financial_account_id && (
