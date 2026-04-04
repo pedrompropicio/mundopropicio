@@ -62,7 +62,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, event_id, description")
+        .select("type, amount, paid_amount, event_id, description")
         .eq("account_id", financialAccountId!);
       if (error) throw error;
       return data;
