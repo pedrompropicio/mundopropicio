@@ -375,7 +375,7 @@ export default function ReportTicketOfficeAudit() {
     });
 
     return result;
-  }, [viewMode, offices, assignments, allZones, allSales, accountTxns, zoneNameMap, eventNameMap]);
+  }, [offices, assignments, allZones, allSales, accountTxns, zoneNameMap, eventNameMap]);
 
   const filteredData = selectedOffice === "all"
     ? auditData
