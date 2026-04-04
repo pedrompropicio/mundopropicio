@@ -84,16 +84,76 @@ export default function TicketOffices() {
     },
   });
 
+  // Build assignment map: office_id -> event_ids
+  const assignmentsByOffice = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    offices.forEach((o: any) => {
+      map[o.id] = [];
+    });
+    // We need assignments data — extract from officeSales query context
+    return map;
+  }, [offices]);
+
+  // Fetch assignments separately for proper mapping
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["ticket_office_assignments_all", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_office_assignments")
+        .select("ticket_office_id, event_id")
+        .in("ticket_office_id", officeIds);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Build zone -> event_id map for sales attribution
+  const { data: allZones = [] } = useQuery({
+    queryKey: ["ticket_office_zones_all", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      const eventIds = [...new Set(allAssignments.map((a: any) => a.event_id))];
+      if (eventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_ticket_zones")
+        .select("id, event_id")
+        .in("event_id", eventIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const officeBalances = useMemo(() => {
     const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
 
-    // Sum ticket sales revenue per office
+    // Build office -> event_ids mapping from assignments
+    const officeEventMap: Record<string, Set<string>> = {};
+    allAssignments.forEach((a: any) => {
+      if (!officeEventMap[a.ticket_office_id]) officeEventMap[a.ticket_office_id] = new Set();
+      officeEventMap[a.ticket_office_id].add(a.event_id);
+    });
+
+    // Build zone -> event_id mapping
+    const zoneEventMap: Record<string, string> = {};
+    allZones.forEach((z: any) => { zoneEventMap[z.id] = z.event_id; });
+
+    // Sum ticket sales per office using the same logic as TicketOfficeBalancePanel:
+    // Sales belong to an office if: the sale's zone belongs to an event assigned to the office
+    // AND (ticket_office_id is null OR matches the office)
     const salesByOffice: Record<string, number> = {};
-    officeSales.forEach((s: any) => {
-      const oid = s.ticket_office_id;
-      if (oid) {
-        salesByOffice[oid] = (salesByOffice[oid] || 0) + s.quantity * Number(s.unit_price);
-      }
+    offices.forEach((o: any) => {
+      const assignedEvents = officeEventMap[o.id] || new Set();
+      let total = 0;
+      officeSales.forEach((s: any) => {
+        const saleEventId = zoneEventMap[s.zone_id];
+        if (saleEventId && assignedEvents.has(saleEventId)) {
+          if (!s.ticket_office_id || s.ticket_office_id === o.id) {
+            total += s.quantity * Number(s.unit_price);
+          }
+        }
+      });
+      salesByOffice[o.id] = total;
     });
 
     // Sum expenses (with event_id) and transfers (without event_id) per account
@@ -129,7 +189,7 @@ export default function TicketOffices() {
     });
 
     return map;
-  }, [offices, officeSales, txnSums]);
+  }, [offices, officeSales, txnSums, allAssignments, allZones]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
