@@ -257,7 +257,7 @@ export default function ReportTicketOfficeAudit() {
 
   // Build analytical lines per office
   const analyticalData = useMemo(() => {
-    if (viewMode !== "analytical") return {};
+    // Always compute analytical data so PDF export works from any view mode
     const result: Record<string, AnalyticalLine[]> = {};
 
     offices.forEach((office: any) => {
