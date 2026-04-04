@@ -84,16 +84,8 @@ export default function TicketOffices() {
     },
   });
 
-  const balanceMap = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    // Build office->account mapping
-    const officeAccountMap: Record<string, string> = {};
-    offices.forEach((o: any) => {
-      if (o.financial_account_id) {
-        officeAccountMap[o.id] = o.financial_account_id;
-      }
-    });
+  const officeBalances = useMemo(() => {
+    const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
 
     // Sum ticket sales revenue per office
     const salesByOffice: Record<string, number> = {};
@@ -104,20 +96,35 @@ export default function TicketOffices() {
       }
     });
 
-    // Sum expenses/transfers per account
+    // Sum expenses (with event_id) and transfers (without event_id) per account
     const expensesByAccount: Record<string, number> = {};
+    const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
       if (t.type === "expense") {
-        expensesByAccount[t.account_id] = (expensesByAccount[t.account_id] || 0) + Number(t.paid_amount || 0);
+        const paid = Number(t.paid_amount || 0);
+        if (t.event_id) {
+          expensesByAccount[t.account_id] = (expensesByAccount[t.account_id] || 0) + paid;
+        } else {
+          transfersByAccount[t.account_id] = (transfersByAccount[t.account_id] || 0) + paid;
+        }
       }
     });
 
-    // Balance = Sales - Expenses/Transfers
     offices.forEach((o: any) => {
       if (o.financial_account_id) {
         const sales = salesByOffice[o.id] || 0;
         const expenses = expensesByAccount[o.financial_account_id] || 0;
-        map[o.financial_account_id] = sales - expenses;
+        const transfers = transfersByAccount[o.financial_account_id] || 0;
+        map[o.financial_account_id] = {
+          retained: sales - expenses - transfers,
+          transferred: transfers,
+          bankBalance: Number(o.financial_accounts?.initial_balance || 0) +
+            txnSums.filter((t: any) => t.account_id === o.financial_account_id)
+              .reduce((sum: number, t: any) => {
+                const paid = Number(t.paid_amount || 0);
+                return t.type === "income" ? sum + paid : sum - paid;
+              }, 0),
+        };
       }
     });
 
