@@ -37,7 +37,39 @@ export default function TicketOffices() {
     },
   });
 
-  // Fetch balances: for each office's financial_account, sum transactions
+  // Fetch ticket sales per office to calculate real revenue
+  const officeIds = offices.map((o: any) => o.id);
+  const { data: officeSales = [] } = useQuery({
+    queryKey: ["ticket_office_sales_all", officeIds],
+    enabled: officeIds.length > 0,
+    queryFn: async () => {
+      // Get all assignments for these offices
+      const { data: assignments, error: aErr } = await supabase
+        .from("event_ticket_office_assignments")
+        .select("ticket_office_id, event_id")
+        .in("ticket_office_id", officeIds);
+      if (aErr) throw aErr;
+      if (!assignments || assignments.length === 0) return [];
+
+      const eventIds = [...new Set(assignments.map((a: any) => a.event_id))];
+      const { data: zones, error: zErr } = await supabase
+        .from("event_ticket_zones")
+        .select("id, event_id")
+        .in("event_id", eventIds);
+      if (zErr) throw zErr;
+      if (!zones || zones.length === 0) return [];
+
+      const zoneIds = zones.map((z: any) => z.id);
+      const { data: sales, error: sErr } = await supabase
+        .from("ticket_sales")
+        .select("zone_id, quantity, unit_price, ticket_office_id")
+        .in("zone_id", zoneIds);
+      if (sErr) throw sErr;
+      return sales || [];
+    },
+  });
+
+  // Fetch transactions on financial accounts (expenses + transfers out)
   const accountIds = offices.map((o: any) => o.financial_account_id).filter(Boolean);
   const { data: txnSums = [] } = useQuery({
     queryKey: ["ticket_office_balances", accountIds],
@@ -45,7 +77,7 @@ export default function TicketOffices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, status")
+        .select("account_id, type, amount, paid_amount, status")
         .in("account_id", accountIds);
       if (error) throw error;
       return data;
@@ -54,20 +86,43 @@ export default function TicketOffices() {
 
   const balanceMap = useMemo(() => {
     const map: Record<string, number> = {};
-    // Start with initial balances
+
+    // Build office->account mapping
+    const officeAccountMap: Record<string, string> = {};
     offices.forEach((o: any) => {
-      if (o.financial_account_id && o.financial_accounts) {
-        map[o.financial_account_id] = Number(o.financial_accounts.initial_balance || 0);
+      if (o.financial_account_id) {
+        officeAccountMap[o.id] = o.financial_account_id;
       }
     });
-    // Add transaction effects
-    txnSums.forEach((t: any) => {
-      if (!map[t.account_id]) map[t.account_id] = 0;
-      if (t.type === "income") map[t.account_id] += Number(t.amount);
-      else map[t.account_id] -= Number(t.amount);
+
+    // Sum ticket sales revenue per office
+    const salesByOffice: Record<string, number> = {};
+    officeSales.forEach((s: any) => {
+      const oid = s.ticket_office_id;
+      if (oid) {
+        salesByOffice[oid] = (salesByOffice[oid] || 0) + s.quantity * Number(s.unit_price);
+      }
     });
+
+    // Sum expenses/transfers per account
+    const expensesByAccount: Record<string, number> = {};
+    txnSums.forEach((t: any) => {
+      if (t.type === "expense") {
+        expensesByAccount[t.account_id] = (expensesByAccount[t.account_id] || 0) + Number(t.paid_amount || 0);
+      }
+    });
+
+    // Balance = Sales - Expenses/Transfers
+    offices.forEach((o: any) => {
+      if (o.financial_account_id) {
+        const sales = salesByOffice[o.id] || 0;
+        const expenses = expensesByAccount[o.financial_account_id] || 0;
+        map[o.financial_account_id] = sales - expenses;
+      }
+    });
+
     return map;
-  }, [offices, txnSums]);
+  }, [offices, officeSales, txnSums]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
