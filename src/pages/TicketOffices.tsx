@@ -303,7 +303,7 @@ export default function TicketOffices() {
                       </div>
                       <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
                         <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
-                          <Banknote className="h-2.5 w-2.5" /> Bancário
+                          <Banknote className="h-2.5 w-2.5" /> Movimentado
                         </p>
                         <p className={`text-xs font-mono font-semibold ${bankBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                           {formatCurrency(bankBalance)}
