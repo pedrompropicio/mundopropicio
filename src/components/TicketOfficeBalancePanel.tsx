@@ -62,7 +62,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("type, amount, event_id, description")
+        .select("type, amount, paid_amount, event_id, description")
         .eq("account_id", financialAccountId!);
       if (error) throw error;
       return data;
@@ -93,17 +93,17 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
         }
       });
 
-    // Sum direct expenses per event from account
+    // Sum direct expenses per event from account (using paid_amount for real cash flow)
     accountTxns.forEach((t: any) => {
       if (t.type === "expense" && t.event_id && eventMap[t.event_id]) {
-        eventMap[t.event_id].directExpenses += Number(t.amount);
+        eventMap[t.event_id].directExpenses += Number(t.paid_amount || 0);
       }
     });
 
-    // Total transfers out (expenses without event_id or category 10.3)
+    // Total transfers out (expenses without event_id)
     const totalTransfersOut = accountTxns
       .filter((t: any) => t.type === "expense" && !t.event_id)
-      .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
     const totalSales = Object.values(eventMap).reduce((s, e) => s + e.sales, 0);
     const totalDirectExpenses = Object.values(eventMap).reduce((s, e) => s + e.directExpenses, 0);
