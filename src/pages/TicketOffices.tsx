@@ -84,16 +84,6 @@ export default function TicketOffices() {
     },
   });
 
-  // Build assignment map: office_id -> event_ids
-  const assignmentsByOffice = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    offices.forEach((o: any) => {
-      map[o.id] = [];
-    });
-    // We need assignments data — extract from officeSales query context
-    return map;
-  }, [offices]);
-
   // Fetch assignments separately for proper mapping
   const { data: allAssignments = [] } = useQuery({
     queryKey: ["ticket_office_assignments_all", officeIds],
