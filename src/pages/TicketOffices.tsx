@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Phone, Mail, Building2, Pencil, Trash2, Landmark, ToggleLeft, ToggleRight, Upload, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, Phone, Mail, Building2, Pencil, Trash2, Landmark, ToggleLeft, ToggleRight, Upload, ChevronDown, ChevronRight, ArrowRightLeft, Banknote } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TicketOfficeFormModal } from "@/components/TicketOfficeFormModal";
@@ -77,23 +77,15 @@ export default function TicketOffices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status")
+        .select("account_id, type, amount, paid_amount, status, event_id")
         .in("account_id", accountIds);
       if (error) throw error;
       return data;
     },
   });
 
-  const balanceMap = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    // Build office->account mapping
-    const officeAccountMap: Record<string, string> = {};
-    offices.forEach((o: any) => {
-      if (o.financial_account_id) {
-        officeAccountMap[o.id] = o.financial_account_id;
-      }
-    });
+  const officeBalances = useMemo(() => {
+    const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
 
     // Sum ticket sales revenue per office
     const salesByOffice: Record<string, number> = {};
@@ -104,20 +96,35 @@ export default function TicketOffices() {
       }
     });
 
-    // Sum expenses/transfers per account
+    // Sum expenses (with event_id) and transfers (without event_id) per account
     const expensesByAccount: Record<string, number> = {};
+    const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
       if (t.type === "expense") {
-        expensesByAccount[t.account_id] = (expensesByAccount[t.account_id] || 0) + Number(t.paid_amount || 0);
+        const paid = Number(t.paid_amount || 0);
+        if (t.event_id) {
+          expensesByAccount[t.account_id] = (expensesByAccount[t.account_id] || 0) + paid;
+        } else {
+          transfersByAccount[t.account_id] = (transfersByAccount[t.account_id] || 0) + paid;
+        }
       }
     });
 
-    // Balance = Sales - Expenses/Transfers
     offices.forEach((o: any) => {
       if (o.financial_account_id) {
         const sales = salesByOffice[o.id] || 0;
         const expenses = expensesByAccount[o.financial_account_id] || 0;
-        map[o.financial_account_id] = sales - expenses;
+        const transfers = transfersByAccount[o.financial_account_id] || 0;
+        map[o.financial_account_id] = {
+          retained: sales - expenses - transfers,
+          transferred: transfers,
+          bankBalance: Number(o.financial_accounts?.initial_balance || 0) +
+            txnSums.filter((t: any) => t.account_id === o.financial_account_id)
+              .reduce((sum: number, t: any) => {
+                const paid = Number(t.paid_amount || 0);
+                return t.type === "income" ? sum + paid : sum - paid;
+              }, 0),
+        };
       }
     });
 
@@ -189,7 +196,10 @@ export default function TicketOffices() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((office: any) => {
-            const balance = office.financial_account_id ? (balanceMap[office.financial_account_id] ?? 0) : 0;
+            const bal = office.financial_account_id ? officeBalances[office.financial_account_id] : null;
+            const retained = bal?.retained ?? 0;
+            const transferred = bal?.transferred ?? 0;
+            const bankBalance = bal?.bankBalance ?? 0;
             return (
               <div
                 key={office.id}
@@ -223,20 +233,44 @@ export default function TicketOffices() {
                 </div>
 
                 {office.financial_account_id && (
-                  <button
-                    onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
-                    className="flex w-full items-center justify-between rounded-lg bg-secondary/40 px-3 py-2 hover:bg-secondary/60 transition-colors"
-                  >
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Landmark className="h-3 w-3" /> Saldo
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-mono font-semibold ${balance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                        {formatCurrency(balance)}
-                      </span>
-                      {expandedId === office.id ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                  <div className="space-y-1.5">
+                    {/* Three balance indicators */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                          <Landmark className="h-2.5 w-2.5" /> Retido
+                        </p>
+                        <p className={`text-xs font-mono font-semibold ${retained >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(retained)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                          <ArrowRightLeft className="h-2.5 w-2.5" /> Transferido
+                        </p>
+                        <p className="text-xs font-mono font-semibold text-amber-500">
+                          {formatCurrency(transferred)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                          <Banknote className="h-2.5 w-2.5" /> Bancário
+                        </p>
+                        <p className={`text-xs font-mono font-semibold ${bankBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(bankBalance)}
+                        </p>
+                      </div>
                     </div>
-                  </button>
+
+                    {/* Expand button */}
+                    <button
+                      onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-secondary/20 px-3 py-1 hover:bg-secondary/40 transition-colors text-xs text-muted-foreground"
+                    >
+                      {expandedId === office.id ? "Ocultar detalhe" : "Ver detalhe"}
+                      {expandedId === office.id ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
+                  </div>
                 )}
 
                 {expandedId === office.id && office.financial_account_id && (
