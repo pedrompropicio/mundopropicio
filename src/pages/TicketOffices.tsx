@@ -77,7 +77,7 @@ export default function TicketOffices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("account_id, type, amount, paid_amount, status")
+        .select("account_id, type, amount, paid_amount, status, event_id")
         .in("account_id", accountIds);
       if (error) throw error;
       return data;
