@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
+import { Switch } from "@/components/ui/switch";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -180,6 +181,7 @@ export default function ReportDRE() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
+  const [showPartnerView, setShowPartnerView] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -242,6 +244,16 @@ export default function ReportDRE() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: closingCosts = [] } = useQuery({
+    queryKey: ["closing-costs-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_closing_costs").select("*, account_categories(code, name)");
+      if (error) throw error;
+      return data;
+    },
+    enabled: showPartnerView,
   });
 
   const ticketCategoryId = categories.find(
