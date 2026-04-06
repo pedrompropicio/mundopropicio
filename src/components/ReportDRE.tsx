@@ -491,7 +491,17 @@ export default function ReportDRE() {
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Switch id="partner-view" checked={showPartnerView} onCheckedChange={setShowPartnerView} />
+          <Label htmlFor="partner-view" className="text-sm cursor-pointer flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> Visão Sócio
+          </Label>
+          {showPartnerView && (
+            <span className="text-xs text-muted-foreground">(inclui custos de fecho internos)</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
