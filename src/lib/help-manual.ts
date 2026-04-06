@@ -44,6 +44,7 @@ const helpManual: HelpSection[] = [
     id: "events",
     title: "Eventos",
     icon: "Calendar",
+    image: "event-lifecycle",
     topics: [
       {
         title: "Criar um evento",
@@ -91,6 +92,7 @@ const helpManual: HelpSection[] = [
     id: "transactions",
     title: "Transações",
     icon: "ArrowUpDown",
+    image: "transaction-lifecycle",
     topics: [
       {
         title: "Criar uma transação",
@@ -123,6 +125,7 @@ const helpManual: HelpSection[] = [
     id: "accounts",
     title: "Contas de Movimentação",
     icon: "Landmark",
+    image: "accounts-flow",
     topics: [
       {
         title: "O que são contas de movimentação",
