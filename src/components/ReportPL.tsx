@@ -217,6 +217,40 @@ function buildPL(
     }
   }
 
+  // Build individual cache artist lines for analytical display
+  const cacheArtistLines: PLLine[] = [];
+  if (cacheLines.length > 0) {
+    cacheLines.forEach((cl) => {
+      cacheArtistLines.push(plLine({
+        label: `${cl.artistName} (${cl.cacheType === "fixed" ? "Fixo" : "Variável"})`,
+        forecast: cl.amount, actual: 0, variance: -cl.amount,
+        subIndent: true,
+      }));
+      // Find extras for this artist's config
+      const artistConfig = eventCacheConfigs.find((c) => c.artist_name === cl.artistName);
+      if (artistConfig) {
+        const artistExtras = cacheExtras.filter((ex: any) => ex.cache_config_id === artistConfig.id);
+        let extraTotal = 0;
+        artistExtras.forEach((ex: any) => {
+          const exAmount = Number(ex.amount);
+          extraTotal += exAmount;
+          cacheArtistLines.push(plLine({
+            label: `  (-) ${ex.description}`,
+            forecast: -exAmount, actual: 0, variance: exAmount,
+            subIndent: true,
+          }));
+        });
+        if (extraTotal > 0) {
+          cacheArtistLines.push(plLine({
+            label: `  Líquido ${cl.artistName}`,
+            forecast: cl.amount - extraTotal, actual: 0, variance: -(cl.amount - extraTotal),
+            subIndent: true, isSubTotal: true,
+          }));
+        }
+      }
+    });
+  }
+
   // Add ticket lot net revenue to forecast Bilheteira
   if (ticketForecastNet > 0) {
     const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
