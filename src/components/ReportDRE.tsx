@@ -140,15 +140,14 @@ function buildDRE(
     let totalDistribution = 0;
 
     eventPartners.forEach((p: any) => {
-      // Each partner's distribution base depends on their expense_includes_iva flag
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
       } else if (p.expense_includes_iva) {
-        // Partner calculates with expenses inc-IVA → smaller base → smaller share
-        base = totalIncEx - totalExpInc;
+        base = totalIncEx - totalExpInc - totalClosingCosts;
       } else {
         base = resEx;
+      }
       }
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
