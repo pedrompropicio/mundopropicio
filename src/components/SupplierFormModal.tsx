@@ -73,7 +73,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const updateMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
       // Track IBAN/SWIFT changes for audit
-      const bankFields = ["iban", "swift_bic"];
+      const bankFields = ["iban", "swift_bic", "iban_2", "swift_bic_2", "iban_3", "swift_bic_3"];
       const changedBankFields: Record<string, { old: any; new: any }> = {};
       for (const field of bankFields) {
         const oldVal = editingSupplier?.[field] ?? null;
@@ -124,6 +124,10 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       address: (fd.get("address") as string) || null,
       iban: (fd.get("iban") as string) || null,
       swift_bic: (fd.get("swift_bic") as string) || null,
+      iban_2: (fd.get("iban_2") as string) || null,
+      swift_bic_2: (fd.get("swift_bic_2") as string) || null,
+      iban_3: (fd.get("iban_3") as string) || null,
+      swift_bic_3: (fd.get("swift_bic_3") as string) || null,
       payment_terms: (fd.get("payment_terms") as string) || null,
       category: (fd.get("category") as string) || null,
       notes: (fd.get("notes") as string) || null,
@@ -206,14 +210,37 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <Label htmlFor="sup-address">Morada</Label>
             <Input id="sup-address" name="address" defaultValue={s?.address ?? ""} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="sup-iban">IBAN</Label>
-              <Input id="sup-iban" name="iban" defaultValue={s?.iban ?? ""} />
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground">Dados Bancários (até 3 IBANs)</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="sup-iban">IBAN 1</Label>
+                <Input id="sup-iban" name="iban" defaultValue={s?.iban ?? ""} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sup-swift">SWIFT/BIC 1</Label>
+                <Input id="sup-swift" name="swift_bic" placeholder="ex: CGDIPTPL" defaultValue={s?.swift_bic ?? ""} />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="sup-swift">SWIFT/BIC</Label>
-              <Input id="sup-swift" name="swift_bic" placeholder="ex: CGDIPTPL" defaultValue={s?.swift_bic ?? ""} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="sup-iban-2">IBAN 2</Label>
+                <Input id="sup-iban-2" name="iban_2" defaultValue={s?.iban_2 ?? ""} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sup-swift-2">SWIFT/BIC 2</Label>
+                <Input id="sup-swift-2" name="swift_bic_2" placeholder="ex: CGDIPTPL" defaultValue={s?.swift_bic_2 ?? ""} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="sup-iban-3">IBAN 3</Label>
+                <Input id="sup-iban-3" name="iban_3" defaultValue={s?.iban_3 ?? ""} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sup-swift-3">SWIFT/BIC 3</Label>
+                <Input id="sup-swift-3" name="swift_bic_3" placeholder="ex: CGDIPTPL" defaultValue={s?.swift_bic_3 ?? ""} />
+              </div>
             </div>
           </div>
           <div className="grid gap-2">
