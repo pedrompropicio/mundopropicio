@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -75,9 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const initializedRef = useRef(false);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
-    // Fetch role
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -88,7 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userRole = (roleData?.role as AppRole) ?? "user";
     setRole(userRole);
 
-    // Fetch role-level permissions
     const { data: rolePerms } = await supabase
       .from("role_permissions")
       .select("permission")
@@ -96,13 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const rolePermSet = new Set(rolePerms?.map((p) => p.permission) ?? []);
 
-    // Fetch user-level overrides
     const { data: userPerms } = await supabase
       .from("user_permissions")
       .select("permission, granted")
       .eq("user_id", userId);
 
-    // Apply overrides
     if (userPerms) {
       for (const up of userPerms) {
         if (up.granted) {
@@ -117,28 +114,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // 1. Restore session from storage FIRST
+    supabase.auth.getSession().then(({ data: { session: restored } }) => {
+      if (!initializedRef.current) {
+        initializedRef.current = true;
+        setSession(restored);
+        setUser(restored?.user ?? null);
+        if (restored?.user) {
+          fetchRoleAndPermissions(restored.user.id);
+        }
+        setLoading(false);
+      }
+    });
+
+    // 2. Listen for subsequent changes (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => fetchRoleAndPermissions(session.user.id), 0);
+      (event, updatedSession) => {
+        // Skip the INITIAL_SESSION event — we handle it via getSession above
+        if (event === "INITIAL_SESSION") return;
+
+        setSession(updatedSession);
+        setUser(updatedSession?.user ?? null);
+
+        if (updatedSession?.user) {
+          // Fire-and-forget to avoid blocking auth event processing
+          setTimeout(() => fetchRoleAndPermissions(updatedSession.user.id), 0);
         } else {
           setRole(null);
           setPermissions([]);
         }
-        setLoading(false);
       }
     );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoleAndPermissions(session.user.id);
-      }
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, [fetchRoleAndPermissions]);
