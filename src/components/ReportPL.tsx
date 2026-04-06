@@ -342,6 +342,7 @@ function buildPL(
     forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
     actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
+  let cacheArtistLinesInserted = false;
   mergedExp.forEach((group) => {
     const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
     if (hasManyDetails) {
@@ -356,6 +357,11 @@ function buildPL(
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }), d.name));
+        // Insert individual artist cache lines after "Cachês"
+        if ((d.code === "2.1.01" || d.name === "Cachês") && cacheArtistLines.length > 0) {
+          cacheArtistLines.forEach((cl) => lines.push(cl));
+          cacheArtistLinesInserted = true;
+        }
       });
     } else {
       lines.push(enrichWithOverride(plLine({
@@ -363,8 +369,17 @@ function buildPL(
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }), group.groupName));
+      // Check if this single-detail group is Cachês
+      if ((group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
+        cacheArtistLines.forEach((cl) => lines.push(cl));
+        cacheArtistLinesInserted = true;
+      }
     }
   });
+  // Fallback: if cache artist lines weren't inserted, add after expenses
+  if (!cacheArtistLinesInserted && cacheArtistLines.length > 0) {
+    cacheArtistLines.forEach((cl) => lines.push(cl));
+  }
 
   const fResultBase = totalFIncBase - totalFExpBase;
   const fResultIva = totalFIncIva - totalFExpIva;
