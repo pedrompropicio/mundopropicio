@@ -653,6 +653,9 @@ export default function TicketManagement() {
                                 <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
                                   <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
                                   <span className="flex-1 truncate">{sale.lotName ? `${sale.lotNumber}º ${sale.lotName}` : "Venda directa"}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sale.source === "import" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
+                                    {sale.source === "import" ? "Importado" : "Manual"}
+                                  </span>
                                   <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
                                   <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
                                   <div className="flex gap-1">
