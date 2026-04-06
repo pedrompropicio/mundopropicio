@@ -59,6 +59,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
   const canApprove = isAdmin || isManager;
+  const canEditBP = isAdmin || isManager;
 
   useEffect(() => {
     if ((addingType || editingId) && descRef.current) {
