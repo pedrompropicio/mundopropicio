@@ -459,11 +459,11 @@ export default function EventDetail() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
-          <TabsTrigger value="ticketing">Bilheteira</TabsTrigger>
-          <TabsTrigger value="cache">Cachê</TabsTrigger>
-          <TabsTrigger value="forecast">Business Plan</TabsTrigger>
-          {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners">Sócios</TabsTrigger>}
-          {(isAdmin || isManager) && <TabsTrigger value="closing-costs">Fecho</TabsTrigger>}
+          <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>
+          <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>
+          <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
+          {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
+          {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Fecho <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
