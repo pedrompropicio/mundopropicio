@@ -35,7 +35,7 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
         </PopoverTrigger>
         <PopoverContent
           side={side}
-          className="max-w-[260px] p-3 text-xs leading-relaxed"
+          className="max-w-[260px] p-3 text-xs leading-relaxed whitespace-normal break-words"
         >
           {text}
         </PopoverContent>
@@ -51,7 +51,7 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
         </TooltipTrigger>
         <TooltipContent
           side={side}
-          className="max-w-[280px] text-xs leading-relaxed"
+          className="max-w-[280px] text-xs leading-relaxed whitespace-normal break-words"
         >
           {text}
         </TooltipContent>
