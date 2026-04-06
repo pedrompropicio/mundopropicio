@@ -120,7 +120,6 @@ function ProtectedLayout() {
               <Route path="*" element={<NotFound />} />
             </Routes>
             <FloatingHelpButton />
-            </Routes>
           </div>
         </main>
       </div>
