@@ -491,6 +491,15 @@ export default function ReportPL() {
     },
   });
 
+  const { data: allCacheExtras = [] } = useQuery({
+    queryKey: ["cache-extras-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_extras").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: forecastAuditLogs = [] } = useQuery({
     queryKey: ["forecast-audit-logs-report"],
     queryFn: async () => {
@@ -769,7 +778,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
