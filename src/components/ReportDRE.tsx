@@ -153,7 +153,6 @@ function buildDRE(
         base = resEx;
       }
       const share = base * (Number(p.percentage) / 100);
-      totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
       const ivaLabel = p.expense_includes_iva ? ` (base: ${formatCurrency(totalIncEx)} - ${formatCurrency(totalExpInc)} = ${formatCurrency(base)})` : "";
       lines.push({
@@ -164,9 +163,38 @@ function buildDRE(
         isDistribution: true,
         indent: true,
       });
+
+      // Partner extras (deducted from this partner's share)
+      const pExtras = (partnerExtras || []).filter((ex: any) => ex.partner_id === p.id);
+      let partnerExtraTotal = 0;
+      if (pExtras.length > 0) {
+        pExtras.forEach((ex: any) => {
+          const exAmount = Number(ex.amount);
+          partnerExtraTotal += exAmount;
+          lines.push({
+            label: `      (-) ${ex.description}`,
+            amountExIva: -exAmount,
+            ivaAmount: 0,
+            amountIncIva: -exAmount,
+            isPartnerExtra: true,
+            indent: true,
+          });
+        });
+        const netShare = share - partnerExtraTotal;
+        lines.push({
+          label: `    Líquido ${supplierName}`,
+          amountExIva: netShare,
+          ivaAmount: 0,
+          amountIncIva: netShare,
+          isPartnerNet: true,
+          indent: true,
+        });
+      }
+
+      totalDistribution += share;
     });
     // MP retained = real net result (s/IVA) minus total distributed
-    // MP benefits because partners with c/IVA get less
+    // (extras don't change total distribution — they just redistribute within partner)
     const retained = resEx - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
