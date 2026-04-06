@@ -11,6 +11,7 @@ import { Trash2, Plus, Users, Info, Pencil, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
 
 interface Props {
   eventId: string;
@@ -250,6 +251,17 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                         </div>
                       </TableCell>
                     )}
+                  </TableRow>
+                  {/* Partner Extras sub-panel */}
+                  <TableRow>
+                    <TableCell colSpan={canEdit ? 4 : 3} className="pt-0 pb-2 px-2">
+                      <PartnerExtrasPanel
+                        partnerId={p.id}
+                        partnerName={p.suppliers?.name || "Sócio"}
+                        eventId={eventId}
+                        canEdit={canEdit}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}
