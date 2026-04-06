@@ -128,9 +128,9 @@ function buildDRE(
     });
   }
 
-  // Always: Resultado Líquido = Receitas s/IVA - Despesas s/IVA
-  const resEx = totalIncEx - totalExpEx;
-  const resInc = totalIncInc - totalExpInc;
+  // Always: Resultado Líquido = Receitas s/IVA - Despesas s/IVA - Custos de Fecho
+  const resEx = totalIncEx - totalExpEx - totalClosingCosts;
+  const resInc = totalIncInc - totalExpInc - totalClosingCosts;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: 0, amountIncIva: 0, isGrandTotal: true });
 
   // Partner distribution section — sub-events inherit from parent
