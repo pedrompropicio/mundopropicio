@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 import { Plus, Pencil } from "lucide-react";
 
@@ -125,12 +126,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate, editRes
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
             <Label>Data</Label>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              autoFocus={!isEditing}
-            />
+            <DatePicker value={date} onChange={setDate} />
           </div>
 
           <div className="space-y-2">

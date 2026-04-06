@@ -7,6 +7,7 @@ import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
+import { DatePicker } from "@/components/ui/date-picker";
 
 type EventType = "simple" | "festival" | "multi_day";
 
@@ -462,12 +463,7 @@ export default function Events() {
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     {form.event_type === "festival" ? "Data de Início *" : "Data *"}
                   </label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
+                  <DatePicker value={form.date} onChange={(d) => setForm({ ...form, date: d })} />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
@@ -530,12 +526,9 @@ export default function Events() {
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Datas Adicionais do Festival</label>
                   <div className="flex gap-2 mb-2">
-                    <input
-                      type="date"
-                      value={newFestivalDate}
-                      onChange={(e) => setNewFestivalDate(e.target.value)}
-                      className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
+                    <div className="flex-1">
+                      <DatePicker value={newFestivalDate} onChange={setNewFestivalDate} placeholder="Nova data…" />
+                    </div>
                     <button
                       type="button"
                       onClick={addFestivalDate}
@@ -581,12 +574,7 @@ export default function Events() {
                             className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             placeholder="Nome (ex: Lisboa)"
                           />
-                          <input
-                            type="date"
-                            value={sub.date}
-                            onChange={(e) => updateSubEvent(idx, "date", e.target.value)}
-                            className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          />
+                          <DatePicker value={sub.date} onChange={(d) => updateSubEvent(idx, "date", d)} />
                         </div>
                         <CityVenueSelector
                           cityId={sub.city_id}

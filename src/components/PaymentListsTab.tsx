@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF } from "@/lib/export-payment-list";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, RotateCcw, MessageSquare, Send, Copy,
 } from "lucide-react";
@@ -353,7 +354,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
           </div>
           <div>
             <label className="text-sm font-medium text-muted-foreground">Data de Pagamento</label>
-            <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <DatePicker value={paymentDate} onChange={setPaymentDate} placeholder="Data…" />
           </div>
         </div>
 
@@ -374,21 +375,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">De</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
+              <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="De…" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Até</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
+              <DatePicker value={dateTo} onChange={setDateTo} placeholder="Até…" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Evento</label>

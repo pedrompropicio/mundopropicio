@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
+import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
 
 interface EventEditModalProps {
@@ -165,12 +166,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 {eventType === "festival" ? "Data de Início *" : "Data *"}
               </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
+              <DatePicker value={date} onChange={setDate} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Estado</label>
@@ -233,12 +229,9 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Datas Adicionais do Festival</label>
               <div className="flex gap-2 mb-2">
-                <input
-                  type="date"
-                  value={newFestivalDate}
-                  onChange={(e) => setNewFestivalDate(e.target.value)}
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
+                <div className="flex-1">
+                  <DatePicker value={newFestivalDate} onChange={setNewFestivalDate} placeholder="Nova data…" />
+                </div>
                 <button
                   type="button"
                   onClick={addFestivalDate}
