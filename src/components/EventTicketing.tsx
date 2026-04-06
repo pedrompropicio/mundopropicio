@@ -1,3 +1,5 @@
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -514,7 +516,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
       {/* Zones list */}
       <div className="glass rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Zonas de Bilhetes</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
           <button
             onClick={() => { setAddingZone(true); setEditingZoneId(null); setZoneForm(emptyZone); }}
             disabled={addingZone}

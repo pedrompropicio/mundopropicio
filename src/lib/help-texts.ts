@@ -96,6 +96,34 @@ const helpTexts: Record<string, string> = {
     "Monitoramento de segurança: tentativas de login, alterações de dados, MFA e atividade do sistema.",
   databaseBackups:
     "Gerencie backups da base de dados. Crie backups manuais ou configure rotinas automáticas.",
+
+  // Event sub-tabs / components
+  eventTicketing:
+    "Configure zonas e lotes de bilhetes para o evento. Defina capacidades, preços e taxas de IVA. O sistema calcula automaticamente receita bruta, IVA e receita líquida.",
+  eventCache:
+    "Cachê é o valor pago aos artistas. Pode ser um valor fixo ou uma percentagem da receita (bruta ou líquida). Configure deduções por categoria para calcular a base correta.",
+  eventForecast:
+    "O Business Plan (BP) contém as previsões de receitas e despesas do evento. Cada linha pode ser aprovada e convertida em transação real. Compare previsão vs realizado.",
+  eventClosingTab:
+    "Custos de Fecho são despesas que não geram transação de pagamento (ex: rateio de equipa, assessoria jurídica) mas que impactam o resultado final do evento e o cálculo da participação dos sócios.",
+
+  // Key buttons/actions
+  newTransaction:
+    "Crie uma nova transação de receita ou despesa. Associe a um evento, fornecedor e categoria do plano de contas.",
+  transferBetweenAccounts:
+    "Transferência entre contas: move saldo de uma conta para outra. Gera automaticamente uma saída e uma entrada.",
+  approveTransaction:
+    "Aprovar uma transação significa validar que a despesa/receita é legítima e pode ser processada para pagamento.",
+  payTransaction:
+    "Registar pagamento: indica que a transação foi efetivamente paga/recebida. Informe o valor pago, conta utilizada e data.",
+  newEvent:
+    "Crie um novo evento com nome, data, local e tipo. Eventos podem ser simples, multi-data (turnê) ou festival.",
+  newSupplier:
+    "Adicione um novo fornecedor ou parceiro com dados de contacto, NIF e dados bancários para pagamentos.",
+  exportPDF:
+    "Exportar para PDF: gera um documento PDF com os dados atuais do relatório para impressão ou envio.",
+  conciliateTicketOffice:
+    "Conciliar bilheteira: confirme que os valores de venda registados coincidem com os valores recebidos na conta.",
 };
 
 export default helpTexts;

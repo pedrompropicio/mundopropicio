@@ -78,7 +78,7 @@ export default function Suppliers() {
           onClick={() => { setEditingSupplier(null); setIsOpen(true); }}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
         >
-          <Plus className="h-4 w-4" /> Novo Fornecedor
+          <Plus className="h-4 w-4" /> Novo Fornecedor <HelpTooltip text={helpTexts.newSupplier} size={13} className="text-primary-foreground/60 hover:text-primary-foreground" />
         </button>
       </div>
 

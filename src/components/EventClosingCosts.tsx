@@ -1,3 +1,5 @@
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,7 +110,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Custos de Fecho</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Custos de Fecho <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Custos internos que não geram transações bancárias (rateio de equipa, assessoria, etc.)
           </p>

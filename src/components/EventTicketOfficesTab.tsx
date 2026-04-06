@@ -1,3 +1,5 @@
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -177,8 +179,8 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Bilheteiras Associadas
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+          Bilheteiras Associadas <HelpTooltip text={helpTexts.eventTicketOffices} size={13} />
         </h3>
         {canManage && (
           <button

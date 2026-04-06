@@ -402,6 +402,7 @@ export default function Transactions() {
           >
             <ArrowRightLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Transferência</span>
+            <HelpTooltip text={helpTexts.transferBetweenAccounts} size={13} />
           </button>
           <button
             onClick={() => setShowForm(true)}
@@ -409,6 +410,7 @@ export default function Transactions() {
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nova Transação</span>
+            <HelpTooltip text={helpTexts.newTransaction} size={13} className="text-primary-foreground/60 hover:text-primary-foreground" />
           </button>
         </div>
       </div>
