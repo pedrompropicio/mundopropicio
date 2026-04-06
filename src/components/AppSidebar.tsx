@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Settings,
   Store,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +43,7 @@ export function AppSidebar() {
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
     { to: "/admin", icon: Settings, label: "Admin", show: isAdmin },
+    { to: "/ajuda", icon: HelpCircle, label: "Manual", show: true },
   ];
 
   return (
