@@ -13,7 +13,66 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
+
+/** Hook: fetch approved forecasts for given event IDs and build a lookup by event+category */
+function useForecastLookup(eventIds: string[]) {
+  const uniqueEventIds = useMemo(() => [...new Set(eventIds.filter(Boolean))], [eventIds.join(",")]);
+  const { data: forecasts = [] } = useQuery({
+    queryKey: ["bp-forecasts-for-payment", uniqueEventIds],
+    queryFn: async () => {
+      if (uniqueEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("event_id, category_id, amount, description")
+        .in("event_id", uniqueEventIds)
+        .eq("type", "expense")
+        .in("status", ["approved", "draft"]);
+      if (error) throw error;
+      return data;
+    },
+    enabled: uniqueEventIds.length > 0,
+    staleTime: 60_000,
+  });
+
+  /** Check if a transaction amount exceeds the BP forecast for its event+category */
+  const checkExceedsBP = useMemo(() => {
+    return (eventId: string | null, categoryId: string | null, txAmount: number): { exceeds: boolean; forecastAmount?: number } => {
+      if (!eventId || !categoryId) return { exceeds: false };
+      const matching = forecasts.filter(
+        (f: any) => f.event_id === eventId && f.category_id === categoryId
+      );
+      if (matching.length === 0) return { exceeds: false };
+      const totalForecast = matching.reduce((s: number, f: any) => s + Number(f.amount), 0);
+      return { exceeds: txAmount > totalForecast, forecastAmount: totalForecast };
+    };
+  }, [forecasts]);
+
+  return checkExceedsBP;
+}
+
+/** Small warning badge for transactions exceeding BP */
+function BPExceedsWarning({ forecastAmount, txAmount }: { forecastAmount: number; txAmount: number }) {
+  const pct = forecastAmount > 0 ? ((txAmount / forecastAmount - 1) * 100).toFixed(0) : "∞";
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            Acima do BP
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">Valor previsto no BP: {formatCurrency(forecastAmount)}</p>
+          <p className="text-xs">Valor da transação: {formatCurrency(txAmount)} (+{pct}%)</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 const statusMap: Record<ListStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Rascunho", variant: "secondary" },
