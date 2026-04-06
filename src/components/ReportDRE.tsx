@@ -148,7 +148,6 @@ function buildDRE(
       } else {
         base = resEx;
       }
-      }
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
