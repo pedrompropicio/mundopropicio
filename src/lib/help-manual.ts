@@ -12,6 +12,7 @@ export interface HelpSection {
   id: string;
   title: string;
   icon: string; // lucide icon name
+  image?: string; // import key for illustration
   topics: HelpTopic[];
 }
 
