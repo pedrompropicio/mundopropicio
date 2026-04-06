@@ -838,6 +838,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
                       <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
                       <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
+                      {bpCheck.exceeds && (
+                        <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                      )}
                       <div className="flex items-center gap-4 flex-wrap">
                         {paid > 0 && !isPaid && (
                           <>
