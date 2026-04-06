@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { exportDREToExcel, exportDREToPDF, buildDREForExport, getEffectiveTransactionsForExport } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
+import { Switch } from "@/components/ui/switch";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -47,7 +48,8 @@ function buildDREBrasil(
   ticketCategoryId: string | null,
   partners: any[],
   calcBasis: string,
-  parentEventId?: string | null
+  parentEventId?: string | null,
+  closingCosts?: any[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -112,8 +114,21 @@ function buildDREBrasil(
     }
   });
 
-  // Result = Revenue ex-IVA - Expenses inc-IVA
-  const resultGrossExp = totalIncEx - totalExpInc;
+  // Closing costs (internal costs for partner view)
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  let totalClosingCosts = 0;
+  if (eventClosingCosts.length > 0) {
+    totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
+    lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isTotal: true, isExpenseSide: true });
+    eventClosingCosts.forEach((cc: any) => {
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
+      const label = catLabel ? `${cc.description} (${catLabel})` : cc.description;
+      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+    });
+  }
+
+  // Result = Revenue ex-IVA - Expenses inc-IVA - Closing Costs
+  const resultGrossExp = totalIncEx - totalExpInc - totalClosingCosts;
   lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
 
   // Partner distribution
@@ -121,14 +136,14 @@ function buildDREBrasil(
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
-    const consistentBase = calcBasis === "gross_revenue" ? totalIncEx : totalIncEx - totalExpInc;
+    const consistentBase = calcBasis === "gross_revenue" ? totalIncEx : totalIncEx - totalExpInc - totalClosingCosts;
 
     eventPartners.forEach((p: any) => {
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
       } else {
-        base = totalIncEx - totalExpInc;
+        base = totalIncEx - totalExpInc - totalClosingCosts;
       }
       const share = base * (Number(p.percentage) / 100);
       totalDistribution += share;
@@ -160,6 +175,7 @@ export default function ReportDREBrasil() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
+  const [showPartnerView, setShowPartnerView] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
