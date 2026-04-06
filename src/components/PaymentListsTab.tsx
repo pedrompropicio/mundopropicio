@@ -1047,18 +1047,25 @@ function ApproveModal({
               <tbody className="divide-y divide-border/30">
                 {items.map((item: any) => {
                   const tx = item.transactions;
-                  const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
+                  const txAmount = Number(tx?.amount ?? 0);
+                  const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
                   const paid = Number(tx?.paid_amount ?? 0);
+                  const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
                   return (
                     <tr
                       key={item.id}
-                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
                       onClick={() => toggleId(item.id)}
                     >
                       <td className="p-2 text-center">
                         <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} />
                       </td>
-                      <td className="p-2 font-medium">{tx?.description}</td>
+                      <td className="p-2">
+                        <span className="font-medium">{tx?.description}</span>
+                        {bpCheck.exceeds && (
+                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                        )}
+                      </td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
