@@ -240,6 +240,15 @@ export default function ReportDREBrasil() {
     },
   });
 
+  const { data: closingCosts = [] } = useQuery({
+    queryKey: ["closing-costs-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_closing_costs").select("*, account_categories(code, name)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const ticketCategoryId = categories.find(
     (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes")
   )?.id ?? null;
