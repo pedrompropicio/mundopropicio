@@ -590,6 +590,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     },
   });
 
+  // BP forecast check for view
+  const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
+
   const isApproved = list?.status === "approved" || list?.status === "partially_approved";
 
   const unpaidItems = items.filter((item: any) => {
