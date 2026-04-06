@@ -104,8 +104,6 @@ const helpTexts: Record<string, string> = {
     "Cachê é o valor pago aos artistas. Pode ser um valor fixo ou uma percentagem da receita (bruta ou líquida). Configure deduções por categoria para calcular a base correta.",
   eventForecast:
     "O Business Plan (BP) contém as previsões de receitas e despesas do evento. Cada linha pode ser aprovada e convertida em transação real. Compare previsão vs realizado.",
-  eventPartners:
-    "Sócios/Parceiros participam no resultado financeiro do evento com uma percentagem definida. O cálculo pode ser sobre o resultado líquido ou receita bruta, conforme configurado.",
   eventClosingTab:
     "Custos de Fecho são despesas que não geram transação de pagamento (ex: rateio de equipa, assessoria jurídica) mas que impactam o resultado final do evento e o cálculo da participação dos sócios.",
 
