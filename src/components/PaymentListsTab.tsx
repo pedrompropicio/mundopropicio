@@ -806,6 +806,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               const paid = Number(tx?.paid_amount ?? 0);
               const isPaid = paid >= amount || tx?.status === "paid";
               const isSelectable = isApproved && !isPaid && tx;
+              const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
 
               return (
                 <div
