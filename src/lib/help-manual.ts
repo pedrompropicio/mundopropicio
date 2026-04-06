@@ -6,6 +6,7 @@
 export interface HelpTopic {
   title: string;
   content: string;
+  image?: string; // import key for illustration
 }
 
 export interface HelpSection {
