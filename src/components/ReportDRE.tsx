@@ -115,6 +115,19 @@ function buildDRE(
     }
   });
 
+  // Closing costs (internal costs for partner view)
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  let totalClosingCosts = 0;
+  if (eventClosingCosts.length > 0) {
+    totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
+    lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isTotal: true, isExpenseSide: true });
+    eventClosingCosts.forEach((cc: any) => {
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
+      const label = catLabel ? `${cc.description} (${catLabel})` : cc.description;
+      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+    });
+  }
+
   // Always: Resultado Líquido = Receitas s/IVA - Despesas s/IVA
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
