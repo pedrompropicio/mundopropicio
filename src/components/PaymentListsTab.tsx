@@ -361,6 +361,9 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   }, [approvedTx, dateType, dateFrom, dateTo, eventFilter]);
 
+  // BP forecast check
+  const checkExceedsBP = useForecastLookup(filteredTx.map((t: any) => t.event_id));
+
   const toggleId = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
