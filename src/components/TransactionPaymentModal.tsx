@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { X, CalendarIcon, Paperclip } from "lucide-react";
+import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -39,6 +40,16 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: supplierData } = useQuery({
+    queryKey: ["supplier-bank-details", transaction.supplier_id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("id", transaction.supplier_id).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!transaction.supplier_id,
   });
 
   const { data: txSummary = [] } = useQuery({
