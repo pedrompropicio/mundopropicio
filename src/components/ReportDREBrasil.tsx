@@ -26,6 +26,8 @@ interface DRELine {
   isDistribution?: boolean;
   isRetained?: boolean;
   isExpenseSide?: boolean;
+  isPartnerExtra?: boolean;
+  isPartnerNet?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
@@ -49,7 +51,8 @@ function buildDREBrasil(
   partners: any[],
   calcBasis: string,
   parentEventId?: string | null,
-  closingCosts?: any[]
+  closingCosts?: any[],
+  partnerExtras?: any[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -146,7 +149,6 @@ function buildDREBrasil(
         base = totalIncEx - totalExpInc - totalClosingCosts;
       }
       const share = base * (Number(p.percentage) / 100);
-      totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
@@ -156,8 +158,36 @@ function buildDREBrasil(
         isDistribution: true,
         indent: true,
       });
+
+      // Partner extras
+      const pExtras = (partnerExtras || []).filter((ex: any) => ex.partner_id === p.id);
+      let partnerExtraTotal = 0;
+      if (pExtras.length > 0) {
+        pExtras.forEach((ex: any) => {
+          const exAmount = Number(ex.amount);
+          partnerExtraTotal += exAmount;
+          lines.push({
+            label: `      (-) ${ex.description}`,
+            amountExIva: -exAmount,
+            ivaAmount: 0,
+            amountIncIva: -exAmount,
+            isPartnerExtra: true,
+            indent: true,
+          });
+        });
+        const netShare = share - partnerExtraTotal;
+        lines.push({
+          label: `    Líquido ${supplierName}`,
+          amountExIva: netShare,
+          ivaAmount: 0,
+          amountIncIva: netShare,
+          isPartnerNet: true,
+          indent: true,
+        });
+      }
+
+      totalDistribution += share;
     });
-    // Retained = residual (expenses with VAT perspective)
     const retained = consistentBase - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
@@ -244,6 +274,15 @@ export default function ReportDREBrasil() {
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
       const { data, error } = await supabase.from("event_closing_costs").select("*, account_categories(code, name)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: partnerExtras = [] } = useQuery({
+    queryKey: ["partner-extras-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_partner_extras").select("*");
       if (error) throw error;
       return data;
     },
@@ -360,7 +399,7 @@ export default function ReportDREBrasil() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : []);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -390,7 +429,7 @@ export default function ReportDREBrasil() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : []);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       const key = l.label.trim();
       if (!globalPartnerShares[key]) globalPartnerShares[key] = { name: key, total: 0 };
@@ -556,7 +595,7 @@ export default function ReportDREBrasil() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : []) : [];
+          const dre = isOpen ? buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
@@ -600,23 +639,27 @@ export default function ReportDREBrasil() {
                         {dre.map((line, i) => {
                           const rowClass = line.isRetained
                             ? "border-t-2 border-accent/40 bg-accent/10"
+                            : line.isPartnerNet
+                            ? "bg-accent/5 border-t border-accent/20"
+                            : line.isPartnerExtra
+                            ? ""
                             : line.isDistribution
                             ? "bg-amber-500/5"
                             : line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
                             : line.isGroupHeader ? "bg-secondary/10 border-t border-border/20" : "";
-                          const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal || line.isRetained ? "font-bold text-xs uppercase tracking-wider" : line.isDistribution ? "text-sm italic text-muted-foreground" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
+                          const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal || line.isRetained ? "font-bold text-xs uppercase tracking-wider" : line.isPartnerNet ? "text-xs font-semibold italic" : line.isPartnerExtra ? "text-xs italic text-muted-foreground" : line.isDistribution ? "text-sm italic text-muted-foreground" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
 
                           // Revenues show ex-IVA, expenses show inc-IVA
                           const displayVal = line.isExpenseSide ? line.amountIncIva
-                            : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+                            : line.isDistribution || line.isRetained || line.isGrandTotal || line.isPartnerExtra || line.isPartnerNet ? line.amountExIva
                             : line.amountExIva;
-                          const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
+                          const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide && !line.isPartnerExtra && !line.isPartnerNet &&
                             (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
                           const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
                           const formattedVal = displayVal < 0 ? `-${formatCurrency(Math.abs(displayVal))}` : formatCurrency(displayVal);
-                          const valClass = `text-right font-mono ${line.isRetained ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
+                          const valClass = `text-right font-mono ${line.isRetained ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isPartnerNet ? `text-xs font-semibold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isPartnerExtra ? "text-xs text-destructive/70" : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
 
                           return (
                             <TableRow key={i} className={rowClass}>

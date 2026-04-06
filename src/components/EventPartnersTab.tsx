@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Trash2, Plus, Users, Info, Pencil, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { PartnerExtrasPanel } from "@/components/PartnerExtrasPanel";
 
 interface Props {
   eventId: string;
@@ -194,7 +195,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 const otherTotal = partners.reduce((sum: number, op: any) => op.id === p.id ? sum : sum + Number(op.percentage), 0);
                 const maxPct = 100 - otherTotal;
                 return (
-                  <TableRow key={p.id} className="[&>td]:py-1 [&>td]:px-2">
+                  <React.Fragment key={p.id}>
+                  <TableRow className="[&>td]:py-1 [&>td]:px-2">
                     <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
                     <TableCell className="text-right font-mono">
                       {isEditing ? (
@@ -251,6 +253,17 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                       </TableCell>
                     )}
                   </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={canEdit ? 4 : 3} className="pt-0 pb-2 px-2">
+                      <PartnerExtrasPanel
+                        partnerId={p.id}
+                        partnerName={p.suppliers?.name || "Sócio"}
+                        eventId={eventId}
+                        canEdit={canEdit}
+                      />
+                    </TableCell>
+                  </TableRow>
+                  </React.Fragment>
                 );
               })}
             </TableBody>
