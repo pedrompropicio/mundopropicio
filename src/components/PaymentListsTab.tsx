@@ -7,13 +7,72 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF } from "@/lib/export-payment-list";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, RotateCcw, MessageSquare, Send, Copy,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, RotateCcw, MessageSquare, Send, Copy, AlertTriangle,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 type ListStatus = "draft" | "pending_approval" | "approved" | "rejected" | "revision" | "partially_approved";
+
+/** Hook: fetch approved forecasts for given event IDs and build a lookup by event+category */
+function useForecastLookup(eventIds: string[]) {
+  const uniqueEventIds = useMemo(() => [...new Set(eventIds.filter(Boolean))], [eventIds.join(",")]);
+  const { data: forecasts = [] } = useQuery({
+    queryKey: ["bp-forecasts-for-payment", uniqueEventIds],
+    queryFn: async () => {
+      if (uniqueEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("event_id, category_id, amount, description")
+        .in("event_id", uniqueEventIds)
+        .eq("type", "expense")
+        .in("status", ["approved", "draft"]);
+      if (error) throw error;
+      return data;
+    },
+    enabled: uniqueEventIds.length > 0,
+    staleTime: 60_000,
+  });
+
+  /** Check if a transaction amount exceeds the BP forecast for its event+category */
+  const checkExceedsBP = useMemo(() => {
+    return (eventId: string | null, categoryId: string | null, txAmount: number): { exceeds: boolean; forecastAmount?: number } => {
+      if (!eventId || !categoryId) return { exceeds: false };
+      const matching = forecasts.filter(
+        (f: any) => f.event_id === eventId && f.category_id === categoryId
+      );
+      if (matching.length === 0) return { exceeds: false };
+      const totalForecast = matching.reduce((s: number, f: any) => s + Number(f.amount), 0);
+      return { exceeds: txAmount > totalForecast, forecastAmount: totalForecast };
+    };
+  }, [forecasts]);
+
+  return checkExceedsBP;
+}
+
+/** Small warning badge for transactions exceeding BP */
+function BPExceedsWarning({ forecastAmount, txAmount }: { forecastAmount: number; txAmount: number }) {
+  const pct = forecastAmount > 0 ? ((txAmount / forecastAmount - 1) * 100).toFixed(0) : "∞";
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            Acima do BP
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">Valor previsto no BP: {formatCurrency(forecastAmount)}</p>
+          <p className="text-xs">Valor da transação: {formatCurrency(txAmount)} (+{pct}%)</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 const statusMap: Record<ListStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Rascunho", variant: "secondary" },
@@ -302,6 +361,9 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     });
   }, [approvedTx, dateType, dateFrom, dateTo, eventFilter]);
 
+  // BP forecast check
+  const checkExceedsBP = useForecastLookup(filteredTx.map((t: any) => t.event_id));
+
   const toggleId = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -439,10 +501,16 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
                   const saldo = withIva - paidWithIva;
                   const hasPartial = paid > 0;
+                  const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
                   return (
-                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleId(t.id)}>
+                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
                       <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
-                      <td className="p-2 font-medium">{t.description}</td>
+                      <td className="p-2">
+                        <span className="font-medium">{t.description}</span>
+                        {bpCheck.exceeds && (
+                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
+                        )}
+                      </td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
@@ -521,6 +589,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       return data;
     },
   });
+
+  // BP forecast check for view
+  const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
 
   const isApproved = list?.status === "approved" || list?.status === "partially_approved";
 
@@ -735,6 +806,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               const paid = Number(tx?.paid_amount ?? 0);
               const isPaid = paid >= amount || tx?.status === "paid";
               const isSelectable = isApproved && !isPaid && tx;
+              const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
 
               return (
                 <div
@@ -766,6 +838,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
                       <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
                       <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
+                      {bpCheck.exceeds && (
+                        <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                      )}
                       <div className="flex items-center gap-4 flex-wrap">
                         {paid > 0 && !isPaid && (
                           <>
@@ -873,6 +948,9 @@ function ApproveModal({
     },
   });
 
+  // BP forecast check for approval
+  const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
+
   // Auto-select all when items load
   useEffect(() => {
     if (items.length > 0) {
@@ -969,18 +1047,25 @@ function ApproveModal({
               <tbody className="divide-y divide-border/30">
                 {items.map((item: any) => {
                   const tx = item.transactions;
-                  const withIva = Number(tx?.amount ?? 0) * (1 + Number(tx?.iva_rate ?? 23) / 100);
+                  const txAmount = Number(tx?.amount ?? 0);
+                  const withIva = txAmount * (1 + Number(tx?.iva_rate ?? 23) / 100);
                   const paid = Number(tx?.paid_amount ?? 0);
+                  const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, txAmount);
                   return (
                     <tr
                       key={item.id}
-                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"}`}
+                      className={`cursor-pointer transition-colors ${selectedIds.has(item.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`}
                       onClick={() => toggleId(item.id)}
                     >
                       <td className="p-2 text-center">
                         <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} />
                       </td>
-                      <td className="p-2 font-medium">{tx?.description}</td>
+                      <td className="p-2">
+                        <span className="font-medium">{tx?.description}</span>
+                        {bpCheck.exceeds && (
+                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                        )}
+                      </td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
