@@ -124,6 +124,8 @@ const helpTexts: Record<string, string> = {
     "Exportar para PDF: gera um documento PDF com os dados atuais do relatório para impressão ou envio.",
   conciliateTicketOffice:
     "Conciliar bilheteira: confirme que os valores de venda registados coincidem com os valores recebidos na conta.",
+  reportArtistCache:
+    "Relatório analítico do cachê de cada artista do evento. Demonstra o cálculo completo (fixo ou variável com deduções), os custos extras a descontar e o valor líquido final a pagar.",
 };
 
 export default helpTexts;
