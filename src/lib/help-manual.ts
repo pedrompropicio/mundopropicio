@@ -21,6 +21,7 @@ const helpManual: HelpSection[] = [
     id: "getting-started",
     title: "Primeiros Passos",
     icon: "Rocket",
+    image: "user-roles",
     topics: [
       {
         title: "Visão geral do sistema",
