@@ -256,12 +256,18 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
+  // Filter state
+  const [dateType, setDateType] = useState<"date" | "due_date">("date");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+
   const { data: approvedTx = [], isLoading } = useQuery({
     queryKey: ["approved-transactions-for-list"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name)")
+        .select("*, events(name), suppliers(name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3)")
         .eq("status", "approved")
         .eq("type", "expense")
         .order("date", { ascending: false });
@@ -269,6 +275,31 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
       return data;
     },
   });
+
+  // Unique events for filter dropdown
+  const eventOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    approvedTx.forEach((t: any) => {
+      if (t.event_id && t.events?.name) map.set(t.event_id, t.events.name);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [approvedTx]);
+
+  // Filtered transactions
+  const filteredTx = useMemo(() => {
+    return approvedTx.filter((t: any) => {
+      // Event filter
+      if (eventFilter !== "all" && t.event_id !== eventFilter) return false;
+
+      // Date range filter
+      const dateValue = dateType === "due_date" ? t.due_date : t.date;
+      if (!dateValue && (dateFrom || dateTo)) return false;
+      if (dateFrom && dateValue < dateFrom) return false;
+      if (dateTo && dateValue > dateTo) return false;
+
+      return true;
+    });
+  }, [approvedTx, dateType, dateFrom, dateTo, eventFilter]);
 
   const toggleId = (id: string) => {
     setSelectedIds((prev) => {
@@ -279,8 +310,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
   };
 
   const toggleAll = () => {
-    if (selectedIds.size === approvedTx.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(approvedTx.map((t: any) => t.id)));
+    if (selectedIds.size === filteredTx.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredTx.map((t: any) => t.id)));
   };
 
   const handleSubmit = async (asDraft: boolean) => {
@@ -326,21 +357,80 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 mb-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filtros</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Filtrar por</label>
+              <select
+                value={dateType}
+                onChange={(e) => setDateType(e.target.value as "date" | "due_date")}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="date">Data de Lançamento</option>
+                <option value="due_date">Data de Vencimento</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">De</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Até</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Evento</label>
+              <select
+                value={eventFilter}
+                onChange={(e) => setEventFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="all">Todos os eventos</option>
+                {eventOptions.map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(dateFrom || dateTo || eventFilter !== "all") && (
+            <button
+              onClick={() => { setDateFrom(""); setDateTo(""); setEventFilter("all"); }}
+              className="text-xs text-primary hover:underline"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wider">
-          Selecione as contas "A Pagar" ({approvedTx.length} disponíveis)
+          Transações aprovadas ({filteredTx.length} de {approvedTx.length})
         </h3>
 
         {isLoading ? (
           <p className="py-4 text-center text-muted-foreground">A carregar…</p>
-        ) : approvedTx.length === 0 ? (
-          <p className="py-4 text-center text-muted-foreground">Nenhuma transação aprovada (A Pagar) disponível.</p>
+        ) : filteredTx.length === 0 ? (
+          <p className="py-4 text-center text-muted-foreground">
+            {approvedTx.length === 0 ? "Nenhuma transação aprovada disponível." : "Nenhuma transação corresponde aos filtros selecionados."}
+          </p>
         ) : (
           <div className="overflow-x-auto max-h-[40vh] overflow-y-auto border border-border/50 rounded-lg">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-muted">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-center w-8">
-                    <Checkbox checked={selectedIds.size === approvedTx.length && approvedTx.length > 0} onCheckedChange={toggleAll} />
+                    <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
                   </th>
                   <th className="p-2 text-left font-medium">Descrição</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
@@ -352,7 +442,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {approvedTx.map((t: any) => {
+                {filteredTx.map((t: any) => {
                   const withIva = t.amount * (1 + (t.iva_rate ?? 23) / 100);
                   const paid = Number(t.paid_amount ?? 0);
                   const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
