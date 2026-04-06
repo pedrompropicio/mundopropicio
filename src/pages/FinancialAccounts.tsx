@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket } from "lucide-react";
+import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users } from "lucide-react";
+import AccountAccessModal from "@/components/AccountAccessModal";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -52,6 +53,7 @@ export default function FinancialAccounts() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
+  const [accessModalAccount, setAccessModalAccount] = useState<{ id: string; name: string } | null>(null);
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["financial-accounts"],
@@ -386,6 +388,13 @@ export default function FinancialAccounts() {
                                 title="Ver extrato"
                               >
                                 <FileText className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setAccessModalAccount({ id: acc.id, name: acc.name })}
+                                className="rounded-lg p-1.5 hover:bg-secondary transition-colors"
+                                title="Gerir acessos"
+                              >
+                                <Users className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => startEdit(acc)}
