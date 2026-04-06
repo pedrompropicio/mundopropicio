@@ -832,7 +832,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 {generateHistoricalMutation.isPending ? "A gerar…" : `Gerar Transações (${approvedWithoutTxCount})`}
               </button>
             )}
-            {canApprove && (
+            {canEditBP && (
               <>
                 <input
                   ref={fileInputRef}
@@ -970,7 +970,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={canEditBP ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
                               )
                             ))}
                           </React.Fragment>
