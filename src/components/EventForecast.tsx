@@ -1255,7 +1255,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved }: {
   item: any; colorClass: string; isExpense?: boolean;
-  onEdit: (item: any) => void; onDelete: (id: string) => void;
+  onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
