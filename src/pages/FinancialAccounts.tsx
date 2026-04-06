@@ -457,6 +457,14 @@ export default function FinancialAccounts() {
           <FinancialOperationsTab accounts={accounts} isAdmin={isAdmin} />
         </TabsContent>
       </Tabs>
+
+      {accessModalAccount && (
+        <AccountAccessModal
+          accountId={accessModalAccount.id}
+          accountName={accessModalAccount.name}
+          onClose={() => setAccessModalAccount(null)}
+        />
+      )}
     </div>
   );
 }
