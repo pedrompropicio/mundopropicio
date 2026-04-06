@@ -948,6 +948,9 @@ function ApproveModal({
     },
   });
 
+  // BP forecast check for approval
+  const checkExceedsBP = useForecastLookup(items.map((i: any) => i.transactions?.event_id));
+
   // Auto-select all when items load
   useEffect(() => {
     if (items.length > 0) {
