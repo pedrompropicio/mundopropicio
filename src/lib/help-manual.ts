@@ -69,6 +69,21 @@ const helpManual: HelpSection[] = [
           "O BP é o orçamento detalhado do evento. Liste todas as receitas e despesas previstas, associando cada linha a uma categoria do Plano de Contas. Após aprovação, as linhas do BP podem ser convertidas em transações reais. Compare sempre previsão vs realizado para controlar desvios.",
       },
       {
+        title: "Modos do BP: Ativo vs Passivo",
+        content:
+          "O BP pode operar em dois modos:\n\nBP Ativo — restringe a criação de transações apenas às categorias previamente orçamentadas. Qualquer despesa ou receita fora do orçamento exige o mecanismo de bypass ('Categoria não prevista?'), que obriga ao preenchimento de uma justificação. Estas transações ficam marcadas como 'Fora do BP' e entram no estado 'Aguardando' para revisão, sem auto-aprovação.\n\nBP Passivo — permite criar transações em qualquer categoria do plano de contas, sem restrição de bypass. O BP funciona apenas como referência de comparação (previsto vs realizado), sem bloquear operações.\n\nEscolha o modo na configuração do evento. Use 'Ativo' para controlo rigoroso e 'Passivo' para flexibilidade operacional.",
+      },
+      {
+        title: "Regras: BP × Transações",
+        content:
+          "Relação entre linhas do BP e transações:\n\n1. Aprovação — Apenas Admins e Gestores podem aprovar linhas do BP. A primeira aprovação de uma linha em eventos 'Planeamento' ou 'Confirmado' transita automaticamente o evento para 'Ativo'. Em eventos 'Concluídos', a aprovação não altera o estado.\n\n2. Conversão — Uma linha aprovada do BP pode ser convertida numa transação real, vinculando previsão ao registo financeiro efetivo.\n\n3. Alteração de valores aprovados — Admins e Gestores podem alterar valores de linhas já aprovadas em eventos ativos, mas é obrigatória uma justificação que fica registada no log de auditoria. O histórico de alterações é visível na interface e pode ser incluído no PDF do relatório.\n\n4. Bypass (BP Ativo) — Se precisar de uma categoria não prevista no orçamento, utilize o link 'Categoria não prevista?'. A transação criada por bypass:\n   • Exige justificação obrigatória\n   • Entra como 'Aguardando' (sem auto-aprovação)\n   • Fica marcada com badge 'Fora do BP' nos relatórios\n\n5. Ordenação — Todas as linhas do BP seguem obrigatoriamente a ordem do código numérico do plano de contas, tanto na interface como nas exportações.",
+      },
+      {
+        title: "Limites de edição por estado do evento",
+        content:
+          "Planeamento — Edição livre de todas as linhas do BP e transações.\nConfirmado — BP editável; transações podem ser criadas normalmente.\nAtivo — Linhas aprovadas do BP só podem ser alteradas por Admin/Gestor com justificação. Transações seguem o fluxo padrão de aprovação.\nConcluído — Edições operacionais bloqueadas. Apenas ajustes administrativos de bilheteira são permitidos. Aprovações de linhas do BP não alteram o estado do evento.",
+      },
+      {
         title: "Cachê de artistas",
         content:
           "Configure o cachê na aba dedicada do evento. Pode ser um valor fixo ou uma percentagem da receita (bruta ou líquida). Defina deduções por categoria para calcular a base correta do cachê variável. O sistema calcula automaticamente o valor final.",
