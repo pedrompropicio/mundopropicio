@@ -52,6 +52,9 @@ const queryClient = new QueryClient();
 function ProtectedLayout() {
   const { user, loading } = useAuth();
 
+  // Hook must be called unconditionally (Rules of Hooks)
+  useInactivityTimeout(!loading && !!user);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -63,8 +66,6 @@ function ProtectedLayout() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-
-  useInactivityTimeout();
 
   return (
     <div className="flex min-h-screen flex-col">

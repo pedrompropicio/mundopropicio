@@ -6,14 +6,23 @@ const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const ACTIVITY_EVENTS = ["mousedown", "keydown", "touchstart", "scroll", "mousemove", "click"] as const;
 const THROTTLE_MS = 10_000; // reset timer at most once per 10 seconds
 
-export function useInactivityTimeout() {
+export function useInactivityTimeout(enabled = true) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastActivityRef = useRef(0); // start at 0 so the first event always resets
+  const lastActivityRef = useRef(0);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const handleLogout = useCallback(async () => {
-    // Double-check: if user was recently active, don't log out (race-condition guard)
+    if (!enabledRef.current) return;
+    // Double-check: if user was recently active, don't log out
     if (Date.now() - lastActivityRef.current < INACTIVITY_TIMEOUT_MS) {
-      // Reschedule instead of logging out
       const remaining = INACTIVITY_TIMEOUT_MS - (Date.now() - lastActivityRef.current);
       timerRef.current = setTimeout(handleLogout, remaining);
       return;
@@ -27,15 +36,21 @@ export function useInactivityTimeout() {
   }, []);
 
   const resetTimer = useCallback(() => {
+    if (!enabledRef.current) return;
     const now = Date.now();
     if (now - lastActivityRef.current < THROTTLE_MS) return;
     lastActivityRef.current = now;
 
-    if (timerRef.current) clearTimeout(timerRef.current);
+    clearTimer();
     timerRef.current = setTimeout(handleLogout, INACTIVITY_TIMEOUT_MS);
-  }, [handleLogout]);
+  }, [handleLogout, clearTimer]);
 
   useEffect(() => {
+    if (!enabled) {
+      clearTimer();
+      return;
+    }
+
     // Start the timer and record initial activity
     lastActivityRef.current = Date.now();
     timerRef.current = setTimeout(handleLogout, INACTIVITY_TIMEOUT_MS);
@@ -44,7 +59,6 @@ export function useInactivityTimeout() {
       window.addEventListener(event, resetTimer, { passive: true });
     }
 
-    // Also reset on tab visibility change (returning to tab = activity)
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         resetTimer();
@@ -53,11 +67,11 @@ export function useInactivityTimeout() {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearTimer();
       for (const event of ACTIVITY_EVENTS) {
         window.removeEventListener(event, resetTimer);
       }
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [resetTimer, handleLogout]);
+  }, [enabled, resetTimer, handleLogout, clearTimer]);
 }
