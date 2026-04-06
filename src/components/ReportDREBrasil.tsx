@@ -288,6 +288,7 @@ export default function ReportDREBrasil() {
     },
   });
 
+  const ticketCategoryId = categories.find(
     (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes")
   )?.id ?? null;
 
