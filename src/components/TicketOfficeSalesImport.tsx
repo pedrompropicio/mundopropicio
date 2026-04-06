@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import * as XLSX from "xlsx";
 
@@ -160,6 +160,44 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const matchedRows = parsedRows.filter((r) => r.status === "matched");
   const unmatchedRows = parsedRows.filter((r) => r.status !== "matched");
 
+  // Check for existing sales on the same dates/zones
+  const matchedDates = useMemo(() => [...new Set(matchedRows.map(r => r.date))], [matchedRows]);
+  const matchedZoneIds = useMemo(() => [...new Set(matchedRows.map(r => r.matched_zone_id).filter(Boolean))], [matchedRows]);
+
+  const { data: existingSalesForDates = [] } = useQuery({
+    queryKey: ["existing-sales-check", matchedDates, matchedZoneIds],
+    queryFn: async () => {
+      if (matchedDates.length === 0 || matchedZoneIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("sale_date, zone_id, lot_id, quantity")
+        .in("sale_date", matchedDates)
+        .in("zone_id", matchedZoneIds as string[]);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: step === "review" && matchedDates.length > 0,
+  });
+
+  const duplicateDateWarnings = useMemo(() => {
+    if (existingSalesForDates.length === 0) return [];
+    const warnings: { date: string; zone: string; existingQty: number }[] = [];
+    const seen = new Set<string>();
+    for (const row of matchedRows) {
+      const key = `${row.date}_${row.matched_zone_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const existing = existingSalesForDates.filter(
+        (s: any) => s.sale_date === row.date && s.zone_id === row.matched_zone_id
+      );
+      if (existing.length > 0) {
+        const totalQty = existing.reduce((sum: number, s: any) => sum + Number(s.quantity), 0);
+        warnings.push({ date: row.date, zone: row.zone, existingQty: totalQty });
+      }
+    }
+    return warnings;
+  }, [matchedRows, existingSalesForDates]);
+
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
@@ -294,6 +332,21 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                 </span>
               )}
             </div>
+
+            {duplicateDateWarnings.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
+                <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <p className="font-medium text-warning">Datas com vendas já registadas</p>
+                  {duplicateDateWarnings.map((w, i) => (
+                    <p key={i} className="text-muted-foreground">
+                      {new Date(w.date).toLocaleDateString("pt-PT")} — {w.zone}: {w.existingQty.toLocaleString()} bilhetes existentes
+                    </p>
+                  ))}
+                  <p className="text-muted-foreground italic">A importação não será bloqueada mas poderá resultar em duplicações.</p>
+                </div>
+              </div>
+            )}
 
             {matchedRows.length > 0 && (
               <div>
