@@ -358,7 +358,7 @@ function buildPL(
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }), d.name));
         // Insert individual artist cache lines after "Cachês"
-        if ((d.code === "2.1.01" || d.name === "Cachês") && cacheArtistLines.length > 0) {
+        if ((d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
           cacheArtistLines.forEach((cl) => lines.push(cl));
           cacheArtistLinesInserted = true;
         }
