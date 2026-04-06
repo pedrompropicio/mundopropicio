@@ -639,23 +639,27 @@ export default function ReportDREBrasil() {
                         {dre.map((line, i) => {
                           const rowClass = line.isRetained
                             ? "border-t-2 border-accent/40 bg-accent/10"
+                            : line.isPartnerNet
+                            ? "bg-accent/5 border-t border-accent/20"
+                            : line.isPartnerExtra
+                            ? ""
                             : line.isDistribution
                             ? "bg-amber-500/5"
                             : line.isGrandTotal
                             ? "border-t-2 border-primary/30 bg-primary/5"
                             : line.isTotal ? "bg-secondary/20"
                             : line.isGroupHeader ? "bg-secondary/10 border-t border-border/20" : "";
-                          const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal || line.isRetained ? "font-bold text-xs uppercase tracking-wider" : line.isDistribution ? "text-sm italic text-muted-foreground" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
+                          const labelClass = `${line.indent ? "pl-10" : line.isGroupHeader ? "pl-5" : ""} ${line.isTotal || line.isGrandTotal || line.isRetained ? "font-bold text-xs uppercase tracking-wider" : line.isPartnerNet ? "text-xs font-semibold italic" : line.isPartnerExtra ? "text-xs italic text-muted-foreground" : line.isDistribution ? "text-sm italic text-muted-foreground" : line.isGroupHeader ? "font-semibold text-sm" : "text-sm"}`;
 
                           // Revenues show ex-IVA, expenses show inc-IVA
                           const displayVal = line.isExpenseSide ? line.amountIncIva
-                            : line.isDistribution || line.isRetained || line.isGrandTotal ? line.amountExIva
+                            : line.isDistribution || line.isRetained || line.isGrandTotal || line.isPartnerExtra || line.isPartnerNet ? line.amountExIva
                             : line.amountExIva;
-                          const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide &&
+                          const isBilheteira = !line.isTotal && !line.isGrandTotal && !line.isDistribution && !line.isRetained && !line.isExpenseSide && !line.isPartnerExtra && !line.isPartnerNet &&
                             (line.label.toLowerCase().includes("bilhete") || line.label.toLowerCase().includes("bilheteira"));
                           const displayLabel = isBilheteira ? `${line.label} (-6% IVA)` : line.label;
                           const formattedVal = displayVal < 0 ? `-${formatCurrency(Math.abs(displayVal))}` : formatCurrency(displayVal);
-                          const valClass = `text-right font-mono ${line.isRetained ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
+                          const valClass = `text-right font-mono ${line.isRetained ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isPartnerNet ? `text-xs font-semibold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isPartnerExtra ? "text-xs text-destructive/70" : line.isDistribution ? "text-sm text-amber-500" : line.isGrandTotal ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}` : line.isTotal ? "font-semibold" : line.isGroupHeader ? "font-semibold text-sm" : "text-muted-foreground"}`;
 
                           return (
                             <TableRow key={i} className={rowClass}>
