@@ -1052,6 +1052,8 @@ export type Database = {
           created_at: string
           email: string | null
           iban: string | null
+          iban_2: string | null
+          iban_3: string | null
           id: string
           is_active: boolean
           is_partner: boolean
@@ -1061,6 +1063,8 @@ export type Database = {
           payment_terms: string | null
           phone: string | null
           swift_bic: string | null
+          swift_bic_2: string | null
+          swift_bic_3: string | null
           trade_name: string | null
           updated_at: string
         }
@@ -1071,6 +1075,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           iban?: string | null
+          iban_2?: string | null
+          iban_3?: string | null
           id?: string
           is_active?: boolean
           is_partner?: boolean
@@ -1080,6 +1086,8 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           swift_bic?: string | null
+          swift_bic_2?: string | null
+          swift_bic_3?: string | null
           trade_name?: string | null
           updated_at?: string
         }
@@ -1090,6 +1098,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           iban?: string | null
+          iban_2?: string | null
+          iban_3?: string | null
           id?: string
           is_active?: boolean
           is_partner?: boolean
@@ -1099,6 +1109,8 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           swift_bic?: string | null
+          swift_bic_2?: string | null
+          swift_bic_3?: string | null
           trade_name?: string | null
           updated_at?: string
         }

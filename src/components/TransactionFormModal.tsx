@@ -5,6 +5,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import { X, Plus, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
@@ -84,11 +85,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("suppliers").select("id, name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  const selectedSupplier = suppliers.find((s: any) => s.id === form.supplier_id) ?? null;
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
@@ -792,6 +795,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 onOpenChange={setShowNewSupplier}
                 onCreated={(id) => setForm((prev) => ({ ...prev, supplier_id: id }))}
               />
+              {selectedSupplier && (
+                <div className="mt-2">
+                  <SupplierBankDetails supplier={selectedSupplier} defaultExpanded />
+                </div>
+              )}
             </div>
           )}
 
