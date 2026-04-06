@@ -6,6 +6,8 @@ import { toast } from "@/hooks/use-toast";
 import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2 } from "lucide-react";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,

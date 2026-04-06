@@ -5,6 +5,8 @@ import { Navigate } from "react-router-dom";
 import { ShieldCheck, Users, FileText, AlertTriangle, Activity } from "lucide-react";
 import { MfaEnroll } from "@/components/MfaEnroll";
 import { useState } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function SecurityDashboard() {
   const { isAdmin, user } = useAuth();

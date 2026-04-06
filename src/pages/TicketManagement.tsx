@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/TicketUploadModals";
 import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface SaleForm {
   zone_id: string;

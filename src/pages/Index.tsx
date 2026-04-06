@@ -17,6 +17,8 @@ import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function Dashboard() {
   // Fetch events

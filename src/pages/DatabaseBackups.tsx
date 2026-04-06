@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { Database, Download, Loader2, Trash2, RefreshCw, Clock, HardDrive } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function DatabaseBackups() {
   const { isAdmin } = useAuth();

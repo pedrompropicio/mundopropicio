@@ -11,6 +11,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);

@@ -5,6 +5,8 @@ import { Receipt, TrendingUp, TrendingDown, AlertTriangle, Info } from "lucide-r
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import {
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
   formatCurrency,
   formatCurrencyDecimal,
   calcIvaAmount,

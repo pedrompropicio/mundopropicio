@@ -36,6 +36,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 const IVA_RATES = [0, 6, 13, 23];
 const FREQUENCIES = [

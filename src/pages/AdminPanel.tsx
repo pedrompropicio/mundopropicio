@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Users, Database, ShieldAlert, KeyRound } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 const adminCards = [
   {

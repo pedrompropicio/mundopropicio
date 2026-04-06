@@ -13,6 +13,8 @@ import { AgendaView } from "@/components/calendar/AgendaView";
 import { AnnualView } from "@/components/calendar/AnnualView";
 import { exportVenueReservationsToPDF } from "@/lib/export-venue-reservations";
 import { toast } from "sonner";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 type CalendarViewMode = "month" | "week" | "agenda" | "year";
 
