@@ -41,6 +41,8 @@ import SecurityDashboard from "./pages/SecurityDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
+import HelpCenter from "./pages/HelpCenter";
+import FloatingHelpButton from "./components/FloatingHelpButton";
 import NotFound from "./pages/NotFound";
 
 
@@ -94,6 +96,7 @@ function ProtectedLayout() {
               <Route path="/bilheteiras" element={<TicketOffices />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
+              <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/relatorios" element={<Reports />}>
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
@@ -116,6 +119,7 @@ function ProtectedLayout() {
               <Route path="/admin/seguranca" element={<SecurityDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <FloatingHelpButton />
           </div>
         </main>
       </div>
