@@ -5,6 +5,7 @@ import type { IvaRate } from "@/lib/mock-data";
 import { X, Plus, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
@@ -794,8 +795,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 onOpenChange={setShowNewSupplier}
                 onCreated={(id) => setForm((prev) => ({ ...prev, supplier_id: id }))}
               />
+              {selectedSupplier && (
+                <div className="mt-2">
+                  <SupplierBankDetails supplier={selectedSupplier} defaultExpanded />
+                </div>
+              )}
             </div>
-          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
