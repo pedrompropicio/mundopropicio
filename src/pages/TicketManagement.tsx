@@ -749,6 +749,30 @@ export default function TicketManagement() {
                 <Input type="number" min="1" className="mt-1" value={saleForm.quantity} onChange={(e) => setSaleForm({ ...saleForm, quantity: e.target.value })} placeholder="0" />
               </div>
             </div>
+            {/* Duplicate date warning */}
+            {saleForm.sale_date && (() => {
+              const targetZone = saleForm.zone_id;
+              const targetLot = saleForm.lot_id && saleForm.lot_id !== "__none__" ? saleForm.lot_id : null;
+              const existingSales = sales.filter((s: any) => {
+                if (editingSaleId && s.id === editingSaleId) return false;
+                if (s.sale_date !== saleForm.sale_date) return false;
+                if (targetLot) return s.lot_id === targetLot;
+                return s.zone_id === targetZone && !s.lot_id;
+              });
+              if (existingSales.length === 0) return null;
+              const totalQty = existingSales.reduce((sum: number, s: any) => sum + Number(s.quantity), 0);
+              return (
+                <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-medium text-warning">Já existem vendas nesta data</p>
+                    <p className="text-muted-foreground">
+                      {existingSales.length} registo{existingSales.length > 1 ? "s" : ""} com {totalQty.toLocaleString()} bilhetes em {new Date(saleForm.sale_date).toLocaleDateString("pt-PT")}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
             <div>
               <Label>Preço Unitário (€)</Label>
               <Input type="number" step="0.01" min="0" className="mt-1" value={saleForm.unit_price} onChange={(e) => setSaleForm({ ...saleForm, unit_price: e.target.value })} />
