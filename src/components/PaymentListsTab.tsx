@@ -501,10 +501,16 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   const paidWithIva = paid * (1 + (t.iva_rate ?? 23) / 100);
                   const saldo = withIva - paidWithIva;
                   const hasPartial = paid > 0;
+                  const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
                   return (
-                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"}`} onClick={() => toggleId(t.id)}>
+                    <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
                       <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
-                      <td className="p-2 font-medium">{t.description}</td>
+                      <td className="p-2">
+                        <span className="font-medium">{t.description}</span>
+                        {bpCheck.exceeds && (
+                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
+                        )}
+                      </td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
