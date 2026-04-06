@@ -59,6 +59,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
   const canApprove = isAdmin || isManager;
+  const canEditBP = isAdmin || isManager;
 
   useEffect(() => {
     if ((addingType || editingId) && descRef.current) {
@@ -831,7 +832,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 {generateHistoricalMutation.isPending ? "A gerar…" : `Gerar Transações (${approvedWithoutTxCount})`}
               </button>
             )}
-            {canApprove && (
+            {canEditBP && (
               <>
                 <input
                   ref={fileInputRef}
@@ -891,13 +892,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         Aprovar ({incomeForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
                       </button>
                     )}
-                    <button
-                      onClick={() => startAdding("income")}
-                      disabled={addingType === "income"}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Adicionar
-                    </button>
+                    {canEditBP && (
+                      <button
+                        onClick={() => startAdding("income")}
+                        disabled={addingType === "income"}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-success bg-success/10 hover:bg-success/20 transition-colors disabled:opacity-50"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Adicionar
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -967,7 +970,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={canEditBP ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -1039,13 +1042,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         Aprovar ({expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
                       </button>
                     )}
-                    <button
-                      onClick={() => startAdding("expense")}
-                      disabled={addingType === "expense"}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Adicionar
-                    </button>
+                    {canEditBP && (
+                      <button
+                        onClick={() => startAdding("expense")}
+                        disabled={addingType === "expense"}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Adicionar
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -1128,7 +1133,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={startEdit} onDelete={(id) => deleteMutation.mutate(id)} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={canEditBP ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
@@ -1250,7 +1255,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved }: {
   item: any; colorClass: string; isExpense?: boolean;
-  onEdit: (item: any) => void; onDelete: (id: string) => void;
+  onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
@@ -1356,7 +1361,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 </button>
               )}
-              {isDraft && (
+              {isDraft && onEdit && onDelete && (
                 <>
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>

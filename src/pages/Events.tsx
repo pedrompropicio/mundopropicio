@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useAuth } from "@/contexts/AuthContext";
 
 type EventType = "simple" | "festival" | "multi_day";
 
@@ -75,6 +76,7 @@ export default function Events() {
   const [sortField, setSortField] = useState<"date" | "location" | "status" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const queryClient = useQueryClient();
+  const { isAdmin, isManager } = useAuth();
 
   // Fetch cities and venues for display on cards
   const { data: citiesMap = {} } = useQuery({
@@ -398,13 +400,15 @@ export default function Events() {
               <List className="h-4 w-4" />
             </button>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Novo Evento</span>
-          </button>
+          {(isAdmin || isManager) && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo Evento</span>
+            </button>
+          )}
         </div>
       </div>
 

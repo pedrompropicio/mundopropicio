@@ -49,6 +49,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
 export const ALL_PERMISSIONS = [
   { key: "view_balances", label: "Ver Saldos", group: "Geral" },
   { key: "view_reports", label: "Ver Relatórios (geral)", group: "Geral" },
+  { key: "view_events", label: "Ver Eventos", group: "Geral" },
   { key: "manage_events", label: "Gerir Eventos", group: "Operacional" },
   { key: "manage_transactions", label: "Gerir Transações", group: "Operacional" },
   { key: "manage_suppliers", label: "Gerir Fornecedores", group: "Operacional" },
