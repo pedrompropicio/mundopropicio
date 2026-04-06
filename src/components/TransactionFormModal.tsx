@@ -84,11 +84,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("suppliers").select("id, name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  const selectedSupplier = suppliers.find((s: any) => s.id === form.supplier_id) ?? null;
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
