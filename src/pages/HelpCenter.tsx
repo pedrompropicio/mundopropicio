@@ -7,8 +7,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import helpManual, { type HelpSection } from "@/lib/help-manual";
 
 function SectionIcon({ name }: { name: string }) {
-  const Icon = (Icons as Record<string, React.ComponentType<{ className?: string }>>)[name];
-  if (!Icon) return null;
+  const Icon = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[name];
+  if (!Icon || typeof Icon !== "function") return null;
   return <Icon className="h-5 w-5 text-primary shrink-0" />;
 }
 
