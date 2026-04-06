@@ -26,6 +26,8 @@ interface DRELine {
   isDistribution?: boolean;
   isRetained?: boolean;
   isExpenseSide?: boolean;
+  isPartnerExtra?: boolean;
+  isPartnerNet?: boolean;
 }
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
