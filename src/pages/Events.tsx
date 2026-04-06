@@ -409,6 +409,7 @@ export default function Events() {
             >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Novo Evento</span>
+              <HelpTooltip text={helpTexts.newEvent} size={13} className="text-primary-foreground/60 hover:text-primary-foreground" />
             </button>
           )}
         </div>

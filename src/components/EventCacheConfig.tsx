@@ -260,7 +260,7 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Music className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cachê das Atrações</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Cachê das Atrações <HelpTooltip text={helpTexts.eventCache} size={13} /></h3>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
