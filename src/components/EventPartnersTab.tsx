@@ -195,7 +195,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 const otherTotal = partners.reduce((sum: number, op: any) => op.id === p.id ? sum : sum + Number(op.percentage), 0);
                 const maxPct = 100 - otherTotal;
                 return (
-                  <TableRow key={p.id} className="[&>td]:py-1 [&>td]:px-2">
+                  <React.Fragment key={p.id}>
+                  <TableRow className="[&>td]:py-1 [&>td]:px-2">
                     <TableCell className="font-medium">{p.suppliers?.name || "—"}</TableCell>
                     <TableCell className="text-right font-mono">
                       {isEditing ? (
@@ -252,7 +253,6 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                       </TableCell>
                     )}
                   </TableRow>
-                  {/* Partner Extras sub-panel */}
                   <TableRow>
                     <TableCell colSpan={canEdit ? 4 : 3} className="pt-0 pb-2 px-2">
                       <PartnerExtrasPanel
@@ -263,6 +263,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                       />
                     </TableCell>
                   </TableRow>
+                  </React.Fragment>
                 );
               })}
             </TableBody>
