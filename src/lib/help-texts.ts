@@ -108,8 +108,6 @@ const helpTexts: Record<string, string> = {
     "Sócios/Parceiros participam no resultado financeiro do evento com uma percentagem definida. O cálculo pode ser sobre o resultado líquido ou receita bruta, conforme configurado.",
   eventClosingTab:
     "Custos de Fecho são despesas que não geram transação de pagamento (ex: rateio de equipa, assessoria jurídica) mas que impactam o resultado final do evento e o cálculo da participação dos sócios.",
-  eventTicketOffices:
-    "Associe bilheteiras ao evento para registar vendas por ponto de venda. Após o evento, concilie os valores recebidos com as vendas registadas.",
 
   // Key buttons/actions
   newTransaction:
