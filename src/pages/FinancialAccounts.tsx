@@ -180,7 +180,7 @@ export default function FinancialAccounts() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Contas de Movimentação</h1>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Contas de Movimentação <HelpTooltip text={helpTexts.financialAccounts} /></h1>
         <p className="text-sm text-muted-foreground">Gerencie contas bancárias, cartões e operações financeiras</p>
       </div>
 

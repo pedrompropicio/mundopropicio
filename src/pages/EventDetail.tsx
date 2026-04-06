@@ -289,7 +289,7 @@ export default function EventDetail() {
           <ArrowLeft className="h-4 w-4" /> Voltar aos eventos
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">{event.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">{event.name} <HelpTooltip text={helpTexts.eventDetail} /></h1>
           <EventStatusBadge status={event.status as any} />
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             <EventTypeIcon className="h-3 w-3" />

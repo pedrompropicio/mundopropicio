@@ -128,7 +128,7 @@ export default function Quotations() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Cotações</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Cotações <HelpTooltip text={helpTexts.quotations} /></h1>
           <p className="text-sm text-muted-foreground">Cotações de fornecedores por evento</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>

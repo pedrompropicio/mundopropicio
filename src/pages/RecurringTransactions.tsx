@@ -337,7 +337,7 @@ export default function RecurringTransactions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transações Recorrentes</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações Recorrentes <HelpTooltip text={helpTexts.recurringTransactions} /></h1>
           <p className="text-sm text-muted-foreground">Templates para lançamentos automáticos periódicos</p>
         </div>
         {(isAdmin || isManager) && (

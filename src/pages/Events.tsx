@@ -380,7 +380,7 @@ export default function Events() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Eventos</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Eventos <HelpTooltip text={helpTexts.events} /></h1>
           <p className="text-sm text-muted-foreground">Gestão e acompanhamento financeiro por evento</p>
         </div>
         <div className="flex items-center gap-2">

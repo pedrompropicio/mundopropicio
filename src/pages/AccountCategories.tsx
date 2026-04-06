@@ -319,7 +319,7 @@ export default function AccountCategories() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Plano de Contas</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Plano de Contas <HelpTooltip text={helpTexts.accountCategories} /></h1>
           <p className="text-sm text-muted-foreground">Estrutura hierárquica de 3 níveis · {leafCount} contas de detalhe</p>
         </div>
         {isAdmin && (
