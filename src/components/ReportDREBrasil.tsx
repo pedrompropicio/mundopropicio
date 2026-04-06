@@ -51,7 +51,8 @@ function buildDREBrasil(
   partners: any[],
   calcBasis: string,
   parentEventId?: string | null,
-  closingCosts?: any[]
+  closingCosts?: any[],
+  partnerExtras?: any[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -148,7 +149,6 @@ function buildDREBrasil(
         base = totalIncEx - totalExpInc - totalClosingCosts;
       }
       const share = base * (Number(p.percentage) / 100);
-      totalDistribution += share;
       const supplierName = p.suppliers?.name || "Sócio";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
@@ -158,8 +158,36 @@ function buildDREBrasil(
         isDistribution: true,
         indent: true,
       });
+
+      // Partner extras
+      const pExtras = (partnerExtras || []).filter((ex: any) => ex.partner_id === p.id);
+      let partnerExtraTotal = 0;
+      if (pExtras.length > 0) {
+        pExtras.forEach((ex: any) => {
+          const exAmount = Number(ex.amount);
+          partnerExtraTotal += exAmount;
+          lines.push({
+            label: `      (-) ${ex.description}`,
+            amountExIva: -exAmount,
+            ivaAmount: 0,
+            amountIncIva: -exAmount,
+            isPartnerExtra: true,
+            indent: true,
+          });
+        });
+        const netShare = share - partnerExtraTotal;
+        lines.push({
+          label: `    Líquido ${supplierName}`,
+          amountExIva: netShare,
+          ivaAmount: 0,
+          amountIncIva: netShare,
+          isPartnerNet: true,
+          indent: true,
+        });
+      }
+
+      totalDistribution += share;
     });
-    // Retained = residual (expenses with VAT perspective)
     const retained = consistentBase - totalDistribution;
     lines.push({
       label: "RESULTADO MUNDO PROPÍCIO",
