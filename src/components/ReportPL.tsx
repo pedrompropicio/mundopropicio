@@ -91,7 +91,8 @@ function buildPL(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  relevantEventIds: string[] = [eventId]
+  relevantEventIds: string[] = [eventId],
+  cacheExtras: any[] = []
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -216,6 +217,40 @@ function buildPL(
     }
   }
 
+  // Build individual cache artist lines for analytical display
+  const cacheArtistLines: PLLine[] = [];
+  if (cacheLines.length > 0) {
+    cacheLines.forEach((cl) => {
+      cacheArtistLines.push(plLine({
+        label: `${cl.artistName} (${cl.cacheType === "fixed" ? "Fixo" : "Variável"})`,
+        forecast: cl.amount, actual: 0, variance: -cl.amount,
+        subIndent: true,
+      }));
+      // Find extras for this artist's config
+      const artistConfig = eventCacheConfigs.find((c) => c.artist_name === cl.artistName);
+      if (artistConfig) {
+        const artistExtras = cacheExtras.filter((ex: any) => ex.cache_config_id === artistConfig.id);
+        let extraTotal = 0;
+        artistExtras.forEach((ex: any) => {
+          const exAmount = Number(ex.amount);
+          extraTotal += exAmount;
+          cacheArtistLines.push(plLine({
+            label: `  (-) ${ex.description}`,
+            forecast: -exAmount, actual: 0, variance: exAmount,
+            subIndent: true,
+          }));
+        });
+        if (extraTotal > 0) {
+          cacheArtistLines.push(plLine({
+            label: `  Líquido ${cl.artistName}`,
+            forecast: cl.amount - extraTotal, actual: 0, variance: -(cl.amount - extraTotal),
+            subIndent: true, isSubTotal: true,
+          }));
+        }
+      }
+    });
+  }
+
   // Add ticket lot net revenue to forecast Bilheteira
   if (ticketForecastNet > 0) {
     const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
@@ -307,6 +342,7 @@ function buildPL(
     forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
     actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
   }));
+  let cacheArtistLinesInserted = false;
   mergedExp.forEach((group) => {
     const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
     if (hasManyDetails) {
@@ -321,6 +357,11 @@ function buildPL(
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }), d.name));
+        // Insert individual artist cache lines after "Cachês"
+        if ((d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
+          cacheArtistLines.forEach((cl) => lines.push(cl));
+          cacheArtistLinesInserted = true;
+        }
       });
     } else {
       lines.push(enrichWithOverride(plLine({
@@ -328,8 +369,17 @@ function buildPL(
         forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
         actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
       }), group.groupName));
+      // Check if this single-detail group is Cachês
+      if ((group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
+        cacheArtistLines.forEach((cl) => lines.push(cl));
+        cacheArtistLinesInserted = true;
+      }
     }
   });
+  // Fallback: if cache artist lines weren't inserted, add after expenses
+  if (!cacheArtistLinesInserted && cacheArtistLines.length > 0) {
+    cacheArtistLines.forEach((cl) => lines.push(cl));
+  }
 
   const fResultBase = totalFIncBase - totalFExpBase;
   const fResultIva = totalFIncIva - totalFExpIva;
@@ -438,6 +488,15 @@ export default function ReportPL() {
       const { data, error } = await supabase.from("event_cache_deductions").select("*");
       if (error) throw error;
       return data as CacheDeduction[];
+    },
+  });
+
+  const { data: allCacheExtras = [] } = useQuery({
+    queryKey: ["cache-extras-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_extras").select("*");
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -719,7 +778,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">

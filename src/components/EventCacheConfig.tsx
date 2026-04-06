@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
 import { sortByHierarchicalCode } from "@/lib/utils";
+import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
 
 interface Props {
   eventId: string;
@@ -582,6 +583,15 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                     )}
                   </div>
                 )}
+
+                {/* Extras panel (always visible) */}
+                <div className="px-3 pb-3">
+                  <CacheExtrasPanel
+                    cacheConfigId={config.id}
+                    artistName={config.artist_name}
+                    eventId={eventId}
+                  />
+                </div>
               </div>
             );
           })}

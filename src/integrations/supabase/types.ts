@@ -249,6 +249,54 @@ export type Database = {
           },
         ]
       }
+      event_cache_extras: {
+        Row: {
+          amount: number
+          cache_config_id: string
+          created_at: string
+          description: string
+          event_id: string
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          cache_config_id: string
+          created_at?: string
+          description: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cache_config_id?: string
+          created_at?: string
+          description?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cache_extras_cache_config_id_fkey"
+            columns: ["cache_config_id"]
+            isOneToOne: false
+            referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_extras_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_closing_costs: {
         Row: {
           amount: number
