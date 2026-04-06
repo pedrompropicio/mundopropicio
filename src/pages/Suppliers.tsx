@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 type ViewMode = "grid" | "list";
 type SortField = "name" | "trade_name";
@@ -69,7 +71,7 @@ export default function Suppliers() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Fornecedores / Parceiros</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Fornecedores / Parceiros <HelpTooltip text={helpTexts.suppliers} /></h1>
           <p className="text-sm text-muted-foreground">Gestão de fornecedores e parceiros</p>
         </div>
         <button

@@ -6,6 +6,8 @@ import { toast } from "@/hooks/use-toast";
 import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2 } from "lucide-react";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
@@ -142,7 +144,7 @@ export default function UserManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Gestão de Utilizadores</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Gestão de Utilizadores <HelpTooltip text={helpTexts.userManagement} /></h1>
           <p className="text-sm text-muted-foreground">Gerir acessos e permissões</p>
         </div>
         <button

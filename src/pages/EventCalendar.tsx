@@ -13,6 +13,8 @@ import { AgendaView } from "@/components/calendar/AgendaView";
 import { AnnualView } from "@/components/calendar/AnnualView";
 import { exportVenueReservationsToPDF } from "@/lib/export-venue-reservations";
 import { toast } from "sonner";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 type CalendarViewMode = "month" | "week" | "agenda" | "year";
 
@@ -294,6 +296,7 @@ export default function EventCalendar() {
           <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
             <CalendarDays className="h-6 w-6 text-primary" />
             Calendário de Eventos
+            <HelpTooltip text={helpTexts.calendar} />
           </h1>
           <p className="text-sm text-muted-foreground">Visualize todos os eventos e reservas de salas</p>
         </div>

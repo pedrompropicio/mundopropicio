@@ -1,3 +1,5 @@
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
@@ -65,7 +67,7 @@ export default function ReportSuppliersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight lg:text-2xl">Relatório de Fornecedores</h1>
+          <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">Relatório de Fornecedores <HelpTooltip text={helpTexts.reportSuppliers} /></h1>
           <p className="text-sm text-muted-foreground">Resumo financeiro por fornecedor</p>
         </div>
         {supplierStats.length > 0 && (

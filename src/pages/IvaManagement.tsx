@@ -1,3 +1,5 @@
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -157,7 +159,7 @@ export default function IvaManagement() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Gestão de IVA</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Gestão de IVA <HelpTooltip text={helpTexts.ivaManagement} /></h1>
           <p className="text-sm text-muted-foreground">Previsão e controlo do IVA — taxas de Portugal Continental</p>
         </div>
         <div className="flex gap-2">

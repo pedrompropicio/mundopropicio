@@ -1,3 +1,5 @@
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -207,7 +209,7 @@ export default function TicketOffices() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Bilheteiras</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Bilheteiras <HelpTooltip text={helpTexts.ticketOffices} /></h1>
           <p className="text-sm text-muted-foreground">Gestão de bilheteiras e pontos de venda</p>
         </div>
         {canManage && (

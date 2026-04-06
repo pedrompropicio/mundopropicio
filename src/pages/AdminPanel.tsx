@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Users, Database, ShieldAlert, KeyRound } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 const adminCards = [
   {
@@ -29,7 +31,7 @@ export default function AdminPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Administração</h1>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">Administração <HelpTooltip text={helpTexts.adminPanel} /></h1>
         <p className="text-sm text-muted-foreground mt-1">
           Gerir utilizadores, backups e segurança do sistema
         </p>

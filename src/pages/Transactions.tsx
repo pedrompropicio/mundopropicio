@@ -21,6 +21,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
@@ -390,7 +392,7 @@ export default function Transactions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transações</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip text={helpTexts.transactions} /></h1>
           <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
         </div>
         <div className="flex items-center gap-2">

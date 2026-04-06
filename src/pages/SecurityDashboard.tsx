@@ -5,6 +5,8 @@ import { Navigate } from "react-router-dom";
 import { ShieldCheck, Users, FileText, AlertTriangle, Activity } from "lucide-react";
 import { MfaEnroll } from "@/components/MfaEnroll";
 import { useState } from "react";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function SecurityDashboard() {
   const { isAdmin, user } = useAuth();
@@ -72,7 +74,7 @@ export default function SecurityDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Segurança & Monitoramento</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">Segurança & Monitoramento <HelpTooltip text={helpTexts.securityDashboard} /></h1>
           <p className="text-sm text-muted-foreground">Visão geral da segurança do sistema</p>
         </div>
       </div>
