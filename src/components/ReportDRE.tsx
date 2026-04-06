@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, Info, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
+import { Switch } from "@/components/ui/switch";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -42,7 +43,8 @@ function buildDRE(
   ticketCategoryId: string | null,
   partners: any[],
   calcBasis: string,
-  parentEventId?: string | null
+  parentEventId?: string | null,
+  closingCosts?: any[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -114,9 +116,22 @@ function buildDRE(
     }
   });
 
-  // Always: Resultado Líquido = Receitas s/IVA - Despesas s/IVA
-  const resEx = totalIncEx - totalExpEx;
-  const resInc = totalIncInc - totalExpInc;
+  // Closing costs (internal costs for partner view)
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  let totalClosingCosts = 0;
+  if (eventClosingCosts.length > 0) {
+    totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
+    lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isTotal: true, isExpenseSide: true });
+    eventClosingCosts.forEach((cc: any) => {
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
+      const label = catLabel ? `${cc.description} (${catLabel})` : cc.description;
+      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+    });
+  }
+
+  // Always: Resultado Líquido = Receitas s/IVA - Despesas s/IVA - Custos de Fecho
+  const resEx = totalIncEx - totalExpEx - totalClosingCosts;
+  const resInc = totalIncInc - totalExpInc - totalClosingCosts;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: 0, amountIncIva: 0, isGrandTotal: true });
 
   // Partner distribution section — sub-events inherit from parent
@@ -126,13 +141,11 @@ function buildDRE(
     let totalDistribution = 0;
 
     eventPartners.forEach((p: any) => {
-      // Each partner's distribution base depends on their expense_includes_iva flag
       let base: number;
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
       } else if (p.expense_includes_iva) {
-        // Partner calculates with expenses inc-IVA → smaller base → smaller share
-        base = totalIncEx - totalExpInc;
+        base = totalIncEx - totalExpInc - totalClosingCosts;
       } else {
         base = resEx;
       }
@@ -168,6 +181,7 @@ export default function ReportDRE() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
+  const [showPartnerView, setShowPartnerView] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -230,6 +244,16 @@ export default function ReportDRE() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: closingCosts = [] } = useQuery({
+    queryKey: ["closing-costs-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_closing_costs").select("*, account_categories(code, name)");
+      if (error) throw error;
+      return data;
+    },
+    enabled: showPartnerView,
   });
 
   const ticketCategoryId = categories.find(
@@ -331,7 +355,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : []);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -366,7 +390,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : []);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       const key = l.label.trim();
       if (!globalPartnerShares[key]) globalPartnerShares[key] = { name: key, total: 0 };
@@ -467,7 +491,17 @@ export default function ReportDRE() {
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Switch id="partner-view" checked={showPartnerView} onCheckedChange={setShowPartnerView} />
+          <Label htmlFor="partner-view" className="text-sm cursor-pointer flex items-center gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> Visão Sócio
+          </Label>
+          {showPartnerView && (
+            <span className="text-xs text-muted-foreground">(inclui custos de fecho internos)</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -484,6 +518,7 @@ export default function ReportDRE() {
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF
         </Button>
+        </div>
       </div>
 
       <div className={`grid gap-4 ${hasGlobalPartners ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
@@ -527,7 +562,7 @@ export default function ReportDRE() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id) : [];
+          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : []) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">

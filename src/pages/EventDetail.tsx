@@ -10,6 +10,7 @@ import { EventForecast } from "@/components/EventForecast";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
+import { EventClosingCosts } from "@/components/EventClosingCosts";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -458,6 +459,7 @@ export default function EventDetail() {
           <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">Business Plan</TabsTrigger>
           {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners">Sócios</TabsTrigger>}
+          <TabsTrigger value="closing-costs">Fecho</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -666,6 +668,10 @@ export default function EventDetail() {
             <EventPartnersTab eventId={event.id} eventStatus={event.status} />
           </TabsContent>
         )}
+
+        <TabsContent value="closing-costs">
+          <EventClosingCosts eventId={selectedSubEvent || event.id} eventStatus={event.status} />
+        </TabsContent>
 
       </Tabs>
 
