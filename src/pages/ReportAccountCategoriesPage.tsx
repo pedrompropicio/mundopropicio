@@ -31,7 +31,7 @@ export default function ReportAccountCategoriesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight lg:text-2xl">Relatório do Plano de Contas</h1>
+          <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">Relatório do Plano de Contas <HelpTooltip text={helpTexts.reportAccountCategories} /></h1>
           <p className="text-sm text-muted-foreground">Visão hierárquica do plano de contas</p>
         </div>
         {categories.length > 0 && (
