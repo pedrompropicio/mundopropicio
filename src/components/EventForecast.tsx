@@ -1042,13 +1042,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         Aprovar ({expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
                       </button>
                     )}
-                    <button
-                      onClick={() => startAdding("expense")}
-                      disabled={addingType === "expense"}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Adicionar
-                    </button>
+                    {canEditBP && (
+                      <button
+                        onClick={() => startAdding("expense")}
+                        disabled={addingType === "expense"}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors disabled:opacity-50"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Adicionar
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
