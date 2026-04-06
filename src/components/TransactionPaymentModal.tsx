@@ -161,7 +161,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             <div className="flex justify-between">
               <span className="text-muted-foreground">Valor total:</span>
               <span className="font-semibold">{formatCurrency(amount)}</span>
-            </div>
+          </div>
+
+          {supplierData && (
+            <SupplierBankDetails supplier={supplierData} defaultExpanded />
+          )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Já pago:</span>
               <span className="font-semibold text-success">{formatCurrency(currentPaid)}</span>
