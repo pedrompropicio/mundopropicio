@@ -518,6 +518,7 @@ export default function ReportDRE() {
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF
         </Button>
+        </div>
       </div>
 
       <div className={`grid gap-4 ${hasGlobalPartners ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
