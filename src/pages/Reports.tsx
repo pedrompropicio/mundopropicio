@@ -24,9 +24,9 @@ import {
 } from "@/components/ui/select";
 
 const allReportItems = [
-  { to: "/relatorios/dre", icon: BarChart3, label: "DRE", permission: "view_report_dre" },
-  { to: "/relatorios/dre-brasil", icon: Globe, label: "DRE Brasil", permission: "view_report_dre" },
-  { to: "/relatorios/pl", icon: TrendingUp, label: "Business Plan", permission: "view_report_pl" },
+  { to: "/relatorios/dre", icon: BarChart3, label: "DRE", permission: "view_report_dre", managementOnly: true },
+  { to: "/relatorios/dre-brasil", icon: Globe, label: "DRE Brasil", permission: "view_report_dre", managementOnly: true },
+  { to: "/relatorios/pl", icon: TrendingUp, label: "Business Plan", permission: "view_report_pl", managementOnly: true },
   { to: "/relatorios/fluxo-caixa", icon: ArrowLeftRight, label: "Fluxo de Caixa", permission: "view_report_cashflow" },
   { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário", permission: "view_report_bank_statement" },
   { to: "/relatorios/contas-pagar", icon: Receipt, label: "Contas a Pagar", permission: "view_report_contas_pagar" },
@@ -41,10 +41,13 @@ export default function Reports() {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, isManager } = useAuth();
 
   const reportItems = allReportItems.filter(
-    (item) => isAdmin || hasPermission(item.permission)
+    (item) => {
+      if (item.managementOnly && !isAdmin && !isManager) return false;
+      return isAdmin || hasPermission(item.permission);
+    }
   );
 
   const currentReport = reportItems.find((item) => item.to === location.pathname);

@@ -459,7 +459,7 @@ export default function EventDetail() {
           <TabsTrigger value="cache">Cachê</TabsTrigger>
           <TabsTrigger value="forecast">Business Plan</TabsTrigger>
           {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners">Sócios</TabsTrigger>}
-          <TabsTrigger value="closing-costs">Fecho</TabsTrigger>
+          {(isAdmin || isManager) && <TabsTrigger value="closing-costs">Fecho</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
