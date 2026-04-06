@@ -253,6 +253,11 @@ const helpManual: HelpSection[] = [
           "Lista de compromissos financeiros pendentes com valores, datas de vencimento e estado de pagamento.",
       },
       {
+        title: "Cachê do Artista",
+        content:
+          "Relatório analítico dedicado ao cachê de cada artista do evento. Para cachê variável, demonstra passo a passo: receita de bilheteira → deduções por categoria → dedução fixa percentual → base de cálculo → percentagem do artista → cachê bruto. Para cachê fixo, apresenta o valor acordado.\n\nEm seguida, lista analiticamente todos os custos extras a descontar, chegando ao cachê líquido a pagar. Pode ser exportado em PDF para prestação de contas ao artista ou à sua equipa.",
+      },
+      {
         title: "Listas de Pagamento",
         content:
           "Agrupe transações aprovadas em listas para processamento em lote. As listas passam por aprovação antes de serem executadas.",
