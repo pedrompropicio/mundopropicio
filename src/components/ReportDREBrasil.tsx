@@ -360,7 +360,7 @@ export default function ReportDREBrasil() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : []);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -390,7 +390,7 @@ export default function ReportDREBrasil() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : []);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       const key = l.label.trim();
       if (!globalPartnerShares[key]) globalPartnerShares[key] = { name: key, total: 0 };
@@ -489,6 +489,16 @@ export default function ReportDREBrasil() {
         </div>
       )}
 
+      <div className="glass rounded-xl p-4 flex items-center gap-3">
+        <Switch id="partner-view-brasil" checked={showPartnerView} onCheckedChange={setShowPartnerView} />
+        <Label htmlFor="partner-view-brasil" className="text-sm cursor-pointer flex items-center gap-1.5">
+          <Eye className="h-3.5 w-3.5" /> Visão Sócio
+        </Label>
+        {showPartnerView && (
+          <span className="text-xs text-muted-foreground ml-2">Inclui custos de fecho no resultado</span>
+        )}
+      </div>
+
       <div className="flex items-center justify-end gap-2">
         <Button
           variant="outline"
@@ -546,7 +556,7 @@ export default function ReportDREBrasil() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id) : [];
+          const dre = isOpen ? buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : []) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
