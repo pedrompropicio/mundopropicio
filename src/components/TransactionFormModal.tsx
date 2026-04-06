@@ -801,6 +801,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
