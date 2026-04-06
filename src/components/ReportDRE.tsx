@@ -42,7 +42,8 @@ function buildDRE(
   ticketCategoryId: string | null,
   partners: any[],
   calcBasis: string,
-  parentEventId?: string | null
+  parentEventId?: string | null,
+  closingCosts?: any[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
