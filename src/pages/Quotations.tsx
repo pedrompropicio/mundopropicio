@@ -16,6 +16,7 @@ export default function Quotations() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
+  const [validUntil, setValidUntil] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const queryClient = useQueryClient();
 
@@ -106,9 +107,10 @@ export default function Quotations() {
       description: fd.get("description") as string,
       amount: parseFloat(fd.get("amount") as string),
       iva_rate: parseInt(fd.get("iva_rate") as string),
-      valid_until: (fd.get("valid_until") as string) || undefined,
+      valid_until: validUntil || undefined,
       notes: (fd.get("notes") as string) || undefined,
     });
+    setValidUntil("");
   };
 
   const statusColors: Record<string, string> = {
@@ -186,8 +188,8 @@ export default function Quotations() {
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="valid_until">Válida até</Label>
-                <Input id="valid_until" name="valid_until" type="date" />
+                <Label>Válida até</Label>
+                <DatePicker value={validUntil} onChange={setValidUntil} placeholder="Data limite…" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="notes">Notas</Label>

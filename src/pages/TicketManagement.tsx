@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
 import {
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload, AlertTriangle,
@@ -742,7 +743,7 @@ export default function TicketManagement() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Data da Venda</Label>
-                <Input type="date" className="mt-1" value={saleForm.sale_date} onChange={(e) => setSaleForm({ ...saleForm, sale_date: e.target.value })} />
+                <DatePicker value={saleForm.sale_date} onChange={(d) => setSaleForm({ ...saleForm, sale_date: d })} />
               </div>
               <div>
                 <Label>Quantidade</Label>

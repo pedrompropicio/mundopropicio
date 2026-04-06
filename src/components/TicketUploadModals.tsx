@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
 import { Upload, FileText, AlertCircle, Loader2 } from "lucide-react";
 
@@ -549,11 +550,11 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Data Início</Label>
-                <Input type="date" className="mt-1" value={saleDateFrom} onChange={(e) => setSaleDateFrom(e.target.value)} />
+                <DatePicker value={saleDateFrom} onChange={setSaleDateFrom} placeholder="De…" />
               </div>
               <div>
                 <Label>Data Fim</Label>
-                <Input type="date" className="mt-1" value={saleDateTo} onChange={(e) => setSaleDateTo(e.target.value)} />
+                <DatePicker value={saleDateTo} onChange={setSaleDateTo} placeholder="Até…" />
               </div>
             </div>
 
