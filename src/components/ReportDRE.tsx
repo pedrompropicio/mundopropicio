@@ -666,7 +666,9 @@ export default function ReportDRE() {
                           return (
                             <TableRow key={i} className={rowClass}>
                               <TableCell className={labelClass}>{line.label}</TableCell>
-                              <TableCell className={valClass(line.amountExIva)}>{formatCurrency(line.amountExIva)}</TableCell>
+                              <TableCell className={valClass(line.amountExIva)}>
+                                {line.amountExIva < 0 ? `-${formatCurrency(Math.abs(line.amountExIva))}` : formatCurrency(line.amountExIva)}
+                              </TableCell>
                               {line.isGrandTotal || line.isDistribution || line.isRetained || line.isPartnerExtra || line.isPartnerNet ? (
                                 <>
                                   <TableCell />
