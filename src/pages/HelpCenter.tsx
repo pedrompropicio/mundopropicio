@@ -4,7 +4,21 @@ import { Search, BookOpen } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import helpManual, { type HelpSection } from "@/lib/help-manual";
+import helpManual from "@/lib/help-manual";
+
+import imgEventLifecycle from "@/assets/help/event-lifecycle.jpg";
+import imgTransactionLifecycle from "@/assets/help/transaction-lifecycle.jpg";
+import imgBpWorkflow from "@/assets/help/bp-workflow.jpg";
+import imgUserRoles from "@/assets/help/user-roles.jpg";
+import imgAccountsFlow from "@/assets/help/accounts-flow.jpg";
+
+const sectionImages: Record<string, string> = {
+  "event-lifecycle": imgEventLifecycle,
+  "transaction-lifecycle": imgTransactionLifecycle,
+  "bp-workflow": imgBpWorkflow,
+  "user-roles": imgUserRoles,
+  "accounts-flow": imgAccountsFlow,
+};
 
 function SectionIcon({ name }: { name: string }) {
   const Icon = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[name];
@@ -83,9 +97,25 @@ export default function HelpCenter() {
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4 pt-1">
+                  {section.image && sectionImages[section.image] && (
+                    <img
+                      src={sectionImages[section.image]}
+                      alt={`Diagrama: ${section.title}`}
+                      loading="lazy"
+                      className="w-full rounded-lg border border-border"
+                    />
+                  )}
                   {section.topics.map((topic, idx) => (
-                    <div key={idx} className="space-y-1">
+                    <div key={idx} className="space-y-2">
                       <h3 className="text-sm font-semibold text-foreground">{topic.title}</h3>
+                      {topic.image && sectionImages[topic.image] && (
+                        <img
+                          src={sectionImages[topic.image]}
+                          alt={`Diagrama: ${topic.title}`}
+                          loading="lazy"
+                          className="w-full rounded-lg border border-border"
+                        />
+                      )}
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {topic.content}
                       </p>

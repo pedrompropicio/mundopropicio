@@ -6,12 +6,14 @@
 export interface HelpTopic {
   title: string;
   content: string;
+  image?: string; // import key for illustration
 }
 
 export interface HelpSection {
   id: string;
   title: string;
   icon: string; // lucide icon name
+  image?: string; // import key for illustration
   topics: HelpTopic[];
 }
 
@@ -20,6 +22,7 @@ const helpManual: HelpSection[] = [
     id: "getting-started",
     title: "Primeiros Passos",
     icon: "Rocket",
+    image: "user-roles",
     topics: [
       {
         title: "Visão geral do sistema",
@@ -42,6 +45,7 @@ const helpManual: HelpSection[] = [
     id: "events",
     title: "Eventos",
     icon: "Calendar",
+    image: "event-lifecycle",
     topics: [
       {
         title: "Criar um evento",
@@ -60,6 +64,7 @@ const helpManual: HelpSection[] = [
       },
       {
         title: "Business Plan (BP)",
+        image: "bp-workflow",
         content:
           "O BP é o orçamento detalhado do evento. Liste todas as receitas e despesas previstas, associando cada linha a uma categoria do Plano de Contas. Após aprovação, as linhas do BP podem ser convertidas em transações reais. Compare sempre previsão vs realizado para controlar desvios.",
       },
@@ -89,6 +94,7 @@ const helpManual: HelpSection[] = [
     id: "transactions",
     title: "Transações",
     icon: "ArrowUpDown",
+    image: "transaction-lifecycle",
     topics: [
       {
         title: "Criar uma transação",
@@ -121,6 +127,7 @@ const helpManual: HelpSection[] = [
     id: "accounts",
     title: "Contas de Movimentação",
     icon: "Landmark",
+    image: "accounts-flow",
     topics: [
       {
         title: "O que são contas de movimentação",
