@@ -171,6 +171,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         unit_price: r.unit_price,
         ticket_office_id: selectedOfficeId,
         notes: `Importação ${fileName}`,
+        source: "import" as const,
       }));
 
       if (toInsert.length === 0) throw new Error("Nenhuma venda para importar");

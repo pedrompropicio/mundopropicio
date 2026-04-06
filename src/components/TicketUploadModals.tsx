@@ -200,6 +200,7 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
                 quantity: lot.quantidade_vendida,
                 unit_price: lot.preco,
                 notes: "Carga total via upload PDF",
+                source: "import",
               });
             }
           }
@@ -457,6 +458,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             quantity: row.quantidade,
             unit_price: row.preco_unitario || Number(matchedLot.price),
             notes: notesText,
+            source: "import",
           });
           if (error) throw error;
           imported++;
@@ -471,6 +473,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
               quantity: row.quantidade,
               unit_price: row.preco_unitario || 0,
               notes: notesText,
+              source: "import",
             });
             if (error) throw error;
             imported++;

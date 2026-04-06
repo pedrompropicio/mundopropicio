@@ -1232,6 +1232,7 @@ export type Database = {
           notes: string | null
           quantity: number
           sale_date: string
+          source: string
           ticket_office_id: string | null
           unit_price: number
           zone_id: string | null
@@ -1244,6 +1245,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           sale_date?: string
+          source?: string
           ticket_office_id?: string | null
           unit_price?: number
           zone_id?: string | null
@@ -1256,6 +1258,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           sale_date?: string
+          source?: string
           ticket_office_id?: string | null
           unit_price?: number
           zone_id?: string | null
