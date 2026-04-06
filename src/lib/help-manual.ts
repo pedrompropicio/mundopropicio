@@ -64,6 +64,7 @@ const helpManual: HelpSection[] = [
       },
       {
         title: "Business Plan (BP)",
+        image: "bp-workflow",
         content:
           "O BP é o orçamento detalhado do evento. Liste todas as receitas e despesas previstas, associando cada linha a uma categoria do Plano de Contas. Após aprovação, as linhas do BP podem ser convertidas em transações reais. Compare sempre previsão vs realizado para controlar desvios.",
       },
