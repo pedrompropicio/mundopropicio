@@ -106,8 +106,16 @@ export default function HelpCenter() {
                     />
                   )}
                   {section.topics.map((topic, idx) => (
-                    <div key={idx} className="space-y-1">
+                    <div key={idx} className="space-y-2">
                       <h3 className="text-sm font-semibold text-foreground">{topic.title}</h3>
+                      {topic.image && sectionImages[topic.image] && (
+                        <img
+                          src={sectionImages[topic.image]}
+                          alt={`Diagrama: ${topic.title}`}
+                          loading="lazy"
+                          className="w-full rounded-lg border border-border"
+                        />
+                      )}
                       <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                         {topic.content}
                       </p>
