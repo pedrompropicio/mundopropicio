@@ -287,7 +287,16 @@ export default function ReportDRE() {
     enabled: showPartnerView,
   });
 
-  const ticketCategoryId = categories.find(
+  const { data: partnerExtras = [] } = useQuery({
+    queryKey: ["partner-extras-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_partner_extras").select("*");
+      if (error) throw error;
+      return data;
+    },
+    enabled: showPartnerView,
+  });
+
     (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes")
   )?.id ?? null;
 
