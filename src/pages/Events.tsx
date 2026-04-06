@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useAuth } from "@/contexts/AuthContext";
 
 type EventType = "simple" | "festival" | "multi_day";
 
