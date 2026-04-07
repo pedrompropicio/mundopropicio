@@ -13,6 +13,7 @@ import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
+import { EventSessionsManager } from "@/components/EventSessionsManager";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
