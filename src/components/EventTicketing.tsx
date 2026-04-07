@@ -20,6 +20,7 @@ interface Props {
   eventId: string;
   eventDateId?: string | null;
   eventStatus?: string;
+  sessionId?: string | null;
 }
 
 interface ZoneForm {
@@ -46,7 +47,7 @@ function ivaFromGross(gross: number, ivaRate: number): number {
   return gross - netFromGross(gross, ivaRate);
 }
 
-export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
+export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -232,11 +233,12 @@ export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   // Zone CRUD
   const saveZoneMutation = useMutation({
     mutationFn: async ({ form, id }: { form: ZoneForm; id: string | null }) => {
-      const payload = {
+      const payload: any = {
         event_id: eventId,
         name: form.name,
         total_capacity: parseInt(form.total_capacity) || 0,
       };
+      if (sessionId) payload.session_id = sessionId;
       if (id) {
         const { error } = await supabase.from("event_ticket_zones").update(payload).eq("id", id);
         if (error) throw error;
@@ -394,14 +396,20 @@ export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   }, 0);
   const getZoneTotalTickets = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
 
+  // Filter zones by session if specified
+  const filteredZones = useMemo(() => {
+    if (!sessionId) return zones;
+    return zones.filter((z: any) => z.session_id === sessionId || !z.session_id);
+  }, [zones, sessionId]);
+
   // Sort zones by max lot price (most expensive first)
   const sortedZones = useMemo(() => {
-    return [...zones].sort((a, b) => {
+    return [...filteredZones].sort((a, b) => {
       const maxPriceA = Math.max(0, ...allLots.filter(l => l.zone_id === a.id).map(l => Number(l.price)));
       const maxPriceB = Math.max(0, ...allLots.filter(l => l.zone_id === b.id).map(l => Number(l.price)));
       return maxPriceB - maxPriceA;
     });
-  }, [zones, allLots]);
+  }, [filteredZones, allLots]);
 
   const totalGrossRevenue = zones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
   const totalNetRevenue = zones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);

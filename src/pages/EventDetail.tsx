@@ -13,6 +13,7 @@ import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
+import { EventSessionsManager } from "@/components/EventSessionsManager";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -85,6 +86,7 @@ export default function EventDetail() {
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
   const { data: event, isLoading: loadingEvent } = useQuery({
@@ -131,6 +133,23 @@ export default function EventDetail() {
       return data as any[];
     },
     enabled: !!id && eventType === "festival",
+  });
+
+  // Fetch sessions for the active event (or sub-event)
+  const activeEventId = selectedSubEvent || id!;
+  const { data: eventSessions = [] } = useQuery({
+    queryKey: ["event_sessions", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_sessions" as any)
+        .select("*")
+        .eq("event_id", activeEventId)
+        .order("date", { ascending: true })
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!activeEventId,
   });
 
   // Determine which event IDs to use for transactions
@@ -589,7 +608,6 @@ export default function EventDetail() {
                   currentId={selectedSubEvent}
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
-                    // Copy zones and lots from source to target
                     const { data: sourceZones } = await supabase
                       .from("event_ticket_zones")
                       .select("*")
@@ -622,7 +640,53 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventTicketing eventId={selectedSubEvent || event.id} eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null} eventStatus={event.status} />
+
+              {/* Sessions Manager */}
+              <EventSessionsManager
+                eventId={activeEventId}
+                eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date}
+                eventStatus={event.status}
+              />
+
+              {/* Session selector if sessions exist */}
+              {eventSessions.length > 0 && (
+                <div className="glass rounded-xl p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Filtrar bilheteira por sessão</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedSessionId(null)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                        !selectedSessionId
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Todas
+                    </button>
+                    {eventSessions.map((s: any) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSessionId(s.id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                          selectedSessionId === s.id
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {s.label}
+                        {s.start_time && <span className="ml-1 opacity-70">{s.start_time.slice(0, 5)}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <EventTicketing
+                eventId={activeEventId}
+                eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null}
+                eventStatus={event.status}
+                sessionId={selectedSessionId}
+              />
             </div>
           )}
         </TabsContent>
