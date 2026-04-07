@@ -223,7 +223,12 @@ const helpManual: HelpSection[] = [
       {
         title: "Configurar bilheteiras",
         content:
-          "Bilheteiras são pontos de venda de bilhetes (físicos ou online). Cada bilheteira pode estar associada a uma conta financeira para receber os valores de venda.",
+          "Bilheteiras são pontos de venda de bilhetes (físicos ou online). Cada bilheteira pode estar associada a uma conta financeira para receber os valores de venda. A associação de bilheteiras a eventos é feita diretamente no separador 'Bilheteira' do detalhe do evento.",
+      },
+      {
+        title: "Indicadores de liquidez",
+        content:
+          "O dashboard de bilheteiras apresenta três indicadores por parceiro:\n\n• Retido — receita de vendas que permanece na bilheteira (Vendas − Despesas Diretas − Transferências)\n• Transferido — montante total já repassado para as contas da empresa\n• Movimentado — fluxo total de saída (Despesas + Transferências)\n\nA liquidez disponível é calculada de forma híbrida: receita de vendas reais (ticket_sales) menos saídas registadas em transações. O sistema proíbe transferências superiores ao saldo Retido.",
       },
       {
         title: "Conciliação",
