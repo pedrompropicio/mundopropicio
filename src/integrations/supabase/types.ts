@@ -591,6 +591,47 @@ export type Database = {
           },
         ]
       }
+      event_sessions: {
+        Row: {
+          created_at: string
+          date: string
+          event_id: string
+          id: string
+          label: string
+          sort_order: number
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          event_id: string
+          id?: string
+          label?: string
+          sort_order?: number
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          event_id?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_lots: {
         Row: {
           created_at: string
@@ -702,6 +743,7 @@ export type Database = {
           event_id: string
           id: string
           name: string
+          session_id: string | null
           total_capacity: number
           updated_at: string
         }
@@ -710,6 +752,7 @@ export type Database = {
           event_id: string
           id?: string
           name: string
+          session_id?: string | null
           total_capacity?: number
           updated_at?: string
         }
@@ -718,6 +761,7 @@ export type Database = {
           event_id?: string
           id?: string
           name?: string
+          session_id?: string | null
           total_capacity?: number
           updated_at?: string
         }
@@ -727,6 +771,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_zones_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "event_sessions"
             referencedColumns: ["id"]
           },
         ]
