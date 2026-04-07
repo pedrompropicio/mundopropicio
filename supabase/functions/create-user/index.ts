@@ -219,6 +219,7 @@ Deno.serve(async (req) => {
 
     // Enqueue the email
     const messageId = crypto.randomUUID();
+    const idempotencyKey = `invite-set-password-${newUser.user?.id}`;
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
       template_name: "invite_set_password",
@@ -229,8 +230,8 @@ Deno.serve(async (req) => {
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
       queue_name: "auth_emails",
       payload: {
-        run_id: messageId,
         message_id: messageId,
+        idempotency_key: idempotencyKey,
         to: email,
         from: `${siteName} <noreply@mpgestaoeventos.com>`,
         sender_domain: "notify.mpgestaoeventos.com",
