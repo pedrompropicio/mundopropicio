@@ -49,7 +49,8 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 export function EventTicketing({ eventId, eventDateId, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
-  const canManageOffices = isAdmin || hasPermission("manage_accounts");
+  const isEventLocked = eventStatus === "completed";
+  const canManageOffices = (isAdmin || hasPermission("manage_accounts")) && !isEventLocked;
   const [addingZone, setAddingZone] = useState(false);
   const [zoneForm, setZoneForm] = useState<ZoneForm>(emptyZone);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);

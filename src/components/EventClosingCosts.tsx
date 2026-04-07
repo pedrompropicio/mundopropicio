@@ -19,6 +19,7 @@ interface Props {
 
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const isEventLocked = eventStatus === "completed";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
