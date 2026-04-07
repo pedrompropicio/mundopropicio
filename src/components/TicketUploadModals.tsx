@@ -494,24 +494,40 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const isPending = importType === "setup" ? setupMutation.isPending : salesMutation.isPending;
 
   const checkDuplicatesAndImport = async () => {
-    if (!eventId) return;
-
-    // Check for existing imports with overlapping period for same event
-    const { data: existingLogs } = await supabase
-      .from("ticket_import_logs" as any)
-      .select("*")
-      .eq("event_id", eventId)
-      .eq("import_type", importType)
-      .lte("period_from", pdfPeriodTo || saleDateTo)
-      .gte("period_to", pdfPeriodFrom || saleDateFrom);
-
-    if (existingLogs && existingLogs.length > 0) {
-      setDuplicateWarnings(existingLogs);
-      setShowDuplicateConfirm(true);
+    if (!eventId) {
+      toast({ title: "Selecione um evento", variant: "destructive" });
       return;
     }
 
-    executeImport();
+    try {
+      // Check for existing imports with overlapping period for same event
+      const effectiveFrom = pdfPeriodFrom || saleDateFrom;
+      const effectiveTo = pdfPeriodTo || saleDateTo;
+
+      const { data: existingLogs, error: logError } = await supabase
+        .from("ticket_import_logs")
+        .select("*")
+        .eq("event_id", eventId)
+        .eq("import_type", importType)
+        .lte("period_from", effectiveTo)
+        .gte("period_to", effectiveFrom);
+
+      if (logError) {
+        console.error("Duplicate check error:", logError);
+        // Proceed with import even if duplicate check fails
+      }
+
+      if (!logError && existingLogs && existingLogs.length > 0) {
+        setDuplicateWarnings(existingLogs);
+        setShowDuplicateConfirm(true);
+        return;
+      }
+
+      executeImport();
+    } catch (err: any) {
+      console.error("checkDuplicatesAndImport error:", err);
+      toast({ title: "Erro ao verificar duplicados", description: err.message, variant: "destructive" });
+    }
   };
 
   const executeImport = () => {
