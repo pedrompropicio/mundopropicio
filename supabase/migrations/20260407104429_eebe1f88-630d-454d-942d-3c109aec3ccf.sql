@@ -1,0 +1,1 @@
+ALTER TABLE public.transaction_documents ADD COLUMN is_accounting boolean NOT NULL DEFAULT false;

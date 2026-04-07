@@ -1503,6 +1503,7 @@ export type Database = {
           doc_type: string
           file_url: string
           id: string
+          is_accounting: boolean
           name: string
           transaction_id: string
           uploaded_at: string
@@ -1512,6 +1513,7 @@ export type Database = {
           doc_type?: string
           file_url: string
           id?: string
+          is_accounting?: boolean
           name: string
           transaction_id: string
           uploaded_at?: string
@@ -1521,6 +1523,7 @@ export type Database = {
           doc_type?: string
           file_url?: string
           id?: string
+          is_accounting?: boolean
           name?: string
           transaction_id?: string
           uploaded_at?: string
