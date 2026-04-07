@@ -26,11 +26,19 @@ const eventTypeIcons: Record<EventType, typeof Calendar> = {
   multi_day: Route,
 };
 
+interface SessionDraft {
+  date: string;
+  label: string;
+  start_time: string;
+}
+
 interface SubEventForm {
   name: string;
   date: string;
   city_id: string;
   venue_id: string;
+  extra_dates: string[];
+  sessions: SessionDraft[];
 }
 
 interface EventForm {
@@ -58,7 +66,7 @@ const emptyForm: EventForm = {
   event_type: "simple",
   pl_mode: "passive",
   festival_dates: [],
-  sub_events: [{ name: "", date: "", city_id: "", venue_id: "" }],
+  sub_events: [{ name: "", date: "", city_id: "", venue_id: "", extra_dates: [], sessions: [] }],
 };
 
 export default function Events() {
