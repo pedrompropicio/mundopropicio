@@ -63,7 +63,7 @@ function fileToBase64(file: File): Promise<string> {
 const normalize = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-export function TicketImportModal({ events, selectedEventId: preSelectedEventId, open: controlledOpen, onClose }: TicketImportModalProps) {
+export function TicketImportModal({ events: eventsProp, selectedEventId: preSelectedEventId, open: controlledOpen, onClose }: TicketImportModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -81,6 +81,23 @@ export function TicketImportModal({ events, selectedEventId: preSelectedEventId,
   const [ticketOfficeId, setTicketOfficeId] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Fetch events internally if not provided via props
+  const { data: fetchedEvents = [] } = useQuery({
+    queryKey: ["events_for_import"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, parent_event_id, event_type, status")
+        .in("status", ["planning", "confirmed", "active", "completed"])
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !eventsProp,
+  });
+
+  const events = eventsProp || fetchedEvents;
 
   const { data: ticketOffices = [] } = useQuery({
     queryKey: ["ticket_offices_active"],
