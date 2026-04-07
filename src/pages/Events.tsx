@@ -128,9 +128,26 @@ export default function Events() {
           .from("events")
           .select("*") as any)
           .in("parent_event_id", parentIds);
+        
+        // Load extra dates for sub-events
+        const subIds = (subs ?? []).map((s: any) => s.id);
+        let extraDatesMap: Record<string, string[]> = {};
+        if (subIds.length > 0) {
+          const { data: extraDates } = await (supabase
+            .from("event_dates")
+            .select("event_id, date") as any)
+            .in("event_id", subIds);
+          (extraDates ?? []).forEach((ed: any) => {
+            if (!extraDatesMap[ed.event_id]) extraDatesMap[ed.event_id] = [];
+            extraDatesMap[ed.event_id].push(ed.date);
+          });
+        }
+
         (subs ?? []).forEach((s: any) => {
           if (!subEventsMap[s.parent_event_id]) subEventsMap[s.parent_event_id] = [];
-          subEventsMap[s.parent_event_id].push(s);
+          // Attach all dates (main + extras) for range calculation
+          const allDates = [s.date, ...(extraDatesMap[s.id] || [])].sort();
+          subEventsMap[s.parent_event_id].push({ ...s, allDates });
         });
       }
 
@@ -999,7 +1016,12 @@ export default function Events() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                         {isMultiDay && event.subEvents.length > 0
-                          ? `${formatDate(event.subEvents[0].date)}${event.subEvents.length > 1 ? ` — ${formatDate(event.subEvents[event.subEvents.length - 1].date)}` : ""}`
+                          ? (() => {
+                              const allDates = event.subEvents.flatMap((s: any) => s.allDates || [s.date]).sort();
+                              const first = allDates[0];
+                              const last = allDates[allDates.length - 1];
+                              return first === last ? formatDate(first) : `${formatDate(first)} — ${formatDate(last)}`;
+                            })()
                           : formatDate(event.date)
                         }
                       </td>
