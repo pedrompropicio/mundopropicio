@@ -399,6 +399,13 @@ export default function Transactions() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate("/relatorios/listas-pagamento")}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Listas de Pagamento</span>
+          </button>
+          <button
             onClick={() => setShowTransfer(true)}
             className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
