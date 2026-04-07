@@ -17,6 +17,7 @@ import { EventSessionsManager } from "@/components/EventSessionsManager";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { buildSessionCopyMap } from "@/lib/session-copy";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -55,6 +56,12 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
     setCopying(true);
     try {
       await onCopy(sourceId);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao copiar",
+        description: error?.message || "Não foi possível concluir a cópia.",
+        variant: "destructive",
+      });
     } finally {
       setCopying(false);
     }
@@ -296,6 +303,97 @@ export default function EventDetail() {
   const totalIncome = hasTicketSales ? ticketSalesRevenue : transactionIncome;
   const totalExpenses = expenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const profit = totalIncome - totalExpenses;
+
+  const copyTicketingFromSubEvent = async (sourceId: string) => {
+    if (!selectedSubEvent) return;
+
+    const [sourceZonesResult, sourceSessionsResult, targetSessionsResult] = await Promise.all([
+      supabase
+        .from("event_ticket_zones")
+        .select("id, name, total_capacity, session_id")
+        .eq("event_id", sourceId)
+        .order("created_at"),
+      supabase
+        .from("event_sessions" as any)
+        .select("id, label, start_time, sort_order")
+        .eq("event_id", sourceId)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("event_sessions" as any)
+        .select("id, label, start_time, sort_order")
+        .eq("event_id", selectedSubEvent)
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    if (sourceZonesResult.error) throw sourceZonesResult.error;
+    if (sourceSessionsResult.error) throw sourceSessionsResult.error;
+    if (targetSessionsResult.error) throw targetSessionsResult.error;
+
+    const sourceZones = sourceZonesResult.data ?? [];
+    const sourceSessions = (sourceSessionsResult.data ?? []) as any[];
+    const targetSessions = (targetSessionsResult.data ?? []) as any[];
+
+    if (sourceZones.length === 0) {
+      toast({ title: "A data de origem não tem bilheteira configurada", variant: "destructive" });
+      return;
+    }
+
+    const sessionMap = buildSessionCopyMap(sourceSessions, targetSessions);
+    const hasSessionBoundZones = sourceZones.some((zone) => !!zone.session_id);
+
+    if (hasSessionBoundZones && targetSessions.length === 0) {
+      throw new Error("Crie as sessões da data de destino antes de copiar a bilheteira.");
+    }
+
+    const hasUnmappedZones = sourceZones.some((zone) => zone.session_id && !sessionMap.has(zone.session_id));
+    if (hasUnmappedZones) {
+      throw new Error("Nem todas as sessões da origem encontraram correspondência na data de destino.");
+    }
+
+    for (const zone of sourceZones) {
+      const targetSessionId = zone.session_id ? sessionMap.get(zone.session_id) ?? null : null;
+      const { data: newZone, error: newZoneError } = await supabase
+        .from("event_ticket_zones")
+        .insert({
+          event_id: selectedSubEvent,
+          session_id: targetSessionId,
+          name: zone.name,
+          total_capacity: zone.total_capacity,
+        })
+        .select("id")
+        .single();
+
+      if (newZoneError) throw newZoneError;
+      if (!newZone) continue;
+
+      const { data: lots, error: lotsError } = await supabase
+        .from("event_ticket_lots")
+        .select("name, quantity, price, lot_number, iva_rate")
+        .eq("zone_id", zone.id)
+        .order("lot_number");
+
+      if (lotsError) throw lotsError;
+
+      if (lots && lots.length > 0) {
+        const { error: insertLotsError } = await supabase.from("event_ticket_lots").insert(
+          lots.map((lot) => ({
+            zone_id: newZone.id,
+            name: lot.name,
+            quantity: lot.quantity,
+            price: lot.price,
+            lot_number: lot.lot_number,
+            iva_rate: lot.iva_rate,
+          })),
+        );
+
+        if (insertLotsError) throw insertLotsError;
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", selectedSubEvent] });
+    queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", selectedSubEvent] });
+    toast({ title: "Bilheteira copiada com sucesso!" });
+  };
 
   // For multi-day with shared costs (parent transactions), calculate proration
   const isGlobalView = eventType === "multi_day" && !selectedSubEvent;
@@ -623,37 +721,7 @@ export default function EventDetail() {
                   label="Copiar bilheteira de"
                   currentId={selectedSubEvent}
                   subEvents={subEvents}
-                  onCopy={async (sourceId: string) => {
-                    const { data: sourceZones } = await supabase
-                      .from("event_ticket_zones")
-                      .select("*")
-                      .eq("event_id", sourceId);
-                    if (!sourceZones || sourceZones.length === 0) {
-                      toast({ title: "A data de origem não tem bilheteira configurada", variant: "destructive" });
-                      return;
-                    }
-                    for (const zone of sourceZones) {
-                      const { data: newZone } = await supabase
-                        .from("event_ticket_zones")
-                        .insert({ event_id: selectedSubEvent, name: zone.name, total_capacity: zone.total_capacity })
-                        .select("id")
-                        .single();
-                      if (!newZone) continue;
-                      const { data: lots } = await supabase
-                        .from("event_ticket_lots")
-                        .select("*")
-                        .eq("zone_id", zone.id)
-                        .order("lot_number");
-                      if (lots && lots.length > 0) {
-                        await supabase.from("event_ticket_lots").insert(
-                          lots.map(l => ({ zone_id: newZone.id, name: l.name, quantity: l.quantity, price: l.price, lot_number: l.lot_number }))
-                        );
-                      }
-                    }
-                    queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", selectedSubEvent] });
-                    queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", selectedSubEvent] });
-                    toast({ title: "Bilheteira copiada com sucesso!" });
-                  }}
+                  onCopy={copyTicketingFromSubEvent}
                 />
               )}
 
