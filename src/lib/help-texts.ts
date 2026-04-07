@@ -126,6 +126,8 @@ const helpTexts: Record<string, string> = {
     "Conciliar bilheteira: confirme que os valores de venda registados coincidem com os valores recebidos na conta.",
   reportArtistCache:
     "Relatório analítico do cachê de cada artista do evento. Demonstra o cálculo completo (fixo ou variável com deduções), os custos extras a descontar e o valor líquido final a pagar.",
+  reportDocumentPendencies:
+    "Auditoria de conformidade documental — identifica transações com conta bancária que não possuem documentos contábeis (faturas, recibos, notas fiscais) anexados. Use para regularizar pendências antes da exportação contábil.",
 };
 
 export default helpTexts;

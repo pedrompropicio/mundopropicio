@@ -38,6 +38,7 @@ import ReportAccountCategoriesPage from "./pages/ReportAccountCategoriesPage";
 import ReportMovementReconciliationPage from "./pages/ReportMovementReconciliationPage";
 import ReportTicketOfficeAuditPage from "./pages/ReportTicketOfficeAuditPage";
 import ReportArtistCachePage from "./pages/ReportArtistCachePage";
+import ReportDocumentPendenciesPage from "./pages/ReportDocumentPendenciesPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
@@ -116,6 +117,7 @@ function ProtectedLayout() {
                 <Route path="movimentacoes" element={<ReportMovementReconciliationPage />} />
                 <Route path="bilheteiras" element={<ReportTicketOfficeAuditPage />} />
                 <Route path="cache-artista" element={<ReportArtistCachePage />} />
+                <Route path="pendencias-documentais" element={<ReportDocumentPendenciesPage />} />
               </Route>
               
               
