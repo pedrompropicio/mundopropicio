@@ -71,7 +71,7 @@ function ProtectedLayout() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar px-4 lg:px-6">
+      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6">
         <img
           src={logoMundoPropicio}
           alt="Mundo Propício Entretenimento"
