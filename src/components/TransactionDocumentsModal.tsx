@@ -32,6 +32,7 @@ function extractStoragePath(fileUrl: string): string {
 
 export function TransactionDocumentsModal({ transactionId, transactionDescription, onClose }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [isAccounting, setIsAccounting] = useState(true);
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
