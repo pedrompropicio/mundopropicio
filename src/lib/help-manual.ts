@@ -124,7 +124,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Criar uma transação",
         content:
-          "Clique em 'Nova Transação'. Escolha o tipo (Receita ou Despesa), associe a um evento (se aplicável), selecione fornecedor e categoria do Plano de Contas. Defina o valor, data e vencimento. Pode anexar documentos (faturas, contratos).",
+          "Clique em 'Nova Transação'. Escolha o tipo (Receita ou Despesa), associe a um evento (se aplicável), selecione fornecedor e categoria do Plano de Contas. Defina o valor, data e vencimento. Pode anexar documentos (faturas, contratos).\n\nAntes de confirmar uma despesa, o sistema apresenta um painel de verificação com os dados bancários do fornecedor (NIF, IBAN, SWIFT/BIC) para garantir que a conta de destino está correta.",
       },
       {
         title: "Ciclo de vida da transação",
@@ -142,9 +142,14 @@ const helpManual: HelpSection[] = [
           "Use 'Transferência entre Contas' para mover saldo. O sistema cria automaticamente duas transações: uma saída na conta de origem e uma entrada na conta de destino, mantendo o histórico completo.",
       },
       {
-        title: "Documentos anexados",
+        title: "Documentos anexados e classificação contábil",
         content:
-          "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros.",
+          "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros.\n\nDocumentos contábeis — Ao fazer upload, marque a checkbox 'Documento contábil' para documentos fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento bancário). Use o ícone de informação (ℹ️) junto da checkbox para ver exemplos.\n\nNÃO marcar como contábil: propostas, contratos, riders técnicos, e-mails ou screenshots internos.\n\nEsta classificação é essencial para a exportação contábil e para o relatório de pendências documentais.",
+      },
+      {
+        title: "Listas de Pagamento (nas transações)",
+        content:
+          "Dentro do módulo de transações, pode criar Listas de Pagamento diretamente. Selecione transações aprovadas e agrupe-as numa lista para processamento em lote. As listas passam por um fluxo de aprovação (Rascunho → Submetida → Aprovada) antes de serem executadas.",
       },
     ],
   },
