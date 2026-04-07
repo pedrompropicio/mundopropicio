@@ -125,6 +125,7 @@ export default function TicketManagement() {
       return data;
     },
     enabled: zones.length > 0,
+    staleTime: 30_000,
   });
 
   const { data: sales = [] } = useQuery({
