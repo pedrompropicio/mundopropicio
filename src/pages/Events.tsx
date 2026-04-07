@@ -67,6 +67,7 @@ const emptyForm: EventForm = {
   event_type: "simple",
   pl_mode: "passive",
   festival_dates: [],
+  sessions: [],
   sub_events: [{ name: "", date: "", city_id: "", venue_id: "", extra_dates: [], sessions: [] }],
 };
 
