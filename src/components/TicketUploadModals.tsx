@@ -177,6 +177,16 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         setSaleDateTo(periodTo);
       }
 
+      // Auto-detect ticket office from PDF
+      if (data.ticket_office_name && ticketOffices.length > 0) {
+        const pdfName = normalize(data.ticket_office_name);
+        const match = ticketOffices.find(to => normalize(to.name).includes(pdfName) || pdfName.includes(normalize(to.name)));
+        if (match && !ticketOfficeId) {
+          setTicketOfficeId(match.id);
+          toast({ title: `Bilheteira detectada: ${match.name}` });
+        }
+      }
+
       if (importType === "setup") {
         const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
           zona: String(r.zona || "Geral"),

@@ -28,7 +28,12 @@ EXTRACÇÃO DO PERÍODO (OBRIGATÓRIA):
 - O cabeçalho do PDF contém o período do relatório (ex: "01/04/2026 a 05/04/2026", "Período: 01-04-2026 - 05-04-2026", "De 01/04/2026 Até 05/04/2026").
 - Extrai as datas de início e fim do período e inclui-as no JSON como "period_from" e "period_to" no formato "YYYY-MM-DD".
 - Se o período contiver apenas uma data, usa-a tanto como "period_from" como "period_to".
-- Se não encontrares período no cabeçalho, usa "period_from": null e "period_to": null.`;
+- Se não encontrares período no cabeçalho, usa "period_from": null e "period_to": null.
+
+IDENTIFICAÇÃO DA BILHETEIRA (OBRIGATÓRIA):
+- O PDF contém geralmente o nome/logotipo da bilheteira (ex: "Ticketline", "BOL", "Blueticket", "ETES", "Fever", "Seetickets", "Eventbrite", "Worten Bilhetes").
+- Extrai o nome da bilheteira e inclui no JSON como "ticket_office_name".
+- Se não conseguires identificar, usa "ticket_office_name": null.`;
 
     const systemPrompt =
       extraction_type === "daily_sales"
