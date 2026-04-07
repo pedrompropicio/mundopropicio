@@ -233,6 +233,19 @@ export default function Events() {
         if (dErr) throw dErr;
       }
 
+      // Create sessions for simple/festival events
+      if (data.event_type !== "multi_day" && data.sessions.length > 0) {
+        const sessionsToInsert = data.sessions.map((sess, i) => ({
+          event_id: parentId,
+          date: sess.date || data.date,
+          label: sess.label || `Sessão ${i + 1}`,
+          start_time: sess.start_time || null,
+          sort_order: i + 1,
+        }));
+        const { error: sessErr } = await supabase.from("event_sessions" as any).insert(sessionsToInsert);
+        if (sessErr) throw sessErr;
+      }
+
       if (data.event_type === "multi_day") {
         const validSubs = data.sub_events.filter(s => s.name && s.date);
         if (validSubs.length > 0) {
