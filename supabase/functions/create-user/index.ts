@@ -61,11 +61,15 @@ Deno.serve(async (req) => {
     const validRoles = ["admin", "manager", "editor", "viewer", "user"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
-    const siteUrl = "https://mpgestaoeventos.com";
+    // Generate a random temporary password (user will never use it)
+    const tempPassword = crypto.randomUUID() + "Aa1!";
 
-    const { data: newUser, error: createError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: { full_name },
-      redirectTo: `${siteUrl}/reset-password`,
+    // Step 1: Create user with confirmed email and temporary password
+    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name },
     });
 
     if (createError) {
@@ -75,7 +79,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update role if not default 'user'
+    // Step 2: Update role if not default 'user'
     if (targetRole !== "user" && newUser.user) {
       await adminClient
         .from("user_roles")
@@ -83,11 +87,21 @@ Deno.serve(async (req) => {
         .eq("user_id", newUser.user.id);
     }
 
+    // Step 3: Send password reset email (uses branded template via auth-email-hook)
+    const siteUrl = "https://mpgestaoeventos.com";
+    const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/reset-password`,
+    });
+
+    if (resetError) {
+      console.error("Reset email error (user was created):", resetError.message);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         user_id: newUser.user?.id,
-        message: "Utilizador criado com sucesso. Email de convite enviado.",
+        message: "Utilizador criado com sucesso. Email de definição de senha enviado.",
       }),
       {
         status: 200,
