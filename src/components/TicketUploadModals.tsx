@@ -349,6 +349,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   // ── Sales import mutation ──
   const salesMutation = useMutation({
     mutationFn: async () => {
+      console.log("salesMutation started", { eventId, salesPreviewLen: salesPreview.length });
       if (!eventId || salesPreview.length === 0) throw new Error("Selecione evento e ficheiro");
 
       const { data: zones } = await supabase
