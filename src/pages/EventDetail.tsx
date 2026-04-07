@@ -135,6 +135,23 @@ export default function EventDetail() {
     enabled: !!id && eventType === "festival",
   });
 
+  // Fetch sessions for the active event (or sub-event)
+  const activeEventId = selectedSubEvent || id!;
+  const { data: eventSessions = [] } = useQuery({
+    queryKey: ["event_sessions", activeEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_sessions" as any)
+        .select("*")
+        .eq("event_id", activeEventId)
+        .order("date", { ascending: true })
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!activeEventId,
+  });
+
   // Determine which event IDs to use for transactions
   const allEventIds = eventType === "multi_day" && !selectedSubEvent
     ? [id!, ...subEvents.map((s: any) => s.id)]
