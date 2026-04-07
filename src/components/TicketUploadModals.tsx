@@ -429,7 +429,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           const { error } = await supabase.from("ticket_sales").insert({
             lot_id: matchedLot.id,
             zone_id: matchedLot.zone_id || matchedZone?.id || null,
-            sale_date: saleDateFrom,
+            sale_date: effectiveFrom,
             quantity: row.quantidade,
             unit_price: row.preco_unitario || Number(matchedLot.price),
             ticket_office_id: ticketOfficeId || null,
@@ -442,7 +442,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           const { error } = await supabase.from("ticket_sales").insert({
             zone_id: matchedZone.id,
             lot_id: null,
-            sale_date: saleDateFrom,
+            sale_date: effectiveFrom,
             quantity: row.quantidade,
             unit_price: row.preco_unitario || 0,
             ticket_office_id: ticketOfficeId || null,
@@ -466,8 +466,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         event_id: eventId,
         ticket_office_id: ticketOfficeId || null,
         import_type: "sales",
-        period_from: saleDateFrom,
-        period_to: saleDateTo,
+        period_from: pdfPeriodFrom || saleDateFrom,
+        period_to: pdfPeriodTo || saleDateTo,
         file_name: file?.name || null,
         rows_imported: result?.imported || 0,
         rows_skipped: result?.skipped || 0,
