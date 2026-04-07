@@ -6,6 +6,57 @@
 
 @layer base {
   :root {
+    --background: 210 20% 98%;
+    --foreground: 215 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 10%;
+
+    --primary: 210 70% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 215 25% 25%;
+
+    --muted: 210 15% 93%;
+    --muted-foreground: 215 12% 45%;
+
+    --accent: 72 65% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 150 60% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 90% 50%;
+    --warning-foreground: 0 0% 10%;
+
+    --border: 210 15% 88%;
+    --input: 210 15% 88%;
+    --ring: 210 70% 42%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 210 18% 96%;
+    --sidebar-foreground: 215 15% 35%;
+    --sidebar-primary: 210 70% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 90%;
+    --sidebar-accent-foreground: 215 25% 10%;
+    --sidebar-border: 210 15% 88%;
+    --sidebar-ring: 210 70% 42%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(210 70% 42%), hsl(200 75% 35%));
+    --gradient-accent: linear-gradient(135deg, hsl(72 65% 40%), hsl(85 60% 35%));
+    --gradient-warm: linear-gradient(135deg, hsl(38 90% 50%), hsl(20 80% 45%));
+  }
+
+  .dark {
     --background: 215 25% 7%;
     --foreground: 210 20% 95%;
 
@@ -39,8 +90,6 @@
     --border: 215 18% 16%;
     --input: 215 18% 16%;
     --ring: 210 70% 42%;
-
-    --radius: 0.75rem;
 
     --sidebar-background: 215 25% 9%;
     --sidebar-foreground: 210 15% 75%;
