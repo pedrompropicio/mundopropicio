@@ -61,12 +61,11 @@ Deno.serve(async (req) => {
     const validRoles = ["admin", "manager", "editor", "viewer", "user"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
-    const tempPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { full_name },
+    const siteUrl = "https://mpgestaoeventos.com";
+
+    const { data: newUser, error: createError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      data: { full_name },
+      redirectTo: `${siteUrl}/reset-password`,
     });
 
     if (createError) {
@@ -84,20 +83,11 @@ Deno.serve(async (req) => {
         .eq("user_id", newUser.user.id);
     }
 
-    // Use the published app URL for password reset redirect
-    const siteUrl = "https://mundopropicio.lovable.app";
-    const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/reset-password`,
-    });
-
     return new Response(
       JSON.stringify({
         success: true,
         user_id: newUser.user?.id,
-        reset_email_sent: !resetError,
-        message: resetError
-          ? "Utilizador criado, mas não foi possível enviar o email de recuperação."
-          : "Utilizador criado com sucesso. Email de definição de senha enviado.",
+        message: "Utilizador criado com sucesso. Email de convite enviado.",
       }),
       {
         status: 200,
