@@ -101,7 +101,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         file_url: filePath,
         doc_type: getDocType(file.name),
         uploaded_by: user?.email ?? "sistema",
-      });
+        is_accounting: isAccounting,
+      } as any);
       if (dbError) throw dbError;
 
       queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
