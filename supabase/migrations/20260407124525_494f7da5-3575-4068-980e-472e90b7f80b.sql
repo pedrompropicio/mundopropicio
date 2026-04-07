@@ -1,0 +1,1 @@
+ALTER TABLE public.financial_accounts ADD COLUMN iban text DEFAULT NULL;

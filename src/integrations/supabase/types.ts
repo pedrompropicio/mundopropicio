@@ -844,6 +844,7 @@ export type Database = {
           balance_visible_to_all: boolean
           created_at: string
           description: string | null
+          iban: string | null
           id: string
           initial_balance: number
           is_active: boolean
@@ -855,6 +856,7 @@ export type Database = {
           balance_visible_to_all?: boolean
           created_at?: string
           description?: string | null
+          iban?: string | null
           id?: string
           initial_balance?: number
           is_active?: boolean
@@ -866,6 +868,7 @@ export type Database = {
           balance_visible_to_all?: boolean
           created_at?: string
           description?: string | null
+          iban?: string | null
           id?: string
           initial_balance?: number
           is_active?: boolean
