@@ -1016,7 +1016,12 @@ export default function Events() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                         {isMultiDay && event.subEvents.length > 0
-                          ? `${formatDate(event.subEvents[0].date)}${event.subEvents.length > 1 ? ` — ${formatDate(event.subEvents[event.subEvents.length - 1].date)}` : ""}`
+                          ? (() => {
+                              const allDates = event.subEvents.flatMap((s: any) => s.allDates || [s.date]).sort();
+                              const first = allDates[0];
+                              const last = allDates[allDates.length - 1];
+                              return first === last ? formatDate(first) : `${formatDate(first)} — ${formatDate(last)}`;
+                            })()
                           : formatDate(event.date)
                         }
                       </td>
