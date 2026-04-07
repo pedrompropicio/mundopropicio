@@ -48,6 +48,7 @@ export default function TicketManagement() {
   const [saleForm, setSaleForm] = useState<SaleForm>(emptySale);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
 
   // Admin lot editing
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
@@ -86,6 +87,17 @@ export default function TicketManagement() {
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const isParentEvent = selectedEvent?.event_type === "multi_day" && !selectedEvent?.parent_event_id;
 
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["ticket-mgmt-sessions", selectedEventId],
+    queryFn: async () => {
+      if (!selectedEventId) return [];
+      const { data, error } = await supabase.from("event_sessions").select("*").eq("event_id", selectedEventId).order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedEventId,
+  });
+
   const { data: zones = [] } = useQuery({
     queryKey: ["ticket-mgmt-zones", selectedEventId],
     queryFn: async () => {
@@ -96,6 +108,12 @@ export default function TicketManagement() {
     },
     enabled: !!selectedEventId,
   });
+
+  // Filter zones by selected session
+  const filteredZones = useMemo(() => {
+    if (selectedSessionId === "all") return zones;
+    return zones.filter(z => z.session_id === selectedSessionId);
+  }, [zones, selectedSessionId]);
 
   const { data: lots = [] } = useQuery({
     queryKey: ["ticket-mgmt-lots", selectedEventId],
@@ -301,19 +319,19 @@ export default function TicketManagement() {
   const getZoneForecastRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
   const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0) + getZoneOnlyRevenue(zoneId);
 
-  // Sort zones by max lot price (most expensive first)
+  // Sort zones by max lot price (most expensive first) — use filteredZones
   const sortedZones = useMemo(() => {
-    return [...zones].sort((a, b) => {
+    return [...filteredZones].sort((a, b) => {
       const maxPriceA = Math.max(0, ...lots.filter(l => l.zone_id === a.id).map(l => Number(l.price)));
       const maxPriceB = Math.max(0, ...lots.filter(l => l.zone_id === b.id).map(l => Number(l.price)));
       return maxPriceB - maxPriceA;
     });
-  }, [zones, lots]);
+  }, [filteredZones, lots]);
 
-  const totalCapacity = zones.reduce((s, z) => s + getZoneCapacity(z.id), 0);
-  const totalSold = zones.reduce((s, z) => s + getZoneSold(z.id), 0);
-  const totalForecastRevenue = zones.reduce((s, z) => s + getZoneForecastRevenue(z.id), 0);
-  const totalActualRevenue = zones.reduce((s, z) => s + getZoneActualRevenue(z.id), 0);
+  const totalCapacity = filteredZones.reduce((s, z) => s + getZoneCapacity(z.id), 0);
+  const totalSold = filteredZones.reduce((s, z) => s + getZoneSold(z.id), 0);
+  const totalForecastRevenue = filteredZones.reduce((s, z) => s + getZoneForecastRevenue(z.id), 0);
+  const totalActualRevenue = filteredZones.reduce((s, z) => s + getZoneActualRevenue(z.id), 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSold / totalCapacity) * 100) : 0;
 
   const toggleZone = (id: string) => {
@@ -363,7 +381,7 @@ export default function TicketManagement() {
         <div className="flex flex-col sm:flex-row sm:items-end gap-3">
           <div className="flex-1">
             <Label className="text-sm font-medium">Selecionar Evento</Label>
-            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedSessionId("all"); }}>
               <SelectTrigger className="mt-2 w-full max-w-md">
                 <SelectValue placeholder="Escolha um evento…" />
               </SelectTrigger>
@@ -386,6 +404,30 @@ export default function TicketManagement() {
 
       {selectedEventId && (
         <>
+          {/* Session tabs */}
+          {sessions.length > 0 && (
+            <div className="glass rounded-xl p-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sessão</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedSessionId("all")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedSessionId === "all" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                >
+                  Todas
+                </button>
+                {sessions.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSessionId(s.id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedSessionId === s.id ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Summary cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="glass rounded-xl p-4 space-y-1">
