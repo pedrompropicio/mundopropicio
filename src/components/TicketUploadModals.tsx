@@ -740,7 +740,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               <DialogFooter>
                 <Button variant="outline" onClick={handleClose}>Cancelar</Button>
                 <Button
-                  onClick={handleImport}
+                  onClick={checkDuplicatesAndImport}
                   disabled={!eventId || preview.length === 0 || isPending || extracting}
                 >
                   {isPending ? "A importar…" : importType === "setup"
