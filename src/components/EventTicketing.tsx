@@ -399,8 +399,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   // Filter zones by session if specified
   const filteredZones = useMemo(() => {
     if (!sessionId) return zones;
-    return zones.filter((z: any) => z.session_id === sessionId || !z.session_id);
+    return zones.filter((z: any) => z.session_id === sessionId);
   }, [zones, sessionId]);
+
+  const filteredZoneIds = useMemo(() => new Set(filteredZones.map((zone: any) => zone.id)), [filteredZones]);
+
+  const filteredLots = useMemo(
+    () => allLots.filter((lot) => filteredZoneIds.has(lot.zone_id)),
+    [allLots, filteredZoneIds],
+  );
 
   // Sort zones by max lot price (most expensive first)
   const sortedZones = useMemo(() => {
@@ -411,11 +418,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     });
   }, [filteredZones, allLots]);
 
-  const totalGrossRevenue = zones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
-  const totalNetRevenue = zones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
-  const totalIva = zones.reduce((s, z) => s + getZoneIva(z.id), 0);
-  const totalTickets = zones.reduce((s, z) => s + getZoneTotalTickets(z.id), 0);
-  const totalCapacity = zones.reduce((s, z) => s + z.total_capacity, 0);
+  const totalGrossRevenue = filteredZones.reduce((s, z) => s + getZoneGrossRevenue(z.id), 0);
+  const totalNetRevenue = filteredZones.reduce((s, z) => s + getZoneNetRevenue(z.id), 0);
+  const totalIva = filteredZones.reduce((s, z) => s + getZoneIva(z.id), 0);
+  const totalTickets = filteredZones.reduce((s, z) => s + getZoneTotalTickets(z.id), 0);
+  const totalCapacity = filteredZones.reduce((s, z) => s + z.total_capacity, 0);
 
   const inputClass = "w-full rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50";
 
@@ -518,7 +525,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
             <Layers className="h-4 w-4 text-primary" /> Receita Líquida
           </div>
           <p className="font-mono text-lg font-bold text-primary">{formatCurrency(totalNetRevenue)}</p>
-          <p className="text-xs text-muted-foreground">{zones.length} zonas · {allLots.length} lotes</p>
+          <p className="text-xs text-muted-foreground">{filteredZones.length} zonas · {filteredLots.length} lotes</p>
         </div>
       </div>
 
@@ -673,9 +680,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               </div>
             )}
 
-            {zones.length === 0 && !addingZone && (
+            {filteredZones.length === 0 && !addingZone && (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                Sem zonas configuradas. Crie a primeira zona de bilhetes.
+                {sessionId ? "Sem zonas configuradas para esta sessão." : "Sem zonas configuradas. Crie a primeira zona de bilhetes."}
               </p>
             )}
           </div>
@@ -683,7 +690,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       </div>
 
       {/* Revenue breakdown */}
-      {zones.length > 0 && allLots.length > 0 && (
+      {filteredZones.length > 0 && filteredLots.length > 0 && (
         <div className="glass rounded-xl p-5">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Resumo de Receita por Zona</h3>
           <div className="overflow-x-auto">
