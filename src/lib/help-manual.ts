@@ -169,6 +169,11 @@ const helpManual: HelpSection[] = [
         content:
           "Cada conta pode ter visibilidade restrita. Na configuração da conta, defina quais utilizadores têm acesso. Utilizadores sem acesso não verão a conta nem o seu saldo. Administradores veem sempre todas as contas.",
       },
+      {
+        title: "Operações Financeiras (Grupo 10)",
+        content:
+          "O módulo de Operações Financeiras, integrado na página de Contas, permite registar movimentos não operacionais (taxas bancárias, juros, parcelas de empréstimo/financiamento). O formulário prioriza a seleção da conta financeira e utiliza sugestões automáticas (autocomplete) para tipos comuns. As operações são criadas com estado 'Aprovado' por padrão e suportam a criação de modelos recorrentes.",
+      },
     ],
   },
   {
