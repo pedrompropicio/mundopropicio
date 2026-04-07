@@ -138,6 +138,10 @@ const helpTexts: Record<string, string> = {
     "Saldo calculado: Vendas − Despesas Diretas − Transferências. Mostra o valor que permanece retido na bilheteira. Transferências superiores ao saldo retido são bloqueadas pelo sistema.",
   accountingDocFlag:
     "Marque como 'Documento contábil' apenas ficheiros fiscais: faturas, notas fiscais, recibos, notas de crédito/débito e comprovativos de pagamento bancário. Propostas, contratos e riders NÃO devem ser marcados.",
+  uploadDocuments:
+    "Anexe aqui os ficheiros comprobatórios da transação (faturas, recibos, contratos, etc.). Marque a checkbox 'Documento contábil' APENAS para documentos fiscais que devem ser enviados à contabilidade. Ficheiros não marcados ficam registados mas não são incluídos na exportação contábil.",
+  exportPendencies:
+    "Exporta a lista de pendências documentais em Excel. Inclui todas as transações com conta bancária que não possuem documentos contábeis anexados — útil para partilhar com a equipa e regularizar em lote.",
 };
 
 export default helpTexts;

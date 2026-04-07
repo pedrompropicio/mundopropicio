@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FileText, FileSpreadsheet, AlertTriangle, CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -237,6 +239,7 @@ export default function ReportDocumentPendencies() {
 
           {/* Export */}
           <div className="flex items-center justify-end gap-2">
+            <HelpTooltip text={helpTexts.exportPendencies} side="left" size={14} />
             <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filtered.length === 0}>
               <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
             </Button>

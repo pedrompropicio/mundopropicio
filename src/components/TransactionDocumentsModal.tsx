@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { X, Upload, FileText, Trash2, ExternalLink, BookOpen, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 
@@ -136,7 +138,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold">Documentos</h2>
+            <h2 className="text-lg font-bold flex items-center gap-1.5">Documentos <HelpTooltip text={helpTexts.uploadDocuments} side="bottom" size={14} /></h2>
             <p className="text-xs text-muted-foreground truncate max-w-[300px]">{transactionDescription}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary">
