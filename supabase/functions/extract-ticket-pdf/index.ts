@@ -34,18 +34,26 @@ REGRAS IMPORTANTES:
 - Cada linha do relatório que NÃO seja "SOMA" ou "TOTAL" é um lote a extrair.
 - A "Zona" é a parte antes do " - " no nome (ex: "Balcão 1 - Lote 2" → zona="Balcão 1", lote="Lote 2").
 - Se o nome não tiver " - ", usa o nome completo como zona e "Lote 1" como lote.
-- "Qt." vendida é a quantidade de bilhetes efectivamente vendidos (coluna de vendas, não a coluna total/disponível).
+
+ATENÇÃO ESPECIAL ÀS COLUNAS DE QUANTIDADE:
+- O relatório Ticketline tem MÚLTIPLAS colunas de Qt. (quantidade).
+- A 1ª coluna Qt. é o TOTAL de bilhetes CARREGADOS/CONFIGURADOS (inclui cortesias, não vendidos, etc.).
+- A 2ª coluna Qt. é a quantidade de bilhetes EFECTIVAMENTE VENDIDOS (PAGOS).
+- DEVES usar SEMPRE a 2ª coluna Qt. (bilhetes vendidos/pagos) para o campo "quantidade".
+- NUNCA uses a 1ª coluna Qt. (total carregado) - essa é apenas informativa.
+- A diferença entre 1ª e 2ª Qt. são bilhetes não vendidos (reservados, cortesias, devoluções).
+
 - "P. UN." é o preço unitário.
-- Ignora linhas com quantidade 0.
+- Ignora linhas com quantidade vendida 0.
 - DESCARTA linhas com preço unitário inferior a 1,00€ (cortesias/camarotes sem venda real).
 - Extrai TODOS os dados de vendas que encontrares no documento.`
         : `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
 
 ESTRUTURA DO RELATÓRIO TICKETLINE:
 - O relatório apresenta colunas em pares de Qt./Valor.
-- 1ª Qt. = quantidade TOTAL de bilhetes carregados/configurados para o lote.
+- 1ª Qt. = quantidade TOTAL de bilhetes carregados/configurados para o lote (NÃO são vendas).
 - 1º Valor = valor total das vendas realizadas (NÃO é qt × preço, é apenas das vendas).
-- 2ª Qt. = quantidade de bilhetes VENDIDOS.
+- 2ª Qt. = quantidade de bilhetes EFECTIVAMENTE VENDIDOS (PAGOS).
 - 2º Valor = confirmação do valor vendido.
 - Colunas seguintes: quebra por canal de venda (online, presencial, etc.).
 - Últimas colunas de Qt sem Valor: bilhetes não vendidos (reservados, cortesias, não atribuídos, etc.).
@@ -61,23 +69,28 @@ REGRAS DE AGRUPAMENTO TICKETLINE:
 Devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "rows": [
-    { "zona": "Balcão 1", "lote": "Lote 2", "quantidade_total": 354, "quantidade_vendida": 348, "preco": 68.00, "iva_rate": 6 }
+    { "zona": "Balcão 1", "lote": "Lote 2", "quantidade_total": 354, "quantidade_vendida": 318, "preco": 68.00, "iva_rate": 6 }
   ]
 }
 
 CAMPOS:
 - "zona": nome da zona (parte antes do " - ")
 - "lote": nome do lote (parte depois do " - ", ou "Campanha Colaboradores" para campanhas)
-- "quantidade_total": 1ª coluna Qt. (total de bilhetes configurados)
-- "quantidade_vendida": 2ª coluna Qt. (bilhetes efectivamente vendidos)
+- "quantidade_total": 1ª coluna Qt. (total de bilhetes CARREGADOS/CONFIGURADOS - NÃO são vendas)
+- "quantidade_vendida": 2ª coluna Qt. (bilhetes EFECTIVAMENTE VENDIDOS/PAGOS - é ESTE o valor de vendas reais)
 - "preco": P. UN. (preço unitário)
 - "iva_rate": taxa de IVA (se não disponível, usa 6)
+
+VALIDAÇÃO CRÍTICA:
+- quantidade_vendida DEVE ser MENOR ou IGUAL a quantidade_total.
+- Se quantidade_vendida > quantidade_total, inverteste as colunas — corrige.
+- O cálculo correcto de receita é: quantidade_vendida × preco (NÃO quantidade_total × preco).
+- O "Valor" mostrado no relatório deve ser aproximadamente igual a quantidade_vendida × preco.
 
 REGRAS:
 - Extrai TODOS os lotes, mesmo com quantidade 0.
 - Ignora linhas "SOMA" e "TOTAL" (são subtotais).
 - DESCARTA lotes com preço unitário inferior a 1,00€ (ex: 0,01€ são bilhetes de cortesia/camarotes sem venda real).
-- quantidade_vendida pode ser MENOR ou IGUAL a quantidade_total.
 - O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.`;
 
 
