@@ -171,16 +171,44 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
             </span>
             <input type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
           </label>
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={isAccounting}
-              onChange={(e) => setIsAccounting(e.target.checked)}
-              className="rounded border-border"
-            />
-            <BookOpen className="h-3.5 w-3.5 text-primary" />
-            <span>Documento contábil (fatura, recibo, nota fiscal)</span>
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAccounting}
+                onChange={(e) => setIsAccounting(e.target.checked)}
+                className="rounded border-border"
+              />
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+              <span>Documento contábil (fatura, recibo, nota fiscal)</span>
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="rounded-full p-0.5 text-muted-foreground hover:text-primary transition-colors" title="Quais documentos são contábeis?">
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" className="w-72 text-xs space-y-1.5 p-3">
+                <p className="font-semibold text-sm">📋 Documentos contábeis:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+                  <li>Faturas (Portugal)</li>
+                  <li>Notas fiscais (Brasil)</li>
+                  <li>Recibos de pagamento</li>
+                  <li>Notas de crédito / débito</li>
+                  <li>Comprovativos de transferência</li>
+                  <li>Recibos verdes</li>
+                  <li>Extratos de comissões</li>
+                </ul>
+                <p className="font-semibold text-sm pt-1">🚫 NÃO marcar como contábil:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+                  <li>Propostas / orçamentos</li>
+                  <li>Contratos</li>
+                  <li>Riders técnicos</li>
+                  <li>Emails / correspondência</li>
+                </ul>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {/* Documents list (only real docs) */}
