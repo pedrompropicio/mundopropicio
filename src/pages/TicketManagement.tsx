@@ -16,8 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload, AlertTriangle,
 } from "lucide-react";
-import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/TicketUploadModals";
-import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
+import { TicketImportModal } from "@/components/TicketUploadModals";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
