@@ -223,10 +223,21 @@ Deno.serve(async (req) => {
     const unsubscribeToken = crypto.randomUUID();
 
     // Create unsubscribe token entry
-    await adminClient.from("email_unsubscribe_tokens").upsert(
+    const { error: unsubscribeError } = await adminClient.from("email_unsubscribe_tokens").upsert(
       { email, token: unsubscribeToken },
       { onConflict: "email" }
     );
+
+    if (unsubscribeError) {
+      console.error("Unsubscribe token error:", unsubscribeError);
+      return new Response(
+        JSON.stringify({
+          error: "Utilizador criado, mas houve erro ao preparar o email. Use 'Reenviar convite'.",
+          user_id: newUser.user?.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
@@ -255,6 +266,22 @@ Deno.serve(async (req) => {
 
     if (enqueueError) {
       console.error("Enqueue error:", enqueueError);
+
+      await adminClient.from("email_send_log").insert({
+        message_id: messageId,
+        template_name: "invite_set_password",
+        recipient_email: email,
+        status: "failed",
+        error_message: enqueueError.message,
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: "Utilizador criado, mas o email de definição de senha não foi enviado. Use 'Reenviar convite'.",
+          user_id: newUser.user?.id,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
