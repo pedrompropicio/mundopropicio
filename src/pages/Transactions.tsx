@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -51,6 +52,7 @@ export default function Transactions() {
   const [showTransfer, setShowTransfer] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
@@ -396,6 +398,13 @@ export default function Transactions() {
           <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/relatorios/listas-pagamento")}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Listas de Pagamento</span>
+          </button>
           <button
             onClick={() => setShowTransfer(true)}
             className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
