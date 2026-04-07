@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
@@ -303,7 +303,7 @@ export default function EventDetail() {
             BP {event.pl_mode === "active" ? "Ativo" : "Passivo"}
           </span>
           <div className="ml-auto flex gap-2">
-            {(isAdmin || isManager) && (
+            {(isAdmin || isManager) && !isCompleted && (
               <button
                 onClick={() => setShowEditModal(true)}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
@@ -328,7 +328,7 @@ export default function EventDetail() {
               <button
                 onClick={() => setConfirmAction({
                   title: "Concluir Evento",
-                  description: "Concluir este evento? As transações ficarão bloqueadas para alterações.",
+                  description: "Concluir este evento? Todas as alterações ficarão bloqueadas. Apenas um administrador poderá reabrir o evento.",
                   action: () => changeStatusMutation.mutate("completed"),
                 })}
                 disabled={changeStatusMutation.isPending}
@@ -340,17 +340,17 @@ export default function EventDetail() {
             {isAdmin && isCompleted && (
               <button
                 onClick={() => setConfirmAction({
-                  title: "Reativar Evento",
-                  description: "Reativar este evento? As transações voltarão a poder ser alteradas.",
+                  title: "🔓 Reabrir Evento",
+                  description: "Reabrir este evento? Todas as alterações voltarão a ser permitidas (bilheteira, BP, cachê, sócios, transações, etc.).",
                   action: () => changeStatusMutation.mutate("active"),
                 })}
                 disabled={changeStatusMutation.isPending}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors disabled:opacity-50"
               >
-                <RotateCcw className="h-3.5 w-3.5" /> Reativar Evento
+                <LockOpen className="h-3.5 w-3.5" /> Reabrir Evento
               </button>
             )}
-            {isAdmin && (
+            {isAdmin && !isCompleted && (
               <button
                 onClick={() => setConfirmAction({
                   title: "⚠️ Eliminar Evento",
@@ -450,6 +450,17 @@ export default function EventDetail() {
           subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((event.tickets_sold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
         />
       </div>
+
+      {/* Locked banner for completed events */}
+      {isCompleted && (
+        <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+          <Lock className="h-5 w-5 text-warning shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-warning">Evento Concluído — Bloqueado para alterações</p>
+            <p className="text-xs text-muted-foreground">Nenhuma alteração é permitida (bilheteira, cachê, BP, sócios, despesas extras). Apenas um administrador pode reabrir o evento.</p>
+          </div>
+        </div>
+      )}
 
       {showEditModal && (
         <EventEditModal event={event} onClose={() => setShowEditModal(false)} />
@@ -620,6 +631,7 @@ export default function EventDetail() {
           <EventCacheConfig
             eventId={selectedSubEvent || event.id}
             childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined}
+            eventStatus={event.status}
           />
         </TabsContent>
 

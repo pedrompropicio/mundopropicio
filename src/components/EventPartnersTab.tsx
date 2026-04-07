@@ -21,7 +21,7 @@ interface Props {
 export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const { isAdmin, isManager } = useAuth();
-  const canEdit = (isAdmin || isManager) && !["completed"].includes(eventStatus);
+  const canEdit = (isAdmin || isManager) && eventStatus !== "completed";
 
   const [showForm, setShowForm] = useState(false);
   const [showNewSupplier, setShowNewSupplier] = useState(false);

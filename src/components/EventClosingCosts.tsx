@@ -19,6 +19,7 @@ interface Props {
 
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const isEventLocked = eventStatus === "completed";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -115,7 +116,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             Custos internos que não geram transações bancárias (rateio de equipa, assessoria, etc.)
           </p>
         </div>
-        {!showForm && (
+        {!isEventLocked && !showForm && (
           <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar
           </Button>
@@ -187,17 +188,19 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
                   </TableCell>
                   <TableCell className="text-right font-mono text-warning">{formatCurrency(Number(c.amount))}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <button onClick={() => startEdit(c)} className="p-1 rounded hover:bg-secondary transition-colors">
-                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                      <button
-                        onClick={() => { if (window.confirm("Remover este custo?")) deleteMutation.mutate(c.id); }}
-                        className="p-1 rounded hover:bg-destructive/10 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </button>
-                    </div>
+                    {!isEventLocked && (
+                      <div className="flex gap-1">
+                        <button onClick={() => startEdit(c)} className="p-1 rounded hover:bg-secondary transition-colors">
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        <button
+                          onClick={() => { if (window.confirm("Remover este custo?")) deleteMutation.mutate(c.id); }}
+                          className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

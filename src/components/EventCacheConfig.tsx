@@ -13,10 +13,12 @@ import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
 interface Props {
   eventId: string;
   childEventIds?: string[];
+  eventStatus?: string;
 }
 
-export function EventCacheConfig({ eventId, childEventIds }: Props) {
+export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const isEventLocked = eventStatus === "completed";
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -271,7 +273,7 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
           </span>
           <button
             onClick={() => setShowAddForm(true)}
-            disabled={showAddForm}
+            disabled={showAddForm || isEventLocked}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Adicionar Atração
@@ -445,21 +447,23 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                         {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                       </button>
                     )}
-                    <button
-                      onClick={() => {
-                        if (confirm(`Remover cachê de "${config.artist_name}"?`)) {
-                          deleteMutation.mutate(config.id);
-                        }
-                      }}
-                      className="rounded p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {!isEventLocked && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remover cachê de "${config.artist_name}"?`)) {
+                            deleteMutation.mutate(config.id);
+                          }
+                        }}
+                        className="rounded p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Deductions panel (variable only) */}
-                {isVariable && isExpanded && (
+                {isVariable && isExpanded && !isEventLocked && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
                     {/* Fixed percentage deduction */}
                     <div className="space-y-1.5">
@@ -590,6 +594,7 @@ export function EventCacheConfig({ eventId, childEventIds }: Props) {
                     cacheConfigId={config.id}
                     artistName={config.artist_name}
                     eventId={eventId}
+                    canEdit={!isEventLocked}
                   />
                 </div>
               </div>

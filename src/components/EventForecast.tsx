@@ -58,8 +58,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user } = useAuth();
-  const canApprove = isAdmin || isManager;
-  const canEditBP = isAdmin || isManager;
+  const isEventLocked = eventStatus === "completed";
+  const canApprove = (isAdmin || isManager) && !isEventLocked;
+  const canEditBP = (isAdmin || isManager) && !isEventLocked;
 
   useEffect(() => {
     if ((addingType || editingId) && descRef.current) {
