@@ -631,6 +631,7 @@ export default function EventDetail() {
           <EventCacheConfig
             eventId={selectedSubEvent || event.id}
             childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined}
+            eventStatus={event.status}
           />
         </TabsContent>
 
