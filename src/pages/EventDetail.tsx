@@ -451,6 +451,17 @@ export default function EventDetail() {
         />
       </div>
 
+      {/* Locked banner for completed events */}
+      {isCompleted && (
+        <div className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+          <Lock className="h-5 w-5 text-warning shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-warning">Evento Concluído — Bloqueado para alterações</p>
+            <p className="text-xs text-muted-foreground">Nenhuma alteração é permitida (bilheteira, cachê, BP, sócios, despesas extras). Apenas um administrador pode reabrir o evento.</p>
+          </div>
+        </div>
+      )}
+
       {showEditModal && (
         <EventEditModal event={event} onClose={() => setShowEditModal(false)} />
       )}
