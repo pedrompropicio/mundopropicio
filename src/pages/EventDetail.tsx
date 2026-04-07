@@ -216,11 +216,27 @@ export default function EventDetail() {
         .update({ status: newStatus })
         .eq("id", id!);
       if (error) throw error;
+
+      // If this is a parent (multi_day) event, propagate status to all child events
+      if (eventType === "multi_day" && subEvents.length > 0) {
+        const childIds = subEvents.map((s: any) => s.id);
+        const { error: childError } = await (supabase
+          .from("events")
+          .update({ status: newStatus }) as any)
+          .in("id", childIds);
+        if (childError) throw childError;
+      }
     },
     onSuccess: (_, newStatus) => {
       queryClient.invalidateQueries({ queryKey: ["event_detail", id] });
       queryClient.invalidateQueries({ queryKey: ["events_full"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      // Invalidate sub-event detail pages too
+      if (eventType === "multi_day" && subEvents.length > 0) {
+        subEvents.forEach((s: any) => {
+          queryClient.invalidateQueries({ queryKey: ["event_detail", s.id] });
+        });
+      }
       toast({ title: newStatus === "completed" ? "Evento concluído!" : "Evento reativado!" });
     },
     onError: (err: any) => {
