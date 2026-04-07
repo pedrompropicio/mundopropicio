@@ -475,6 +475,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         zones_created: result?.autoCreatedZones || 0,
         lots_created: result?.autoCreatedLots || 0,
       });
+      if (logError) console.error("Import log error:", logError);
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
