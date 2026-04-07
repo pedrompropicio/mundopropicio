@@ -20,7 +20,7 @@ interface Event {
 }
 
 interface TicketImportModalProps {
-  events: Event[];
+  events?: Event[];
   selectedEventId?: string;
   /** When true, opens externally (controlled mode) */
   open?: boolean;
