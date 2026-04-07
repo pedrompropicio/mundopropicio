@@ -106,6 +106,7 @@ export default function TicketManagement() {
       return data;
     },
     enabled: !!selectedEventId,
+    staleTime: 30_000,
   });
 
   // Filter zones by selected session
