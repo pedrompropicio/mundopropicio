@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import * as XLSX from "xlsx";
 
@@ -29,6 +29,19 @@ interface ParsedSale {
   status: "matched" | "unmatched" | "partial";
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Erro ao ler ficheiro"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -36,6 +49,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const [parsedRows, setParsedRows] = useState<ParsedSale[]>([]);
   const [fileName, setFileName] = useState("");
   const [step, setStep] = useState<"upload" | "review">("upload");
+  const [extracting, setExtracting] = useState(false);
 
   const { data: ticketOffices = [] } = useQuery({
     queryKey: ["ticket_offices_active"],
@@ -74,82 +88,120 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     },
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const matchRows = (rawRows: { date: string; event_name: string; zone: string; lot: string; quantity: number; unit_price: number }[]): ParsedSale[] => {
+    return rawRows.map((row) => {
+      const matchedEvent = events.find(
+        (ev: any) => ev.name.toLowerCase().trim() === row.event_name.toLowerCase().trim()
+      );
+
+      let matchedZone: any = null;
+      let matchedLot: any = null;
+      if (matchedEvent) {
+        const eventZones = zonesAndLots.filter((z: any) => z.event_id === matchedEvent.id);
+        matchedZone = eventZones.find((z: any) => z.name.toLowerCase().trim() === row.zone.toLowerCase());
+        if (matchedZone) {
+          const lots = (matchedZone as any).event_ticket_lots || [];
+          matchedLot = lots.find((l: any) => l.name.toLowerCase().trim() === row.lot.toLowerCase());
+        }
+      }
+
+      const status: ParsedSale["status"] = matchedEvent && matchedZone ? "matched"
+        : matchedEvent ? "partial"
+        : "unmatched";
+
+      return {
+        ...row,
+        matched_event_id: matchedEvent?.id,
+        matched_zone_id: matchedZone?.id,
+        matched_lot_id: matchedLot?.id,
+        status,
+      };
+    }).filter((r) => r.quantity > 0 && r.unit_price >= 1);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Ficheiro demasiado grande (máx. 10MB)");
+      return;
+    }
     setFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json<any>(sheet);
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
 
-        if (json.length === 0) {
-          toast.error("Ficheiro vazio ou formato inválido");
+    if (isPdf) {
+      setExtracting(true);
+      try {
+        const base64 = await fileToBase64(file);
+        const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
+          body: { pdf_base64: base64, extraction_type: "daily_sales" },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const rows = (data.rows || []).map((r: any) => ({
+          date: new Date().toISOString().slice(0, 10),
+          event_name: "",
+          zone: String(r.zona || ""),
+          lot: String(r.lote || ""),
+          quantity: parseInt(r.quantidade) || 0,
+          unit_price: parseFloat(r.preco_unitario) || 0,
+        }));
+
+        const filtered = rows.filter((r: any) => r.quantity > 0 && r.unit_price >= 1);
+        if (filtered.length === 0) {
+          toast.error("Nenhum dado encontrado no PDF");
           return;
         }
 
-        // Expected columns: Data, Evento, Zona, Lote, Quantidade, Preço Unitário
-        const parsed: ParsedSale[] = json.map((row: any) => {
-          const date = parseDate(row["Data"] || row["data"] || row["DATE"]);
-          const eventName = String(row["Evento"] || row["evento"] || row["EVENT"] || "").trim();
-          const zone = String(row["Zona"] || row["zona"] || row["ZONE"] || "").trim();
-          const lot = String(row["Lote"] || row["lote"] || row["LOT"] || "").trim();
-          const quantity = Number(row["Quantidade"] || row["quantidade"] || row["QTY"] || 0);
-          const unitPrice = Number(row["Preço Unitário"] || row["preco_unitario"] || row["PRICE"] || row["Preço"] || row["preco"] || 0);
+        const matched = matchRows(filtered);
+        setParsedRows(matched);
+        setStep("review");
+        toast.success(`${filtered.length} linhas extraídas do PDF via IA`);
+      } catch (err: any) {
+        toast.error("Erro ao extrair dados do PDF", { description: err.message });
+      } finally {
+        setExtracting(false);
+      }
+    } else {
+      // CSV/Excel flow
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json<any>(sheet);
 
-          // Match event by name
-          const matchedEvent = events.find(
-            (ev: any) => ev.name.toLowerCase().trim() === eventName.toLowerCase()
-          );
-
-          // Match zone and lot
-          let matchedZone: any = null;
-          let matchedLot: any = null;
-          if (matchedEvent) {
-            const eventZones = zonesAndLots.filter((z: any) => z.event_id === matchedEvent.id);
-            matchedZone = eventZones.find((z: any) => z.name.toLowerCase().trim() === zone.toLowerCase());
-            if (matchedZone) {
-              const lots = (matchedZone as any).event_ticket_lots || [];
-              matchedLot = lots.find((l: any) => l.name.toLowerCase().trim() === lot.toLowerCase());
-            }
+          if (json.length === 0) {
+            toast.error("Ficheiro vazio ou formato inválido");
+            return;
           }
 
-          const status: ParsedSale["status"] = matchedEvent && matchedZone && matchedLot ? "matched"
-            : matchedEvent && matchedZone ? "matched"
-            : matchedEvent ? "partial"
-            : "unmatched";
+          const rawRows = json.map((row: any) => ({
+            date: parseDate(row["Data"] || row["data"] || row["DATE"]),
+            event_name: String(row["Evento"] || row["evento"] || row["EVENT"] || "").trim(),
+            zone: String(row["Zona"] || row["zona"] || row["ZONE"] || "").trim(),
+            lot: String(row["Lote"] || row["lote"] || row["LOT"] || "").trim(),
+            quantity: Number(row["Quantidade"] || row["quantidade"] || row["QTY"] || 0),
+            unit_price: Number(row["Preço Unitário"] || row["preco_unitario"] || row["PRICE"] || row["Preço"] || row["preco"] || 0),
+          }));
 
-          return {
-            date,
-            event_name: eventName,
-            zone,
-            lot,
-            quantity,
-            unit_price: unitPrice,
-            matched_event_id: matchedEvent?.id,
-            matched_zone_id: matchedZone?.id,
-            matched_lot_id: matchedLot?.id,
-            status,
-          };
-        }).filter((r: ParsedSale) => r.quantity > 0 && r.unit_price >= 1);
-
-        setParsedRows(parsed);
-        setStep("review");
-      } catch (err) {
-        toast.error("Erro ao processar ficheiro");
-      }
-    };
-    reader.readAsArrayBuffer(file);
+          const matched = matchRows(rawRows);
+          setParsedRows(matched);
+          setStep("review");
+        } catch (err) {
+          toast.error("Erro ao processar ficheiro");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
   };
 
   const parseDate = (val: any): string => {
     if (!val) return new Date().toISOString().slice(0, 10);
     if (typeof val === "number") {
-      // Excel serial date
       const date = new Date((val - 25569) * 86400 * 1000);
       return date.toISOString().slice(0, 10);
     }
@@ -160,7 +212,6 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const matchedRows = parsedRows.filter((r) => r.status === "matched");
   const unmatchedRows = parsedRows.filter((r) => r.status !== "matched");
 
-  // Check for existing sales on the same dates/zones
   const matchedDates = useMemo(() => [...new Set(matchedRows.map(r => r.date))], [matchedRows]);
   const matchedZoneIds = useMemo(() => [...new Set(matchedRows.map(r => r.matched_zone_id).filter(Boolean))], [matchedRows]);
 
@@ -232,6 +283,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     setFileName("");
     setStep("upload");
     setSelectedOfficeId("");
+    setExtracting(false);
     onClose();
   };
 
@@ -259,43 +311,20 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
             </div>
 
             <div className="glass rounded-xl p-4 space-y-3">
-              <h4 className="text-sm font-medium">Formato esperado (CSV/Excel)</h4>
-              <p className="text-xs text-muted-foreground">
-                Colunas obrigatórias: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong>
-                <br />
-                Coluna opcional: <strong>Lote</strong> <span className="text-muted-foreground/70">(se não existir, a venda é registada por zona)</span>
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border/50 text-muted-foreground">
-                      <th className="pb-1 text-left">Data</th>
-                      <th className="pb-1 text-left">Evento</th>
-                      <th className="pb-1 text-left">Zona</th>
-                      <th className="pb-1 text-left">Lote <span className="font-normal text-muted-foreground/60">(opc.)</span></th>
-                      <th className="pb-1 text-right">Quantidade</th>
-                      <th className="pb-1 text-right">Preço Unitário</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-muted-foreground">
-                    <tr>
-                      <td className="py-1">2026-04-02</td>
-                      <td>Festival Verão</td>
-                      <td>Plateia</td>
-                      <td>1º Lote</td>
-                      <td className="text-right">150</td>
-                      <td className="text-right">35.00</td>
-                    </tr>
-                    <tr className="opacity-60">
-                      <td className="py-1">2026-04-02</td>
-                      <td>Concerto Jazz</td>
-                      <td>Geral</td>
-                      <td>—</td>
-                      <td className="text-right">200</td>
-                      <td className="text-right">20.00</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <h4 className="text-sm font-medium">Formatos aceites</h4>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
+                  <div>
+                    <span className="font-medium text-foreground">PDF Ticketline</span> — A IA extrai automaticamente zonas, lotes, quantidades e preços do relatório
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <span className="font-medium text-foreground">CSV / Excel</span> — Colunas: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong> (+ opcional: <strong>Lote</strong>)
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -303,18 +332,23 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
               <input
                 ref={fileRef}
                 type="file"
-                accept=".xlsx,.xls,.csv"
+                accept=".xlsx,.xls,.csv,.pdf"
                 onChange={handleFileUpload}
                 className="hidden"
+                disabled={extracting}
               />
               <Button
                 onClick={() => fileRef.current?.click()}
-                disabled={!selectedOfficeId}
+                disabled={!selectedOfficeId || extracting}
                 variant="outline"
                 className="w-full"
               >
-                <Upload className="h-4 w-4 mr-2" />
-                {fileName || "Carregar ficheiro CSV/Excel"}
+                {extracting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {extracting ? "A extrair dados com IA…" : fileName || "Carregar ficheiro (PDF, CSV ou Excel)"}
               </Button>
             </div>
           </div>
