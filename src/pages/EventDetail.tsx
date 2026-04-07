@@ -86,6 +86,7 @@ export default function EventDetail() {
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
   const { data: event, isLoading: loadingEvent } = useQuery({
