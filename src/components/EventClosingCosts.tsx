@@ -116,7 +116,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             Custos internos que não geram transações bancárias (rateio de equipa, assessoria, etc.)
           </p>
         </div>
-        {!showForm && (
+        {!isEventLocked && !showForm && (
           <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar
           </Button>
