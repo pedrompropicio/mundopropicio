@@ -404,6 +404,30 @@ export default function TicketManagement() {
 
       {selectedEventId && (
         <>
+          {/* Session tabs */}
+          {sessions.length > 0 && (
+            <div className="glass rounded-xl p-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sessão</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedSessionId("all")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedSessionId === "all" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                >
+                  Todas
+                </button>
+                {sessions.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSessionId(s.id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedSessionId === s.id ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Summary cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="glass rounded-xl p-4 space-y-1">
