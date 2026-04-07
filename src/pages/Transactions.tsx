@@ -52,6 +52,7 @@ export default function Transactions() {
   const [showTransfer, setShowTransfer] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
