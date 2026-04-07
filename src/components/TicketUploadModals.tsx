@@ -436,47 +436,60 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
         .select("id, name")
         .eq("event_id", eventId);
 
-      if (!zones || zones.length === 0) throw new Error("Este evento não tem zonas de bilhetes configuradas.");
+      // Normalize helper: lowercase, remove accents, collapse whitespace
+      const normalize = (s: string) =>
+        s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-      const zoneIds = zones.map(z => z.id);
-      const { data: lots } = await supabase
-        .from("event_ticket_lots")
-        .select("id, name, zone_id, price, iva_rate")
-        .in("zone_id", zoneIds);
+      const zoneIds = (zones || []).map(z => z.id);
+      const { data: lots } = zoneIds.length > 0
+        ? await supabase.from("event_ticket_lots").select("id, name, zone_id, price, iva_rate").in("zone_id", zoneIds)
+        : { data: [] as any[] };
 
       let imported = 0;
       let autoCreatedLots = 0;
+      let autoCreatedZones = 0;
+      let skipped = 0;
       const notesText = saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`;
 
-      // Keep a mutable copy of lots to track newly created ones during import
+      // Mutable copies to track newly created zones/lots during import
+      const allZones = [...(zones || [])];
       const allLots = [...(lots || [])];
 
       for (const row of preview) {
-        // Try to match zone first
-        const matchedZone = row.zona
-          ? zones.find(z => z.name.toLowerCase().trim() === row.zona.toLowerCase().trim())
+        // Match zone with normalized comparison
+        let matchedZone = row.zona
+          ? allZones.find(z => normalize(z.name) === normalize(row.zona))
           : null;
 
-        // Try to match lot within the zone
+        // Auto-create zone if not found
+        if (!matchedZone && row.zona) {
+          const { data: newZone, error: zoneError } = await supabase
+            .from("event_ticket_zones")
+            .insert({ event_id: eventId, name: row.zona, total_capacity: 0 })
+            .select("id, name")
+            .single();
+          if (zoneError) throw zoneError;
+          matchedZone = newZone;
+          allZones.push(newZone);
+          autoCreatedZones++;
+        }
+
+        if (!matchedZone) { skipped++; continue; }
+
+        // Match lot with normalized comparison
         let matchedLot: any = null;
-        if (row.lote && allLots.length > 0) {
-          if (matchedZone) {
-            matchedLot = allLots.find(l =>
-              l.name.toLowerCase().trim() === row.lote.toLowerCase().trim() &&
-              l.zone_id === matchedZone.id
-            );
-          }
+        if (row.lote) {
+          matchedLot = allLots.find(l =>
+            normalize(l.name) === normalize(row.lote) && l.zone_id === matchedZone!.id
+          );
           if (!matchedLot) {
-            matchedLot = allLots.find(l =>
-              l.name.toLowerCase().trim() === row.lote.toLowerCase().trim()
-            );
+            matchedLot = allLots.find(l => normalize(l.name) === normalize(row.lote));
           }
         }
 
         // Auto-create missing lot if zone exists but lot doesn't
         if (!matchedLot && matchedZone && row.lote) {
-          // Inherit IVA rate from existing lots in the same zone
-          const zoneLots = allLots.filter(l => l.zone_id === matchedZone.id);
+          const zoneLots = allLots.filter(l => l.zone_id === matchedZone!.id);
           const inheritedIvaRate = zoneLots.length > 0 ? zoneLots[0].iva_rate : 6;
           const nextLotNumber = zoneLots.length + 1;
 
@@ -485,7 +498,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             .insert({
               zone_id: matchedZone.id,
               name: row.lote,
-              quantity: 0, // Planning stays at 0
+              quantity: 0,
               price: row.preco_unitario || 0,
               iva_rate: inheritedIvaRate,
               lot_number: nextLotNumber,
@@ -512,7 +525,6 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
           if (error) throw error;
           imported++;
         } else if (matchedZone) {
-          // Zone match but no lot name — register sale at zone level
           const { error } = await supabase.from("ticket_sales").insert({
             zone_id: matchedZone.id,
             lot_id: null,
@@ -524,11 +536,14 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
           });
           if (error) throw error;
           imported++;
+        } else {
+          skipped++;
         }
-        // If no zone match at all, the row is silently skipped (shouldn't happen with Ticketline PDFs)
       }
 
-      return { imported, autoCreatedLots };
+      if (imported === 0) throw new Error(`Nenhuma venda importada. ${skipped} linhas sem correspondência de zona/lote.`);
+
+      return { imported, autoCreatedLots, autoCreatedZones, skipped };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
@@ -536,10 +551,11 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
-      const msg = result?.autoCreatedLots
-        ? `${result.imported} vendas importadas, ${result.autoCreatedLots} novos lotes criados automaticamente`
-        : `Vendas diárias importadas com sucesso!`;
-      toast({ title: msg });
+      const parts: string[] = [`${result?.imported} vendas importadas`];
+      if (result?.autoCreatedZones) parts.push(`${result.autoCreatedZones} novas zonas criadas`);
+      if (result?.autoCreatedLots) parts.push(`${result.autoCreatedLots} novos lotes criados`);
+      if (result?.skipped) parts.push(`${result.skipped} linhas ignoradas`);
+      toast({ title: parts.join(", ") });
       handleClose();
     },
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
