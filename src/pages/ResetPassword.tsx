@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Music2 } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
 
@@ -34,10 +34,41 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<ResetStatus>("loading");
   const [statusDetail, setStatusDetail] = useState("A verificar link de recuperação…");
+  const [isTokenHashFlow, setIsTokenHashFlow] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const resolvedRef = useRef(false);
 
   useEffect(() => {
+    // Check for token_hash flow (direct link from invite email)
+    const tokenHash = searchParams.get("token_hash");
+    const type = searchParams.get("type") || "recovery";
+
+    if (tokenHash) {
+      setIsTokenHashFlow(true);
+      // Verify the token hash directly with Supabase
+      supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: type as any,
+      }).then(({ data, error }) => {
+        if (error) {
+          setStatus("expired");
+          setStatusDetail(mapRecoveryError(error.message));
+        } else if (data.session) {
+          resolvedRef.current = true;
+          setStatus("ready");
+          setStatusDetail("Defina a sua senha para aceder à plataforma");
+        } else {
+          setStatus("expired");
+          setStatusDetail("Não foi possível validar o link. Solicite um novo convite.");
+        }
+        // Clean URL
+        window.history.replaceState({}, document.title, "/reset-password");
+      });
+      return;
+    }
+
+    // Standard recovery flow (OTP code or Supabase redirect)
     const { errorCode, errorDescription } = getErrorFromUrl();
     if (errorCode || errorDescription) {
       setStatus("expired");
@@ -87,7 +118,7 @@ export default function ResetPassword() {
       window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +149,7 @@ export default function ResetPassword() {
       return;
     }
 
-    toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
+    toast({ title: "Senha definida com sucesso!", description: "Pode agora entrar com a sua senha." });
     await supabase.auth.signOut();
     navigate("/login");
     setLoading(false);
@@ -131,7 +162,9 @@ export default function ResetPassword() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary glow-primary">
             <Music2 className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Definir Nova Senha</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isTokenHashFlow ? "Definir Senha" : "Definir Nova Senha"}
+          </h1>
           <p className="text-center text-sm text-muted-foreground">{statusDetail}</p>
         </div>
 
