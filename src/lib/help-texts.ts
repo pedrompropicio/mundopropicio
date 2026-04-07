@@ -128,6 +128,16 @@ const helpTexts: Record<string, string> = {
     "Relatório analítico do cachê de cada artista do evento. Demonstra o cálculo completo (fixo ou variável com deduções), os custos extras a descontar e o valor líquido final a pagar.",
   reportDocumentPendencies:
     "Auditoria de conformidade documental — identifica transações com conta bancária que não possuem documentos contábeis (faturas, recibos, notas fiscais) anexados. Use para regularizar pendências antes da exportação contábil.",
+  financialOperations:
+    "Registe movimentos não operacionais (taxas bancárias, juros, parcelas de empréstimo). Selecione a conta, descreva a operação e o sistema detecta automaticamente se é receita ou despesa. Suporta criação de modelos recorrentes.",
+  cacheExtras:
+    "Despesas extras pagas pelo evento em nome do artista (ex: hotel extra, transfer). São descontadas analiticamente do cachê bruto para determinar o valor líquido a pagar. Não geram transações separadas.",
+  partnerExtras:
+    "Despesas extras pagas pelo evento em nome de um sócio específico (ex: alojamento, despesas pessoais). São descontadas apenas da quota-parte desse sócio no resultado, sem afetar o resultado global do evento.",
+  ticketOfficeBalance:
+    "Saldo calculado: Vendas − Despesas Diretas − Transferências. Mostra o valor que permanece retido na bilheteira. Transferências superiores ao saldo retido são bloqueadas pelo sistema.",
+  accountingDocFlag:
+    "Marque como 'Documento contábil' apenas ficheiros fiscais: faturas, notas fiscais, recibos, notas de crédito/débito e comprovativos de pagamento bancário. Propostas, contratos e riders NÃO devem ser marcados.",
 };
 
 export default helpTexts;
