@@ -12,18 +12,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
-type EventType = "simple" | "festival" | "multi_day";
+type EventType = "simple" | "festival" | "multi_day" | "tour";
 
 const eventTypeLabels: Record<EventType, string> = {
   simple: "Evento Simples",
   festival: "Festival",
   multi_day: "Múltiplos Dias",
+  tour: "Turnê",
 };
 
 const eventTypeIcons: Record<EventType, typeof Calendar> = {
   simple: Calendar,
   festival: Layers,
   multi_day: Route,
+  tour: Route,
 };
 
 interface SessionDraft {
@@ -412,6 +414,7 @@ export default function Events() {
       simple: "bg-blue-500/15 text-blue-400",
       festival: "bg-purple-500/15 text-purple-400",
       multi_day: "bg-amber-500/15 text-amber-400",
+      tour: "bg-amber-500/15 text-amber-400",
     };
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[type]}`}>
