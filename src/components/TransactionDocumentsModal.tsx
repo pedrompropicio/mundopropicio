@@ -162,13 +162,25 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         )}
 
         {/* Upload */}
-        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 transition-colors hover:border-primary/50 hover:bg-primary/5 ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
-          <Upload className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {uploading ? "A enviar…" : "Clique para anexar documento (max 10MB)"}
-          </span>
-          <input type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
-        </label>
+        <div className="space-y-2">
+          <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 transition-colors hover:border-primary/50 hover:bg-primary/5 ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+            <Upload className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {uploading ? "A enviar…" : "Clique para anexar documento (max 10MB)"}
+            </span>
+            <input type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isAccounting}
+              onChange={(e) => setIsAccounting(e.target.checked)}
+              className="rounded border-border"
+            />
+            <BookOpen className="h-3.5 w-3.5 text-primary" />
+            <span>Documento contábil (fatura, recibo, nota fiscal)</span>
+          </label>
+        </div>
 
         {/* Documents list (only real docs) */}
         {isLoading ? (
