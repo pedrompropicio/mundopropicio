@@ -214,3 +214,64 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     </div>
   );
 }
+
+function ClosingCostRow({ cost, isEventLocked, onEdit, onDelete, onFileUpload }: {
+  cost: any;
+  isEventLocked: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onFileUpload: (file: File) => void;
+}) {
+  const { data: docs = [] } = useQuery({
+    queryKey: ["closing-cost-docs", cost.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("closing-cost-documents").list(cost.id);
+      if (error) return [];
+      return data || [];
+    },
+  });
+
+  async function openDoc(name: string) {
+    const { data } = await supabase.storage.from("closing-cost-documents").createSignedUrl(`${cost.id}/${name}`, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  }
+
+  return (
+    <TableRow>
+      <TableCell>
+        <p className="text-sm font-medium">{cost.description}</p>
+        {cost.notes && <p className="text-xs text-muted-foreground">{cost.notes}</p>}
+        {docs.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {docs.map((doc: any) => (
+              <button key={doc.name} onClick={() => openDoc(doc.name)} className="flex items-center gap-0.5 text-primary hover:underline text-[10px]">
+                <FileText className="h-2.5 w-2.5" /> {doc.name}
+                <ExternalLink className="h-2 w-2" />
+              </button>
+            ))}
+          </div>
+        )}
+      </TableCell>
+      <TableCell className="text-sm text-muted-foreground">
+        {cost.account_categories ? `${cost.account_categories.code} - ${cost.account_categories.name}` : "—"}
+      </TableCell>
+      <TableCell className="text-right font-mono text-warning">{formatCurrency(Number(cost.amount))}</TableCell>
+      <TableCell>
+        {!isEventLocked && (
+          <div className="flex gap-1">
+            <label className="p-1 rounded hover:bg-secondary cursor-pointer transition-colors">
+              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+              <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && onFileUpload(e.target.files[0])} />
+            </label>
+            <button onClick={onEdit} className="p-1 rounded hover:bg-secondary transition-colors">
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            <button onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 transition-colors">
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            </button>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
