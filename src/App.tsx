@@ -51,7 +51,14 @@ import FloatingHelpButton from "./components/FloatingHelpButton";
 import NotFound from "./pages/NotFound";
 
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function ProtectedLayout() {
   const { user, loading } = useAuth();
