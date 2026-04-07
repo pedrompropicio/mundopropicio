@@ -752,6 +752,49 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Duplicate import confirmation */}
+      <AlertDialog open={showDuplicateConfirm} onOpenChange={setShowDuplicateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Importação possivelmente duplicada
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="font-medium text-foreground">
+                  Já existem importações registadas para este evento com período sobreponível:
+                </p>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                  {duplicateWarnings.map((w: any, i: number) => (
+                    <div key={i} className="text-xs">
+                      <span className="font-medium">
+                        {new Date(w.period_from + "T12:00:00").toLocaleDateString("pt-PT")} — {new Date(w.period_to + "T12:00:00").toLocaleDateString("pt-PT")}
+                      </span>
+                      {w.file_name && <span className="text-muted-foreground ml-2">({w.file_name})</span>}
+                      <span className="text-muted-foreground ml-2">• {w.rows_imported} linhas importadas</span>
+                      <span className="text-muted-foreground ml-2">• {new Date(w.created_at).toLocaleDateString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-destructive font-medium">
+                  Continuar poderá resultar em vendas duplicadas. Tem a certeza que pretende prosseguir?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { setShowDuplicateConfirm(false); executeImport(); }}
+            >
+              Importar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
