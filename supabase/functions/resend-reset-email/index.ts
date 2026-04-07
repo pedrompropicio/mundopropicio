@@ -60,8 +60,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use the published app URL for password reset redirect
-    const siteUrl = "https://mundopropicio.lovable.app";
+    const siteUrl = "https://mpgestaoeventos.com";
     const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
       redirectTo: `${siteUrl}/reset-password`,
     });
