@@ -8,7 +8,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { AppSidebar } from "@/components/AppSidebar";
+import { Sun, Moon } from "lucide-react";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
@@ -78,6 +80,7 @@ function ProtectedLayout() {
         <div className="flex items-center gap-2">
           <GlobalSearch />
           <NotificationBell />
+          <ThemeToggle />
         </div>
       </header>
       <div className="flex pt-14">
@@ -130,24 +133,39 @@ function ProtectedLayout() {
   );
 }
 
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+    >
+      {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
+    </button>
+  );
+}
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<AuthRoute />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/unsubscribe" element={<Unsubscribe />} />
-            <Route path="/*" element={<ProtectedLayout />} />
-            <Route path="/*" element={<ProtectedLayout />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<AuthRoute />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/unsubscribe" element={<Unsubscribe />} />
+              <Route path="/*" element={<ProtectedLayout />} />
+              <Route path="/*" element={<ProtectedLayout />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 function AuthRoute() {
