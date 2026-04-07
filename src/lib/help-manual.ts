@@ -245,17 +245,17 @@ const helpManual: HelpSection[] = [
       {
         title: "DRE — Demonstração de Resultado",
         content:
-          "Apresenta receitas e despesas agrupadas por categoria, com cálculo do resultado líquido. A 'Visão Sócio' inclui custos de fecho para refletir o impacto total na divisão de resultados.",
+          "Apresenta receitas e despesas agrupadas por categoria, com cálculo do resultado líquido. O sistema oferece duas versões:\n\nDRE Padrão — Layout de 3 colunas (Sem IVA, IVA e Com IVA). O 'Resultado Mundo Propício' reflete o lucro real (ex-IVA) menos as distribuições efetivas aos sócios.\n\nDRE Brasil — Relatório adaptado para sócios com base 'Despesas c/IVA', com layout de coluna única (Receitas s/IVA e Despesas c/IVA).\n\nEm ambos, a 'Visão Sócio' inclui custos de fecho para refletir o impacto total na divisão de resultados.",
       },
       {
         title: "Business Plan (BP) Consolidado",
         content:
-          "Compara previsões do BP com valores reais por evento e categoria. Permite identificar desvios e ajustar o planeamento.",
+          "Compara previsões do BP com valores reais por evento e categoria. Permite identificar desvios e ajustar o planeamento. Inclui opção de visualizar o histórico de alterações de linhas aprovadas.",
       },
       {
         title: "Extrato Bancário",
         content:
-          "Extrato detalhado de cada conta financeira com todas as movimentações e saldo acumulado. Use para conferir com extratos do banco.",
+          "Extrato detalhado de cada conta financeira com todas as movimentações e saldo acumulado. Inclui visualização de documentos anexados por transação. Use para conferir com extratos do banco.",
       },
       {
         title: "Fluxo de Caixa",
@@ -268,14 +268,29 @@ const helpManual: HelpSection[] = [
           "Lista de compromissos financeiros pendentes com valores, datas de vencimento e estado de pagamento.",
       },
       {
+        title: "Movimentações",
+        content:
+          "Relatório analítico de movimentações financeiras que consolida todas as transações (liquidadas e em aberto) agrupadas por evento. Suporta filtros por período, multi-seleção de contas e eventos, e inclui visualização de anexos e log de auditoria para liquidações parciais.",
+      },
+      {
         title: "Cachê do Artista",
         content:
           "Relatório analítico dedicado ao cachê de cada artista do evento. Para cachê variável, demonstra passo a passo: receita de bilheteira → deduções por categoria → dedução fixa percentual → base de cálculo → percentagem do artista → cachê bruto. Para cachê fixo, apresenta o valor acordado.\n\nEm seguida, lista analiticamente todos os custos extras a descontar, chegando ao cachê líquido a pagar. Pode ser exportado em PDF para prestação de contas ao artista ou à sua equipa.",
       },
       {
+        title: "Auditoria de Bilheteiras",
+        content:
+          "Relatório de consolidação financeira de bilheteiras com visões Sintética e Analítica. A visão Analítica suporta agrupamento 'Por Categoria' ou 'Por Evento' em três níveis de detalhe. Vendas e despesas diretas são separadas por evento; comissões são distribuídas proporcionalmente pelo volume de vendas; transferências são tratadas como movimentos globais. Exportável em PDF e Excel.",
+      },
+      {
+        title: "Pendências Documentais",
+        content:
+          "Relatório de auditoria que identifica transações com conta bancária associada que não possuem documentos contábeis (faturas, recibos, notas fiscais) anexados. Filtre por período, conta ou evento. Use como ferramenta de conformidade contínua para regularizar pendências antes da exportação contábil.\n\nOs cards resumo permitem alternar rapidamente entre transações pendentes, conformes ou todas. Exportável em Excel.",
+      },
+      {
         title: "Listas de Pagamento",
         content:
-          "Agrupe transações aprovadas em listas para processamento em lote. As listas passam por aprovação antes de serem executadas.",
+          "Agrupe transações aprovadas em listas para processamento em lote. As listas passam por aprovação antes de serem executadas. Pode criar listas tanto no módulo de relatórios como diretamente nas transações.",
       },
       {
         title: "Exportar para PDF / Excel",
