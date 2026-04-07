@@ -12,18 +12,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
-type EventType = "simple" | "festival" | "multi_day";
+type EventType = "simple" | "festival" | "multi_day" | "tour";
 
 const eventTypeLabels: Record<EventType, string> = {
   simple: "Evento Simples",
   festival: "Festival",
   multi_day: "Múltiplos Dias",
+  tour: "Turnê",
 };
 
 const eventTypeIcons: Record<EventType, typeof Calendar> = {
   simple: Calendar,
   festival: Layers,
   multi_day: Route,
+  tour: Route,
 };
 
 interface SessionDraft {
