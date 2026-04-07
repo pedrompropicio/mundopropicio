@@ -22,10 +22,20 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
+    const periodInstruction = `
+
+EXTRACÇÃO DO PERÍODO (OBRIGATÓRIA):
+- O cabeçalho do PDF contém o período do relatório (ex: "01/04/2026 a 05/04/2026", "Período: 01-04-2026 - 05-04-2026", "De 01/04/2026 Até 05/04/2026").
+- Extrai as datas de início e fim do período e inclui-as no JSON como "period_from" e "period_to" no formato "YYYY-MM-DD".
+- Se o período contiver apenas uma data, usa-a tanto como "period_from" como "period_to".
+- Se não encontrares período no cabeçalho, usa "period_from": null e "period_to": null.`;
+
     const systemPrompt =
       extraction_type === "daily_sales"
         ? `Analisa este PDF de vendas diárias de bilhetes (formato Ticketline). Extrai os dados e devolve APENAS um JSON válido com a seguinte estrutura:
 {
+  "period_from": "2026-04-01",
+  "period_to": "2026-04-05",
   "rows": [
     { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 100, "preco_unitario": 25.00 }
   ]
@@ -46,7 +56,8 @@ ATENÇÃO ESPECIAL ÀS COLUNAS DE QUANTIDADE:
 - "P. UN." é o preço unitário.
 - Ignora linhas com quantidade vendida 0.
 - DESCARTA linhas com preço unitário inferior a 1,00€ (cortesias/camarotes sem venda real).
-- Extrai TODOS os dados de vendas que encontrares no documento.`
+- Extrai TODOS os dados de vendas que encontrares no documento.
+${periodInstruction}`
         : `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
 
 ESTRUTURA DO RELATÓRIO TICKETLINE:
@@ -68,6 +79,8 @@ REGRAS DE AGRUPAMENTO TICKETLINE:
 
 Devolve APENAS um JSON válido com a seguinte estrutura:
 {
+  "period_from": "2026-04-01",
+  "period_to": "2026-04-05",
   "rows": [
     { "zona": "Balcão 1", "lote": "Lote 2", "quantidade_total": 354, "quantidade_vendida": 318, "preco": 68.00, "iva_rate": 6 }
   ]
@@ -91,7 +104,8 @@ REGRAS:
 - Extrai TODOS os lotes, mesmo com quantidade 0.
 - Ignora linhas "SOMA" e "TOTAL" (são subtotais).
 - DESCARTA lotes com preço unitário inferior a 1,00€ (ex: 0,01€ são bilhetes de cortesia/camarotes sem venda real).
-- O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.`;
+- O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.
+${periodInstruction}`;
 
 
 

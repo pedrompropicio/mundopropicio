@@ -1439,6 +1439,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_import_logs: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          file_name: string | null
+          id: string
+          import_type: string
+          imported_by: string
+          lots_created: number
+          period_from: string
+          period_to: string
+          rows_imported: number
+          rows_skipped: number
+          ticket_office_id: string | null
+          zones_created: number
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          file_name?: string | null
+          id?: string
+          import_type?: string
+          imported_by?: string
+          lots_created?: number
+          period_from: string
+          period_to: string
+          rows_imported?: number
+          rows_skipped?: number
+          ticket_office_id?: string | null
+          zones_created?: number
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          file_name?: string | null
+          id?: string
+          import_type?: string
+          imported_by?: string
+          lots_created?: number
+          period_from?: string
+          period_to?: string
+          rows_imported?: number
+          rows_skipped?: number
+          ticket_office_id?: string | null
+          zones_created?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_import_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_import_logs_ticket_office_id_fkey"
+            columns: ["ticket_office_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_offices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_offices: {
         Row: {
           contact_name: string | null

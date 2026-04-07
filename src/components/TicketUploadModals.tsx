@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, Loader2, ArrowLeft, HelpCircle } from "lucide-react";
+import { Upload, FileText, AlertCircle, Loader2, ArrowLeft, HelpCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Event {
@@ -79,6 +80,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [salesPreview, setSalesPreview] = useState<ParsedSaleRow[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [ticketOfficeId, setTicketOfficeId] = useState("");
+  const [pdfPeriodFrom, setPdfPeriodFrom] = useState<string | null>(null);
+  const [pdfPeriodTo, setPdfPeriodTo] = useState<string | null>(null);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -130,6 +135,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setSalesPreview([]);
     setExtracting(false);
     setTicketOfficeId("");
+    setPdfPeriodFrom(null);
+    setPdfPeriodTo(null);
+    setShowDuplicateConfirm(false);
+    setDuplicateWarnings([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -156,6 +165,18 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // Extract period from PDF header if available
+      const periodFrom = data.period_from || null;
+      const periodTo = data.period_to || null;
+      if (periodFrom) {
+        setPdfPeriodFrom(periodFrom);
+        setSaleDateFrom(periodFrom);
+      }
+      if (periodTo) {
+        setPdfPeriodTo(periodTo);
+        setSaleDateTo(periodTo);
+      }
+
       if (importType === "setup") {
         const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
           zona: String(r.zona || "Geral"),
@@ -174,7 +195,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           const msg = discarded > 0
             ? `${filtered.length} linhas extraídas (${discarded} descartadas por preço < 1€)`
             : `${filtered.length} linhas extraídas do PDF`;
-          toast({ title: msg });
+          const periodMsg = periodFrom ? ` | Período: ${new Date(periodFrom + "T12:00:00").toLocaleDateString("pt-PT")} a ${new Date((periodTo || periodFrom) + "T12:00:00").toLocaleDateString("pt-PT")}` : "";
+          toast({ title: msg + periodMsg });
         }
       } else {
         const rows: ParsedSaleRow[] = (data.rows || []).map((r: any) => ({
@@ -188,7 +210,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
         } else {
           setSalesPreview(filtered);
-          toast({ title: `${filtered.length} linhas extraídas do PDF` });
+          const periodMsg = periodFrom ? ` | Período: ${new Date(periodFrom + "T12:00:00").toLocaleDateString("pt-PT")} a ${new Date((periodTo || periodFrom) + "T12:00:00").toLocaleDateString("pt-PT")}` : "";
+          toast({ title: `${filtered.length} linhas extraídas do PDF${periodMsg}` });
         }
       }
     } catch (err: any) {
@@ -289,12 +312,23 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Log the import
+      await supabase.from("ticket_import_logs" as any).insert({
+        event_id: eventId,
+        ticket_office_id: ticketOfficeId || null,
+        import_type: "setup",
+        period_from: pdfPeriodFrom || saleDateFrom,
+        period_to: pdfPeriodTo || saleDateTo,
+        file_name: file?.name || null,
+        rows_imported: setupPreview.length,
+      });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_import_logs"] });
       toast({ title: `Configuração ${loadType === "realizado" ? "realizada" : "prevista"} importada com sucesso!` });
       handleClose();
     },
@@ -413,12 +447,26 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
       return { imported, autoCreatedLots, autoCreatedZones, skipped };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      // Log the import
+      await supabase.from("ticket_import_logs" as any).insert({
+        event_id: eventId,
+        ticket_office_id: ticketOfficeId || null,
+        import_type: "sales",
+        period_from: saleDateFrom,
+        period_to: saleDateTo,
+        file_name: file?.name || null,
+        rows_imported: result?.imported || 0,
+        rows_skipped: result?.skipped || 0,
+        zones_created: result?.autoCreatedZones || 0,
+        lots_created: result?.autoCreatedLots || 0,
+      });
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_import_logs"] });
       const parts: string[] = [`${result?.imported} vendas importadas`];
       if (result?.autoCreatedZones) parts.push(`${result.autoCreatedZones} novas zonas criadas`);
       if (result?.autoCreatedLots) parts.push(`${result.autoCreatedLots} novos lotes criados`);
@@ -432,7 +480,28 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const preview = importType === "setup" ? setupPreview : salesPreview;
   const isPending = importType === "setup" ? setupMutation.isPending : salesMutation.isPending;
 
-  const handleImport = () => {
+  const checkDuplicatesAndImport = async () => {
+    if (!eventId) return;
+
+    // Check for existing imports with overlapping period for same event
+    const { data: existingLogs } = await supabase
+      .from("ticket_import_logs" as any)
+      .select("*")
+      .eq("event_id", eventId)
+      .eq("import_type", importType)
+      .lte("period_from", saleDateTo)
+      .gte("period_to", saleDateFrom);
+
+    if (existingLogs && existingLogs.length > 0) {
+      setDuplicateWarnings(existingLogs);
+      setShowDuplicateConfirm(true);
+      return;
+    }
+
+    executeImport();
+  };
+
+  const executeImport = () => {
     if (importType === "setup") {
       setupMutation.mutate();
     } else {
@@ -580,6 +649,11 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                     <Label>Data Fim</Label>
                     <DatePicker value={saleDateTo} onChange={setSaleDateTo} placeholder="Até…" />
                   </div>
+                  {pdfPeriodFrom && (
+                    <p className="col-span-2 text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Período detectado do PDF: {new Date(pdfPeriodFrom + "T12:00:00").toLocaleDateString("pt-PT")} a {new Date((pdfPeriodTo || pdfPeriodFrom) + "T12:00:00").toLocaleDateString("pt-PT")}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -671,7 +745,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               <DialogFooter>
                 <Button variant="outline" onClick={handleClose}>Cancelar</Button>
                 <Button
-                  onClick={handleImport}
+                  onClick={checkDuplicatesAndImport}
                   disabled={!eventId || preview.length === 0 || isPending || extracting}
                 >
                   {isPending ? "A importar…" : importType === "setup"
@@ -683,6 +757,49 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Duplicate import confirmation */}
+      <AlertDialog open={showDuplicateConfirm} onOpenChange={setShowDuplicateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Importação possivelmente duplicada
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="font-medium text-foreground">
+                  Já existem importações registadas para este evento com período sobreponível:
+                </p>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                  {duplicateWarnings.map((w: any, i: number) => (
+                    <div key={i} className="text-xs">
+                      <span className="font-medium">
+                        {new Date(w.period_from + "T12:00:00").toLocaleDateString("pt-PT")} — {new Date(w.period_to + "T12:00:00").toLocaleDateString("pt-PT")}
+                      </span>
+                      {w.file_name && <span className="text-muted-foreground ml-2">({w.file_name})</span>}
+                      <span className="text-muted-foreground ml-2">• {w.rows_imported} linhas importadas</span>
+                      <span className="text-muted-foreground ml-2">• {new Date(w.created_at).toLocaleDateString("pt-PT", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-destructive font-medium">
+                  Continuar poderá resultar em vendas duplicadas. Tem a certeza que pretende prosseguir?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { setShowDuplicateConfirm(false); executeImport(); }}
+            >
+              Importar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
