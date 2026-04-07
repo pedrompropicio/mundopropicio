@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
         subject: "Defina a sua senha — MP Gestão de Eventos",
         html,
         text: `Olá ${full_name}, a sua conta foi criada. Aceda a ${setupUrl} para definir a sua senha.`,
-        purpose: "transactional",
+        purpose: "auth",
         label: "invite_set_password",
         queued_at: new Date().toISOString(),
       },
