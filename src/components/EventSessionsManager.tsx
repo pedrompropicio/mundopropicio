@@ -72,6 +72,36 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("event_sessions" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
+      toast({ title: "Sessão eliminada" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const cancel = () => {
+    setAdding(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const startEdit = (s: any) => {
+    setForm({ date: s.date, label: s.label, start_time: s.start_time || "" });
+    setEditingId(s.id);
+    setAdding(false);
+  };
+
+  const startAdd = () => {
+    setForm({ ...emptyForm, date: eventDate });
+    setAdding(true);
+    setEditingId(null);
+  };
+
   const [copying, setCopying] = useState(false);
 
   const copySessionMutation = useMutation({
