@@ -142,6 +142,8 @@ const helpTexts: Record<string, string> = {
     "Anexe aqui os ficheiros comprobatórios da transação (faturas, recibos, contratos, etc.). Marque a checkbox 'Documento contábil' APENAS para documentos fiscais que devem ser enviados à contabilidade. Ficheiros não marcados ficam registados mas não são incluídos na exportação contábil.",
   exportPendencies:
     "Exporta a lista de pendências documentais em Excel. Inclui todas as transações com conta bancária que não possuem documentos contábeis anexados — útil para partilhar com a equipa e regularizar em lote.",
+  accountingExport:
+    "Exportação para contabilidade: selecione o período e descarregue todos os documentos fiscais (faturas, recibos, notas fiscais) anexados às transações. Apenas ficheiros marcados como 'Documento contábil' são incluídos. O sistema regista cada exportação para controlo e rastreabilidade.",
 };
 
 export default helpTexts;

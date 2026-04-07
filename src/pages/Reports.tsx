@@ -13,6 +13,7 @@ import {
   Ticket,
   Music,
   FileWarning,
+  FileOutput,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -39,6 +40,7 @@ const allReportItems = [
   { to: "/relatorios/bilheteiras", icon: Ticket, label: "Auditoria Bilheteiras", permission: "view_report_movements" },
   { to: "/relatorios/cache-artista", icon: Music, label: "Cachê do Artista", permission: "view_report_dre", managementOnly: true },
   { to: "/relatorios/pendencias-documentais", icon: FileWarning, label: "Pendências Documentais", permission: "view_report_movements" },
+  { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_movements", managementOnly: true },
 ];
 
 export default function Reports() {
