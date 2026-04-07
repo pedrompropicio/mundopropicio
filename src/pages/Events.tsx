@@ -26,11 +26,19 @@ const eventTypeIcons: Record<EventType, typeof Calendar> = {
   multi_day: Route,
 };
 
+interface SessionDraft {
+  date: string;
+  label: string;
+  start_time: string;
+}
+
 interface SubEventForm {
   name: string;
   date: string;
   city_id: string;
   venue_id: string;
+  extra_dates: string[];
+  sessions: SessionDraft[];
 }
 
 interface EventForm {
@@ -44,6 +52,7 @@ interface EventForm {
   event_type: EventType;
   pl_mode: "active" | "passive";
   festival_dates: string[];
+  sessions: SessionDraft[];
   sub_events: SubEventForm[];
 }
 
@@ -58,7 +67,8 @@ const emptyForm: EventForm = {
   event_type: "simple",
   pl_mode: "passive",
   festival_dates: [],
-  sub_events: [{ name: "", date: "", city_id: "", venue_id: "" }],
+  sessions: [],
+  sub_events: [{ name: "", date: "", city_id: "", venue_id: "", extra_dates: [], sessions: [] }],
 };
 
 export default function Events() {
@@ -223,28 +233,66 @@ export default function Events() {
         if (dErr) throw dErr;
       }
 
+      // Create sessions for simple/festival events
+      if (data.event_type !== "multi_day" && data.sessions.length > 0) {
+        const sessionsToInsert = data.sessions.map((sess, i) => ({
+          event_id: parentId,
+          date: sess.date || data.date,
+          label: sess.label || `Sessão ${i + 1}`,
+          start_time: sess.start_time || null,
+          sort_order: i + 1,
+        }));
+        const { error: sessErr } = await supabase.from("event_sessions" as any).insert(sessionsToInsert);
+        if (sessErr) throw sessErr;
+      }
+
       if (data.event_type === "multi_day") {
         const validSubs = data.sub_events.filter(s => s.name && s.date);
         if (validSubs.length > 0) {
-          const subsToInsert = validSubs.map(s => {
+          for (const s of validSubs) {
             const subVenue = s.venue_id ? (venuesMap as any)[s.venue_id]?.name : null;
             const subCity = s.city_id ? (citiesMap as any)[s.city_id] : null;
             const subLocation = [subVenue, subCity].filter(Boolean).join(", ");
-            return {
+            
+            const { data: newSub, error: sErr } = await supabase.from("events").insert({
               name: s.name,
               date: s.date,
               location: subLocation || null,
               city_id: s.city_id || null,
               venue_id: s.venue_id || null,
               status: data.status,
-              event_type: "simple",
+              event_type: s.extra_dates.length > 0 ? "festival" : "simple",
               parent_event_id: parentId,
               budget: 0,
               tickets_total: 0,
-            };
-          });
-          const { error: sErr } = await supabase.from("events").insert(subsToInsert as any);
-          if (sErr) throw sErr;
+            } as any).select().single();
+            if (sErr) throw sErr;
+
+            const subId = (newSub as any).id;
+
+            // Create extra dates for this sub-event
+            if (s.extra_dates.length > 0) {
+              const extraDates = s.extra_dates.map((d: string) => ({
+                event_id: subId,
+                date: d,
+              }));
+              const { error: edErr } = await supabase.from("event_dates" as any).insert(extraDates);
+              if (edErr) throw edErr;
+            }
+
+            // Create sessions for this sub-event
+            if (s.sessions.length > 0) {
+              const sessionsToInsert = s.sessions.map((sess: SessionDraft, i: number) => ({
+                event_id: subId,
+                date: sess.date || s.date,
+                label: sess.label || `Sessão ${i + 1}`,
+                start_time: sess.start_time || null,
+                sort_order: i + 1,
+              }));
+              const { error: sessErr } = await supabase.from("event_sessions" as any).insert(sessionsToInsert);
+              if (sessErr) throw sessErr;
+            }
+          }
         }
       }
     },
@@ -288,18 +336,46 @@ export default function Events() {
   };
 
   const addSubEvent = () => {
-    setForm({ ...form, sub_events: [...form.sub_events, { name: "", date: "", city_id: "", venue_id: "" }] });
+    setForm({ ...form, sub_events: [...form.sub_events, { name: "", date: "", city_id: "", venue_id: "", extra_dates: [], sessions: [] }] });
   };
 
   const removeSubEvent = (idx: number) => {
     setForm({ ...form, sub_events: form.sub_events.filter((_, i) => i !== idx) });
   };
 
-  const updateSubEvent = (idx: number, field: string, value: string) => {
+  const updateSubEvent = (idx: number, field: string, value: any) => {
     const updated = [...form.sub_events];
     updated[idx] = { ...updated[idx], [field]: value };
     if (field === "city_id") updated[idx].venue_id = "";
     setForm({ ...form, sub_events: updated });
+  };
+
+  const addSubEventExtraDate = (idx: number, date: string) => {
+    if (!date) return;
+    const sub = form.sub_events[idx];
+    if (sub.extra_dates.includes(date) || date === sub.date) return;
+    updateSubEvent(idx, "extra_dates", [...sub.extra_dates, date].sort());
+  };
+
+  const removeSubEventExtraDate = (idx: number, date: string) => {
+    updateSubEvent(idx, "extra_dates", form.sub_events[idx].extra_dates.filter((d: string) => d !== date));
+  };
+
+  const addSubEventSession = (idx: number) => {
+    const sub = form.sub_events[idx];
+    const allDates = [sub.date, ...sub.extra_dates].filter(Boolean);
+    const sessionDate = allDates[0] || "";
+    updateSubEvent(idx, "sessions", [...sub.sessions, { date: sessionDate, label: `Sessão ${sub.sessions.length + 1}`, start_time: "" }]);
+  };
+
+  const updateSubEventSession = (subIdx: number, sessIdx: number, field: string, value: string) => {
+    const sessions = [...form.sub_events[subIdx].sessions];
+    sessions[sessIdx] = { ...sessions[sessIdx], [field]: value };
+    updateSubEvent(subIdx, "sessions", sessions);
+  };
+
+  const removeSubEventSession = (subIdx: number, sessIdx: number) => {
+    updateSubEvent(subIdx, "sessions", form.sub_events[subIdx].sessions.filter((_: any, i: number) => i !== sessIdx));
   };
 
   const addFestivalDate = () => {
@@ -559,15 +635,91 @@ export default function Events() {
                 </div>
               )}
 
-              {/* Multi-day: Sub-events with city/venue */}
+              {/* Sessions for simple/festival events */}
+              {form.event_type !== "multi_day" && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-muted-foreground">Sessões (opcional)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allDates = [form.date, ...form.festival_dates].filter(Boolean);
+                        setForm({
+                          ...form,
+                          sessions: [...form.sessions, { date: allDates[0] || "", label: `Sessão ${form.sessions.length + 1}`, start_time: "" }],
+                        });
+                      }}
+                      className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5"
+                    >
+                      <Plus className="h-3 w-3" /> Sessão
+                    </button>
+                  </div>
+                  {form.sessions.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {form.sessions.map((sess, sIdx) => {
+                        const allDates = [form.date, ...form.festival_dates].filter(Boolean);
+                        return (
+                          <div key={sIdx} className="flex items-center gap-1.5 rounded border border-border/30 p-1.5 bg-muted/20">
+                            {allDates.length > 1 && (
+                              <select
+                                value={sess.date}
+                                onChange={(e) => {
+                                  const updated = [...form.sessions];
+                                  updated[sIdx] = { ...updated[sIdx], date: e.target.value };
+                                  setForm({ ...form, sessions: updated });
+                                }}
+                                className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-24"
+                              >
+                                {allDates.map(d => (
+                                  <option key={d} value={d}>{formatDate(d)}</option>
+                                ))}
+                              </select>
+                            )}
+                            <input
+                              value={sess.label}
+                              onChange={(e) => {
+                                const updated = [...form.sessions];
+                                updated[sIdx] = { ...updated[sIdx], label: e.target.value };
+                                setForm({ ...form, sessions: updated });
+                              }}
+                              className="flex-1 rounded border border-border bg-background px-2 py-1 text-[10px] min-w-0"
+                              placeholder="Nome da sessão"
+                            />
+                            <input
+                              type="time"
+                              value={sess.start_time}
+                              onChange={(e) => {
+                                const updated = [...form.sessions];
+                                updated[sIdx] = { ...updated[sIdx], start_time: e.target.value };
+                                setForm({ ...form, sessions: updated });
+                              }}
+                              className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setForm({ ...form, sessions: form.sessions.filter((_, i) => i !== sIdx) })}
+                              className="text-destructive/60 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 italic">Adicione sessões se o evento tiver múltiplos espetáculos.</p>
+                  )}
+                </div>
+              )}
+
               {form.event_type === "multi_day" && (
                 <div>
-                  <label className="mb-2 block text-xs font-medium text-muted-foreground">Datas / Locais da Turnê</label>
-                  <div className="space-y-3">
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">Cidades / Paragens da Turnê</label>
+                  <div className="space-y-4">
                     {form.sub_events.map((sub, idx) => (
-                      <div key={idx} className="rounded-lg border border-border/50 p-3 space-y-2">
+                      <div key={idx} className="rounded-lg border border-border/50 p-3 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-muted-foreground">Data {idx + 1}</span>
+                          <span className="text-xs font-semibold text-muted-foreground">📍 Paragem {idx + 1}</span>
                           {form.sub_events.length > 1 && (
                             <button type="button" onClick={() => removeSubEvent(idx)} className="text-destructive hover:text-destructive/80">
                               <X className="h-3.5 w-3.5" />
@@ -581,7 +733,7 @@ export default function Events() {
                             className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             placeholder="Nome (ex: Lisboa)"
                           />
-                          <DatePicker value={sub.date} onChange={(d) => updateSubEvent(idx, "date", d)} />
+                          <DatePicker value={sub.date} onChange={(d) => updateSubEvent(idx, "date", d)} placeholder="Data principal" />
                         </div>
                         <CityVenueSelector
                           cityId={sub.city_id}
@@ -590,6 +742,86 @@ export default function Events() {
                           onVenueChange={(id) => updateSubEvent(idx, "venue_id", id)}
                           compact
                         />
+
+                        {/* Extra dates for this city stop */}
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Datas adicionais nesta cidade</label>
+                          <div className="flex gap-2 mb-1">
+                            <div className="flex-1">
+                              <DatePicker
+                                value=""
+                                onChange={(d) => addSubEventExtraDate(idx, d)}
+                                placeholder="Adicionar data…"
+                              />
+                            </div>
+                          </div>
+                          {sub.extra_dates.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {sub.extra_dates.map((d: string) => (
+                                <span key={d} className="inline-flex items-center gap-1 rounded-full bg-accent/50 text-accent-foreground px-2 py-0.5 text-[10px]">
+                                  {formatDate(d)}
+                                  <button type="button" onClick={() => removeSubEventExtraDate(idx, d)}>
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Sessions for this city stop */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-medium text-muted-foreground">Sessões (espetáculos)</label>
+                            <button
+                              type="button"
+                              onClick={() => addSubEventSession(idx)}
+                              className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5"
+                            >
+                              <Plus className="h-3 w-3" /> Sessão
+                            </button>
+                          </div>
+                          {sub.sessions.length > 0 && (
+                            <div className="space-y-1.5">
+                              {sub.sessions.map((sess: SessionDraft, sIdx: number) => {
+                                const allDates = [sub.date, ...sub.extra_dates].filter(Boolean);
+                                return (
+                                  <div key={sIdx} className="flex items-center gap-1.5 rounded border border-border/30 p-1.5 bg-muted/20">
+                                    {allDates.length > 1 && (
+                                      <select
+                                        value={sess.date}
+                                        onChange={(e) => updateSubEventSession(idx, sIdx, "date", e.target.value)}
+                                        className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-24"
+                                      >
+                                        {allDates.map(d => (
+                                          <option key={d} value={d}>{formatDate(d)}</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <input
+                                      value={sess.label}
+                                      onChange={(e) => updateSubEventSession(idx, sIdx, "label", e.target.value)}
+                                      className="flex-1 rounded border border-border bg-background px-2 py-1 text-[10px] min-w-0"
+                                      placeholder="Nome da sessão"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={sess.start_time}
+                                      onChange={(e) => updateSubEventSession(idx, sIdx, "start_time", e.target.value)}
+                                      className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-20"
+                                    />
+                                    <button type="button" onClick={() => removeSubEventSession(idx, sIdx)} className="text-destructive/60 hover:text-destructive">
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {sub.sessions.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground/60 italic">Sessões podem ser adicionadas agora ou depois no detalhe do evento.</p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -598,7 +830,7 @@ export default function Events() {
                     onClick={addSubEvent}
                     className="mt-2 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Adicionar data
+                    <Plus className="h-3.5 w-3.5" /> Adicionar cidade
                   </button>
                 </div>
               )}
