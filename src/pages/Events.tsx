@@ -234,25 +234,50 @@ export default function Events() {
       if (data.event_type === "multi_day") {
         const validSubs = data.sub_events.filter(s => s.name && s.date);
         if (validSubs.length > 0) {
-          const subsToInsert = validSubs.map(s => {
+          for (const s of validSubs) {
             const subVenue = s.venue_id ? (venuesMap as any)[s.venue_id]?.name : null;
             const subCity = s.city_id ? (citiesMap as any)[s.city_id] : null;
             const subLocation = [subVenue, subCity].filter(Boolean).join(", ");
-            return {
+            
+            const { data: newSub, error: sErr } = await supabase.from("events").insert({
               name: s.name,
               date: s.date,
               location: subLocation || null,
               city_id: s.city_id || null,
               venue_id: s.venue_id || null,
               status: data.status,
-              event_type: "simple",
+              event_type: s.extra_dates.length > 0 ? "festival" : "simple",
               parent_event_id: parentId,
               budget: 0,
               tickets_total: 0,
-            };
-          });
-          const { error: sErr } = await supabase.from("events").insert(subsToInsert as any);
-          if (sErr) throw sErr;
+            } as any).select().single();
+            if (sErr) throw sErr;
+
+            const subId = (newSub as any).id;
+
+            // Create extra dates for this sub-event
+            if (s.extra_dates.length > 0) {
+              const extraDates = s.extra_dates.map((d: string) => ({
+                event_id: subId,
+                date: d,
+              }));
+              const { error: edErr } = await supabase.from("event_dates" as any).insert(extraDates);
+              if (edErr) throw edErr;
+            }
+
+            // Create sessions for this sub-event
+            if (s.sessions.length > 0) {
+              const sessionsToInsert = s.sessions.map((sess: SessionDraft, i: number) => ({
+                event_id: subId,
+                date: sess.date || s.date,
+                label: sess.label || `Sessão ${i + 1}`,
+                start_time: sess.start_time || null,
+                sort_order: i + 1,
+              }));
+              const { error: sessErr } = await supabase.from("event_sessions" as any).insert(sessionsToInsert);
+              if (sessErr) throw sessErr;
+            }
+          }
         }
       }
     },
