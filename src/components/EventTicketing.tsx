@@ -233,11 +233,12 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   // Zone CRUD
   const saveZoneMutation = useMutation({
     mutationFn: async ({ form, id }: { form: ZoneForm; id: string | null }) => {
-      const payload = {
+      const payload: any = {
         event_id: eventId,
         name: form.name,
         total_capacity: parseInt(form.total_capacity) || 0,
       };
+      if (sessionId) payload.session_id = sessionId;
       if (id) {
         const { error } = await supabase.from("event_ticket_zones").update(payload).eq("id", id);
         if (error) throw error;
