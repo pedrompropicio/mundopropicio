@@ -102,35 +102,65 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
     setEditingId(null);
   };
 
-  const [copying, setCopying] = useState(false);
-
   const copySessionMutation = useMutation({
     mutationFn: async (sourceSession: any) => {
-      // 1. Create new session
-      const { data: newSession, error: sessErr } = await supabase
+      const { data: newSession, error: sessionError } = await supabase
         .from("event_sessions" as any)
         .insert({
           event_id: eventId,
           date: sourceSession.date,
-          label: sourceSession.label + " (cópia)",
+          label: `${sourceSession.label} (cópia)`,
           start_time: sourceSession.start_time || null,
           sort_order: sessions.length + 1,
         })
         .select("id")
         .single();
-      if (sessErr) throw sessErr;
+      if (sessionError) throw sessionError;
 
-      // 2. Get zones from source session
-      const { data: zones, error: zErr } = await supabase
+      const { data: sessionZones, error: sessionZonesError } = await supabase
         .from("event_ticket_zones" as any)
-        .select("*, event_ticket_lots(*)")
-        .eq("session_id", sourceSession.id);
-      if (zErr) throw zErr;
-      if (!zones || zones.length === 0) return;
+        .select("id, name, total_capacity")
+        .eq("event_id", eventId)
+        .eq("session_id", sourceSession.id)
+        .order("created_at");
+      if (sessionZonesError) throw sessionZonesError;
 
-      // 3. Duplicate each zone and its lots
-      for (const zone of zones as any[]) {
-        const { data: newZone, error: nzErr } = await supabase
+      let zonesToCopy = sessionZones ?? [];
+
+      if (zonesToCopy.length === 0) {
+        const { data: fallbackZones, error: fallbackZonesError } = await supabase
+          .from("event_ticket_zones" as any)
+          .select("id, name, total_capacity")
+          .eq("event_id", eventId)
+          .is("session_id", null)
+          .order("created_at");
+        if (fallbackZonesError) throw fallbackZonesError;
+        zonesToCopy = fallbackZones ?? [];
+      }
+
+      if (zonesToCopy.length === 0) {
+        return { copiedZones: 0, copiedLots: 0 };
+      }
+
+      const zoneIds = zonesToCopy.map((zone: any) => zone.id);
+      const { data: sourceLots, error: sourceLotsError } = await supabase
+        .from("event_ticket_lots" as any)
+        .select("zone_id, name, lot_number, price, quantity, iva_rate")
+        .in("zone_id", zoneIds)
+        .order("lot_number");
+      if (sourceLotsError) throw sourceLotsError;
+
+      const lotsByZoneId = new Map<string, any[]>();
+      (sourceLots ?? []).forEach((lot: any) => {
+        const currentLots = lotsByZoneId.get(lot.zone_id) ?? [];
+        currentLots.push(lot);
+        lotsByZoneId.set(lot.zone_id, currentLots);
+      });
+
+      let copiedLots = 0;
+
+      for (const zone of zonesToCopy as any[]) {
+        const { data: newZone, error: newZoneError } = await supabase
           .from("event_ticket_zones" as any)
           .insert({
             event_id: eventId,
@@ -140,41 +170,46 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
           })
           .select("id")
           .single();
-        if (nzErr) throw nzErr;
+        if (newZoneError) throw newZoneError;
 
-        const lots = zone.event_ticket_lots || [];
-        if (lots.length > 0) {
-          const lotInserts = lots.map((lot: any) => ({
-            zone_id: (newZone as any).id,
-            name: lot.name,
-            lot_number: lot.lot_number,
-            price: lot.price,
-            quantity: lot.quantity,
-            iva_rate: lot.iva_rate,
-          }));
-          const { error: lotErr } = await supabase
-            .from("event_ticket_lots" as any)
-            .insert(lotInserts);
-          if (lotErr) throw lotErr;
+        const lotsForZone = lotsByZoneId.get(zone.id) ?? [];
+        if (lotsForZone.length > 0) {
+          const { error: insertLotsError } = await supabase.from("event_ticket_lots" as any).insert(
+            lotsForZone.map((lot: any) => ({
+              zone_id: (newZone as any).id,
+              name: lot.name,
+              lot_number: lot.lot_number,
+              price: lot.price,
+              quantity: lot.quantity,
+              iva_rate: lot.iva_rate,
+            })),
+          );
+          if (insertLotsError) throw insertLotsError;
+          copiedLots += lotsForZone.length;
         }
       }
+
+      return { copiedZones: zonesToCopy.length, copiedLots };
     },
-    onSuccess: () => {
+    onSuccess: ({ copiedZones, copiedLots }) => {
       queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
-      toast({ title: "Sessão copiada com zonas e lotes!" });
-      setCopying(false);
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      toast({
+        title: copiedZones > 0 ? "Sessão copiada com bilheteira!" : "Sessão copiada!",
+        description:
+          copiedZones > 0
+            ? `${copiedZones} zona${copiedZones !== 1 ? "s" : ""} e ${copiedLots} lote${copiedLots !== 1 ? "s" : ""} copiados.`
+            : "A sessão foi criada, mas não havia zonas/lotes para copiar.",
+      });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao copiar sessão", description: err.message, variant: "destructive" });
-      setCopying(false);
     },
   });
 
   const copySession = (s: any) => {
     if (confirm("Copiar esta sessão incluindo todas as zonas, lotes, quantidades e preços?")) {
-      setCopying(true);
       copySessionMutation.mutate(s);
     }
   };
