@@ -393,13 +393,9 @@ export default function TicketManagement() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" /> Importar Vendas (Bilheteira)
-          </Button>
+          <TicketImportModal events={events} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
         </div>
       </div>
-
-      <TicketOfficeSalesImport open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
 
       {selectedEventId && (
         <>
