@@ -20,6 +20,7 @@ interface Props {
   eventId: string;
   eventDateId?: string | null;
   eventStatus?: string;
+  sessionId?: string | null;
 }
 
 interface ZoneForm {
