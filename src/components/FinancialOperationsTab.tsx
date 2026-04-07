@@ -273,8 +273,9 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground flex items-center gap-1">
             Registe taxas bancárias, juros, parcelas de empréstimos e outros custos não operacionais
+            <HelpTooltip text={helpTexts.financialOperations} size={13} />
           </p>
         </div>
         <Button onClick={() => { setForm(emptyForm); setShowForm(true); }} className="gap-2">
