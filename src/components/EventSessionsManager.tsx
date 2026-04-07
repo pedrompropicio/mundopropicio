@@ -102,6 +102,16 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
     setEditingId(null);
   };
 
+  const copySession = (s: any) => {
+    setForm({
+      date: s.date,
+      label: s.label + " (cópia)",
+      start_time: s.start_time || "",
+    });
+    setAdding(true);
+    setEditingId(null);
+  };
+
   const handleSave = () => {
     if (!form.label) {
       toast({ title: "Insira um nome para a sessão", variant: "destructive" });
