@@ -516,9 +516,16 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
 
       return { imported, autoCreatedLots };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
-      toast({ title: "Vendas diárias importadas com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
+      const msg = result?.autoCreatedLots
+        ? `${result.imported} vendas importadas, ${result.autoCreatedLots} novos lotes criados automaticamente`
+        : `Vendas diárias importadas com sucesso!`;
+      toast({ title: msg });
       handleClose();
     },
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
