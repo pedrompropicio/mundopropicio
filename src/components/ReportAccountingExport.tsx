@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function ReportAccountingExport() {
   const queryClient = useQueryClient();
-  const { userEmail } = useAuth();
+  const { user } = useAuth();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [dateFromOpen, setDateFromOpen] = useState(false);
@@ -102,7 +102,7 @@ export default function ReportAccountingExport() {
       const { error } = await supabase.from("accounting_exports").insert({
         period_from: dateFromStr,
         period_to: dateToStr,
-        exported_by: userEmail || "unknown",
+        exported_by: user?.email || "unknown",
         transaction_count: withDocs.length,
         document_count: totalDocsCount,
         pending_count: withoutDocs.length,
