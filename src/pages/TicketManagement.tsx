@@ -381,7 +381,7 @@ export default function TicketManagement() {
         <div className="flex flex-col sm:flex-row sm:items-end gap-3">
           <div className="flex-1">
             <Label className="text-sm font-medium">Selecionar Evento</Label>
-            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedSessionId("all"); }}>
               <SelectTrigger className="mt-2 w-full max-w-md">
                 <SelectValue placeholder="Escolha um evento…" />
               </SelectTrigger>
