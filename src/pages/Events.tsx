@@ -52,6 +52,7 @@ interface EventForm {
   event_type: EventType;
   pl_mode: "active" | "passive";
   festival_dates: string[];
+  sessions: SessionDraft[];
   sub_events: SubEventForm[];
 }
 
