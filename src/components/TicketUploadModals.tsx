@@ -312,12 +312,23 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Log the import
+      await supabase.from("ticket_import_logs" as any).insert({
+        event_id: eventId,
+        ticket_office_id: ticketOfficeId || null,
+        import_type: "setup",
+        period_from: pdfPeriodFrom || saleDateFrom,
+        period_to: pdfPeriodTo || saleDateTo,
+        file_name: file?.name || null,
+        rows_imported: setupPreview.length,
+      });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_import_logs"] });
       toast({ title: `Configuração ${loadType === "realizado" ? "realizada" : "prevista"} importada com sucesso!` });
       handleClose();
     },
