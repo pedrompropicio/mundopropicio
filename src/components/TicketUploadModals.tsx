@@ -364,7 +364,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       let autoCreatedLots = 0;
       let autoCreatedZones = 0;
       let skipped = 0;
-      const notesText = saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`;
+      // PDF dates always take priority over form fields
+      const effectiveFrom = pdfPeriodFrom || saleDateFrom;
+      const effectiveTo = pdfPeriodTo || saleDateTo;
+      const notesText = effectiveFrom === effectiveTo ? `Upload vendas ${effectiveFrom}` : `Upload vendas período ${effectiveFrom} a ${effectiveTo}`;
 
       const allZones = [...(zones || [])];
       const allLots = [...(lots || [])];
