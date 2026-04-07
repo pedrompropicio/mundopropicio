@@ -447,12 +447,26 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
       return { imported, autoCreatedLots, autoCreatedZones, skipped };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      // Log the import
+      await supabase.from("ticket_import_logs" as any).insert({
+        event_id: eventId,
+        ticket_office_id: ticketOfficeId || null,
+        import_type: "sales",
+        period_from: saleDateFrom,
+        period_to: saleDateTo,
+        file_name: file?.name || null,
+        rows_imported: result?.imported || 0,
+        rows_skipped: result?.skipped || 0,
+        zones_created: result?.autoCreatedZones || 0,
+        lots_created: result?.autoCreatedLots || 0,
+      });
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_import_logs"] });
       const parts: string[] = [`${result?.imported} vendas importadas`];
       if (result?.autoCreatedZones) parts.push(`${result.autoCreatedZones} novas zonas criadas`);
       if (result?.autoCreatedLots) parts.push(`${result.autoCreatedLots} novos lotes criados`);
