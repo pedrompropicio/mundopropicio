@@ -184,6 +184,22 @@ Deno.serve(async (req) => {
     );
 
     const messageId = crypto.randomUUID();
+    const idempotencyKey = `resend-reset-${messageId}`;
+    const unsubscribeToken = crypto.randomUUID();
+
+    const { error: unsubscribeError } = await adminClient.from("email_unsubscribe_tokens").upsert(
+      { email, token: unsubscribeToken },
+      { onConflict: "email" }
+    );
+
+    if (unsubscribeError) {
+      console.error("Unsubscribe token error:", unsubscribeError);
+      return new Response(JSON.stringify({ error: "Erro ao preparar o email" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
       template_name: "resend_reset",
@@ -192,10 +208,11 @@ Deno.serve(async (req) => {
     });
 
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
-      queue_name: "auth_emails",
+      queue_name: "transactional_emails",
       payload: {
-        run_id: messageId,
         message_id: messageId,
+        idempotency_key: idempotencyKey,
+        unsubscribe_token: unsubscribeToken,
         to: email,
         from: `${siteName} <noreply@mpgestaoeventos.com>`,
         sender_domain: "notify.mpgestaoeventos.com",
@@ -210,6 +227,15 @@ Deno.serve(async (req) => {
 
     if (enqueueError) {
       console.error("Enqueue error:", enqueueError);
+
+      await adminClient.from("email_send_log").insert({
+        message_id: messageId,
+        template_name: "resend_reset",
+        recipient_email: email,
+        status: "failed",
+        error_message: enqueueError.message,
+      });
+
       return new Response(JSON.stringify({ error: "Erro ao enviar email" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
