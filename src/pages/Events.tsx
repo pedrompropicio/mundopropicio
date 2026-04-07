@@ -595,15 +595,15 @@ export default function Events() {
                 </div>
               )}
 
-              {/* Multi-day: Sub-events with city/venue */}
+              {/* Multi-day: Sub-events with city/venue, extra dates, sessions */}
               {form.event_type === "multi_day" && (
                 <div>
-                  <label className="mb-2 block text-xs font-medium text-muted-foreground">Datas / Locais da Turnê</label>
-                  <div className="space-y-3">
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">Cidades / Paragens da Turnê</label>
+                  <div className="space-y-4">
                     {form.sub_events.map((sub, idx) => (
-                      <div key={idx} className="rounded-lg border border-border/50 p-3 space-y-2">
+                      <div key={idx} className="rounded-lg border border-border/50 p-3 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-muted-foreground">Data {idx + 1}</span>
+                          <span className="text-xs font-semibold text-muted-foreground">📍 Paragem {idx + 1}</span>
                           {form.sub_events.length > 1 && (
                             <button type="button" onClick={() => removeSubEvent(idx)} className="text-destructive hover:text-destructive/80">
                               <X className="h-3.5 w-3.5" />
@@ -617,7 +617,7 @@ export default function Events() {
                             className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             placeholder="Nome (ex: Lisboa)"
                           />
-                          <DatePicker value={sub.date} onChange={(d) => updateSubEvent(idx, "date", d)} />
+                          <DatePicker value={sub.date} onChange={(d) => updateSubEvent(idx, "date", d)} placeholder="Data principal" />
                         </div>
                         <CityVenueSelector
                           cityId={sub.city_id}
@@ -626,6 +626,86 @@ export default function Events() {
                           onVenueChange={(id) => updateSubEvent(idx, "venue_id", id)}
                           compact
                         />
+
+                        {/* Extra dates for this city stop */}
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Datas adicionais nesta cidade</label>
+                          <div className="flex gap-2 mb-1">
+                            <div className="flex-1">
+                              <DatePicker
+                                value=""
+                                onChange={(d) => addSubEventExtraDate(idx, d)}
+                                placeholder="Adicionar data…"
+                              />
+                            </div>
+                          </div>
+                          {sub.extra_dates.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {sub.extra_dates.map((d: string) => (
+                                <span key={d} className="inline-flex items-center gap-1 rounded-full bg-accent/50 text-accent-foreground px-2 py-0.5 text-[10px]">
+                                  {formatDate(d)}
+                                  <button type="button" onClick={() => removeSubEventExtraDate(idx, d)}>
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Sessions for this city stop */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-medium text-muted-foreground">Sessões (espetáculos)</label>
+                            <button
+                              type="button"
+                              onClick={() => addSubEventSession(idx)}
+                              className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5"
+                            >
+                              <Plus className="h-3 w-3" /> Sessão
+                            </button>
+                          </div>
+                          {sub.sessions.length > 0 && (
+                            <div className="space-y-1.5">
+                              {sub.sessions.map((sess: SessionDraft, sIdx: number) => {
+                                const allDates = [sub.date, ...sub.extra_dates].filter(Boolean);
+                                return (
+                                  <div key={sIdx} className="flex items-center gap-1.5 rounded border border-border/30 p-1.5 bg-muted/20">
+                                    {allDates.length > 1 && (
+                                      <select
+                                        value={sess.date}
+                                        onChange={(e) => updateSubEventSession(idx, sIdx, "date", e.target.value)}
+                                        className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-24"
+                                      >
+                                        {allDates.map(d => (
+                                          <option key={d} value={d}>{formatDate(d)}</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <input
+                                      value={sess.label}
+                                      onChange={(e) => updateSubEventSession(idx, sIdx, "label", e.target.value)}
+                                      className="flex-1 rounded border border-border bg-background px-2 py-1 text-[10px] min-w-0"
+                                      placeholder="Nome da sessão"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={sess.start_time}
+                                      onChange={(e) => updateSubEventSession(idx, sIdx, "start_time", e.target.value)}
+                                      className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-20"
+                                    />
+                                    <button type="button" onClick={() => removeSubEventSession(idx, sIdx)} className="text-destructive/60 hover:text-destructive">
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {sub.sessions.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground/60 italic">Sessões podem ser adicionadas agora ou depois no detalhe do evento.</p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -634,7 +714,7 @@ export default function Events() {
                     onClick={addSubEvent}
                     className="mt-2 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Adicionar data
+                    <Plus className="h-3.5 w-3.5" /> Adicionar cidade
                   </button>
                 </div>
               )}
