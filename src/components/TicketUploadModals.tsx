@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, Loader2, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Event {
   id: string;
@@ -234,9 +236,21 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <Upload className="h-4 w-4 mr-2" /> Carga Total
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          <Upload className="h-4 w-4 mr-2" /> Carga Total
+        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" className="text-xs max-w-[220px]">
+            Use para a configuração inicial da bilheteira. Cria zonas, lotes e capacidades. Não usar se o evento já tiver planejamento — use "Vendas por Período".
+          </PopoverContent>
+        </Popover>
+      </div>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
         <DialogContent className="max-w-lg">
@@ -545,9 +559,21 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <Upload className="h-4 w-4 mr-2" /> Vendas por Período
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          <Upload className="h-4 w-4 mr-2" /> Vendas por Período
+        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" className="text-xs max-w-[220px]">
+            Importa vendas de PDFs Ticketline sem alterar o planejamento. Concilia automaticamente com lotes existentes e cria novos com quantidade planejada zero.
+          </PopoverContent>
+        </Popover>
+      </div>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
         <DialogContent className="max-w-lg">
