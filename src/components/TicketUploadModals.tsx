@@ -480,7 +480,28 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const preview = importType === "setup" ? setupPreview : salesPreview;
   const isPending = importType === "setup" ? setupMutation.isPending : salesMutation.isPending;
 
-  const handleImport = () => {
+  const checkDuplicatesAndImport = async () => {
+    if (!eventId) return;
+
+    // Check for existing imports with overlapping period for same event
+    const { data: existingLogs } = await supabase
+      .from("ticket_import_logs" as any)
+      .select("*")
+      .eq("event_id", eventId)
+      .eq("import_type", importType)
+      .lte("period_from", saleDateTo)
+      .gte("period_to", saleDateFrom);
+
+    if (existingLogs && existingLogs.length > 0) {
+      setDuplicateWarnings(existingLogs);
+      setShowDuplicateConfirm(true);
+      return;
+    }
+
+    executeImport();
+  };
+
+  const executeImport = () => {
     if (importType === "setup") {
       setupMutation.mutate();
     } else {
