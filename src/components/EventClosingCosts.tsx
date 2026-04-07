@@ -78,6 +78,10 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const { data: docs } = await supabase.storage.from("closing-cost-documents").list(`${id}`);
+      if (docs && docs.length > 0) {
+        await supabase.storage.from("closing-cost-documents").remove(docs.map((d) => `${id}/${d.name}`));
+      }
       const { error } = await supabase.from("event_closing_costs").delete().eq("id", id);
       if (error) throw error;
     },
@@ -86,6 +90,17 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       toast({ title: "Custo removido" });
     },
   });
+
+  async function handleFileUpload(costId: string, file: File) {
+    const path = `${costId}/${file.name}`;
+    const { error } = await supabase.storage.from("closing-cost-documents").upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: "Erro ao anexar ficheiro", variant: "destructive" });
+    } else {
+      toast({ title: "Ficheiro anexado" });
+      queryClient.invalidateQueries({ queryKey: ["closing-cost-docs", costId] });
+    }
+  }
 
   function resetForm() {
     setShowForm(false);
