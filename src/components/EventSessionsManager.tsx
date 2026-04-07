@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Check, X, Clock, Calendar } from "lucide-react";
+import { Plus, Trash2, Check, X, Clock, Calendar, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
