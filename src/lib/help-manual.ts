@@ -55,7 +55,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Estados do evento",
         content:
-          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Bloqueia edições operacionais, mas permite ajustes administrativos de bilheteira.",
+          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.",
       },
       {
         title: "Tipos de evento",
@@ -124,7 +124,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Criar uma transação",
         content:
-          "Clique em 'Nova Transação'. Escolha o tipo (Receita ou Despesa), associe a um evento (se aplicável), selecione fornecedor e categoria do Plano de Contas. Defina o valor, data e vencimento. Pode anexar documentos (faturas, contratos).",
+          "Clique em 'Nova Transação'. Escolha o tipo (Receita ou Despesa), associe a um evento (se aplicável), selecione fornecedor e categoria do Plano de Contas. Defina o valor, data e vencimento. Pode anexar documentos (faturas, contratos).\n\nAntes de confirmar uma despesa, o sistema apresenta um painel de verificação com os dados bancários do fornecedor (NIF, IBAN, SWIFT/BIC) para garantir que a conta de destino está correta.",
       },
       {
         title: "Ciclo de vida da transação",
@@ -142,9 +142,14 @@ const helpManual: HelpSection[] = [
           "Use 'Transferência entre Contas' para mover saldo. O sistema cria automaticamente duas transações: uma saída na conta de origem e uma entrada na conta de destino, mantendo o histórico completo.",
       },
       {
-        title: "Documentos anexados",
+        title: "Documentos anexados e classificação contábil",
         content:
-          "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros.",
+          "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros.\n\nDocumentos contábeis — Ao fazer upload, marque a checkbox 'Documento contábil' para documentos fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento bancário). Use o ícone de informação (ℹ️) junto da checkbox para ver exemplos.\n\nNÃO marcar como contábil: propostas, contratos, riders técnicos, e-mails ou screenshots internos.\n\nEsta classificação é essencial para a exportação contábil e para o relatório de pendências documentais.",
+      },
+      {
+        title: "Listas de Pagamento (nas transações)",
+        content:
+          "Dentro do módulo de transações, pode criar Listas de Pagamento diretamente. Selecione transações aprovadas e agrupe-as numa lista para processamento em lote. As listas passam por um fluxo de aprovação (Rascunho → Submetida → Aprovada) antes de serem executadas.",
       },
     ],
   },
@@ -163,6 +168,11 @@ const helpManual: HelpSection[] = [
         title: "Controlo de acesso por conta",
         content:
           "Cada conta pode ter visibilidade restrita. Na configuração da conta, defina quais utilizadores têm acesso. Utilizadores sem acesso não verão a conta nem o seu saldo. Administradores veem sempre todas as contas.",
+      },
+      {
+        title: "Operações Financeiras (Grupo 10)",
+        content:
+          "O módulo de Operações Financeiras, integrado na página de Contas, permite registar movimentos não operacionais (taxas bancárias, juros, parcelas de empréstimo/financiamento). O formulário prioriza a seleção da conta financeira e utiliza sugestões automáticas (autocomplete) para tipos comuns. As operações são criadas com estado 'Aprovado' por padrão e suportam a criação de modelos recorrentes.",
       },
     ],
   },
@@ -213,7 +223,12 @@ const helpManual: HelpSection[] = [
       {
         title: "Configurar bilheteiras",
         content:
-          "Bilheteiras são pontos de venda de bilhetes (físicos ou online). Cada bilheteira pode estar associada a uma conta financeira para receber os valores de venda.",
+          "Bilheteiras são pontos de venda de bilhetes (físicos ou online). Cada bilheteira pode estar associada a uma conta financeira para receber os valores de venda. A associação de bilheteiras a eventos é feita diretamente no separador 'Bilheteira' do detalhe do evento.",
+      },
+      {
+        title: "Indicadores de liquidez",
+        content:
+          "O dashboard de bilheteiras apresenta três indicadores por parceiro:\n\n• Retido — receita de vendas que permanece na bilheteira (Vendas − Despesas Diretas − Transferências)\n• Transferido — montante total já repassado para as contas da empresa\n• Movimentado — fluxo total de saída (Despesas + Transferências)\n\nA liquidez disponível é calculada de forma híbrida: receita de vendas reais (ticket_sales) menos saídas registadas em transações. O sistema proíbe transferências superiores ao saldo Retido.",
       },
       {
         title: "Conciliação",
@@ -230,17 +245,17 @@ const helpManual: HelpSection[] = [
       {
         title: "DRE — Demonstração de Resultado",
         content:
-          "Apresenta receitas e despesas agrupadas por categoria, com cálculo do resultado líquido. A 'Visão Sócio' inclui custos de fecho para refletir o impacto total na divisão de resultados.",
+          "Apresenta receitas e despesas agrupadas por categoria, com cálculo do resultado líquido. O sistema oferece duas versões:\n\nDRE Padrão — Layout de 3 colunas (Sem IVA, IVA e Com IVA). O 'Resultado Mundo Propício' reflete o lucro real (ex-IVA) menos as distribuições efetivas aos sócios.\n\nDRE Brasil — Relatório adaptado para sócios com base 'Despesas c/IVA', com layout de coluna única (Receitas s/IVA e Despesas c/IVA).\n\nEm ambos, a 'Visão Sócio' inclui custos de fecho para refletir o impacto total na divisão de resultados.",
       },
       {
         title: "Business Plan (BP) Consolidado",
         content:
-          "Compara previsões do BP com valores reais por evento e categoria. Permite identificar desvios e ajustar o planeamento.",
+          "Compara previsões do BP com valores reais por evento e categoria. Permite identificar desvios e ajustar o planeamento. Inclui opção de visualizar o histórico de alterações de linhas aprovadas.",
       },
       {
         title: "Extrato Bancário",
         content:
-          "Extrato detalhado de cada conta financeira com todas as movimentações e saldo acumulado. Use para conferir com extratos do banco.",
+          "Extrato detalhado de cada conta financeira com todas as movimentações e saldo acumulado. Inclui visualização de documentos anexados por transação. Use para conferir com extratos do banco.",
       },
       {
         title: "Fluxo de Caixa",
@@ -253,14 +268,29 @@ const helpManual: HelpSection[] = [
           "Lista de compromissos financeiros pendentes com valores, datas de vencimento e estado de pagamento.",
       },
       {
+        title: "Movimentações",
+        content:
+          "Relatório analítico de movimentações financeiras que consolida todas as transações (liquidadas e em aberto) agrupadas por evento. Suporta filtros por período, multi-seleção de contas e eventos, e inclui visualização de anexos e log de auditoria para liquidações parciais.",
+      },
+      {
         title: "Cachê do Artista",
         content:
           "Relatório analítico dedicado ao cachê de cada artista do evento. Para cachê variável, demonstra passo a passo: receita de bilheteira → deduções por categoria → dedução fixa percentual → base de cálculo → percentagem do artista → cachê bruto. Para cachê fixo, apresenta o valor acordado.\n\nEm seguida, lista analiticamente todos os custos extras a descontar, chegando ao cachê líquido a pagar. Pode ser exportado em PDF para prestação de contas ao artista ou à sua equipa.",
       },
       {
+        title: "Auditoria de Bilheteiras",
+        content:
+          "Relatório de consolidação financeira de bilheteiras com visões Sintética e Analítica. A visão Analítica suporta agrupamento 'Por Categoria' ou 'Por Evento' em três níveis de detalhe. Vendas e despesas diretas são separadas por evento; comissões são distribuídas proporcionalmente pelo volume de vendas; transferências são tratadas como movimentos globais. Exportável em PDF e Excel.",
+      },
+      {
+        title: "Pendências Documentais",
+        content:
+          "Relatório de auditoria que identifica transações com conta bancária associada que não possuem documentos contábeis (faturas, recibos, notas fiscais) anexados. Filtre por período, conta ou evento. Use como ferramenta de conformidade contínua para regularizar pendências antes da exportação contábil.\n\nOs cards resumo permitem alternar rapidamente entre transações pendentes, conformes ou todas. Exportável em Excel.",
+      },
+      {
         title: "Listas de Pagamento",
         content:
-          "Agrupe transações aprovadas em listas para processamento em lote. As listas passam por aprovação antes de serem executadas.",
+          "Agrupe transações aprovadas em listas para processamento em lote. As listas passam por aprovação antes de serem executadas. Pode criar listas tanto no módulo de relatórios como diretamente nas transações.",
       },
       {
         title: "Exportar para PDF / Excel",
@@ -341,6 +371,50 @@ const helpManual: HelpSection[] = [
         title: "Taxas de IVA",
         content:
           "Consulte e configure as taxas de IVA aplicáveis. Ao criar transações ou linhas de BP, selecione a taxa correta. O sistema calcula automaticamente o valor líquido e o IVA em todos os relatórios.",
+      },
+    ],
+  },
+  {
+    id: "accounting",
+    title: "Contabilidade",
+    icon: "BookOpen",
+    topics: [
+      {
+        title: "Classificação de documentos contábeis",
+        content:
+          "Ao anexar documentos a transações, marque a checkbox 'Documento contábil' para ficheiros fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento). O ícone de informação (ℹ️) junto da checkbox lista exemplos do que marcar e do que não marcar.\n\nEsta classificação é o filtro principal para a exportação contábil e o relatório de pendências.",
+      },
+      {
+        title: "Relatório de Pendências Documentais",
+        content:
+          "Disponível em Relatórios → Pendências Documentais. Identifica transações com conta bancária que não possuem documentos marcados como contábeis. Filtre por período, conta financeira ou evento.\n\nOs cards resumo clicáveis permitem alternar entre transações pendentes (⚠️), conformes (✅) ou todas. Use como ferramenta de auditoria contínua para regularizar pendências antes de qualquer exportação.",
+      },
+      {
+        title: "Registo de exportações",
+        content:
+          "Cada exportação contábil fica registada no sistema com a data, o período exportado, quem exportou e as contagens de transações, documentos e pendências. Este registo permite rastrear o que já foi enviado à contabilidade.",
+      },
+    ],
+  },
+  {
+    id: "interface",
+    title: "Interface",
+    icon: "Monitor",
+    topics: [
+      {
+        title: "Tema claro e escuro",
+        content:
+          "Alterne entre o modo claro e escuro clicando no ícone de sol/lua (☀️/🌙) no canto superior direito do cabeçalho. A preferência é guardada automaticamente no navegador.",
+      },
+      {
+        title: "Pesquisa global",
+        content:
+          "Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema.",
+      },
+      {
+        title: "Timeout por inatividade",
+        content:
+          "Por segurança, o sistema encerra a sessão automaticamente após 30 minutos de inatividade. Será redirecionado para a página de login.",
       },
     ],
   },
