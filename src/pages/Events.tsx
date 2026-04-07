@@ -622,7 +622,83 @@ export default function Events() {
                 </div>
               )}
 
-              {/* Multi-day: Sub-events with city/venue, extra dates, sessions */}
+              {/* Sessions for simple/festival events */}
+              {form.event_type !== "multi_day" && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-muted-foreground">Sessões (opcional)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allDates = [form.date, ...form.festival_dates].filter(Boolean);
+                        setForm({
+                          ...form,
+                          sessions: [...form.sessions, { date: allDates[0] || "", label: `Sessão ${form.sessions.length + 1}`, start_time: "" }],
+                        });
+                      }}
+                      className="text-[10px] text-primary hover:text-primary/80 flex items-center gap-0.5"
+                    >
+                      <Plus className="h-3 w-3" /> Sessão
+                    </button>
+                  </div>
+                  {form.sessions.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {form.sessions.map((sess, sIdx) => {
+                        const allDates = [form.date, ...form.festival_dates].filter(Boolean);
+                        return (
+                          <div key={sIdx} className="flex items-center gap-1.5 rounded border border-border/30 p-1.5 bg-muted/20">
+                            {allDates.length > 1 && (
+                              <select
+                                value={sess.date}
+                                onChange={(e) => {
+                                  const updated = [...form.sessions];
+                                  updated[sIdx] = { ...updated[sIdx], date: e.target.value };
+                                  setForm({ ...form, sessions: updated });
+                                }}
+                                className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-24"
+                              >
+                                {allDates.map(d => (
+                                  <option key={d} value={d}>{formatDate(d)}</option>
+                                ))}
+                              </select>
+                            )}
+                            <input
+                              value={sess.label}
+                              onChange={(e) => {
+                                const updated = [...form.sessions];
+                                updated[sIdx] = { ...updated[sIdx], label: e.target.value };
+                                setForm({ ...form, sessions: updated });
+                              }}
+                              className="flex-1 rounded border border-border bg-background px-2 py-1 text-[10px] min-w-0"
+                              placeholder="Nome da sessão"
+                            />
+                            <input
+                              type="time"
+                              value={sess.start_time}
+                              onChange={(e) => {
+                                const updated = [...form.sessions];
+                                updated[sIdx] = { ...updated[sIdx], start_time: e.target.value };
+                                setForm({ ...form, sessions: updated });
+                              }}
+                              className="rounded border border-border bg-background px-1.5 py-1 text-[10px] w-20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setForm({ ...form, sessions: form.sessions.filter((_, i) => i !== sIdx) })}
+                              className="text-destructive/60 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/60 italic">Adicione sessões se o evento tiver múltiplos espetáculos.</p>
+                  )}
+                </div>
+              )}
+
               {form.event_type === "multi_day" && (
                 <div>
                   <label className="mb-2 block text-xs font-medium text-muted-foreground">Cidades / Paragens da Turnê</label>
