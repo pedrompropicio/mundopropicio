@@ -135,6 +135,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setSalesPreview([]);
     setExtracting(false);
     setTicketOfficeId("");
+    setPdfPeriodFrom(null);
+    setPdfPeriodTo(null);
+    setShowDuplicateConfirm(false);
+    setDuplicateWarnings([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
