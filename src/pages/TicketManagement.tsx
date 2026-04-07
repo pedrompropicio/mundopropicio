@@ -87,6 +87,17 @@ export default function TicketManagement() {
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const isParentEvent = selectedEvent?.event_type === "multi_day" && !selectedEvent?.parent_event_id;
 
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["ticket-mgmt-sessions", selectedEventId],
+    queryFn: async () => {
+      if (!selectedEventId) return [];
+      const { data, error } = await supabase.from("event_sessions").select("*").eq("event_id", selectedEventId).order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedEventId,
+  });
+
   const { data: zones = [] } = useQuery({
     queryKey: ["ticket-mgmt-zones", selectedEventId],
     queryFn: async () => {
@@ -97,6 +108,12 @@ export default function TicketManagement() {
     },
     enabled: !!selectedEventId,
   });
+
+  // Filter zones by selected session
+  const filteredZones = useMemo(() => {
+    if (selectedSessionId === "all") return zones;
+    return zones.filter(z => z.session_id === selectedSessionId);
+  }, [zones, selectedSessionId]);
 
   const { data: lots = [] } = useQuery({
     queryKey: ["ticket-mgmt-lots", selectedEventId],
