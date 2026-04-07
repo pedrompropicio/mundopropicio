@@ -12,9 +12,10 @@ interface Props {
   cacheConfigId: string;
   artistName: string;
   eventId: string;
+  canEdit?: boolean;
 }
 
-export function CacheExtrasPanel({ cacheConfigId, artistName, eventId }: Props) {
+export function CacheExtrasPanel({ cacheConfigId, artistName, eventId, canEdit = true }: Props) {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export function CacheExtrasPanel({ cacheConfigId, artistName, eventId }: Props) 
             <span className="ml-2 text-warning font-mono">({formatCurrency(totalExtras)})</span>
           )}
         </p>
-        {!showForm && (
+        {canEdit && !showForm && (
           <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setShowForm(true)}>
             <Plus className="mr-1 h-3 w-3" /> Adicionar
           </Button>
@@ -155,6 +156,7 @@ export function CacheExtrasPanel({ cacheConfigId, artistName, eventId }: Props) 
             <ExtraRow
               key={extra.id}
               extra={extra}
+              canEdit={canEdit}
               onEdit={() => startEdit(extra)}
               onDelete={() => { if (window.confirm("Remover esta despesa extra?")) deleteMutation.mutate(extra.id); }}
               onFileUpload={(file) => handleFileUpload(extra.id, file)}
@@ -170,8 +172,9 @@ export function CacheExtrasPanel({ cacheConfigId, artistName, eventId }: Props) 
   );
 }
 
-function ExtraRow({ extra, onEdit, onDelete, onFileUpload }: {
+function ExtraRow({ extra, canEdit = true, onEdit, onDelete, onFileUpload }: {
   extra: any;
+  canEdit?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onFileUpload: (file: File) => void;
@@ -209,18 +212,20 @@ function ExtraRow({ extra, onEdit, onDelete, onFileUpload }: {
           </div>
         )}
       </div>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-        <label className="p-1 rounded hover:bg-secondary cursor-pointer transition-colors">
-          <Paperclip className="h-3 w-3 text-muted-foreground" />
-          <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && onFileUpload(e.target.files[0])} />
-        </label>
-        <button onClick={onEdit} className="p-1 rounded hover:bg-secondary transition-colors">
-          <Pencil className="h-3 w-3 text-muted-foreground" />
-        </button>
-        <button onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 transition-colors">
-          <Trash2 className="h-3 w-3 text-destructive" />
-        </button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <label className="p-1 rounded hover:bg-secondary cursor-pointer transition-colors">
+            <Paperclip className="h-3 w-3 text-muted-foreground" />
+            <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && onFileUpload(e.target.files[0])} />
+          </label>
+          <button onClick={onEdit} className="p-1 rounded hover:bg-secondary transition-colors">
+            <Pencil className="h-3 w-3 text-muted-foreground" />
+          </button>
+          <button onClick={onDelete} className="p-1 rounded hover:bg-destructive/10 transition-colors">
+            <Trash2 className="h-3 w-3 text-destructive" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
