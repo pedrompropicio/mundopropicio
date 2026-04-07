@@ -608,7 +608,6 @@ export default function EventDetail() {
                   currentId={selectedSubEvent}
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
-                    // Copy zones and lots from source to target
                     const { data: sourceZones } = await supabase
                       .from("event_ticket_zones")
                       .select("*")
@@ -641,7 +640,53 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventTicketing eventId={selectedSubEvent || event.id} eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null} eventStatus={event.status} />
+
+              {/* Sessions Manager */}
+              <EventSessionsManager
+                eventId={activeEventId}
+                eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date}
+                eventStatus={event.status}
+              />
+
+              {/* Session selector if sessions exist */}
+              {eventSessions.length > 0 && (
+                <div className="glass rounded-xl p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Filtrar bilheteira por sessão</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedSessionId(null)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                        !selectedSessionId
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Todas
+                    </button>
+                    {eventSessions.map((s: any) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSessionId(s.id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                          selectedSessionId === s.id
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {s.label}
+                        {s.start_time && <span className="ml-1 opacity-70">{s.start_time.slice(0, 5)}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <EventTicketing
+                eventId={activeEventId}
+                eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null}
+                eventStatus={event.status}
+                sessionId={selectedSessionId}
+              />
             </div>
           )}
         </TabsContent>
