@@ -374,6 +374,50 @@ const helpManual: HelpSection[] = [
       },
     ],
   },
+  {
+    id: "accounting",
+    title: "Contabilidade",
+    icon: "BookOpen",
+    topics: [
+      {
+        title: "Classificação de documentos contábeis",
+        content:
+          "Ao anexar documentos a transações, marque a checkbox 'Documento contábil' para ficheiros fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento). O ícone de informação (ℹ️) junto da checkbox lista exemplos do que marcar e do que não marcar.\n\nEsta classificação é o filtro principal para a exportação contábil e o relatório de pendências.",
+      },
+      {
+        title: "Relatório de Pendências Documentais",
+        content:
+          "Disponível em Relatórios → Pendências Documentais. Identifica transações com conta bancária que não possuem documentos marcados como contábeis. Filtre por período, conta financeira ou evento.\n\nOs cards resumo clicáveis permitem alternar entre transações pendentes (⚠️), conformes (✅) ou todas. Use como ferramenta de auditoria contínua para regularizar pendências antes de qualquer exportação.",
+      },
+      {
+        title: "Registo de exportações",
+        content:
+          "Cada exportação contábil fica registada no sistema com a data, o período exportado, quem exportou e as contagens de transações, documentos e pendências. Este registo permite rastrear o que já foi enviado à contabilidade.",
+      },
+    ],
+  },
+  {
+    id: "interface",
+    title: "Interface",
+    icon: "Monitor",
+    topics: [
+      {
+        title: "Tema claro e escuro",
+        content:
+          "Alterne entre o modo claro e escuro clicando no ícone de sol/lua (☀️/🌙) no canto superior direito do cabeçalho. A preferência é guardada automaticamente no navegador.",
+      },
+      {
+        title: "Pesquisa global",
+        content:
+          "Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema.",
+      },
+      {
+        title: "Timeout por inatividade",
+        content:
+          "Por segurança, o sistema encerra a sessão automaticamente após 30 minutos de inatividade. Será redirecionado para a página de login.",
+      },
+    ],
+  },
 ];
 
 export default helpManual;
