@@ -1,10 +1,97 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as React from "npm:react@18.3.1";
+import { renderAsync } from "npm:@react-email/components@0.0.22";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+const ResetEmail = ({
+  siteName,
+  fullName,
+  setupUrl,
+}: {
+  siteName: string;
+  fullName: string;
+  setupUrl: string;
+}) =>
+  React.createElement(
+    "html",
+    { lang: "pt", dir: "ltr" },
+    React.createElement("head", null),
+    React.createElement(
+      "body",
+      {
+        style: {
+          backgroundColor: "#ffffff",
+          fontFamily: "'Space Grotesk', Arial, sans-serif",
+          margin: 0,
+          padding: 0,
+        },
+      },
+      React.createElement(
+        "div",
+        { style: { padding: "32px 28px", maxWidth: "480px", margin: "0 auto" } },
+        React.createElement(
+          "h1",
+          {
+            style: {
+              fontSize: "22px",
+              fontWeight: "bold",
+              color: "#1a1f2e",
+              margin: "0 0 20px",
+            },
+          },
+          "Definir Senha"
+        ),
+        React.createElement(
+          "p",
+          {
+            style: {
+              fontSize: "14px",
+              color: "#6b7280",
+              lineHeight: "1.6",
+              margin: "0 0 25px",
+            },
+          },
+          `Olá ${fullName}, clique no botão abaixo para definir a sua senha em `,
+          React.createElement("strong", null, siteName),
+          "."
+        ),
+        React.createElement(
+          "a",
+          {
+            href: setupUrl,
+            style: {
+              display: "inline-block",
+              backgroundColor: "#1a6fb8",
+              color: "#ffffff",
+              fontSize: "14px",
+              borderRadius: "12px",
+              padding: "12px 24px",
+              textDecoration: "none",
+              fontWeight: "500",
+            },
+          },
+          "Definir Senha"
+        ),
+        React.createElement(
+          "p",
+          {
+            style: {
+              fontSize: "12px",
+              color: "#9ca3af",
+              margin: "30px 0 0",
+              lineHeight: "1.5",
+            },
+          },
+          "Se não solicitou esta alteração, pode ignorar este email. O link expira em poucos minutos."
+        )
+      )
+    )
+  );
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,7 +110,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is authenticated
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -35,7 +121,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: roleData } = await adminClient
       .from("user_roles")
@@ -61,19 +146,78 @@ Deno.serve(async (req) => {
     }
 
     const siteUrl = "https://mpgestaoeventos.com";
-    const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/reset-password`,
+
+    // Get user profile for name
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("full_name")
+      .eq("email", email)
+      .single();
+    const fullName = profile?.full_name || "Utilizador";
+
+    // Generate direct link (bypasses Lovable/Supabase auth page)
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: `${siteUrl}/reset-password`,
+      },
     });
 
-    if (resetError) {
-      return new Response(JSON.stringify({ error: resetError.message }), {
+    if (linkError || !linkData) {
+      return new Response(JSON.stringify({ error: linkError?.message || "Erro ao gerar link" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const actionLink = linkData.properties?.action_link || "";
+    const actionUrl = new URL(actionLink);
+    const tokenHash = actionUrl.searchParams.get("token") || "";
+    const linkType = actionUrl.searchParams.get("type") || "recovery";
+    const setupUrl = `${siteUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=${linkType}`;
+
+    // Render and send branded email
+    const siteName = "MP Gestão de Eventos";
+    const html = await renderAsync(
+      React.createElement(ResetEmail, { siteName, fullName, setupUrl })
+    );
+
+    const messageId = crypto.randomUUID();
+    await adminClient.from("email_send_log").insert({
+      message_id: messageId,
+      template_name: "resend_reset",
+      recipient_email: email,
+      status: "pending",
+    });
+
+    const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
+      queue_name: "auth_emails",
+      payload: {
+        run_id: messageId,
+        message_id: messageId,
+        to: email,
+        from: `${siteName} <noreply@mpgestaoeventos.com>`,
+        sender_domain: "notify.mpgestaoeventos.com",
+        subject: "Defina a sua senha — MP Gestão de Eventos",
+        html,
+        text: `Olá ${fullName}, aceda a ${setupUrl} para definir a sua senha.`,
+        purpose: "transactional",
+        label: "resend_reset",
+        queued_at: new Date().toISOString(),
+      },
+    });
+
+    if (enqueueError) {
+      console.error("Enqueue error:", enqueueError);
+      return new Response(JSON.stringify({ error: "Erro ao enviar email" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message: "Email de recuperação reenviado com sucesso." }),
+      JSON.stringify({ success: true, message: "Email de definição de senha reenviado com sucesso." }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
