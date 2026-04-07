@@ -217,8 +217,17 @@ Deno.serve(async (req) => {
       })
     );
 
-    // Enqueue the email
+    // Enqueue the email — use transactional purpose with unsubscribe token
     const messageId = crypto.randomUUID();
+    const idempotencyKey = `invite-set-password-${newUser.user?.id}`;
+    const unsubscribeToken = crypto.randomUUID();
+
+    // Create unsubscribe token entry
+    await adminClient.from("email_unsubscribe_tokens").upsert(
+      { email, token: unsubscribeToken },
+      { onConflict: "email" }
+    );
+
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
       template_name: "invite_set_password",
@@ -227,10 +236,11 @@ Deno.serve(async (req) => {
     });
 
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
-      queue_name: "auth_emails",
+      queue_name: "transactional_emails",
       payload: {
-        run_id: messageId,
         message_id: messageId,
+        idempotency_key: idempotencyKey,
+        unsubscribe_token: unsubscribeToken,
         to: email,
         from: `${siteName} <noreply@mpgestaoeventos.com>`,
         sender_domain: "notify.mpgestaoeventos.com",
