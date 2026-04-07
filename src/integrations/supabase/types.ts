@@ -58,6 +58,42 @@ export type Database = {
           },
         ]
       }
+      accounting_exports: {
+        Row: {
+          created_at: string
+          document_count: number
+          exported_by: string
+          id: string
+          notes: string | null
+          pending_count: number
+          period_from: string
+          period_to: string
+          transaction_count: number
+        }
+        Insert: {
+          created_at?: string
+          document_count?: number
+          exported_by?: string
+          id?: string
+          notes?: string | null
+          pending_count?: number
+          period_from: string
+          period_to: string
+          transaction_count?: number
+        }
+        Update: {
+          created_at?: string
+          document_count?: number
+          exported_by?: string
+          id?: string
+          notes?: string | null
+          pending_count?: number
+          period_from?: string
+          period_to?: string
+          transaction_count?: number
+        }
+        Relationships: []
+      }
       cities: {
         Row: {
           country: string
