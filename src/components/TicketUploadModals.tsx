@@ -1,16 +1,14 @@
 import { useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, Loader2, HelpCircle } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Upload, FileText, AlertCircle, Loader2, ArrowLeft, HelpCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Event {
@@ -21,9 +19,12 @@ interface Event {
   status: string;
 }
 
-interface TicketUploadModalsProps {
-  events: Event[];
+interface TicketImportModalProps {
+  events?: Event[];
   selectedEventId?: string;
+  /** When true, opens externally (controlled mode) */
+  open?: boolean;
+  onClose?: () => void;
 }
 
 interface ParsedRow {
@@ -42,12 +43,14 @@ interface ParsedSaleRow {
   preco_unitario: number;
 }
 
+type ImportType = "setup" | "sales";
+type Step = "choose" | "form";
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Remove data URL prefix
       const base64 = result.split(",")[1];
       resolve(base64);
     };
@@ -56,17 +59,81 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// ── Total Ticket Load Modal ──
-export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
-  const [open, setOpen] = useState(false);
+// Normalize helper: lowercase, remove accents, collapse whitespace
+const normalize = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+
+export function TicketImportModal({ events: eventsProp, selectedEventId: preSelectedEventId, open: controlledOpen, onClose }: TicketImportModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  const [importType, setImportType] = useState<ImportType>("sales");
+  const [step, setStep] = useState<Step>("choose");
   const [eventId, setEventId] = useState(preSelectedEventId || "");
   const [loadType, setLoadType] = useState<"realizado" | "previsto">("realizado");
+  const [saleDateFrom, setSaleDateFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [saleDateTo, setSaleDateTo] = useState(new Date().toISOString().slice(0, 10));
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<ParsedRow[]>([]);
+  const [setupPreview, setSetupPreview] = useState<ParsedRow[]>([]);
+  const [salesPreview, setSalesPreview] = useState<ParsedSaleRow[]>([]);
   const [extracting, setExtracting] = useState(false);
+  const [ticketOfficeId, setTicketOfficeId] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
+  // Fetch events internally if not provided via props
+  const { data: fetchedEvents = [] } = useQuery({
+    queryKey: ["events_for_import"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, parent_event_id, event_type, status")
+        .in("status", ["planning", "confirmed", "active", "completed"])
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !eventsProp,
+  });
+
+  const events = eventsProp || fetchedEvents;
+
+  const { data: ticketOffices = [] } = useQuery({
+    queryKey: ["ticket_offices_active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_offices")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  const handleClose = () => {
+    if (isControlled) {
+      onClose?.();
+    } else {
+      setInternalOpen(false);
+    }
+    setStep("choose");
+    setImportType("sales");
+    setEventId(preSelectedEventId || "");
+    setLoadType("realizado");
+    setSaleDateFrom(new Date().toISOString().slice(0, 10));
+    setSaleDateTo(new Date().toISOString().slice(0, 10));
+    setFile(null);
+    setSetupPreview([]);
+    setSalesPreview([]);
+    setExtracting(false);
+    setTicketOfficeId("");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // ── File handling ──
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -75,39 +142,54 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
       return;
     }
     setFile(f);
-    setPreview([]);
+    setSetupPreview([]);
+    setSalesPreview([]);
     setExtracting(true);
 
     try {
       const base64 = await fileToBase64(f);
+      const extraction_type = importType === "setup" ? "total" : "daily_sales";
       const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
-        body: { pdf_base64: base64, extraction_type: "total" },
+        body: { pdf_base64: base64, extraction_type },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
-        zona: String(r.zona || "Geral"),
-        lote: String(r.lote || "Lote"),
-        quantidade: parseInt(r.quantidade_total ?? r.quantidade) || 0,
-        quantidade_vendida: parseInt(r.quantidade_vendida) ?? parseInt(r.quantidade_total ?? r.quantidade) ?? 0,
-        preco: parseFloat(r.preco) || 0,
-        iva_rate: parseInt(r.iva_rate) || 6,
-      }));
-
-      // Filter out lots with price < 1.00€ (courtesy/complimentary tickets)
-      const filteredRows = rows.filter(r => r.preco >= 1.00);
-      const discarded = rows.length - filteredRows.length;
-
-      if (filteredRows.length === 0) {
-        toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
+      if (importType === "setup") {
+        const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
+          zona: String(r.zona || "Geral"),
+          lote: String(r.lote || "Lote"),
+          quantidade: parseInt(r.quantidade_total ?? r.quantidade) || 0,
+          quantidade_vendida: parseInt(r.quantidade_vendida) ?? parseInt(r.quantidade_total ?? r.quantidade) ?? 0,
+          preco: parseFloat(r.preco) || 0,
+          iva_rate: parseInt(r.iva_rate) || 6,
+        }));
+        const filtered = rows.filter(r => r.preco >= 1.00);
+        const discarded = rows.length - filtered.length;
+        if (filtered.length === 0) {
+          toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
+        } else {
+          setSetupPreview(filtered);
+          const msg = discarded > 0
+            ? `${filtered.length} linhas extraídas (${discarded} descartadas por preço < 1€)`
+            : `${filtered.length} linhas extraídas do PDF`;
+          toast({ title: msg });
+        }
       } else {
-        setPreview(filteredRows);
-        const msg = discarded > 0
-          ? `${filteredRows.length} linhas extraídas (${discarded} descartadas por preço < 1€)`
-          : `${filteredRows.length} linhas extraídas do PDF`;
-        toast({ title: msg });
+        const rows: ParsedSaleRow[] = (data.rows || []).map((r: any) => ({
+          zona: String(r.zona || ""),
+          lote: String(r.lote || ""),
+          quantidade: parseInt(r.quantidade) || 0,
+          preco_unitario: parseFloat(r.preco_unitario) || 0,
+        }));
+        const filtered = rows.filter(r => r.preco_unitario >= 1.00);
+        if (filtered.length === 0) {
+          toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
+        } else {
+          setSalesPreview(filtered);
+          toast({ title: `${filtered.length} linhas extraídas do PDF` });
+        }
       }
     } catch (err: any) {
       toast({ title: "Erro ao extrair dados do PDF", description: err.message, variant: "destructive" });
@@ -116,11 +198,11 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
     }
   };
 
-  const uploadMutation = useMutation({
+  // ── Setup import mutation ──
+  const setupMutation = useMutation({
     mutationFn: async () => {
-      if (!eventId || preview.length === 0) throw new Error("Selecione evento e ficheiro");
+      if (!eventId || setupPreview.length === 0) throw new Error("Selecione evento e ficheiro");
 
-      // Check if event is completed and has no pre-existing ticketing setup
       const selectedEvent = events.find(e => e.id === eventId);
       const isCompleted = selectedEvent?.status === "completed";
 
@@ -130,12 +212,10 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
         .eq("event_id", eventId)
         .limit(1);
       const hadPlanning = (preExistingZones?.length ?? 0) > 0;
-
-      // For completed events without prior planning, use sold qty as capacity (no planning data)
       const salesOnlyMode = loadType === "realizado" && isCompleted && !hadPlanning;
 
       const zoneMap = new Map<string, ParsedRow[]>();
-      preview.forEach(r => {
+      setupPreview.forEach(r => {
         const existing = zoneMap.get(r.zona) || [];
         existing.push(r);
         zoneMap.set(r.zona, existing);
@@ -170,12 +250,10 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
           .eq("zone_id", zoneId);
         const baseNumber = (existingLots?.length || 0);
 
-        // Sort lots by price ASC before assigning lot_number
         const sortedLots = [...lots].sort((a, b) => a.preco - b.preco);
 
         for (let i = 0; i < sortedLots.length; i++) {
           const lot = sortedLots[i];
-          // In salesOnlyMode (completed event, no prior planning): capacity = sold qty only
           const lotQuantity = salesOnlyMode ? (lot.quantidade_vendida || 0) : lot.quantidade;
           const { error } = await supabase.from("event_ticket_lots").insert({
             zone_id: zoneId,
@@ -202,6 +280,7 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
                 sale_date: new Date().toISOString().slice(0, 10),
                 quantity: lot.quantidade_vendida,
                 unit_price: lot.preco,
+                ticket_office_id: ticketOfficeId || null,
                 notes: "Carga total via upload PDF",
                 source: "import",
               });
@@ -216,229 +295,21 @@ export function TotalTicketLoadModal({ events, selectedEventId: preSelectedEvent
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
-      toast({ title: `Carga ${loadType === "realizado" ? "realizada" : "prevista"} importada com sucesso!` });
+      toast({ title: `Configuração ${loadType === "realizado" ? "realizada" : "prevista"} importada com sucesso!` });
       handleClose();
     },
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
   });
 
-  const handleClose = () => {
-    setOpen(false);
-    setEventId(preSelectedEventId || "");
-    setLoadType("realizado");
-    setFile(null);
-    setPreview([]);
-    setExtracting(false);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const selectedEvent = events.find(e => e.id === eventId);
-
-  return (
-    <>
-      <div className="flex items-center gap-1">
-        <Button variant="outline" onClick={() => setOpen(true)}>
-          <Upload className="h-4 w-4 mr-2" /> Carga Total
-        </Button>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
-              <HelpCircle className="h-4 w-4" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="bottom" className="text-xs max-w-[220px]">
-            Use para a configuração inicial da bilheteira. Cria zonas, lotes e capacidades. Não usar se o evento já tiver planejamento — use "Vendas por Período".
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Carga de Bilhete Total
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {!preSelectedEventId && (
-              <div>
-                <Label>Evento</Label>
-                <Select value={eventId} onValueChange={setEventId}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione o evento…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {events.map(e => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div>
-              <Label>Tipo de Carga</Label>
-              <RadioGroup value={loadType} onValueChange={(v) => setLoadType(v as any)} className="mt-2 flex gap-4">
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="realizado" id="realizado" />
-                  <Label htmlFor="realizado" className="cursor-pointer font-normal">Realizado</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="previsto" id="previsto" />
-                  <Label htmlFor="previsto" className="cursor-pointer font-normal">Previsto</Label>
-                </div>
-              </RadioGroup>
-              {loadType === "previsto" && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Cria zonas e lotes sem registar vendas
-                </p>
-              )}
-              {loadType === "realizado" && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Cria zonas, lotes e regista vendas automaticamente
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Ficheiro PDF</Label>
-              <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5 ${extracting ? "opacity-50 pointer-events-none" : ""}`}>
-                {extracting ? (
-                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                ) : (
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar PDF (max 10MB)"}
-                </span>
-                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf" disabled={extracting} />
-              </label>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                A IA extrairá automaticamente zonas, lotes, quantidades e preços do PDF
-              </p>
-            </div>
-
-            {preview.length > 0 && (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  Dados extraídos — {preview.length} linhas
-                </div>
-                <div className="max-h-40 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/20">
-                      <tr>
-                        <th className="text-left px-3 py-1">Zona</th>
-                        <th className="text-left px-3 py-1">Lote</th>
-                        <th className="text-right px-3 py-1">Total</th>
-                        <th className="text-right px-3 py-1">Vendidos</th>
-                        <th className="text-right px-3 py-1">Preço</th>
-                        <th className="text-right px-3 py-1">IVA</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.map((r, i) => (
-                        <tr key={i} className="border-t border-border/30">
-                          <td className="px-3 py-1">{r.zona}</td>
-                          <td className="px-3 py-1">{r.lote}</td>
-                          <td className="px-3 py-1 text-right font-mono">{r.quantidade.toLocaleString()}</td>
-                          <td className="px-3 py-1 text-right font-mono">{r.quantidade_vendida.toLocaleString()}</td>
-                          <td className="px-3 py-1 text-right font-mono">{r.preco.toFixed(2)}€</td>
-                          <td className="px-3 py-1 text-right font-mono">{r.iva_rate}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button
-              onClick={() => uploadMutation.mutate()}
-              disabled={!eventId || preview.length === 0 || uploadMutation.isPending || extracting}
-            >
-              {uploadMutation.isPending ? "A importar…" : `Importar ${loadType === "realizado" ? "Realizado" : "Previsto"}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-// ── Daily Sales Upload Modal ──
-export function DailySalesUploadModal({ events, selectedEventId: preSelectedEventId }: TicketUploadModalsProps) {
-  const [open, setOpen] = useState(false);
-  const [eventId, setEventId] = useState(preSelectedEventId || "");
-  const [saleDateFrom, setSaleDateFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [saleDateTo, setSaleDateTo] = useState(new Date().toISOString().slice(0, 10));
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<ParsedSaleRow[]>([]);
-  const [extracting, setExtracting] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 10 * 1024 * 1024) {
-      toast({ title: "Ficheiro demasiado grande", description: "Máximo 10MB", variant: "destructive" });
-      return;
-    }
-    setFile(f);
-    setPreview([]);
-    setExtracting(true);
-
-    try {
-      const base64 = await fileToBase64(f);
-      const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
-        body: { pdf_base64: base64, extraction_type: "daily_sales" },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      const rows: ParsedSaleRow[] = (data.rows || []).map((r: any) => ({
-        zona: String(r.zona || ""),
-        lote: String(r.lote || ""),
-        quantidade: parseInt(r.quantidade) || 0,
-        preco_unitario: parseFloat(r.preco_unitario) || 0,
-      }));
-
-      // Filter out lots with price < 1.00€
-      const filteredRows = rows.filter(r => r.preco_unitario >= 1.00);
-
-      if (filteredRows.length === 0) {
-        toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
-      } else {
-        setPreview(filteredRows);
-        toast({ title: `${filteredRows.length} linhas extraídas do PDF` });
-      }
-    } catch (err: any) {
-      toast({ title: "Erro ao extrair dados do PDF", description: err.message, variant: "destructive" });
-    } finally {
-      setExtracting(false);
-    }
-  };
-
-  const uploadMutation = useMutation({
+  // ── Sales import mutation ──
+  const salesMutation = useMutation({
     mutationFn: async () => {
-      if (!eventId || preview.length === 0) throw new Error("Selecione evento e ficheiro");
+      if (!eventId || salesPreview.length === 0) throw new Error("Selecione evento e ficheiro");
 
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id, name")
         .eq("event_id", eventId);
-
-      // Normalize helper: lowercase, remove accents, collapse whitespace
-      const normalize = (s: string) =>
-        s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
       const zoneIds = (zones || []).map(z => z.id);
       const { data: lots } = zoneIds.length > 0
@@ -451,17 +322,14 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
       let skipped = 0;
       const notesText = saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`;
 
-      // Mutable copies to track newly created zones/lots during import
       const allZones = [...(zones || [])];
       const allLots = [...(lots || [])];
 
-      for (const row of preview) {
-        // Match zone with normalized comparison
+      for (const row of salesPreview) {
         let matchedZone = row.zona
           ? allZones.find(z => normalize(z.name) === normalize(row.zona))
           : null;
 
-        // Auto-create zone if not found
         if (!matchedZone && row.zona) {
           const { data: newZone, error: zoneError } = await supabase
             .from("event_ticket_zones")
@@ -476,7 +344,6 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
 
         if (!matchedZone) { skipped++; continue; }
 
-        // Match lot with normalized comparison
         let matchedLot: any = null;
         if (row.lote) {
           matchedLot = allLots.find(l =>
@@ -487,7 +354,6 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
           }
         }
 
-        // Auto-create missing lot if zone exists but lot doesn't
         if (!matchedLot && matchedZone && row.lote) {
           const zoneLots = allLots.filter(l => l.zone_id === matchedZone!.id);
           const inheritedIvaRate = zoneLots.length > 0 ? zoneLots[0].iva_rate : 6;
@@ -519,6 +385,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             sale_date: saleDateFrom,
             quantity: row.quantidade,
             unit_price: row.preco_unitario || Number(matchedLot.price),
+            ticket_office_id: ticketOfficeId || null,
             notes: notesText,
             source: "import",
           });
@@ -531,6 +398,7 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
             sale_date: saleDateFrom,
             quantity: row.quantidade,
             unit_price: row.preco_unitario || 0,
+            ticket_office_id: ticketOfficeId || null,
             notes: notesText,
             source: "import",
           });
@@ -561,135 +429,264 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
   });
 
-  const handleClose = () => {
-    setOpen(false);
-    setEventId(preSelectedEventId || "");
-    const today = new Date().toISOString().slice(0, 10);
-    setSaleDateFrom(today);
-    setSaleDateTo(today);
-    setFile(null);
-    setPreview([]);
-    setExtracting(false);
-    if (fileRef.current) fileRef.current.value = "";
+  const preview = importType === "setup" ? setupPreview : salesPreview;
+  const isPending = importType === "setup" ? setupMutation.isPending : salesMutation.isPending;
+
+  const handleImport = () => {
+    if (importType === "setup") {
+      setupMutation.mutate();
+    } else {
+      salesMutation.mutate();
+    }
   };
+
+  const selectedEvent = events.find(e => e.id === eventId);
 
   return (
     <>
-      <div className="flex items-center gap-1">
-        <Button variant="outline" onClick={() => setOpen(true)}>
-          <Upload className="h-4 w-4 mr-2" /> Vendas por Período
-        </Button>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
-              <HelpCircle className="h-4 w-4" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="bottom" className="text-xs max-w-[220px]">
-            Importa vendas de PDFs Ticketline sem alterar o planejamento. Concilia automaticamente com lotes existentes e cria novos com quantidade planejada zero.
-          </PopoverContent>
-        </Popover>
-      </div>
+      {!isControlled && (
+        <div className="flex items-center gap-1">
+          <Button variant="outline" onClick={() => setInternalOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" /> Importar PDF
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                <HelpCircle className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" className="text-xs max-w-[240px]">
+              Importa dados de PDFs Ticketline. Pode usar para configuração inicial (zonas/lotes) ou para registar vendas reais.
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
 
-      <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-             <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Upload de Vendas por Período
+              Importar PDF Ticketline
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {!preSelectedEventId && (
-              <div>
-                <Label>Evento</Label>
-                <Select value={eventId} onValueChange={setEventId}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione o evento…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {events.map(e => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          {step === "choose" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">O que pretende fazer com este PDF?</p>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Data Início</Label>
-                <DatePicker value={saleDateFrom} onChange={setSaleDateFrom} placeholder="De…" />
-              </div>
-              <div>
-                <Label>Data Fim</Label>
-                <DatePicker value={saleDateTo} onChange={setSaleDateTo} placeholder="Até…" />
-              </div>
+              <RadioGroup value={importType} onValueChange={(v) => setImportType(v as ImportType)} className="space-y-3">
+                <label htmlFor="type-sales" className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${importType === "sales" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                  <RadioGroupItem value="sales" id="type-sales" className="mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">Importar Vendas</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Regista vendas reais sem alterar o planejamento existente. Ideal para importações periódicas.
+                    </p>
+                  </div>
+                </label>
+
+                <label htmlFor="type-setup" className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${importType === "setup" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                  <RadioGroupItem value="setup" id="type-setup" className="mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">Configuração Inicial</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Cria zonas, lotes e capacidades a partir do PDF. Use apenas na primeira configuração da bilheteira.
+                    </p>
+                  </div>
+                </label>
+              </RadioGroup>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+                <Button onClick={() => setStep("form")}>Continuar</Button>
+              </DialogFooter>
             </div>
+          )}
 
-            <div>
-              <Label>Ficheiro PDF</Label>
-              <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5 ${extracting ? "opacity-50 pointer-events-none" : ""}`}>
-                {extracting ? (
-                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                ) : (
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar PDF (max 10MB)"}
-                </span>
-                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf" disabled={extracting} />
-              </label>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                A IA extrairá automaticamente lotes, quantidades e preços do PDF
-              </p>
-            </div>
+          {step === "form" && (
+            <div className="space-y-4">
+              <Button variant="ghost" size="sm" onClick={() => { setStep("choose"); setFile(null); setSetupPreview([]); setSalesPreview([]); if (fileRef.current) fileRef.current.value = ""; }} className="text-xs -mt-2">
+                <ArrowLeft className="h-3 w-3 mr-1" /> Voltar
+              </Button>
 
-            {preview.length > 0 && (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  Dados extraídos — {preview.length} linhas
-                </div>
-                <div className="max-h-40 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/20">
-                      <tr>
-                        <th className="text-left px-3 py-1">Zona</th>
-                        <th className="text-left px-3 py-1">Lote</th>
-                        <th className="text-right px-3 py-1">Qtd</th>
-                        <th className="text-right px-3 py-1">Preço Unit.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.map((r, i) => (
-                        <tr key={i} className="border-t border-border/30">
-                          <td className="px-3 py-1">{r.zona || "—"}</td>
-                          <td className="px-3 py-1">{r.lote}</td>
-                          <td className="px-3 py-1 text-right font-mono">{r.quantidade.toLocaleString()}</td>
-                          <td className="px-3 py-1 text-right font-mono">{r.preco_unitario ? `${r.preco_unitario.toFixed(2)}€` : "—"}</td>
-                        </tr>
+              {/* Event selector (only if not pre-selected) */}
+              {!preSelectedEventId && (
+                <div>
+                  <Label>Evento</Label>
+                  <Select value={eventId} onValueChange={setEventId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Selecione o evento…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map(e => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                        </SelectItem>
                       ))}
-                    </tbody>
-                  </table>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button
-              onClick={() => uploadMutation.mutate()}
-              disabled={!eventId || !saleDateFrom || !saleDateTo || preview.length === 0 || uploadMutation.isPending || extracting}
-            >
-              {uploadMutation.isPending ? "A importar…" : "Importar Vendas"}
-            </Button>
-          </DialogFooter>
+              {/* Ticket office (optional) */}
+              {ticketOffices.length > 0 && (
+                <div>
+                  <Label>Bilheteira <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Select value={ticketOfficeId} onValueChange={setTicketOfficeId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Selecione a bilheteira…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ticketOffices.map((to: any) => (
+                        <SelectItem key={to.id} value={to.id}>{to.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Setup-specific: load type */}
+              {importType === "setup" && (
+                <div>
+                  <Label>Tipo de Carga</Label>
+                  <RadioGroup value={loadType} onValueChange={(v) => setLoadType(v as any)} className="mt-2 flex gap-4">
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="realizado" id="realizado" />
+                      <Label htmlFor="realizado" className="cursor-pointer font-normal">Realizado</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="previsto" id="previsto" />
+                      <Label htmlFor="previsto" className="cursor-pointer font-normal">Previsto</Label>
+                    </div>
+                  </RadioGroup>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {loadType === "previsto"
+                      ? "Cria zonas e lotes sem registar vendas"
+                      : "Cria zonas, lotes e regista vendas automaticamente"}
+                  </p>
+                </div>
+              )}
+
+              {/* Sales-specific: date range */}
+              {importType === "sales" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Data Início</Label>
+                    <DatePicker value={saleDateFrom} onChange={setSaleDateFrom} placeholder="De…" />
+                  </div>
+                  <div>
+                    <Label>Data Fim</Label>
+                    <DatePicker value={saleDateTo} onChange={setSaleDateTo} placeholder="Até…" />
+                  </div>
+                </div>
+              )}
+
+              {/* File upload */}
+              <div>
+                <Label>Ficheiro PDF</Label>
+                <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5 ${extracting ? "opacity-50 pointer-events-none" : ""}`}>
+                  {extracting ? (
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar PDF (max 10MB)"}
+                  </span>
+                  <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf" disabled={extracting} />
+                </label>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  A IA extrairá automaticamente zonas, lotes, quantidades e preços do PDF
+                </p>
+              </div>
+
+              {/* Preview table — Setup */}
+              {importType === "setup" && setupPreview.length > 0 && (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    Dados extraídos — {setupPreview.length} linhas
+                  </div>
+                  <div className="max-h-40 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/20">
+                        <tr>
+                          <th className="text-left px-3 py-1">Zona</th>
+                          <th className="text-left px-3 py-1">Lote</th>
+                          <th className="text-right px-3 py-1">Total</th>
+                          <th className="text-right px-3 py-1">Vendidos</th>
+                          <th className="text-right px-3 py-1">Preço</th>
+                          <th className="text-right px-3 py-1">IVA</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {setupPreview.map((r, i) => (
+                          <tr key={i} className="border-t border-border/30">
+                            <td className="px-3 py-1">{r.zona}</td>
+                            <td className="px-3 py-1">{r.lote}</td>
+                            <td className="px-3 py-1 text-right font-mono">{r.quantidade.toLocaleString()}</td>
+                            <td className="px-3 py-1 text-right font-mono">{r.quantidade_vendida.toLocaleString()}</td>
+                            <td className="px-3 py-1 text-right font-mono">{r.preco.toFixed(2)}€</td>
+                            <td className="px-3 py-1 text-right font-mono">{r.iva_rate}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview table — Sales */}
+              {importType === "sales" && salesPreview.length > 0 && (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                    Dados extraídos — {salesPreview.length} linhas
+                  </div>
+                  <div className="max-h-40 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/20">
+                        <tr>
+                          <th className="text-left px-3 py-1">Zona</th>
+                          <th className="text-left px-3 py-1">Lote</th>
+                          <th className="text-right px-3 py-1">Qtd</th>
+                          <th className="text-right px-3 py-1">Preço Unit.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {salesPreview.map((r, i) => (
+                          <tr key={i} className="border-t border-border/30">
+                            <td className="px-3 py-1">{r.zona || "—"}</td>
+                            <td className="px-3 py-1">{r.lote}</td>
+                            <td className="px-3 py-1 text-right font-mono">{r.quantidade.toLocaleString()}</td>
+                            <td className="px-3 py-1 text-right font-mono">{r.preco_unitario ? `${r.preco_unitario.toFixed(2)}€` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+                <Button
+                  onClick={handleImport}
+                  disabled={!eventId || preview.length === 0 || isPending || extracting}
+                >
+                  {isPending ? "A importar…" : importType === "setup"
+                    ? `Importar ${loadType === "realizado" ? "Realizado" : "Previsto"}`
+                    : `Importar ${salesPreview.length} vendas`}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+// Keep legacy exports for backward compatibility during transition
+export const TotalTicketLoadModal = TicketImportModal;
+export const DailySalesUploadModal = TicketImportModal;

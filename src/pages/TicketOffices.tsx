@@ -7,7 +7,7 @@ import { Plus, Search, Phone, Mail, Building2, Pencil, Trash2, Landmark, ToggleL
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TicketOfficeFormModal } from "@/components/TicketOfficeFormModal";
-import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
+import { TicketImportModal } from "@/components/TicketUploadModals";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
@@ -385,7 +385,7 @@ export default function TicketOffices() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <TicketOfficeSalesImport open={showImport} onClose={() => setShowImport(false)} />
+      <TicketImportModal open={showImport} onClose={() => setShowImport(false)} />
     </div>
   );
 }

@@ -16,8 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload, AlertTriangle,
 } from "lucide-react";
-import { TotalTicketLoadModal, DailySalesUploadModal } from "@/components/TicketUploadModals";
-import { TicketOfficeSalesImport } from "@/components/TicketOfficeSalesImport";
+import { TicketImportModal } from "@/components/TicketUploadModals";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
@@ -394,13 +393,9 @@ export default function TicketManagement() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" /> Importar Vendas (Bilheteira)
-          </Button>
+          <TicketImportModal events={events} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
         </div>
       </div>
-
-      <TicketOfficeSalesImport open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
 
       {selectedEventId && (
         <>
@@ -475,8 +470,7 @@ export default function TicketManagement() {
               <Button onClick={() => openSaleModal()} disabled={zones.length === 0}>
                 <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
-              <TotalTicketLoadModal events={events} selectedEventId={selectedEventId} />
-              <DailySalesUploadModal events={events} selectedEventId={selectedEventId} />
+              <TicketImportModal events={events} selectedEventId={selectedEventId} />
               {isAdmin && (
                 <Button variant="outline" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}>
                   <Plus className="h-4 w-4 mr-2" /> Nova Zona
