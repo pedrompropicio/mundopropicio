@@ -80,6 +80,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [salesPreview, setSalesPreview] = useState<ParsedSaleRow[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [ticketOfficeId, setTicketOfficeId] = useState("");
+  const [pdfPeriodFrom, setPdfPeriodFrom] = useState<string | null>(null);
+  const [pdfPeriodTo, setPdfPeriodTo] = useState<string | null>(null);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
