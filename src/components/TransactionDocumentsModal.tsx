@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Upload, FileText, Trash2, ExternalLink } from "lucide-react";
+import { X, Upload, FileText, Trash2, ExternalLink, BookOpen } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -32,6 +32,7 @@ function extractStoragePath(fileUrl: string): string {
 
 export function TransactionDocumentsModal({ transactionId, transactionDescription, onClose }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [isAccounting, setIsAccounting] = useState(true);
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -100,7 +101,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         file_url: filePath,
         doc_type: getDocType(file.name),
         uploaded_by: user?.email ?? "sistema",
-      });
+        is_accounting: isAccounting,
+      } as any);
       if (dbError) throw dbError;
 
       queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
@@ -160,13 +162,25 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         )}
 
         {/* Upload */}
-        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 transition-colors hover:border-primary/50 hover:bg-primary/5 ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
-          <Upload className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {uploading ? "A enviar…" : "Clique para anexar documento (max 10MB)"}
-          </span>
-          <input type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
-        </label>
+        <div className="space-y-2">
+          <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 transition-colors hover:border-primary/50 hover:bg-primary/5 ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+            <Upload className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {uploading ? "A enviar…" : "Clique para anexar documento (max 10MB)"}
+            </span>
+            <input type="file" className="hidden" onChange={handleUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isAccounting}
+              onChange={(e) => setIsAccounting(e.target.checked)}
+              className="rounded border-border"
+            />
+            <BookOpen className="h-3.5 w-3.5 text-primary" />
+            <span>Documento contábil (fatura, recibo, nota fiscal)</span>
+          </label>
+        </div>
 
         {/* Documents list (only real docs) */}
         {isLoading ? (
@@ -175,16 +189,35 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           <p className="text-center text-sm text-muted-foreground py-4">Nenhum documento anexado.</p>
         ) : (
           <div className="space-y-2">
-            {realDocs.map((doc) => (
+            {realDocs.map((doc: any) => (
               <div key={doc.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
                 <FileText className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{doc.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-medium">{doc.name}</p>
+                    {doc.is_accounting && (
+                      <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary" title="Documento contábil">
+                        Contábil
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-muted-foreground">
                     {doc.uploaded_by} · {new Date(doc.uploaded_at).toLocaleDateString("pt-PT")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={async () => {
+                      const newVal = !doc.is_accounting;
+                      await supabase.from("transaction_documents").update({ is_accounting: newVal } as any).eq("id", doc.id);
+                      queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
+                      toast({ title: newVal ? "Marcado como contábil" : "Removida marcação contábil" });
+                    }}
+                    className={`rounded-lg p-1.5 transition-colors ${doc.is_accounting ? "text-primary hover:bg-primary/15" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                    title={doc.is_accounting ? "Remover marcação contábil" : "Marcar como contábil"}
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                  </button>
                   <button
                     onClick={() => handleOpenDocument(doc.file_url)}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
