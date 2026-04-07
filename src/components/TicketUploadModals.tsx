@@ -427,34 +427,68 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
       const zoneIds = zones.map(z => z.id);
       const { data: lots } = await supabase
         .from("event_ticket_lots")
-        .select("id, name, zone_id, price")
+        .select("id, name, zone_id, price, iva_rate")
         .in("zone_id", zoneIds);
 
       let imported = 0;
-      let skipped = 0;
+      let autoCreatedLots = 0;
       const notesText = saleDateFrom === saleDateTo ? `Upload vendas ${saleDateFrom}` : `Upload vendas período ${saleDateFrom} a ${saleDateTo}`;
 
+      // Keep a mutable copy of lots to track newly created ones during import
+      const allLots = [...(lots || [])];
+
       for (const row of preview) {
-        // Try to match by lot first
+        // Try to match zone first
+        const matchedZone = row.zona
+          ? zones.find(z => z.name.toLowerCase().trim() === row.zona.toLowerCase().trim())
+          : null;
+
+        // Try to match lot within the zone
         let matchedLot: any = null;
-        if (row.lote && lots && lots.length > 0) {
-          matchedLot = lots.find(l => {
-            const lotMatch = l.name.toLowerCase() === row.lote.toLowerCase();
-            if (row.zona) {
-              const zone = zones.find(z => z.id === l.zone_id);
-              return lotMatch && zone?.name.toLowerCase() === row.zona.toLowerCase();
-            }
-            return lotMatch;
-          });
-          if (!matchedLot) {
-            matchedLot = lots.find(l => l.name.toLowerCase() === row.lote.toLowerCase());
+        if (row.lote && allLots.length > 0) {
+          if (matchedZone) {
+            matchedLot = allLots.find(l =>
+              l.name.toLowerCase().trim() === row.lote.toLowerCase().trim() &&
+              l.zone_id === matchedZone.id
+            );
           }
+          if (!matchedLot) {
+            matchedLot = allLots.find(l =>
+              l.name.toLowerCase().trim() === row.lote.toLowerCase().trim()
+            );
+          }
+        }
+
+        // Auto-create missing lot if zone exists but lot doesn't
+        if (!matchedLot && matchedZone && row.lote) {
+          // Inherit IVA rate from existing lots in the same zone
+          const zoneLots = allLots.filter(l => l.zone_id === matchedZone.id);
+          const inheritedIvaRate = zoneLots.length > 0 ? zoneLots[0].iva_rate : 6;
+          const nextLotNumber = zoneLots.length + 1;
+
+          const { data: newLot, error: lotError } = await supabase
+            .from("event_ticket_lots")
+            .insert({
+              zone_id: matchedZone.id,
+              name: row.lote,
+              quantity: 0, // Planning stays at 0
+              price: row.preco_unitario || 0,
+              iva_rate: inheritedIvaRate,
+              lot_number: nextLotNumber,
+            })
+            .select("id, name, zone_id, price, iva_rate")
+            .single();
+
+          if (lotError) throw lotError;
+          matchedLot = newLot;
+          allLots.push(newLot);
+          autoCreatedLots++;
         }
 
         if (matchedLot) {
           const { error } = await supabase.from("ticket_sales").insert({
             lot_id: matchedLot.id,
-            zone_id: matchedLot.zone_id || null,
+            zone_id: matchedLot.zone_id || matchedZone?.id || null,
             sale_date: saleDateFrom,
             quantity: row.quantidade,
             unit_price: row.preco_unitario || Number(matchedLot.price),
@@ -463,39 +497,35 @@ export function DailySalesUploadModal({ events, selectedEventId: preSelectedEven
           });
           if (error) throw error;
           imported++;
-        } else if (row.zona) {
-          // Zone-only match (no lot)
-          const matchedZone = zones.find(z => z.name.toLowerCase() === row.zona.toLowerCase());
-          if (matchedZone) {
-            const { error } = await supabase.from("ticket_sales").insert({
-              zone_id: matchedZone.id,
-              lot_id: null,
-              sale_date: saleDateFrom,
-              quantity: row.quantidade,
-              unit_price: row.preco_unitario || 0,
-              notes: notesText,
-              source: "import",
-            });
-            if (error) throw error;
-            imported++;
-          } else {
-            skipped++;
-          }
-        } else {
-          skipped++;
+        } else if (matchedZone) {
+          // Zone match but no lot name — register sale at zone level
+          const { error } = await supabase.from("ticket_sales").insert({
+            zone_id: matchedZone.id,
+            lot_id: null,
+            sale_date: saleDateFrom,
+            quantity: row.quantidade,
+            unit_price: row.preco_unitario || 0,
+            notes: notesText,
+            source: "import",
+          });
+          if (error) throw error;
+          imported++;
         }
+        // If no zone match at all, the row is silently skipped (shouldn't happen with Ticketline PDFs)
       }
 
-      if (skipped > 0) {
-        toast({
-          title: `${imported} vendas importadas, ${skipped} ignoradas`,
-          description: "Algumas linhas não corresponderam a zonas/lotes existentes.",
-        });
-      }
+      return { imported, autoCreatedLots };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
-      toast({ title: "Vendas diárias importadas com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
+      const msg = result?.autoCreatedLots
+        ? `${result.imported} vendas importadas, ${result.autoCreatedLots} novos lotes criados automaticamente`
+        : `Vendas diárias importadas com sucesso!`;
+      toast({ title: msg });
       handleClose();
     },
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
