@@ -649,6 +649,11 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                     <Label>Data Fim</Label>
                     <DatePicker value={saleDateTo} onChange={setSaleDateTo} placeholder="Até…" />
                   </div>
+                  {pdfPeriodFrom && (
+                    <p className="col-span-2 text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Período detectado do PDF: {new Date(pdfPeriodFrom + "T12:00:00").toLocaleDateString("pt-PT")} a {new Date((pdfPeriodTo || pdfPeriodFrom) + "T12:00:00").toLocaleDateString("pt-PT")}
+                    </p>
+                  )}
                 </div>
               )}
 
