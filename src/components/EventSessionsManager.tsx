@@ -230,6 +230,9 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
                       </div>
                       {canManage && (
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => copySession(s)} className="rounded p-1 hover:bg-secondary" title="Copiar sessão">
+                            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
                           <button onClick={() => startEdit(s)} className="rounded p-1 hover:bg-secondary" title="Editar">
                             <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                           </button>
