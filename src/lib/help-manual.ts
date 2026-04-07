@@ -55,7 +55,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Estados do evento",
         content:
-          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Bloqueia edições operacionais, mas permite ajustes administrativos de bilheteira.",
+          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.",
       },
       {
         title: "Tipos de evento",
