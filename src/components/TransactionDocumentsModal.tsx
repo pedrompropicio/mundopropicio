@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Upload, FileText, Trash2, ExternalLink } from "lucide-react";
+import { X, Upload, FileText, Trash2, ExternalLink, BookOpen } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
