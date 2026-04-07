@@ -324,7 +324,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     },
     onSuccess: async () => {
       // Log the import
-      await supabase.from("ticket_import_logs" as any).insert({
+      const { error: logError } = await supabase.from("ticket_import_logs").insert({
         event_id: eventId,
         ticket_office_id: ticketOfficeId || null,
         import_type: "setup",
@@ -333,6 +333,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         file_name: file?.name || null,
         rows_imported: setupPreview.length,
       });
+      if (logError) console.error("Import log error:", logError);
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
@@ -462,7 +463,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     },
     onSuccess: async (result) => {
       // Log the import
-      await supabase.from("ticket_import_logs" as any).insert({
+      const { error: logError } = await supabase.from("ticket_import_logs").insert({
         event_id: eventId,
         ticket_office_id: ticketOfficeId || null,
         import_type: "sales",
