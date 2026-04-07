@@ -502,8 +502,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       .select("*")
       .eq("event_id", eventId)
       .eq("import_type", importType)
-      .lte("period_from", saleDateTo)
-      .gte("period_to", saleDateFrom);
+      .lte("period_from", pdfPeriodTo || saleDateTo)
+      .gte("period_to", pdfPeriodFrom || saleDateFrom);
 
     if (existingLogs && existingLogs.length > 0) {
       setDuplicateWarnings(existingLogs);
