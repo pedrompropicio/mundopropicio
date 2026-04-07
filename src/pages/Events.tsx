@@ -296,18 +296,46 @@ export default function Events() {
   };
 
   const addSubEvent = () => {
-    setForm({ ...form, sub_events: [...form.sub_events, { name: "", date: "", city_id: "", venue_id: "" }] });
+    setForm({ ...form, sub_events: [...form.sub_events, { name: "", date: "", city_id: "", venue_id: "", extra_dates: [], sessions: [] }] });
   };
 
   const removeSubEvent = (idx: number) => {
     setForm({ ...form, sub_events: form.sub_events.filter((_, i) => i !== idx) });
   };
 
-  const updateSubEvent = (idx: number, field: string, value: string) => {
+  const updateSubEvent = (idx: number, field: string, value: any) => {
     const updated = [...form.sub_events];
     updated[idx] = { ...updated[idx], [field]: value };
     if (field === "city_id") updated[idx].venue_id = "";
     setForm({ ...form, sub_events: updated });
+  };
+
+  const addSubEventExtraDate = (idx: number, date: string) => {
+    if (!date) return;
+    const sub = form.sub_events[idx];
+    if (sub.extra_dates.includes(date) || date === sub.date) return;
+    updateSubEvent(idx, "extra_dates", [...sub.extra_dates, date].sort());
+  };
+
+  const removeSubEventExtraDate = (idx: number, date: string) => {
+    updateSubEvent(idx, "extra_dates", form.sub_events[idx].extra_dates.filter((d: string) => d !== date));
+  };
+
+  const addSubEventSession = (idx: number) => {
+    const sub = form.sub_events[idx];
+    const allDates = [sub.date, ...sub.extra_dates].filter(Boolean);
+    const sessionDate = allDates[0] || "";
+    updateSubEvent(idx, "sessions", [...sub.sessions, { date: sessionDate, label: `Sessão ${sub.sessions.length + 1}`, start_time: "" }]);
+  };
+
+  const updateSubEventSession = (subIdx: number, sessIdx: number, field: string, value: string) => {
+    const sessions = [...form.sub_events[subIdx].sessions];
+    sessions[sessIdx] = { ...sessions[sessIdx], [field]: value };
+    updateSubEvent(subIdx, "sessions", sessions);
+  };
+
+  const removeSubEventSession = (subIdx: number, sessIdx: number) => {
+    updateSubEvent(subIdx, "sessions", form.sub_events[subIdx].sessions.filter((_: any, i: number) => i !== sessIdx));
   };
 
   const addFestivalDate = () => {
