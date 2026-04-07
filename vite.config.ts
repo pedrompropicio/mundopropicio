@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
         name: "Mundo Propício - Gestão Financeira de Eventos",
         short_name: "Mundo Propício",
         description: "Gestão financeira para empresas de eventos, concertos e festivais em Portugal",
-        theme_color: "#7c3aed",
+        theme_color: "#1e3a5f",
         background_color: "#0f1117",
         display: "standalone",
         orientation: "portrait-primary",
