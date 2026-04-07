@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface Props {
   officeId: string;
@@ -150,7 +152,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
 
       {/* Global balance */}
       <div className={`rounded-lg p-3 text-center ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}>
-        <p className="text-xs text-muted-foreground">Saldo Disponível na Bilheteira</p>
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Saldo Disponível na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
           {formatCurrency(summary.globalBalance)}
         </p>

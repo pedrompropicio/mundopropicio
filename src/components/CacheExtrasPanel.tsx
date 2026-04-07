@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Pencil, Check, X, Paperclip, FileText, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface Props {
   cacheConfigId: string;
@@ -110,8 +112,8 @@ export function CacheExtrasPanel({ cacheConfigId, artistName, eventId, canEdit =
   return (
     <div className="border-t border-border/30 pt-2 mt-2 space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">
-          Despesas Extras — {artistName}
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+          Despesas Extras — {artistName} <HelpTooltip text={helpTexts.cacheExtras} size={12} />
           {totalExtras > 0 && (
             <span className="ml-2 text-warning font-mono">({formatCurrency(totalExtras)})</span>
           )}

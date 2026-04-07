@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Pencil, Check, X, Paperclip, FileText, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface Props {
   partnerId: string;
@@ -117,8 +119,8 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
   return (
     <div className="mt-2 space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">
-          Despesas Extras — {partnerName}
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+          Despesas Extras — {partnerName} <HelpTooltip text={helpTexts.partnerExtras} size={12} />
           {totalExtras > 0 && (
             <span className="ml-2 text-warning font-mono">({formatCurrency(totalExtras)})</span>
           )}
