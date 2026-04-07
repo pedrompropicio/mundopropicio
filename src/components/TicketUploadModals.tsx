@@ -165,6 +165,18 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // Extract period from PDF header if available
+      const periodFrom = data.period_from || null;
+      const periodTo = data.period_to || null;
+      if (periodFrom) {
+        setPdfPeriodFrom(periodFrom);
+        setSaleDateFrom(periodFrom);
+      }
+      if (periodTo) {
+        setPdfPeriodTo(periodTo);
+        setSaleDateTo(periodTo);
+      }
+
       if (importType === "setup") {
         const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
           zona: String(r.zona || "Geral"),
@@ -183,7 +195,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           const msg = discarded > 0
             ? `${filtered.length} linhas extraídas (${discarded} descartadas por preço < 1€)`
             : `${filtered.length} linhas extraídas do PDF`;
-          toast({ title: msg });
+          const periodMsg = periodFrom ? ` | Período: ${new Date(periodFrom + "T12:00:00").toLocaleDateString("pt-PT")} a ${new Date((periodTo || periodFrom) + "T12:00:00").toLocaleDateString("pt-PT")}` : "";
+          toast({ title: msg + periodMsg });
         }
       } else {
         const rows: ParsedSaleRow[] = (data.rows || []).map((r: any) => ({
@@ -197,7 +210,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
         } else {
           setSalesPreview(filtered);
-          toast({ title: `${filtered.length} linhas extraídas do PDF` });
+          const periodMsg = periodFrom ? ` | Período: ${new Date(periodFrom + "T12:00:00").toLocaleDateString("pt-PT")} a ${new Date((periodTo || periodFrom) + "T12:00:00").toLocaleDateString("pt-PT")}` : "";
+          toast({ title: `${filtered.length} linhas extraídas do PDF${periodMsg}` });
         }
       }
     } catch (err: any) {
