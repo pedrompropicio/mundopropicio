@@ -866,7 +866,20 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                 </div>
               )}
 
-              {/* Preview table — Setup */}
+              {/* Total validation warnings */}
+              {totalValidationWarnings.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2">
+                  <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-medium text-destructive">Totais extraídos não coincidem com o TOTAL do PDF</p>
+                    {totalValidationWarnings.map((w, i) => (
+                      <p key={i} className="text-muted-foreground">{w}</p>
+                    ))}
+                    <p className="text-muted-foreground italic">A extração pode ter utilizado colunas incorretas. Verifique os valores antes de confirmar.</p>
+                  </div>
+                </div>
+              )}
+
               {importType === "setup" && setupPreview.length > 0 && (
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">
