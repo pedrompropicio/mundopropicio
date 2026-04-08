@@ -366,7 +366,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         import_type: "setup",
         period_from: pdfPeriodFrom || saleDateFrom,
         period_to: pdfPeriodTo || saleDateTo,
-        file_name: file?.name || null,
+        file_name: file?.name || (selectedSession ? `${selectedSession.label}.pdf` : null),
         rows_imported: setupPreview.length,
       });
       if (logError) console.error("Import log error:", logError);
@@ -385,13 +385,20 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   // ── Sales import mutation ──
   const salesMutation = useMutation({
     mutationFn: async () => {
-      console.log("salesMutation started", { eventId, salesPreviewLen: salesPreview.length });
+      console.log("salesMutation started", { eventId, salesPreviewLen: salesPreview.length, effectiveSessionId });
       if (!eventId || salesPreview.length === 0) throw new Error("Selecione evento e ficheiro");
+      if (requiresSessionSelection) throw new Error("Selecione a sessão correta antes de importar.");
 
-      const { data: zones } = await supabase
+      let zonesQuery = supabase
         .from("event_ticket_zones")
-        .select("id, name")
+        .select("id, name, session_id")
         .eq("event_id", eventId);
+
+      if (effectiveSessionId) {
+        zonesQuery = zonesQuery.eq("session_id", effectiveSessionId);
+      }
+
+      const { data: zones } = await zonesQuery;
 
       const zoneIds = (zones || []).map(z => z.id);
       const { data: lots } = zoneIds.length > 0
@@ -402,7 +409,6 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       let autoCreatedLots = 0;
       let autoCreatedZones = 0;
       let skipped = 0;
-      // PDF dates always take priority over form fields
       const effectiveFrom = pdfPeriodFrom || saleDateFrom;
       const effectiveTo = pdfPeriodTo || saleDateTo;
       const notesText = effectiveFrom === effectiveTo ? `Upload vendas ${effectiveFrom}` : `Upload vendas período ${effectiveFrom} a ${effectiveTo}`;
@@ -418,8 +424,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         if (!matchedZone && row.zona) {
           const { data: newZone, error: zoneError } = await supabase
             .from("event_ticket_zones")
-            .insert({ event_id: eventId, name: row.zona, total_capacity: 0 })
-            .select("id, name")
+            .insert({ event_id: eventId, session_id: effectiveSessionId || null, name: row.zona, total_capacity: 0 })
+            .select("id, name, session_id")
             .single();
           if (zoneError) throw zoneError;
           matchedZone = newZone;
@@ -506,7 +512,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         import_type: "sales",
         period_from: pdfPeriodFrom || saleDateFrom,
         period_to: pdfPeriodTo || saleDateTo,
-        file_name: file?.name || null,
+        file_name: file?.name || (selectedSession ? `${selectedSession.label}.pdf` : null),
         rows_imported: result?.imported || 0,
         rows_skipped: result?.skipped || 0,
         zones_created: result?.autoCreatedZones || 0,
@@ -538,8 +544,12 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       return;
     }
 
+    if (requiresSessionSelection) {
+      toast({ title: "Selecione a sessão correta antes de importar", variant: "destructive" });
+      return;
+    }
+
     try {
-      // Check for existing imports with overlapping period for same event
       const effectiveFrom = pdfPeriodFrom || saleDateFrom;
       const effectiveTo = pdfPeriodTo || saleDateTo;
 
@@ -549,11 +559,11 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         .eq("event_id", eventId)
         .eq("import_type", importType)
         .lte("period_from", effectiveTo)
-        .gte("period_to", effectiveFrom);
+        .gte("period_to", effectiveFrom)
+        .ilike("file_name", effectiveSessionId && selectedSession ? `%${selectedSession.label}%` : `%`);
 
       if (logError) {
         console.error("Duplicate check error:", logError);
-        // Proceed with import even if duplicate check fails
       }
 
       if (!logError && existingLogs && existingLogs.length > 0) {
@@ -680,6 +690,29 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {eventSessions.length > 0 && !selectedSessionId && (
+                <div>
+                  <Label>Sessão</Label>
+                  <Select value={manualSessionId} onValueChange={setManualSessionId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Selecione a sessão correta…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eventSessions.map((session: any) => (
+                        <SelectItem key={session.id} value={session.id}>
+                          {session.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedSession && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Importação será associada à sessão {selectedSession.label}.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -814,7 +847,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                 <Button variant="outline" onClick={handleClose}>Cancelar</Button>
                 <Button
                   onClick={checkDuplicatesAndImport}
-                  disabled={!eventId || preview.length === 0 || isPending || extracting}
+                  disabled={!eventId || preview.length === 0 || isPending || extracting || requiresSessionSelection}
                 >
                   {isPending ? "A importar…" : importType === "setup"
                     ? `Importar ${loadType === "realizado" ? "Realizado" : "Previsto"}`
