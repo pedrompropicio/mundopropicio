@@ -716,12 +716,33 @@ export default function Transactions() {
           <button
             onClick={handleBulkApprove}
             disabled={bulkApproveMutation.isPending}
-            className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" />
             Aprovar {selectedPendingCount} selecionada{selectedPendingCount > 1 ? "s" : ""}
           </button>
         )}
+
+        <div className="ml-auto flex items-center rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setViewMode("open")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Em Aberto
+          </button>
+          <button
+            onClick={() => setViewMode("paid")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Liquidadas
+          </button>
+        </div>
       </div>
 
       {/* Table */}
