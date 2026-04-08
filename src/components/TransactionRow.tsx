@@ -272,7 +272,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       Criação
                     </span>
                     <span className="text-muted-foreground">
-                      Lançamento criado — {formatCurrency(amount)}
+                      Lançamento criado — {formatCurrency(totalWithIva)}
                     </span>
                   </div>
                   {/* Payment info: date + invoice */}
@@ -287,7 +287,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                         {isExpense ? "Pagamento" : "Recebimento"}
                       </span>
                       <span className="text-muted-foreground">
-                        {isExpense ? "Pago" : "Recebido"}: {formatCurrency(paidAmount)} de {formatCurrency(amount)}
+                        {isExpense ? "Pago" : "Recebido"}: {formatCurrency(paidAmount)} de {formatCurrency(totalWithIva)}
                       </span>
                       {accountName && (
                         <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
