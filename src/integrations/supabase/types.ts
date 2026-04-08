@@ -1709,9 +1709,11 @@ export type Database = {
           invoice_ref: string | null
           iva_rate: number
           paid_amount: number
+          parent_transaction_id: string | null
           payment_date: string | null
           pl_override_note: string | null
           specification: string | null
+          split_percentage: number | null
           status: string
           supplier_id: string | null
           type: string
@@ -1730,9 +1732,11 @@ export type Database = {
           invoice_ref?: string | null
           iva_rate?: number
           paid_amount?: number
+          parent_transaction_id?: string | null
           payment_date?: string | null
           pl_override_note?: string | null
           specification?: string | null
+          split_percentage?: number | null
           status?: string
           supplier_id?: string | null
           type: string
@@ -1751,9 +1755,11 @@ export type Database = {
           invoice_ref?: string | null
           iva_rate?: number
           paid_amount?: number
+          parent_transaction_id?: string | null
           payment_date?: string | null
           pl_override_note?: string | null
           specification?: string | null
+          split_percentage?: number | null
           status?: string
           supplier_id?: string | null
           type?: string
@@ -1779,6 +1785,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_parent_transaction_id_fkey"
+            columns: ["parent_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
           {
