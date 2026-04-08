@@ -226,6 +226,32 @@ export default function PartnerEventDetail() {
     return { income: buildForType("income"), expense: buildForType("expense") };
   }, [forecasts, allCategories]);
 
+  // ─── Transaction hierarchy groups ───
+  const txGrouped = useMemo(() => {
+    type TxItem = { id: string; date: string; description: string; amount: number; status: string; type: string; docs: any[] };
+    type TxGroup = { code: string; name: string; items: TxItem[]; total: number };
+
+    const buildForType = (type: "income" | "expense"): TxGroup[] => {
+      const items = transactions.filter((t: any) => t.type === type);
+      const groupMap: Record<string, TxGroup> = {};
+      items.forEach((t: any) => {
+        const info = catLookup[t.category_id];
+        const groupName = info?.groupName ?? "Sem categoria";
+        const groupCode = info?.groupCode ?? "Z";
+        if (!groupMap[groupName]) groupMap[groupName] = { code: groupCode, name: groupName, items: [], total: 0 };
+        const amt = Number(t.amount);
+        groupMap[groupName].items.push({
+          id: t.id, date: t.date, description: t.description, amount: amt, status: t.status, type: t.type,
+          docs: docsByTx[t.id] || [],
+        });
+        groupMap[groupName].total += amt;
+      });
+      return Object.values(groupMap).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    };
+
+    return { income: buildForType("income"), expense: buildForType("expense") };
+  }, [transactions, catLookup, docsByTx]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -294,19 +320,16 @@ export default function PartnerEventDetail() {
         <CardContent className="px-0 pb-0">
           {groups.map((l1) => (
             <div key={l1.name} className="mb-2">
-              {/* L1 header */}
               <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} - {l1.name}</span>
                 <span className={`text-[11px] font-bold font-mono ${colorClass}`}>{formatCurrency(l1.total)}</span>
               </div>
               {l1.l2Groups.map((l2) => (
                 <div key={l2.name}>
-                  {/* L2 subheader */}
                   <div className="bg-muted/20 px-4 py-1 flex items-center justify-between border-b border-border/50">
                     <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} - {l2.name}</span>
                     <span className={`text-[10px] font-semibold font-mono ${colorClass}`}>{formatCurrency(l2.total)}</span>
                   </div>
-                  {/* L3 items */}
                   {l2.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between px-4 py-1.5 border-b border-border/30">
                       <div className="min-w-0 flex-1 mr-2">
@@ -320,7 +343,6 @@ export default function PartnerEventDetail() {
               ))}
             </div>
           ))}
-          {/* Grand total */}
           <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-t">
             <span className="text-xs font-bold">Total {title}</span>
             <span className={`text-sm font-bold font-mono ${colorClass}`}>{formatCurrency(total)}</span>
