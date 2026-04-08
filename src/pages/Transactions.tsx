@@ -514,12 +514,12 @@ export default function Transactions() {
       )}
 
       {/* Search + Filters + Bulk Actions */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {(["all", "income", "expense"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
               filter === f ? "bg-primary text-primary-foreground glow-primary" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
             }`}
           >
@@ -531,7 +531,7 @@ export default function Transactions() {
           <button
             onClick={() => setViewMode("open")}
             className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
+              "px-2.5 py-1.5 text-xs font-medium transition-colors",
               viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
             )}
           >
@@ -540,7 +540,7 @@ export default function Transactions() {
           <button
             onClick={() => setViewMode("paid")}
             className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
+              "px-2.5 py-1.5 text-xs font-medium transition-colors",
               viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
             )}
           >
