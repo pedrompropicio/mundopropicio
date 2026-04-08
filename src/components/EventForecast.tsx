@@ -54,6 +54,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
+  const [bpSearch, setBpSearch] = useState("");
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
