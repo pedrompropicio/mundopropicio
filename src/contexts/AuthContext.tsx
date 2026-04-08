@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "manager" | "editor" | "viewer" | "user";
+export type AppRole = "admin" | "manager" | "editor" | "viewer" | "user" | "partner";
 
 interface AuthContextType {
   user: User | null;
@@ -11,6 +11,7 @@ interface AuthContextType {
   permissions: string[];
   isAdmin: boolean;
   isManager: boolean;
+  isPartner: boolean;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   signOut: () => Promise<void>;
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextType>({
   permissions: [],
   isAdmin: false,
   isManager: false,
+  isPartner: false,
   loading: true,
   hasPermission: () => false,
   signOut: async () => {},
@@ -36,6 +38,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   editor: "Editor",
   viewer: "Viewer",
   user: "Utilizador",
+  partner: "Parceiro",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
@@ -44,6 +47,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   editor: "bg-amber-500/15 text-amber-600",
   viewer: "bg-emerald-500/15 text-emerald-600",
   user: "bg-secondary text-secondary-foreground",
+  partner: "bg-indigo-500/15 text-indigo-600",
 };
 
 export const ALL_PERMISSIONS = [
@@ -183,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, session, role, permissions,
       isAdmin: role === "admin",
       isManager: role === "manager",
+      isPartner: role === "partner",
       loading, hasPermission, signOut,
     }}>
       {children}

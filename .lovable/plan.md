@@ -1,36 +1,37 @@
+## Portal do Parceiro — Visão de Evento Autorizado
 
-## Redesenho do Sistema de Importação de PDF de Bilheteira
+### 1. Base de Dados
+- Adicionar valor `'partner'` ao enum `app_role`
+- Criar tabela `partner_event_access`:
+  - `user_id` (parceiro), `event_id` (evento autorizado), `is_active` (permite bloquear acesso)
+  - Para eventos multi-cidade: pode-se autorizar o evento-pai (acesso a tudo) ou apenas sub-eventos específicos
+- RLS: parceiro só lê dados de eventos onde tem `partner_event_access` ativo
 
-### Contexto
-O novo formato PDF da Ticketline organiza dados por **Zona real** (1ª Plateia, Cadeiras de Orquestra, Tribuna 1 Impar, etc.) com sub-linhas por **Tipo de Bilhete** (Normal, Black Friday -20%, Promocode, etc.). O cabeçalho contém nome do espetáculo, período, sessão (data/hora) e local (sala).
+### 2. Gestão de Acessos (Admin)
+- Na página de **Gestão de Utilizadores** ou no **Detalhe do Evento (aba Sócios)**, o admin pode:
+  - Convidar parceiro (cria conta com role `partner`)
+  - Vincular/desvincular eventos e sub-eventos
+  - Ativar/desativar acesso (toggle `is_active`)
 
-### 1. Atualizar Edge Function `extract-ticket-pdf`
-- Reescrever o prompt para extrair dados no novo formato: **zona → tipo de bilhete → preço → quantidades**
-- Cada linha extraída terá: `zona`, `tipo_bilhete`, `preco_unitario`, `quantidade_total` (1ª Qt), `quantidade_vendida` (2ª Qt), `valor_vendido`
-- Extrair do cabeçalho: `event_name`, `session_date`, `session_time`, `venue_name`, `period_from`, `period_to`
-- Extrair linha TOTAL para validação cruzada
+### 3. Layout Dedicado do Parceiro
+- Quando o user logado tem role `partner`, renderiza um layout simplificado:
+  - **Sem sidebar completa** — apenas lista de eventos autorizados
+  - Header com logo + botão sair
+  - Página inicial: lista dos eventos autorizados (cards)
+  - Ao clicar num evento: visualização read-only com 3 abas:
+    - **Bilhetes** (zonas, lotes, vendas)
+    - **Business Plan** (receitas e despesas previstas)
+    - **Transações** (movimentos financeiros do evento)
+  - Para eventos multi-cidade: seletor de cidades/sub-eventos conforme autorização
 
-### 2. Matching automático do evento
-- Comparar `event_name` do PDF com nomes dos eventos no app (similaridade)
-- Comparar `venue_name` com o nome da sala do evento
-- Comparar `session_date` + `session_time` com as sessões do evento
-- Mostrar alerta se houver divergência, mas permitir prosseguir
+### 4. Permissões e Segurança
+- Role `partner` não tem nenhuma das permissões existentes (`manage_*`, `view_*`)
+- Acesso controlado exclusivamente via `partner_event_access`
+- Dados são **somente leitura** — nenhum botão de criar/editar/eliminar
+- Possibilidade de bloquear acesso a qualquer momento (toggle `is_active`)
 
-### 3. Reconciliação de zonas/lotes no preview
-- Mostrar cada zona do PDF lado a lado com as zonas existentes no planejamento
-- Auto-match por nome similar ou preço unitário
-- Para zonas sem match: permitir ao utilizador escolher entre **criar nova zona** ou **mapear a uma zona existente**
-- Para tipos de bilhete (Black Friday, Promocode, etc.): criar como **lotes** dentro da zona correspondente
-
-### 4. Validação de totais
-- Somar todas as linhas extraídas e comparar com a linha TOTAL do PDF
-- Mostrar banner de alerta se divergir mais de 1 unidade/euro
-
-### 5. Importação
-- Registar vendas (`ticket_sales`) por lote/zona com o preço e quantidade correctos
-- Auto-provisionar zonas e lotes em falta
-- Atualizar `tickets_sold` no evento
-
-### Ficheiros a alterar
-- `supabase/functions/extract-ticket-pdf/index.ts` — novo prompt
-- `src/components/TicketUploadModals.tsx` — novo fluxo de preview com reconciliação
+### Fases de implementação:
+1. Migração DB (enum + tabela + RLS)
+2. Interface de gestão de acessos do parceiro
+3. Layout dedicado do parceiro + páginas read-only
+4. Fluxo de convite do parceiro
