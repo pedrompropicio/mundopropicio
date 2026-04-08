@@ -64,6 +64,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
   const [plOverride, setPlOverride] = useState(false);
+  const [isSplit, setIsSplit] = useState(false);
+  const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
+  const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
