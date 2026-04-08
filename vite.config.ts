@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       injectRegister: "auto",
       includeAssets: ["favicon.ico"],
       manifest: {
-        name: "Mundo Propício - Gestão Financeira de Eventos",
-        short_name: "Mundo Propício",
+        name: "MP Gestão Eventos - Gestão Financeira de Eventos",
+        short_name: "MP Gestão Eventos",
         description: "Gestão financeira para empresas de eventos, concertos e festivais em Portugal",
         theme_color: "#1e3a5f",
         background_color: "#0f1117",

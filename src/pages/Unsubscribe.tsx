@@ -68,7 +68,7 @@ export default function Unsubscribe() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary glow-primary">
             <Music2 className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Mundo Propício</h1>
+          <h1 className="text-2xl font-bold text-foreground">MP Gestão Eventos</h1>
         </div>
 
         <div className="glass rounded-xl p-6 space-y-4">

@@ -219,7 +219,7 @@ export function exportBankStatementToPDF(
     doc.setPage(p);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text("Mundo Propício - Extrato Bancário", ml, pageHeight - 8);
+    doc.text("MP Gestão Eventos - Extrato Bancário", ml, pageHeight - 8);
     doc.text(`Página ${p}/${totalPages}`, pageWidth - mr, pageHeight - 8, { align: "right" });
   }
 

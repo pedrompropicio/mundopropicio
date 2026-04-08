@@ -190,7 +190,7 @@ function buildDREBrasil(
     });
     const retained = consistentBase - totalDistribution;
     lines.push({
-      label: "RESULTADO MUNDO PROPÍCIO",
+      label: "RESULTADO MP GESTÃO EVENTOS",
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
@@ -748,7 +748,7 @@ export default function ReportDREBrasil() {
                   </div>
                 ))}
                 <div className="flex items-center justify-between text-sm border-t border-accent/40 pt-2">
-                  <span className="font-bold">RESULTADO MUNDO PROPÍCIO</span>
+                  <span className="font-bold">RESULTADO MP GESTÃO EVENTOS</span>
                   <span className={`font-mono font-bold ${tourRetained >= 0 ? "text-success" : "text-destructive"}`}>
                     {formatCurrency(tourRetained)}
                   </span>

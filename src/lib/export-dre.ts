@@ -161,7 +161,7 @@ export function buildDREForExport(
     // In standard mode, retained = resEx - totalDistribution (MP benefits from real net result)
     const retained = brasilMode ? (totalIncEx - totalExpInc) - totalDistribution : resEx - totalDistribution;
     lines.push({
-      label: "RESULTADO MUNDO PROPÍCIO",
+      label: "RESULTADO MP GESTÃO EVENTOS",
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
@@ -639,7 +639,7 @@ export function exportDREToPDF(
       doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
-      doc.text("RESULTADO MUNDO PROPÍCIO", sumColX[0] + 2, y + 5);
+      doc.text("RESULTADO MP GESTÃO EVENTOS", sumColX[0] + 2, y + 5);
       const retColor = retained >= 0 ? [34, 139, 34] : [200, 50, 50];
       doc.setTextColor(retColor[0], retColor[1], retColor[2]);
       doc.text(fmtVal(retained), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
@@ -682,7 +682,7 @@ export function exportDREToPDF(
     doc.setPage(p);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text(`Mundo Propício - ${reportLabel}`, marginLeft, pageHeight - 8);
+    doc.text(`MP Gestão Eventos - ${reportLabel}`, marginLeft, pageHeight - 8);
     doc.text(`Página ${p}/${totalPages}`, pageWidth - marginRight, pageHeight - 8, { align: "right" });
   }
 
