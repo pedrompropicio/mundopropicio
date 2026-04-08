@@ -552,6 +552,7 @@ export default function Transactions() {
         <Popover modal={false}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+              <Filter className="mr-1 h-3 w-3" />
               {selectedEventIds.size === 0
                 ? "Todos os eventos"
                 : `${selectedEventIds.size} evento(s)`}
