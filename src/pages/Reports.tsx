@@ -28,7 +28,7 @@ import {
 
 const allReportItems = [
   { to: "/relatorios/dre", icon: BarChart3, label: "DRE", permission: "view_report_dre", managementOnly: true },
-  { to: "/relatorios/dre-brasil", icon: Globe, label: "DRE Brasil", permission: "view_report_dre", managementOnly: true },
+  { to: "/relatorios/dre-brasil", icon: Globe, label: "DRE Brasil", permission: "view_report_dre_brasil", managementOnly: true },
   { to: "/relatorios/pl", icon: TrendingUp, label: "Business Plan", permission: "view_report_pl", managementOnly: true },
   { to: "/relatorios/fluxo-caixa", icon: ArrowLeftRight, label: "Fluxo de Caixa", permission: "view_report_cashflow" },
   { to: "/relatorios/extrato", icon: Landmark, label: "Extrato Bancário", permission: "view_report_bank_statement" },
@@ -37,10 +37,10 @@ const allReportItems = [
   { to: "/relatorios/fornecedores", icon: Users, label: "Fornecedores", permission: "view_report_suppliers" },
   { to: "/relatorios/plano-contas", icon: FolderTree, label: "Plano de Contas", permission: "view_report_categories" },
   { to: "/relatorios/movimentacoes", icon: FileSearch, label: "Movimentações", permission: "view_report_movements" },
-  { to: "/relatorios/bilheteiras", icon: Ticket, label: "Auditoria Bilheteiras", permission: "view_report_movements" },
-  { to: "/relatorios/cache-artista", icon: Music, label: "Cachê do Artista", permission: "view_report_dre", managementOnly: true },
-  { to: "/relatorios/pendencias-documentais", icon: FileWarning, label: "Pendências Documentais", permission: "view_report_movements" },
-  { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_movements", managementOnly: true },
+  { to: "/relatorios/bilheteiras", icon: Ticket, label: "Auditoria Bilheteiras", permission: "view_report_ticket_audit" },
+  { to: "/relatorios/cache-artista", icon: Music, label: "Cachê do Artista", permission: "view_report_artist_cache", managementOnly: true },
+  { to: "/relatorios/pendencias-documentais", icon: FileWarning, label: "Pendências Documentais", permission: "view_report_document_pendencies" },
+  { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_accounting_export", managementOnly: true },
 ];
 
 export default function Reports() {
