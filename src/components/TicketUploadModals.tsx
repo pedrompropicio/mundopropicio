@@ -87,6 +87,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
   const [headerMismatchWarnings, setHeaderMismatchWarnings] = useState<string[]>([]);
+  const [totalValidationWarnings, setTotalValidationWarnings] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
