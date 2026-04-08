@@ -58,10 +58,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
   const canApprove = (isAdmin || isManager) && !isEventLocked;
   const canEditBP = (isAdmin || isManager) && !isEventLocked;
+  const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
+  const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
 
   useEffect(() => {
     if ((addingType || editingId) && descRef.current) {
