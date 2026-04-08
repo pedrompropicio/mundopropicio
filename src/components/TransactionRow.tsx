@@ -168,6 +168,18 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {isChildSplit && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
+                        Rateio {splitPct != null ? `${splitPct}%` : ""}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Sub-transação de rateio multi-evento
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {isExpense && t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
