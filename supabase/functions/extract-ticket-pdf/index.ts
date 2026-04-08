@@ -75,7 +75,7 @@ ATENÇÃO ESPECIAL ÀS COLUNAS DE QUANTIDADE:
 - Ignora linhas com quantidade vendida 0.
 - DESCARTA linhas com preço unitário inferior a 1,00€ (cortesias/camarotes sem venda real).
 - Extrai TODOS os dados de vendas que encontrares no documento.
-${periodInstruction}`
+${headerInstruction}`
         : `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
 
 ESTRUTURA DO RELATÓRIO TICKETLINE:
@@ -123,7 +123,7 @@ REGRAS:
 - Ignora linhas "SOMA" e "TOTAL" (são subtotais).
 - DESCARTA lotes com preço unitário inferior a 1,00€ (ex: 0,01€ são bilhetes de cortesia/camarotes sem venda real).
 - O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.
-${periodInstruction}`;
+${headerInstruction}`;
 
 
 
