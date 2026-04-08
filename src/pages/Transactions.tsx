@@ -552,7 +552,7 @@ export default function Transactions() {
         <Popover modal={false}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
-              <Filter className="mr-1 h-3 w-3" />
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
               {selectedEventIds.size === 0
                 ? "Todos os eventos"
                 : `${selectedEventIds.size} evento(s)`}
@@ -588,7 +588,7 @@ export default function Transactions() {
         <Popover modal={false}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
-              <Filter className="mr-1 h-3 w-3" />
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
               {selectedAccountIds.size === 0
                 ? "Todas as contas"
                 : `${selectedAccountIds.size} conta(s)`}
