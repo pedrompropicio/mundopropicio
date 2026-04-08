@@ -45,6 +45,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   });
   const hasChildren = childTransactions.length > 0;
 
+  const { data: events = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("id, name").order("name");
