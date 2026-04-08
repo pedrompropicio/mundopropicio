@@ -169,6 +169,46 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Propagate changes to child split transactions
+    const { data: children } = await adminClient
+      .from("transactions")
+      .select("id, split_percentage")
+      .eq("parent_transaction_id", transaction_id);
+
+    if (children && children.length > 0) {
+      const amountChanged = "amount" in sanitizedUpdates && Number(sanitizedUpdates.amount) !== Number(transaction.amount);
+      const ivaChanged = "iva_rate" in sanitizedUpdates && Number(sanitizedUpdates.iva_rate) !== Number(transaction.iva_rate);
+      const sharedFields = ["description", "category_id", "supplier_id", "account_id", "due_date", "specification", "date"];
+
+      for (const child of children) {
+        const childUpdates: Record<string, any> = {};
+
+        // Propagate amount proportionally
+        if (amountChanged) {
+          const pct = child.split_percentage ?? 0;
+          const newAmount = Number(sanitizedUpdates.amount);
+          childUpdates.amount = +(newAmount * pct / 100).toFixed(2);
+        }
+        // Propagate IVA rate directly
+        if (ivaChanged) {
+          childUpdates.iva_rate = sanitizedUpdates.iva_rate;
+        }
+        // Propagate shared fields directly
+        for (const field of sharedFields) {
+          if (field in sanitizedUpdates && sanitizedUpdates[field] !== transaction[field]) {
+            childUpdates[field] = sanitizedUpdates[field];
+          }
+        }
+
+        if (Object.keys(childUpdates).length > 0) {
+          await adminClient
+            .from("transactions")
+            .update(childUpdates)
+            .eq("id", child.id);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, transaction_id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
