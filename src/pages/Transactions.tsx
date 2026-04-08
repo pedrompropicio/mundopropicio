@@ -605,11 +605,33 @@ export default function Transactions() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="text-sm font-normal">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                {periodDateField === "date" ? "Lançamento: " : ""}
                 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="flex flex-col gap-1">
+                {/* Date field selector */}
+                <div className="flex items-center gap-1 mb-1 pb-1 border-b border-border/50">
+                  <button
+                    onClick={() => setPeriodDateField("due_date")}
+                    className={cn(
+                      "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                      periodDateField === "due_date" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
+                    )}
+                  >
+                    Dt. Vencimento
+                  </button>
+                  <button
+                    onClick={() => setPeriodDateField("date")}
+                    className={cn(
+                      "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                      periodDateField === "date" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
+                    )}
+                  >
+                    Dt. Lançamento
+                  </button>
+                </div>
                 {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
                   <button
                     key={val}
@@ -655,6 +677,18 @@ export default function Transactions() {
               </div>
             </PopoverContent>
           </Popover>
+        )}
+
+        {/* Filter: only no due date */}
+        {viewMode === "open" && (
+          <Button
+            variant={onlyNoDueDate ? "default" : "outline"}
+            size="sm"
+            className="text-sm font-normal"
+            onClick={() => setOnlyNoDueDate(!onlyNoDueDate)}
+          >
+            Sem Vencimento
+          </Button>
         )}
 
         {/* Filtro Aprovação (open view only) */}
