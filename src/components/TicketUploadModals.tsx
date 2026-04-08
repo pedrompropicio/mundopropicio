@@ -23,6 +23,7 @@ interface Event {
 interface TicketImportModalProps {
   events?: Event[];
   selectedEventId?: string;
+  selectedSessionId?: string | null;
   /** When true, opens externally (controlled mode) */
   open?: boolean;
   onClose?: () => void;
@@ -64,7 +65,7 @@ function fileToBase64(file: File): Promise<string> {
 const normalize = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
-export function TicketImportModal({ events: eventsProp, selectedEventId: preSelectedEventId, open: controlledOpen, onClose }: TicketImportModalProps) {
+export function TicketImportModal({ events: eventsProp, selectedEventId: preSelectedEventId, selectedSessionId, open: controlledOpen, onClose }: TicketImportModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;

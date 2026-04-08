@@ -387,7 +387,7 @@ export default function TicketManagement() {
               </SelectContent>
             </Select>
           </div>
-          <TicketImportModal events={events} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
+          <TicketImportModal events={events} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
         </div>
       </div>
 
@@ -464,7 +464,7 @@ export default function TicketManagement() {
               <Button onClick={() => openSaleModal()} disabled={zones.length === 0}>
                 <Plus className="h-4 w-4 mr-2" /> Registar Venda
               </Button>
-              <TicketImportModal events={events} selectedEventId={selectedEventId} />
+              <TicketImportModal events={events} selectedEventId={selectedEventId} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} />
               {isAdmin && (
                 <Button variant="outline" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}>
                   <Plus className="h-4 w-4 mr-2" /> Nova Zona
