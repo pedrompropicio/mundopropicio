@@ -250,7 +250,18 @@ export default function Transactions() {
     const overdue: typeof baseFiltered = [];
     const inPeriod: typeof baseFiltered = [];
     const noDate: typeof baseFiltered = [];
-    const outOfPeriod: typeof baseFiltered = []; // not shown but needed for separation
+
+    // If "only no due date" filter is active, show only those
+    if (onlyNoDueDate) {
+      baseFiltered.forEach((t) => {
+        if (!t.due_date) noDate.push(t);
+      });
+      return {
+        overdueGroup: [],
+        periodGroup: [],
+        noDateGroup: sortByDueDate(noDate),
+      };
+    }
 
     // Compute period end date
     let periodEnd: Date;
@@ -272,6 +283,11 @@ export default function Transactions() {
     const periodStart = duePeriod === "range" && rangeFrom ? new Date(rangeFrom) : today;
     if (duePeriod === "range" && rangeFrom) periodStart.setHours(0, 0, 0, 0);
 
+    const getDateValue = (t: any): string | null => {
+      if (periodDateField === "due_date") return t.due_date;
+      return t.date; // data de lançamento — always present
+    };
+
     baseFiltered.forEach((t) => {
       // When "Aprovação" filter is active, show ALL pending regardless of period
       if (onlyPending) {
@@ -288,22 +304,23 @@ export default function Transactions() {
         return;
       }
 
-      if (!t.due_date) {
+      const dateVal = getDateValue(t);
+      if (!dateVal) {
         noDate.push(t);
         return;
       }
-      const due = new Date(t.due_date);
+      const dateObj = new Date(dateVal);
       const paidAmount = Number(t.paid_amount ?? 0);
       const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
       const isPaid = t.status === "paid" || paidAmount >= totalWithIva;
 
-      if (!isPaid && due < today) {
+      // Overdue only makes sense for due_date
+      if (periodDateField === "due_date" && !isPaid && dateObj < today) {
         overdue.push(t);
-      } else if (due >= periodStart && due <= periodEnd) {
+      } else if (dateObj >= periodStart && dateObj <= periodEnd) {
         inPeriod.push(t);
-      } else {
-        // Outside selected period — exclude from view
       }
+      // else: outside period — excluded
     });
 
     return {
@@ -311,7 +328,7 @@ export default function Transactions() {
       periodGroup: sortByDueDate(inPeriod),
       noDateGroup: sortByDueDate(noDate),
     };
-  }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
+  }, [baseFiltered, duePeriod, rangeFrom, rangeTo, periodDateField, onlyNoDueDate]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
 
