@@ -153,6 +153,27 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         .update(updateData)
         .eq("id", transaction.id);
       if (error) throw error;
+
+      // Propagate payment to child transactions (split/rateio)
+      if (hasChildren) {
+        for (const child of childTransactions) {
+          const childPct = Number(child.split_percentage ?? 0);
+          const childPayment = +(addAmount * childPct / 100).toFixed(2);
+          const childAmount = Number(child.amount) * (1 + Number(child.iva_rate ?? 0) / 100);
+          const childCurrentPaid = Number(child.paid_amount ?? 0);
+          const childNewPaid = Math.min(childCurrentPaid + childPayment, childAmount);
+          const childStatus = childNewPaid >= childAmount ? "paid" : "approved";
+
+          await supabase
+            .from("transactions")
+            .update({
+              paid_amount: childNewPaid,
+              status: childStatus,
+              payment_date: format(paymentDate, "yyyy-MM-dd"),
+            } as any)
+            .eq("id", child.id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
