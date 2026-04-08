@@ -407,33 +407,11 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6">
-      {/* Header: title + view toggle + action buttons */}
+      {/* Header: title + action buttons */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip text={helpTexts.transactions} /></h1>
-            <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
-          </div>
-          <div className="flex items-center rounded-lg border border-border overflow-hidden self-start mt-1">
-            <button
-              onClick={() => setViewMode("open")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium transition-colors",
-                viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
-              )}
-            >
-              Em Aberto
-            </button>
-            <button
-              onClick={() => setViewMode("paid")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium transition-colors",
-                viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
-              )}
-            >
-              Liquidadas
-            </button>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip text={helpTexts.transactions} /></h1>
+          <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -738,12 +716,33 @@ export default function Transactions() {
           <button
             onClick={handleBulkApprove}
             disabled={bulkApproveMutation.isPending}
-            className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" />
             Aprovar {selectedPendingCount} selecionada{selectedPendingCount > 1 ? "s" : ""}
           </button>
         )}
+
+        <div className="ml-auto flex items-center rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setViewMode("open")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Em Aberto
+          </button>
+          <button
+            onClick={() => setViewMode("paid")}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Liquidadas
+          </button>
+        </div>
       </div>
 
       {/* Table */}
