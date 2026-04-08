@@ -16,7 +16,7 @@ import {
 
 import type { TemplateEntry } from './registry.ts'
 
-const SITE_NAME = 'Mundo Propício'
+const SITE_NAME = 'MP Gestão Eventos'
 
 interface SecurityAlertProps {
   targetEmail?: string

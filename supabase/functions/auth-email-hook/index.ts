@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "Mundo Propício"
+const SITE_NAME = "MP Gestão Eventos"
 const SENDER_DOMAIN = "notify.mpgestaoeventos.com"
 const ROOT_DOMAIN = "mpgestaoeventos.com"
 const FROM_DOMAIN = "mpgestaoeventos.com" // Domain shown in From address (may be root or sender subdomain)
