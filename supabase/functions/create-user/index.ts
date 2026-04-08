@@ -8,6 +8,68 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function respond(payload: {
+  success?: boolean;
+  error?: string;
+  user_id?: string;
+  message?: string;
+  diagnostics?: Record<string, unknown>;
+}) {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function ensureProfileAndRole(
+  adminClient: any,
+  userId: string,
+  email: string,
+  fullName: string,
+  role: string,
+) {
+  const { error: profileError } = await adminClient.from("profiles").upsert(
+    { id: userId, full_name: fullName, email },
+    { onConflict: "id" },
+  );
+
+  if (profileError) {
+    throw new Error(`Erro ao sincronizar perfil: ${profileError.message}`);
+  }
+
+  const { data: existingRole, error: roleLookupError } = await adminClient
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (roleLookupError) {
+    throw new Error(`Erro ao localizar permissões: ${roleLookupError.message}`);
+  }
+
+  if (existingRole?.id) {
+    const { error: roleUpdateError } = await adminClient
+      .from("user_roles")
+      .update({ role })
+      .eq("id", existingRole.id);
+
+    if (roleUpdateError) {
+      throw new Error(`Erro ao atualizar permissões: ${roleUpdateError.message}`);
+    }
+
+    return;
+  }
+
+  const { error: roleInsertError } = await adminClient
+    .from("user_roles")
+    .insert({ user_id: userId, role });
+
+  if (roleInsertError) {
+    throw new Error(`Erro ao criar permissões: ${roleInsertError.message}`);
+  }
+}
+
 // Inline invite email template (branded, no Lovable references)
 const InviteSetPasswordEmail = ({
   siteName,
@@ -100,11 +162,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const startTime = Date.now();
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return respond({
+        error: "Não autorizado",
+        diagnostics: { stage: "auth_header_missing", processing_time_ms: Date.now() - startTime },
       });
     }
 
@@ -116,9 +179,9 @@ Deno.serve(async (req) => {
     });
     const { data: { user: caller } } = await callerClient.auth.getUser();
     if (!caller) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return respond({
+        error: "Não autorizado",
+        diagnostics: { stage: "caller_not_found", processing_time_ms: Date.now() - startTime },
       });
     }
 
@@ -131,18 +194,20 @@ Deno.serve(async (req) => {
       .single();
 
     if (!roleData) {
-      return new Response(JSON.stringify({ error: "Apenas administradores podem criar utilizadores" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return respond({
+        error: "Apenas administradores podem criar utilizadores",
+        diagnostics: { stage: "role_check_failed", processing_time_ms: Date.now() - startTime },
       });
     }
 
     const { email, full_name, role } = await req.json();
+    const normalizedEmail = String(email ?? "").trim().toLowerCase();
+    const normalizedFullName = String(full_name ?? "").trim();
 
-    if (!email || !full_name) {
-      return new Response(JSON.stringify({ error: "Email e nome são obrigatórios" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!normalizedEmail || !normalizedFullName) {
+      return respond({
+        error: "Email e nome são obrigatórios",
+        diagnostics: { stage: "validation", processing_time_ms: Date.now() - startTime },
       });
     }
 
@@ -154,32 +219,95 @@ Deno.serve(async (req) => {
 
     // Step 1: Create user with confirmed email and temporary password
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
+      email: normalizedEmail,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { full_name },
+      user_metadata: { full_name: normalizedFullName },
     });
 
+    let userId = newUser.user?.id;
+
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("Create user error:", createError);
+
+      const isDuplicateEmail = /already/i.test(createError.message ?? "");
+      if (!isDuplicateEmail) {
+        return respond({
+          error: createError.message,
+          diagnostics: { stage: "auth_create_user", processing_time_ms: Date.now() - startTime },
+        });
+      }
+
+      const { data: existingUsers, error: listUsersError } = await adminClient.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      if (listUsersError) {
+        console.error("List users error:", listUsersError);
+        return respond({
+          error: "Este email já existe no sistema, mas não consegui recuperar a conta anterior.",
+          diagnostics: { stage: "auth_list_users", processing_time_ms: Date.now() - startTime },
+        });
+      }
+
+      const existingUser = existingUsers.users.find(
+        (candidate: { email?: string | null; id: string }) =>
+          candidate.email?.toLowerCase() === normalizedEmail,
+      );
+
+      if (!existingUser) {
+        return respond({
+          error: createError.message,
+          diagnostics: { stage: "existing_user_not_found", processing_time_ms: Date.now() - startTime },
+        });
+      }
+
+      const { data: existingProfile, error: existingProfileError } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("id", existingUser.id)
+        .maybeSingle();
+
+      if (existingProfileError) {
+        return respond({
+          error: `Erro ao verificar utilizador existente: ${existingProfileError.message}`,
+          diagnostics: { stage: "existing_profile_lookup", processing_time_ms: Date.now() - startTime },
+        });
+      }
+
+      if (existingProfile?.id) {
+        return respond({
+          error: "Já existe um utilizador com este email. Use 'Reenviar email' na lista de utilizadores.",
+          diagnostics: { stage: "existing_visible_user", processing_time_ms: Date.now() - startTime },
+        });
+      }
+
+      userId = existingUser.id;
+    }
+
+    if (!userId) {
+      return respond({
+        error: "Não foi possível preparar a conta do utilizador.",
+        diagnostics: { stage: "missing_user_id", processing_time_ms: Date.now() - startTime },
       });
     }
 
-    // Step 2: Update role if not default 'user'
-    if (targetRole !== "user" && newUser.user) {
-      await adminClient
-        .from("user_roles")
-        .update({ role: targetRole })
-        .eq("user_id", newUser.user.id);
+    try {
+      await ensureProfileAndRole(adminClient, userId, normalizedEmail, normalizedFullName, targetRole);
+    } catch (syncError) {
+      console.error("Sync user error:", syncError);
+      return respond({
+        error: syncError instanceof Error ? syncError.message : "Erro ao sincronizar utilizador",
+        diagnostics: { stage: "profile_role_sync", processing_time_ms: Date.now() - startTime },
+      });
     }
 
     // Step 3: Generate a recovery link directly (bypasses Supabase/Lovable auth page)
     const siteUrl = "https://mpgestaoeventos.com";
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
-      email,
+      email: normalizedEmail,
       options: {
         redirectTo: `${siteUrl}/reset-password`,
       },
@@ -190,7 +318,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          user_id: newUser.user?.id,
+          user_id: userId,
           message: "Utilizador criado mas houve erro ao gerar o link. Use 'Reenviar convite'.",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -201,7 +329,7 @@ Deno.serve(async (req) => {
     // The action_link contains the token as a query parameter
     const actionLink = linkData.properties?.action_link || "";
     const actionUrl = new URL(actionLink);
-    const tokenHash = actionUrl.searchParams.get("token") || "";
+    const tokenHash = actionUrl.searchParams.get("token_hash") || actionUrl.searchParams.get("token") || "";
     const linkType = actionUrl.searchParams.get("type") || "recovery";
 
     // Build a direct URL to the app's reset-password page (no Supabase redirect)
@@ -212,19 +340,19 @@ Deno.serve(async (req) => {
     const html = await renderAsync(
       React.createElement(InviteSetPasswordEmail, {
         siteName,
-        fullName: full_name,
+        fullName: normalizedFullName,
         setupUrl,
       })
     );
 
     // Enqueue the email — use transactional purpose with unsubscribe token
     const messageId = crypto.randomUUID();
-    const idempotencyKey = `invite-set-password-${newUser.user?.id}`;
+    const idempotencyKey = `invite-set-password-${userId}`;
     const unsubscribeToken = crypto.randomUUID();
 
     // Create unsubscribe token entry
     const { error: unsubscribeError } = await adminClient.from("email_unsubscribe_tokens").upsert(
-      { email, token: unsubscribeToken },
+      { email: normalizedEmail, token: unsubscribeToken },
       { onConflict: "email" }
     );
 
@@ -233,7 +361,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "Utilizador criado, mas houve erro ao preparar o email. Use 'Reenviar convite'.",
-          user_id: newUser.user?.id,
+          user_id: userId,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -242,7 +370,7 @@ Deno.serve(async (req) => {
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
       template_name: "invite_set_password",
-      recipient_email: email,
+      recipient_email: normalizedEmail,
       status: "pending",
     });
 
@@ -252,12 +380,12 @@ Deno.serve(async (req) => {
         message_id: messageId,
         idempotency_key: idempotencyKey,
         unsubscribe_token: unsubscribeToken,
-        to: email,
+        to: normalizedEmail,
         from: `${siteName} <noreply@mpgestaoeventos.com>`,
         sender_domain: "notify.mpgestaoeventos.com",
         subject: "Defina a sua senha — MP Gestão de Eventos",
         html,
-        text: `Olá ${full_name}, a sua conta foi criada. Aceda a ${setupUrl} para definir a sua senha.`,
+        text: `Olá ${normalizedFullName}, a sua conta foi criada. Aceda a ${setupUrl} para definir a sua senha.`,
         purpose: "transactional",
         label: "invite_set_password",
         queued_at: new Date().toISOString(),
@@ -270,7 +398,7 @@ Deno.serve(async (req) => {
       await adminClient.from("email_send_log").insert({
         message_id: messageId,
         template_name: "invite_set_password",
-        recipient_email: email,
+        recipient_email: normalizedEmail,
         status: "failed",
         error_message: enqueueError.message,
       });
@@ -278,7 +406,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "Utilizador criado, mas o email de definição de senha não foi enviado. Use 'Reenviar convite'.",
-          user_id: newUser.user?.id,
+          user_id: userId,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -287,7 +415,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        user_id: newUser.user?.id,
+        user_id: userId,
         message: "Utilizador criado com sucesso. Email de definição de senha enviado.",
       }),
       {
@@ -296,9 +424,10 @@ Deno.serve(async (req) => {
       }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("Unexpected create-user error:", err);
+    return respond({
+      error: err instanceof Error ? err.message : "Erro interno ao criar utilizador",
+      diagnostics: { stage: "unexpected" },
     });
   }
 });
