@@ -731,27 +731,8 @@ export default function Transactions() {
           </Popover>
         )}
 
-        {/* Toggle Em Aberto / Liquidadas */}
-        <div className="flex items-center rounded-lg border border-border overflow-hidden">
-          <button
-            onClick={() => setViewMode("open")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
-              viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Em Aberto
-          </button>
-          <button
-            onClick={() => setViewMode("paid")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
-              viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Liquidadas
-          </button>
-        </div>
+
+
 
         {isAdmin && selectedPendingCount > 0 && (
           <button
