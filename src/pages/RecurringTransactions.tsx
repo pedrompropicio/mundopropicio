@@ -196,10 +196,11 @@ export default function RecurringTransactions() {
       if (occurrenceDate > endDate) break;
 
       const dateStr = formatDateStr(occurrenceDate);
+      const totalWithIva = rec.amount * (1 + rec.iva_rate / 100);
       transactions.push({
         description: rec.description,
         type: rec.type,
-        amount: rec.amount,
+        amount: totalWithIva,
         iva_rate: rec.iva_rate,
         category_id: rec.category_id,
         event_id: rec.event_id,
