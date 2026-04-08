@@ -86,11 +86,13 @@ const emptyForm: RecurringForm = {
 };
 
 export default function RecurringTransactions() {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, hasPermission, user } = useAuth();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<RecurringForm>(emptyForm);
+  const canManageRecurring = isAdmin || isManager || hasPermission("manage_recurring");
+  const canDeleteRecurring = isAdmin || isManager;
 
   const { data: recurring = [], isLoading } = useQuery({
     queryKey: ["recurring-transactions"],
@@ -342,7 +344,7 @@ export default function RecurringTransactions() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações Recorrentes <HelpTooltip text={helpTexts.recurringTransactions} /></h1>
           <p className="text-sm text-muted-foreground">Templates para lançamentos automáticos periódicos</p>
         </div>
-        {(isAdmin || isManager) && (
+        {canManageRecurring && (
           <button
             onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(true); }}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
@@ -412,21 +414,21 @@ export default function RecurringTransactions() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {(isAdmin || isManager) && (
-                        <>
-                          <button
-                            onClick={() => openEdit(rec)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteMutation.mutate(rec.id)}
-                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
+                      {canManageRecurring && (
+                        <button
+                          onClick={() => openEdit(rec)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDeleteRecurring && (
+                        <button
+                          onClick={() => deleteMutation.mutate(rec.id)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
                   </TableCell>
