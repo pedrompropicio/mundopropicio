@@ -18,8 +18,10 @@ interface Props {
 }
 
 export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props) {
+  const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
   const isEventLocked = eventStatus === "completed";
+  const canEdit = (isAdmin || isManager) && !isEventLocked;
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
