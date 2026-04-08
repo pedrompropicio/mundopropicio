@@ -352,32 +352,6 @@ export default function PartnerEventDetail() {
     );
   };
 
-  // ─── Transaction hierarchy groups ───
-  const txGrouped = useMemo(() => {
-    type TxItem = { id: string; date: string; description: string; amount: number; status: string; type: string; docs: any[] };
-    type TxGroup = { code: string; name: string; items: TxItem[]; total: number };
-
-    const buildForType = (type: "income" | "expense"): TxGroup[] => {
-      const items = transactions.filter((t: any) => t.type === type);
-      const groupMap: Record<string, TxGroup> = {};
-      items.forEach((t: any) => {
-        const info = catLookup[t.category_id];
-        const groupName = info?.groupName ?? "Sem categoria";
-        const groupCode = info?.groupCode ?? "Z";
-        if (!groupMap[groupName]) groupMap[groupName] = { code: groupCode, name: groupName, items: [], total: 0 };
-        const amt = Number(t.amount);
-        groupMap[groupName].items.push({
-          id: t.id, date: t.date, description: t.description, amount: amt, status: t.status, type: t.type,
-          docs: docsByTx[t.id] || [],
-        });
-        groupMap[groupName].total += amt;
-      });
-      return Object.values(groupMap).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
-    };
-
-    return { income: buildForType("income"), expense: buildForType("expense") };
-  }, [transactions, catLookup, docsByTx]);
-
   return (
     <div className="space-y-6">
       <div>
