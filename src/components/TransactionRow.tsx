@@ -107,7 +107,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   // Compute effective status
   const computedStatus = (() => {
-    if (t.status === "paid" || paidAmount >= amount) return "paid";
+    if (t.status === "paid" || paidAmount >= totalWithIva) return "paid";
     // Check overdue before approved — any approved transaction with past due_date is overdue
     if (t.due_date && new Date(t.due_date) < new Date() && t.status !== "paid" && t.status !== "pending") return "overdue";
     if (t.status === "approved") return "approved"; // A Pagar
