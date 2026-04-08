@@ -256,12 +256,19 @@ export default function RecurringTransactions() {
         recId = data.id;
 
         // Auto-generate transactions on creation
-        const count = await generateAllTransactions({
-          ...payload,
-          id: recId!,
-        });
-        if (count > 0) {
-          toast.success(`${count} transação(ões) gerada(s) automaticamente`);
+        try {
+          const count = await generateAllTransactions({
+            ...payload,
+            id: recId!,
+          });
+          if (count > 0) {
+            toast.success(`${count} transação(ões) gerada(s) automaticamente`);
+          } else {
+            toast.warning("Template criado, mas nenhuma transação gerada. Verifique as datas.");
+          }
+        } catch (genErr: any) {
+          console.error("Erro ao gerar transações:", genErr);
+          toast.error(`Template criado, mas erro ao gerar transações: ${genErr.message || "desconhecido"}`);
         }
       }
     },
@@ -271,7 +278,10 @@ export default function RecurringTransactions() {
       toast.success(editId ? "Template atualizado" : "Template criado");
       closeForm();
     },
-    onError: () => toast.error("Erro ao guardar template"),
+    onError: (err: any) => {
+      console.error("Erro ao guardar template:", err);
+      toast.error(`Erro ao guardar template: ${err.message || "desconhecido"}`);
+    },
   });
 
   const deleteMutation = useMutation({
