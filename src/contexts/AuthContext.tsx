@@ -142,6 +142,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Skip the INITIAL_SESSION event — we handle it via getSession above
         if (event === "INITIAL_SESSION") return;
 
+        // For token refreshes, only update if the user actually changed
+        // This prevents unnecessary re-renders that close open modals/dialogs
+        if (event === "TOKEN_REFRESHED") {
+          // Skip React state updates on token refresh for the same user.
+          // The supabase client internally stores the refreshed tokens,
+          // so API calls will use them. Updating React state here would
+          // cause re-renders that close open modals/dialogs.
+          return;
+        }
+
         setSession(updatedSession);
         setUser(updatedSession?.user ?? null);
 
