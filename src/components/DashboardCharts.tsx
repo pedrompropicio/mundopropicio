@@ -111,6 +111,15 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
       }
     });
 
+    // Add ticket sales to cumulative chart
+    ticketSales.forEach((ts: any) => {
+      const d = new Date(ts.sale_date);
+      if (d.getFullYear() === currentYear) {
+        const m = d.getMonth();
+        monthly[m].receitas += Number(ts.quantity) * Number(ts.unit_price);
+      }
+    });
+
     let cumInc = 0;
     let cumExp = 0;
     const lastMonthWithData = monthly.reduce((last, m, i) => (m.receitas > 0 || m.despesas > 0 ? i : last), 0);
