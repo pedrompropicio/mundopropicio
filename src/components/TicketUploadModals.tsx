@@ -345,8 +345,9 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
             if (createdLots && createdLots.length > 0) {
               await supabase.from("ticket_sales").insert({
+                zone_id: zoneId,
                 lot_id: createdLots[0].id,
-                sale_date: new Date().toISOString().slice(0, 10),
+                sale_date: pdfPeriodFrom || saleDateFrom,
                 quantity: lot.quantidade_vendida,
                 unit_price: lot.preco,
                 ticket_office_id: ticketOfficeId || null,
