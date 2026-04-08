@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const validRoles = ["admin", "manager", "editor", "viewer", "user"];
+    const validRoles = ["admin", "manager", "editor", "viewer", "user", "partner"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
     // Generate a random temporary password (user will never use it)
