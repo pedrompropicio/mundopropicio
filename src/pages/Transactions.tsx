@@ -451,14 +451,14 @@ export default function Transactions() {
           </div>
           <button
             onClick={() => navigate("/relatorios/listas-pagamento")}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Listas de Pagamento</span>
           </button>
           <button
             onClick={() => setShowTransfer(true)}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             <ArrowRightLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Transferência</span>
@@ -466,7 +466,7 @@ export default function Transactions() {
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[13px] font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nova Transação</span>
@@ -514,12 +514,12 @@ export default function Transactions() {
       )}
 
       {/* Search + Filters + Bulk Actions */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {(["all", "income", "expense"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${
               filter === f ? "bg-primary text-primary-foreground glow-primary" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
             }`}
           >
@@ -531,7 +531,7 @@ export default function Transactions() {
           <button
             onClick={() => setViewMode("open")}
             className={cn(
-              "px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "px-3 py-1.5 text-[13px] font-medium transition-colors",
               viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
             )}
           >
@@ -540,7 +540,7 @@ export default function Transactions() {
           <button
             onClick={() => setViewMode("paid")}
             className={cn(
-              "px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "px-3 py-1.5 text-[13px] font-medium transition-colors",
               viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
             )}
           >
@@ -551,8 +551,8 @@ export default function Transactions() {
         {/* Event multi-select filter */}
         <Popover modal={false}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
-              <Filter className="mr-1 h-3 w-3" />
+            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
               {selectedEventIds.size === 0
                 ? "Todos os eventos"
                 : `${selectedEventIds.size} evento(s)`}
@@ -587,8 +587,8 @@ export default function Transactions() {
         {/* Account multi-select filter */}
         <Popover modal={false}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
-              <Filter className="mr-1 h-3 w-3" />
+            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
               {selectedAccountIds.size === 0
                 ? "Todas as contas"
                 : `${selectedAccountIds.size} conta(s)`}
@@ -624,7 +624,7 @@ export default function Transactions() {
         {viewMode === "open" && (
           <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+              <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                 {periodDateField === "date" ? "Lançamento: " : ""}
                 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
@@ -705,7 +705,7 @@ export default function Transactions() {
           <Button
             variant={onlyNoDueDate ? "default" : "outline"}
             size="sm"
-            className="text-xs font-normal h-8 px-2.5"
+            className="text-[13px] font-normal h-8 px-3"
             onClick={() => setOnlyNoDueDate(!onlyNoDueDate)}
           >
             Sem Vencimento
@@ -717,7 +717,7 @@ export default function Transactions() {
           <Button
             variant={onlyPending ? "default" : "outline"}
             size="sm"
-            className="text-xs font-normal h-8 px-2.5"
+            className="text-[13px] font-normal h-8 px-3"
             onClick={() => setOnlyPending(!onlyPending)}
           >
             <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
@@ -729,7 +729,7 @@ export default function Transactions() {
         {viewMode === "paid" && (
           <Popover modal={false} open={paidPeriodPopoverOpen} onOpenChange={setPaidPeriodPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+              <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                 {paidPeriod === "all" ? "Todas" : paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
               </Button>
