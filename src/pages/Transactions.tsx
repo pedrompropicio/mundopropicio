@@ -773,7 +773,6 @@ export default function Transactions() {
                     <th className="pb-3 text-left font-medium">Descrição</th>
                     <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
                     <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                    <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
                     <th className="pb-3 text-left font-medium">Estado</th>
                     <th className="pb-3 text-left font-medium">Data Vcto</th>
                     <th className="pb-3 text-right font-medium">Pago</th>
@@ -893,7 +892,7 @@ export default function Transactions() {
                     <th className="pb-3 text-left font-medium">Descrição</th>
                     <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
                     <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                    <th className="hidden pb-3 text-center font-medium lg:table-cell">IVA</th>
+                    
                     <th className="pb-3 text-left font-medium">Estado</th>
                     <th className="pb-3 text-left font-medium">Data Vcto</th>
                     <th className="pb-3 text-right font-medium">Pago</th>

@@ -190,9 +190,6 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         </td>
         <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{eventName}</td>
         <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{supplierName}</td>
-        <td className="hidden py-3 pr-4 text-center lg:table-cell">
-          <span className="inline-flex h-6 w-10 items-center justify-center rounded bg-primary/15 text-xs font-bold text-primary">{ivaRate}%</span>
-        </td>
         <td className="py-3 pr-4">
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
             {statusLabel}
