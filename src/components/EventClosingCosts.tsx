@@ -118,6 +118,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setAmount("");
     setCategoryId("");
     setNotes("");
+    setPendingFiles([]);
   }
 
   function startEdit(cost: any) {
