@@ -575,23 +575,23 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-3 grid-cols-3">
+              <div className="grid gap-2 sm:gap-3 grid-cols-3">
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Receitas</p>
-                    <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(forecastIncome)}</p>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3 shrink-0" /> Receitas</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(forecastIncome)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Despesas</p>
-                    <p className="text-sm sm:text-xl font-bold font-mono text-amber-500">{formatCurrency(forecastExpense)}</p>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3 shrink-0" /> Despesas</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(forecastExpense)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-sm sm:text-xl font-bold font-mono ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {formatCurrency(forecastResult)}
                     </p>
                   </CardContent>
@@ -628,29 +628,29 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+              <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                    <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(transactionIncome)}</p>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                    <p className="text-sm sm:text-xl font-bold font-mono text-amber-500">{formatCurrency(transactionExpense)}</p>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pago</p>
-                    <p className="text-sm sm:text-xl font-bold font-mono">{formatCurrency(paidExpenses)}</p>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pago</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono truncate">{formatCurrency(paidExpenses)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-sm sm:text-xl font-bold font-mono ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {formatCurrency(transactionResult)}
                     </p>
                   </CardContent>
