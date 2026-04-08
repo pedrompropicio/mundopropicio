@@ -551,7 +551,7 @@ export default function Transactions() {
         {/* Event multi-select filter */}
         <Popover modal={false}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
               <Filter className="mr-1 h-3 w-3" />
               {selectedEventIds.size === 0
                 ? "Todos os eventos"
@@ -587,7 +587,7 @@ export default function Transactions() {
         {/* Account multi-select filter */}
         <Popover modal={false}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
               <Filter className="mr-1 h-3 w-3" />
               {selectedAccountIds.size === 0
                 ? "Todas as contas"
@@ -624,7 +624,7 @@ export default function Transactions() {
         {viewMode === "open" && (
           <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+              <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                 {periodDateField === "date" ? "Lançamento: " : ""}
                 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
@@ -705,7 +705,7 @@ export default function Transactions() {
           <Button
             variant={onlyNoDueDate ? "default" : "outline"}
             size="sm"
-            className="text-xs font-normal h-8 px-2.5"
+            className="text-[13px] font-normal h-8 px-3"
             onClick={() => setOnlyNoDueDate(!onlyNoDueDate)}
           >
             Sem Vencimento
@@ -717,7 +717,7 @@ export default function Transactions() {
           <Button
             variant={onlyPending ? "default" : "outline"}
             size="sm"
-            className="text-xs font-normal h-8 px-2.5"
+            className="text-[13px] font-normal h-8 px-3"
             onClick={() => setOnlyPending(!onlyPending)}
           >
             <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
@@ -729,7 +729,7 @@ export default function Transactions() {
         {viewMode === "paid" && (
           <Popover modal={false} open={paidPeriodPopoverOpen} onOpenChange={setPaidPeriodPopoverOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+              <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                 {paidPeriod === "all" ? "Todas" : paidPeriod === "yesterday" ? "Ontem" : paidPeriod === "week" ? "Última Semana" : paidPeriod === "month" ? "Último Mês" : "Período"}
               </Button>
