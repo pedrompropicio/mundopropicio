@@ -31,6 +31,7 @@ interface DashboardChartsProps {
   transactions: any[];
   events: any[];
   categories: any[];
+  ticketSales?: any[];
 }
 
 export function DashboardCharts({ transactions, events, categories }: DashboardChartsProps) {
