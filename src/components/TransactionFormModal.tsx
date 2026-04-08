@@ -462,21 +462,57 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          {/* Event — moved up */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Evento {rootFlags.event_required ? "*" : ""}
-              {isActivePL && <span className="ml-1 text-success">(BP Ativo)</span>}
-              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(BP Passivo)</span>}
-            </label>
-            <SearchableSelect
-              options={eventOptions}
-              value={form.event_id}
-              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" }); setPlExpanded(true); setShowProrationConfirm(false); setPlOverride(false); }}
-              placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-              searchPlaceholder="Pesquisar evento…"
-            />
+          {/* Split toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSplit(!isSplit);
+                if (!isSplit) {
+                  setForm({ ...form, event_id: "" });
+                } else {
+                  setSplitEntries([]);
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                isSplit
+                  ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Split className="h-3.5 w-3.5" />
+              {isSplit ? "Rateio Ativo" : "Ratear por eventos"}
+            </button>
           </div>
+
+          {/* Event selector (single) — hidden when split */}
+          {!isSplit && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Evento {rootFlags.event_required ? "*" : ""}
+                {isActivePL && <span className="ml-1 text-success">(BP Ativo)</span>}
+                {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(BP Passivo)</span>}
+              </label>
+              <SearchableSelect
+                options={eventOptions}
+                value={form.event_id}
+                onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" }); setPlExpanded(true); setShowProrationConfirm(false); setPlOverride(false); }}
+                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                searchPlaceholder="Pesquisar evento…"
+              />
+            </div>
+          )}
+
+          {/* Split config panel — shown when split is active */}
+          {isSplit && (
+            <TransactionSplitConfig
+              events={events}
+              splitEntries={splitEntries}
+              onChange={setSplitEntries}
+              splitMethod={splitMethod}
+              onMethodChange={setSplitMethod}
+            />
+          )}
 
           {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
