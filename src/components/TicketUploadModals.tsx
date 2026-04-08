@@ -212,6 +212,39 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         }
       }
 
+      // ── Cross-validate PDF header vs selected event/session ──
+      const warnings: string[] = [];
+      const pdfEventName = data.event_name || null;
+      const pdfEventDate = data.event_date || null;
+      const pdfEventTime = data.event_time || null;
+
+      if (pdfEventName && selectedEvent) {
+        const pdfNorm = normalize(pdfEventName);
+        const appNorm = normalize(selectedEvent.name);
+        if (!appNorm.includes(pdfNorm) && !pdfNorm.includes(appNorm)) {
+          warnings.push(`Nome do evento no PDF: "${pdfEventName}" ≠ App: "${selectedEvent.name}"`);
+        }
+      }
+
+      if (pdfEventDate && selectedSession) {
+        const sessionDate = selectedSession.date;
+        if (pdfEventDate !== sessionDate) {
+          const pdfDateFmt = new Date(pdfEventDate + "T12:00:00").toLocaleDateString("pt-PT");
+          const sessionDateFmt = new Date(sessionDate + "T12:00:00").toLocaleDateString("pt-PT");
+          warnings.push(`Data do evento no PDF: ${pdfDateFmt} ≠ Sessão selecionada: ${sessionDateFmt}`);
+        }
+      }
+
+      if (pdfEventTime && selectedSession?.start_time) {
+        const pdfTimeNorm = pdfEventTime.replace("h", ":").replace("H", ":").slice(0, 5);
+        const sessionTimeNorm = selectedSession.start_time.slice(0, 5);
+        if (pdfTimeNorm !== sessionTimeNorm) {
+          warnings.push(`Hora do evento no PDF: ${pdfEventTime} ≠ Sessão: ${sessionTimeNorm}`);
+        }
+      }
+
+      setHeaderMismatchWarnings(warnings);
+
       if (importType === "setup") {
         const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
           zona: String(r.zona || "Geral"),
