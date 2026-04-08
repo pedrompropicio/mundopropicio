@@ -9,7 +9,7 @@ import { PasswordStrengthIndicator, validatePassword } from "@/components/Passwo
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
-const RECOVERY_OTP_LENGTH = 6;
+const RECOVERY_OTP_LENGTH = 8;
 
 export default function Auth() {
   const [email, setEmail] = useState("");
