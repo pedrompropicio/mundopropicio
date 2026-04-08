@@ -49,7 +49,7 @@ import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
 import FloatingHelpButton from "./components/FloatingHelpButton";
 import NotFound from "./pages/NotFound";
-
+import { PartnerLayout } from "./components/PartnerLayout";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,7 +61,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, isPartner } = useAuth();
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
@@ -76,6 +76,11 @@ function ProtectedLayout() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Partner users are redirected to their dedicated layout
+  if (isPartner) {
+    return <Navigate to="/parceiro" replace />;
   }
 
   return (
@@ -169,7 +174,7 @@ const App = () => (
               <Route path="/login" element={<AuthRoute />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/unsubscribe" element={<Unsubscribe />} />
-              <Route path="/*" element={<ProtectedLayout />} />
+              <Route path="/parceiro/*" element={<PartnerLayout />} />
               <Route path="/*" element={<ProtectedLayout />} />
             </Routes>
           </BrowserRouter>
