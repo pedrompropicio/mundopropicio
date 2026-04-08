@@ -772,8 +772,13 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+              {extractedRows.length > 0 && (
+                <Button variant="secondary" onClick={handleGenerateReport}>
+                  <Download className="h-4 w-4 mr-2" /> Gerar Relatório
+                </Button>
+              )}
               <Button
                 onClick={checkDuplicatesAndImport}
                 disabled={!eventId || extractedRows.length === 0 || importMutation.isPending || extracting || requiresSessionSelection}
