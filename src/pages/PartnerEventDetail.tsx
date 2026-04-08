@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, BarChart3, FileText, Paperclip } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Progress } from "@/components/ui/progress";
+import { buildCategoryLookup, type CategoryNode } from "@/lib/category-hierarchy";
+import { compareHierarchicalCodes } from "@/lib/utils";
 
 const eventTypeLabels: Record<string, string> = {
   simple: "Evento Simples",
@@ -74,6 +76,16 @@ export default function PartnerEventDetail() {
 
   const activeEventId = selectedSubEvent || (eventType === "multi_day" && !hasParentAccess && visibleSubEvents.length > 0 ? visibleSubEvents[0]?.id : id!);
 
+  // All categories for hierarchy
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ["all_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("account_categories").select("id, code, name, parent_id");
+      if (error) throw error;
+      return data as CategoryNode[];
+    },
+  });
+
   // Ticketing data with lots
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["partner_ticket_zones", activeEventId],
@@ -104,7 +116,7 @@ export default function PartnerEventDetail() {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["partner_forecasts", activeEventId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*, account_categories(code, name)").eq("event_id", activeEventId).order("created_at");
+      const { data, error } = await supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -117,7 +129,7 @@ export default function PartnerEventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, account_categories(code, name)")
+        .select("*, account_categories(id, code, name, parent_id)")
         .eq("event_id", activeEventId)
         .order("date", { ascending: false });
       if (error) throw error;
@@ -125,6 +137,94 @@ export default function PartnerEventDetail() {
     },
     enabled: !!activeEventId,
   });
+
+  // Transaction documents
+  const transactionIds = transactions.map((t: any) => t.id);
+  const { data: transactionDocs = [] } = useQuery({
+    queryKey: ["partner_tx_docs", transactionIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("id, transaction_id, name, file_url, doc_type")
+        .in("transaction_id", transactionIds);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: transactionIds.length > 0,
+  });
+
+  // Group docs by transaction
+  const docsByTx = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    transactionDocs.forEach((d: any) => {
+      if (!map[d.transaction_id]) map[d.transaction_id] = [];
+      map[d.transaction_id].push(d);
+    });
+    return map;
+  }, [transactionDocs]);
+
+  // Category lookup
+  const catLookup = useMemo(() => buildCategoryLookup(allCategories), [allCategories]);
+
+  // Build hierarchical BP groups
+  const bpGroups = useMemo(() => {
+    const byId: Record<string, CategoryNode> = {};
+    allCategories.forEach((c) => { byId[c.id] = c; });
+
+    const getParentChain = (catId: string | null): { l1: CategoryNode | null; l2: CategoryNode | null } => {
+      if (!catId || !byId[catId]) return { l1: null, l2: null };
+      const cat = byId[catId];
+      const pid = cat.parent_id ?? null;
+      if (!pid) return { l1: cat, l2: null }; // this IS L1
+      const parent = byId[pid];
+      if (!parent) return { l1: null, l2: cat };
+      const gpid = parent.parent_id ?? null;
+      if (!gpid) return { l1: parent, l2: cat }; // cat is L2
+      const gp = byId[gpid];
+      return { l1: gp || null, l2: parent }; // cat is L3
+    };
+
+    type BPItem = { id: string; description: string; amount: number; catCode: string; catName: string };
+    type L2Group = { code: string; name: string; items: BPItem[]; total: number };
+    type L1Group = { code: string; name: string; l2Groups: L2Group[]; total: number };
+
+    const buildForType = (type: "income" | "expense"): L1Group[] => {
+      const items = forecasts.filter((f: any) => f.type === type);
+      const l1Map: Record<string, L1Group> = {};
+
+      items.forEach((f: any) => {
+        const catId = f.category_id;
+        const cat = catId ? byId[catId] : null;
+        const chain = getParentChain(catId);
+        const l1Name = chain.l1?.name ?? "Sem Grupo";
+        const l1Code = chain.l1?.code ?? "Z";
+        const l2Name = chain.l2?.name ?? cat?.name ?? "Geral";
+        const l2Code = chain.l2?.code ?? cat?.code ?? "Z.Z";
+        const catCode = cat?.code ?? "";
+        const catName = cat?.name ?? f.description;
+
+        if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
+        let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
+        if (!l2) {
+          l2 = { code: l2Code, name: l2Name, items: [], total: 0 };
+          l1Map[l1Name].l2Groups.push(l2);
+        }
+        const amt = Number(f.amount);
+        l2.items.push({ id: f.id, description: f.description, amount: amt, catCode, catName });
+        l2.total += amt;
+        l1Map[l1Name].total += amt;
+      });
+
+      return Object.values(l1Map)
+        .map((g) => ({
+          ...g,
+          l2Groups: g.l2Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+        }))
+        .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    };
+
+    return { income: buildForType("income"), expense: buildForType("expense") };
+  }, [forecasts, allCategories]);
 
   if (isLoading) {
     return (
@@ -151,7 +251,6 @@ export default function PartnerEventDetail() {
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
   // ─── Ticket calculations ───
-  // Build sales map per zone
   const salesByZone: Record<string, { qty: number; revenue: number }> = {};
   ticketSales.forEach((s: any) => {
     if (!salesByZone[s.zone_id]) salesByZone[s.zone_id] = { qty: 0, revenue: 0 };
@@ -177,6 +276,86 @@ export default function PartnerEventDetail() {
   const transactionResult = transactionIncome - transactionExpense;
   const paidExpenses = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
 
+  // ─── Hierarchical BP section renderer ───
+  const renderBPSection = (
+    groups: typeof bpGroups.income,
+    type: "income" | "expense",
+    icon: React.ReactNode,
+    title: string,
+    colorClass: string,
+    total: number,
+  ) => {
+    if (groups.length === 0) return null;
+    return (
+      <Card>
+        <CardHeader className="pb-0 px-4 pt-4">
+          <CardTitle className={`text-sm ${colorClass} flex items-center gap-1.5`}>{icon} {title}</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0 pb-0">
+          {groups.map((l1) => (
+            <div key={l1.name} className="mb-2">
+              {/* L1 header */}
+              <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} - {l1.name}</span>
+                <span className={`text-[11px] font-bold font-mono ${colorClass}`}>{formatCurrency(l1.total)}</span>
+              </div>
+              {l1.l2Groups.map((l2) => (
+                <div key={l2.name}>
+                  {/* L2 subheader */}
+                  <div className="bg-muted/20 px-4 py-1 flex items-center justify-between border-b border-border/50">
+                    <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} - {l2.name}</span>
+                    <span className={`text-[10px] font-semibold font-mono ${colorClass}`}>{formatCurrency(l2.total)}</span>
+                  </div>
+                  {/* L3 items */}
+                  {l2.items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between px-4 py-1.5 border-b border-border/30">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <span className="text-xs text-foreground block truncate">{item.description}</span>
+                        {item.catCode && <span className="text-[10px] text-muted-foreground">{item.catCode} - {item.catName}</span>}
+                      </div>
+                      <span className={`text-xs font-mono font-semibold whitespace-nowrap ${colorClass}`}>{formatCurrency(item.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+          {/* Grand total */}
+          <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-t">
+            <span className="text-xs font-bold">Total {title}</span>
+            <span className={`text-sm font-bold font-mono ${colorClass}`}>{formatCurrency(total)}</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // ─── Transaction hierarchy groups ───
+  const txGrouped = useMemo(() => {
+    type TxItem = { id: string; date: string; description: string; amount: number; status: string; type: string; docs: any[] };
+    type TxGroup = { code: string; name: string; items: TxItem[]; total: number };
+
+    const buildForType = (type: "income" | "expense"): TxGroup[] => {
+      const items = transactions.filter((t: any) => t.type === type);
+      const groupMap: Record<string, TxGroup> = {};
+      items.forEach((t: any) => {
+        const info = catLookup[t.category_id];
+        const groupName = info?.groupName ?? "Sem categoria";
+        const groupCode = info?.groupCode ?? "Z";
+        if (!groupMap[groupName]) groupMap[groupName] = { code: groupCode, name: groupName, items: [], total: 0 };
+        const amt = Number(t.amount);
+        groupMap[groupName].items.push({
+          id: t.id, date: t.date, description: t.description, amount: amt, status: t.status, type: t.type,
+          docs: docsByTx[t.id] || [],
+        });
+        groupMap[groupName].total += amt;
+      });
+      return Object.values(groupMap).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    };
+
+    return { income: buildForType("income"), expense: buildForType("expense") };
+  }, [transactions, catLookup, docsByTx]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -184,7 +363,7 @@ export default function PartnerEventDetail() {
           <ArrowLeft className="h-4 w-4" /> Voltar ao portal
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{event.name}</h1>
           <EventStatusBadge status={event.status} />
           <Badge variant="outline" className="gap-1 text-[10px]">
             <EventTypeIcon className="h-3 w-3" />
@@ -228,10 +407,10 @@ export default function PartnerEventDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="ticketing" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="ticketing" className="gap-1.5"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
-          <TabsTrigger value="forecast" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Business Plan</TabsTrigger>
-          <TabsTrigger value="transactions" className="gap-1.5"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
+        <TabsList className="w-full">
+          <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
+          <TabsTrigger value="forecast" className="gap-1.5 flex-1"><BarChart3 className="h-3.5 w-3.5" /> Business Plan</TabsTrigger>
+          <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
         </TabsList>
 
         {/* ═══════ BILHETES ═══════ */}
@@ -247,30 +426,30 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {/* Summary cards */}
+              {/* Summary cards - responsive text */}
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Capacidade</p>
-                    <p className="text-2xl font-bold font-mono">{totalCapacity.toLocaleString()}</p>
+                    <p className="text-lg sm:text-2xl font-bold font-mono">{totalCapacity.toLocaleString()}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Vendidos</p>
-                    <p className="text-2xl font-bold font-mono text-emerald-500">{totalSoldQty.toLocaleString()}</p>
+                    <p className="text-lg sm:text-2xl font-bold font-mono text-emerald-500">{totalSoldQty.toLocaleString()}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receita Real</p>
-                    <p className="text-xl font-bold font-mono text-emerald-500">{formatCurrency(totalSoldRevenue)}</p>
+                    <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(totalSoldRevenue)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Ocupação</p>
-                    <p className="text-2xl font-bold font-mono">{occupancyPct}%</p>
+                    <p className="text-lg sm:text-2xl font-bold font-mono">{occupancyPct}%</p>
                     <Progress value={occupancyPct} className="h-1.5 mt-2" />
                   </CardContent>
                 </Card>
@@ -288,18 +467,17 @@ export default function PartnerEventDetail() {
                 return (
                   <Card key={zone.id}>
                     <CardHeader className="pb-2 px-4 pt-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <CardTitle className="text-sm font-semibold">{zone.name}</CardTitle>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{zoneCapacity} lugares</span>
-                          <Badge variant={zoneOccupancy >= 80 ? "default" : "secondary"} className="text-[10px]">{zoneOccupancy}% ocupação</Badge>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{zoneCapacity} lug.</span>
+                          <Badge variant={zoneOccupancy >= 80 ? "default" : "secondary"} className="text-[10px]">{zoneOccupancy}%</Badge>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="px-4 pb-4">
-                      {/* Planning: lots */}
                       {lots.length > 0 && (
-                        <div className="mb-3">
+                        <div className="mb-3 overflow-x-auto">
                           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Planeamento (Lotes)</p>
                           <Table>
                             <TableHeader>
@@ -307,7 +485,7 @@ export default function PartnerEventDetail() {
                                 <TableHead className="h-8 px-2">Lote</TableHead>
                                 <TableHead className="h-8 px-2 text-right">Qtd</TableHead>
                                 <TableHead className="h-8 px-2 text-right">Preço</TableHead>
-                                <TableHead className="h-8 px-2 text-right">IVA</TableHead>
+                                <TableHead className="h-8 px-2 text-right hidden sm:table-cell">IVA</TableHead>
                                 <TableHead className="h-8 px-2 text-right">Subtotal</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -317,16 +495,17 @@ export default function PartnerEventDetail() {
                                   <TableCell className="py-1.5 px-2 text-xs">{lot.name}</TableCell>
                                   <TableCell className="py-1.5 px-2 text-right font-mono text-xs">{lot.quantity}</TableCell>
                                   <TableCell className="py-1.5 px-2 text-right font-mono text-xs">{formatCurrency(Number(lot.price))}</TableCell>
-                                  <TableCell className="py-1.5 px-2 text-right font-mono text-xs">{lot.iva_rate}%</TableCell>
+                                  <TableCell className="py-1.5 px-2 text-right font-mono text-xs hidden sm:table-cell">{lot.iva_rate}%</TableCell>
                                   <TableCell className="py-1.5 px-2 text-right font-mono text-xs font-semibold">{formatCurrency(Number(lot.price) * lot.quantity)}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
                             <TableFooter>
                               <TableRow className="text-xs bg-muted/30">
-                                <TableCell className="py-1.5 px-2 font-semibold">Total Planeado</TableCell>
+                                <TableCell className="py-1.5 px-2 font-semibold">Total</TableCell>
                                 <TableCell className="py-1.5 px-2 text-right font-mono font-semibold">{zonePlannedQty}</TableCell>
-                                <TableCell className="py-1.5 px-2" colSpan={2} />
+                                <TableCell className="py-1.5 px-2" />
+                                <TableCell className="py-1.5 px-2 hidden sm:table-cell" />
                                 <TableCell className="py-1.5 px-2 text-right font-mono font-semibold">{formatCurrency(zonePlannedRevenue)}</TableCell>
                               </TableRow>
                             </TableFooter>
@@ -337,18 +516,18 @@ export default function PartnerEventDetail() {
                       {/* Real sales */}
                       <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3">
                         <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold mb-1">Vendas Reais</p>
-                        <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className="grid grid-cols-3 gap-2 text-center">
                           <div>
-                            <p className="text-[10px] text-muted-foreground">Bilhetes Vendidos</p>
-                            <p className="text-lg font-bold font-mono text-emerald-500">{zoneSales.qty.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground">Vendidos</p>
+                            <p className="text-sm sm:text-lg font-bold font-mono text-emerald-500">{zoneSales.qty.toLocaleString()}</p>
                           </div>
                           <div>
                             <p className="text-[10px] text-muted-foreground">Receita</p>
-                            <p className="text-lg font-bold font-mono text-emerald-500">{formatCurrency(zoneSales.revenue)}</p>
+                            <p className="text-sm sm:text-lg font-bold font-mono text-emerald-500">{formatCurrency(zoneSales.revenue)}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] text-muted-foreground">vs. Planeado</p>
-                            <p className={`text-lg font-bold font-mono ${zoneSales.revenue >= zonePlannedRevenue ? "text-emerald-500" : "text-amber-500"}`}>
+                            <p className="text-[10px] text-muted-foreground">vs. Plan</p>
+                            <p className={`text-sm sm:text-lg font-bold font-mono ${zoneSales.revenue >= zonePlannedRevenue ? "text-emerald-500" : "text-amber-500"}`}>
                               {zonePlannedRevenue > 0 ? `${Math.round((zoneSales.revenue / zonePlannedRevenue) * 100)}%` : "—"}
                             </p>
                           </div>
@@ -365,23 +544,23 @@ export default function PartnerEventDetail() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Planeado</p>
-                      <p className="text-sm font-mono">{totalLotQty.toLocaleString()} bilhetes</p>
-                      <p className="text-base font-bold font-mono">{formatCurrency(totalLotRevenue)}</p>
+                      <p className="text-xs font-mono">{totalLotQty.toLocaleString()} bilhetes</p>
+                      <p className="text-sm sm:text-base font-bold font-mono">{formatCurrency(totalLotRevenue)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Vendido</p>
-                      <p className="text-sm font-mono">{totalSoldQty.toLocaleString()} bilhetes</p>
-                      <p className="text-base font-bold font-mono text-emerald-500">{formatCurrency(totalSoldRevenue)}</p>
+                      <p className="text-xs font-mono">{totalSoldQty.toLocaleString()} bilhetes</p>
+                      <p className="text-sm sm:text-base font-bold font-mono text-emerald-500">{formatCurrency(totalSoldRevenue)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Diferença</p>
-                      <p className={`text-base font-bold font-mono ${totalSoldRevenue - totalLotRevenue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      <p className={`text-sm sm:text-base font-bold font-mono ${totalSoldRevenue - totalLotRevenue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                         {formatCurrency(totalSoldRevenue - totalLotRevenue)}
                       </p>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Execução</p>
-                      <p className="text-base font-bold font-mono">
+                      <p className="text-sm sm:text-base font-bold font-mono">
                         {totalLotRevenue > 0 ? `${Math.round((totalSoldRevenue / totalLotRevenue) * 100)}%` : "—"}
                       </p>
                     </div>
@@ -402,100 +581,45 @@ export default function PartnerEventDetail() {
             <div className="space-y-4">
               <div className="grid gap-3 grid-cols-3">
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Receitas</p>
-                    <p className="text-xl font-bold font-mono text-emerald-500">{formatCurrency(forecastIncome)}</p>
+                    <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(forecastIncome)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3" /> Despesas</p>
-                    <p className="text-xl font-bold font-mono text-amber-500">{formatCurrency(forecastExpense)}</p>
+                    <p className="text-sm sm:text-xl font-bold font-mono text-amber-500">{formatCurrency(forecastExpense)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-xl font-bold font-mono ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    <p className={`text-sm sm:text-xl font-bold font-mono ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {formatCurrency(forecastResult)}
                     </p>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Income table */}
-              {forecasts.some((f: any) => f.type === "income") && (
-                <Card>
-                  <CardHeader className="pb-0 px-4 pt-4">
-                    <CardTitle className="text-sm text-emerald-500 flex items-center gap-1.5"><TrendingUp className="h-4 w-4" /> Receitas Previstas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="text-[10px]">
-                          <TableHead className="h-8 px-4">Descrição</TableHead>
-                          <TableHead className="h-8 px-4 hidden sm:table-cell">Categoria</TableHead>
-                          <TableHead className="h-8 px-4 text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {forecasts.filter((f: any) => f.type === "income").map((f: any) => (
-                          <TableRow key={f.id}>
-                            <TableCell className="px-4 py-2 text-xs">{f.description}</TableCell>
-                            <TableCell className="px-4 py-2 text-xs text-muted-foreground hidden sm:table-cell">
-                              {f.account_categories ? `${f.account_categories.code} - ${f.account_categories.name}` : "—"}
-                            </TableCell>
-                            <TableCell className="px-4 py-2 text-right font-mono text-xs font-semibold text-emerald-500">{formatCurrency(Number(f.amount))}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow>
-                          <TableCell className="px-4 font-semibold text-xs" colSpan={2}>Total Receitas</TableCell>
-                          <TableCell className="px-4 text-right font-mono font-bold text-xs text-emerald-500">{formatCurrency(forecastIncome)}</TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
-                  </CardContent>
-                </Card>
+              {renderBPSection(
+                bpGroups.income, "income",
+                <TrendingUp className="h-4 w-4" />, "Receitas Previstas", "text-emerald-500", forecastIncome
+              )}
+              {renderBPSection(
+                bpGroups.expense, "expense",
+                <TrendingDown className="h-4 w-4" />, "Despesas Previstas", "text-amber-500", forecastExpense
               )}
 
-              {/* Expense table */}
-              {forecasts.some((f: any) => f.type === "expense") && (
-                <Card>
-                  <CardHeader className="pb-0 px-4 pt-4">
-                    <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><TrendingDown className="h-4 w-4" /> Despesas Previstas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="text-[10px]">
-                          <TableHead className="h-8 px-4">Descrição</TableHead>
-                          <TableHead className="h-8 px-4 hidden sm:table-cell">Categoria</TableHead>
-                          <TableHead className="h-8 px-4 text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {forecasts.filter((f: any) => f.type === "expense").map((f: any) => (
-                          <TableRow key={f.id}>
-                            <TableCell className="px-4 py-2 text-xs">{f.description}</TableCell>
-                            <TableCell className="px-4 py-2 text-xs text-muted-foreground hidden sm:table-cell">
-                              {f.account_categories ? `${f.account_categories.code} - ${f.account_categories.name}` : "—"}
-                            </TableCell>
-                            <TableCell className="px-4 py-2 text-right font-mono text-xs font-semibold text-amber-500">{formatCurrency(Number(f.amount))}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow>
-                          <TableCell className="px-4 font-semibold text-xs" colSpan={2}>Total Despesas</TableCell>
-                          <TableCell className="px-4 text-right font-mono font-bold text-xs text-amber-500">{formatCurrency(forecastExpense)}</TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Result card */}
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <span className="text-sm font-bold">Resultado Previsto</span>
+                  <span className={`text-lg font-bold font-mono ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    {formatCurrency(forecastResult)}
+                  </span>
+                </CardContent>
+              </Card>
             </div>
           )}
         </TabsContent>
@@ -510,73 +634,124 @@ export default function PartnerEventDetail() {
             <div className="space-y-4">
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                    <p className="text-xl font-bold font-mono text-emerald-500">{formatCurrency(transactionIncome)}</p>
+                    <p className="text-sm sm:text-xl font-bold font-mono text-emerald-500">{formatCurrency(transactionIncome)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                    <p className="text-xl font-bold font-mono text-amber-500">{formatCurrency(transactionExpense)}</p>
+                    <p className="text-sm sm:text-xl font-bold font-mono text-amber-500">{formatCurrency(transactionExpense)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pago</p>
-                    <p className="text-xl font-bold font-mono">{formatCurrency(paidExpenses)}</p>
+                    <p className="text-sm sm:text-xl font-bold font-mono">{formatCurrency(paidExpenses)}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-3 sm:p-4 text-center">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-xl font-bold font-mono ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    <p className={`text-sm sm:text-xl font-bold font-mono ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {formatCurrency(transactionResult)}
                     </p>
                   </CardContent>
                 </Card>
               </div>
 
-              <Card>
-                <CardContent className="px-0 pb-0 pt-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-[10px]">
-                        <TableHead className="h-8 px-4">Data</TableHead>
-                        <TableHead className="h-8 px-4">Descrição</TableHead>
-                        <TableHead className="h-8 px-4 hidden sm:table-cell">Categoria</TableHead>
-                        <TableHead className="h-8 px-4 text-center">Estado</TableHead>
-                        <TableHead className="h-8 px-4 text-right">Valor</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {transactions.map((t: any) => (
-                        <TableRow key={t.id}>
-                          <TableCell className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(t.date)}</TableCell>
-                          <TableCell className="px-4 py-2 text-xs font-medium">{t.description}</TableCell>
-                          <TableCell className="px-4 py-2 text-xs text-muted-foreground hidden sm:table-cell">
-                            {t.account_categories ? `${t.account_categories.code} - ${t.account_categories.name}` : "—"}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-center">
-                            <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[10px]">
-                              {statusLabels[t.status] || t.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className={`px-4 py-2 text-right font-mono text-xs font-semibold ${t.type === "income" ? "text-emerald-500" : "text-amber-500"}`}>
-                            {t.type === "income" ? "+" : "-"}{formatCurrency(Number(t.amount))}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell className="px-4 font-semibold text-xs" colSpan={4}>Total</TableCell>
-                        <TableCell className={`px-4 text-right font-mono font-bold text-xs ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                          {formatCurrency(transactionResult)}
-                        </TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
+              {/* Income transactions */}
+              {txGrouped.income.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-0 px-4 pt-4">
+                    <CardTitle className="text-sm text-emerald-500 flex items-center gap-1.5"><TrendingUp className="h-4 w-4" /> Receitas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-0 pb-0">
+                    {txGrouped.income.map((g) => (
+                      <div key={g.name}>
+                        <div className="bg-muted/30 px-4 py-1.5 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.code} - {g.name}</span>
+                          <span className="text-[10px] font-bold font-mono text-emerald-500">{formatCurrency(g.total)}</span>
+                        </div>
+                        {g.items.map((t) => (
+                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-b border-border/30 gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium truncate">{t.description}</span>
+                                <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
+                                  {statusLabels[t.status] || t.status}
+                                </Badge>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>
+                              {t.docs.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {t.docs.map((d: any) => (
+                                    <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
+                                      <Paperclip className="h-2.5 w-2.5" />{d.name}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs font-mono font-semibold text-emerald-500 whitespace-nowrap">+{formatCurrency(t.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Expense transactions */}
+              {txGrouped.expense.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-0 px-4 pt-4">
+                    <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><TrendingDown className="h-4 w-4" /> Despesas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-0 pb-0">
+                    {txGrouped.expense.map((g) => (
+                      <div key={g.name}>
+                        <div className="bg-muted/30 px-4 py-1.5 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.code} - {g.name}</span>
+                          <span className="text-[10px] font-bold font-mono text-amber-500">{formatCurrency(g.total)}</span>
+                        </div>
+                        {g.items.map((t) => (
+                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-b border-border/30 gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium truncate">{t.description}</span>
+                                <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
+                                  {statusLabels[t.status] || t.status}
+                                </Badge>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>
+                              {t.docs.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {t.docs.map((d: any) => (
+                                    <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
+                                      <Paperclip className="h-2.5 w-2.5" />{d.name}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs font-mono font-semibold text-amber-500 whitespace-nowrap">-{formatCurrency(t.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Result */}
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <span className="text-sm font-bold">Resultado</span>
+                  <span className={`text-lg font-bold font-mono ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    {formatCurrency(transactionResult)}
+                  </span>
                 </CardContent>
               </Card>
             </div>
