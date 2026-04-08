@@ -169,6 +169,39 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Propagate amount/iva_rate changes to child split transactions
+    const amountChanged = "amount" in sanitizedUpdates && Number(sanitizedUpdates.amount) !== Number(transaction.amount);
+    const ivaChanged = "iva_rate" in sanitizedUpdates && Number(sanitizedUpdates.iva_rate) !== Number(transaction.iva_rate);
+
+    if (amountChanged || ivaChanged) {
+      const { data: children } = await adminClient
+        .from("transactions")
+        .select("id, split_percentage")
+        .eq("parent_transaction_id", transaction_id);
+
+      if (children && children.length > 0) {
+        const newAmount = Number(sanitizedUpdates.amount ?? transaction.amount);
+        const newIva = sanitizedUpdates.iva_rate ?? transaction.iva_rate;
+
+        for (const child of children) {
+          const pct = child.split_percentage ?? 0;
+          const childUpdates: Record<string, any> = {};
+          if (amountChanged) {
+            childUpdates.amount = +(newAmount * pct / 100).toFixed(2);
+          }
+          if (ivaChanged) {
+            childUpdates.iva_rate = newIva;
+          }
+          if (Object.keys(childUpdates).length > 0) {
+            await adminClient
+              .from("transactions")
+              .update(childUpdates)
+              .eq("id", child.id);
+          }
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, transaction_id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
