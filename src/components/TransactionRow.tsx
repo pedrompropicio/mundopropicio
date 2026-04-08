@@ -104,6 +104,9 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const paidAmount = Number(t.paid_amount ?? 0);
   const balance = totalWithIva - paidAmount;
   const isExpense = t.type === "expense";
+  const isChildSplit = !!t.parent_transaction_id;
+  const isParentSplit = !t.parent_transaction_id && t.split_percentage === null && false; // parent detected by children query below
+  const splitPct = t.split_percentage != null ? Number(t.split_percentage) : null;
 
   // Compute effective status
   const computedStatus = (() => {
