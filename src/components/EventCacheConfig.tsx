@@ -276,7 +276,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
           </span>
           <button
             onClick={() => setShowAddForm(true)}
-            disabled={showAddForm || isEventLocked}
+            disabled={showAddForm || !canEdit}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" /> Adicionar Atração
@@ -450,7 +450,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                         {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                       </button>
                     )}
-                    {!isEventLocked && (
+                    {canEdit && (
                       <button
                         onClick={() => {
                           if (confirm(`Remover cachê de "${config.artist_name}"?`)) {
@@ -466,7 +466,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 </div>
 
                 {/* Deductions panel (variable only) */}
-                {isVariable && isExpanded && !isEventLocked && (
+                {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
                     {/* Fixed percentage deduction */}
                     <div className="space-y-1.5">
@@ -597,7 +597,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                     cacheConfigId={config.id}
                     artistName={config.artist_name}
                     eventId={eventId}
-                    canEdit={!isEventLocked}
+                    canEdit={canEdit}
                   />
                 </div>
               </div>
