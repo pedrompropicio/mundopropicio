@@ -163,6 +163,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setPdfPeriodTo(null);
     setShowDuplicateConfirm(false);
     setDuplicateWarnings([]);
+    setHeaderMismatchWarnings([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
