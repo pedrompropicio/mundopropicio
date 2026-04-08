@@ -22,9 +22,9 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
-    const periodInstruction = `
+    const headerInstruction = `
 
-EXTRACÇÃO DO PERÍODO (OBRIGATÓRIA):
+EXTRACÇÃO DO CABEÇALHO (OBRIGATÓRIA):
 - O cabeçalho do PDF contém o período do relatório (ex: "01/04/2026 a 05/04/2026", "Período: 01-04-2026 - 05-04-2026", "De 01/04/2026 Até 05/04/2026").
 - Extrai as datas de início e fim do período e inclui-as no JSON como "period_from" e "period_to" no formato "YYYY-MM-DD".
 - Se o período contiver apenas uma data, usa-a tanto como "period_from" como "period_to".
@@ -33,7 +33,20 @@ EXTRACÇÃO DO PERÍODO (OBRIGATÓRIA):
 IDENTIFICAÇÃO DA BILHETEIRA (OBRIGATÓRIA):
 - O PDF contém geralmente o nome/logotipo da bilheteira (ex: "Ticketline", "BOL", "Blueticket", "ETES", "Fever", "Seetickets", "Eventbrite", "Worten Bilhetes").
 - Extrai o nome da bilheteira e inclui no JSON como "ticket_office_name".
-- Se não conseguires identificar, usa "ticket_office_name": null.`;
+- Se não conseguires identificar, usa "ticket_office_name": null.
+
+IDENTIFICAÇÃO DO EVENTO (OBRIGATÓRIA):
+- O cabeçalho do PDF contém o nome do espetáculo/evento (ex: "Mágicos Henry & Klaus", "Ana Moura - Noite de Fado").
+- Extrai o nome do evento e inclui no JSON como "event_name".
+- Se não encontrares, usa "event_name": null.
+
+IDENTIFICAÇÃO DA DATA E HORA DO EVENTO (OBRIGATÓRIA):
+- O cabeçalho pode conter a data do espetáculo (ex: "04/04/2026", "Sábado, 5 de Abril 2026").
+- Extrai a data no formato "YYYY-MM-DD" e inclui como "event_date".
+- Se não encontrares, usa "event_date": null.
+- O cabeçalho pode conter a hora do espetáculo (ex: "21:00", "21h00", "19:30").
+- Extrai a hora no formato "HH:MM" e inclui como "event_time".
+- Se não encontrares, usa "event_time": null.`;
 
     const systemPrompt =
       extraction_type === "daily_sales"
