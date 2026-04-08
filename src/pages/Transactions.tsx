@@ -216,8 +216,21 @@ export default function Transactions() {
     });
   };
 
-  // Base filter (type, event, account, open only)
+  // Search helper
+  const matchesSearch = (t: any) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      t.description?.toLowerCase().includes(term) ||
+      t.specification?.toLowerCase().includes(term) ||
+      (t.events as any)?.name?.toLowerCase().includes(term) ||
+      (t.suppliers as any)?.name?.toLowerCase().includes(term)
+    );
+  };
+
+  // Base filter (type, event, account, open only, search)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter(matchesSearch)
     .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => {
