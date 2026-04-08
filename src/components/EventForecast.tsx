@@ -982,13 +982,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                       className={inputClass}
                                     />
                                   </td>
-                                  <td className="py-1.5 pr-2">
-                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
+                                   <td className="py-1.5 pr-2">
+                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                                     </select>
                                   </td>
                                    <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} disabled={canEditBPPartial && !canEditBP} />
                                   </td>
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
@@ -1133,7 +1133,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                     <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
                                   </td>
                                   <td className="py-1.5 pr-2">
-                                    <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
+                                    <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" disabled={canEditBPPartial && !canEditBP} />
                                   </td>
                                    <td className="hidden py-1.5 pr-2 sm:table-cell">
                                      <SearchableSelect
@@ -1146,12 +1146,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                      />
                                   </td>
                                   <td className="py-1.5 pr-2">
-                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
+                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                                     </select>
                                   </td>
                                    <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} disabled={canEditBPPartial && !canEditBP} />
                                   </td>
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
