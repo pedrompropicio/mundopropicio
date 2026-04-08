@@ -994,6 +994,44 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_event_access: {
+        Row: {
+          created_at: string
+          event_id: string
+          granted_by: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_event_access_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_list_items: {
         Row: {
           created_at: string
@@ -1939,6 +1977,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_partner_access: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
@@ -1969,7 +2011,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "manager" | "editor" | "viewer"
+      app_role: "admin" | "user" | "manager" | "editor" | "viewer" | "partner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2097,7 +2139,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "manager", "editor", "viewer"],
+      app_role: ["admin", "user", "manager", "editor", "viewer", "partner"],
     },
   },
 } as const
