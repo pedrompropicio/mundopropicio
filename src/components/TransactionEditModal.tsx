@@ -31,7 +31,20 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const { data: events = [] } = useQuery({
+  // Check if this is a parent split transaction (has children)
+  const { data: childTransactions = [] } = useQuery({
+    queryKey: ["child-transactions", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("parent_transaction_id", transaction.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const hasChildren = childTransactions.length > 0;
+
     queryKey: ["events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("id, name").order("name");
