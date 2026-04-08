@@ -150,7 +150,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (rootFlags.event_required && !form.event_id) {
+    if (rootFlags.event_required && !form.event_id && !hasChildren) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
