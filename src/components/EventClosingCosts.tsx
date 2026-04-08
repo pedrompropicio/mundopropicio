@@ -26,6 +26,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
     queryKey: ["event-closing-costs", eventId],
@@ -60,12 +61,20 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         category_id: categoryId || null,
         notes: notes || null,
       };
+      let costId = editingId;
       if (editingId) {
         const { error } = await supabase.from("event_closing_costs").update(payload).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("event_closing_costs").insert(payload);
+        const { data, error } = await supabase.from("event_closing_costs").insert(payload).select("id").single();
         if (error) throw error;
+        costId = data.id;
+      }
+      // Upload pending files
+      if (costId && pendingFiles.length > 0) {
+        for (const file of pendingFiles) {
+          await supabase.storage.from("closing-cost-documents").upload(`${costId}/${file.name}`, file, { upsert: true });
+        }
       }
     },
     onSuccess: () => {
@@ -109,6 +118,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setAmount("");
     setCategoryId("");
     setNotes("");
+    setPendingFiles([]);
   }
 
   function startEdit(cost: any) {
@@ -163,6 +173,27 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             <div className="space-y-1.5">
               <Label className="text-xs">Notas</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais" />
+            </div>
+          </div>
+          {/* File attachment in form */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Anexos</Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-secondary/80 transition-colors">
+                <Paperclip className="h-3.5 w-3.5" /> Anexar ficheiro
+                <input type="file" className="hidden" multiple onChange={(e) => {
+                  if (e.target.files) setPendingFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                  e.target.value = "";
+                }} />
+              </label>
+              {pendingFiles.map((f, i) => (
+                <span key={i} className="flex items-center gap-1 text-xs bg-muted rounded px-2 py-1">
+                  <FileText className="h-3 w-3" /> {f.name}
+                  <button onClick={() => setPendingFiles(prev => prev.filter((_, idx) => idx !== i))} className="ml-0.5 text-destructive hover:text-destructive/80">
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
             </div>
           </div>
           <div className="flex gap-2 justify-end">
