@@ -618,8 +618,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     setInlineForm(emptyInline);
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income");
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense");
+  const bpSearchLower = bpSearch.toLowerCase().trim();
+  const matchesBpSearch = (f: any) => {
+    if (!bpSearchLower) return true;
+    const catInfo = categories.find((c: any) => c.id === f.category_id);
+    return (
+      f.description?.toLowerCase().includes(bpSearchLower) ||
+      f.specification?.toLowerCase().includes(bpSearchLower) ||
+      catInfo?.name?.toLowerCase().includes(bpSearchLower) ||
+      catInfo?.code?.toLowerCase().includes(bpSearchLower)
+    );
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
