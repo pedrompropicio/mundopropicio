@@ -253,34 +253,98 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
-      // Auto-approve only if event has BP forecasts and category matches
-      const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
-        (f) => f.type === data.type && f.category_id === data.category_id
-      );
-      const autoApproved = hasForecastMatch;
+      if (isSplit && splitEntries.length >= 2) {
+        // --- SPLIT TRANSACTION ---
+        const totalAmount = parseFloat(data.amount);
 
-      const { error } = await supabase.from("transactions").insert({
-        description: data.description,
-        type: data.type,
-        amount: parseFloat(data.amount),
-        iva_rate: data.iva_rate,
-        event_id: data.event_id || null,
-        category_id: data.category_id || null,
-        supplier_id: data.supplier_id || null,
-        account_id: data.account_id || null,
-        specification: data.type === "expense" ? (data.specification || null) : null,
-        pl_override_note: data.pl_override_note.trim() || null,
-        date: data.date,
-        due_date: parseDueDateForDb(data.due_date),
-        status: autoApproved ? "approved" : "pending",
-        paid_amount: 0,
-      } as any);
-      if (error) throw error;
+        // 1. Create parent transaction (no event)
+        const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
+          description: data.description,
+          type: data.type,
+          amount: totalAmount,
+          iva_rate: data.iva_rate,
+          event_id: null,
+          category_id: data.category_id || null,
+          supplier_id: data.supplier_id || null,
+          account_id: data.account_id || null,
+          specification: data.type === "expense" ? (data.specification || null) : null,
+          pl_override_note: data.pl_override_note.trim() || null,
+          date: data.date,
+          due_date: parseDueDateForDb(data.due_date),
+          status: "pending",
+          paid_amount: 0,
+          split_percentage: null,
+          parent_transaction_id: null,
+        } as any).select("id").single();
+        if (parentError) throw parentError;
+        const parentId = parentRow.id;
+
+        // 2. Create child transactions for each event
+        const childInserts = await Promise.all(splitEntries.map(async (entry) => {
+          const childAmount = +(totalAmount * entry.percentage / 100).toFixed(2);
+          
+          // Check BP for each event individually
+          const { data: forecasts } = await supabase
+            .from("event_forecasts")
+            .select("type, category_id")
+            .eq("event_id", entry.event_id);
+          
+          const hasForecastMatch = (forecasts ?? []).some(
+            (f) => f.type === data.type && f.category_id === data.category_id
+          );
+
+          return {
+            description: data.description,
+            type: data.type,
+            amount: childAmount,
+            iva_rate: data.iva_rate,
+            event_id: entry.event_id,
+            category_id: data.category_id || null,
+            supplier_id: data.supplier_id || null,
+            account_id: null,
+            specification: data.type === "expense" ? (data.specification || null) : null,
+            pl_override_note: (!hasForecastMatch && (forecasts ?? []).length > 0) ? (data.pl_override_note.trim() || null) : null,
+            date: data.date,
+            due_date: parseDueDateForDb(data.due_date),
+            status: hasForecastMatch ? "approved" : "pending",
+            paid_amount: 0,
+            split_percentage: entry.percentage,
+            parent_transaction_id: parentId,
+          };
+        }));
+
+        const { error: childError } = await supabase.from("transactions").insert(childInserts as any);
+        if (childError) throw childError;
+      } else {
+        // --- SINGLE TRANSACTION ---
+        const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
+          (f) => f.type === data.type && f.category_id === data.category_id
+        );
+        const autoApproved = hasForecastMatch;
+
+        const { error } = await supabase.from("transactions").insert({
+          description: data.description,
+          type: data.type,
+          amount: parseFloat(data.amount),
+          iva_rate: data.iva_rate,
+          event_id: data.event_id || null,
+          category_id: data.category_id || null,
+          supplier_id: data.supplier_id || null,
+          account_id: data.account_id || null,
+          specification: data.type === "expense" ? (data.specification || null) : null,
+          pl_override_note: data.pl_override_note.trim() || null,
+          date: data.date,
+          due_date: parseDueDateForDb(data.due_date),
+          status: autoApproved ? "approved" : "pending",
+          paid_amount: 0,
+        } as any);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onClose();
-      toast({ title: "Transação criada com sucesso!" });
+      toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
