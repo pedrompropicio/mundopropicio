@@ -670,22 +670,44 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor c/IVA (€) *</label>
-              <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base (€) *</label>
+                <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+                <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value={23}>23% - Normal</option>
+                  <option value={13}>13% - Intermédia</option>
+                  <option value={6}>6% - Reduzida</option>
+                  <option value={0}>0% - Isento</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value={23}>23% - Normal</option>
-                <option value={13}>13% - Intermédia</option>
-                <option value={6}>6% - Reduzida</option>
-                <option value={0}>0% - Isento</option>
-              </select>
-            </div>
+            {/* IVA breakdown */}
+            {(() => {
+              const base = parseFloat(form.amount) || 0;
+              const ivaValue = base * (form.iva_rate / 100);
+              const total = base + ivaValue;
+              if (base <= 0) return null;
+              return (
+                <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
+                  <span className="text-muted-foreground">
+                    Base: {base.toFixed(2)}€
+                  </span>
+                  <span className="text-muted-foreground">
+                    + IVA ({form.iva_rate}%): {ivaValue.toFixed(2)}€
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    Total: {total.toFixed(2)}€
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Proration confirmation for multi_day parent */}
