@@ -86,6 +86,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [pdfPeriodTo, setPdfPeriodTo] = useState<string | null>(null);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
+  const [headerMismatchWarnings, setHeaderMismatchWarnings] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
