@@ -4,6 +4,7 @@ import * as React from 'npm:react@18.3.1'
 
 import {
   Body,
+  Button,
   Container,
   Head,
   Heading,
@@ -14,29 +15,29 @@ import {
 
 interface RecoveryEmailProps {
   siteName: string
-  token?: string
+  confirmationUrl: string
 }
 
 export const RecoveryEmail = ({
   siteName,
-  token,
+  confirmationUrl,
 }: RecoveryEmailProps) => (
-  <Html lang="pt" dir="ltr">
+  <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Código de recuperação de senha — {siteName}</Preview>
+    <Preview>Reset your password for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Recuperar senha</Heading>
+        <Heading style={h1}>Reset your password</Heading>
         <Text style={text}>
-          Recebemos um pedido para redefinir a sua senha em {siteName}. Use o
-          código abaixo para continuar na aplicação:
+          We received a request to reset your password for {siteName}. Click
+          the button below to choose a new password.
         </Text>
-        {token ? (
-          <Text style={codeStyle}>{token}</Text>
-        ) : null}
+        <Button style={button} href={confirmationUrl}>
+          Reset Password
+        </Button>
         <Text style={footer}>
-          Se não solicitou esta recuperação, pode ignorar este email. A sua
-          senha não será alterada. O código expira em poucos minutos.
+          If you didn't request a password reset, you can safely ignore this
+          email. Your password will not be changed.
         </Text>
       </Container>
     </Body>
@@ -45,29 +46,26 @@ export const RecoveryEmail = ({
 
 export default RecoveryEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: "'Space Grotesk', Arial, sans-serif" }
-const container = { padding: '32px 28px' }
+const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
+const container = { padding: '20px 25px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
-  color: '#1a1f2e',
+  color: '#000000',
   margin: '0 0 20px',
 }
 const text = {
   fontSize: '14px',
-  color: '#6b7280',
-  lineHeight: '1.6',
+  color: '#55575d',
+  lineHeight: '1.5',
   margin: '0 0 25px',
 }
-const codeStyle = {
-  fontSize: '32px',
-  fontWeight: 'bold' as const,
-  color: '#1a6fb8',
-  letterSpacing: '6px',
-  textAlign: 'center' as const,
-  margin: '16px 0 28px',
-  padding: '16px',
-  backgroundColor: '#f3f4f6',
-  borderRadius: '12px',
+const button = {
+  backgroundColor: '#000000',
+  color: '#ffffff',
+  fontSize: '14px',
+  borderRadius: '8px',
+  padding: '12px 20px',
+  textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }
+const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }

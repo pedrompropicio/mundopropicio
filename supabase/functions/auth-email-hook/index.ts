@@ -17,12 +17,12 @@ const corsHeaders = {
 }
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirme o seu email',
-  invite: 'Foi convidado para a plataforma',
-  magiclink: 'O seu link de acesso',
-  recovery: 'Código de recuperação de senha',
-  email_change: 'Confirme o seu novo email',
-  reauthentication: 'O seu código de verificação',
+  signup: 'Confirm your email',
+  invite: "You've been invited",
+  magiclink: 'Your login link',
+  recovery: 'Reset your password',
+  email_change: 'Confirm your new email',
+  reauthentication: 'Your verification code',
 }
 
 // Template mapping
@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "MP Gestão Eventos"
+const SITE_NAME = "mundopropicio"
 const SENDER_DOMAIN = "notify.mpgestaoeventos.com"
 const ROOT_DOMAIN = "mpgestaoeventos.com"
 const FROM_DOMAIN = "mpgestaoeventos.com" // Domain shown in From address (may be root or sender subdomain)
@@ -61,7 +61,6 @@ const SAMPLE_DATA: Record<string, object> = {
   },
   recovery: {
     siteName: SITE_NAME,
-    token: '123456',
     confirmationUrl: SAMPLE_PROJECT_URL,
   },
   invite: {
@@ -207,7 +206,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   // The email action type is in payload.data.action_type (e.g., "signup", "recovery")
   // payload.type is the hook event type ("auth")
   const emailType = payload.data.action_type
-  console.log('Received auth event', { emailType, email: payload.data.email, run_id, tokenLength: payload.data.token?.length, tokenPreview: payload.data.token?.substring(0, 3) + '...', hasUrl: !!payload.data.url })
+  console.log('Received auth event', { emailType, email: payload.data.email, run_id })
 
   const EmailTemplate = EMAIL_TEMPLATES[emailType]
   if (!EmailTemplate) {
@@ -219,17 +218,12 @@ async function handleWebhook(req: Request): Promise<Response> {
   }
 
   // Build template props from payload.data (HookData structure)
-  // Recovery emails in this project use numeric OTP codes.
-  // We only include the token in the recovery email so the template never falls back to a reset link.
-  const rawToken = payload.data.token
-  const otpToken = rawToken && /^\d{6,10}$/.test(rawToken) ? rawToken : undefined
-
   const templateProps = {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
     recipient: payload.data.email,
-    confirmationUrl: emailType === 'recovery' ? undefined : payload.data.url,
-    token: emailType === 'recovery' ? otpToken : payload.data.token,
+    confirmationUrl: payload.data.url,
+    token: payload.data.token,
     email: payload.data.email,
     newEmail: payload.data.new_email,
   }
