@@ -30,6 +30,7 @@ export default function Transactions() {
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
   const [paidPeriod, setPaidPeriod] = useState<"all" | "yesterday" | "week" | "month" | "range">("all");
+  const [periodDateField, setPeriodDateField] = useState<"due_date" | "date">("due_date");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [paidPeriodPopoverOpen, setPaidPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
@@ -41,6 +42,7 @@ export default function Transactions() {
   const [paidRangeFromOpen, setPaidRangeFromOpen] = useState(false);
   const [paidRangeToOpen, setPaidRangeToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [onlyNoDueDate, setOnlyNoDueDate] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
@@ -248,7 +250,18 @@ export default function Transactions() {
     const overdue: typeof baseFiltered = [];
     const inPeriod: typeof baseFiltered = [];
     const noDate: typeof baseFiltered = [];
-    const outOfPeriod: typeof baseFiltered = []; // not shown but needed for separation
+
+    // If "only no due date" filter is active, show only those
+    if (onlyNoDueDate) {
+      baseFiltered.forEach((t) => {
+        if (!t.due_date) noDate.push(t);
+      });
+      return {
+        overdueGroup: [],
+        periodGroup: [],
+        noDateGroup: sortByDueDate(noDate),
+      };
+    }
 
     // Compute period end date
     let periodEnd: Date;
@@ -270,6 +283,11 @@ export default function Transactions() {
     const periodStart = duePeriod === "range" && rangeFrom ? new Date(rangeFrom) : today;
     if (duePeriod === "range" && rangeFrom) periodStart.setHours(0, 0, 0, 0);
 
+    const getDateValue = (t: any): string | null => {
+      if (periodDateField === "due_date") return t.due_date;
+      return t.date; // data de lançamento — always present
+    };
+
     baseFiltered.forEach((t) => {
       // When "Aprovação" filter is active, show ALL pending regardless of period
       if (onlyPending) {
@@ -286,22 +304,23 @@ export default function Transactions() {
         return;
       }
 
-      if (!t.due_date) {
+      const dateVal = getDateValue(t);
+      if (!dateVal) {
         noDate.push(t);
         return;
       }
-      const due = new Date(t.due_date);
+      const dateObj = new Date(dateVal);
       const paidAmount = Number(t.paid_amount ?? 0);
       const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
       const isPaid = t.status === "paid" || paidAmount >= totalWithIva;
 
-      if (!isPaid && due < today) {
+      // Overdue only makes sense for due_date
+      if (periodDateField === "due_date" && !isPaid && dateObj < today) {
         overdue.push(t);
-      } else if (due >= periodStart && due <= periodEnd) {
+      } else if (dateObj >= periodStart && dateObj <= periodEnd) {
         inPeriod.push(t);
-      } else {
-        // Outside selected period — exclude from view
       }
+      // else: outside period — excluded
     });
 
     return {
@@ -309,7 +328,7 @@ export default function Transactions() {
       periodGroup: sortByDueDate(inPeriod),
       noDateGroup: sortByDueDate(noDate),
     };
-  }, [baseFiltered, duePeriod, rangeFrom, rangeTo]);
+  }, [baseFiltered, duePeriod, rangeFrom, rangeTo, periodDateField, onlyNoDueDate]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
 
@@ -586,11 +605,33 @@ export default function Transactions() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="text-sm font-normal">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                {periodDateField === "date" ? "Lançamento: " : ""}
                 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
               <div className="flex flex-col gap-1">
+                {/* Date field selector */}
+                <div className="flex items-center gap-1 mb-1 pb-1 border-b border-border/50">
+                  <button
+                    onClick={() => setPeriodDateField("due_date")}
+                    className={cn(
+                      "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                      periodDateField === "due_date" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
+                    )}
+                  >
+                    Dt. Vencimento
+                  </button>
+                  <button
+                    onClick={() => setPeriodDateField("date")}
+                    className={cn(
+                      "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                      periodDateField === "date" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
+                    )}
+                  >
+                    Dt. Lançamento
+                  </button>
+                </div>
                 {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
                   <button
                     key={val}
@@ -636,6 +677,18 @@ export default function Transactions() {
               </div>
             </PopoverContent>
           </Popover>
+        )}
+
+        {/* Filter: only no due date */}
+        {viewMode === "open" && (
+          <Button
+            variant={onlyNoDueDate ? "default" : "outline"}
+            size="sm"
+            className="text-sm font-normal"
+            onClick={() => setOnlyNoDueDate(!onlyNoDueDate)}
+          >
+            Sem Vencimento
+          </Button>
         )}
 
         {/* Filtro Aprovação (open view only) */}
