@@ -284,7 +284,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   });
 
   const getRootFlags = (categoryId: string) => {
-    if (!categoryId) return { event_required: true };
+    if (!categoryId) return { event_required: false };
     let cat = categories.find((c: any) => c.id === categoryId);
     while (cat && cat.parent_id) {
       cat = categories.find((c: any) => c.id === cat!.parent_id);
