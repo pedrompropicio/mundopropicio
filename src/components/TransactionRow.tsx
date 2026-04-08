@@ -98,9 +98,11 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
-  const amount = Number(t.amount);
+  const amount = Number(t.amount); // valor base (sem IVA)
+  const totalWithIva = amount * (1 + ivaRate / 100);
+  const ivaValue = totalWithIva - amount;
   const paidAmount = Number(t.paid_amount ?? 0);
-  const balance = amount - paidAmount;
+  const balance = totalWithIva - paidAmount;
   const isExpense = t.type === "expense";
 
   // Compute effective status
