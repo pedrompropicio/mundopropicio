@@ -21,7 +21,6 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
 export default function Dashboard() {
-  // Fetch events
   const { data: events = [], isLoading: loadingEvents } = useQuery({
     queryKey: ["dashboard_events"],
     queryFn: async () => {
@@ -34,7 +33,6 @@ export default function Dashboard() {
     },
   });
 
-  // Fetch transactions
   const { data: transactions = [], isLoading: loadingTxns } = useQuery({
     queryKey: ["dashboard_transactions"],
     queryFn: async () => {
@@ -56,10 +54,34 @@ export default function Dashboard() {
     },
   });
 
+  // Fetch ticket sales (real revenue from box office)
+  const { data: ticketSales = [] } = useQuery({
+    queryKey: ["dashboard_ticket_sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("*, event_ticket_zones(event_id)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch forecasts (predicted revenue/expenses from BP)
+  const { data: forecasts = [] } = useQuery({
+    queryKey: ["dashboard_forecasts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const isLoading = loadingEvents || loadingTxns;
 
-  // Compute stats
   const stats = useMemo(() => {
+    // --- REAL DATA ---
     const eventTotals: Record<string, { income: number; expense: number }> = {};
     transactions.forEach((t) => {
       if (!eventTotals[t.event_id]) eventTotals[t.event_id] = { income: 0, expense: 0 };
@@ -67,9 +89,30 @@ export default function Dashboard() {
       else eventTotals[t.event_id].expense += Number(t.amount);
     });
 
+    // Add ticket sales as real revenue
+    let ticketRevenue = 0;
+    ticketSales.forEach((ts: any) => {
+      const revenue = Number(ts.quantity) * Number(ts.unit_price);
+      ticketRevenue += revenue;
+      const eventId = ts.event_ticket_zones?.event_id;
+      if (eventId) {
+        if (!eventTotals[eventId]) eventTotals[eventId] = { income: 0, expense: 0 };
+        eventTotals[eventId].income += revenue;
+      }
+    });
+
     const totalIncome = Object.values(eventTotals).reduce((s, e) => s + e.income, 0);
     const totalExpenses = Object.values(eventTotals).reduce((s, e) => s + e.expense, 0);
     const profit = totalIncome - totalExpenses;
+
+    // --- FORECAST DATA ---
+    let forecastIncome = 0;
+    let forecastExpense = 0;
+    forecasts.forEach((f: any) => {
+      if (f.type === "income") forecastIncome += Number(f.amount);
+      else forecastExpense += Number(f.amount);
+    });
+    const forecastProfit = forecastIncome - forecastExpense;
 
     const upcomingEvents = events
       .filter((e) => e.status === "planning" || e.status === "active")
@@ -106,18 +149,37 @@ export default function Dashboard() {
       }
     });
 
+    // Add ticket sales to monthly chart
+    ticketSales.forEach((ts: any) => {
+      const d = new Date(ts.sale_date);
+      if (d.getFullYear() === currentYear) {
+        const m = d.getMonth();
+        monthlyMap[m].receitas += Number(ts.quantity) * Number(ts.unit_price);
+      }
+    });
+
     const monthlyData = Object.entries(monthlyMap)
       .filter(([_, v]) => v.receitas > 0 || v.despesas > 0)
       .map(([m, v]) => ({ month: monthNames[Number(m)], ...v }));
 
-    // If no data for any month, show at least current month
     if (monthlyData.length === 0) {
       const cm = new Date().getMonth();
       monthlyData.push({ month: monthNames[cm], receitas: 0, despesas: 0 });
     }
 
-    return { totalIncome, totalExpenses, profit, upcomingEvents, completedCount, ivaSaldo, recentTransactions, monthlyData };
-  }, [events, transactions]);
+    return {
+      totalIncome, totalExpenses, profit,
+      forecastIncome, forecastExpense, forecastProfit,
+      ticketRevenue,
+      upcomingEvents, completedCount, ivaSaldo,
+      recentTransactions, monthlyData,
+    };
+  }, [events, transactions, ticketSales, forecasts]);
+
+  // Execution percentages
+  const incomeExec = stats.forecastIncome > 0 ? (stats.totalIncome / stats.forecastIncome) * 100 : undefined;
+  const expenseExec = stats.forecastExpense > 0 ? (stats.totalExpenses / stats.forecastExpense) * 100 : undefined;
+  const profitExec = stats.forecastProfit !== 0 ? (stats.profit / Math.abs(stats.forecastProfit)) * 100 : undefined;
 
   if (isLoading) {
     return (
@@ -141,22 +203,29 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          title="Receitas Totais"
+          title="Receitas Reais"
           value={formatCurrency(stats.totalIncome)}
           icon={TrendingUp}
           variant="accent"
+          forecast={stats.forecastIncome > 0 ? formatCurrency(stats.forecastIncome) : undefined}
+          executionPercent={incomeExec}
+          subtitle={stats.ticketRevenue > 0 ? `${formatCurrency(stats.ticketRevenue)} via bilheteira` : undefined}
         />
         <StatCard
-          title="Despesas Totais"
+          title="Despesas Reais"
           value={formatCurrency(stats.totalExpenses)}
           icon={TrendingDown}
           variant="warning"
+          forecast={stats.forecastExpense > 0 ? formatCurrency(stats.forecastExpense) : undefined}
+          executionPercent={expenseExec}
         />
         <StatCard
-          title="Lucro Líquido"
+          title="Resultado"
           value={formatCurrency(stats.profit)}
           icon={Wallet}
           variant="primary"
+          forecast={stats.forecastProfit !== 0 ? formatCurrency(stats.forecastProfit) : undefined}
+          executionPercent={profitExec}
           subtitle={stats.totalIncome > 0 ? `Margem: ${((stats.profit / stats.totalIncome) * 100).toFixed(1)}%` : undefined}
         />
         <StatCard
@@ -177,7 +246,6 @@ export default function Dashboard() {
 
       {/* Chart + Recent */}
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* Chart */}
         <div className="glass rounded-xl p-5 lg:col-span-3">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Receitas vs Despesas ({new Date().getFullYear()})
@@ -199,7 +267,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Upcoming Events */}
         <div className="glass rounded-xl p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Próximos Eventos</h2>
@@ -239,7 +306,7 @@ export default function Dashboard() {
       </div>
 
       {/* Advanced Charts */}
-      <DashboardCharts transactions={transactions} events={events} categories={categories} />
+      <DashboardCharts transactions={transactions} events={events} categories={categories} ticketSales={ticketSales} />
 
       {/* Recent Transactions */}
       <div className="glass rounded-xl p-5">
