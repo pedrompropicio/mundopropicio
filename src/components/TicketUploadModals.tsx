@@ -86,6 +86,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [pdfPeriodTo, setPdfPeriodTo] = useState<string | null>(null);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
+  const [headerMismatchWarnings, setHeaderMismatchWarnings] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -126,7 +127,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       if (!eventId) return [];
       const { data, error } = await supabase
         .from("event_sessions")
-        .select("id, label, date, sort_order")
+        .select("id, label, date, sort_order, start_time")
         .eq("event_id", eventId)
         .order("date", { ascending: true })
         .order("sort_order", { ascending: true });
@@ -162,6 +163,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setPdfPeriodTo(null);
     setShowDuplicateConfirm(false);
     setDuplicateWarnings([]);
+    setHeaderMismatchWarnings([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -209,6 +211,39 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           toast({ title: `Bilheteira detectada: ${match.name}` });
         }
       }
+
+      // ── Cross-validate PDF header vs selected event/session ──
+      const warnings: string[] = [];
+      const pdfEventName = data.event_name || null;
+      const pdfEventDate = data.event_date || null;
+      const pdfEventTime = data.event_time || null;
+
+      if (pdfEventName && selectedEvent) {
+        const pdfNorm = normalize(pdfEventName);
+        const appNorm = normalize(selectedEvent.name);
+        if (!appNorm.includes(pdfNorm) && !pdfNorm.includes(appNorm)) {
+          warnings.push(`Nome do evento no PDF: "${pdfEventName}" ≠ App: "${selectedEvent.name}"`);
+        }
+      }
+
+      if (pdfEventDate && selectedSession) {
+        const sessionDate = selectedSession.date;
+        if (pdfEventDate !== sessionDate) {
+          const pdfDateFmt = new Date(pdfEventDate + "T12:00:00").toLocaleDateString("pt-PT");
+          const sessionDateFmt = new Date(sessionDate + "T12:00:00").toLocaleDateString("pt-PT");
+          warnings.push(`Data do evento no PDF: ${pdfDateFmt} ≠ Sessão selecionada: ${sessionDateFmt}`);
+        }
+      }
+
+      if (pdfEventTime && selectedSession?.start_time) {
+        const pdfTimeNorm = pdfEventTime.replace("h", ":").replace("H", ":").slice(0, 5);
+        const sessionTimeNorm = selectedSession.start_time.slice(0, 5);
+        if (pdfTimeNorm !== sessionTimeNorm) {
+          warnings.push(`Hora do evento no PDF: ${pdfEventTime} ≠ Sessão: ${sessionTimeNorm}`);
+        }
+      }
+
+      setHeaderMismatchWarnings(warnings);
 
       if (importType === "setup") {
         const rows: ParsedRow[] = (data.rows || []).map((r: any) => ({
@@ -777,6 +812,20 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                   A IA extrairá automaticamente zonas, lotes, quantidades e preços do PDF
                 </p>
               </div>
+
+              {/* Header mismatch warnings */}
+              {headerMismatchWarnings.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-medium text-warning">Divergência entre PDF e sessão selecionada</p>
+                    {headerMismatchWarnings.map((w, i) => (
+                      <p key={i} className="text-muted-foreground">{w}</p>
+                    ))}
+                    <p className="text-muted-foreground italic">Verifique se está a importar o ficheiro correto para esta sessão.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Preview table — Setup */}
               {importType === "setup" && setupPreview.length > 0 && (
