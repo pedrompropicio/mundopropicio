@@ -252,16 +252,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 searchPlaceholder="Pesquisar categoria…"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-              <SearchableSelect
-                options={eventOptions}
-                value={form.event_id}
-                onValueChange={(v) => setForm({ ...form, event_id: v })}
-                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-                searchPlaceholder="Pesquisar evento…"
-              />
-            </div>
+            {hasChildren ? (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento</label>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground">
+                  Rateio multi-evento ({childTransactions.length} sub-transações)
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
+                <SearchableSelect
+                  options={eventOptions}
+                  value={form.event_id}
+                  onValueChange={(v) => setForm({ ...form, event_id: v })}
+                  placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                  searchPlaceholder="Pesquisar evento…"
+                />
+              </div>
+            )}
           </div>
 
           {isExpense && (
