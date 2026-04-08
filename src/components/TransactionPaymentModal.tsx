@@ -64,6 +64,21 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     },
   });
 
+  // Fetch child transactions for split propagation
+  const { data: childTransactions = [] } = useQuery({
+    queryKey: ["child-transactions", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, split_percentage, amount, iva_rate, paid_amount, status")
+        .eq("parent_transaction_id", transaction.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const hasChildren = childTransactions.length > 0;
+
   function computeAccountBalance(accId: string) {
     const acc = financialAccounts.find((a: any) => a.id === accId);
     if (!acc) return 0;
