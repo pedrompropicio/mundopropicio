@@ -31,6 +31,20 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // Check if this is a parent split transaction (has children)
+  const { data: childTransactions = [] } = useQuery({
+    queryKey: ["child-transactions", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("parent_transaction_id", transaction.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const hasChildren = childTransactions.length > 0;
+
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
@@ -117,6 +131,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isExpense = transaction.type === "expense";
   const isApproved = transaction.status === "approved";
   const valueLocked = isApproved && !isAdmin;
+  const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
 
   const getRootFlags = (categoryId: string) => {
     if (!categoryId) return { event_required: true };
@@ -135,7 +150,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (rootFlags.event_required && !form.event_id) {
+    if (rootFlags.event_required && !form.event_id && !hasChildren) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
@@ -237,16 +252,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 searchPlaceholder="Pesquisar categoria…"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
-              <SearchableSelect
-                options={eventOptions}
-                value={form.event_id}
-                onValueChange={(v) => setForm({ ...form, event_id: v })}
-                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-                searchPlaceholder="Pesquisar evento…"
-              />
-            </div>
+            {hasChildren ? (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento</label>
+                <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground">
+                  Rateio multi-evento ({childTransactions.length} sub-transações)
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento {rootFlags.event_required ? "*" : ""}</label>
+                <SearchableSelect
+                  options={eventOptions}
+                  value={form.event_id}
+                  onValueChange={(v) => setForm({ ...form, event_id: v })}
+                  placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                  searchPlaceholder="Pesquisar evento…"
+                />
+              </div>
+            )}
           </div>
 
           {isExpense && (
