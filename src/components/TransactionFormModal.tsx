@@ -368,7 +368,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (rootFlags.event_required && !form.event_id) {
+
+    // Split validation
+    if (isSplit) {
+      if (splitEntries.length < 2) {
+        toast({ title: "Selecione pelo menos 2 eventos para rateio", variant: "destructive" });
+        return;
+      }
+      const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
+      if (Math.abs(totalPct - 100) > 0.01) {
+        toast({ title: "A soma das percentagens deve ser 100%", variant: "destructive" });
+        return;
+      }
+    } else {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
