@@ -588,6 +588,7 @@ export default function Transactions() {
         <Popover modal={false}>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="text-xs font-normal h-8 px-2.5">
+              <Filter className="mr-1 h-3 w-3" />
               {selectedAccountIds.size === 0
                 ? "Todas as contas"
                 : `${selectedAccountIds.size} conta(s)`}
