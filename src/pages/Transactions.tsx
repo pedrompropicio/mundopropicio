@@ -316,6 +316,7 @@ export default function Transactions() {
   // Paid transactions filtered by payment_date period
   const paidTransactions = useMemo(() => {
     const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+      .filter(matchesSearch)
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
