@@ -470,6 +470,59 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
   });
 
+  const handleGenerateReport = async () => {
+    if (!pdfHeader || extractedRows.length === 0) return;
+    
+    const existingZoneNames: Record<string, string> = {};
+    existingZones.forEach((z: any) => { existingZoneNames[z.id] = z.name; });
+    
+    const selectedTicketOffice = ticketOffices.find((to: any) => to.id === ticketOfficeId);
+    
+    const doc = generateImportReportPdf({
+      fileName: file?.name || "desconhecido.pdf",
+      eventName: selectedEvent?.name || "Evento não selecionado",
+      sessionLabel: selectedSession?.label,
+      sessionDate: selectedSession?.date,
+      sessionTime: selectedSession?.start_time?.slice(0, 5),
+      ticketOfficeName: selectedTicketOffice?.name,
+      pdfHeader,
+      extractedRows,
+      zoneMappings,
+      existingZoneNames,
+      headerWarnings,
+      totalWarnings,
+      importType,
+    });
+
+    // Download locally
+    const pdfBlob = doc.output("blob");
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "");
+    const reportName = `relatorio_importacao_${timestamp}.pdf`;
+    
+    // Also try to upload to storage for 7-day retention
+    try {
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      const { error } = await supabase.storage
+        .from("import-reports")
+        .upload(reportName, uint8, { contentType: "application/pdf", upsert: true });
+      if (!error) {
+        toast({ title: "Relatório guardado no sistema por 7 dias" });
+      }
+    } catch {
+      // Upload failed, user still gets the download
+    }
+
+    // Trigger download
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = reportName;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Relatório PDF gerado com sucesso" });
+  };
+
   const checkDuplicatesAndImport = async () => {
     if (!eventId) { toast({ title: "Selecione um evento", variant: "destructive" }); return; }
     if (requiresSessionSelection) { toast({ title: "Selecione a sessão", variant: "destructive" }); return; }
