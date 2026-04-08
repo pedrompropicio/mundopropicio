@@ -165,6 +165,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setShowDuplicateConfirm(false);
     setDuplicateWarnings([]);
     setHeaderMismatchWarnings([]);
+    setTotalValidationWarnings([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
