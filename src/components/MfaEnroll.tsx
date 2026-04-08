@@ -21,7 +21,7 @@ export function MfaEnroll({ onComplete, onSkip }: Props) {
     setLoading(true);
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: "totp",
-      friendlyName: "Mundo Propício App",
+      friendlyName: "MP Gestão Eventos App",
     });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });

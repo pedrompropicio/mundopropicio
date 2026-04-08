@@ -3,7 +3,7 @@ import { test, expect } from "../playwright-fixture";
 test.describe("Auth Page", () => {
   test("shows login form", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByText("Mundo Propício")).toBeVisible();
+    await expect(page.getByText("MP Gestão Eventos")).toBeVisible();
     await expect(page.getByPlaceholder("email@exemplo.com")).toBeVisible();
     await expect(page.getByPlaceholder("••••••••")).toBeVisible();
     await expect(page.getByRole("button", { name: "Entrar" })).toBeVisible();

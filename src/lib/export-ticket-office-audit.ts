@@ -282,7 +282,7 @@ export function exportTicketOfficeAuditToPDF(
     doc.setPage(p);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
-    doc.text("Mundo Propício - Auditoria de Bilheteiras", ml, pageHeight - 8);
+    doc.text("MP Gestão Eventos - Auditoria de Bilheteiras", ml, pageHeight - 8);
     doc.text(`Página ${p}/${totalPages}`, pageWidth - mr, pageHeight - 8, { align: "right" });
   }
 

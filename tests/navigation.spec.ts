@@ -9,7 +9,7 @@ test.describe("Navigation (unauthenticated)", () => {
 
   test("login page is accessible", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByText("Mundo Propício")).toBeVisible();
+    await expect(page.getByText("MP Gestão Eventos")).toBeVisible();
   });
 
   test("404 page shows for unknown routes", async ({ page }) => {

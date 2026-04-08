@@ -27,7 +27,7 @@ export function PartnerLayout() {
     <div className="flex min-h-screen flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6">
         <Link to="/parceiro">
-          <img src={logoMundoPropicio} alt="Mundo Propício Entretenimento" className="h-9 object-contain" />
+          <img src={logoMundoPropicio} alt="MP Gestão Eventos Entretenimento" className="h-9 object-contain" />
         </Link>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground hidden sm:block">{user.email}</span>

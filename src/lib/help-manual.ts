@@ -245,7 +245,7 @@ const helpManual: HelpSection[] = [
       {
         title: "DRE — Demonstração de Resultado",
         content:
-          "Apresenta receitas e despesas agrupadas por categoria, com cálculo do resultado líquido. O sistema oferece duas versões:\n\nDRE Padrão — Layout de 3 colunas (Sem IVA, IVA e Com IVA). O 'Resultado Mundo Propício' reflete o lucro real (ex-IVA) menos as distribuições efetivas aos sócios.\n\nDRE Brasil — Relatório adaptado para sócios com base 'Despesas c/IVA', com layout de coluna única (Receitas s/IVA e Despesas c/IVA).\n\nEm ambos, a 'Visão Sócio' inclui custos de fecho para refletir o impacto total na divisão de resultados.",
+          "Apresenta receitas e despesas agrupadas por categoria, com cálculo do resultado líquido. O sistema oferece duas versões:\n\nDRE Padrão — Layout de 3 colunas (Sem IVA, IVA e Com IVA). O 'Resultado MP Gestão Eventos' reflete o lucro real (ex-IVA) menos as distribuições efetivas aos sócios.\n\nDRE Brasil — Relatório adaptado para sócios com base 'Despesas c/IVA', com layout de coluna única (Receitas s/IVA e Despesas c/IVA).\n\nEm ambos, a 'Visão Sócio' inclui custos de fecho para refletir o impacto total na divisão de resultados.",
       },
       {
         title: "Business Plan (BP) Consolidado",
