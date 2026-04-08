@@ -185,9 +185,9 @@ const App = () => (
 );
 
 function AuthRoute() {
-  const { user, loading } = useAuth();
+  const { user, loading, isPartner } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={isPartner ? "/parceiro" : "/"} replace />;
   return <Auth />;
 }
 
