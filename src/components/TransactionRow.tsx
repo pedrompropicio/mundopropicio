@@ -351,7 +351,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       <span className="text-muted-foreground">
                         {isPaymentEntry ? (
                           <>
-                            {isExpense ? "Pago" : "Recebido"}: {paymentDisplayAmount} de {formatCurrency(amount)}
+                            {isExpense ? "Pago" : "Recebido"}: {paymentDisplayAmount} de {formatCurrency(totalWithIva)}
                           </>
                         ) : isAccountEntry ? (
                           <>{m.new_value}</>
