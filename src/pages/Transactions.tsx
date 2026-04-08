@@ -30,6 +30,7 @@ export default function Transactions() {
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
   const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
   const [paidPeriod, setPaidPeriod] = useState<"all" | "yesterday" | "week" | "month" | "range">("all");
+  const [periodDateField, setPeriodDateField] = useState<"due_date" | "date">("due_date");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
   const [paidPeriodPopoverOpen, setPaidPeriodPopoverOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState<Date | undefined>(undefined);
@@ -41,6 +42,7 @@ export default function Transactions() {
   const [paidRangeFromOpen, setPaidRangeFromOpen] = useState(false);
   const [paidRangeToOpen, setPaidRangeToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [onlyNoDueDate, setOnlyNoDueDate] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
