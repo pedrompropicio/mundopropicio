@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, Loader2, HelpCircle, AlertTriangle, CheckCircle2, Link2, Plus } from "lucide-react";
+import { Upload, FileText, AlertCircle, Loader2, HelpCircle, AlertTriangle, CheckCircle2, Link2, Plus, Download } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { generateImportReportPdf } from "@/lib/export-import-report";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Event {
@@ -469,6 +470,59 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     onError: (err: any) => toast({ title: "Erro na importação", description: err.message, variant: "destructive" }),
   });
 
+  const handleGenerateReport = async () => {
+    if (!pdfHeader || extractedRows.length === 0) return;
+    
+    const existingZoneNames: Record<string, string> = {};
+    existingZones.forEach((z: any) => { existingZoneNames[z.id] = z.name; });
+    
+    const selectedTicketOffice = ticketOffices.find((to: any) => to.id === ticketOfficeId);
+    
+    const doc = generateImportReportPdf({
+      fileName: file?.name || "desconhecido.pdf",
+      eventName: selectedEvent?.name || "Evento não selecionado",
+      sessionLabel: selectedSession?.label,
+      sessionDate: selectedSession?.date,
+      sessionTime: selectedSession?.start_time?.slice(0, 5),
+      ticketOfficeName: selectedTicketOffice?.name,
+      pdfHeader,
+      extractedRows,
+      zoneMappings,
+      existingZoneNames,
+      headerWarnings,
+      totalWarnings,
+      importType,
+    });
+
+    // Download locally
+    const pdfBlob = doc.output("blob");
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, "");
+    const reportName = `relatorio_importacao_${timestamp}.pdf`;
+    
+    // Also try to upload to storage for 7-day retention
+    try {
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuffer);
+      const { error } = await supabase.storage
+        .from("import-reports")
+        .upload(reportName, uint8, { contentType: "application/pdf", upsert: true });
+      if (!error) {
+        toast({ title: "Relatório guardado no sistema por 7 dias" });
+      }
+    } catch {
+      // Upload failed, user still gets the download
+    }
+
+    // Trigger download
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = reportName;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Relatório PDF gerado com sucesso" });
+  };
+
   const checkDuplicatesAndImport = async () => {
     if (!eventId) { toast({ title: "Selecione um evento", variant: "destructive" }); return; }
     if (requiresSessionSelection) { toast({ title: "Selecione a sessão", variant: "destructive" }); return; }
@@ -718,8 +772,13 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+              {extractedRows.length > 0 && (
+                <Button variant="secondary" onClick={handleGenerateReport}>
+                  <Download className="h-4 w-4 mr-2" /> Gerar Relatório
+                </Button>
+              )}
               <Button
                 onClick={checkDuplicatesAndImport}
                 disabled={!eventId || extractedRows.length === 0 || importMutation.isPending || extracting || requiresSessionSelection}
