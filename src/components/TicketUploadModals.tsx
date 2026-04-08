@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, Loader2, HelpCircle, AlertTriangle, CheckCircle2, Link2, Plus } from "lucide-react";
+import { Upload, FileText, AlertCircle, Loader2, HelpCircle, AlertTriangle, CheckCircle2, Link2, Plus, Download } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { generateImportReportPdf } from "@/lib/export-import-report";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Event {
