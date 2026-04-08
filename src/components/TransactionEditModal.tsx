@@ -117,6 +117,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isExpense = transaction.type === "expense";
   const isApproved = transaction.status === "approved";
   const valueLocked = isApproved && !isAdmin;
+  const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
 
   const getRootFlags = (categoryId: string) => {
     if (!categoryId) return { event_required: true };
