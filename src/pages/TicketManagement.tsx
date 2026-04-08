@@ -387,7 +387,7 @@ export default function TicketManagement() {
               </SelectContent>
             </Select>
           </div>
-          <TicketImportModal events={events} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
+          <TicketImportModal events={events} selectedEventId={selectedEventId} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
         </div>
       </div>
 
