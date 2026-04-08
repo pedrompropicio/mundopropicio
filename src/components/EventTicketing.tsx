@@ -636,7 +636,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                           )}
                         </table>
                       </div>
-                      {!isEventLocked && (
+                      {canEditTickets && (
                         <button
                           onClick={() => { setAddingLotForZone(zone.id); setEditingLotId(null); setLotForm(emptyLot); }}
                           disabled={addingLotForZone === zone.id}
