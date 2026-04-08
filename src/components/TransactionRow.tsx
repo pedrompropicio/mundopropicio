@@ -212,8 +212,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
           {formatCurrency(paidAmount)}
         </td>
-        <td className={`py-3 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
-          {isExpense ? "-" : "+"}{formatCurrency(amount)}
+        <td className={`py-3 text-right whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
+          <span className="font-mono font-semibold">{isExpense ? "-" : "+"}{formatCurrency(totalWithIva)}</span>
+          {ivaRate > 0 && (
+            <p className="text-[10px] text-muted-foreground font-mono">
+              Base: {formatCurrency(amount)} + IVA {ivaRate}%
+            </p>
+          )}
         </td>
         <td className="py-3">
           <div className="flex items-center justify-center gap-1">
