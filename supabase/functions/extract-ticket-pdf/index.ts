@@ -6,23 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const { pdf_base64, extraction_type } = await req.json();
-
-    if (!pdf_base64) {
-      return new Response(JSON.stringify({ error: "PDF não fornecido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
-
-    const headerInstruction = `
+const headerInstruction = `
 
 EXTRACÇÃO DO CABEÇALHO (OBRIGATÓRIA):
 - O cabeçalho do PDF contém o período do relatório (ex: "01/04/2026 a 05/04/2026", "Período: 01-04-2026 - 05-04-2026", "De 01/04/2026 Até 05/04/2026").
@@ -48,12 +32,24 @@ IDENTIFICAÇÃO DA DATA E HORA DO EVENTO (OBRIGATÓRIA):
 - Extrai a hora no formato "HH:MM" e inclui como "event_time".
 - Se não encontrares, usa "event_time": null.`;
 
-    const systemPrompt =
-      extraction_type === "daily_sales"
-        ? `Analisa este PDF de vendas diárias de bilhetes (formato Ticketline). Extrai os dados e devolve APENAS um JSON válido com a seguinte estrutura:
+const totalLineInstruction = `
+
+EXTRACÇÃO DA LINHA TOTAL (OBRIGATÓRIA PARA VALIDAÇÃO):
+- A última linha do relatório é sempre "TOTAL" com os somatórios de todas as colunas.
+- Extrai os seguintes campos da linha TOTAL:
+  - "total_quantity_all": 1ª Qt. da linha TOTAL (total geral de bilhetes carregados/configurados)
+  - "total_quantity_sold": 2ª Qt. da linha TOTAL (total de bilhetes EFECTIVAMENTE VENDIDOS)
+  - "total_revenue": Valor da linha TOTAL correspondente às vendas (2º Valor ou Valor de Vendas)
+- Estes campos são OBRIGATÓRIOS e servem para validação cruzada com as linhas extraídas.
+- Se não encontrares a linha TOTAL, usa null para todos.`;
+
+function buildDailySalesPrompt(): string {
+  return `Analisa este PDF de vendas diárias de bilhetes (formato Ticketline). Extrai os dados e devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "period_from": "2026-04-01",
   "period_to": "2026-04-05",
+  "total_quantity_sold": 1618,
+  "total_revenue": 54933.90,
   "rows": [
     { "zona": "nome da zona", "lote": "nome do lote", "quantidade": 100, "preco_unitario": 25.00 }
   ]
@@ -75,8 +71,12 @@ ATENÇÃO ESPECIAL ÀS COLUNAS DE QUANTIDADE:
 - Ignora linhas com quantidade vendida 0.
 - DESCARTA linhas com preço unitário inferior a 1,00€ (cortesias/camarotes sem venda real).
 - Extrai TODOS os dados de vendas que encontrares no documento.
-${headerInstruction}`
-        : `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
+${headerInstruction}
+${totalLineInstruction}`;
+}
+
+function buildSetupPrompt(): string {
+  return `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
 
 ESTRUTURA DO RELATÓRIO TICKETLINE:
 - O relatório apresenta colunas em pares de Qt./Valor.
@@ -99,6 +99,9 @@ Devolve APENAS um JSON válido com a seguinte estrutura:
 {
   "period_from": "2026-04-01",
   "period_to": "2026-04-05",
+  "total_quantity_all": 1845,
+  "total_quantity_sold": 1618,
+  "total_revenue": 54933.90,
   "rows": [
     { "zona": "Balcão 1", "lote": "Lote 2", "quantidade_total": 354, "quantidade_vendida": 318, "preco": 68.00, "iva_rate": 6 }
   ]
@@ -120,12 +123,32 @@ VALIDAÇÃO CRÍTICA:
 
 REGRAS:
 - Extrai TODOS os lotes, mesmo com quantidade 0.
-- Ignora linhas "SOMA" e "TOTAL" (são subtotais).
+- Ignora linhas "SOMA" e "TOTAL" (são subtotais) para as ROWS — mas extrai os valores da linha "TOTAL" para os campos total_quantity_all, total_quantity_sold e total_revenue.
 - DESCARTA lotes com preço unitário inferior a 1,00€ (ex: 0,01€ são bilhetes de cortesia/camarotes sem venda real).
 - O valor (Valor) no relatório corresponde APENAS aos bilhetes vendidos, NÃO ao total × preço.
-${headerInstruction}`;
+${headerInstruction}
+${totalLineInstruction}`;
+}
 
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  try {
+    const { pdf_base64, extraction_type } = await req.json();
+
+    if (!pdf_base64) {
+      return new Response(JSON.stringify({ error: "PDF não fornecido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+
+    const systemPrompt = extraction_type === "daily_sales"
+      ? buildDailySalesPrompt()
+      : buildSetupPrompt();
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -174,7 +197,6 @@ ${headerInstruction}`;
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || "";
 
-    // Extract JSON from the response (handle markdown code blocks)
     let jsonStr = content;
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
@@ -187,7 +209,6 @@ ${headerInstruction}`;
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch {
-      // Try to find JSON object in the text
       const objMatch = content.match(/\{[\s\S]*\}/);
       if (objMatch) {
         try {
