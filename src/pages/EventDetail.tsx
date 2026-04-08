@@ -14,6 +14,7 @@ import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
+import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -829,7 +830,16 @@ export default function EventDetail() {
 
         {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partners">
-            <EventPartnersTab eventId={event.id} eventStatus={event.status} />
+            <div className="space-y-6">
+              <EventPartnersTab eventId={event.id} eventStatus={event.status} />
+              {isAdmin && (
+                <PartnerAccessManager
+                  eventId={event.id}
+                  eventName={event.name}
+                  subEvents={eventType === "multi_day" ? subEvents.map((s: any) => ({ id: s.id, name: s.name, date: s.date })) : []}
+                />
+              )}
+            </div>
           </TabsContent>
         )}
 
