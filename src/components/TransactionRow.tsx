@@ -98,14 +98,16 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
-  const amount = Number(t.amount);
+  const amount = Number(t.amount); // valor base (sem IVA)
+  const totalWithIva = amount * (1 + ivaRate / 100);
+  const ivaValue = totalWithIva - amount;
   const paidAmount = Number(t.paid_amount ?? 0);
-  const balance = amount - paidAmount;
+  const balance = totalWithIva - paidAmount;
   const isExpense = t.type === "expense";
 
   // Compute effective status
   const computedStatus = (() => {
-    if (t.status === "paid" || paidAmount >= amount) return "paid";
+    if (t.status === "paid" || paidAmount >= totalWithIva) return "paid";
     // Check overdue before approved — any approved transaction with past due_date is overdue
     if (t.due_date && new Date(t.due_date) < new Date() && t.status !== "paid" && t.status !== "pending") return "overdue";
     if (t.status === "approved") return "approved"; // A Pagar
@@ -210,8 +212,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
           {formatCurrency(paidAmount)}
         </td>
-        <td className={`py-3 text-right font-mono font-semibold whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
-          {isExpense ? "-" : "+"}{formatCurrency(amount)}
+        <td className={`py-3 text-right whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
+          <span className="font-mono font-semibold">{isExpense ? "-" : "+"}{formatCurrency(totalWithIva)}</span>
+          {ivaRate > 0 && (
+            <p className="text-[10px] text-muted-foreground font-mono">
+              Base: {formatCurrency(amount)} + IVA {ivaRate}%
+            </p>
+          )}
         </td>
         <td className="py-3">
           <div className="flex items-center justify-center gap-1">
@@ -265,7 +272,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       Criação
                     </span>
                     <span className="text-muted-foreground">
-                      Lançamento criado — {formatCurrency(amount)}
+                      Lançamento criado — {formatCurrency(totalWithIva)}
                     </span>
                   </div>
                   {/* Payment info: date + invoice */}
@@ -280,7 +287,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                         {isExpense ? "Pagamento" : "Recebimento"}
                       </span>
                       <span className="text-muted-foreground">
-                        {isExpense ? "Pago" : "Recebido"}: {formatCurrency(paidAmount)} de {formatCurrency(amount)}
+                        {isExpense ? "Pago" : "Recebido"}: {formatCurrency(paidAmount)} de {formatCurrency(totalWithIva)}
                       </span>
                       {accountName && (
                         <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
@@ -344,7 +351,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       <span className="text-muted-foreground">
                         {isPaymentEntry ? (
                           <>
-                            {isExpense ? "Pago" : "Recebido"}: {paymentDisplayAmount} de {formatCurrency(amount)}
+                            {isExpense ? "Pago" : "Recebido"}: {paymentDisplayAmount} de {formatCurrency(totalWithIva)}
                           </>
                         ) : isAccountEntry ? (
                           <>{m.new_value}</>

@@ -78,7 +78,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const selectedAccountBalance = accountId ? computeAccountBalance(accountId) : null;
 
-  const amount = Number(transaction.amount);
+  const baseAmount = Number(transaction.amount);
+  const ivaRate = Number(transaction.iva_rate ?? 0);
+  const amount = baseAmount * (1 + ivaRate / 100); // total com IVA
   const currentPaid = Number(transaction.paid_amount ?? 0);
   const balance = amount - currentPaid;
 
