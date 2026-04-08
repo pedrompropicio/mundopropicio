@@ -407,10 +407,33 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip text={helpTexts.transactions} /></h1>
-          <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
+      {/* Header: title + view toggle + action buttons */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Transações <HelpTooltip text={helpTexts.transactions} /></h1>
+            <p className="text-sm text-muted-foreground">Todas as movimentações financeiras</p>
+          </div>
+          <div className="flex items-center rounded-lg border border-border overflow-hidden self-start mt-1">
+            <button
+              onClick={() => setViewMode("open")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium transition-colors",
+                viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              )}
+            >
+              Em Aberto
+            </button>
+            <button
+              onClick={() => setViewMode("paid")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium transition-colors",
+                viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              )}
+            >
+              Liquidadas
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -708,27 +731,8 @@ export default function Transactions() {
           </Popover>
         )}
 
-        {/* Toggle Em Aberto / Liquidadas */}
-        <div className="flex items-center rounded-lg border border-border overflow-hidden">
-          <button
-            onClick={() => setViewMode("open")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
-              viewMode === "open" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Em Aberto
-          </button>
-          <button
-            onClick={() => setViewMode("paid")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium transition-colors",
-              viewMode === "paid" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Liquidadas
-          </button>
-        </div>
+
+
 
         {isAdmin && selectedPendingCount > 0 && (
           <button
