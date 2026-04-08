@@ -381,21 +381,20 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
     } else {
-      toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
-      return;
-    }
-    if (form.type === "income" && !form.account_id) {
-      toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
-      return;
-    }
-    if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
-      if (!form.category_id) {
-        toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
+      // Single transaction validation
+      if (rootFlags.event_required && !form.event_id) {
+        toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
       }
-      if (!allowedCategoryIds.includes(form.category_id)) {
-        toast({ title: "Esta categoria não existe no BP do evento", variant: "destructive" });
-        return;
+      if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+        if (!form.category_id) {
+          toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
+          return;
+        }
+        if (!allowedCategoryIds.includes(form.category_id)) {
+          toast({ title: "Esta categoria não existe no BP do evento", variant: "destructive" });
+          return;
+        }
       }
     }
     if (plOverride && !form.pl_override_note.trim()) {
