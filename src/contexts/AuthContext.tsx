@@ -142,6 +142,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Skip the INITIAL_SESSION event — we handle it via getSession above
         if (event === "INITIAL_SESSION") return;
 
+        // For token refreshes, only update if the user actually changed
+        // This prevents unnecessary re-renders that close open modals/dialogs
+        if (event === "TOKEN_REFRESHED") {
+          setSession((prev) => {
+            if (prev?.user?.id === updatedSession?.user?.id) {
+              // Same user, just update the token silently without changing reference
+              // We still need to store the new tokens, but avoid triggering re-renders
+              // by returning the same object shape when user hasn't changed
+              return updatedSession;
+            }
+            return updatedSession;
+          });
+          // Don't update user state on token refresh if same user
+          setUser((prev) => {
+            if (prev?.id === updatedSession?.user?.id) return prev;
+            return updatedSession?.user ?? null;
+          });
+          return;
+        }
+
         setSession(updatedSession);
         setUser(updatedSession?.user ?? null);
 
