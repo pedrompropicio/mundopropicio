@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,6 +41,7 @@ export default function Transactions() {
   const [paidRangeFromOpen, setPaidRangeFromOpen] = useState(false);
   const [paidRangeToOpen, setPaidRangeToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
@@ -215,8 +216,21 @@ export default function Transactions() {
     });
   };
 
-  // Base filter (type, event, account, open only)
+  // Search helper
+  const matchesSearch = (t: any) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      t.description?.toLowerCase().includes(term) ||
+      t.specification?.toLowerCase().includes(term) ||
+      (t.events as any)?.name?.toLowerCase().includes(term) ||
+      (t.suppliers as any)?.name?.toLowerCase().includes(term)
+    );
+  };
+
+  // Base filter (type, event, account, open only, search)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter(matchesSearch)
     .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => {
@@ -302,6 +316,7 @@ export default function Transactions() {
   // Paid transactions filtered by payment_date period
   const paidTransactions = useMemo(() => {
     const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+      .filter(matchesSearch)
       .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
@@ -462,8 +477,24 @@ export default function Transactions() {
         />
       )}
 
-      {/* Filters + Bulk Actions */}
+      {/* Search + Filters + Bulk Actions */}
       <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Pesquisar…"
+            className="w-44 rounded-lg border border-border bg-background pl-8 pr-7 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
         {(["all", "income", "expense"] as const).map((f) => (
           <button
             key={f}

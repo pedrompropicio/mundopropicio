@@ -3,7 +3,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
@@ -54,6 +54,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
+  const [bpSearch, setBpSearch] = useState("");
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -617,8 +618,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     setInlineForm(emptyInline);
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income");
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense");
+  const bpSearchLower = bpSearch.toLowerCase().trim();
+  const matchesBpSearch = (f: any) => {
+    if (!bpSearchLower) return true;
+    const catInfo = categories.find((c: any) => c.id === f.category_id);
+    return (
+      f.description?.toLowerCase().includes(bpSearchLower) ||
+      f.specification?.toLowerCase().includes(bpSearchLower) ||
+      catInfo?.name?.toLowerCase().includes(bpSearchLower) ||
+      catInfo?.code?.toLowerCase().includes(bpSearchLower)
+    );
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -817,11 +830,29 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       </div>
 
       <Tabs defaultValue="forecasts" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="forecasts">Previsões</TabsTrigger>
-            <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
-          </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <TabsList>
+              <TabsTrigger value="forecasts">Previsões</TabsTrigger>
+              <TabsTrigger value="comparison">Previsão vs Real</TabsTrigger>
+            </TabsList>
+            {/* BP Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={bpSearch}
+                onChange={(e) => setBpSearch(e.target.value)}
+                placeholder="Pesquisar no BP…"
+                className="w-40 rounded-lg border border-border bg-background pl-8 pr-7 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+              />
+              {bpSearch && (
+                <button onClick={() => setBpSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
               <button
