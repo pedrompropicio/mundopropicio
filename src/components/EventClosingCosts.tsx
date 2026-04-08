@@ -61,12 +61,20 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         category_id: categoryId || null,
         notes: notes || null,
       };
+      let costId = editingId;
       if (editingId) {
         const { error } = await supabase.from("event_closing_costs").update(payload).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("event_closing_costs").insert(payload);
+        const { data, error } = await supabase.from("event_closing_costs").insert(payload).select("id").single();
         if (error) throw error;
+        costId = data.id;
+      }
+      // Upload pending files
+      if (costId && pendingFiles.length > 0) {
+        for (const file of pendingFiles) {
+          await supabase.storage.from("closing-cost-documents").upload(`${costId}/${file.name}`, file, { upsert: true });
+        }
       }
     },
     onSuccess: () => {
