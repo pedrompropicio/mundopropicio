@@ -776,7 +776,7 @@ export default function Transactions() {
           </button>
         )}
 
-        <div className="ml-auto flex items-center rounded-lg border border-border overflow-hidden">
+        <div className="flex items-center rounded-lg border border-border overflow-hidden">
           <button
             onClick={() => setViewMode("open")}
             className={cn(
