@@ -81,6 +81,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [salesPreview, setSalesPreview] = useState<ParsedSaleRow[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [ticketOfficeId, setTicketOfficeId] = useState("");
+  const [manualSessionId, setManualSessionId] = useState("");
   const [pdfPeriodFrom, setPdfPeriodFrom] = useState<string | null>(null);
   const [pdfPeriodTo, setPdfPeriodTo] = useState<string | null>(null);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
@@ -119,6 +120,26 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     enabled: open,
   });
 
+  const { data: eventSessions = [] } = useQuery({
+    queryKey: ["event_sessions_for_import", eventId],
+    queryFn: async () => {
+      if (!eventId) return [];
+      const { data, error } = await supabase
+        .from("event_sessions")
+        .select("id, label, date, sort_order")
+        .eq("event_id", eventId)
+        .order("date", { ascending: true })
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!eventId,
+  });
+
+  const effectiveSessionId = selectedSessionId ?? (manualSessionId || (eventSessions.length === 1 ? eventSessions[0].id : null));
+  const selectedSession = eventSessions.find((session: any) => session.id === effectiveSessionId) ?? null;
+  const requiresSessionSelection = eventSessions.length > 1 && !effectiveSessionId;
+
   const handleClose = () => {
     if (isControlled) {
       onClose?.();
@@ -136,6 +157,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setSalesPreview([]);
     setExtracting(false);
     setTicketOfficeId("");
+    setManualSessionId("");
     setPdfPeriodFrom(null);
     setPdfPeriodTo(null);
     setShowDuplicateConfirm(false);
@@ -236,15 +258,22 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const setupMutation = useMutation({
     mutationFn: async () => {
       if (!eventId || setupPreview.length === 0) throw new Error("Selecione evento e ficheiro");
+      if (requiresSessionSelection) throw new Error("Selecione a sessão correta antes de importar.");
 
       const selectedEvent = events.find(e => e.id === eventId);
       const isCompleted = selectedEvent?.status === "completed";
 
-      const { data: preExistingZones } = await supabase
+      let preExistingZonesQuery = supabase
         .from("event_ticket_zones")
         .select("id")
         .eq("event_id", eventId)
         .limit(1);
+
+      if (effectiveSessionId) {
+        preExistingZonesQuery = preExistingZonesQuery.eq("session_id", effectiveSessionId);
+      }
+
+      const { data: preExistingZones } = await preExistingZonesQuery;
       const hadPlanning = (preExistingZones?.length ?? 0) > 0;
       const salesOnlyMode = loadType === "realizado" && isCompleted && !hadPlanning;
 
@@ -256,11 +285,17 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       });
 
       for (const [zoneName, lots] of zoneMap) {
-        const { data: existingZones } = await supabase
+        let existingZoneQuery = supabase
           .from("event_ticket_zones")
           .select("id, name")
           .eq("event_id", eventId)
           .ilike("name", zoneName);
+
+        if (effectiveSessionId) {
+          existingZoneQuery = existingZoneQuery.eq("session_id", effectiveSessionId);
+        }
+
+        const { data: existingZones } = await existingZoneQuery;
 
         let zoneId: string;
         if (existingZones && existingZones.length > 0) {
@@ -271,7 +306,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
             : lots.reduce((s, l) => s + l.quantidade, 0);
           const { data: newZone, error } = await supabase
             .from("event_ticket_zones")
-            .insert({ event_id: eventId, name: zoneName, total_capacity: totalCap })
+            .insert({ event_id: eventId, session_id: effectiveSessionId || null, name: zoneName, total_capacity: totalCap })
             .select("id")
             .single();
           if (error) throw error;
