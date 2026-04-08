@@ -15,13 +15,11 @@ import {
 interface RecoveryEmailProps {
   siteName: string
   token?: string
-  confirmationUrl?: string
 }
 
 export const RecoveryEmail = ({
   siteName,
   token,
-  confirmationUrl,
 }: RecoveryEmailProps) => (
   <Html lang="pt" dir="ltr">
     <Head />
@@ -35,10 +33,6 @@ export const RecoveryEmail = ({
         </Text>
         {token ? (
           <Text style={codeStyle}>{token}</Text>
-        ) : confirmationUrl ? (
-          <Text style={text}>
-            Se preferir, também pode redefinir a senha diretamente por este link: {confirmationUrl}
-          </Text>
         ) : null}
         <Text style={footer}>
           Se não solicitou esta recuperação, pode ignorar este email. A sua
