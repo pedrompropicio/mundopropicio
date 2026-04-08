@@ -1450,6 +1450,7 @@ export type Database = {
           lots_created: number
           period_from: string
           period_to: string
+          report_url: string | null
           rows_imported: number
           rows_skipped: number
           ticket_office_id: string | null
@@ -1465,6 +1466,7 @@ export type Database = {
           lots_created?: number
           period_from: string
           period_to: string
+          report_url?: string | null
           rows_imported?: number
           rows_skipped?: number
           ticket_office_id?: string | null
@@ -1480,6 +1482,7 @@ export type Database = {
           lots_created?: number
           period_from?: string
           period_to?: string
+          report_url?: string | null
           rows_imported?: number
           rows_skipped?: number
           ticket_office_id?: string | null
