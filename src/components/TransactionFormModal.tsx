@@ -255,10 +255,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       );
       const autoApproved = hasForecastMatch;
 
+      const baseAmount = parseFloat(data.amount);
+      const totalWithIva = baseAmount * (1 + data.iva_rate / 100);
       const { error } = await supabase.from("transactions").insert({
         description: data.description,
         type: data.type,
-        amount: parseFloat(data.amount),
+        amount: totalWithIva,
         iva_rate: data.iva_rate,
         event_id: data.event_id || null,
         category_id: data.category_id || null,
