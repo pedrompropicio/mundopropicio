@@ -451,14 +451,14 @@ export default function Transactions() {
           </div>
           <button
             onClick={() => navigate("/relatorios/listas-pagamento")}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Listas de Pagamento</span>
           </button>
           <button
             onClick={() => setShowTransfer(true)}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             <ArrowRightLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Transferência</span>
@@ -466,7 +466,7 @@ export default function Transactions() {
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
+            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[13px] font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nova Transação</span>
