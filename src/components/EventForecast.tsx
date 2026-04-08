@@ -288,6 +288,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
       const isCompletedEvent = eventStatus === "completed";
+      // Editor partial edit: only description + category
+      if (id && canEditBPPartial && !canEditBP) {
+        const partialPayload = {
+          description: form.description,
+          category_id: form.category_id || null,
+        };
+        const { error } = await supabase.from("event_forecasts").update(partialPayload).eq("id", id);
+        if (error) throw error;
+        return;
+      }
       const payload: any = {
         event_id: eventId,
         type: form.type,
