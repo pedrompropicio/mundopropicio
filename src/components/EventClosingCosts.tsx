@@ -26,6 +26,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
     queryKey: ["event-closing-costs", eventId],
