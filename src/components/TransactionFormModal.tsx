@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
+import { TransactionSplitConfig, type SplitEntry } from "@/components/TransactionSplitConfig";
 
 interface TransactionForm {
   description: string;
@@ -63,6 +64,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [plExpanded, setPlExpanded] = useState(true);
   const [plOverride, setPlOverride] = useState(false);
+  const [isSplit, setIsSplit] = useState(false);
+  const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
+  const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -249,34 +253,98 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
-      // Auto-approve only if event has BP forecasts and category matches
-      const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
-        (f) => f.type === data.type && f.category_id === data.category_id
-      );
-      const autoApproved = hasForecastMatch;
+      if (isSplit && splitEntries.length >= 2) {
+        // --- SPLIT TRANSACTION ---
+        const totalAmount = parseFloat(data.amount);
 
-      const { error } = await supabase.from("transactions").insert({
-        description: data.description,
-        type: data.type,
-        amount: parseFloat(data.amount),
-        iva_rate: data.iva_rate,
-        event_id: data.event_id || null,
-        category_id: data.category_id || null,
-        supplier_id: data.supplier_id || null,
-        account_id: data.account_id || null,
-        specification: data.type === "expense" ? (data.specification || null) : null,
-        pl_override_note: data.pl_override_note.trim() || null,
-        date: data.date,
-        due_date: parseDueDateForDb(data.due_date),
-        status: autoApproved ? "approved" : "pending",
-        paid_amount: 0,
-      } as any);
-      if (error) throw error;
+        // 1. Create parent transaction (no event)
+        const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
+          description: data.description,
+          type: data.type,
+          amount: totalAmount,
+          iva_rate: data.iva_rate,
+          event_id: null,
+          category_id: data.category_id || null,
+          supplier_id: data.supplier_id || null,
+          account_id: data.account_id || null,
+          specification: data.type === "expense" ? (data.specification || null) : null,
+          pl_override_note: data.pl_override_note.trim() || null,
+          date: data.date,
+          due_date: parseDueDateForDb(data.due_date),
+          status: "pending",
+          paid_amount: 0,
+          split_percentage: null,
+          parent_transaction_id: null,
+        } as any).select("id").single();
+        if (parentError) throw parentError;
+        const parentId = parentRow.id;
+
+        // 2. Create child transactions for each event
+        const childInserts = await Promise.all(splitEntries.map(async (entry) => {
+          const childAmount = +(totalAmount * entry.percentage / 100).toFixed(2);
+          
+          // Check BP for each event individually
+          const { data: forecasts } = await supabase
+            .from("event_forecasts")
+            .select("type, category_id")
+            .eq("event_id", entry.event_id);
+          
+          const hasForecastMatch = (forecasts ?? []).some(
+            (f) => f.type === data.type && f.category_id === data.category_id
+          );
+
+          return {
+            description: data.description,
+            type: data.type,
+            amount: childAmount,
+            iva_rate: data.iva_rate,
+            event_id: entry.event_id,
+            category_id: data.category_id || null,
+            supplier_id: data.supplier_id || null,
+            account_id: null,
+            specification: data.type === "expense" ? (data.specification || null) : null,
+            pl_override_note: (!hasForecastMatch && (forecasts ?? []).length > 0) ? (data.pl_override_note.trim() || null) : null,
+            date: data.date,
+            due_date: parseDueDateForDb(data.due_date),
+            status: hasForecastMatch ? "approved" : "pending",
+            paid_amount: 0,
+            split_percentage: entry.percentage,
+            parent_transaction_id: parentId,
+          };
+        }));
+
+        const { error: childError } = await supabase.from("transactions").insert(childInserts as any);
+        if (childError) throw childError;
+      } else {
+        // --- SINGLE TRANSACTION ---
+        const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
+          (f) => f.type === data.type && f.category_id === data.category_id
+        );
+        const autoApproved = hasForecastMatch;
+
+        const { error } = await supabase.from("transactions").insert({
+          description: data.description,
+          type: data.type,
+          amount: parseFloat(data.amount),
+          iva_rate: data.iva_rate,
+          event_id: data.event_id || null,
+          category_id: data.category_id || null,
+          supplier_id: data.supplier_id || null,
+          account_id: data.account_id || null,
+          specification: data.type === "expense" ? (data.specification || null) : null,
+          pl_override_note: data.pl_override_note.trim() || null,
+          date: data.date,
+          due_date: parseDueDateForDb(data.due_date),
+          status: autoApproved ? "approved" : "pending",
+          paid_amount: 0,
+        } as any);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onClose();
-      toast({ title: "Transação criada com sucesso!" });
+      toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
@@ -300,22 +368,33 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (rootFlags.event_required && !form.event_id) {
-      toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
-      return;
-    }
-    if (form.type === "income" && !form.account_id) {
-      toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
-      return;
-    }
-    if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
-      if (!form.category_id) {
-        toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
+
+    // Split validation
+    if (isSplit) {
+      if (splitEntries.length < 2) {
+        toast({ title: "Selecione pelo menos 2 eventos para rateio", variant: "destructive" });
         return;
       }
-      if (!allowedCategoryIds.includes(form.category_id)) {
-        toast({ title: "Esta categoria não existe no BP do evento", variant: "destructive" });
+      const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
+      if (Math.abs(totalPct - 100) > 0.01) {
+        toast({ title: "A soma das percentagens deve ser 100%", variant: "destructive" });
         return;
+      }
+    } else {
+      // Single transaction validation
+      if (rootFlags.event_required && !form.event_id) {
+        toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
+        return;
+      }
+      if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+        if (!form.category_id) {
+          toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
+          return;
+        }
+        if (!allowedCategoryIds.includes(form.category_id)) {
+          toast({ title: "Esta categoria não existe no BP do evento", variant: "destructive" });
+          return;
+        }
       }
     }
     if (plOverride && !form.pl_override_note.trim()) {
@@ -383,21 +462,57 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          {/* Event — moved up */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Evento {rootFlags.event_required ? "*" : ""}
-              {isActivePL && <span className="ml-1 text-success">(BP Ativo)</span>}
-              {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(BP Passivo)</span>}
-            </label>
-            <SearchableSelect
-              options={eventOptions}
-              value={form.event_id}
-              onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" }); setPlExpanded(true); setShowProrationConfirm(false); setPlOverride(false); }}
-              placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
-              searchPlaceholder="Pesquisar evento…"
-            />
+          {/* Split toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSplit(!isSplit);
+                if (!isSplit) {
+                  setForm({ ...form, event_id: "" });
+                } else {
+                  setSplitEntries([]);
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                isSplit
+                  ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Split className="h-3.5 w-3.5" />
+              {isSplit ? "Rateio Ativo" : "Ratear por eventos"}
+            </button>
           </div>
+
+          {/* Event selector (single) — hidden when split */}
+          {!isSplit && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Evento {rootFlags.event_required ? "*" : ""}
+                {isActivePL && <span className="ml-1 text-success">(BP Ativo)</span>}
+                {hasPL && !isActivePL && <span className="ml-1 text-blue-500">(BP Passivo)</span>}
+              </label>
+              <SearchableSelect
+                options={eventOptions}
+                value={form.event_id}
+                onValueChange={(v) => { setForm({ ...form, event_id: v, category_id: "", pl_override_note: "" }); setPlExpanded(true); setShowProrationConfirm(false); setPlOverride(false); }}
+                placeholder={rootFlags.event_required ? "Selecionar…" : "Sem evento"}
+                searchPlaceholder="Pesquisar evento…"
+              />
+            </div>
+          )}
+
+          {/* Split config panel — shown when split is active */}
+          {isSplit && (
+            <TransactionSplitConfig
+              events={events}
+              splitEntries={splitEntries}
+              onChange={setSplitEntries}
+              splitMethod={splitMethod}
+              onMethodChange={setSplitMethod}
+            />
+          )}
 
           {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {

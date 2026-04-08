@@ -64,6 +64,21 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     },
   });
 
+  // Fetch child transactions for split propagation
+  const { data: childTransactions = [] } = useQuery({
+    queryKey: ["child-transactions", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, split_percentage, amount, iva_rate, paid_amount, status")
+        .eq("parent_transaction_id", transaction.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const hasChildren = childTransactions.length > 0;
+
   function computeAccountBalance(accId: string) {
     const acc = financialAccounts.find((a: any) => a.id === accId);
     if (!acc) return 0;
@@ -138,6 +153,27 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         .update(updateData)
         .eq("id", transaction.id);
       if (error) throw error;
+
+      // Propagate payment to child transactions (split/rateio)
+      if (hasChildren) {
+        for (const child of childTransactions) {
+          const childPct = Number(child.split_percentage ?? 0);
+          const childPayment = +(addAmount * childPct / 100).toFixed(2);
+          const childAmount = Number(child.amount) * (1 + Number(child.iva_rate ?? 0) / 100);
+          const childCurrentPaid = Number(child.paid_amount ?? 0);
+          const childNewPaid = Math.min(childCurrentPaid + childPayment, childAmount);
+          const childStatus = childNewPaid >= childAmount ? "paid" : "approved";
+
+          await supabase
+            .from("transactions")
+            .update({
+              paid_amount: childNewPaid,
+              status: childStatus,
+              payment_date: format(paymentDate, "yyyy-MM-dd"),
+            } as any)
+            .eq("id", child.id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
