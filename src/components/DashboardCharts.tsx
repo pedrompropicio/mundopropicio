@@ -138,7 +138,7 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
       });
 
     return { marginData, categoryData, cumulativeData };
-  }, [transactions, events, categories]);
+  }, [transactions, events, categories, ticketSales]);
 
   const CustomTooltipPie = ({ active, payload }: any) => {
     if (active && payload?.[0]) {
