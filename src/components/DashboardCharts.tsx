@@ -34,7 +34,7 @@ interface DashboardChartsProps {
   ticketSales?: any[];
 }
 
-export function DashboardCharts({ transactions, events, categories }: DashboardChartsProps) {
+export function DashboardCharts({ transactions, events, categories, ticketSales = [] }: DashboardChartsProps) {
   const { marginData, categoryData, cumulativeData } = useMemo(() => {
     // 1. Margin per event (top 10 by volume)
     const eventTotals: Record<string, { name: string; income: number; expense: number }> = {};
@@ -46,6 +46,17 @@ export function DashboardCharts({ transactions, events, categories }: DashboardC
       }
       if (t.type === "income") eventTotals[t.event_id].income += Number(t.amount);
       else eventTotals[t.event_id].expense += Number(t.amount);
+    });
+
+    // Add ticket sales as real revenue per event
+    ticketSales.forEach((ts: any) => {
+      const eventId = ts.event_ticket_zones?.event_id;
+      if (!eventId) return;
+      if (!eventTotals[eventId]) {
+        const evt = events.find((e: any) => e.id === eventId);
+        eventTotals[eventId] = { name: evt?.name ?? "Sem evento", income: 0, expense: 0 };
+      }
+      eventTotals[eventId].income += Number(ts.quantity) * Number(ts.unit_price);
     });
 
     const marginData = Object.values(eventTotals)
