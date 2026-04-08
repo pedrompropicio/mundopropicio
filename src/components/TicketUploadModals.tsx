@@ -127,7 +127,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       if (!eventId) return [];
       const { data, error } = await supabase
         .from("event_sessions")
-        .select("id, label, date, sort_order")
+        .select("id, label, date, sort_order, start_time")
         .eq("event_id", eventId)
         .order("date", { ascending: true })
         .order("sort_order", { ascending: true });
