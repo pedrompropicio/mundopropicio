@@ -31,9 +31,10 @@ interface DashboardChartsProps {
   transactions: any[];
   events: any[];
   categories: any[];
+  ticketSales?: any[];
 }
 
-export function DashboardCharts({ transactions, events, categories }: DashboardChartsProps) {
+export function DashboardCharts({ transactions, events, categories, ticketSales = [] }: DashboardChartsProps) {
   const { marginData, categoryData, cumulativeData } = useMemo(() => {
     // 1. Margin per event (top 10 by volume)
     const eventTotals: Record<string, { name: string; income: number; expense: number }> = {};
@@ -45,6 +46,17 @@ export function DashboardCharts({ transactions, events, categories }: DashboardC
       }
       if (t.type === "income") eventTotals[t.event_id].income += Number(t.amount);
       else eventTotals[t.event_id].expense += Number(t.amount);
+    });
+
+    // Add ticket sales as real revenue per event
+    ticketSales.forEach((ts: any) => {
+      const eventId = ts.event_ticket_zones?.event_id;
+      if (!eventId) return;
+      if (!eventTotals[eventId]) {
+        const evt = events.find((e: any) => e.id === eventId);
+        eventTotals[eventId] = { name: evt?.name ?? "Sem evento", income: 0, expense: 0 };
+      }
+      eventTotals[eventId].income += Number(ts.quantity) * Number(ts.unit_price);
     });
 
     const marginData = Object.values(eventTotals)
@@ -99,6 +111,15 @@ export function DashboardCharts({ transactions, events, categories }: DashboardC
       }
     });
 
+    // Add ticket sales to cumulative chart
+    ticketSales.forEach((ts: any) => {
+      const d = new Date(ts.sale_date);
+      if (d.getFullYear() === currentYear) {
+        const m = d.getMonth();
+        monthly[m].receitas += Number(ts.quantity) * Number(ts.unit_price);
+      }
+    });
+
     let cumInc = 0;
     let cumExp = 0;
     const lastMonthWithData = monthly.reduce((last, m, i) => (m.receitas > 0 || m.despesas > 0 ? i : last), 0);
@@ -117,7 +138,7 @@ export function DashboardCharts({ transactions, events, categories }: DashboardC
       });
 
     return { marginData, categoryData, cumulativeData };
-  }, [transactions, events, categories]);
+  }, [transactions, events, categories, ticketSales]);
 
   const CustomTooltipPie = ({ active, payload }: any) => {
     if (active && payload?.[0]) {
