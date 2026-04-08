@@ -49,8 +49,10 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
   const queryClient = useQueryClient();
-  const { isAdmin, hasPermission } = useAuth();
+  const { isAdmin, isManager, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
+  const isEditor = !isAdmin && !isManager;
+  const canEditTickets = isEventLocked ? false : isEditor ? eventStatus === "planning" : true;
   const canManageOffices = (isAdmin || hasPermission("manage_accounts")) && !isEventLocked;
   const [addingZone, setAddingZone] = useState(false);
   const [zoneForm, setZoneForm] = useState<ZoneForm>(emptyZone);
@@ -480,12 +482,16 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         <td className="py-2 text-right font-mono font-semibold text-success">{formatCurrency(subtotalGross)}</td>
         <td className="py-2 text-right">
           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => startEditLot(lot)} className="rounded p-1 hover:bg-secondary" title="Editar">
-              <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-            </button>
-            <button onClick={() => deleteLotMutation.mutate(lot.id)} className="rounded p-1 hover:bg-destructive/20" title="Eliminar">
-              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-            </button>
+            {canEditTickets && (
+              <>
+                <button onClick={() => startEditLot(lot)} className="rounded p-1 hover:bg-secondary" title="Editar">
+                  <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                <button onClick={() => deleteLotMutation.mutate(lot.id)} className="rounded p-1 hover:bg-destructive/20" title="Eliminar">
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
+              </>
+            )}
           </div>
         </td>
       </tr>
@@ -533,7 +539,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       <div className="glass rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
-          {!isEventLocked && (
+          {canEditTickets && (
             <button
               onClick={() => { setAddingZone(true); setEditingZoneId(null); setZoneForm(emptyZone); }}
               disabled={addingZone}
@@ -584,13 +590,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                         <p className="text-xs text-muted-foreground font-mono">Líq. {formatCurrency(zoneNet)}</p>
                       </div>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => startEditZone(zone)} className="rounded p-1 hover:bg-secondary" title="Editar zona">
-                          <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                        </button>
-                        {!isEventLocked && (
-                          <button onClick={() => { if (confirm("Eliminar esta zona e todos os seus lotes?")) deleteZoneMutation.mutate(zone.id); }} className="rounded p-1 hover:bg-destructive/20" title="Eliminar zona">
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </button>
+                        {canEditTickets && (
+                          <>
+                            <button onClick={() => startEditZone(zone)} className="rounded p-1 hover:bg-secondary" title="Editar zona">
+                              <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                            </button>
+                            <button onClick={() => { if (confirm("Eliminar esta zona e todos os seus lotes?")) deleteZoneMutation.mutate(zone.id); }} className="rounded p-1 hover:bg-destructive/20" title="Eliminar zona">
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -634,7 +642,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                           )}
                         </table>
                       </div>
-                      {!isEventLocked && (
+                      {canEditTickets && (
                         <button
                           onClick={() => { setAddingLotForZone(zone.id); setEditingLotId(null); setLotForm(emptyLot); }}
                           disabled={addingLotForZone === zone.id}

@@ -58,10 +58,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
   const canApprove = (isAdmin || isManager) && !isEventLocked;
   const canEditBP = (isAdmin || isManager) && !isEventLocked;
+  const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
+  const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
 
   useEffect(() => {
     if ((addingType || editingId) && descRef.current) {
@@ -286,6 +288,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
       const isCompletedEvent = eventStatus === "completed";
+      // Editor partial edit: only description + category
+      if (id && canEditBPPartial && !canEditBP) {
+        const partialPayload = {
+          description: form.description,
+          category_id: form.category_id || null,
+        };
+        const { error } = await supabase.from("event_forecasts").update(partialPayload).eq("id", id);
+        if (error) throw error;
+        return;
+      }
       const payload: any = {
         event_id: eventId,
         type: form.type,
@@ -980,13 +992,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                       className={inputClass}
                                     />
                                   </td>
-                                  <td className="py-1.5 pr-2">
-                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
+                                   <td className="py-1.5 pr-2">
+                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                                     </select>
                                   </td>
                                    <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} disabled={canEditBPPartial && !canEditBP} />
                                   </td>
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
@@ -1002,7 +1014,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={canEditBP ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -1131,7 +1143,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                     <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
                                   </td>
                                   <td className="py-1.5 pr-2">
-                                    <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" />
+                                    <input value={inlineForm.specification} onChange={(e) => setInlineForm({ ...inlineForm, specification: e.target.value })} className={inputClass} placeholder="Especificação…" disabled={canEditBPPartial && !canEditBP} />
                                   </td>
                                    <td className="hidden py-1.5 pr-2 sm:table-cell">
                                      <SearchableSelect
@@ -1144,12 +1156,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                      />
                                   </td>
                                   <td className="py-1.5 pr-2">
-                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`}>
+                                    <select value={inlineForm.iva_rate} onChange={(e) => setInlineForm({ ...inlineForm, iva_rate: e.target.value })} className={`${inputClass} w-20`} disabled={canEditBPPartial && !canEditBP}>
                                       <option value="23">23%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option>
                                     </select>
                                   </td>
                                    <td className="py-1.5 pr-2">
-                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} />
+                                    <input type="number" step="0.01" min="0" value={inlineForm.amount} onChange={(e) => setInlineForm({ ...inlineForm, amount: e.target.value })} className={`${inputClass} w-28 text-right font-mono`} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInlineSave(); }}} disabled={canEditBPPartial && !canEditBP} />
                                   </td>
                                   <td className="py-1.5 pr-2 text-right font-mono text-xs text-muted-foreground">
                                     {formatCurrency((parseFloat(inlineForm.amount) || 0) * (parseInt(inlineForm.iva_rate) || 0) / 100)}
@@ -1165,7 +1177,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={canEditBP ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}

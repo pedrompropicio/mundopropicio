@@ -604,9 +604,9 @@ export default function EventDetail() {
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>
-          <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>
+          {(isAdmin || isManager) && <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>}
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
-          {!event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
+          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Fecho <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
         </TabsList>
 
@@ -775,13 +775,13 @@ export default function EventDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="cache">
+        {(isAdmin || isManager) && <TabsContent value="cache">
           <EventCacheConfig
             eventId={selectedSubEvent || event.id}
             childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined}
             eventStatus={event.status}
           />
-        </TabsContent>
+        </TabsContent>}
 
         <TabsContent value="forecast">
           {eventType === "multi_day" && !selectedSubEvent && !event?.parent_event_id ? (
@@ -827,7 +827,7 @@ export default function EventDetail() {
           )}
         </TabsContent>
 
-        {!event?.parent_event_id && !selectedSubEvent && (
+        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partners">
             <EventPartnersTab eventId={event.id} eventStatus={event.status} />
           </TabsContent>
