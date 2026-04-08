@@ -27,7 +27,7 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
           Este código expira em breve. Se não solicitou este código, pode
-          ignorar este email.
+          ignorar este email com segurança.
         </Text>
       </Container>
     </Body>
@@ -51,11 +51,14 @@ const text = {
   margin: '0 0 25px',
 }
 const codeStyle = {
-  fontFamily: "'JetBrains Mono', Courier, monospace",
-  fontSize: '28px',
+  fontSize: '32px',
   fontWeight: 'bold' as const,
   color: '#1a6fb8',
-  margin: '0 0 30px',
-  letterSpacing: '4px',
+  letterSpacing: '6px',
+  textAlign: 'center' as const,
+  margin: '16px 0 28px',
+  padding: '16px',
+  backgroundColor: '#f3f4f6',
+  borderRadius: '12px',
 }
 const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }

@@ -32,10 +32,10 @@ export const MagicLinkEmail = ({
           Clique no botão abaixo para aceder a {siteName}. Este link expira em breve.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Entrar
+          Aceder
         </Button>
         <Text style={footer}>
-          Se não solicitou este link, pode ignorar este email.
+          Se não solicitou este link, pode ignorar este email com segurança.
         </Text>
       </Container>
     </Body>
@@ -62,9 +62,8 @@ const button = {
   backgroundColor: '#1a6fb8',
   color: '#ffffff',
   fontSize: '14px',
-  borderRadius: '12px',
-  padding: '12px 24px',
+  borderRadius: '8px',
+  padding: '12px 20px',
   textDecoration: 'none',
-  fontWeight: '500' as const,
 }
 const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }

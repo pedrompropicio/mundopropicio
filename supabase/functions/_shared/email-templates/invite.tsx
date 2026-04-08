@@ -42,7 +42,7 @@ export const InviteEmail = ({
           Aceitar Convite
         </Button>
         <Text style={footer}>
-          Se não estava à espera deste convite, pode ignorar este email.
+          Se não esperava este convite, pode ignorar este email com segurança.
         </Text>
       </Container>
     </Body>
@@ -70,9 +70,8 @@ const button = {
   backgroundColor: '#1a6fb8',
   color: '#ffffff',
   fontSize: '14px',
-  borderRadius: '12px',
-  padding: '12px 24px',
+  borderRadius: '8px',
+  padding: '12px 20px',
   textDecoration: 'none',
-  fontWeight: '500' as const,
 }
 const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }

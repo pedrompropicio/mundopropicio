@@ -34,7 +34,7 @@ export const EmailChangeEmail = ({
       <Container style={container}>
         <Heading style={h1}>Confirme a alteração de email</Heading>
         <Text style={text}>
-          Solicitou a alteração do seu email em {siteName} de{' '}
+          Solicitou a alteração do seu endereço de email em {siteName} de{' '}
           <Link href={`mailto:${email}`} style={link}>
             {email}
           </Link>{' '}
@@ -79,9 +79,8 @@ const button = {
   backgroundColor: '#1a6fb8',
   color: '#ffffff',
   fontSize: '14px',
-  borderRadius: '12px',
-  padding: '12px 24px',
+  borderRadius: '8px',
+  padding: '12px 20px',
   textDecoration: 'none',
-  fontWeight: '500' as const,
 }
 const footer = { fontSize: '12px', color: '#9ca3af', margin: '30px 0 0', lineHeight: '1.5' }
