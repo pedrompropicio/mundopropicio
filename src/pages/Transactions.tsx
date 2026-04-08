@@ -278,8 +278,8 @@ export default function Transactions() {
       }
       const due = new Date(t.due_date);
       const paidAmount = Number(t.paid_amount ?? 0);
-      const amount = Number(t.amount);
-      const isPaid = t.status === "paid" || paidAmount >= amount;
+      const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
+      const isPaid = t.status === "paid" || paidAmount >= totalWithIva;
 
       if (!isPaid && due < today) {
         overdue.push(t);
@@ -306,8 +306,8 @@ export default function Transactions() {
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
-        const amount = Number(t.amount);
-        return paidAmount >= amount || t.status === "paid";
+        const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
+        return paidAmount >= totalWithIva || t.status === "paid";
       });
 
     const today = new Date();
