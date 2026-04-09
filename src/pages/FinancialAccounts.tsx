@@ -474,6 +474,15 @@ export default function FinancialAccounts() {
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
+                              {!accountHasTransactions(acc.id) && (
+                                <button
+                                  onClick={() => setDeletingAccount({ id: acc.id, name: acc.name })}
+                                  className="rounded-lg p-1.5 hover:bg-destructive/10 transition-colors text-destructive"
+                                  title="Eliminar conta"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
                           </TableCell>
                         )}
