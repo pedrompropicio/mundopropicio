@@ -90,7 +90,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
       };
-      for (const key of Object.keys(fieldLabels)) {
+      const allowedFields = isPaid ? ["specification", "supplier_id"] : Object.keys(fieldLabels);
+      for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
         if (oldVal !== newVal) {
@@ -99,7 +100,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
 
-      const updates = {
+      const updates = isPaid ? {
+        supplier_id: form.supplier_id || null,
+        specification: transaction.type === "expense" ? (form.specification || null) : null,
+      } : {
         description: form.description,
         amount: parseFloat(form.amount),
         iva_rate: form.iva_rate,
