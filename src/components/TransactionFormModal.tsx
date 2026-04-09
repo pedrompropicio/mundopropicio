@@ -465,6 +465,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "A soma das percentagens deve ser 100%", variant: "destructive" });
         return;
       }
+      // BP bypass validation for split events
+      if (splitNeedsBypass && !plOverride) {
+        toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
+        return;
+      }
+      if (plOverride && !form.pl_override_note.trim()) {
+        toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
+        return;
+      }
     } else {
       // Single transaction validation
       if (rootFlags.event_required && !form.event_id) {
