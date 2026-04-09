@@ -31,6 +31,7 @@ export default function PartnerEventDetail() {
   const { id } = useParams();
   const { user } = useAuth();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
