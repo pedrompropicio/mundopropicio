@@ -342,29 +342,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         // --- SPLIT TRANSACTION ---
         const totalAmount = parseFloat(data.amount);
 
-        // 1. Create parent transaction (no event)
-        const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
-          description: data.description,
-          type: data.type,
-          amount: totalAmount,
-          iva_rate: data.iva_rate,
-          event_id: null,
-          category_id: data.category_id || null,
-          supplier_id: data.supplier_id || null,
-          account_id: data.account_id || null,
-          specification: data.type === "expense" ? (data.specification || null) : null,
-          pl_override_note: data.pl_override_note.trim() || null,
-          date: data.date,
-          due_date: parseDueDateForDb(data.due_date),
-          status: "pending",
-          paid_amount: 0,
-          split_percentage: null,
-          parent_transaction_id: null,
-        } as any).select("id").single();
-        if (parentError) throw parentError;
-        const parentId = parentRow.id;
-
-        // 2. Create child transactions for each event
+        // 1. Build child inserts first to determine parent status
         const childInserts = splitEntries.map((entry) => {
           const childAmount = +(totalAmount * entry.percentage / 100).toFixed(2);
           const bp = splitBPInfoByEvent[entry.event_id];
@@ -384,6 +362,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             }
           }
 
+          const childStatus = (hasForecastMatch && !needsOverride) ? "approved" : "pending";
+
           return {
             description: data.description,
             type: data.type,
@@ -397,14 +377,42 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             pl_override_note: needsOverride ? (data.pl_override_note.trim() || null) : null,
             date: data.date,
             due_date: parseDueDateForDb(data.due_date),
-            status: (hasForecastMatch && !needsOverride) ? "approved" : "pending",
+            status: childStatus,
             paid_amount: 0,
             split_percentage: entry.percentage,
-            parent_transaction_id: parentId,
+            parent_transaction_id: "", // placeholder, set after parent insert
           };
         });
 
-        const { error: childError } = await supabase.from("transactions").insert(childInserts as any);
+        // Parent is approved only if ALL children are approved
+        const allChildrenApproved = childInserts.every(c => c.status === "approved");
+        const parentStatus = allChildrenApproved ? "approved" : "pending";
+
+        // 2. Create parent transaction (no event)
+        const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
+          description: data.description,
+          type: data.type,
+          amount: totalAmount,
+          iva_rate: data.iva_rate,
+          event_id: null,
+          category_id: data.category_id || null,
+          supplier_id: data.supplier_id || null,
+          account_id: data.account_id || null,
+          specification: data.type === "expense" ? (data.specification || null) : null,
+          pl_override_note: data.pl_override_note.trim() || null,
+          date: data.date,
+          due_date: parseDueDateForDb(data.due_date),
+          status: parentStatus,
+          paid_amount: 0,
+          split_percentage: null,
+          parent_transaction_id: null,
+        } as any).select("id").single();
+        if (parentError) throw parentError;
+        const parentId = parentRow.id;
+
+        // 3. Set parent ID on children and insert
+        const childInsertsWithParent = childInserts.map(c => ({ ...c, parent_transaction_id: parentId }));
+        const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
         if (childError) throw childError;
       } else {
         // --- SINGLE TRANSACTION ---
