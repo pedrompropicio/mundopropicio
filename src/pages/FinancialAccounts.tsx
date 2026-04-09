@@ -270,7 +270,7 @@ export default function FinancialAccounts() {
                 </select>
               </div>
 
-              {form.type === "bank" && (
+              {(form.type === "bank" || form.type === "prepaid_card") && (
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">IBAN</label>
                   <input
@@ -278,6 +278,18 @@ export default function FinancialAccounts() {
                     onChange={(e) => setForm({ ...form, iban: e.target.value })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="Ex: PT50 0000 0000 0000 0000 0000 0"
+                  />
+                </div>
+              )}
+
+              {form.type === "prepaid_card" && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Número do Cartão</label>
+                  <input
+                    value={form.card_number}
+                    onChange={(e) => setForm({ ...form, card_number: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Ex: 1234 5678 9012 3456"
                   />
                 </div>
               )}
