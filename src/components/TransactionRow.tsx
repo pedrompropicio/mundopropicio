@@ -95,7 +95,8 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     return changedBy;
   };
 
-  const eventName = (t.events as any)?.name ?? "—";
+  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
+  const eventName = isParentSplit ? "Rateio multi-evento" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
@@ -106,7 +107,6 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const balance = Math.round((totalWithIva - paidAmount) * 100) / 100;
   const isExpense = t.type === "expense";
   const isChildSplit = !!t.parent_transaction_id;
-  const isParentSplit = !t.parent_transaction_id && t.split_percentage === null && false; // parent detected by children query below
   const splitPct = t.split_percentage != null ? Number(t.split_percentage) : null;
 
   // Compute effective status
