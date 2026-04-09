@@ -231,7 +231,19 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         </td>
         <td className="hidden py-3 pr-4 sm:table-cell">
           {isParentSplit ? (
-            <span className="text-xs font-medium text-accent-foreground italic">Rateio multi-evento</span>
+            <div>
+              {childEventNames.length > 0 ? (
+                <div className="space-y-0.5">
+                  {childEventNames.map((c, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                      {c.name}{c.pct != null ? ` (${c.pct}%)` : ""}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground/50 italic">Multi-evento</span>
+              )}
+            </div>
           ) : (
             <span className="text-muted-foreground">{eventName}</span>
           )}
