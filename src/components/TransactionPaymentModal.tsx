@@ -98,7 +98,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const ivaRate = Number(transaction.iva_rate ?? 0);
   const amount = calcWithIva(baseAmount, ivaRate);
   const currentPaid = Number(transaction.paid_amount ?? 0);
-  const balance = Math.round((amount - currentPaid) * 100) / 100;
+  const rawBalance = Math.round((amount - currentPaid) * 100) / 100;
+  // If remaining balance is within rounding tolerance, treat as fully paid
+  const balance = Math.abs(rawBalance) <= 0.05 ? 0 : rawBalance;
 
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
@@ -117,7 +119,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
       const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
-      if (newPaid > amount + 0.01) throw new Error("O valor excede o saldo em aberto");
+      if (newPaid > amount + 0.05) throw new Error("O valor excede o saldo em aberto");
 
       // Check account balance for expenses (net amount after withholding)
       const netCashOut = addAmount - withholding;
