@@ -147,6 +147,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           new_value: notes.trim(),
         });
       }
+      if (withholding > 0) {
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Retenção IRS",
+          old_value: null,
+          new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(addAmount - withholding)})`,
+        });
+      }
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = newPaid >= amount ? "paid" : "approved";
