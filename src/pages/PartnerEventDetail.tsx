@@ -88,10 +88,11 @@ export default function PartnerEventDetail() {
   const { data: eventData } = useQuery({
     queryKey: ["partner_event_data", activeEventId],
     queryFn: async () => {
-      const [zonesRes, forecastsRes, txRes] = await Promise.all([
+      const [zonesRes, forecastsRes, txRes, sessionsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
         supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
         supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
+        supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
       ]);
       if (zonesRes.error) throw zonesRes.error;
       if (forecastsRes.error) throw forecastsRes.error;
