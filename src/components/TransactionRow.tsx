@@ -172,12 +172,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {isChildSplit && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
-                        Rateio {splitPct != null ? `${splitPct}%` : ""}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
+                        🔗 Rateio {splitPct != null ? `${splitPct}%` : ""}
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      Sub-transação de rateio multi-evento
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>Sub-transação vinculada a um rateio multi-evento.</p>
+                      <p className="mt-1 text-muted-foreground">A liquidação é feita na transação-mãe e propagada automaticamente.</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -238,6 +239,19 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             {/* Child split transactions: only docs + audit */}
             {isChildSplit ? (
               <>
+                {/* Payment on child: opens parent for full settlement */}
+                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.parent_transaction_id && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => onPayment(t.parent_transaction_id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Liquidar via transação-mãe">
+                        <CreditCard className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Abre a transação-mãe para liquidação completa
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 <button onClick={() => onAudit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Histórico de alterações">
                   <History className="h-3.5 w-3.5" />
