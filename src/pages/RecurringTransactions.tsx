@@ -344,7 +344,7 @@ export default function RecurringTransactions() {
   const getCategoryLabel = (id: string | null) => {
     if (!id) return "—";
     const cat = categories.find((c) => c.id === id);
-    return cat ? `${cat.code} — ${cat.name}` : "—";
+    return cat ? `${cat.code} ${cat.name}` : "—";
   };
 
   return (
@@ -577,7 +577,7 @@ export default function RecurringTransactions() {
               <div className="sm:col-span-2">
                 <Label>Categoria</Label>
                 <SearchableSelect
-                  options={leafCategories.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` }))}
+                  options={leafCategories.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
                   value={form.category_id}
                   onValueChange={(v) => setForm({ ...form, category_id: v })}
                   placeholder="Selecionar categoria..."

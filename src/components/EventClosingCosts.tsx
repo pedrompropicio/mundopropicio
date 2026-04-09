@@ -164,7 +164,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             <div className="space-y-1.5">
               <Label className="text-xs">Categoria</Label>
               <SearchableSelect
-                options={expenseCategories.map((c: any) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+                options={expenseCategories.map((c: any) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
                 value={categoryId}
                 onValueChange={setCategoryId}
                 placeholder="Selecionar categoria…"
@@ -284,7 +284,7 @@ function ClosingCostRow({ cost, isEventLocked, onEdit, onDelete, onFileUpload }:
         )}
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">
-        {cost.account_categories ? `${cost.account_categories.code} - ${cost.account_categories.name}` : "—"}
+        {cost.account_categories ? `${cost.account_categories.code} ${cost.account_categories.name}` : "—"}
       </TableCell>
       <TableCell className="text-right font-mono text-warning">{formatCurrency(Number(cost.amount))}</TableCell>
       <TableCell>

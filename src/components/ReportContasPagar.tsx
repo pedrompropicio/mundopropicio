@@ -56,7 +56,7 @@ export default function ReportContasPagar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, iban), account_categories(name)")
+        .select("*, events(name), suppliers(name, iban), account_categories(code, name)")
         .eq("type", "expense")
         .in("status", ["approved", "pending"])
         .order("date", { ascending: false });

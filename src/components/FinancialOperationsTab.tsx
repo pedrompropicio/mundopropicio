@@ -440,9 +440,9 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
                 >
                   <option value="">Selecionar categoria…</option>
                   {groupedCategories.map((group) => (
-                    <optgroup key={group.parent.code} label={`${group.parent.code} — ${group.parent.name}`}>
+                    <optgroup key={group.parent.code} label={`${group.parent.code} ${group.parent.name}`}>
                       {group.children.map((cat: any) => (
-                        <option key={cat.id} value={cat.id}>{cat.code} — {cat.name}</option>
+                        <option key={cat.id} value={cat.id}>{cat.code} {cat.name}</option>
                       ))}
                     </optgroup>
                   ))}

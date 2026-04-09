@@ -714,8 +714,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const draftCount = forecasts.filter((f) => f.status === "draft").length;
   const approvedCount = forecasts.filter((f) => f.status === "approved").length;
 
-  const incomeCategories = categories.filter((c) => c.type === "income");
-  const expenseCategories = categories.filter((c) => c.type === "expense");
+  const incomeCategories = categories.filter((c) => c.type === "income" && !categories.some((ch) => ch.parent_id === c.id));
+  const expenseCategories = categories.filter((c) => c.type === "expense" && !categories.some((ch) => ch.parent_id === c.id));
 
   const inputClass = "w-full rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50";
 
@@ -746,7 +746,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         )}
         <td className="hidden py-1.5 pr-2 sm:table-cell">
           <SearchableSelect
-            options={cats.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+            options={cats.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
             value={inlineForm.category_id}
             onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
             placeholder="Categoria…"
@@ -984,7 +984,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                    <td className="hidden py-1.5 pr-2 sm:table-cell">
                                     <SearchableSelect
-                                      options={incomeCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+                                      options={incomeCategories.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
                                       value={inlineForm.category_id}
                                       onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
                                       placeholder="Categoria…"
@@ -1147,7 +1147,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                    <td className="hidden py-1.5 pr-2 sm:table-cell">
                                      <SearchableSelect
-                                       options={expenseCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
+                                       options={expenseCategories.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
                                        value={inlineForm.category_id}
                                        onValueChange={(v) => setInlineForm({ ...inlineForm, category_id: v })}
                                        placeholder="Categoria…"
@@ -1360,7 +1360,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           </td>
         )}
         <td className="hidden py-2.5 pr-3 text-muted-foreground sm:table-cell text-xs">
-          {item.account_categories ? `${item.account_categories.code} - ${item.account_categories.name}` : "—"}
+          {item.account_categories ? `${item.account_categories.code} ${item.account_categories.name}` : "—"}
         </td>
         <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
         <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>

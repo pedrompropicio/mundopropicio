@@ -402,7 +402,7 @@ export default function EventDetail() {
 
   // Pie data by category
   const expenseByCategory = expenseTransactions.reduce<Record<string, { name: string; value: number }>>((acc, t) => {
-    const catName = t.account_categories ? `${t.account_categories.code} - ${t.account_categories.name}` : "Sem categoria";
+    const catName = t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "Sem categoria";
     if (!acc[catName]) acc[catName] = { name: catName, value: 0 };
     acc[catName].value += Number(t.amount);
     return acc;
@@ -682,7 +682,7 @@ export default function EventDetail() {
                               )}
                             </td>
                             <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">
-                              {t.account_categories ? `${t.account_categories.code} - ${t.account_categories.name}` : "—"}
+                              {t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "—"}
                             </td>
                             {isGlobalView && (
                               <td className="hidden py-3 pr-4 text-xs text-muted-foreground md:table-cell">{subName}</td>

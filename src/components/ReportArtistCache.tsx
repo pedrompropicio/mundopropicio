@@ -158,7 +158,7 @@ export default function ReportArtistCache() {
           const ded = configDeductions.find((d: any) => d.category_id === f.category_id);
           const catInfo = (ded as any)?.account_categories;
           return {
-            label: catInfo ? `${catInfo.code} - ${catInfo.name}` : f.description,
+            label: catInfo ? `${catInfo.code} ${catInfo.name}` : f.description,
             amount: Number(f.amount),
           };
         });

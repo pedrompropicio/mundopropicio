@@ -364,7 +364,7 @@ export default function AccountCategories() {
                       <SelectContent>
                         {parentOptions.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.code} - {p.name}
+                            {p.code} {p.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -509,7 +509,7 @@ export default function AccountCategories() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir conta?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza que deseja excluir a conta <strong>{deletingCat?.code} - {deletingCat?.name}</strong>?
+              Tem a certeza que deseja excluir a conta <strong>{deletingCat?.code} {deletingCat?.name}</strong>?
               Transações associadas perderão a referência a esta categoria.
             </AlertDialogDescription>
           </AlertDialogHeader>
