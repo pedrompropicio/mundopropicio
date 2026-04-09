@@ -185,12 +185,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {isParentSplit && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground cursor-help">
-                        📦 Mãe de rateio
+                      <span className="inline-flex items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary cursor-help">
+                        Multi-evento
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
-                      <p>Transação-mãe de rateio multi-evento.</p>
+                      <p>Transação principal de rateio multi-evento.</p>
                       <p className="mt-1 text-muted-foreground">A liquidação aqui propaga automaticamente para todas as sub-transações.</p>
                     </TooltipContent>
                   </Tooltip>
