@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users } from "lucide-react";
+import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users, Trash2 } from "lucide-react";
 import AccountAccessModal from "@/components/AccountAccessModal";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
