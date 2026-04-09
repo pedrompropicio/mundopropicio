@@ -22,6 +22,7 @@ const ACCOUNT_TYPES = [
   { value: "ticket_office", label: "Bilheteira", icon: Ticket },
   { value: "credit_card", label: "Cartão de Crédito", icon: CreditCard },
   { value: "debit_card", label: "Cartão de Débito", icon: CreditCard },
+  { value: "prepaid_card", label: "Cartão Pré-Pago", icon: CreditCard },
   { value: "cash", label: "Caixa", icon: Banknote },
   { value: "other", label: "Outra", icon: Wallet },
 ];
@@ -38,6 +39,7 @@ interface AccountForm {
   balance_visible_to_all: boolean;
   is_active: boolean;
   iban: string;
+  card_number: string;
 }
 
 const emptyForm: AccountForm = {
@@ -48,6 +50,7 @@ const emptyForm: AccountForm = {
   balance_visible_to_all: false,
   is_active: true,
   iban: "",
+  card_number: "",
 };
 
 export default function FinancialAccounts() {
@@ -96,14 +99,15 @@ export default function FinancialAccounts() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name: form.name,
         type: form.type,
         description: form.description || null,
         initial_balance: parseFloat(form.initial_balance) || 0,
         balance_visible_to_all: form.balance_visible_to_all,
         is_active: form.is_active,
-        iban: form.type === "bank" ? (form.iban.trim() || null) : null,
+        iban: (form.type === "bank" || form.type === "prepaid_card") ? (form.iban.trim() || null) : null,
+        card_number: form.type === "prepaid_card" ? (form.card_number.trim() || null) : null,
       };
 
       if (editingId) {
@@ -145,6 +149,7 @@ export default function FinancialAccounts() {
       balance_visible_to_all: account.balance_visible_to_all,
       is_active: account.is_active,
       iban: account.iban ?? "",
+      card_number: account.card_number ?? "",
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -265,7 +270,7 @@ export default function FinancialAccounts() {
                 </select>
               </div>
 
-              {form.type === "bank" && (
+              {(form.type === "bank" || form.type === "prepaid_card") && (
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">IBAN</label>
                   <input
@@ -273,6 +278,18 @@ export default function FinancialAccounts() {
                     onChange={(e) => setForm({ ...form, iban: e.target.value })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="Ex: PT50 0000 0000 0000 0000 0000 0"
+                  />
+                </div>
+              )}
+
+              {form.type === "prepaid_card" && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Número do Cartão</label>
+                  <input
+                    value={form.card_number}
+                    onChange={(e) => setForm({ ...form, card_number: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Ex: 1234 5678 9012 3456"
                   />
                 </div>
               )}
