@@ -99,14 +99,15 @@ export default function FinancialAccounts() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name: form.name,
         type: form.type,
         description: form.description || null,
         initial_balance: parseFloat(form.initial_balance) || 0,
         balance_visible_to_all: form.balance_visible_to_all,
         is_active: form.is_active,
-        iban: form.type === "bank" ? (form.iban.trim() || null) : null,
+        iban: (form.type === "bank" || form.type === "prepaid_card") ? (form.iban.trim() || null) : null,
+        card_number: form.type === "prepaid_card" ? (form.card_number.trim() || null) : null,
       };
 
       if (editingId) {
@@ -148,6 +149,7 @@ export default function FinancialAccounts() {
       balance_visible_to_all: account.balance_visible_to_all,
       is_active: account.is_active,
       iban: account.iban ?? "",
+      card_number: account.card_number ?? "",
     });
     setEditingId(account.id);
     setShowForm(true);
