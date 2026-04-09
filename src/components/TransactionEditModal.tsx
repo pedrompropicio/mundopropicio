@@ -170,7 +170,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (rootFlags.event_required && !form.event_id && !hasChildren) {
+    // Only require event if the category demands it AND the transaction originally had an event
+    // (general/administrative transactions without event should remain editable without forcing event selection)
+    const originallyHadEvent = !!transaction.event_id;
+    if (rootFlags.event_required && !form.event_id && !hasChildren && originallyHadEvent) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
     }
