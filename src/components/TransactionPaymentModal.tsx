@@ -113,10 +113,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
       if (!accountId) throw new Error("Selecione a conta");
+      const withholding = parseFloat(withholdingAmount) || 0;
+      if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
+      if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
-      // Check account balance for expenses
+      // Check account balance for expenses (full amount including withholding)
       if (isExpense) {
         const accBalance = computeAccountBalance(accountId);
         if (addAmount > accBalance) {
