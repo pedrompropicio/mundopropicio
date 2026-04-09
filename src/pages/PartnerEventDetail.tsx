@@ -324,7 +324,7 @@ export default function PartnerEventDetail() {
                     <div key={item.id} className="flex items-center justify-between px-4 py-1.5 border-b border-border/30">
                       <div className="min-w-0 flex-1 mr-2">
                         <span className="text-xs text-foreground block truncate">{item.description}</span>
-                        {item.catCode && <span className="text-[10px] text-muted-foreground">{item.catCode} - {item.catName}</span>}
+                        {item.catCode && <span className="text-[10px] text-muted-foreground">{item.catCode} {item.catName}</span>}
                       </div>
                       <span className={`text-xs font-mono font-semibold whitespace-nowrap ${colorClass}`}>{formatCurrency(item.amount)}</span>
                     </div>
