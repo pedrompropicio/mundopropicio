@@ -216,7 +216,7 @@ export default function Auth() {
     } else {
       toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
       sessionStorage.removeItem("recovery_in_progress");
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'global' });
       setMode("login");
       setOtpCode("");
       setNewPassword("");
