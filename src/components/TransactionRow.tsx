@@ -218,7 +218,14 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
               )}
-              <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
+              {!isParentSplit && eventName && (
+                <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
+              )}
+              {isParentSplit && childEventNames.length > 0 && (
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {childEventNames.map((c) => c.name).join(", ")}
+                </p>
+              )}
             </div>
           </div>
         </td>
