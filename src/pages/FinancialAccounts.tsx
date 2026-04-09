@@ -353,7 +353,7 @@ export default function FinancialAccounts() {
                 />
               </div>
 
-
+              <button
                 type="submit"
                 disabled={saveMutation.isPending}
                 className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
