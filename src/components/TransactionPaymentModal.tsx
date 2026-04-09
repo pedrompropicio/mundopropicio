@@ -254,13 +254,31 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>
             <Popover open={paymentDateOpen} onOpenChange={setPaymentDateOpen}>
               <PopoverTrigger asChild>
-                <button className={cn(
-                  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  !paymentDate && "text-muted-foreground"
-                )}>
-                  {paymentDate ? format(paymentDate, "dd/MM/yyyy", { locale: pt }) : "Selecionar data…"}
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                </button>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/aaaa"
+                    value={format(paymentDate, "dd/MM/yyyy", { locale: pt })}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const digits = raw.replace(/\D/g, "");
+                      if (digits.length === 8) {
+                        const day = parseInt(digits.slice(0, 2), 10);
+                        const month = parseInt(digits.slice(2, 4), 10);
+                        const year = parseInt(digits.slice(4, 8), 10);
+                        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
+                          setPaymentDate(new Date(year, month - 1, day, 12, 0, 0));
+                        }
+                      }
+                    }}
+                    className={cn(
+                      "w-full rounded-lg border border-border bg-background px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50",
+                      !paymentDate && "text-muted-foreground"
+                    )}
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                </div>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 z-[80]" align="start">
                 <Calendar
