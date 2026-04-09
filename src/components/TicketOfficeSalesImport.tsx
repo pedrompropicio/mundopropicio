@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import * as XLSX from "xlsx";
 
@@ -26,7 +27,8 @@ interface ParsedSale {
   matched_event_id?: string;
   matched_zone_id?: string;
   matched_lot_id?: string;
-  status: "matched" | "unmatched" | "partial";
+  status: "matched" | "unmatched" | "partial" | "new_lot";
+  suggested_lot_type?: "promo" | "special";
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -41,6 +43,8 @@ function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+const PRICE_TOLERANCE = 0.02; // 2 cêntimos de tolerância
 
 export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const queryClient = useQueryClient();
@@ -82,7 +86,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("id, name, event_id, event_ticket_lots(id, name, lot_number, price)");
+        .select("id, name, event_id, event_ticket_lots(id, name, lot_number, price, lot_type)");
       if (error) throw error;
       return data;
     },
@@ -96,18 +100,41 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
 
       let matchedZone: any = null;
       let matchedLot: any = null;
+      let status: ParsedSale["status"] = "unmatched";
+      let suggestedLotType: "promo" | "special" | undefined;
+
       if (matchedEvent) {
         const eventZones = zonesAndLots.filter((z: any) => z.event_id === matchedEvent.id);
-        matchedZone = eventZones.find((z: any) => z.name.toLowerCase().trim() === row.zone.toLowerCase());
+        matchedZone = eventZones.find((z: any) => z.name.toLowerCase().trim() === row.zone.toLowerCase().trim());
+
         if (matchedZone) {
           const lots = (matchedZone as any).event_ticket_lots || [];
-          matchedLot = lots.find((l: any) => l.name.toLowerCase().trim() === row.lot.toLowerCase());
+
+          // 1) Primeiro: tentar match por nome E preço
+          matchedLot = lots.find((l: any) =>
+            l.name.toLowerCase().trim() === row.lot.toLowerCase().trim() &&
+            Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
+          );
+
+          // 2) Se não encontrou por nome+preço, tentar match apenas por preço
+          if (!matchedLot) {
+            matchedLot = lots.find((l: any) =>
+              Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
+            );
+          }
+
+          // 3) Se encontrou lote com preço compatível → matched
+          if (matchedLot) {
+            status = "matched";
+          } else {
+            // 4) Zona existe mas nenhum lote com este preço → sugerir criação de lote promo
+            status = "new_lot";
+            suggestedLotType = "promo";
+          }
+        } else {
+          status = "partial";
         }
       }
-
-      const status: ParsedSale["status"] = matchedEvent && matchedZone ? "matched"
-        : matchedEvent ? "partial"
-        : "unmatched";
 
       return {
         ...row,
@@ -115,6 +142,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         matched_zone_id: matchedZone?.id,
         matched_lot_id: matchedLot?.id,
         status,
+        suggested_lot_type: suggestedLotType,
       };
     }).filter((r) => r.quantity > 0 && r.unit_price >= 1);
   };
@@ -165,7 +193,6 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         setExtracting(false);
       }
     } else {
-      // CSV/Excel flow
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
@@ -210,10 +237,13 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   };
 
   const matchedRows = parsedRows.filter((r) => r.status === "matched");
-  const unmatchedRows = parsedRows.filter((r) => r.status !== "matched");
+  const newLotRows = parsedRows.filter((r) => r.status === "new_lot");
+  const unmatchedRows = parsedRows.filter((r) => r.status !== "matched" && r.status !== "new_lot");
 
-  const matchedDates = useMemo(() => [...new Set(matchedRows.map(r => r.date))], [matchedRows]);
-  const matchedZoneIds = useMemo(() => [...new Set(matchedRows.map(r => r.matched_zone_id).filter(Boolean))], [matchedRows]);
+  const importableRows = [...matchedRows, ...newLotRows];
+
+  const matchedDates = useMemo(() => [...new Set(importableRows.map(r => r.date))], [importableRows]);
+  const matchedZoneIds = useMemo(() => [...new Set(importableRows.map(r => r.matched_zone_id).filter(Boolean))], [importableRows]);
 
   const { data: existingSalesForDates = [] } = useQuery({
     queryKey: ["existing-sales-check", matchedDates, matchedZoneIds],
@@ -234,7 +264,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     if (existingSalesForDates.length === 0) return [];
     const warnings: { date: string; zone: string; existingQty: number }[] = [];
     const seen = new Set<string>();
-    for (const row of matchedRows) {
+    for (const row of importableRows) {
       const key = `${row.date}_${row.matched_zone_id}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -247,30 +277,74 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
       }
     }
     return warnings;
-  }, [matchedRows, existingSalesForDates]);
+  }, [importableRows, existingSalesForDates]);
 
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
-      const toInsert = matchedRows.map((r) => ({
-        zone_id: r.matched_zone_id!,
-        lot_id: r.matched_lot_id || null,
-        sale_date: r.date,
-        quantity: r.quantity,
-        unit_price: r.unit_price,
-        ticket_office_id: selectedOfficeId,
-        notes: `Importação ${fileName}`,
-        source: "import" as const,
-      }));
+
+      // Step 1: Create new lots for "new_lot" rows
+      const createdLots = new Map<string, string>(); // key: "zoneId_price" → lot_id
+      for (const row of newLotRows) {
+        if (!row.matched_zone_id) continue;
+        const key = `${row.matched_zone_id}_${row.unit_price}`;
+        if (createdLots.has(key)) continue;
+
+        // Find next lot_number for this zone
+        const zone = zonesAndLots.find((z: any) => z.id === row.matched_zone_id);
+        const existingLots = (zone as any)?.event_ticket_lots || [];
+        const maxLotNumber = existingLots.reduce((max: number, l: any) => Math.max(max, l.lot_number || 0), 0);
+
+        const lotName = row.lot || `Promo ${formatCurrency(row.unit_price)}`;
+        const { data: newLot, error } = await supabase
+          .from("event_ticket_lots")
+          .insert({
+            zone_id: row.matched_zone_id,
+            name: lotName,
+            lot_number: maxLotNumber + 1,
+            price: row.unit_price,
+            lot_type: row.suggested_lot_type || "promo",
+            quantity: 0,
+          })
+          .select("id")
+          .single();
+
+        if (error) throw new Error(`Erro ao criar lote "${lotName}": ${error.message}`);
+        createdLots.set(key, newLot.id);
+      }
+
+      // Step 2: Build insert rows
+      const toInsert = importableRows.map((r) => {
+        let lotId = r.matched_lot_id || null;
+        if (r.status === "new_lot" && r.matched_zone_id) {
+          const key = `${r.matched_zone_id}_${r.unit_price}`;
+          lotId = createdLots.get(key) || null;
+        }
+        return {
+          zone_id: r.matched_zone_id!,
+          lot_id: lotId,
+          sale_date: r.date,
+          quantity: r.quantity,
+          unit_price: r.unit_price,
+          ticket_office_id: selectedOfficeId,
+          notes: `Importação ${fileName}`,
+          source: "import" as const,
+        };
+      });
 
       if (toInsert.length === 0) throw new Error("Nenhuma venda para importar");
 
       const { error } = await supabase.from("ticket_sales").insert(toInsert);
       if (error) throw error;
+
+      return { salesCount: toInsert.length, lotsCreated: createdLots.size };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ticket_sales"] });
-      toast.success(`${matchedRows.length} vendas importadas com sucesso`);
+      queryClient.invalidateQueries({ queryKey: ["zones_lots_for_matching"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
+      const lotMsg = result.lotsCreated > 0 ? ` (${result.lotsCreated} lotes promo criados)` : "";
+      toast.success(`${result.salesCount} vendas importadas com sucesso${lotMsg}`);
       handleClose();
     },
     onError: (err: any) => {
@@ -356,16 +430,33 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
 
         {step === "review" && (
           <div className="space-y-4 py-2">
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-4 text-sm flex-wrap">
               <span className="flex items-center gap-1.5 text-emerald-500">
                 <CheckCircle2 className="h-4 w-4" /> {matchedRows.length} correspondidas
               </span>
+              {newLotRows.length > 0 && (
+                <span className="flex items-center gap-1.5 text-blue-500">
+                  <Plus className="h-4 w-4" /> {newLotRows.length} novos lotes promo
+                </span>
+              )}
               {unmatchedRows.length > 0 && (
                 <span className="flex items-center gap-1.5 text-amber-500">
                   <AlertCircle className="h-4 w-4" /> {unmatchedRows.length} sem correspondência
                 </span>
               )}
             </div>
+
+            {newLotRows.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-blue-500/50 bg-blue-500/10 px-3 py-2">
+                <Plus className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <p className="font-medium text-blue-500">Lotes promo a criar automaticamente</p>
+                  <p className="text-muted-foreground">
+                    {newLotRows.length} linha(s) com preços sem lote correspondente. Serão criados novos lotes do tipo <Badge variant="outline" className="text-[10px] px-1 py-0 bg-warning/15 text-warning border-warning/30">Promo</Badge> na importação.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {duplicateDateWarnings.length > 0 && (
               <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
@@ -382,32 +473,38 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
               </div>
             )}
 
-            {matchedRows.length > 0 && (
+            {importableRows.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  Vendas a importar
+                  Vendas a importar ({importableRows.length})
                 </h4>
                 <div className="overflow-x-auto max-h-48">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-xs">Data</TableHead>
-                        <TableHead className="text-xs">Evento</TableHead>
                         <TableHead className="text-xs">Zona</TableHead>
                         <TableHead className="text-xs">Lote</TableHead>
                         <TableHead className="text-xs text-right">Qtd</TableHead>
                         <TableHead className="text-xs text-right">Preço</TableHead>
+                        <TableHead className="text-xs">Estado</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {matchedRows.map((r, i) => (
+                      {importableRows.map((r, i) => (
                         <TableRow key={i}>
                           <TableCell className="text-xs">{r.date}</TableCell>
-                          <TableCell className="text-xs">{r.event_name}</TableCell>
                           <TableCell className="text-xs">{r.zone}</TableCell>
-                          <TableCell className="text-xs">{r.lot}</TableCell>
+                          <TableCell className="text-xs">{r.lot || "—"}</TableCell>
                           <TableCell className="text-xs text-right">{r.quantity}</TableCell>
                           <TableCell className="text-xs text-right">{formatCurrency(r.unit_price)}</TableCell>
+                          <TableCell className="text-xs">
+                            {r.status === "matched" ? (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 text-emerald-500 border-emerald-500/30">OK</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 bg-warning/15 text-warning border-warning/30">Novo lote</Badge>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -438,7 +535,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                           <TableCell className="text-xs">{r.zone}</TableCell>
                           <TableCell className="text-xs">{r.lot}</TableCell>
                           <TableCell className="text-xs text-amber-500">
-                            {r.status === "unmatched" ? "Evento não encontrado" : "Zona/Lote não encontrado"}
+                            {r.status === "unmatched" ? "Evento não encontrado" : "Zona não encontrada"}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -458,9 +555,9 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
               </Button>
               <Button
                 onClick={() => importMutation.mutate()}
-                disabled={matchedRows.length === 0 || importMutation.isPending}
+                disabled={importableRows.length === 0 || importMutation.isPending}
               >
-                {importMutation.isPending ? "A importar…" : `Importar ${matchedRows.length} vendas`}
+                {importMutation.isPending ? "A importar…" : `Importar ${importableRows.length} vendas`}
               </Button>
             </>
           )}
