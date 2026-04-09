@@ -166,8 +166,9 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
   const toAccountOptions = accountOptions.filter((a) => a.value !== fromAccountId);
 
   const numAmount = parseFloat(amount);
+  const fromAccountSkip = (accounts.find((a) => a.id === fromAccountId) as any)?.skip_balance_check ?? false;
   const insufficientBalance =
-    sourceBalance !== undefined && !isNaN(numAmount) && numAmount > sourceBalance;
+    !fromAccountSkip && sourceBalance !== undefined && !isNaN(numAmount) && numAmount > sourceBalance;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
