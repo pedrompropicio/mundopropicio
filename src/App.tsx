@@ -187,7 +187,9 @@ const App = () => (
 function AuthRoute() {
   const { user, loading, isPartner } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to={isPartner ? "/parceiro" : "/"} replace />;
+  // Don't redirect if user is in the middle of password recovery flow
+  const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
+  if (user && !isRecoveryFlow) return <Navigate to={isPartner ? "/parceiro" : "/"} replace />;
   return <Auth />;
 }
 

@@ -156,12 +156,14 @@ export default function Auth() {
     }
 
     setLoading(true);
+    sessionStorage.setItem("recovery_in_progress", "true");
     const { data, error } = await supabase.functions.invoke("request-password-reset", {
       body: { email },
     });
 
     if (error && !data?.success) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
+      sessionStorage.removeItem("recovery_in_progress");
     } else {
       setMode("otp");
       toast({ title: "Código enviado", description: `Verifique o seu email para o código de ${RECOVERY_OTP_LENGTH} dígitos.` });
@@ -213,6 +215,7 @@ export default function Auth() {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Senha atualizada!", description: "Pode agora entrar com a nova senha." });
+      sessionStorage.removeItem("recovery_in_progress");
       await supabase.auth.signOut();
       setMode("login");
       setOtpCode("");
@@ -223,6 +226,7 @@ export default function Auth() {
   };
 
   const resetToLogin = () => {
+    sessionStorage.removeItem("recovery_in_progress");
     setMode("login");
     setOtpCode("");
     setNewPassword("");
