@@ -489,6 +489,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         <td className="py-2 pr-3">
           <span className="text-xs text-muted-foreground mr-1.5">{lot.lot_number}º</span>
           {lot.name}
+          {lot.lot_type && lot.lot_type !== "regular" && (
+            <span className={`ml-2 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${lotTypeBadgeClass[lot.lot_type] || ""}`}>
+              {lotTypeLabels[lot.lot_type] || lot.lot_type}
+            </span>
+          )}
         </td>
         <td className="py-2 text-right font-mono">{lot.quantity.toLocaleString()}</td>
         <td className="py-2 text-right font-mono">{formatCurrency(Number(lot.price))}</td>
