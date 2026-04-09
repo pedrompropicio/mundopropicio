@@ -217,6 +217,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          {!isPaid && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -252,7 +253,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               );
             })()}
           </div>
+          )}
 
+          {!isPaid && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
@@ -284,6 +287,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               </div>
             )}
           </div>
+          )}
 
           {isExpense && (
             <div>
@@ -298,7 +302,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!isExpense && (
+          {!isPaid && !isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
               <SearchableSelect
@@ -311,6 +315,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          {!isPaid && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
@@ -323,6 +328,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               </div>
             )}
           </div>
+          )}
 
           <button type="submit" disabled={editMutation.isPending}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
