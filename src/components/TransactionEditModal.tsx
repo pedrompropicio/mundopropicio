@@ -189,11 +189,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {isExpense ? "Despesa" : "Receita"}
         </div>
 
+        {isPaid && (
+          <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-xs text-success">
+            Transação liquidada — apenas Especificação e Fornecedor podem ser alterados.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              disabled={isPaid}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
           </div>
 
           {isExpense && (
@@ -204,7 +211,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {valueLocked && (
+          {!isPaid && valueLocked && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
               Transação aprovada — valor e IVA não podem ser alterados.
             </div>
