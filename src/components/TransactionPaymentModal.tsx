@@ -28,6 +28,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState("");
+  const [withholdingAmount, setWithholdingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const { user } = useAuth();
