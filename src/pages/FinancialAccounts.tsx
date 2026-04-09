@@ -63,6 +63,27 @@ export default function FinancialAccounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
   const [accessModalAccount, setAccessModalAccount] = useState<{ id: string; name: string } | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<{ id: string; name: string } | null>(null);
+
+  // Check if account has transactions
+  function accountHasTransactions(accountId: string) {
+    return txSummary.some((t: any) => t.account_id === accountId);
+  }
+
+  const deleteMutation = useMutation({
+    mutationFn: async (accountId: string) => {
+      const { error } = await supabase.from("financial_accounts").delete().eq("id", accountId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financial-accounts"] });
+      toast({ title: "Conta eliminada com sucesso!" });
+      setDeletingAccount(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao eliminar", description: err.message, variant: "destructive" });
+    },
+  });
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["financial-accounts"],
