@@ -90,7 +90,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("suppliers").select("id, name, trade_name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
     },
@@ -443,7 +443,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   });
 
   const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
-  const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
+  const supplierOptions = suppliers.map((s: any) => ({ value: s.id, label: s.trade_name ? `${s.name} (${s.trade_name})` : s.name, searchText: s.trade_name ?? undefined }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return (
