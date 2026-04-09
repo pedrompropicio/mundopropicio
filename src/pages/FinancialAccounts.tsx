@@ -22,6 +22,7 @@ const ACCOUNT_TYPES = [
   { value: "ticket_office", label: "Bilheteira", icon: Ticket },
   { value: "credit_card", label: "Cartão de Crédito", icon: CreditCard },
   { value: "debit_card", label: "Cartão de Débito", icon: CreditCard },
+  { value: "prepaid_card", label: "Cartão Pré-Pago", icon: CreditCard },
   { value: "cash", label: "Caixa", icon: Banknote },
   { value: "other", label: "Outra", icon: Wallet },
 ];
@@ -38,6 +39,7 @@ interface AccountForm {
   balance_visible_to_all: boolean;
   is_active: boolean;
   iban: string;
+  card_number: string;
 }
 
 const emptyForm: AccountForm = {
@@ -48,6 +50,7 @@ const emptyForm: AccountForm = {
   balance_visible_to_all: false,
   is_active: true,
   iban: "",
+  card_number: "",
 };
 
 export default function FinancialAccounts() {
