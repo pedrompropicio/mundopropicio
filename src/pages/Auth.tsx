@@ -156,6 +156,8 @@ export default function Auth() {
     }
 
     setLoading(true);
+    // Encerrar todas as sessões abertas do utilizador em todos os dispositivos
+    await supabase.auth.signOut({ scope: 'global' }).catch(() => {});
     sessionStorage.setItem("recovery_in_progress", "true");
     const { data, error } = await supabase.functions.invoke("request-password-reset", {
       body: { email },
