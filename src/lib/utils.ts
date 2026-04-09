@@ -59,9 +59,10 @@ export function calcWithIva(baseAmount: number, ivaRate: number): number {
 
 /**
  * Verifica se o valor pago cobre o total com IVA,
- * com tolerância de 1 cêntimo para diferenças de arredondamento.
+ * Verifica se uma transação está totalmente paga,
+ * com tolerância de 5 cêntimos para diferenças de arredondamento de IVA.
  */
 export function isFullyPaid(paidAmount: number, baseAmount: number, ivaRate: number): boolean {
   const total = calcWithIva(baseAmount, ivaRate);
-  return paidAmount >= total - 0.01;
+  return paidAmount >= total - 0.05;
 }
