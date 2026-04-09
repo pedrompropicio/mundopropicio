@@ -545,6 +545,32 @@ export default function FinancialAccounts() {
           onClose={() => setAccessModalAccount(null)}
         />
       )}
+
+      {deletingAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingAccount(null)}>
+          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold">Eliminar Conta</h2>
+            <p className="text-sm text-muted-foreground">
+              Tem a certeza que deseja eliminar a conta <strong>{deletingAccount.name}</strong>? Esta ação é irreversível.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeletingAccount(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(deletingAccount.id)}
+                disabled={deleteMutation.isPending}
+                className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
