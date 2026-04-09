@@ -282,6 +282,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               )}
             </div>
           )}
+
+          <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
             <input type="text" value={invoiceRef}
               onChange={(e) => setInvoiceRef(e.target.value)}
