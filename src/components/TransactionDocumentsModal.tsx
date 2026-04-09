@@ -55,11 +55,16 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string; name: string }) => {
       const storagePath = extractStoragePath(doc.file_url);
-      if (storagePath) {
-        await supabase.storage.from("transaction-documents").remove([storagePath]);
-      }
-      const { error } = await supabase.from("transaction_documents").delete().eq("id", doc.id);
-      if (error) throw error;
+      // Delete from DB first (faster) then storage in parallel
+      const dbPromise = supabase.from("transaction_documents").delete().eq("id", doc.id).then(({ error }) => {
+        if (error) throw error;
+      });
+      const storagePromise = storagePath
+        ? supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
+            console.warn("Storage cleanup failed (non-blocking):", err);
+          })
+        : Promise.resolve();
+      await Promise.all([dbPromise, storagePromise]);
       await logAudit({
         entity_type: "transaction_document",
         entity_id: doc.id,
@@ -69,12 +74,27 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         metadata: { transaction_id: transactionId, transaction_description: transactionDescription },
       });
     },
+    onMutate: async (doc) => {
+      // Optimistic update: remove from list immediately
+      await queryClient.cancelQueries({ queryKey: ["transaction_documents", transactionId] });
+      const previous = queryClient.getQueryData(["transaction_documents", transactionId]);
+      queryClient.setQueryData(["transaction_documents", transactionId], (old: any[] | undefined) =>
+        (old ?? []).filter((d: any) => d.id !== doc.id)
+      );
+      return { previous };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
       toast({ title: "Documento removido" });
     },
-    onError: (err: any) => {
+    onError: (err: any, _doc, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(["transaction_documents", transactionId], context.previous);
+      }
       toast({ title: "Erro ao remover", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
     },
   });
 
