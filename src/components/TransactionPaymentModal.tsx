@@ -268,7 +268,20 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             </Popover>
           </div>
 
-          <div>
+          {isExpense && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Retenção IRS (€) <span className="text-muted-foreground/60">— opcional</span></label>
+              <input type="number" step="0.01" min="0" value={withholdingAmount}
+                onChange={(e) => setWithholdingAmount(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+              {parseFloat(withholdingAmount) > 0 && parseFloat(paymentAmount) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pago ao fornecedor: <span className="font-semibold font-mono">{formatCurrency(parseFloat(paymentAmount) - parseFloat(withholdingAmount))}</span>
+                  {" · "}Retido: <span className="font-semibold font-mono text-warning">{formatCurrency(parseFloat(withholdingAmount))}</span>
+                </p>
+              )}
+            </div>
+          )}
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
             <input type="text" value={invoiceRef}
               onChange={(e) => setInvoiceRef(e.target.value)}
