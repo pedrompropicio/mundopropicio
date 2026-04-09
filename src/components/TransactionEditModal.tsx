@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
+  const isPaid = transaction.status === "paid";
   const [form, setForm] = useState({
     description: transaction.description,
     amount: String(transaction.amount),
