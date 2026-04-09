@@ -261,6 +261,81 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
+  // --- BP data for split events ---
+  const splitEventIds = useMemo(() => splitEntries.map(e => e.event_id), [splitEntries]);
+
+  const { data: splitForecasts = [] } = useQuery({
+    queryKey: ["split-bp-forecasts", splitEventIds],
+    queryFn: async () => {
+      if (splitEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("event_id, type, category_id, amount")
+        .in("event_id", splitEventIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isSplit && splitEventIds.length > 0,
+  });
+
+  const { data: splitTransactions = [] } = useQuery({
+    queryKey: ["split-bp-transactions", splitEventIds],
+    queryFn: async () => {
+      if (splitEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("event_id, type, category_id, amount")
+        .in("event_id", splitEventIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isSplit && splitEventIds.length > 0,
+  });
+
+  const splitBPInfoByEvent = useMemo<Record<string, SplitBPInfo>>(() => {
+    if (!isSplit || splitEventIds.length === 0 || !form.category_id) return {};
+    const result: Record<string, SplitBPInfo> = {};
+    for (const eventId of splitEventIds) {
+      const ev = events.find((e: any) => e.id === eventId);
+      const evForecasts = splitForecasts.filter(f => f.event_id === eventId);
+      const evTransactions = splitTransactions.filter(t => t.event_id === eventId);
+      const hasAnyForecasts = evForecasts.length > 0;
+      const hasForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id);
+      const forecast = evForecasts
+        .filter(f => f.type === form.type && f.category_id === form.category_id)
+        .reduce((s, f) => s + Number(f.amount), 0);
+      const used = evTransactions
+        .filter(t => t.type === form.type && t.category_id === form.category_id)
+        .reduce((s, t) => s + Number(t.amount), 0);
+      result[eventId] = {
+        event_id: eventId,
+        pl_mode: ev?.pl_mode ?? null,
+        forecast,
+        used,
+        hasForecastMatch,
+        hasAnyForecasts,
+      };
+    }
+    return result;
+  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events]);
+
+  // Check if any split event needs BP bypass
+  const splitNeedsBypass = useMemo(() => {
+    if (!isSplit || !form.category_id) return false;
+    const amount = parseFloat(form.amount) || 0;
+    for (const entry of splitEntries) {
+      const bp = splitBPInfoByEvent[entry.event_id];
+      if (!bp || !bp.hasAnyForecasts) continue;
+      const childAmount = +(amount * entry.percentage / 100).toFixed(2);
+      // Category not in BP
+      if (!bp.hasForecastMatch) return true;
+      // Exceeds available budget
+      const remaining = bp.forecast - bp.used;
+      if (bp.forecast > 0 && childAmount > remaining) return true;
+    }
+    return false;
+  }, [isSplit, form.category_id, form.amount, splitEntries, splitBPInfoByEvent]);
+
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
       if (isSplit && splitEntries.length >= 2) {
