@@ -226,6 +226,7 @@ export default function Auth() {
   };
 
   const resetToLogin = () => {
+    sessionStorage.removeItem("recovery_in_progress");
     setMode("login");
     setOtpCode("");
     setNewPassword("");
