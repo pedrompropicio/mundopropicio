@@ -120,6 +120,7 @@ export default function PartnerEventDetail() {
         forecasts: (forecastsRes.data ?? []) as any[],
         transactions: txs,
         transactionDocs: (docsRes.data ?? []) as any[],
+        sessions: (sessionsRes.data ?? []) as any[],
       };
     },
     enabled: shouldFetchEventData,
