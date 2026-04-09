@@ -34,7 +34,7 @@ export default function PartnerEventDetail() {
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
-    queryKey: ["partner_access", user?.id],
+    queryKey: ["partner_access_ids", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_event_access")

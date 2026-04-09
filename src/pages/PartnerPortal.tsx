@@ -10,7 +10,7 @@ export default function PartnerPortal() {
   const { user } = useAuth();
 
   const { data: accessList = [], isLoading } = useQuery({
-    queryKey: ["partner_access", user?.id],
+    queryKey: ["partner_access_with_events", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_event_access")
