@@ -131,6 +131,17 @@ export default function PartnerEventDetail() {
   const forecasts = eventData?.forecasts ?? [];
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
+  const sessions = eventData?.sessions ?? [];
+
+  // Filter zones by selected session
+  const filteredZones = useMemo(() => {
+    if (!selectedSession) return ticketZones; // "Todas"
+    return ticketZones.filter((z: any) => z.session_id === selectedSession);
+  }, [ticketZones, selectedSession]);
+
+  // Filter sales to only include filtered zones
+  const filteredZoneIds = useMemo(() => new Set(filteredZones.map((z: any) => z.id)), [filteredZones]);
+  const filteredSales = useMemo(() => ticketSales.filter((s: any) => filteredZoneIds.has(s.zone_id)), [ticketSales, filteredZoneIds]);
 
   // Group docs by transaction
   const docsByTx = useMemo(() => {
