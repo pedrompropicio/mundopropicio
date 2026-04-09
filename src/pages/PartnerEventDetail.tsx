@@ -32,6 +32,7 @@ export default function PartnerEventDetail() {
   const { user } = useAuth();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
 
+  // ── Batch 1: parallel independent queries ──
   const { data: accessList = [] } = useQuery({
     queryKey: ["partner_access", user?.id],
     queryFn: async () => {
@@ -46,37 +47,6 @@ export default function PartnerEventDetail() {
     enabled: !!user,
   });
 
-  const { data: event, isLoading } = useQuery({
-    queryKey: ["partner_event", id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("*").eq("id", id!).single();
-      if (error) throw error;
-      return data as any;
-    },
-    enabled: !!id,
-  });
-
-  const eventType = event?.event_type || "simple";
-
-  const { data: subEvents = [] } = useQuery({
-    queryKey: ["partner_sub_events", id],
-    queryFn: async () => {
-      const { data, error } = await (supabase.from("events").select("*") as any)
-        .eq("parent_event_id", id!)
-        .order("date", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: !!id && eventType === "multi_day",
-  });
-
-  const authorizedSubEvents = subEvents.filter((s: any) => accessList.includes(s.id));
-  const hasParentAccess = accessList.includes(id!);
-  const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
-
-  const activeEventId = selectedSubEvent || (eventType === "multi_day" && !hasParentAccess && visibleSubEvents.length > 0 ? visibleSubEvents[0]?.id : id!);
-
-  // All categories for hierarchy
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
     queryFn: async () => {
@@ -84,74 +54,80 @@ export default function PartnerEventDetail() {
       if (error) throw error;
       return data as CategoryNode[];
     },
+    staleTime: 5 * 60_000, // categories rarely change
   });
 
-  // Ticketing data with lots
-  const { data: ticketZones = [] } = useQuery({
-    queryKey: ["partner_ticket_zones", activeEventId],
+  // Fetch event + sub-events in one query to eliminate waterfall
+  const { data: eventBundle, isLoading } = useQuery({
+    queryKey: ["partner_event_bundle", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId);
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const [eventRes, subRes] = await Promise.all([
+        supabase.from("events").select("*").eq("id", id!).single(),
+        supabase.from("events").select("*").eq("parent_event_id", id!).order("date", { ascending: true }),
+      ]);
+      if (eventRes.error) throw eventRes.error;
+      return { event: eventRes.data as any, subEvents: (subRes.data ?? []) as any[] };
     },
-    enabled: !!activeEventId && (activeEventId !== id || eventType !== "multi_day" || hasParentAccess),
+    enabled: !!id,
   });
 
-  // Ticket sales (real sales)
-  const zoneIds = ticketZones.map((z: any) => z.id);
-  const { data: ticketSales = [] } = useQuery({
-    queryKey: ["partner_ticket_sales", zoneIds],
+  const event = eventBundle?.event;
+  const eventType = event?.event_type || "simple";
+  const subEvents = eventType === "multi_day" ? (eventBundle?.subEvents ?? []) : [];
+
+  const authorizedSubEvents = subEvents.filter((s: any) => accessList.includes(s.id));
+  const hasParentAccess = accessList.includes(id!);
+  const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
+
+  const activeEventId = selectedSubEvent || (eventType === "multi_day" && !hasParentAccess && visibleSubEvents.length > 0 ? visibleSubEvents[0]?.id : id!);
+
+  // ── Batch 2: all event-specific data in parallel ──
+  const shouldFetchEventData = !!activeEventId && (activeEventId !== id || eventType !== "multi_day" || hasParentAccess);
+
+  const { data: eventData } = useQuery({
+    queryKey: ["partner_event_data", activeEventId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, lot_id, ticket_office_id")
-        .in("zone_id", zoneIds);
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const [zonesRes, forecastsRes, txRes] = await Promise.all([
+        supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
+        supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
+        supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
+      ]);
+      if (zonesRes.error) throw zonesRes.error;
+      if (forecastsRes.error) throw forecastsRes.error;
+      if (txRes.error) throw txRes.error;
+
+      const zones = (zonesRes.data ?? []) as any[];
+      const txs = (txRes.data ?? []) as any[];
+
+      // Fetch dependent data in parallel
+      const zoneIds = zones.map((z: any) => z.id);
+      const txIds = txs.map((t: any) => t.id);
+
+      const [salesRes, docsRes] = await Promise.all([
+        zoneIds.length > 0
+          ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, lot_id, ticket_office_id").in("zone_id", zoneIds)
+          : Promise.resolve({ data: [], error: null }),
+        txIds.length > 0
+          ? supabase.from("transaction_documents").select("id, transaction_id, name, file_url, doc_type").in("transaction_id", txIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      return {
+        ticketZones: zones,
+        ticketSales: (salesRes.data ?? []) as any[],
+        forecasts: (forecastsRes.data ?? []) as any[],
+        transactions: txs,
+        transactionDocs: (docsRes.data ?? []) as any[],
+      };
     },
-    enabled: zoneIds.length > 0,
+    enabled: shouldFetchEventData,
   });
 
-  // Forecast data (BP)
-  const { data: forecasts = [] } = useQuery({
-    queryKey: ["partner_forecasts", activeEventId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at");
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: !!activeEventId,
-  });
-
-  // Transactions
-  const { data: transactions = [] } = useQuery({
-    queryKey: ["partner_transactions", activeEventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*, account_categories(id, code, name, parent_id)")
-        .eq("event_id", activeEventId)
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: !!activeEventId,
-  });
-
-  // Transaction documents
-  const transactionIds = transactions.map((t: any) => t.id);
-  const { data: transactionDocs = [] } = useQuery({
-    queryKey: ["partner_tx_docs", transactionIds],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transaction_documents")
-        .select("id, transaction_id, name, file_url, doc_type")
-        .in("transaction_id", transactionIds);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: transactionIds.length > 0,
-  });
+  const ticketZones = eventData?.ticketZones ?? [];
+  const ticketSales = eventData?.ticketSales ?? [];
+  const forecasts = eventData?.forecasts ?? [];
+  const transactions = eventData?.transactions ?? [];
+  const transactionDocs = eventData?.transactionDocs ?? [];
 
   // Group docs by transaction
   const docsByTx = useMemo(() => {
