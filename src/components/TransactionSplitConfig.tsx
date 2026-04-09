@@ -1,11 +1,20 @@
 import { useState, useMemo } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { X, Plus, Percent, Divide } from "lucide-react";
+import { X, Plus, Percent, Divide, AlertTriangle } from "lucide-react";
 
 export interface SplitEntry {
   event_id: string;
   event_name: string;
   percentage: number;
+}
+
+export interface SplitBPInfo {
+  event_id: string;
+  pl_mode: string | null;
+  forecast: number;
+  used: number;
+  hasForecastMatch: boolean;
+  hasAnyForecasts: boolean;
 }
 
 interface Props {
@@ -14,9 +23,13 @@ interface Props {
   onChange: (entries: SplitEntry[]) => void;
   splitMethod: "equal" | "custom";
   onMethodChange: (method: "equal" | "custom") => void;
+  /** Total amount of the parent transaction */
+  totalAmount?: number;
+  /** BP budget info per event for the selected category */
+  bpInfoByEvent?: Record<string, SplitBPInfo>;
 }
 
-export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange }: Props) {
+export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange, totalAmount = 0, bpInfoByEvent = {} }: Props) {
   const [addingEvent, setAddingEvent] = useState("");
 
   // Only show non-parent events (sub-events + simple events)
@@ -42,7 +55,6 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
     if (splitMethod === "equal") {
       const pct = +(100 / newEntries.length).toFixed(2);
       newEntries.forEach((e) => (e.percentage = pct));
-      // Fix rounding — give remainder to last entry
       const diff = 100 - pct * newEntries.length;
       if (Math.abs(diff) > 0.001) newEntries[newEntries.length - 1].percentage += diff;
     }
@@ -107,31 +119,67 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
 
       {/* Entries */}
       <div className="space-y-2">
-        {splitEntries.map((entry, idx) => (
-          <div key={entry.event_id} className="flex items-center gap-2">
-            <div className="flex-1 truncate text-sm">{entry.event_name}</div>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={entry.percentage}
-                onChange={(e) => updatePercentage(idx, parseFloat(e.target.value) || 0)}
-                disabled={splitMethod === "equal"}
-                className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
-              />
-              <span className="text-xs text-muted-foreground">%</span>
+        {splitEntries.map((entry, idx) => {
+          const childAmount = totalAmount > 0 ? +(totalAmount * entry.percentage / 100).toFixed(2) : 0;
+          const bp = bpInfoByEvent[entry.event_id];
+          const hasBP = bp && bp.hasAnyForecasts;
+          const remaining = hasBP ? bp.forecast - bp.used : 0;
+          const exceeds = hasBP && bp.hasForecastMatch && childAmount > remaining && bp.forecast > 0;
+          const noMatch = hasBP && !bp.hasForecastMatch;
+
+          return (
+            <div key={entry.event_id} className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 truncate text-sm">{entry.event_name}</div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={entry.percentage}
+                    onChange={(e) => updatePercentage(idx, parseFloat(e.target.value) || 0)}
+                    disabled={splitMethod === "equal"}
+                    className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeEvent(idx)}
+                  className="rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {/* BP info line */}
+              {hasBP && totalAmount > 0 && (
+                <div className="ml-1 flex items-center gap-2 text-[10px] font-mono">
+                  {bp.hasForecastMatch ? (
+                    <>
+                      <span className="text-muted-foreground">Rateio: {childAmount.toFixed(2)}€</span>
+                      <span className="text-muted-foreground">|</span>
+                      <span className="text-muted-foreground">BP: {bp.forecast.toFixed(2)}€</span>
+                      <span className="text-muted-foreground">|</span>
+                      <span className={remaining <= 0 ? "text-destructive" : "text-success"}>
+                        Disp: {remaining.toFixed(2)}€
+                      </span>
+                      {exceeds && (
+                        <span className="flex items-center gap-0.5 text-warning font-semibold">
+                          <AlertTriangle className="h-3 w-3" /> +{(childAmount - remaining).toFixed(2)}€
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-warning flex items-center gap-0.5">
+                      <AlertTriangle className="h-3 w-3" /> Categoria não prevista no BP
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => removeEvent(idx)}
-              className="rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Add event */}
