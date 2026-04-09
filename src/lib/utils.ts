@@ -48,3 +48,20 @@ export function compareHierarchicalCodes(a?: string | null, b?: string | null) {
 export function sortByHierarchicalCode<T>(items: T[], getCode: (item: T) => string | null | undefined) {
   return [...items].sort((a, b) => compareHierarchicalCodes(getCode(a), getCode(b)));
 }
+
+/**
+ * Calcula o valor total com IVA, arredondado ao cêntimo mais próximo
+ * conforme Artigo 18.º do CIVA (Portugal).
+ */
+export function calcWithIva(baseAmount: number, ivaRate: number): number {
+  return Math.round(baseAmount * (1 + ivaRate / 100) * 100) / 100;
+}
+
+/**
+ * Verifica se o valor pago cobre o total com IVA,
+ * com tolerância de 1 cêntimo para diferenças de arredondamento.
+ */
+export function isFullyPaid(paidAmount: number, baseAmount: number, ivaRate: number): boolean {
+  const total = calcWithIva(baseAmount, ivaRate);
+  return paidAmount >= total - 0.01;
+}
