@@ -126,7 +126,7 @@ function buildDRE(
     totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
     lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isTotal: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
-      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} ${cc.account_categories.name}` : "";
       const label = catLabel ? `${cc.description} (${catLabel})` : cc.description;
       lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
     });

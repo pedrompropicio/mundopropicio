@@ -534,13 +534,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const filteredCategories = categories.filter((c) => {
     const typeMatch = form.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
+    // Only leaf categories (no children)
+    const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
+    if (!isLeaf) return false;
     if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
       return allowedCategoryIds.includes(c.id);
     }
     return true;
   });
 
-  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
+  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }));
   const supplierOptions = suppliers.map((s: any) => ({ value: s.id, label: s.trade_name ? `${s.name} (${s.trade_name})` : s.name, searchText: s.trade_name ?? undefined }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 

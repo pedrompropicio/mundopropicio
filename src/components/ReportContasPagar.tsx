@@ -56,7 +56,7 @@ export default function ReportContasPagar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, iban), account_categories(name)")
+        .select("*, events(name), suppliers(name, iban), account_categories(code, name)")
         .eq("type", "expense")
         .in("status", ["approved", "pending"])
         .order("date", { ascending: false });
@@ -184,7 +184,7 @@ export default function ReportContasPagar() {
         event_name: (t.events as any)?.name ?? "-",
         supplier_name: (t.suppliers as any)?.name ?? "-",
         iban: (t.suppliers as any)?.iban ?? "-",
-        category_name: (t.account_categories as any)?.name ?? "-",
+        category_name: (t.account_categories as any) ? `${(t.account_categories as any).code} ${(t.account_categories as any).name}` : "-",
         amount: Number(t.amount),
         iva_rate: t.iva_rate ?? 23,
         paid_amount: Number(t.paid_amount ?? 0),
@@ -209,7 +209,7 @@ export default function ReportContasPagar() {
         event_name: (t.events as any)?.name ?? "-",
         supplier_name: (t.suppliers as any)?.name ?? "-",
         iban: (t.suppliers as any)?.iban ?? "-",
-        category_name: (t.account_categories as any)?.name ?? "-",
+        category_name: (t.account_categories as any) ? `${(t.account_categories as any).code} ${(t.account_categories as any).name}` : "-",
         amount: Number(t.amount),
         iva_rate: t.iva_rate ?? 23,
         paid_amount: Number(t.paid_amount ?? 0),
