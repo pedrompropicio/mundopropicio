@@ -138,6 +138,35 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Propagate approval to child split transactions
+      for (const parentId of approvedIds) {
+        const { data: children } = await adminClient
+          .from("transactions")
+          .select("id, status")
+          .eq("parent_transaction_id", parentId);
+
+        if (children && children.length > 0) {
+          const pendingChildren = children.filter((c) => c.status === "pending" || c.status === "overdue");
+          if (pendingChildren.length > 0) {
+            const childIds = pendingChildren.map((c) => c.id);
+
+            const childAuditEntries = pendingChildren.map((c) => ({
+              transaction_id: c.id,
+              changed_by: callerName,
+              field_name: "status",
+              old_value: c.status,
+              new_value: "approved",
+            }));
+
+            await adminClient.from("transaction_audit_log").insert(childAuditEntries);
+            await adminClient
+              .from("transactions")
+              .update({ status: "approved" })
+              .in("id", childIds);
+          }
+        }
+      }
     }
 
     const skippedStatuses = [...new Set(skippedTx.map((t) => t.status))];
