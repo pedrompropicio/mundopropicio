@@ -33,7 +33,7 @@ export default function PartnerEventDetail() {
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
 
   // ── Batch 1: parallel independent queries ──
-  const { data: accessList = [] } = useQuery({
+  const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
     queryKey: ["partner_access", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -228,7 +228,7 @@ export default function PartnerEventDetail() {
     return { income: buildForType("income"), expense: buildForType("expense") };
   }, [transactions, catLookup, docsByTx]);
 
-  if (isLoading) {
+  if (isLoading || isLoadingAccess) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
