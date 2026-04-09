@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
     }
 
     // RULE: Financial fields (amount, iva_rate) on approved transactions → admin only
+    // EXCEPTION: BP-linked transactions (with a forecast) allow amount/iva changes for all authenticated users
     const financialFields = ["amount", "iva_rate"];
     const isApproved = transaction.status === "approved";
 
@@ -91,13 +92,23 @@ Deno.serve(async (req) => {
       });
 
       if (attemptedFinancialChanges.length > 0 && !isAdmin) {
-        return new Response(
-          JSON.stringify({
-            error: "Apenas administradores podem alterar valores financeiros em transações aprovadas",
-            restricted_fields: attemptedFinancialChanges,
-          }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        // Check if transaction is linked to a BP forecast
+        const { data: linkedForecast } = await adminClient
+          .from("event_forecasts")
+          .select("id")
+          .eq("transaction_id", transaction_id)
+          .limit(1)
+          .maybeSingle();
+
+        if (!linkedForecast) {
+          return new Response(
+            JSON.stringify({
+              error: "Apenas administradores podem alterar valores financeiros em transações aprovadas",
+              restricted_fields: attemptedFinancialChanges,
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
