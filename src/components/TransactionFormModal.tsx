@@ -184,22 +184,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
   });
 
-  // Fetch cache configs for this event
+  // Fetch cache configs for this event (aggregate from children for parent tours)
   const { data: cacheConfigs = [] } = useQuery({
-    queryKey: ["event_cache_configs_form", form.event_id],
+    queryKey: ["event_cache_configs_form", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_cache_configs")
         .select("*")
-        .eq("event_id", form.event_id);
+        .in("event_id", forecastEventIds);
       if (error) throw error;
       return data as CacheConfig[];
     },
-    enabled: !!form.event_id && hasPL,
+    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: cacheDeductions = [] } = useQuery({
-    queryKey: ["event_cache_deductions_form", form.event_id],
+    queryKey: ["event_cache_deductions_form", form.event_id, forecastEventIds],
     queryFn: async () => {
       if (cacheConfigs.length === 0) return [];
       const { data, error } = await supabase
@@ -212,14 +212,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
   });
 
-  // Fetch ticket lots for cachê calculation (forecast = capacity × price, net of IVA)
+  // Fetch ticket lots for cachê calculation (aggregate from children for parent tours)
   const { data: ticketLots = [] } = useQuery({
-    queryKey: ["ticket_lots_form", form.event_id],
+    queryKey: ["ticket_lots_form", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
-        .eq("event_id", form.event_id);
+        .in("event_id", forecastEventIds);
       if (!zones || zones.length === 0) return [];
       const { data: lots } = await supabase
         .from("event_ticket_lots")
