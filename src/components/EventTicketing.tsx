@@ -451,7 +451,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       return (
         <tr key={lot?.id || "new"} className="bg-primary/5" onKeyDown={(e) => handleLotKeyDown(e, zoneId)}>
           <td className="py-1.5 pr-2">
-            <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
+            <div className="flex items-center gap-1.5">
+              <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
+              <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
+                <option value="regular">Regular</option>
+                <option value="promo">Promo</option>
+                <option value="special">Especial</option>
+              </select>
+            </div>
           </td>
           <td className="py-1.5 pr-2">
             <input type="number" min="0" value={lotForm.quantity} onChange={(e) => setLotForm({ ...lotForm, quantity: e.target.value })} className={`${inputClass} w-20 text-right`} placeholder="0" />
