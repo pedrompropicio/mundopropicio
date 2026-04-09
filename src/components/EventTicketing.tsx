@@ -33,10 +33,18 @@ interface LotForm {
   quantity: string;
   price: string;
   iva_rate: string;
+  lot_type: string;
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular" };
+
+const lotTypeLabels: Record<string, string> = { regular: "Regular", promo: "Promo", special: "Especial" };
+const lotTypeBadgeClass: Record<string, string> = {
+  regular: "",
+  promo: "bg-warning/15 text-warning border-warning/30",
+  special: "bg-primary/15 text-primary border-primary/30",
+};
 
 /** Extract net (ex-IVA) from gross price where IVA is included ("por dentro") */
 function netFromGross(gross: number, ivaRate: number): number {
