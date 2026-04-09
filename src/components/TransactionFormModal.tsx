@@ -599,13 +599,40 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {/* Split config panel — shown when split is active */}
           {isSplit && (
-            <TransactionSplitConfig
-              events={events}
-              splitEntries={splitEntries}
-              onChange={setSplitEntries}
-              splitMethod={splitMethod}
-              onMethodChange={setSplitMethod}
-            />
+            <>
+              <TransactionSplitConfig
+                events={events}
+                splitEntries={splitEntries}
+                onChange={setSplitEntries}
+                splitMethod={splitMethod}
+                onMethodChange={setSplitMethod}
+                totalAmount={parseFloat(form.amount) || 0}
+                bpInfoByEvent={splitBPInfoByEvent}
+              />
+              {/* BP Override toggle for split mode */}
+              {splitNeedsBypass && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setPlOverride(!plOverride); setForm({ ...form, pl_override_note: "" }); }}
+                    className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {plOverride ? "⚠️ Fora do BP — Clique para reverter" : "⚠️ Rateio excede BP em alguns eventos. Clique para justificar"}
+                  </button>
+                </div>
+              )}
+              {plOverride && splitNeedsBypass && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
+                  <input
+                    value={form.pl_override_note}
+                    onChange={(e) => setForm({ ...form, pl_override_note: e.target.value })}
+                    className="w-full rounded-lg border border-warning/50 bg-warning/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                    placeholder="Ex: Despesa partilhada não prevista no orçamento individual"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
