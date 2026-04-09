@@ -367,7 +367,7 @@ export default function PartnerEventDetail() {
             <div className="flex flex-wrap gap-2">
               {hasParentAccess && (
                 <button
-                  onClick={() => setSelectedSubEvent(null)}
+                  onClick={() => { setSelectedSubEvent(null); setSelectedSession(null); }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     !selectedSubEvent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
@@ -378,7 +378,7 @@ export default function PartnerEventDetail() {
               {visibleSubEvents.map((sub: any) => (
                 <button
                   key={sub.id}
-                  onClick={() => setSelectedSubEvent(sub.id)}
+                  onClick={() => { setSelectedSubEvent(sub.id); setSelectedSession(null); }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     selectedSubEvent === sub.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
