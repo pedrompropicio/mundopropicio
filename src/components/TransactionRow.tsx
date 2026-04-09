@@ -245,9 +245,14 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               </>
             ) : (
               <>
-                {/* Edit: blocked if event completed or paid */}
+                {/* Edit: blocked if event completed; paid = limited edit mode */}
                 {!eventCompleted && computedStatus !== "paid" && (
                   <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Editar">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {!eventCompleted && computedStatus === "paid" && (
+                  <button onClick={() => onEdit(t.id)} className="rounded-lg p-1.5 text-muted-foreground/60 hover:bg-secondary hover:text-foreground transition-colors" title="Editar especificação / fornecedor">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}

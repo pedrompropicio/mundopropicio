@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
+  const isPaid = transaction.status === "paid";
   const [form, setForm] = useState({
     description: transaction.description,
     amount: String(transaction.amount),
@@ -89,7 +90,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
       };
-      for (const key of Object.keys(fieldLabels)) {
+      const allowedFields = isPaid ? ["specification", "supplier_id"] : Object.keys(fieldLabels);
+      for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
         if (oldVal !== newVal) {
@@ -98,7 +100,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
 
-      const updates = {
+      const updates = isPaid ? {
+        supplier_id: form.supplier_id || null,
+        specification: transaction.type === "expense" ? (form.specification || null) : null,
+      } : {
         description: form.description,
         amount: parseFloat(form.amount),
         iva_rate: form.iva_rate,
@@ -171,10 +176,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Editar Transação</h2>
+          <h2 className="text-lg font-bold">{isPaid ? "Editar (Liquidada)" : "Editar Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
@@ -184,11 +189,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {isExpense ? "Despesa" : "Receita"}
         </div>
 
+        {isPaid && (
+          <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-xs text-success">
+            Transação liquidada — apenas Especificação e Fornecedor podem ser alterados.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              disabled={isPaid}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
           </div>
 
           {isExpense && (
@@ -199,12 +211,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {valueLocked && (
+          {!isPaid && valueLocked && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
               Transação aprovada — valor e IVA não podem ser alterados.
             </div>
           )}
 
+          {!isPaid && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -240,7 +253,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               );
             })()}
           </div>
+          )}
 
+          {!isPaid && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
@@ -272,6 +287,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               </div>
             )}
           </div>
+          )}
 
           {isExpense && (
             <div>
@@ -286,7 +302,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!isExpense && (
+          {!isPaid && !isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
               <SearchableSelect
@@ -299,6 +315,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          {!isPaid && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
@@ -311,6 +328,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               </div>
             )}
           </div>
+          )}
 
           <button type="submit" disabled={editMutation.isPending}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
