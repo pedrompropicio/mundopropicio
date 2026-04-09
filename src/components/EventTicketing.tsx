@@ -305,13 +305,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
 
       const nextLotNumber = id ? currentLots.find((l) => l.id === id)?.lot_number ?? 1 : currentLots.length + 1;
-      const payload = {
+      const payload: any = {
         zone_id: zoneId,
         name: form.name,
         quantity: newQty,
         price: parseFloat(form.price) || 0,
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
+        lot_type: form.lot_type || "regular",
       };
       if (id) {
         const { error } = await supabase.from("event_ticket_lots").update(payload).eq("id", id);
