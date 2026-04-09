@@ -298,7 +298,7 @@ export default function ReportDRE() {
   });
 
   const ticketCategoryId = categories.find(
-    (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes")
+    (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes") || c.name.toLowerCase().includes("bilheteira")
   )?.id ?? null;
 
   const eventsWithTickets = events.filter((e) =>
