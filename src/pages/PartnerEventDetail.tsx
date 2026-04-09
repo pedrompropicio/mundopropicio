@@ -266,17 +266,17 @@ export default function PartnerEventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
-  // ─── Ticket calculations ───
+  // ─── Ticket calculations (use filtered zones/sales) ───
   const salesByZone: Record<string, { qty: number; revenue: number }> = {};
-  ticketSales.forEach((s: any) => {
+  filteredSales.forEach((s: any) => {
     if (!salesByZone[s.zone_id]) salesByZone[s.zone_id] = { qty: 0, revenue: 0 };
     salesByZone[s.zone_id].qty += s.quantity;
     salesByZone[s.zone_id].revenue += s.quantity * Number(s.unit_price);
   });
 
-  const totalCapacity = ticketZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
-  const totalLotQty = ticketZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity, 0), 0);
-  const totalLotRevenue = ticketZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity * Number(l.price), 0), 0);
+  const totalCapacity = filteredZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
+  const totalLotQty = filteredZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity, 0), 0);
+  const totalLotRevenue = filteredZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity * Number(l.price), 0), 0);
   const totalSoldQty = Object.values(salesByZone).reduce((s, v) => s + v.qty, 0);
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
