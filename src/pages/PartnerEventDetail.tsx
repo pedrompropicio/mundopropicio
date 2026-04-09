@@ -31,6 +31,7 @@ export default function PartnerEventDetail() {
   const { id } = useParams();
   const { user } = useAuth();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
@@ -87,10 +88,11 @@ export default function PartnerEventDetail() {
   const { data: eventData } = useQuery({
     queryKey: ["partner_event_data", activeEventId],
     queryFn: async () => {
-      const [zonesRes, forecastsRes, txRes] = await Promise.all([
+      const [zonesRes, forecastsRes, txRes, sessionsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
         supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
         supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
+        supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
       ]);
       if (zonesRes.error) throw zonesRes.error;
       if (forecastsRes.error) throw forecastsRes.error;
@@ -118,6 +120,7 @@ export default function PartnerEventDetail() {
         forecasts: (forecastsRes.data ?? []) as any[],
         transactions: txs,
         transactionDocs: (docsRes.data ?? []) as any[],
+        sessions: (sessionsRes.data ?? []) as any[],
       };
     },
     enabled: shouldFetchEventData,
@@ -128,6 +131,17 @@ export default function PartnerEventDetail() {
   const forecasts = eventData?.forecasts ?? [];
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
+  const sessions = eventData?.sessions ?? [];
+
+  // Filter zones by selected session
+  const filteredZones = useMemo(() => {
+    if (!selectedSession) return ticketZones; // "Todas"
+    return ticketZones.filter((z: any) => z.session_id === selectedSession);
+  }, [ticketZones, selectedSession]);
+
+  // Filter sales to only include filtered zones
+  const filteredZoneIds = useMemo(() => new Set(filteredZones.map((z: any) => z.id)), [filteredZones]);
+  const filteredSales = useMemo(() => ticketSales.filter((s: any) => filteredZoneIds.has(s.zone_id)), [ticketSales, filteredZoneIds]);
 
   // Group docs by transaction
   const docsByTx = useMemo(() => {
@@ -252,17 +266,17 @@ export default function PartnerEventDetail() {
 
   const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
 
-  // ─── Ticket calculations ───
+  // ─── Ticket calculations (use filtered zones/sales) ───
   const salesByZone: Record<string, { qty: number; revenue: number }> = {};
-  ticketSales.forEach((s: any) => {
+  filteredSales.forEach((s: any) => {
     if (!salesByZone[s.zone_id]) salesByZone[s.zone_id] = { qty: 0, revenue: 0 };
     salesByZone[s.zone_id].qty += s.quantity;
     salesByZone[s.zone_id].revenue += s.quantity * Number(s.unit_price);
   });
 
-  const totalCapacity = ticketZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
-  const totalLotQty = ticketZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity, 0), 0);
-  const totalLotRevenue = ticketZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity * Number(l.price), 0), 0);
+  const totalCapacity = filteredZones.reduce((s: number, z: any) => s + (z.total_capacity || 0), 0);
+  const totalLotQty = filteredZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity, 0), 0);
+  const totalLotRevenue = filteredZones.reduce((s: number, z: any) => s + (z.event_ticket_lots || []).reduce((ls: number, l: any) => ls + l.quantity * Number(l.price), 0), 0);
   const totalSoldQty = Object.values(salesByZone).reduce((s, v) => s + v.qty, 0);
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
@@ -353,7 +367,7 @@ export default function PartnerEventDetail() {
             <div className="flex flex-wrap gap-2">
               {hasParentAccess && (
                 <button
-                  onClick={() => setSelectedSubEvent(null)}
+                  onClick={() => { setSelectedSubEvent(null); setSelectedSession(null); }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     !selectedSubEvent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
@@ -364,7 +378,7 @@ export default function PartnerEventDetail() {
               {visibleSubEvents.map((sub: any) => (
                 <button
                   key={sub.id}
-                  onClick={() => setSelectedSubEvent(sub.id)}
+                  onClick={() => { setSelectedSubEvent(sub.id); setSelectedSession(null); }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     selectedSubEvent === sub.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
@@ -398,6 +412,31 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
+              {/* Session filter tabs */}
+              {sessions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSelectedSession(null)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      !selectedSession ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {sessions.map((s: any) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedSession(s.id)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                        selectedSession === s.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {s.label}{s.start_time ? ` (${s.start_time.slice(0, 5)})` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Summary cards - responsive text */}
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
@@ -428,7 +467,11 @@ export default function PartnerEventDetail() {
               </div>
 
               {/* Per-zone detail */}
-              {ticketZones.map((zone: any) => {
+              {filteredZones.length === 0 && selectedSession ? (
+                <Card className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">Sem zonas configuradas para esta sessão.</p>
+                </Card>
+              ) : filteredZones.map((zone: any) => {
                 const lots = zone.event_ticket_lots || [];
                 const zoneSales = salesByZone[zone.id] || { qty: 0, revenue: 0 };
                 const zoneCapacity = zone.total_capacity || 0;
