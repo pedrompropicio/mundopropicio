@@ -365,18 +365,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         const parentId = parentRow.id;
 
         // 2. Create child transactions for each event
-        const childInserts = await Promise.all(splitEntries.map(async (entry) => {
+        const childInserts = splitEntries.map((entry) => {
           const childAmount = +(totalAmount * entry.percentage / 100).toFixed(2);
+          const bp = splitBPInfoByEvent[entry.event_id];
+          const hasBP = bp && bp.hasAnyForecasts;
+          const hasForecastMatch = bp?.hasForecastMatch ?? false;
           
-          // Check BP for each event individually
-          const { data: forecasts } = await supabase
-            .from("event_forecasts")
-            .select("type, category_id")
-            .eq("event_id", entry.event_id);
-          
-          const hasForecastMatch = (forecasts ?? []).some(
-            (f) => f.type === data.type && f.category_id === data.category_id
-          );
+          // Determine if this child needs override
+          let needsOverride = false;
+          if (hasBP) {
+            if (!hasForecastMatch) {
+              needsOverride = true;
+            } else {
+              const remaining = bp.forecast - bp.used;
+              if (bp.forecast > 0 && childAmount > remaining) {
+                needsOverride = true;
+              }
+            }
+          }
 
           return {
             description: data.description,
@@ -388,15 +394,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             supplier_id: data.supplier_id || null,
             account_id: null,
             specification: data.type === "expense" ? (data.specification || null) : null,
-            pl_override_note: (!hasForecastMatch && (forecasts ?? []).length > 0) ? (data.pl_override_note.trim() || null) : null,
+            pl_override_note: needsOverride ? (data.pl_override_note.trim() || null) : null,
             date: data.date,
             due_date: parseDueDateForDb(data.due_date),
-            status: hasForecastMatch ? "approved" : "pending",
+            status: (hasForecastMatch && !needsOverride) ? "approved" : "pending",
             paid_amount: 0,
             split_percentage: entry.percentage,
             parent_transaction_id: parentId,
           };
-        }));
+        });
 
         const { error: childError } = await supabase.from("transactions").insert(childInserts as any);
         if (childError) throw childError;
