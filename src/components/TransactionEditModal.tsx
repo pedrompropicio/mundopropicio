@@ -133,9 +133,24 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
+  // Check if transaction is linked to a BP forecast
+  const { data: linkedForecast } = useQuery({
+    queryKey: ["linked-forecast", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isBpLinked = !!linkedForecast;
+
   const isExpense = transaction.type === "expense";
   const isApproved = transaction.status === "approved";
-  const valueLocked = isApproved && !isAdmin;
+  const valueLocked = isApproved && !isAdmin && !isBpLinked;
   const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
 
   const getRootFlags = (categoryId: string) => {
@@ -214,6 +229,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {!isPaid && valueLocked && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
               Transação aprovada — valor e IVA não podem ser alterados.
+            </div>
+          )}
+          {!isPaid && isApproved && !isAdmin && isBpLinked && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
+              Transação vinculada ao BP — valor editável até à liquidação.
             </div>
           )}
 
