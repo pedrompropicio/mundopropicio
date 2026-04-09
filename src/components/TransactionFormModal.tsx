@@ -123,6 +123,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return map;
   }, [events]);
 
+  // For parent multi_day events, collect all child event IDs to aggregate BP
+  const forecastEventIds = useMemo(() => {
+    if (!form.event_id) return [];
+    if (isParentMultiDay) {
+      const childIds = (subEventsByParent[form.event_id] || []).map((e: any) => e.id);
+      return childIds.length > 0 ? childIds : [form.event_id];
+    }
+    return [form.event_id];
+  }, [form.event_id, isParentMultiDay, subEventsByParent]);
+
   // Build event options for SearchableSelect
   const eventOptions = useMemo(() => {
     const opts: { value: string; label: string; group?: string; indent?: boolean; icon?: string }[] = [];
@@ -149,47 +159,47 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   }, [parentEvents, subEventsByParent]);
 
   const { data: eventForecasts = [] } = useQuery({
-    queryKey: ["event_forecasts_budget", form.event_id],
+    queryKey: ["event_forecasts_budget", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, type, category_id, amount, status, description, iva_rate, specification")
-        .eq("event_id", form.event_id);
+        .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && hasPL,
+    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: eventTransactions = [] } = useQuery({
-    queryKey: ["event_transactions_budget", form.event_id],
+    queryKey: ["event_transactions_budget", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("id, type, category_id, amount")
-        .eq("event_id", form.event_id);
+        .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && hasPL,
+    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
   });
 
-  // Fetch cache configs for this event
+  // Fetch cache configs for this event (aggregate from children for parent tours)
   const { data: cacheConfigs = [] } = useQuery({
-    queryKey: ["event_cache_configs_form", form.event_id],
+    queryKey: ["event_cache_configs_form", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_cache_configs")
         .select("*")
-        .eq("event_id", form.event_id);
+        .in("event_id", forecastEventIds);
       if (error) throw error;
       return data as CacheConfig[];
     },
-    enabled: !!form.event_id && hasPL,
+    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: cacheDeductions = [] } = useQuery({
-    queryKey: ["event_cache_deductions_form", form.event_id],
+    queryKey: ["event_cache_deductions_form", form.event_id, forecastEventIds],
     queryFn: async () => {
       if (cacheConfigs.length === 0) return [];
       const { data, error } = await supabase
@@ -202,14 +212,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
   });
 
-  // Fetch ticket lots for cachê calculation (forecast = capacity × price, net of IVA)
+  // Fetch ticket lots for cachê calculation (aggregate from children for parent tours)
   const { data: ticketLots = [] } = useQuery({
-    queryKey: ["ticket_lots_form", form.event_id],
+    queryKey: ["ticket_lots_form", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
-        .eq("event_id", form.event_id);
+        .in("event_id", forecastEventIds);
       if (!zones || zones.length === 0) return [];
       const { data: lots } = await supabase
         .from("event_ticket_lots")
