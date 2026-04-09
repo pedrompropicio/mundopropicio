@@ -412,6 +412,31 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
+              {/* Session filter tabs */}
+              {sessions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSelectedSession(null)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      !selectedSession ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {sessions.map((s: any) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedSession(s.id)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                        selectedSession === s.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {s.label}{s.start_time ? ` (${s.start_time.slice(0, 5)})` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Summary cards - responsive text */}
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
