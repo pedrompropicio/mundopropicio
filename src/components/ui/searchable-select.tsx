@@ -9,6 +9,8 @@ export interface SearchableSelectOption {
   group?: string;
   indent?: boolean;
   icon?: string;
+  /** Extra text to match during search (not displayed) */
+  searchText?: string;
 }
 
 interface SearchableSelectProps {
@@ -38,9 +40,12 @@ export function SearchableSelect({
   const selectedOption = options.find((o) => o.value === value);
 
   const filtered = search.trim()
-    ? options.filter((o) =>
-        o.label.toLowerCase().includes(search.toLowerCase())
-      )
+    ? options.filter((o) => {
+        const haystack = o.searchText
+          ? `${o.label} ${o.searchText}`.toLowerCase()
+          : o.label.toLowerCase();
+        return haystack.includes(search.toLowerCase());
+      })
     : options;
 
   // Group options
