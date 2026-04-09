@@ -28,6 +28,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState("");
+  const [withholdingAmount, setWithholdingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const { user } = useAuth();
@@ -112,10 +113,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
       if (!accountId) throw new Error("Selecione a conta");
+      const withholding = parseFloat(withholdingAmount) || 0;
+      if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
+      if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
-      // Check account balance for expenses
+      // Check account balance for expenses (full amount including withholding)
       if (isExpense) {
         const accBalance = computeAccountBalance(accountId);
         if (addAmount > accBalance) {
@@ -141,6 +145,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           field_name: isExpense ? "Nota de pagamento" : "Nota de recebimento",
           old_value: null,
           new_value: notes.trim(),
+        });
+      }
+      if (withholding > 0) {
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Retenção IRS",
+          old_value: null,
+          new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(addAmount - withholding)})`,
         });
       }
       await supabase.from("transaction_audit_log").insert(auditEntries);
@@ -254,6 +267,21 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               </PopoverContent>
             </Popover>
           </div>
+
+          {isExpense && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Retenção IRS (€) <span className="text-muted-foreground/60">— opcional</span></label>
+              <input type="number" step="0.01" min="0" value={withholdingAmount}
+                onChange={(e) => setWithholdingAmount(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+              {parseFloat(withholdingAmount) > 0 && parseFloat(paymentAmount) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pago ao fornecedor: <span className="font-semibold font-mono">{formatCurrency(parseFloat(paymentAmount) - parseFloat(withholdingAmount))}</span>
+                  {" · "}Retido: <span className="font-semibold font-mono text-warning">{formatCurrency(parseFloat(withholdingAmount))}</span>
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
