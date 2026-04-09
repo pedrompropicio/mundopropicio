@@ -119,10 +119,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const newPaid = currentPaid + addAmount;
       if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
 
-      // Check account balance for expenses (full amount including withholding)
+      // Check account balance for expenses (net amount after withholding)
+      const netCashOut = addAmount - withholding;
       if (isExpense) {
         const accBalance = computeAccountBalance(accountId);
-        if (addAmount > accBalance) {
+        if (netCashOut > accBalance) {
           throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
         }
       }
