@@ -59,6 +59,8 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
 export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false);
 
+  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
+
   const { data: movements = [] } = useQuery({
     queryKey: ["transaction-movements", t.id],
     queryFn: async () => {
@@ -71,6 +73,24 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
       return data;
     },
     enabled: expanded,
+  });
+
+  // For parent split transactions, fetch child event names
+  const { data: childEventNames = [] } = useQuery({
+    queryKey: ["split-child-events", t.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("event_id, events(name), split_percentage")
+        .eq("parent_transaction_id", t.id);
+      if (error) throw error;
+      return (data ?? []).map((c: any) => ({
+        name: c.events?.name ?? "—",
+        pct: c.split_percentage != null ? Number(c.split_percentage) : null,
+      }));
+    },
+    enabled: isParentSplit,
+    staleTime: 60_000,
   });
 
   const { data: profiles = [] } = useQuery({
@@ -95,8 +115,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     return changedBy;
   };
 
-  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
-  const eventName = isParentSplit ? "Rateio multi-evento" : ((t.events as any)?.name ?? "—");
+  const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
@@ -199,13 +218,32 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
               )}
-              <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
+              {!isParentSplit && eventName && (
+                <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
+              )}
+              {isParentSplit && childEventNames.length > 0 && (
+                <p className="text-xs text-muted-foreground sm:hidden">
+                  {childEventNames.map((c) => c.name).join(", ")}
+                </p>
+              )}
             </div>
           </div>
         </td>
         <td className="hidden py-3 pr-4 sm:table-cell">
           {isParentSplit ? (
-            <span className="text-xs font-medium text-accent-foreground italic">Rateio multi-evento</span>
+            <div>
+              {childEventNames.length > 0 ? (
+                <div className="space-y-0.5">
+                  {childEventNames.map((c, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                      {c.name}{c.pct != null ? ` (${c.pct}%)` : ""}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground/50 italic">Multi-evento</span>
+              )}
+            </div>
           ) : (
             <span className="text-muted-foreground">{eventName}</span>
           )}
