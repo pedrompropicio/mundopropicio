@@ -233,7 +233,7 @@ export default function Transactions() {
   // Base filter (type, event, account, open only, search)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
     .filter(matchesSearch)
-    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
+    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id) || (!t.event_id && !t.parent_transaction_id))
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => {
       const paidAmount = Number(t.paid_amount ?? 0);
@@ -336,7 +336,7 @@ export default function Transactions() {
   const paidTransactions = useMemo(() => {
     const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter(matchesSearch)
-      .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id))
+      .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id) || (!t.event_id && !t.parent_transaction_id))
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
