@@ -59,6 +59,8 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
 export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false);
 
+  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
+
   const { data: movements = [] } = useQuery({
     queryKey: ["transaction-movements", t.id],
     queryFn: async () => {
@@ -71,6 +73,24 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
       return data;
     },
     enabled: expanded,
+  });
+
+  // For parent split transactions, fetch child event names
+  const { data: childEventNames = [] } = useQuery({
+    queryKey: ["split-child-events", t.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("event_id, events(name), split_percentage")
+        .eq("parent_transaction_id", t.id);
+      if (error) throw error;
+      return (data ?? []).map((c: any) => ({
+        name: c.events?.name ?? "—",
+        pct: c.split_percentage != null ? Number(c.split_percentage) : null,
+      }));
+    },
+    enabled: isParentSplit,
+    staleTime: 60_000,
   });
 
   const { data: profiles = [] } = useQuery({
