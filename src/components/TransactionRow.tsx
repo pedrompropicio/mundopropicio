@@ -172,13 +172,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {isChildSplit && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
-                        🔗 Rateio {splitPct != null ? `${splitPct}%` : ""}
+                      <span className="inline-flex items-center gap-0.5 rounded border border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground cursor-help">
+                        Rateio {splitPct != null ? `${splitPct}%` : ""}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
                       <p>Sub-transação vinculada a um rateio multi-evento.</p>
-                      <p className="mt-1 text-muted-foreground">A liquidação é feita na transação-mãe e propagada automaticamente.</p>
+                      <p className="mt-1 text-muted-foreground">A liquidação é feita na transação principal e propagada automaticamente.</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
