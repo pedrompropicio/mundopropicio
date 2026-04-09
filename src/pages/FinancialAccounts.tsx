@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users } from "lucide-react";
+import { Plus, Pencil, X, Landmark, CreditCard, Wallet, Banknote, Eye, EyeOff, Save, FileText, Ticket, Users, Trash2 } from "lucide-react";
 import AccountAccessModal from "@/components/AccountAccessModal";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,27 @@ export default function FinancialAccounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
   const [accessModalAccount, setAccessModalAccount] = useState<{ id: string; name: string } | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<{ id: string; name: string } | null>(null);
+
+  // Check if account has transactions
+  function accountHasTransactions(accountId: string) {
+    return txSummary.some((t: any) => t.account_id === accountId);
+  }
+
+  const deleteMutation = useMutation({
+    mutationFn: async (accountId: string) => {
+      const { error } = await supabase.from("financial_accounts").delete().eq("id", accountId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financial-accounts"] });
+      toast({ title: "Conta eliminada com sucesso!" });
+      setDeletingAccount(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao eliminar", description: err.message, variant: "destructive" });
+    },
+  });
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["financial-accounts"],
@@ -453,6 +474,15 @@ export default function FinancialAccounts() {
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
+                              {!accountHasTransactions(acc.id) && (
+                                <button
+                                  onClick={() => setDeletingAccount({ id: acc.id, name: acc.name })}
+                                  className="rounded-lg p-1.5 hover:bg-destructive/10 transition-colors text-destructive"
+                                  title="Eliminar conta"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
                           </TableCell>
                         )}
@@ -514,6 +544,32 @@ export default function FinancialAccounts() {
           accountName={accessModalAccount.name}
           onClose={() => setAccessModalAccount(null)}
         />
+      )}
+
+      {deletingAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setDeletingAccount(null)}>
+          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold">Eliminar Conta</h2>
+            <p className="text-sm text-muted-foreground">
+              Tem a certeza que deseja eliminar a conta <strong>{deletingAccount.name}</strong>? Esta ação é irreversível.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeletingAccount(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate(deletingAccount.id)}
+                disabled={deleteMutation.isPending}
+                className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? "A eliminar…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
