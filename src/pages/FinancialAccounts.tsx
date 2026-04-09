@@ -40,6 +40,7 @@ interface AccountForm {
   is_active: boolean;
   iban: string;
   card_number: string;
+  skip_balance_check: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -51,6 +52,7 @@ const emptyForm: AccountForm = {
   is_active: true,
   iban: "",
   card_number: "",
+  skip_balance_check: false,
 };
 
 export default function FinancialAccounts() {
@@ -108,6 +110,7 @@ export default function FinancialAccounts() {
         is_active: form.is_active,
         iban: (form.type === "bank" || form.type === "prepaid_card") ? (form.iban.trim() || null) : null,
         card_number: form.type === "prepaid_card" ? (form.card_number.trim() || null) : null,
+        skip_balance_check: form.skip_balance_check,
       };
 
       if (editingId) {
@@ -150,6 +153,7 @@ export default function FinancialAccounts() {
       is_active: account.is_active,
       iban: account.iban ?? "",
       card_number: account.card_number ?? "",
+      skip_balance_check: account.skip_balance_check ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -335,6 +339,17 @@ export default function FinancialAccounts() {
                 <Switch
                   checked={form.is_active}
                   onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/5 p-3">
+                <div>
+                  <Label className="text-sm font-medium">Ignorar controlo de saldo</Label>
+                  <p className="text-xs text-muted-foreground">Permite pagamentos mesmo com saldo insuficiente</p>
+                </div>
+                <Switch
+                  checked={form.skip_balance_check}
+                  onCheckedChange={(v) => setForm({ ...form, skip_balance_check: v })}
                 />
               </div>
 

@@ -901,6 +901,7 @@ export type Database = {
           initial_balance: number
           is_active: boolean
           name: string
+          skip_balance_check: boolean
           type: string
           updated_at: string
         }
@@ -914,6 +915,7 @@ export type Database = {
           initial_balance?: number
           is_active?: boolean
           name: string
+          skip_balance_check?: boolean
           type?: string
           updated_at?: string
         }
@@ -927,6 +929,7 @@ export type Database = {
           initial_balance?: number
           is_active?: boolean
           name?: string
+          skip_balance_check?: boolean
           type?: string
           updated_at?: string
         }

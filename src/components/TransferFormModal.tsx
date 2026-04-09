@@ -27,7 +27,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance")
+        .select("id, name, initial_balance, skip_balance_check")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -81,12 +81,13 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
       if (fromAccountId === toAccountId) throw new Error("As contas devem ser diferentes.");
       if (!fromAccountId || !toAccountId) throw new Error("Selecione ambas as contas.");
 
-      if (sourceBalance !== undefined && numAmount > sourceBalance) {
+      const fromAccount = accounts.find((a) => a.id === fromAccountId);
+      const toAccount = accounts.find((a) => a.id === toAccountId);
+      const skipCheck = (fromAccount as any)?.skip_balance_check ?? false;
+      if (!skipCheck && sourceBalance !== undefined && numAmount > sourceBalance) {
         throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
       }
 
-      const fromAccount = accounts.find((a) => a.id === fromAccountId);
-      const toAccount = accounts.find((a) => a.id === toAccountId);
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
 
       // Create expense (outgoing from source)
@@ -165,8 +166,9 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
   const toAccountOptions = accountOptions.filter((a) => a.value !== fromAccountId);
 
   const numAmount = parseFloat(amount);
+  const fromAccountSkip = (accounts.find((a) => a.id === fromAccountId) as any)?.skip_balance_check ?? false;
   const insufficientBalance =
-    sourceBalance !== undefined && !isNaN(numAmount) && numAmount > sourceBalance;
+    !fromAccountSkip && sourceBalance !== undefined && !isNaN(numAmount) && numAmount > sourceBalance;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
