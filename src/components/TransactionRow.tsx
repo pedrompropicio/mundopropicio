@@ -181,7 +181,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   </Tooltip>
                 )}
               </div>
-              {isExpense && t.specification && (
+              {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
               )}
               <p className="text-xs text-muted-foreground sm:hidden">{eventName}</p>
