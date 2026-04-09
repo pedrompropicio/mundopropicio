@@ -893,6 +893,7 @@ export type Database = {
       financial_accounts: {
         Row: {
           balance_visible_to_all: boolean
+          card_number: string | null
           created_at: string
           description: string | null
           iban: string | null
@@ -905,6 +906,7 @@ export type Database = {
         }
         Insert: {
           balance_visible_to_all?: boolean
+          card_number?: string | null
           created_at?: string
           description?: string | null
           iban?: string | null
@@ -917,6 +919,7 @@ export type Database = {
         }
         Update: {
           balance_visible_to_all?: boolean
+          card_number?: string | null
           created_at?: string
           description?: string | null
           iban?: string | null
