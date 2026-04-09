@@ -82,13 +82,12 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
       if (!fromAccountId || !toAccountId) throw new Error("Selecione ambas as contas.");
 
       const fromAccount = accounts.find((a) => a.id === fromAccountId);
+      const toAccount = accounts.find((a) => a.id === toAccountId);
       const skipCheck = (fromAccount as any)?.skip_balance_check ?? false;
       if (!skipCheck && sourceBalance !== undefined && numAmount > sourceBalance) {
         throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
       }
 
-      const fromAccount = accounts.find((a) => a.id === fromAccountId);
-      const toAccount = accounts.find((a) => a.id === toAccountId);
       const changedBy = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
 
       // Create expense (outgoing from source)
