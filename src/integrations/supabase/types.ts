@@ -638,6 +638,7 @@ export type Database = {
           id: string
           iva_rate: number
           lot_number: number
+          lot_type: string
           name: string
           price: number
           quantity: number
@@ -648,6 +649,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           lot_number?: number
+          lot_type?: string
           name?: string
           price?: number
           quantity?: number
@@ -658,6 +660,7 @@ export type Database = {
           id?: string
           iva_rate?: number
           lot_number?: number
+          lot_type?: string
           name?: string
           price?: number
           quantity?: number

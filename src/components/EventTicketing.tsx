@@ -33,10 +33,18 @@ interface LotForm {
   quantity: string;
   price: string;
   iva_rate: string;
+  lot_type: string;
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular" };
+
+const lotTypeLabels: Record<string, string> = { regular: "Regular", promo: "Promo", special: "Especial" };
+const lotTypeBadgeClass: Record<string, string> = {
+  regular: "",
+  promo: "bg-warning/15 text-warning border-warning/30",
+  special: "bg-primary/15 text-primary border-primary/30",
+};
 
 /** Extract net (ex-IVA) from gross price where IVA is included ("por dentro") */
 function netFromGross(gross: number, ivaRate: number): number {
@@ -297,13 +305,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
 
       const nextLotNumber = id ? currentLots.find((l) => l.id === id)?.lot_number ?? 1 : currentLots.length + 1;
-      const payload = {
+      const payload: any = {
         zone_id: zoneId,
         name: form.name,
         quantity: newQty,
         price: parseFloat(form.price) || 0,
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
+        lot_type: form.lot_type || "regular",
       };
       if (id) {
         const { error } = await supabase.from("event_ticket_lots").update(payload).eq("id", id);
@@ -354,7 +363,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6) });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular" });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
@@ -442,7 +451,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       return (
         <tr key={lot?.id || "new"} className="bg-primary/5" onKeyDown={(e) => handleLotKeyDown(e, zoneId)}>
           <td className="py-1.5 pr-2">
-            <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
+            <div className="flex items-center gap-1.5">
+              <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
+              <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
+                <option value="regular">Regular</option>
+                <option value="promo">Promo</option>
+                <option value="special">Especial</option>
+              </select>
+            </div>
           </td>
           <td className="py-1.5 pr-2">
             <input type="number" min="0" value={lotForm.quantity} onChange={(e) => setLotForm({ ...lotForm, quantity: e.target.value })} className={`${inputClass} w-20 text-right`} placeholder="0" />
@@ -473,6 +489,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         <td className="py-2 pr-3">
           <span className="text-xs text-muted-foreground mr-1.5">{lot.lot_number}º</span>
           {lot.name}
+          {lot.lot_type && lot.lot_type !== "regular" && (
+            <span className={`ml-2 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${lotTypeBadgeClass[lot.lot_type] || ""}`}>
+              {lotTypeLabels[lot.lot_type] || lot.lot_type}
+            </span>
+          )}
         </td>
         <td className="py-2 text-right font-mono">{lot.quantity.toLocaleString()}</td>
         <td className="py-2 text-right font-mono">{formatCurrency(Number(lot.price))}</td>
