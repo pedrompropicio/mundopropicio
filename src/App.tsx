@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
@@ -61,10 +62,19 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedLayout() {
-  const { user, loading, isPartner } = useAuth();
+  const { user, loading, isPartner, signOut } = useAuth();
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
+
+  // If recovery is in progress and user somehow landed here, force sign out
+  useEffect(() => {
+    if (!loading && user && sessionStorage.getItem("recovery_in_progress") === "true") {
+      signOut().then(() => {
+        sessionStorage.removeItem("recovery_in_progress");
+      });
+    }
+  }, [loading, user, signOut]);
 
   if (loading) {
     return (

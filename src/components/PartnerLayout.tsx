@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
@@ -12,6 +13,15 @@ export function PartnerLayout() {
   const { theme, toggleTheme } = useTheme();
 
   useInactivityTimeout(!loading && !!user);
+
+  // If recovery is in progress and user somehow landed here, force sign out
+  useEffect(() => {
+    if (!loading && user && sessionStorage.getItem("recovery_in_progress") === "true") {
+      signOut().then(() => {
+        sessionStorage.removeItem("recovery_in_progress");
+      });
+    }
+  }, [loading, user, signOut]);
 
   if (loading) {
     return (
