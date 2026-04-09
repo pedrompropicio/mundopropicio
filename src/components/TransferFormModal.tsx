@@ -27,7 +27,7 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_accounts")
-        .select("id, name, initial_balance")
+        .select("id, name, initial_balance, skip_balance_check")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -81,7 +81,9 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
       if (fromAccountId === toAccountId) throw new Error("As contas devem ser diferentes.");
       if (!fromAccountId || !toAccountId) throw new Error("Selecione ambas as contas.");
 
-      if (sourceBalance !== undefined && numAmount > sourceBalance) {
+      const fromAccount = accounts.find((a) => a.id === fromAccountId);
+      const skipCheck = (fromAccount as any)?.skip_balance_check ?? false;
+      if (!skipCheck && sourceBalance !== undefined && numAmount > sourceBalance) {
         throw new Error(`Saldo insuficiente. Disponível: €${sourceBalance.toFixed(2)}`);
       }
 

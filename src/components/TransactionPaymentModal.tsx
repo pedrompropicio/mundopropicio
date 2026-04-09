@@ -37,7 +37,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name, type, initial_balance").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("financial_accounts").select("id, name, type, initial_balance, skip_balance_check").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
     },
@@ -122,9 +122,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       // Check account balance for expenses (net amount after withholding)
       const netCashOut = addAmount - withholding;
       if (isExpense) {
-        const accBalance = computeAccountBalance(accountId);
-        if (netCashOut > accBalance) {
-          throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
+        const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
+        const skipCheck = selectedAcc?.skip_balance_check ?? false;
+        if (!skipCheck) {
+          const accBalance = computeAccountBalance(accountId);
+          if (netCashOut > accBalance) {
+            throw new Error(`Saldo insuficiente na conta. Disponível: ${formatCurrency(accBalance)}`);
+          }
         }
       }
 

@@ -342,7 +342,18 @@ export default function FinancialAccounts() {
                 />
               </div>
 
-              <button
+              <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/5 p-3">
+                <div>
+                  <Label className="text-sm font-medium">Ignorar controlo de saldo</Label>
+                  <p className="text-xs text-muted-foreground">Permite pagamentos mesmo com saldo insuficiente</p>
+                </div>
+                <Switch
+                  checked={form.skip_balance_check}
+                  onCheckedChange={(v) => setForm({ ...form, skip_balance_check: v })}
+                />
+              </div>
+
+
                 type="submit"
                 disabled={saveMutation.isPending}
                 className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
