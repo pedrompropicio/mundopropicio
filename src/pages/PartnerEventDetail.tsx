@@ -467,7 +467,11 @@ export default function PartnerEventDetail() {
               </div>
 
               {/* Per-zone detail */}
-              {ticketZones.map((zone: any) => {
+              {filteredZones.length === 0 && selectedSession ? (
+                <Card className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">Sem zonas configuradas para esta sessão.</p>
+                </Card>
+              ) : filteredZones.map((zone: any) => {
                 const lots = zone.event_ticket_lots || [];
                 const zoneSales = salesByZone[zone.id] || { qty: 0, revenue: 0 };
                 const zoneCapacity = zone.total_capacity || 0;
