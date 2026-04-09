@@ -106,6 +106,17 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Find the user by email
+    const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
+    const targetUser = (users ?? []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+
+    if (targetUser) {
+      // Revoke all sessions for this user across all devices
+      await adminClient.auth.admin.signOut(targetUser.id, 'global').catch((e: any) =>
+        console.warn("signOut global error (non-fatal):", e.message)
+      );
+    }
+
     // Generate recovery link via admin API — this returns the OTP code
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
