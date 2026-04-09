@@ -115,8 +115,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     return changedBy;
   };
 
-  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
-  const eventName = isParentSplit ? "Rateio multi-evento" : ((t.events as any)?.name ?? "—");
+  const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
