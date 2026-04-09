@@ -95,7 +95,8 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     return changedBy;
   };
 
-  const eventName = (t.events as any)?.name ?? "—";
+  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
+  const eventName = isParentSplit ? "Rateio multi-evento" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
@@ -106,7 +107,6 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const balance = Math.round((totalWithIva - paidAmount) * 100) / 100;
   const isExpense = t.type === "expense";
   const isChildSplit = !!t.parent_transaction_id;
-  const isParentSplit = !t.parent_transaction_id && t.split_percentage === null && false; // parent detected by children query below
   const splitPct = t.split_percentage != null ? Number(t.split_percentage) : null;
 
   // Compute effective status
@@ -182,6 +182,19 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {isParentSplit && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground cursor-help">
+                        📦 Mãe de rateio
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>Transação-mãe de rateio multi-evento.</p>
+                      <p className="mt-1 text-muted-foreground">A liquidação aqui propaga automaticamente para todas as sub-transações.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
@@ -190,7 +203,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             </div>
           </div>
         </td>
-        <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">{eventName}</td>
+        <td className="hidden py-3 pr-4 sm:table-cell">
+          {isParentSplit ? (
+            <span className="text-xs font-medium text-accent-foreground italic">Rateio multi-evento</span>
+          ) : (
+            <span className="text-muted-foreground">{eventName}</span>
+          )}
+        </td>
         <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{supplierName}</td>
         <td className="py-3 pr-4">
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
