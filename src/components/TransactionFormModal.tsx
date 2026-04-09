@@ -11,7 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
-import { TransactionSplitConfig, type SplitEntry } from "@/components/TransactionSplitConfig";
+import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo } from "@/components/TransactionSplitConfig";
 
 interface TransactionForm {
   description: string;
@@ -261,6 +261,81 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
+  // --- BP data for split events ---
+  const splitEventIds = useMemo(() => splitEntries.map(e => e.event_id), [splitEntries]);
+
+  const { data: splitForecasts = [] } = useQuery({
+    queryKey: ["split-bp-forecasts", splitEventIds],
+    queryFn: async () => {
+      if (splitEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("event_id, type, category_id, amount")
+        .in("event_id", splitEventIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isSplit && splitEventIds.length > 0,
+  });
+
+  const { data: splitTransactions = [] } = useQuery({
+    queryKey: ["split-bp-transactions", splitEventIds],
+    queryFn: async () => {
+      if (splitEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("event_id, type, category_id, amount")
+        .in("event_id", splitEventIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isSplit && splitEventIds.length > 0,
+  });
+
+  const splitBPInfoByEvent = useMemo<Record<string, SplitBPInfo>>(() => {
+    if (!isSplit || splitEventIds.length === 0 || !form.category_id) return {};
+    const result: Record<string, SplitBPInfo> = {};
+    for (const eventId of splitEventIds) {
+      const ev = events.find((e: any) => e.id === eventId);
+      const evForecasts = splitForecasts.filter(f => f.event_id === eventId);
+      const evTransactions = splitTransactions.filter(t => t.event_id === eventId);
+      const hasAnyForecasts = evForecasts.length > 0;
+      const hasForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id);
+      const forecast = evForecasts
+        .filter(f => f.type === form.type && f.category_id === form.category_id)
+        .reduce((s, f) => s + Number(f.amount), 0);
+      const used = evTransactions
+        .filter(t => t.type === form.type && t.category_id === form.category_id)
+        .reduce((s, t) => s + Number(t.amount), 0);
+      result[eventId] = {
+        event_id: eventId,
+        pl_mode: ev?.pl_mode ?? null,
+        forecast,
+        used,
+        hasForecastMatch,
+        hasAnyForecasts,
+      };
+    }
+    return result;
+  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events]);
+
+  // Check if any split event needs BP bypass
+  const splitNeedsBypass = useMemo(() => {
+    if (!isSplit || !form.category_id) return false;
+    const amount = parseFloat(form.amount) || 0;
+    for (const entry of splitEntries) {
+      const bp = splitBPInfoByEvent[entry.event_id];
+      if (!bp || !bp.hasAnyForecasts) continue;
+      const childAmount = +(amount * entry.percentage / 100).toFixed(2);
+      // Category not in BP
+      if (!bp.hasForecastMatch) return true;
+      // Exceeds available budget
+      const remaining = bp.forecast - bp.used;
+      if (bp.forecast > 0 && childAmount > remaining) return true;
+    }
+    return false;
+  }, [isSplit, form.category_id, form.amount, splitEntries, splitBPInfoByEvent]);
+
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
       if (isSplit && splitEntries.length >= 2) {
@@ -290,18 +365,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         const parentId = parentRow.id;
 
         // 2. Create child transactions for each event
-        const childInserts = await Promise.all(splitEntries.map(async (entry) => {
+        const childInserts = splitEntries.map((entry) => {
           const childAmount = +(totalAmount * entry.percentage / 100).toFixed(2);
+          const bp = splitBPInfoByEvent[entry.event_id];
+          const hasBP = bp && bp.hasAnyForecasts;
+          const hasForecastMatch = bp?.hasForecastMatch ?? false;
           
-          // Check BP for each event individually
-          const { data: forecasts } = await supabase
-            .from("event_forecasts")
-            .select("type, category_id")
-            .eq("event_id", entry.event_id);
-          
-          const hasForecastMatch = (forecasts ?? []).some(
-            (f) => f.type === data.type && f.category_id === data.category_id
-          );
+          // Determine if this child needs override
+          let needsOverride = false;
+          if (hasBP) {
+            if (!hasForecastMatch) {
+              needsOverride = true;
+            } else {
+              const remaining = bp.forecast - bp.used;
+              if (bp.forecast > 0 && childAmount > remaining) {
+                needsOverride = true;
+              }
+            }
+          }
 
           return {
             description: data.description,
@@ -313,15 +394,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             supplier_id: data.supplier_id || null,
             account_id: null,
             specification: data.type === "expense" ? (data.specification || null) : null,
-            pl_override_note: (!hasForecastMatch && (forecasts ?? []).length > 0) ? (data.pl_override_note.trim() || null) : null,
+            pl_override_note: needsOverride ? (data.pl_override_note.trim() || null) : null,
             date: data.date,
             due_date: parseDueDateForDb(data.due_date),
-            status: hasForecastMatch ? "approved" : "pending",
+            status: (hasForecastMatch && !needsOverride) ? "approved" : "pending",
             paid_amount: 0,
             split_percentage: entry.percentage,
             parent_transaction_id: parentId,
           };
-        }));
+        });
 
         const { error: childError } = await supabase.from("transactions").insert(childInserts as any);
         if (childError) throw childError;
@@ -388,6 +469,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
       if (Math.abs(totalPct - 100) > 0.01) {
         toast({ title: "A soma das percentagens deve ser 100%", variant: "destructive" });
+        return;
+      }
+      // BP bypass validation for split events
+      if (splitNeedsBypass && !plOverride) {
+        toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
+        return;
+      }
+      if (plOverride && !form.pl_override_note.trim()) {
+        toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
         return;
       }
     } else {
@@ -515,13 +605,40 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {/* Split config panel — shown when split is active */}
           {isSplit && (
-            <TransactionSplitConfig
-              events={events}
-              splitEntries={splitEntries}
-              onChange={setSplitEntries}
-              splitMethod={splitMethod}
-              onMethodChange={setSplitMethod}
-            />
+            <>
+              <TransactionSplitConfig
+                events={events}
+                splitEntries={splitEntries}
+                onChange={setSplitEntries}
+                splitMethod={splitMethod}
+                onMethodChange={setSplitMethod}
+                totalAmount={parseFloat(form.amount) || 0}
+                bpInfoByEvent={splitBPInfoByEvent}
+              />
+              {/* BP Override toggle for split mode */}
+              {splitNeedsBypass && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setPlOverride(!plOverride); setForm({ ...form, pl_override_note: "" }); }}
+                    className={`text-xs font-medium transition-colors ${plOverride ? "text-warning" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {plOverride ? "⚠️ Fora do BP — Clique para reverter" : "⚠️ Rateio excede BP em alguns eventos. Clique para justificar"}
+                  </button>
+                </div>
+              )}
+              {plOverride && splitNeedsBypass && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
+                  <input
+                    value={form.pl_override_note}
+                    onChange={(e) => setForm({ ...form, pl_override_note: e.target.value })}
+                    className="w-full rounded-lg border border-warning/50 bg-warning/5 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50"
+                    placeholder="Ex: Despesa partilhada não prevista no orçamento individual"
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
