@@ -231,6 +231,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               Transação aprovada — valor e IVA não podem ser alterados.
             </div>
           )}
+          {!isPaid && isApproved && !isAdmin && isBpLinked && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
+              Transação vinculada ao BP — valor editável até à liquidação.
+            </div>
+          )}
 
           {!isPaid && (
           <div className="space-y-2">
