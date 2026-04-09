@@ -12,7 +12,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
 
 interface Props {
   transaction: any;
@@ -96,9 +96,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const baseAmount = Number(transaction.amount);
   const ivaRate = Number(transaction.iva_rate ?? 0);
-  const amount = baseAmount * (1 + ivaRate / 100); // total com IVA
+  const amount = calcWithIva(baseAmount, ivaRate);
   const currentPaid = Number(transaction.paid_amount ?? 0);
-  const balance = amount - currentPaid;
+  const balance = Math.round((amount - currentPaid) * 100) / 100;
 
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
@@ -116,8 +116,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
-      const newPaid = currentPaid + addAmount;
-      if (newPaid > amount) throw new Error("O valor excede o saldo em aberto");
+      const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
+      if (newPaid > amount + 0.01) throw new Error("O valor excede o saldo em aberto");
 
       // Check account balance for expenses (net amount after withholding)
       const netCashOut = addAmount - withholding;
@@ -163,8 +163,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
-      const newStatus = newPaid >= amount ? "paid" : "approved";
-      const updateData: any = { paid_amount: newPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd"), account_id: accountId };
+      const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
+      const finalPaid = newStatus === "paid" ? Math.max(newPaid, amount) : newPaid;
+      const updateData: any = { paid_amount: finalPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd"), account_id: accountId };
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       const { error } = await supabase
         .from("transactions")
@@ -177,10 +178,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         for (const child of childTransactions) {
           const childPct = Number(child.split_percentage ?? 0);
           const childPayment = +(addAmount * childPct / 100).toFixed(2);
-          const childAmount = Number(child.amount) * (1 + Number(child.iva_rate ?? 0) / 100);
+          const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 0));
           const childCurrentPaid = Number(child.paid_amount ?? 0);
-          const childNewPaid = Math.min(childCurrentPaid + childPayment, childAmount);
-          const childStatus = childNewPaid >= childAmount ? "paid" : "approved";
+          const childNewPaid = Math.min(Math.round((childCurrentPaid + childPayment) * 100) / 100, childTotal);
+          const childStatus = isFullyPaid(childNewPaid, Number(child.amount), Number(child.iva_rate ?? 0)) ? "paid" : "approved";
 
           await supabase
             .from("transactions")

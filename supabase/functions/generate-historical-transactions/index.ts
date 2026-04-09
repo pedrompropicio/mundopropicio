@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       // Calculate total with IVA
       const baseAmount = Number(forecast.amount);
       const ivaRate = Number(forecast.iva_rate);
-      const totalWithIva = baseAmount * (1 + ivaRate / 100);
+      const totalWithIva = Math.round(baseAmount * (1 + ivaRate / 100) * 100) / 100;
 
       const transactionPayload = {
         description: forecast.description,

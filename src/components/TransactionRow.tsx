@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
+import { calcWithIva, isFullyPaid } from "@/lib/utils";
 import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -99,10 +100,10 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
   const amount = Number(t.amount); // valor base (sem IVA)
-  const totalWithIva = amount * (1 + ivaRate / 100);
+  const totalWithIva = calcWithIva(amount, ivaRate);
   const ivaValue = totalWithIva - amount;
   const paidAmount = Number(t.paid_amount ?? 0);
-  const balance = totalWithIva - paidAmount;
+  const balance = Math.round((totalWithIva - paidAmount) * 100) / 100;
   const isExpense = t.type === "expense";
   const isChildSplit = !!t.parent_transaction_id;
   const isParentSplit = !t.parent_transaction_id && t.split_percentage === null && false; // parent detected by children query below
@@ -110,7 +111,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   // Compute effective status
   const computedStatus = (() => {
-    if (t.status === "paid" || paidAmount >= totalWithIva) return "paid";
+    if (t.status === "paid" || isFullyPaid(paidAmount, amount, ivaRate)) return "paid";
     // Check overdue before approved — any approved transaction with past due_date is overdue
     if (t.due_date && new Date(t.due_date) < new Date() && t.status !== "paid" && t.status !== "pending") return "overdue";
     if (t.status === "approved") return "approved"; // A Pagar
