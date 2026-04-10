@@ -1004,7 +1004,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           <React.Fragment key={group.groupName}>
                             {showGroupHeader && (
                               <tr className="bg-secondary/10 border-t border-border/30">
-                                <td colSpan={3} className="py-2 pl-2 text-xs font-semibold text-foreground">{group.groupName}</td>
+                                <td colSpan={3} className="py-2 pl-2 text-xs font-semibold text-foreground"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">{formatCurrency(groupBase + groupIva)}</td>
@@ -1156,7 +1156,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                             {showGroupHeader && (
                               <tr className="bg-secondary/10 border-t border-border/30">
                                 <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">
-                                  {group.groupName}
+                                  <span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}
                                   {group.groupCode === "2.1" && cacheLines.length > 0 && (
                                     <span className="ml-2 text-muted-foreground font-normal">(incl. cachês)</span>
                                   )}
@@ -1258,7 +1258,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               <React.Fragment key={`prorated-${group.groupName}`}>
                                 {showGroupHeader && (
                                   <tr className="bg-primary/5 border-t border-border/30">
-                                    <td colSpan={4} className="py-2 pl-4 text-xs font-semibold text-foreground/70">{group.groupName}</td>
+                                    <td colSpan={4} className="py-2 pl-4 text-xs font-semibold text-foreground/70"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
                                     <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase)}</td>
                                     <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                     <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase + groupIva)}</td>
@@ -1390,7 +1390,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
             )}
             <div>
-              <p className="font-medium">{item.description}</p>
+              <p className="font-medium">
+                {item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
+                {item.description}
+              </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
               {isApproved && item.transaction_id && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
