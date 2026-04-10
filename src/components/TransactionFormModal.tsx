@@ -866,6 +866,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   used: 0,
                   lines: [{
                     id: "cache-auto",
+                    event_id: form.event_id,
                     type: "expense" as const,
                     category_id: cacheCatId,
                     amount: totalCache,
