@@ -433,13 +433,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          account_id: data.account_id || null,
+          account_id: data.is_reimbursement ? null : (data.account_id || null),
           specification: data.type === "expense" ? (data.specification || null) : null,
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
           status: autoApproved ? "approved" : "pending",
           paid_amount: 0,
+          is_reimbursement: data.is_reimbursement,
+          reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
         } as any);
         if (error) throw error;
       }
