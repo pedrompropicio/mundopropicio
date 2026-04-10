@@ -423,13 +423,17 @@ export default function ReportBPTransactions() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-          <SelectTrigger className="w-72">
+          <SelectTrigger className="w-80">
             <SelectValue placeholder="Selecionar evento…" />
           </SelectTrigger>
           <SelectContent>
-            {events.map((e: any) => (
+            {groupedEventOptions.map((e) => (
               <SelectItem key={e.id} value={e.id}>
-                {e.name} — {format(new Date(e.date), "dd/MM/yyyy")}
+                <span className={e.isChild ? "pl-4" : ""}>
+                  {e.isTour && "🎤 "}
+                  {e.isChild && "↳ "}
+                  {e.name} — {format(new Date(e.date), "dd/MM/yyyy")}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
