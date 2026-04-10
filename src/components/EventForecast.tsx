@@ -338,7 +338,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         type: form.type,
         description: form.description,
         amount: parseFloat(form.amount) || 0,
-        iva_rate: parseInt(form.iva_rate) || 23,
+        iva_rate: form.iva_rate !== "" ? parseInt(form.iva_rate) : 23,
         category_id: form.category_id || null,
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
