@@ -217,7 +217,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
       const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
       const finalPaid = newStatus === "paid" ? Math.max(newPaid, amount) : newPaid;
-      const updateData: any = { paid_amount: finalPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd"), account_id: accountId };
+      const updateData: any = { paid_amount: finalPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd"), account_id: accountId || null };
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       const { error } = await supabase
         .from("transactions")
