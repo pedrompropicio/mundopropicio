@@ -102,6 +102,49 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
+  // Fetch event partners (sócios)
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["event_partners_for_bp", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers:supplier_id(name)")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({
+        id: p.id,
+        percentage: p.percentage,
+        name: (p.suppliers as any)?.name ?? "Sócio",
+      }));
+    },
+  });
+
+  // Fetch forecast-partner assignments
+  const { data: forecastPartners = [] } = useQuery({
+    queryKey: ["forecast_partners", eventId],
+    queryFn: async () => {
+      const forecastIds = forecasts.map((f) => f.id);
+      if (forecastIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecast_partners")
+        .select("forecast_id, partner_id")
+        .in("forecast_id", forecastIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: forecasts.length > 0,
+  });
+
+  // Build a map: forecastId -> partner_ids[]
+  const forecastPartnerMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    forecastPartners.forEach((fp: any) => {
+      if (!map[fp.forecast_id]) map[fp.forecast_id] = [];
+      map[fp.forecast_id].push(fp.partner_id);
+    });
+    return map;
+  }, [forecastPartners]);
+
   // Fetch transactions for this event AND child events (for parent BP view)
   const allRelevantEventIds = useMemo(() => {
     const ids = [eventId];
