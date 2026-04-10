@@ -48,6 +48,7 @@ import AdminPanel from "./pages/AdminPanel";
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
+import Reimbursements from "./pages/Reimbursements";
 import FloatingHelpButton from "./components/FloatingHelpButton";
 import NotFound from "./pages/NotFound";
 import { PartnerLayout } from "./components/PartnerLayout";
@@ -125,6 +126,7 @@ function ProtectedLayout() {
               <Route path="/bilheteiras" element={<TicketOffices />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
+              <Route path="/reembolsos" element={<Reimbursements />} />
               <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/relatorios" element={<Reports />}>
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
