@@ -190,7 +190,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, type, category_id, amount, status, description, iva_rate, specification")
+        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification")
         .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
@@ -641,8 +641,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     // Only leaf categories (no children)
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
-    if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
-      return allowedCategoryIds.includes(c.id);
+    if (hasPLRestriction && form.event_id && !plOverride) {
+      if (isParentMultiDay) {
+        return allowedCategoryIds.includes(c.id);
+      }
+      if (allowedCategoryIds.length > 0) {
+        return allowedCategoryIds.includes(c.id);
+      }
     }
     return true;
   });
