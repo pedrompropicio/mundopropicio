@@ -95,7 +95,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       return (data as any[]).filter((c: any) => {
         const remaining = Number(c.amount) - Number(c.used_amount);
         if (remaining <= 0) return false;
-        if (c.valid_until && new Date(c.valid_until) < new Date()) return false;
+        if (c.valid_until) {
+          const [y, m, d] = c.valid_until.split("-").map(Number);
+          const now = new Date();
+          const todayNum = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+          const expiryNum = y * 10000 + m * 100 + d;
+          if (expiryNum < todayNum) return false;
+        }
         return true;
       });
     },
