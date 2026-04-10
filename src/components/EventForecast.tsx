@@ -1355,7 +1355,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showPayments && !!txId,
   });
 
-  const hasPayments = linkedTransaction && Number(linkedTransaction.paid_amount) > 0;
+  const hasLinkedTx = !!linkedTransaction;
   const colCount = isExpense ? 8 : 7;
 
   return (
