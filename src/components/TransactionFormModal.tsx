@@ -71,6 +71,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [isSplit, setIsSplit] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
   const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
+  const [isPaidByPartner, setIsPaidByPartner] = useState(false);
+  const [paidByPartnerId, setPaidByPartnerId] = useState("");
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -109,6 +111,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Event partners for "paid by partner" feature
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["event-partners-for-tx", form.event_id],
+    queryFn: async () => {
+      if (!form.event_id) return [];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers(name)")
+        .eq("event_id", form.event_id)
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id,
   });
 
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
@@ -425,7 +443,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         );
         const autoApproved = hasForecastMatch;
 
-        const { error } = await supabase.from("transactions").insert({
+        const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
+
+        const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description,
           type: data.type,
           amount: parseFloat(data.amount),
@@ -433,7 +453,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          account_id: data.is_reimbursement ? null : (data.account_id || null),
+          account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
@@ -442,12 +462,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           paid_amount: 0,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
-        } as any);
+        } as any).select("id").single();
         if (error) throw error;
+
+        // Auto-link to partner if paid by partner
+        if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
+          await supabase.from("partner_paid_expenses").insert({
+            event_id: data.event_id,
+            partner_id: paidByPartnerId,
+            transaction_id: insertedTx.id,
+          });
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       onClose();
       toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
     },
@@ -475,6 +505,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
     if (form.is_reimbursement && !form.reimbursement_to.trim()) {
       toast({ title: "Indique o nome do funcionário a reembolsar", variant: "destructive" });
+      return;
+    }
+    if (isPaidByPartner && !paidByPartnerId) {
+      toast({ title: "Selecione o sócio que pagou a despesa", variant: "destructive" });
       return;
     }
 
@@ -1092,12 +1126,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* Reimbursement toggle — only for expenses */}
           {form.type === "expense" && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
                     const next = !form.is_reimbursement;
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", account_id: next ? "" : form.account_id });
+                    if (next) { setIsPaidByPartner(false); setPaidByPartnerId(""); }
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     form.is_reimbursement
@@ -1107,6 +1142,26 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 >
                   💰 {form.is_reimbursement ? "Reembolso Ativo" : "Marcar como Reembolso"}
                 </button>
+
+                {/* Paid by partner toggle — only when event has partners */}
+                {form.event_id && eventPartners.length > 0 && !form.is_reimbursement && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isPaidByPartner;
+                      setIsPaidByPartner(next);
+                      setPaidByPartnerId("");
+                      if (next) { setForm({ ...form, account_id: "" }); }
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      isPaidByPartner
+                        ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    🤝 {isPaidByPartner ? "Pago por Sócio" : "Pago por Sócio"}
+                  </button>
+                )}
               </div>
               {form.is_reimbursement && (
                 <div>
@@ -1119,6 +1174,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   />
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     Despesa paga do bolso do funcionário — sem conta financeira associada
+                  </p>
+                </div>
+              )}
+              {isPaidByPartner && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
+                  <SearchableSelect
+                    options={eventPartners.map((p: any) => ({
+                      value: p.id,
+                      label: `${p.suppliers?.name} (${p.percentage}%)`,
+                    }))}
+                    value={paidByPartnerId}
+                    onValueChange={setPaidByPartnerId}
+                    placeholder="Selecionar sócio…"
+                    searchPlaceholder="Pesquisar…"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Despesa paga diretamente pelo sócio — sem conta financeira da empresa
                   </p>
                 </div>
               )}
