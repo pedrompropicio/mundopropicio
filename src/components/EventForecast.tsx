@@ -1577,7 +1577,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       <UserPlus className="h-3.5 w-3.5" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2" align="end">
+                  <PopoverContent className="w-56 p-2" align="end" onInteractOutside={() => setShowPartnerPopover(false)} onPointerDownOutside={() => setShowPartnerPopover(false)}>
                     <p className="text-xs font-semibold text-muted-foreground mb-2">Sócios Responsáveis</p>
                     <div className="space-y-1">
                       {eventPartners.map((p) => {
