@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import { moveToTrash } from "@/lib/trash";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
@@ -257,8 +258,22 @@ export default function Transactions() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Fetch transaction data before deleting for audit
+      // Fetch transaction data before deleting for audit + trash
       const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
+      // Fetch child splits
+      const { data: childTxs } = await supabase.from("transactions").select("*").eq("parent_transaction_id", id);
+
+      // Move to trash before hard delete
+      if (txData) {
+        await moveToTrash({
+          entity_type: "transaction",
+          entity_id: id,
+          entity_data: txData,
+          related_data: childTxs && childTxs.length > 0 ? { transactions: childTxs } : null,
+          deleted_by: getAuditUser(user),
+        });
+      }
+
       // Remove dependent records safely
       await supabase.from("payment_list_items").delete().eq("transaction_id", id);
       await supabase.from("reimbursement_note_items").delete().eq("transaction_id", id);
