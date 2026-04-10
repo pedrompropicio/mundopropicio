@@ -451,7 +451,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         if (childError) throw childError;
       } else {
         // --- SINGLE TRANSACTION ---
-        const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
+        const hasForecastMatch = relevantForecasts.length > 0 && relevantForecasts.some(
           (f) => f.type === data.type && f.category_id === data.category_id
         );
         const autoApproved = hasForecastMatch;
@@ -758,7 +758,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
-            const typeForecasts = eventForecasts.filter(f => f.type === form.type);
+            const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
             const cacheLines = form.type === "expense" && cacheConfigs.length > 0
@@ -766,7 +766,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   cacheConfigs,
                   cacheDeductions,
                   ticketRevenueNet,
-                  eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+                  relevantForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
                   ticketRevenueGross
                 )
               : [];
