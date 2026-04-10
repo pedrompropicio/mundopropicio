@@ -68,6 +68,31 @@ export default function ReportBPTransactions() {
     },
   });
 
+  // Group events: standalone first, then tours (parent + children indented)
+  const groupedEventOptions = useMemo(() => {
+    const parentEvents = events.filter((e: any) => !e.parent_event_id);
+    const childMap: Record<string, any[]> = {};
+    events.filter((e: any) => e.parent_event_id).forEach((e: any) => {
+      if (!childMap[e.parent_event_id]) childMap[e.parent_event_id] = [];
+      childMap[e.parent_event_id].push(e);
+    });
+    // Sort children by date
+    Object.values(childMap).forEach((arr) => arr.sort((a, b) => a.date.localeCompare(b.date)));
+
+    const result: { id: string; name: string; date: string; isTour: boolean; isChild: boolean }[] = [];
+    parentEvents.forEach((p: any) => {
+      const children = childMap[p.id];
+      const isTour = !!children && children.length > 0;
+      result.push({ id: p.id, name: p.name, date: p.date, isTour, isChild: false });
+      if (children) {
+        children.forEach((c: any) => {
+          result.push({ id: c.id, name: c.name, date: c.date, isTour: false, isChild: true });
+        });
+      }
+    });
+    return result;
+  }, [events]);
+
   const { data: forecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
