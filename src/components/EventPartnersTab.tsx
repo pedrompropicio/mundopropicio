@@ -27,9 +27,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [percentage, setPercentage] = useState("");
+  const [lossPercentage, setLossPercentage] = useState("");
   const [notes, setNotes] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPercentage, setEditPercentage] = useState("");
+  const [editLossPercentage, setEditLossPercentage] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
   const { data: event } = useQuery({
@@ -82,6 +84,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         event_id: eventId,
         supplier_id: selectedSupplier,
         percentage: Number(percentage),
+        loss_percentage: lossPercentage ? Number(lossPercentage) : null,
         notes: notes || null,
       });
       if (error) throw error;
@@ -91,6 +94,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setShowForm(false);
       setSelectedSupplier("");
       setPercentage("");
+      setLossPercentage("");
       setNotes("");
       toast({ title: "Sócio adicionado" });
     },
@@ -111,8 +115,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   });
 
   const updatePartner = useMutation({
-    mutationFn: async ({ id, percentage: pct, notes: n }: { id: string; percentage: number; notes: string }) => {
-      const { error } = await supabase.from("event_partners").update({ percentage: pct, notes: n || null }).eq("id", id);
+    mutationFn: async ({ id, percentage: pct, loss_percentage: lp, notes: n }: { id: string; percentage: number; loss_percentage: number | null; notes: string }) => {
+      const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
