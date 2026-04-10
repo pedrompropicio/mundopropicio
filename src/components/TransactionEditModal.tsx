@@ -154,7 +154,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
 
   const getRootFlags = (categoryId: string) => {
-    if (!categoryId) return { event_required: true };
+    if (!categoryId) return { event_required: false };
     let cat = categories.find((c: any) => c.id === categoryId);
     while (cat && cat.parent_id) {
       cat = categories.find((c: any) => c.id === cat!.parent_id);
@@ -172,7 +172,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     }
     // Only require event if the category demands it AND the transaction originally had an event
     // (general/administrative transactions without event should remain editable without forcing event selection)
-    const originallyHadEvent = !!transaction.event_id;
+    const originallyHadEvent = !!transaction.event_id && transaction.event_id !== "";
     if (rootFlags.event_required && !form.event_id && !hasChildren && originallyHadEvent) {
       toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
       return;
