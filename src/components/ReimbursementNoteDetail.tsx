@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download } from "lucide-react";
+import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SearchableSelect } from "@/components/ui/searchable-select";
