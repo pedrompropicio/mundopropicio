@@ -285,8 +285,8 @@ export default function Transactions() {
     .filter((t) => {
       if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
-      const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
-      return paidAmount < totalWithIva - 0.01;
+      const amount = Number(t.amount);
+      return paidAmount < amount - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending");
 
