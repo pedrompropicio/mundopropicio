@@ -1126,12 +1126,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* Reimbursement toggle — only for expenses */}
           {form.type === "expense" && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
                     const next = !form.is_reimbursement;
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", account_id: next ? "" : form.account_id });
+                    if (next) { setIsPaidByPartner(false); setPaidByPartnerId(""); }
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     form.is_reimbursement
@@ -1141,6 +1142,26 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 >
                   💰 {form.is_reimbursement ? "Reembolso Ativo" : "Marcar como Reembolso"}
                 </button>
+
+                {/* Paid by partner toggle — only when event has partners */}
+                {form.event_id && eventPartners.length > 0 && !form.is_reimbursement && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isPaidByPartner;
+                      setIsPaidByPartner(next);
+                      setPaidByPartnerId("");
+                      if (next) { setForm({ ...form, account_id: "" }); }
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      isPaidByPartner
+                        ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    🤝 {isPaidByPartner ? "Pago por Sócio" : "Pago por Sócio"}
+                  </button>
+                )}
               </div>
               {form.is_reimbursement && (
                 <div>
@@ -1153,6 +1174,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   />
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     Despesa paga do bolso do funcionário — sem conta financeira associada
+                  </p>
+                </div>
+              )}
+              {isPaidByPartner && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
+                  <SearchableSelect
+                    options={eventPartners.map((p: any) => ({
+                      value: p.id,
+                      label: `${p.suppliers?.name} (${p.percentage}%)`,
+                    }))}
+                    value={paidByPartnerId}
+                    onValueChange={setPaidByPartnerId}
+                    placeholder="Selecionar sócio…"
+                    searchPlaceholder="Pesquisar…"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Despesa paga diretamente pelo sócio — sem conta financeira da empresa
                   </p>
                 </div>
               )}
