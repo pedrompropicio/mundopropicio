@@ -283,9 +283,10 @@ export default function Transactions() {
     .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id) || (!t.event_id && !t.parent_transaction_id))
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => {
+      if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
       const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
-      return paidAmount < totalWithIva || t.status !== "paid";
+      return paidAmount < totalWithIva - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending");
 
