@@ -372,8 +372,10 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-2 flex-wrap">
+        <Button size="sm" variant="outline" onClick={exportPdf}>
+          <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+        </Button>
         {isDraft && (
           <Button size="sm" variant="outline" onClick={() => setShowAddItem(!showAddItem)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar Despesa
