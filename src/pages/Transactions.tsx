@@ -1012,6 +1012,7 @@ export default function Transactions() {
                       onToggleSelect={() => {}}
                       showSelectColumn={false}
                       eventCompleted={(t.events as any)?.status === "completed"}
+                      showPaymentDate={true}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
                       onPayment={(id) => setShowPaymentId(id)}
