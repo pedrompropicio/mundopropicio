@@ -652,7 +652,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return true;
   });
 
-  const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }));
+  const categoryOptions = filteredCategories.map((c) => {
+    // When BP is active, show BP descriptions alongside the category
+    if (hasPL && form.event_id && !plOverride) {
+      const bpLines = relevantForecasts.filter(f => f.category_id === c.id && f.type === form.type);
+      if (bpLines.length > 0) {
+        const descriptions = bpLines.map(l => l.description).join(", ");
+        return { value: c.id, label: `${c.code} ${c.name}`, description: descriptions };
+      }
+    }
+    return { value: c.id, label: `${c.code} ${c.name}` };
+  });
   const supplierOptions = suppliers.map((s: any) => ({ value: s.id, label: s.trade_name ? `${s.name} (${s.trade_name})` : s.name, searchText: s.trade_name ?? undefined }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
