@@ -1433,16 +1433,54 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 )}
               </div>
               {form.is_reimbursement && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Reembolsar a *</label>
-                  <input
-                    value={form.reimbursement_to}
-                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="Nome do funcionário"
-                  />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Despesa paga do bolso do funcionário — sem conta financeira associada
+                <div className="space-y-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota de Reembolso *</label>
+                  {!showNewReimbursementNote ? (
+                    <div className="space-y-2">
+                      <SearchableSelect
+                        options={reimbursementNotes.map((n: any) => ({
+                          value: n.id,
+                          label: `${n.code} — ${n.employee_name}`,
+                        }))}
+                        value={form.reimbursement_note_id}
+                        onValueChange={(v) => {
+                          const note = reimbursementNotes.find((n: any) => n.id === v);
+                          setForm({ ...form, reimbursement_note_id: v, reimbursement_to: note?.employee_name || "" });
+                        }}
+                        placeholder="Selecionar nota existente…"
+                        searchPlaceholder="Pesquisar por código ou funcionário…"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewReimbursementNote(true); setForm({ ...form, reimbursement_note_id: "" }); }}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <Plus className="h-3 w-3" /> Criar nova nota
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        value={newReimbursementEmployeeName}
+                        onChange={(e) => {
+                          setNewReimbursementEmployeeName(e.target.value);
+                          setForm({ ...form, reimbursement_to: e.target.value });
+                        }}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="Nome do funcionário"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewReimbursementNote(false); setNewReimbursementEmployeeName(""); }}
+                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        ← Selecionar nota existente
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    A transação será vinculada automaticamente à nota de reembolso — sem conta financeira associada
                   </p>
                 </div>
               )}
