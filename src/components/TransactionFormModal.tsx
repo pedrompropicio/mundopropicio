@@ -473,6 +473,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (form.is_reimbursement && !form.reimbursement_to.trim()) {
+      toast({ title: "Indique o nome do funcionário a reembolsar", variant: "destructive" });
+      return;
+    }
 
     // Split validation
     if (isSplit) {
