@@ -149,12 +149,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return map;
   }, [events]);
 
-  // For parent multi_day events, collect all child event IDs to aggregate BP
+  // For parent multi_day events, fetch parent's own BP (for proration) + child BPs for aggregation
   const forecastEventIds = useMemo(() => {
     if (!form.event_id) return [];
     if (isParentMultiDay) {
       const childIds = (subEventsByParent[form.event_id] || []).map((e: any) => e.id);
-      return childIds.length > 0 ? childIds : [form.event_id];
+      // Include the parent event itself so its own BP lines (for proration) are visible
+      return [form.event_id, ...childIds];
     }
     return [form.event_id];
   }, [form.event_id, isParentMultiDay, subEventsByParent]);
@@ -267,8 +268,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }, 0);
   }, [ticketLots]);
 
+  // When selecting a parent multi_day event, only show the parent's own BP lines (for proration)
+  const relevantForecasts = useMemo(() => {
+    if (isParentMultiDay) {
+      return eventForecasts.filter((f: any) => f.event_id === form.event_id);
+    }
+    return eventForecasts;
+  }, [eventForecasts, isParentMultiDay, form.event_id]);
+
   const forecastBudgetByCategory = hasPL
-    ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
+    ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
         const key = `${f.type}_${f.category_id || "none"}`;
         acc[key] = (acc[key] || 0) + Number(f.amount);
         return acc;
@@ -284,7 +293,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     : {};
 
   const allowedCategoryIds = hasPLRestriction
-    ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
+    ? [...new Set(relevantForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
   // --- BP data for split events ---
@@ -442,7 +451,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         if (childError) throw childError;
       } else {
         // --- SINGLE TRANSACTION ---
-        const hasForecastMatch = eventForecasts.length > 0 && eventForecasts.some(
+        const hasForecastMatch = relevantForecasts.length > 0 && relevantForecasts.some(
           (f) => f.type === data.type && f.category_id === data.category_id
         );
         const autoApproved = hasForecastMatch;
@@ -749,7 +758,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
           {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && form.event_id && plExpanded && (() => {
-            const typeForecasts = eventForecasts.filter(f => f.type === form.type);
+            const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
             const cacheLines = form.type === "expense" && cacheConfigs.length > 0
@@ -757,7 +766,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   cacheConfigs,
                   cacheDeductions,
                   ticketRevenueNet,
-                  eventForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+                  relevantForecasts.map(f => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
                   ticketRevenueGross
                 )
               : [];
