@@ -504,11 +504,53 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             transaction_id: insertedTx.id,
           });
         }
+
+        // Auto-link to reimbursement note
+        if (data.is_reimbursement && insertedTx?.id) {
+          let noteId = data.reimbursement_note_id;
+
+          // Create new note if needed
+          if (!noteId && showNewReimbursementNote && newReimbursementEmployeeName.trim()) {
+            const { data: newNote, error: noteError } = await supabase
+              .from("reimbursement_notes")
+              .insert({
+                employee_name: newReimbursementEmployeeName.trim(),
+                created_by: "system",
+                code: "",
+              } as any)
+              .select("id")
+              .single();
+            if (noteError) throw noteError;
+            noteId = newNote.id;
+          }
+
+          if (noteId) {
+            // Link transaction to the note
+            await supabase.from("reimbursement_note_items").insert({
+              reimbursement_note_id: noteId,
+              transaction_id: insertedTx.id,
+            });
+
+            // Update note total
+            const txAmount = parseFloat(data.amount);
+            const { data: currentNote } = await supabase
+              .from("reimbursement_notes")
+              .select("total_amount")
+              .eq("id", noteId)
+              .single();
+            await supabase
+              .from("reimbursement_notes")
+              .update({ total_amount: (Number(currentNote?.total_amount) || 0) + txAmount } as any)
+              .eq("id", noteId);
+          }
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
       onClose();
       toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
     },
