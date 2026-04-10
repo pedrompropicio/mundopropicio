@@ -421,7 +421,6 @@ const helpManual: HelpSection[] = [
         title: "Acesso a eventos",
         content:
           "O administrador controla quais eventos cada parceiro pode ver através da tabela de acessos (partner_event_access). Os acessos podem ser ativados ou desativados a qualquer momento.\n\nPara eventos multi-cidade (Turnês), pode-se autorizar o evento-pai (acesso a tudo) ou apenas sub-eventos específicos.",
-          "O administrador controla quais eventos cada parceiro pode ver através da tabela de acessos (partner_event_access). Os acessos podem ser ativados ou desativados a qualquer momento.\n\nPara eventos multi-cidade (Turnês), pode-se autorizar o evento Master (acesso a tudo) ou apenas eventos Split específicos.",
       },
       {
         title: "Informações disponíveis",
