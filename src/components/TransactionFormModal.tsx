@@ -282,7 +282,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     : {};
 
   const allowedCategoryIds = hasPLRestriction
-    ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
+    ? [...new Set(eventForecasts.filter(f => f.type === form.type && f.status === "approved").map(f => f.category_id).filter(Boolean))]
     : [];
 
   // --- BP data for split events ---

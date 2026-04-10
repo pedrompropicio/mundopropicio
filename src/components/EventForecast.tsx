@@ -1014,7 +1014,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} linkedTransaction={f.transaction_id ? transactions.find(t => t.id === f.transaction_id) : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} eventTransactions={transactions} />
                               )
                             ))}
                           </React.Fragment>
@@ -1177,7 +1177,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} linkedTransaction={f.transaction_id ? transactions.find(t => t.id === f.transaction_id) : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} eventTransactions={transactions} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
@@ -1297,18 +1297,28 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, linkedTransaction }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, eventTransactions }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
-  linkedTransaction?: any;
+  eventTransactions?: any[];
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+
+  // Find all transactions matching this forecast's category and type
+  const matchingTransactions = useMemo(() => {
+    if (!eventTransactions || !item.category_id) return [];
+    return eventTransactions.filter(
+      (t: any) => t.category_id === item.category_id && t.type === item.type
+    );
+  }, [eventTransactions, item.category_id, item.type]);
+
+  const hasMatchingTx = matchingTransactions.length > 0;
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
@@ -1324,38 +1334,6 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showAuditLog,
   });
 
-  // Fetch financial account for linked transaction
-  const accountId = linkedTransaction?.account_id;
-  const { data: paymentAccount } = useQuery({
-    queryKey: ["financial_account_name", accountId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("financial_accounts")
-        .select("name")
-        .eq("id", accountId!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: showPayments && !!accountId,
-  });
-
-  // Fetch supplier credit usages for linked transaction
-  const txId = linkedTransaction?.id;
-  const { data: creditUsages = [] } = useQuery({
-    queryKey: ["supplier_credit_usages_for_tx", txId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("supplier_credit_usages")
-        .select("*, supplier_credits(supplier_id, suppliers:supplier_id(name))")
-        .eq("transaction_id", txId!);
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: showPayments && !!txId,
-  });
-
-  const hasLinkedTx = !!linkedTransaction;
   const colCount = isExpense ? 8 : 7;
 
   return (
@@ -1410,11 +1388,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
             <span className="text-[10px] text-primary/60 italic">rateio</span>
           ) : (
             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {hasLinkedTx && (
+              {hasMatchingTx && (
                 <button
                   onClick={() => setShowPayments(!showPayments)}
                   className={`rounded p-1 hover:bg-primary/20 ${showPayments ? "bg-primary/10" : ""}`}
-                  title="Ver pagamentos"
+                  title={`Ver transações (${matchingTransactions.length})`}
                 >
                   <svg className="h-3.5 w-3.5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
                 </button>
@@ -1461,63 +1439,54 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           )}
         </td>
       </tr>
-      {showPayments && linkedTransaction && (
+      {showPayments && matchingTransactions.length > 0 && (
         <tr>
           <td colSpan={colCount} className="py-0">
-            <div className="bg-primary/5 border-l-2 border-primary/30 ml-6 my-1 rounded-r-lg px-3 py-2 space-y-1.5 animate-fade-in">
+            <div className="bg-primary/5 border-l-2 border-primary/30 ml-6 my-1 rounded-r-lg px-3 py-2 space-y-2 animate-fade-in">
               <p className="text-xs font-semibold text-primary/80 flex items-center gap-1.5">
                 <svg className="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                Pagamentos
+                Transações ({matchingTransactions.length})
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Valor Total</span>
-                  <p className="font-mono font-semibold">{formatCurrency(Number(linkedTransaction.amount) * (1 + Number(linkedTransaction.iva_rate) / 100))}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Valor Pago</span>
-                  <p className="font-mono font-semibold text-success">{formatCurrency(Number(linkedTransaction.paid_amount))}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Saldo em Aberto</span>
-                  <p className={`font-mono font-semibold ${Number(linkedTransaction.amount) * (1 + Number(linkedTransaction.iva_rate) / 100) - Number(linkedTransaction.paid_amount) > 0.01 ? "text-warning" : "text-success"}`}>
-                    {formatCurrency(Math.max(0, Number(linkedTransaction.amount) * (1 + Number(linkedTransaction.iva_rate) / 100) - Number(linkedTransaction.paid_amount)))}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Estado</span>
-                  <p className="font-medium">
-                    {linkedTransaction.status === "paid" ? "✅ Liquidada" : linkedTransaction.status === "approved" ? "🕐 Aprovada" : linkedTransaction.status}
-                  </p>
-                </div>
+              <div className="space-y-1.5">
+                {matchingTransactions.map((tx: any) => {
+                  const txTotal = Number(tx.amount) * (1 + Number(tx.iva_rate) / 100);
+                  const txPaid = Number(tx.paid_amount ?? 0);
+                  const txBalance = Math.max(0, txTotal - txPaid);
+                  const isPaid = tx.status === "paid" || txBalance < 0.01;
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
+                  return (
+                    <div key={tx.id} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{tx.description}</p>
+                          {tx.specification && <p className="text-[10px] text-muted-foreground truncate">{tx.specification}</p>}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                            isPaid ? "bg-success/15 text-success" :
+                            isOverdue ? "bg-destructive/15 text-destructive" :
+                            "bg-blue-500/15 text-blue-400"
+                          }`}>
+                            {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
+                          </span>
+                          <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-1 text-[10px] text-muted-foreground">
+                        {tx.due_date && <span>Vcto: {format(new Date(tx.due_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
+                        <span>Pago: {formatCurrency(txPaid)}</span>
+                        {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
+                        {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {(linkedTransaction.payment_date || paymentAccount) && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1 border-t border-border/30">
-                  {linkedTransaction.payment_date && (
-                    <div>
-                      <span className="text-muted-foreground">Data Pagamento</span>
-                      <p className="font-medium">{format(new Date(linkedTransaction.payment_date), "dd/MM/yyyy")}</p>
-                    </div>
-                  )}
-                  {paymentAccount && (
-                    <div>
-                      <span className="text-muted-foreground">Conta</span>
-                      <p className="font-medium">{paymentAccount.name}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {creditUsages.length > 0 && (
-                <div className="pt-1 border-t border-border/30 space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Créditos Utilizados</p>
-                  {creditUsages.map((cu: any) => (
-                    <div key={cu.id} className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{cu.supplier_credits?.suppliers?.name || "Fornecedor"}</span>
-                      <span className="font-mono font-semibold text-primary">{formatCurrency(Number(cu.amount))}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-border/30">
+                <span className="text-muted-foreground font-medium">Total transações</span>
+                <span className="font-mono font-bold">{formatCurrency(matchingTransactions.reduce((s: number, tx: any) => s + Number(tx.amount) * (1 + Number(tx.iva_rate) / 100), 0))}</span>
+              </div>
             </div>
           </td>
         </tr>
