@@ -245,10 +245,10 @@ function CreditForm({
       if (notes.trim()) insert.notes = notes.trim();
       if (originEventId) insert.origin_event_id = originEventId;
 
-      const { data: inserted, error } = await supabase.from("supplier_credits" as any).insert(insert).select("id").single();
+      const { data: inserted, error } = await (supabase.from("supplier_credits" as any).insert(insert).select("id").single() as any);
       if (error) throw error;
 
-      if (file && inserted) {
+      if (file && inserted?.id) {
         const ext = file.name.split(".").pop();
         const path = `${supplierId}/${inserted.id}/${Date.now()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
