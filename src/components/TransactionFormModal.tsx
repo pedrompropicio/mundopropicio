@@ -812,17 +812,29 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               .map(g => ({ ...g, details: sortByHierarchicalCode(g.details, (detail) => detail.catCode) }))
               .sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 
-            const handleDetailClick = (detail: PLDetail) => {
+            const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
-              const firstLine = detail.lines[0];
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
-                description: firstLine?.description || prev.description,
-                iva_rate: (firstLine?.iva_rate ?? prev.iva_rate) as IvaRate,
-                specification: firstLine?.specification || prev.specification,
+                description: line.description || prev.description,
+                iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
+                specification: line.specification || prev.specification,
               }));
-              // Keep BP expanded so user can see the lines while filling the form
+            };
+
+            const handleDetailClick = (detail: PLDetail) => {
+              if (detail.catId === "none") return;
+              // If only one line, auto-fill from it
+              if (detail.lines.length === 1) {
+                handleLineClick(detail.lines[0], detail);
+                return;
+              }
+              // Just set the category — user picks specific line below
+              setForm(prev => ({
+                ...prev,
+                category_id: detail.catId,
+              }));
             };
 
             return (
@@ -830,9 +842,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 <button type="button" onClick={() => setPlExpanded(false)} className="w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
                   BP{hasPLRestriction ? " 🔒" : ""} — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▲
                 </button>
-                <p className="text-[10px] text-muted-foreground">Clique numa linha para preencher automaticamente os dados da transação</p>
+                <p className="text-[10px] text-muted-foreground">Clique numa linha de previsão para preencher automaticamente os dados da transação</p>
                 <div
-                  className="max-h-52 overflow-y-auto overscroll-contain border border-border/30 rounded"
+                  className="max-h-64 overflow-y-auto overscroll-contain border border-border/30 rounded"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   onWheel={(e) => {
                     const el = e.currentTarget;
@@ -846,7 +858,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   <table className="w-full text-[11px]">
                     <thead>
                       <tr className="text-muted-foreground border-b border-border/30">
-                        <th className="text-left pb-1 font-medium">Conta</th>
+                        <th className="text-left pb-1 font-medium">Conta / Previsão</th>
                         <th className="text-right pb-1 font-medium">Previsto</th>
                         <th className="text-right pb-1 font-medium">Utilizado</th>
                         <th className="text-right pb-1 font-medium">Disponível</th>
@@ -855,7 +867,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                     <tbody>
                       {groups.map(group => {
                         const groupRemaining = group.totalForecast - group.totalUsed;
-                        const hasMultipleDetails = group.details.length > 1;
                         return (
                           <React.Fragment key={group.groupCode}>
                             {/* L2 Group header */}
@@ -870,32 +881,66 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                                 {groupRemaining.toFixed(2)}€
                               </td>
                             </tr>
-                            {/* L3 Detail lines */}
+                            {/* L3 Detail lines with individual forecasts */}
                             {group.details.map(detail => {
                               const remaining = detail.forecast - detail.used;
                               const isSelected = form.category_id === detail.catId;
+                              const hasMultipleLines = detail.lines.length > 1;
                               return (
-                                <tr
-                                  key={detail.catId}
-                                  onClick={() => handleDetailClick(detail)}
-                                  className={`cursor-pointer transition-colors ${
-                                    isSelected
-                                      ? "bg-primary/10 font-medium"
-                                      : "hover:bg-muted/40"
-                                  }`}
-                                >
-                                  <td className="py-1.5 pr-2 pl-4">
-                                    <span className="text-muted-foreground mr-1">{detail.catCode}</span>
-                                    {detail.catName}
-                                  </td>
-                                  <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
-                                  <td className="py-1.5 text-right font-mono">{detail.used.toFixed(2)}€</td>
-                                  <td className={`py-1.5 text-right font-mono font-semibold ${
-                                    remaining <= 0 ? "text-destructive" : "text-success"
-                                  }`}>
-                                    {remaining.toFixed(2)}€
-                                  </td>
-                                </tr>
+                                <React.Fragment key={detail.catId}>
+                                  <tr
+                                    onClick={() => handleDetailClick(detail)}
+                                    className={`cursor-pointer transition-colors ${
+                                      isSelected
+                                        ? "bg-primary/10 font-medium"
+                                        : "hover:bg-muted/40"
+                                    }`}
+                                  >
+                                    <td className="py-1.5 pr-2 pl-4">
+                                      <span className="text-muted-foreground mr-1">{detail.catCode}</span>
+                                      {detail.catName}
+                                      {hasMultipleLines && (
+                                        <span className="ml-1 text-[9px] text-muted-foreground">({detail.lines.length} linhas)</span>
+                                      )}
+                                    </td>
+                                    <td className="py-1.5 text-right font-mono">{detail.forecast.toFixed(2)}€</td>
+                                    <td className="py-1.5 text-right font-mono">{detail.used.toFixed(2)}€</td>
+                                    <td className={`py-1.5 text-right font-mono font-semibold ${
+                                      remaining <= 0 ? "text-destructive" : "text-success"
+                                    }`}>
+                                      {remaining.toFixed(2)}€
+                                    </td>
+                                  </tr>
+                                  {/* Individual forecast lines */}
+                                  {detail.lines.map((line: any) => (
+                                    <tr
+                                      key={line.id}
+                                      onClick={() => handleLineClick(line, detail)}
+                                      className={`cursor-pointer transition-colors border-l-2 ${
+                                        form.category_id === detail.catId && form.description === line.description
+                                          ? "border-l-primary bg-primary/5 font-medium"
+                                          : "border-l-transparent hover:bg-muted/20 hover:border-l-primary/30"
+                                      }`}
+                                    >
+                                      <td className="py-1 pr-2 pl-8 text-[10px]">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${line.status === "approved" ? "bg-success" : "bg-warning"}`} />
+                                          <span className="truncate">{line.description}</span>
+                                          {line.specification && (
+                                            <span className="text-muted-foreground truncate">· {line.specification}</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="py-1 text-right font-mono text-[10px]">{Number(line.amount).toFixed(2)}€</td>
+                                      <td className="py-1 text-right font-mono text-[10px] text-muted-foreground">
+                                        {line.iva_rate}%
+                                      </td>
+                                      <td className="py-1 text-right font-mono text-[10px]">
+                                        {(Number(line.amount) * (1 + Number(line.iva_rate) / 100)).toFixed(2)}€
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </React.Fragment>
                               );
                             })}
                           </React.Fragment>
