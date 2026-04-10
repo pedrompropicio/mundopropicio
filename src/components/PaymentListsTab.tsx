@@ -645,7 +645,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
         await supabase
           .from("transactions")
-          .update({ paid_amount: amount, status: "paid" })
+          .update({ paid_amount: amount, status: "paid", payment_date: list?.payment_date ?? new Date().toISOString().slice(0, 10) })
           .eq("id", txId);
       }
 
