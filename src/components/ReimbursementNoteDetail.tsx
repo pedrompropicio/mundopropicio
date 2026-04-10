@@ -113,6 +113,21 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     enabled: !!note?.employee_name && showAddItem,
   });
 
+  // Supplier bank details for payment
+  const { data: supplierData } = useQuery({
+    queryKey: ["supplier-bank-details-reimb", (note as any)?.supplier_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3")
+        .eq("id", (note as any).supplier_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!(note as any)?.supplier_id,
+  });
+
   // Financial accounts for payment
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
