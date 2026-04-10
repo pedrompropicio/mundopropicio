@@ -1297,18 +1297,28 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, linkedTransaction }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, eventTransactions }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
-  linkedTransaction?: any;
+  eventTransactions?: any[];
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+
+  // Find all transactions matching this forecast's category and type
+  const matchingTransactions = useMemo(() => {
+    if (!eventTransactions || !item.category_id) return [];
+    return eventTransactions.filter(
+      (t: any) => t.category_id === item.category_id && t.type === item.type
+    );
+  }, [eventTransactions, item.category_id, item.type]);
+
+  const hasMatchingTx = matchingTransactions.length > 0;
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
@@ -1324,38 +1334,6 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showAuditLog,
   });
 
-  // Fetch financial account for linked transaction
-  const accountId = linkedTransaction?.account_id;
-  const { data: paymentAccount } = useQuery({
-    queryKey: ["financial_account_name", accountId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("financial_accounts")
-        .select("name")
-        .eq("id", accountId!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: showPayments && !!accountId,
-  });
-
-  // Fetch supplier credit usages for linked transaction
-  const txId = linkedTransaction?.id;
-  const { data: creditUsages = [] } = useQuery({
-    queryKey: ["supplier_credit_usages_for_tx", txId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("supplier_credit_usages")
-        .select("*, supplier_credits(supplier_id, suppliers:supplier_id(name))")
-        .eq("transaction_id", txId!);
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: showPayments && !!txId,
-  });
-
-  const hasLinkedTx = !!linkedTransaction;
   const colCount = isExpense ? 8 : 7;
 
   return (
