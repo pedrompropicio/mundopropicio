@@ -295,7 +295,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             {t.due_date ? (
               <>
                 <span>{new Date(t.due_date).toLocaleDateString("pt-PT")}</span>
-                {computedStatus !== "paid" && new Date(t.due_date) < new Date() && (
+                {computedStatus !== "paid" && t.due_date.slice(0, 10) < new Date().toISOString().slice(0, 10) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="text-destructive">
