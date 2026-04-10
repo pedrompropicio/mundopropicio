@@ -326,7 +326,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Percentagem (%)</Label>
+                <Label className="text-xs">% no Lucro</Label>
                 <Input
                   type="number"
                   min="0"
@@ -335,6 +335,18 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                   value={percentage}
                   onChange={(e) => setPercentage(e.target.value)}
                   placeholder={`Máx: ${(100 - totalPercentage).toFixed(1)}%`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% no Prejuízo (opcional)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={lossPercentage}
+                  onChange={(e) => setLossPercentage(e.target.value)}
+                  placeholder="Igual ao lucro"
                 />
               </div>
             </div>
