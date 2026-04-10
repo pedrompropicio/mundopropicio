@@ -199,6 +199,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     mutationFn: async () => {
       if (!paymentAccountId) throw new Error("Selecione a conta bancária");
 
+      const today = new Date().toISOString().split("T")[0];
+
       // Create payment transaction
       const { data: paymentTx, error: payError } = await supabase
         .from("transactions")
@@ -208,35 +210,26 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           amount: Number(note.total_amount),
           iva_rate: 0,
           account_id: paymentAccountId,
-          date: new Date().toISOString().split("T")[0],
+          date: today,
           status: "paid",
           paid_amount: Number(note.total_amount),
-          payment_date: new Date().toISOString().split("T")[0],
+          payment_date: today,
         } as any)
         .select("id")
         .single();
       if (payError) throw payError;
 
-      // Mark all items as paid
-      const itemTxIds = items.map((i: any) => i.transaction_id);
-      if (itemTxIds.length > 0) {
-        const { error: txError } = await supabase
+      // Mark each item transaction as paid with correct paid_amount
+      for (const item of items) {
+        const txAmount = Number(item.transactions?.amount || 0);
+        await supabase
           .from("transactions")
           .update({
             status: "paid",
-            paid_amount: 0, // each keeps its own amount
-            payment_date: new Date().toISOString().split("T")[0],
+            paid_amount: txAmount,
+            payment_date: today,
           })
-          .in("id", itemTxIds);
-        if (txError) throw txError;
-
-        // Update each item's paid_amount individually
-        for (const item of items) {
-          await supabase
-            .from("transactions")
-            .update({ paid_amount: Number(item.transactions?.amount || 0) })
-            .eq("id", item.transaction_id);
-        }
+          .eq("id", item.transaction_id);
       }
 
       // Update note
@@ -459,7 +452,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                 );
               })}
               <TableRow className="border-t-2 border-border bg-muted/30">
-                <TableCell colSpan={isDraft ? 4 : 3} className="font-bold text-sm">TOTAL</TableCell>
+                <TableCell colSpan={4} className="font-bold text-sm">TOTAL</TableCell>
                 <TableCell className="text-right font-mono font-bold">{formatCurrency(Number(note.total_amount))}</TableCell>
                 {isDraft && <TableCell />}
               </TableRow>
