@@ -508,10 +508,12 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                       <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
                       <td className="p-2">
                         <span className="font-medium">{t.description}</span>
+                        {t.specification && <p className="text-[11px] text-muted-foreground">{t.specification}</p>}
                         {bpCheck.exceeds && (
                           <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={Number(t.amount)} /></div>
                         )}
                       </td>
+                      <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
                       <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
