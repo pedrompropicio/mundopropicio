@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1358,6 +1359,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
 
@@ -1495,9 +1497,25 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
-                  <button onClick={() => { if (window.confirm("Tem a certeza que deseja remover esta linha do BP?")) onDelete(item.id); }} className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </button>
+                  <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                    <AlertDialogTrigger asChild>
+                      <button className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remover linha do BP</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete!(item.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </>
               )}
               {isApproved && canEditApproved && onEdit && onDelete && (
@@ -1505,9 +1523,25 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar (aprovado)">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
-                  <button onClick={() => { if (window.confirm("Esta linha está aprovada. Tem a certeza que deseja removê-la?")) onDelete(item.id); }} className="rounded p-1 hover:bg-destructive/20" title="Remover (aprovado)">
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="rounded p-1 hover:bg-destructive/20" title="Remover (aprovado)">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remover linha aprovada</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta linha está aprovada. Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete!(item.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </>
               )}
             </div>
