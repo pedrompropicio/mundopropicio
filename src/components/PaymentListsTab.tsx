@@ -327,7 +327,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3)")
+        .select("*, events(name), suppliers(name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
         .order("date", { ascending: false });
