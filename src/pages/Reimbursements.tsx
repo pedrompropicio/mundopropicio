@@ -49,6 +49,15 @@ export default function Reimbursements() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const { data: noteData } = await supabase.from("reimbursement_notes").select("*").eq("id", id).single();
+      if (noteData) {
+        await moveToTrash({
+          entity_type: "reimbursement_note",
+          entity_id: id,
+          entity_data: noteData,
+          deleted_by: user?.email || "sistema",
+        });
+      }
       const { error } = await supabase.from("reimbursement_notes").delete().eq("id", id);
       if (error) throw error;
     },
