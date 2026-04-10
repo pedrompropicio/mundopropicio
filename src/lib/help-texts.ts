@@ -17,7 +17,7 @@ const helpTexts: Record<string, string> = {
   eventClosing:
     "Custos de Fecho são despesas que não geraram transações de pagamento (ex: rateio de equipa, assessoria jurídica) mas que impactam o resultado final do evento e o cálculo de participação de sócios.",
   eventPartners:
-    "Gerencie os sócios/parceiros do evento e respetivas percentagens de participação no resultado.",
+    "Gerencie os sócios/parceiros do evento e respetivas percentagens de participação no resultado. A soma das percentagens não pode exceder 100%.",
   eventTicketOffices:
     "Associe bilheteiras ao evento para acompanhar vendas por ponto de venda e gerir conciliações.",
 
@@ -59,7 +59,7 @@ const helpTexts: Record<string, string> = {
 
   // IVA
   ivaManagement:
-    "Consulte e gerencie as taxas de IVA aplicáveis. Veja como o IVA impacta receitas e despesas nas transações.",
+    "Consulte e gerencie as taxas de IVA aplicáveis (0%, 6%, 13%, 23%). Veja como o IVA impacta receitas e despesas nas transações.",
 
   // Relatórios
   reports:
@@ -91,7 +91,7 @@ const helpTexts: Record<string, string> = {
   adminPanel:
     "Painel de administração com acesso à gestão de utilizadores, segurança, backups e configurações do sistema.",
   userManagement:
-    "Crie e gerencie utilizadores. Defina perfis (Admin, Gerente, Editor, Viewer) e personalize permissões individuais.",
+    "Crie e gerencie utilizadores. Defina perfis (Admin, Gerente, Editor, Viewer, Parceiro) e personalize permissões individuais.",
   securityDashboard:
     "Monitoramento de segurança: tentativas de login, alterações de dados, MFA e atividade do sistema.",
   databaseBackups:
@@ -107,6 +107,12 @@ const helpTexts: Record<string, string> = {
   eventClosingTab:
     "Custos de Fecho são despesas que não geram transação de pagamento (ex: rateio de equipa, assessoria jurídica) mas que impactam o resultado final do evento e o cálculo da participação dos sócios.",
 
+  // Partner-related tabs
+  partnerExpenses:
+    "Despesas pagas diretamente por sócios do evento. Estas despesas não movimentam contas da empresa e são integradas no encontro de contas do Fecho Parceiros.",
+  partnerSettlement:
+    "Encontro de contas automático com cada sócio. Consolida a quota-parte do resultado, extras a descontar e despesas pagas pelo sócio para determinar o acerto final. Exportável em PDF.",
+
   // Key buttons/actions
   newTransaction:
     "Crie uma nova transação de receita ou despesa. Associe a um evento, fornecedor e categoria do plano de contas.",
@@ -114,6 +120,8 @@ const helpTexts: Record<string, string> = {
     "Transferência entre contas: move saldo de uma conta para outra. Gera automaticamente uma saída e uma entrada.",
   approveTransaction:
     "Aprovar uma transação significa validar que a despesa/receita é legítima e pode ser processada para pagamento.",
+  bulkApprove:
+    "Aprovar múltiplas transações em lote. Apenas transações em estado 'Aguardando' ou 'Atrasada' serão processadas; as restantes são ignoradas automaticamente.",
   payTransaction:
     "Registar pagamento: indica que a transação foi efetivamente paga/recebida. Informe o valor pago, conta utilizada e data.",
   newEvent:
@@ -148,6 +156,20 @@ const helpTexts: Record<string, string> = {
     "Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. Crie a nota, adicione despesas marcadas como 'Reembolso', aprove (todas devem ter fatura contábil) e pague. O sistema gera automaticamente a transação de pagamento.",
   reportPartnerExpenses:
     "Consulte todas as despesas pagas diretamente por sócios/parceiros em qualquer evento. Filtre por evento ou sócio e exporte o relatório em PDF. Estas despesas compõem a apuração do resultado do evento independentemente de terem previsão no Business Plan.",
+  paidByPartnerToggle:
+    "Despesa paga diretamente pelo sócio, sem movimentar contas da empresa. A despesa segue o ciclo de aprovação normal e aparece no encontro de contas do Fecho Parceiros.",
+  reimbursementToggle:
+    "Despesa paga do bolso de um funcionário. Não movimenta contas bancárias até à liquidação via Nota de Reembolso. Indique o nome do funcionário a reembolsar.",
+  splitTransaction:
+    "Rateio de transação entre múltiplos eventos. Defina as percentagens de cada evento. Alterações na transação-pai propagam-se automaticamente para as filhas.",
+  partnerPortal:
+    "Portal de acesso dedicado para parceiros/sócios. Mostra apenas os eventos autorizados pelo administrador, com dados somente leitura (bilhetes, BP e transações).",
+  eventCompleted:
+    "Evento concluído — todas as operações estão bloqueadas (lockdown). Apenas administradores podem reabrir o evento para edições.",
+  auditLog:
+    "Histórico detalhado de todas as alterações desta transação. Cada modificação regista o campo alterado, o valor antigo, o novo valor e o autor.",
+  linkPartnerExpense:
+    "Vincular uma despesa existente a um sócio. A despesa será integrada no encontro de contas do Fecho Parceiros deste evento.",
 };
 
 export default helpTexts;

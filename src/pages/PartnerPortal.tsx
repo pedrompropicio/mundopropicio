@@ -5,6 +5,8 @@ import { Calendar, Ticket, BarChart3, ArrowUpDown, Loader2 } from "lucide-react"
 import { Link } from "react-router-dom";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 export default function PartnerPortal() {
   const { user } = useAuth();
@@ -34,7 +36,7 @@ export default function PartnerPortal() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Portal do Parceiro</h1>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">Portal do Parceiro <HelpTooltip text={helpTexts.partnerPortal} /></h1>
         <p className="text-sm text-muted-foreground mt-1">Eventos aos quais tem acesso autorizado.</p>
       </div>
 

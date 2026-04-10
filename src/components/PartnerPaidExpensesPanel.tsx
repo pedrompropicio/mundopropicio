@@ -10,6 +10,8 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface Props {
   eventId: string;
@@ -125,7 +127,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <UserCheck className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Despesas Pagas por Sócios</h3>
+          <h3 className="text-sm font-semibold flex items-center gap-1.5">Despesas Pagas por Sócios <HelpTooltip text={helpTexts.partnerExpenses} size={13} /></h3>
         </div>
         {canEdit && (
           <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
