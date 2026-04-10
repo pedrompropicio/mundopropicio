@@ -198,6 +198,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(addAmount - withholding)})`,
         });
       }
+      if (totalCreditApplied > 0) {
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Crédito fornecedor",
+          old_value: null,
+          new_value: `${formatCurrency(totalCreditApplied)} aplicado via crédito (saída de caixa: ${formatCurrency(netCashOut)})`,
+        });
+      }
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
