@@ -1507,6 +1507,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
               )}
+              {/* Partner badges */}
+              {assignedPartnerIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {assignedPartnerIds.map((pid) => {
+                    const partner = eventPartners.find((p) => p.id === pid);
+                    return partner ? (
+                      <span key={pid} className="inline-flex items-center gap-0.5 rounded-full bg-indigo-500/15 text-indigo-400 px-1.5 py-0.5 text-[10px] font-medium">
+                        <Users className="h-2.5 w-2.5" />{partner.name}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </td>
