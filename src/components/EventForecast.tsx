@@ -968,6 +968,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </button>
               )}
             </div>
+            {/* Partner filter */}
+            {eventPartners.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={partnerFilter}
+                  onChange={(e) => setPartnerFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="all">Todos</option>
+                  <option value="company">Empresa (MP Gestão)</option>
+                  {eventPartners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.percentage}%)</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
