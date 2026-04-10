@@ -30,6 +30,7 @@ interface TransactionForm {
   pl_override_note: string;
   is_reimbursement: boolean;
   reimbursement_to: string;
+  reimbursement_note_id: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -47,6 +48,7 @@ const emptyForm: TransactionForm = {
   pl_override_note: "",
   is_reimbursement: false,
   reimbursement_to: "",
+  reimbursement_note_id: "",
 };
 
 const formatDueDateInput = (value: string) => {
