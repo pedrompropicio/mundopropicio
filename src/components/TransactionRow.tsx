@@ -373,11 +373,24 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {/* Payment/Receipt: only after approved, not completed */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && (
+                {/* Payment/Receipt: only after approved, not completed, not linked to reimbursement note */}
+                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && (
                   <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                     <CreditCard className="h-3.5 w-3.5" />
                   </button>
+                )}
+                {/* Reimbursement transactions: show info that payment is via note */}
+                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.is_reimbursement && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="rounded-lg p-1.5 text-muted-foreground cursor-default">
+                        <CreditCard className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Pagamento apenas via Nota de Reembolso
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {/* Delete: blocked if event completed */}
                 {!eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue"))) && (

@@ -31,7 +31,8 @@ const statusColors: Record<string, string> = {
 };
 
 export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, user, role } = useAuth();
+  const isEditor = role === "editor";
   const queryClient = useQueryClient();
   const [showAddItem, setShowAddItem] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
@@ -270,7 +271,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const isApproved = note.status === "approved";
   const allHaveDocs = items.length > 0 && items.every((i: any) => docsMap[i.transaction_id]);
   const canApprove = isDraft && items.length > 0 && allHaveDocs && (isAdmin || isManager);
-  const canPay = isApproved && (isAdmin || isManager);
+  const canPay = isApproved && (isAdmin || isManager || isEditor);
 
   function exportPdf() {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
