@@ -817,20 +817,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const incomeGroups = useMemo(() => groupForecasts(incomeForecasts), [incomeForecasts, catLookup]);
   const expenseGroups = useMemo(() => {
-    const groups = groupForecasts(expenseForecasts);
+    // Merge own expenses with prorated parent expenses into a single list
+    const mergedExpenses = [...expenseForecasts, ...filteredProratedParentExpenses.map((f: any) => ({ ...f, _prorated: true }))];
+    const groups = groupForecasts(mergedExpenses);
     // Ensure "Artístico" group exists if there are cache lines
     if (filteredCacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
       groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
       groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
     }
     return groups;
-  }, [expenseForecasts, catLookup, filteredCacheLines]);
-
-  // Groups for prorated parent expenses (separate from own expenses)
-  const proratedExpenseGroups = useMemo(() => {
-    if (filteredProratedParentExpenses.length === 0) return [];
-    return groupForecasts(filteredProratedParentExpenses);
-  }, [filteredProratedParentExpenses, catLookup]);
+  }, [expenseForecasts, filteredProratedParentExpenses, catLookup, filteredCacheLines]);
 
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
   const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
@@ -1293,7 +1289,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               </tr>
                             )}
                             {group.items.map((f) => (
-                              editingId === f.id ? (
+                              f._prorated ? (
+                                <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} />
+                              ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                                   <td className="py-1.5 pr-2">
                                     <input ref={descRef} value={inlineForm.description} onChange={(e) => setInlineForm({ ...inlineForm, description: e.target.value })} className={inputClass} autoFocus />
@@ -1359,41 +1357,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           </React.Fragment>
                         );
                       })}
-                      {/* Prorated parent expenses */}
-                      {filteredProratedParentExpenses.length > 0 && (
-                        <>
-                          <tr className="bg-primary/5 border-t-2 border-primary/20">
-                            <td colSpan={8} className="py-2.5 pl-2">
-                              <div className="flex items-center gap-2">
-                                <Layers className="h-4 w-4 text-primary shrink-0" />
-                                <span className="text-xs font-semibold text-primary">Despesas Rateadas do Evento-Pai</span>
-                                <span className="text-[10px] text-muted-foreground">(÷ {siblingCount} sub-eventos)</span>
-                              </div>
-                            </td>
-                          </tr>
-                          {proratedExpenseGroups.map((group) => {
-                            const groupBase = group.items.reduce((s: number, f: any) => s + Number(f.amount), 0);
-                            const groupIva = group.items.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
-                            const showGroupHeader = proratedExpenseGroups.length > 1 || group.groupName !== (group.items[0]?.account_categories?.name);
-                            return (
-                              <React.Fragment key={`prorated-${group.groupName}`}>
-                                {showGroupHeader && (
-                                  <tr className="bg-primary/5 border-t border-border/30">
-                                    <td colSpan={4} className="py-2 pl-4 text-xs font-semibold text-foreground/70"><span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}</td>
-                                    <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase)}</td>
-                                    <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
-                                    <td className="py-2 text-right font-mono text-xs font-semibold text-foreground/70">{formatCurrency(groupBase + groupIva)}</td>
-                                    <td />
-                                  </tr>
-                                )}
-                                {group.items.map((f: any) => (
-                                  <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} />
-                                ))}
-                              </React.Fragment>
-                            );
-                          })}
-                        </>
-                      )}
                       {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
                     {(expenseForecasts.length > 0 || addingType === "expense" || filteredCacheLines.length > 0 || filteredProratedParentExpenses.length > 0) && (
