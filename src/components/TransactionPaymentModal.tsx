@@ -81,6 +81,29 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const hasChildren = childTransactions.length > 0;
 
+  // Fetch available credits for this supplier
+  const { data: availableCredits = [] } = useQuery({
+    queryKey: ["supplier-credits-available", transaction.supplier_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("supplier_credits" as any)
+        .select("id, amount, used_amount, reason, document_ref, valid_until")
+        .eq("supplier_id", transaction.supplier_id)
+        .eq("status", "active");
+      if (error) throw error;
+      // Filter out expired and fully used
+      return (data as any[]).filter((c: any) => {
+        const remaining = Number(c.amount) - Number(c.used_amount);
+        if (remaining <= 0) return false;
+        if (c.valid_until && new Date(c.valid_until) < new Date()) return false;
+        return true;
+      });
+    },
+    enabled: !!transaction.supplier_id && isExpense,
+  });
+
+  const totalCreditApplied = Object.values(creditAllocations).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+
   function computeAccountBalance(accId: string) {
     const acc = financialAccounts.find((a: any) => a.id === accId);
     if (!acc) return 0;
