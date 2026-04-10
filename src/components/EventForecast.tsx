@@ -97,13 +97,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
+  // Fetch transactions for this event AND child events (for parent BP view)
+  const allRelevantEventIds = useMemo(() => {
+    const ids = [eventId];
+    if (childEventIds && childEventIds.length > 0) {
+      ids.push(...childEventIds);
+    }
+    return ids;
+  }, [eventId, childEventIds]);
+
   const { data: transactions = [] } = useQuery({
-    queryKey: ["event_transactions_actual", eventId],
+    queryKey: ["event_transactions_actual", eventId, childEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("*, account_categories(code, name, type)")
-        .eq("event_id", eventId);
+        .in("event_id", allRelevantEventIds);
       if (error) throw error;
       return data;
     },
@@ -1231,7 +1240,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </tr>
                                 )}
                                 {group.items.map((f: any) => (
-                                  <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} />
+                                  <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} />
                                 ))}
                               </React.Fragment>
                             );
@@ -1385,7 +1394,18 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         </td>
         <td className="py-2.5 text-right">
           {readOnly ? (
-            <span className="text-[10px] text-primary/60 italic">rateio</span>
+            <div className="flex justify-end items-center gap-1">
+              {hasMatchingTx && (
+                <button
+                  onClick={() => setShowPayments(!showPayments)}
+                  className={`rounded p-1 hover:bg-primary/20 ${showPayments ? "bg-primary/10" : ""}`}
+                  title={`Ver transações (${matchingTransactions.length})`}
+                >
+                  <svg className="h-3.5 w-3.5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                </button>
+              )}
+              <span className="text-[10px] text-primary/60 italic">rateio</span>
+            </div>
           ) : (
             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {hasMatchingTx && (
