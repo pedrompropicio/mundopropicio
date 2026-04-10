@@ -59,7 +59,8 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
 export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false);
 
-  const isParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
+  // Only consider as potential parent split if no parent and no event
+  const mightBeParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
 
   const { data: movements = [] } = useQuery({
     queryKey: ["transaction-movements", t.id],
@@ -75,7 +76,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     enabled: expanded,
   });
 
-  // For parent split transactions, fetch child event names
+  // For potential parent split transactions, fetch child event names
   const { data: childEventNames = [] } = useQuery({
     queryKey: ["split-child-events", t.id],
     queryFn: async () => {
@@ -89,9 +90,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         pct: c.split_percentage != null ? Number(c.split_percentage) : null,
       }));
     },
-    enabled: isParentSplit,
+    enabled: mightBeParentSplit,
     staleTime: 60_000,
   });
+
+  // Only mark as parent split if it actually has child transactions
+  const isParentSplit = mightBeParentSplit && childEventNames.length > 0;
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-names"],
