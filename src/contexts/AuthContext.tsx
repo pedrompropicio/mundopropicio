@@ -80,6 +80,7 @@ export const ALL_PERMISSIONS = [
   { key: "view_report_document_pendencies", label: "Relatório Pendências Documentais", group: "Relatórios" },
   { key: "view_report_accounting_export", label: "Relatório Exportação Contábil", group: "Relatórios" },
   { key: "view_report_artist_cache", label: "Relatório Cachê do Artista", group: "Relatórios" },
+  { key: "edit_approved_bp", label: "Editar BP Aprovado (Em Curso)", group: "Operacional" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {

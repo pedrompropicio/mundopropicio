@@ -62,6 +62,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const isEventLocked = eventStatus === "completed";
   const canApprove = (isAdmin || isManager) && !isEventLocked;
   const canEditBP = (isAdmin || isManager) && !isEventLocked;
+  const canEditApprovedBP = canEditBP && hasPermission("edit_approved_bp");
   const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
   const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
 
@@ -1049,7 +1050,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} eventTransactions={transactions} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} />
                               )
                             ))}
                           </React.Fragment>
@@ -1212,7 +1213,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} eventTransactions={transactions} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
@@ -1332,13 +1333,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, eventTransactions }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
-  eventTransactions?: any[];
+  canEditApproved?: boolean; eventTransactions?: any[];
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
@@ -1474,12 +1475,22 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 </button>
               )}
-              {(isDraft || isApproved) && onEdit && onDelete && (
+              {isDraft && onEdit && onDelete && (
                 <>
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
                   <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </button>
+                </>
+              )}
+              {isApproved && canEditApproved && onEdit && onDelete && (
+                <>
+                  <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar (aprovado)">
+                    <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <button onClick={() => onDelete(item.id)} className="rounded p-1 hover:bg-destructive/20" title="Remover (aprovado)">
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </button>
                 </>
