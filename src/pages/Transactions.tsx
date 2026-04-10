@@ -186,11 +186,47 @@ export default function Transactions() {
     },
   });
 
+  // Check for dependent records before deleting
+  const checkDependencies = async (id: string) => {
+    const warnings: string[] = [];
+    const { data: payItems } = await supabase.from("payment_list_items").select("id, payment_list_id").eq("transaction_id", id);
+    if (payItems && payItems.length > 0) {
+      warnings.push(`Presente em ${payItems.length} lista(s) de pagamento — será removida da(s) lista(s)`);
+    }
+    const { data: reimbItems } = await supabase.from("reimbursement_note_items").select("id").eq("transaction_id", id);
+    if (reimbItems && reimbItems.length > 0) {
+      warnings.push(`Vinculada a ${reimbItems.length} nota(s) de reembolso — será desvinculada`);
+    }
+    const { data: partnerExp } = await supabase.from("partner_paid_expenses").select("id").eq("transaction_id", id);
+    if (partnerExp && partnerExp.length > 0) {
+      warnings.push(`Registada como despesa paga por parceiro — o registo será removido`);
+    }
+    const { data: creditUsages } = await supabase.from("supplier_credit_usages").select("id, amount").eq("transaction_id", id);
+    if (creditUsages && creditUsages.length > 0) {
+      const total = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
+      warnings.push(`Tem ${creditUsages.length} uso(s) de crédito de fornecedor (${total.toFixed(2)} €) — serão revertidos`);
+    }
+    const { data: children } = await supabase.from("transactions").select("id").eq("parent_transaction_id", id);
+    if (children && children.length > 0) {
+      warnings.push(`Tem ${children.length} transação(ões) filha(s) de split — serão eliminadas em conjunto`);
+    }
+    return warnings;
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    setDeletingId(id);
+    setDeleteChecked(false);
+    setDeleteWarnings([]);
+    const warnings = await checkDependencies(id);
+    setDeleteWarnings(warnings);
+    setDeleteChecked(true);
+  };
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       // Fetch transaction data before deleting for audit
       const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
-      // Remove dependent records that block deletion
+      // Remove dependent records safely
       await supabase.from("payment_list_items").delete().eq("transaction_id", id);
       await supabase.from("reimbursement_note_items").delete().eq("transaction_id", id);
       await supabase.from("partner_paid_expenses").delete().eq("transaction_id", id);
