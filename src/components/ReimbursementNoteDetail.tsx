@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download } from "lucide-react";
+import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -31,7 +32,8 @@ const statusColors: Record<string, string> = {
 };
 
 export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, user, role } = useAuth();
+  const isEditor = role === "editor";
   const queryClient = useQueryClient();
   const [showAddItem, setShowAddItem] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
@@ -109,6 +111,21 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       return (data || []).filter((t: any) => !linkedIds.includes(t.id));
     },
     enabled: !!note?.employee_name && showAddItem,
+  });
+
+  // Supplier bank details for payment
+  const { data: supplierData } = useQuery({
+    queryKey: ["supplier-bank-details-reimb", (note as any)?.supplier_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3")
+        .eq("id", (note as any).supplier_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!(note as any)?.supplier_id,
   });
 
   // Financial accounts for payment
@@ -270,7 +287,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const isApproved = note.status === "approved";
   const allHaveDocs = items.length > 0 && items.every((i: any) => docsMap[i.transaction_id]);
   const canApprove = isDraft && items.length > 0 && allHaveDocs && (isAdmin || isManager);
-  const canPay = isApproved && (isAdmin || isManager);
+  const canPay = isApproved && (isAdmin || isManager || isEditor);
 
   function exportPdf() {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -440,6 +457,9 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           <p className="text-xs text-muted-foreground">
             Será criada uma transação de pagamento de {formatCurrency(Number(note.total_amount))} e todas as despesas serão marcadas como pagas.
           </p>
+          {supplierData && (
+            <SupplierBankDetails supplier={supplierData} defaultExpanded />
+          )}
           <SearchableSelect
             options={accounts.map((a: any) => ({ value: a.id, label: a.name }))}
             value={paymentAccountId}

@@ -1399,6 +1399,7 @@ export type Database = {
           paid_at: string | null
           payment_transaction_id: string | null
           status: string
+          supplier_id: string | null
           total_amount: number
           updated_at: string
         }
@@ -1414,6 +1415,7 @@ export type Database = {
           paid_at?: string | null
           payment_transaction_id?: string | null
           status?: string
+          supplier_id?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -1429,6 +1431,7 @@ export type Database = {
           paid_at?: string | null
           payment_transaction_id?: string | null
           status?: string
+          supplier_id?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -1438,6 +1441,13 @@ export type Database = {
             columns: ["payment_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_notes_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
