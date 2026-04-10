@@ -109,6 +109,7 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
             }`}
           >
             <Divide className="h-3 w-3" /> Iguais
+            <HelpTooltip text={helpTexts.splitEqual} size={11} />
           </button>
           <button
             type="button"
@@ -118,6 +119,7 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
             }`}
           >
             <Percent className="h-3 w-3" /> Personalizado
+            <HelpTooltip text={helpTexts.splitCustom} size={11} />
           </button>
         </div>
       </div>
