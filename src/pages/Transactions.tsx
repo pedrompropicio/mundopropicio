@@ -423,11 +423,16 @@ export default function Transactions() {
     }
     periodStart.setHours(0, 0, 0, 0);
 
-    return sortByDueDate(base.filter((t) => {
+    const result = base.filter((t) => {
       const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
       if (!paymentDate) return false;
       return paymentDate >= periodStart && paymentDate <= periodEnd;
-    }));
+    });
+    return [...result].sort((a, b) => {
+      const aDate = a.payment_date ?? a.date;
+      const bDate = b.payment_date ?? b.date;
+      return bDate.localeCompare(aDate); // mais recente primeiro
+    });
   }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo]);
 
   // Pending transactions in current filtered view
