@@ -64,7 +64,7 @@ export default function Transactions() {
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name").order("name");
+      const { data, error } = await supabase.from("events").select("id, name, parent_event_id").order("name");
       if (error) throw error;
       return data;
     },
@@ -118,6 +118,39 @@ export default function Transactions() {
       return data;
     },
   });
+
+  const selectedEventScopeIds = useMemo(() => {
+    if (selectedEventIds.size === 0) return new Set<string>();
+
+    const next = new Set<string>(selectedEventIds);
+    events.forEach((event: any) => {
+      if (event.parent_event_id && selectedEventIds.has(event.parent_event_id)) {
+        next.add(event.id);
+      }
+    });
+
+    return next;
+  }, [selectedEventIds, events]);
+
+  const visibleParentSplitIds = useMemo(() => {
+    if (selectedEventScopeIds.size === 0) return new Set<string>();
+
+    const next = new Set<string>();
+    transactions.forEach((transaction: any) => {
+      if (transaction.parent_transaction_id && transaction.event_id && selectedEventScopeIds.has(transaction.event_id)) {
+        next.add(transaction.parent_transaction_id);
+      }
+    });
+
+    return next;
+  }, [transactions, selectedEventScopeIds]);
+
+  const matchesEventFilter = (transaction: any) => {
+    if (selectedEventIds.size === 0) return true;
+    if (transaction.event_id && selectedEventScopeIds.has(transaction.event_id)) return true;
+
+    return !transaction.event_id && !transaction.parent_transaction_id && visibleParentSplitIds.has(transaction.id);
+  };
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -280,7 +313,7 @@ export default function Transactions() {
   // Base filter (type, event, account, open only, search)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
     .filter(matchesSearch)
-    .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id) || (!t.event_id && !t.parent_transaction_id))
+    .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => {
       if (t.status === "paid") return false;
@@ -384,7 +417,7 @@ export default function Transactions() {
   const paidTransactions = useMemo(() => {
     const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
       .filter(matchesSearch)
-      .filter((t) => selectedEventIds.size === 0 || selectedEventIds.has(t.event_id) || (!t.event_id && !t.parent_transaction_id))
+      .filter(matchesEventFilter)
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
