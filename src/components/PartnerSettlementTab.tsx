@@ -146,7 +146,8 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
     const revenue = calcBasis === "net" ? totalRevenueNet : totalRevenueGross;
     const expenses = p.expense_includes_iva ? totalExpensesGross : totalExpensesNet;
     const result = revenue - expenses;
-    const partnerShare = result * (Number(p.percentage) / 100);
+    const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
+    const partnerShare = result * (effectivePercentage / 100);
 
     const partnerExpenses = paidExpenses
       .filter((pe: any) => pe.partner_id === p.id)
