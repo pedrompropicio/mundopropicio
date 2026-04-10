@@ -285,8 +285,8 @@ export default function Transactions() {
     .filter((t) => {
       if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
-      const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
-      return paidAmount < totalWithIva - 0.01;
+      const amount = Number(t.amount);
+      return paidAmount < amount - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending");
 
@@ -359,8 +359,8 @@ export default function Transactions() {
       }
       const dateObj = new Date(dateVal);
       const paidAmount = Number(t.paid_amount ?? 0);
-      const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
-      const isPaid = t.status === "paid" || paidAmount >= totalWithIva;
+      const amount = Number(t.amount);
+      const isPaid = t.status === "paid" || paidAmount >= amount - 0.01;
 
       // Overdue only makes sense for due_date
       if (periodDateField === "due_date" && !isPaid && dateObj < today) {
@@ -388,8 +388,8 @@ export default function Transactions() {
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
-        const totalWithIva = Number(t.amount) * (1 + Number(t.iva_rate ?? 0) / 100);
-        return paidAmount >= totalWithIva || t.status === "paid";
+        const amount = Number(t.amount);
+        return paidAmount >= amount - 0.01 || t.status === "paid";
       });
 
     const today = new Date();
