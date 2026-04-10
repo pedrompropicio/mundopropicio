@@ -81,7 +81,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const hasChildren = childTransactions.length > 0;
 
-  // Fetch available credits for this supplier
+  const isExpense = transaction.type === "expense";
   const { data: availableCredits = [] } = useQuery({
     queryKey: ["supplier-credits-available", transaction.supplier_id],
     queryFn: async () => {
