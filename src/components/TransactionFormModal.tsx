@@ -282,7 +282,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     : {};
 
   const allowedCategoryIds = hasPLRestriction
-    ? [...new Set(eventForecasts.filter(f => f.type === form.type && f.status === "approved").map(f => f.category_id).filter(Boolean))]
+    ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
   // --- BP data for split events ---
@@ -822,7 +822,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 iva_rate: (firstLine?.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: firstLine?.specification || prev.specification,
               }));
-              setPlExpanded(false);
+              // Keep BP expanded so user can see the lines while filling the form
             };
 
             return (
