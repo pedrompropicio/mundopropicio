@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, KeyRound } from "lucide-react";
+import { Users, Database, ShieldAlert, Trash2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -22,6 +22,12 @@ const adminCards = [
     icon: ShieldAlert,
     title: "Segurança",
     description: "Painel de segurança, auditoria e monitorização",
+  },
+  {
+    to: "/admin/lixeira",
+    icon: Trash2,
+    title: "Lixeira",
+    description: "Recuperar itens eliminados nos últimos 30 dias",
   },
 ];
 
