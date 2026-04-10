@@ -297,7 +297,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Evento</label>
                 <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground">
-                  Multi-evento ({childTransactions.length} sub-transações)
+                  Master ({childTransactions.length} transações split)
                 </div>
               </div>
             ) : (

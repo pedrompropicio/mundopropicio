@@ -149,12 +149,12 @@ const helpManual: HelpSection[] = [
       {
         title: "Aprovação em lote (Bulk Approval)",
         content:
-          "Administradores e Gestores podem aprovar múltiplas transações simultaneamente na página de transações. Selecione as transações desejadas e clique em 'Aprovar Selecionadas'. O sistema filtra automaticamente apenas as que estão em estado 'Aguardando' ou 'Atrasada', ignorando as já aprovadas ou pagas. A aprovação em lote propaga-se para sub-transações (rateios) vinculadas.",
+          "Administradores e Gestores podem aprovar múltiplas transações simultaneamente na página de transações. Selecione as transações desejadas e clique em 'Aprovar Selecionadas'. O sistema filtra automaticamente apenas as que estão em estado 'Aguardando' ou 'Atrasada', ignorando as já aprovadas ou pagas. A aprovação em lote propaga-se para transações split (rateios) vinculadas.",
       },
       {
         title: "Rateio (Split) de transações",
         content:
-          "Ao criar uma transação, pode rateá-la entre vários eventos com percentagens definidas. O sistema cria transações-filhas vinculadas à transação-pai. Alterações na transação-pai (valor, categoria, IVA) propagam-se automaticamente para as filhas proporcionalmente.",
+          "Ao criar uma transação, pode rateá-la entre vários eventos com percentagens definidas. O sistema cria transações split vinculadas à transação master. Alterações na transação master (valor, categoria, IVA) propagam-se automaticamente para as split proporcionalmente.",
       },
       {
         title: "Reembolsos a funcionários",

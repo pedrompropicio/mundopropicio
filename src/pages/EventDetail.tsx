@@ -570,7 +570,7 @@ export default function EventDetail() {
           </div>
           {isGlobalView && (
             <p className="mt-2 text-[11px] text-muted-foreground">
-              ℹ️ Transações do evento-pai são custos partilhados (rateio igual por {subEventCount} datas nos relatórios DRE/BP).
+              ℹ️ Transações master são custos partilhados (rateio igual por {subEventCount} datas nos relatórios DRE/BP).
             </p>
           )}
         </div>

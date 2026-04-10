@@ -213,12 +213,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-0.5 rounded border border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground cursor-help">
-                        Rateio {splitPct != null ? `${splitPct}%` : ""}
+                        Split {splitPct != null ? `${splitPct}%` : ""}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
-                      <p>Sub-transação vinculada a um rateio multi-evento.</p>
-                      <p className="mt-1 text-muted-foreground">A liquidação é feita na transação principal e propagada automaticamente.</p>
+                      <p>Transação split vinculada a um rateio multi-evento.</p>
+                      <p className="mt-1 text-muted-foreground">A liquidação é feita na transação master e propagada automaticamente.</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -226,12 +226,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary cursor-help">
-                        Multi-evento
+                        Master
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
-                      <p>Transação principal de rateio multi-evento.</p>
-                      <p className="mt-1 text-muted-foreground">A liquidação aqui propaga automaticamente para todas as sub-transações.</p>
+                      <p>Transação master de rateio multi-evento.</p>
+                      <p className="mt-1 text-muted-foreground">A liquidação aqui propaga automaticamente para todas as transações split.</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -275,7 +275,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   ))}
                 </div>
               ) : (
-                <span className="text-xs text-muted-foreground/50 italic">Multi-evento</span>
+                <span className="text-xs text-muted-foreground/50 italic">Master</span>
               )}
             </div>
           ) : (
@@ -340,12 +340,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.parent_transaction_id && !t.is_reimbursement && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button onClick={() => onPayment(t.parent_transaction_id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Liquidar via transação-mãe">
+                      <button onClick={() => onPayment(t.parent_transaction_id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title="Liquidar via transação master">
                         <CreditCard className="h-3.5 w-3.5" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      Abre a transação-mãe para liquidação completa
+                      Abre a transação master para liquidação completa
                     </TooltipContent>
                   </Tooltip>
                 )}
