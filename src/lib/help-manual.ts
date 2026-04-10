@@ -32,7 +32,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Perfis de utilizador",
         content:
-          "Existem 5 perfis: Admin (acesso total), Gerente (gestão operacional e financeira), Editor (registo de dados com restrições de edição), Viewer (apenas consulta) e User (perfil base). Cada perfil tem permissões pré-definidas que podem ser personalizadas por utilizador na secção Admin > Utilizadores.",
+          "Existem 6 perfis: Admin (acesso total), Gerente (gestão operacional e financeira), Editor (registo de dados com restrições de edição), Viewer (apenas consulta), User (perfil base) e Parceiro (acesso read-only a eventos autorizados via Portal do Parceiro). Cada perfil tem permissões pré-definidas que podem ser personalizadas por utilizador na secção Admin > Utilizadores.",
       },
       {
         title: "Navegação",
@@ -55,12 +55,17 @@ const helpManual: HelpSection[] = [
       {
         title: "Estados do evento",
         content:
-          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.",
+          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.\n\nPropagação em Turnês: a reabertura ou conclusão de um evento-pai (Tour) propaga o estado automaticamente para todos os eventos-filhos, enquanto alterações num evento-filho permanecem isoladas.",
       },
       {
         title: "Tipos de evento",
         content:
-          "Simples: evento com uma única data.\nFestival: evento com múltiplas atrações na mesma data/local.\nMúltiplos Dias (Turnê): mesmo evento repetido em diferentes datas/cidades. Permite gerir cada data individualmente mantendo a estrutura do evento-pai.",
+          "Simples: evento com uma única data.\nFestival: evento com múltiplas atrações na mesma data/local.\nMúltiplos Dias (Turnê): mesmo evento repetido em diferentes datas/cidades. Permite gerir cada data individualmente mantendo a estrutura do evento-pai. O período exibido na listagem é calculado considerando o intervalo total de todas as datas (principal e extras) de todos os sub-eventos.",
+      },
+      {
+        title: "Wizard de criação (Turnês)",
+        content:
+          "Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (sub-eventos), datas extra e múltiplas sessões num único fluxo atómico. Ao finalizar o wizard, toda a estrutura é criada de uma só vez.",
       },
       {
         title: "Business Plan (BP)",
@@ -76,7 +81,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Regras: BP × Transações",
         content:
-          "Relação entre linhas do BP e transações:\n\n1. Aprovação — Apenas Admins e Gestores podem aprovar linhas do BP. A primeira aprovação de uma linha em eventos 'Planeamento' ou 'Confirmado' transita automaticamente o evento para 'Ativo'. Em eventos 'Concluídos', a aprovação não altera o estado.\n\n2. Conversão — Uma linha aprovada do BP pode ser convertida numa transação real, vinculando previsão ao registo financeiro efetivo.\n\n3. Alteração de valores aprovados — Admins e Gestores podem alterar valores de linhas já aprovadas em eventos ativos, mas é obrigatória uma justificação que fica registada no log de auditoria. O histórico de alterações é visível na interface e pode ser incluído no PDF do relatório.\n\n4. Bypass (BP Ativo) — Se precisar de uma categoria não prevista no orçamento, utilize o link 'Categoria não prevista?'. A transação criada por bypass:\n   • Exige justificação obrigatória\n   • Entra como 'Aguardando' (sem auto-aprovação)\n   • Fica marcada com badge 'Fora do BP' nos relatórios\n\n5. Ordenação — Todas as linhas do BP seguem obrigatoriamente a ordem do código numérico do plano de contas, tanto na interface como nas exportações.",
+          "Relação entre linhas do BP e transações:\n\n1. Aprovação — Apenas Admins e Gestores podem aprovar linhas do BP. A primeira aprovação de uma linha em eventos 'Planeamento' ou 'Confirmado' transita automaticamente o evento para 'Ativo'. Em eventos 'Concluídos', a aprovação não altera o estado.\n\n2. Conversão — Uma linha aprovada do BP pode ser convertida numa transação real, vinculando previsão ao registo financeiro efetivo.\n\n3. Alteração de valores aprovados — Admins e Gestores podem alterar valores de linhas já aprovadas em eventos ativos, mas é obrigatória uma justificação que fica registada no log de auditoria. O histórico de alterações é visível na interface e pode ser incluído no PDF do relatório.\n\n4. Bypass (BP Ativo) — Se precisar de uma categoria não prevista no orçamento, utilize o link 'Categoria não prevista?'. A transação criada por bypass:\n   • Exige justificação obrigatória\n   • Entra como 'Aguardando' (sem auto-aprovação)\n   • Fica marcada com badge 'Fora do BP' nos relatórios\n\n5. Ordenação — Todas as linhas do BP seguem obrigatoriamente a ordem do código numérico do plano de contas, tanto na interface como nas exportações.\n\n6. Cópia de BP — É possível copiar o Business Plan de outro evento para acelerar o planeamento de eventos semelhantes.",
       },
       {
         title: "Limites de edição por estado do evento",
@@ -96,12 +101,22 @@ const helpManual: HelpSection[] = [
       {
         title: "Parceiros / Sócios",
         content:
-          "Associe fornecedores marcados como 'Parceiro' ao evento e defina a percentagem de participação no resultado. O sistema calcula automaticamente a divisão de lucros/prejuízos com base nas receitas, despesas e custos de fecho.",
+          "Associe fornecedores marcados como 'Parceiro' ao evento e defina a percentagem de participação no resultado. O sistema valida que o total não exceda 100%. O cálculo pode usar base líquida (s/IVA) ou bruta (c/IVA), configurável por evento. O sistema calcula automaticamente a divisão de lucros/prejuízos com base nas receitas, despesas e custos de fecho.",
       },
       {
         title: "Despesas Extras do Sócio",
         content:
           "São despesas pagas pelo evento em nome de um sócio específico (ex: quarto de hotel extra, despesas pessoais) que devem ser descontadas apenas da parte desse sócio no resultado. Não afetam o resultado global do evento nem geram movimentações nas contas.\n\nAceda à secção 'Extras a Descontar' dentro do painel de cada sócio na aba Sócios do evento. Cada extra tem descrição, valor, notas e pode ter documentos anexados.\n\nNo DRE com visão Sócio, os extras aparecem analiticamente:\n  Quota Bruta do Sócio (X%)\n  (-) Despesa Extra 1\n  (-) Despesa Extra 2\n  = Quota Líquida do Sócio",
+      },
+      {
+        title: "Despesas Pagas por Sócio ('Pago por Sócio')",
+        content:
+          "Quando um sócio/parceiro paga uma despesa diretamente do seu bolso (sem usar contas da empresa), utilize o toggle '🤝 Pago por Sócio' no formulário de transação. O toggle aparece automaticamente quando o evento selecionado tem sócios.\n\nAo ativar:\n  • O campo 'Conta Destino' desaparece (não há movimentação em contas da empresa)\n  • Aparece o seletor 'Sócio que pagou' para indicar qual parceiro pagou\n  • A despesa é criada normalmente e segue o ciclo de aprovação padrão (Aguardando → Aprovada → Paga)\n  • A despesa pode ser editada e eliminada segundo as mesmas regras de qualquer transação\n  • Na listagem de transações, a despesa mostra um badge '🤝 Sócio' com tooltip indicando o nome do parceiro\n  • A despesa aparece no separador 'Desp. Sócios' do evento, agrupada por sócio\n  • No 'Fecho Parceiros', o total de despesas pagas pelo sócio é integrado no encontro de contas final\n\nO módulo 'Desp. Sócios' também permite vincular manualmente despesas existentes a um sócio, ou desvincular associações.",
+      },
+      {
+        title: "Fecho de Parceiros (Encontro de Contas)",
+        content:
+          "O separador 'Fecho Parceiros' no detalhe do evento automatiza o encontro de contas com cada sócio. O sistema consolida:\n\n  1. Resultado do evento (Receitas − Despesas)\n  2. Quota-parte do sócio (% de participação)\n  3. Extras a descontar do sócio\n  4. Despesas pagas diretamente pelo sócio\n\nO saldo final indica:\n  • Positivo → 'Empresa paga X €' ao sócio\n  • Negativo → 'Sócio paga X €' à empresa\n\nO relatório pode ser exportado em PDF para formalização do acerto de contas, incluindo detalhe analítico de cada despesa paga pelo sócio.",
       },
       {
         title: "Custos de Fecho",
@@ -129,12 +144,32 @@ const helpManual: HelpSection[] = [
       {
         title: "Ciclo de vida da transação",
         content:
-          "Aguardando → transação registada, pendente de aprovação. Pode ser editada livremente.\nAprovada → validada por um gestor/admin. Apenas admins podem editar.\nPaga → pagamento registado. Bloqueada para qualquer edição.",
+          "Aguardando → transação registada, pendente de aprovação. Pode ser editada e eliminada livremente.\n\nAprovada (A Pagar) → validada por um gestor/admin. Eliminação e alteração de valores financeiros restritas a administradores. Exceção: transações vinculadas ao BP permitem edição de montante e IVA por qualquer utilizador autenticado até à liquidação.\n\nPaga (Liquidada) → pagamento registado. Bloqueio de eliminação e de alteração de valores financeiros, categorias e eventos. Apenas 'Especificação' e 'Fornecedor' podem ser editados por Admins ou Editores.\n\nAuto-aprovação: transações para eventos 'Ativos' são automaticamente aprovadas se a categoria e tipo constarem nas previsões do BP do evento.",
+      },
+      {
+        title: "Aprovação em lote (Bulk Approval)",
+        content:
+          "Administradores e Gestores podem aprovar múltiplas transações simultaneamente na página de transações. Selecione as transações desejadas e clique em 'Aprovar Selecionadas'. O sistema filtra automaticamente apenas as que estão em estado 'Aguardando' ou 'Atrasada', ignorando as já aprovadas ou pagas. A aprovação em lote propaga-se para sub-transações (rateios) vinculadas.",
+      },
+      {
+        title: "Rateio (Split) de transações",
+        content:
+          "Ao criar uma transação, pode rateá-la entre vários eventos com percentagens definidas. O sistema cria transações-filhas vinculadas à transação-pai. Alterações na transação-pai (valor, categoria, IVA) propagam-se automaticamente para as filhas proporcionalmente.",
+      },
+      {
+        title: "Reembolsos a funcionários",
+        content:
+          "Quando um funcionário paga uma despesa do próprio bolso, active o toggle '💰 Marcar como Reembolso' no formulário. O campo de conta bancária desaparece (a empresa não desembolsou) e surge o campo 'Reembolsar a' para indicar o funcionário.\n\nAs transações de reembolso podem ser agrupadas em Notas de Reembolso (módulo dedicado) para processamento em lote. Veja a secção 'Notas de Reembolso' para mais detalhes.",
+      },
+      {
+        title: "Despesas pagas por sócio",
+        content:
+          "Para despesas pagas diretamente por um sócio/parceiro, active o toggle '🤝 Pago por Sócio' no formulário. A despesa segue o ciclo normal de aprovação e fica vinculada ao sócio para efeitos de encontro de contas. Veja a secção de Eventos → 'Despesas Pagas por Sócio' para mais detalhes.",
       },
       {
         title: "Pagamentos parciais",
         content:
-          "O sistema permite liquidações parciais. Ao registar pagamento, informe o valor efetivamente pago. O campo 'Valor Pago' é atualizado progressivamente até atingir o valor total da transação.",
+          "O sistema permite liquidações parciais. Ao registar pagamento, informe o valor efetivamente pago. O campo 'Valor Pago' é atualizado progressivamente até atingir o valor total da transação. O campo de data de pagamento suporta seleção via calendário e digitação manual (dd/mm/aaaa).",
       },
       {
         title: "Transferências entre contas",
@@ -144,12 +179,39 @@ const helpManual: HelpSection[] = [
       {
         title: "Documentos anexados e classificação contábil",
         content:
-          "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros.\n\nDocumentos contábeis — Ao fazer upload, marque a checkbox 'Documento contábil' para documentos fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento bancário). Use o ícone de informação (ℹ️) junto da checkbox para ver exemplos.\n\nNÃO marcar como contábil: propostas, contratos, riders técnicos, e-mails ou screenshots internos.\n\nEsta classificação é essencial para a exportação contábil e para o relatório de pendências documentais.",
+          "Cada transação pode ter múltiplos documentos (faturas, recibos, contratos). Clique no ícone de documentos na linha da transação para ver, adicionar ou remover ficheiros. A eliminação de documentos usa atualizações otimistas para feedback imediato.\n\nDocumentos contábeis — Ao fazer upload, marque a checkbox 'Documento contábil' para documentos fiscais (faturas, notas fiscais, recibos, notas de crédito/débito, comprovativos de pagamento bancário). Use o ícone de informação (ℹ️) junto da checkbox para ver exemplos.\n\nNÃO marcar como contábil: propostas, contratos, riders técnicos, e-mails ou screenshots internos.\n\nEsta classificação é essencial para a exportação contábil e para o relatório de pendências documentais.",
+      },
+      {
+        title: "Auditoria de transações",
+        content:
+          "Todas as alterações em transações são registadas no log de auditoria (transaction_audit_log), incluindo o valor antigo, o novo valor, o campo alterado e o autor da modificação. O histórico é visível na interface clicando no ícone de auditoria na linha da transação.",
       },
       {
         title: "Listas de Pagamento (nas transações)",
         content:
           "Dentro do módulo de transações, pode criar Listas de Pagamento diretamente. Selecione transações aprovadas e agrupe-as numa lista para processamento em lote. As listas passam por um fluxo de aprovação (Rascunho → Submetida → Aprovada) antes de serem executadas.",
+      },
+    ],
+  },
+  {
+    id: "reimbursements",
+    title: "Notas de Reembolso",
+    icon: "Receipt",
+    topics: [
+      {
+        title: "O que são Notas de Reembolso",
+        content:
+          "As Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. O sistema gera automaticamente um código sequencial (ex: R-001/2026) para cada nota.",
+      },
+      {
+        title: "Fluxo completo",
+        content:
+          "1. Crie despesas marcadas como 'Reembolso' no formulário de transações (toggle '💰 Marcar como Reembolso'), indicando o nome do funcionário.\n\n2. No módulo Notas de Reembolso, crie uma nova nota indicando o funcionário e notas adicionais.\n\n3. Adicione as despesas de reembolso à nota. Cada item deve ter obrigatoriamente um documento contábil (fatura, recibo) anexado.\n\n4. Aprove a nota (operação em lote que aprova todas as despesas vinculadas).\n\n5. Ao pagar, o sistema gera automaticamente uma transação bancária vinculada à nota, garantindo rastreabilidade bidirecional.\n\n6. A nota pode ser exportada em PDF com o detalhamento de todos os itens.",
+      },
+      {
+        title: "Regras e restrições",
+        content:
+          "• A aprovação requer que todos os itens tenham um documento contábil (is_accounting: true) anexado.\n• A aprovação propaga o estado 'Aprovado' para todas as transações vinculadas.\n• A liquidação gera automaticamente uma transação bancária na conta selecionada.\n• Os estados disponíveis são: Rascunho, Aprovada e Paga.",
       },
     ],
   },
@@ -189,7 +251,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Dados bancários",
         content:
-          "Cada fornecedor pode ter até 3 contas bancárias (IBAN + SWIFT/BIC). Ao criar transações, selecione qual IBAN usar para pagamento.",
+          "Cada fornecedor pode ter até 3 contas bancárias (IBAN + SWIFT/BIC). Ao criar transações, selecione qual IBAN usar para pagamento. Alterações nos dados bancários são registadas no log de auditoria para segurança.",
       },
     ],
   },
@@ -278,6 +340,11 @@ const helpManual: HelpSection[] = [
           "Relatório analítico dedicado ao cachê de cada artista do evento. Para cachê variável, demonstra passo a passo: receita de bilheteira → deduções por categoria → dedução fixa percentual → base de cálculo → percentagem do artista → cachê bruto. Para cachê fixo, apresenta o valor acordado.\n\nEm seguida, lista analiticamente todos os custos extras a descontar, chegando ao cachê líquido a pagar. Pode ser exportado em PDF para prestação de contas ao artista ou à sua equipa.",
       },
       {
+        title: "Despesas de Sócios",
+        content:
+          "Relatório consolidado de todas as despesas pagas diretamente por sócios/parceiros em qualquer evento. Filtre por evento ou sócio e exporte o relatório em PDF. Estas despesas compõem a apuração do resultado do evento no encontro de contas.",
+      },
+      {
         title: "Auditoria de Bilheteiras",
         content:
           "Relatório de consolidação financeira de bilheteiras com visões Sintética e Analítica. A visão Analítica suporta agrupamento 'Por Categoria' ou 'Por Evento' em três níveis de detalhe. Vendas e despesas diretas são separadas por evento; comissões são distribuídas proporcionalmente pelo volume de vendas; transferências são tratadas como movimentos globais. Exportável em PDF e Excel.",
@@ -341,6 +408,28 @@ const helpManual: HelpSection[] = [
     ],
   },
   {
+    id: "partner-portal",
+    title: "Portal do Parceiro",
+    icon: "UserCheck",
+    topics: [
+      {
+        title: "O que é o Portal do Parceiro",
+        content:
+          "Utilizadores com perfil 'Parceiro' acedem a um layout simplificado e dedicado, sem acesso ao sistema principal. O portal mostra apenas os eventos a que o parceiro foi autorizado pelo administrador.",
+      },
+      {
+        title: "Acesso a eventos",
+        content:
+          "O administrador controla quais eventos cada parceiro pode ver através da tabela de acessos (partner_event_access). Os acessos podem ser ativados ou desativados a qualquer momento.\n\nPara eventos multi-cidade (Turnês), pode-se autorizar o evento-pai (acesso a tudo) ou apenas sub-eventos específicos.",
+      },
+      {
+        title: "Informações disponíveis",
+        content:
+          "Ao clicar num evento autorizado, o parceiro tem acesso read-only a 3 abas:\n  • Bilhetes — zonas, lotes, vendas\n  • Business Plan — receitas e despesas previstas\n  • Transações — movimentos financeiros do evento\n\nTodos os dados são somente leitura — nenhum botão de criar, editar ou eliminar.",
+      },
+    ],
+  },
+  {
     id: "admin",
     title: "Administração",
     icon: "Settings",
@@ -353,12 +442,17 @@ const helpManual: HelpSection[] = [
       {
         title: "Segurança",
         content:
-          "O painel de segurança mostra tentativas de login, alterações de dados sensíveis e atividade do sistema. Monitorize para detetar acessos não autorizados.",
+          "O painel de segurança mostra tentativas de login, alterações de dados sensíveis e atividade do sistema. O sistema regista automaticamente eventos de auditoria para: eliminação de transações e documentos, alteração de perfis de utilizador, modificação de dados bancários de fornecedores, tentativas de login falhadas e bloqueios de conta. Monitorize para detetar acessos não autorizados.",
       },
       {
         title: "Backups",
         content:
           "Gerencie backups da base de dados. Crie backups manuais antes de alterações importantes ou configure rotinas automáticas para proteção contínua.",
+      },
+      {
+        title: "Permissões granulares por perfil",
+        content:
+          "O sistema usa permissões granulares atribuídas via role_permissions:\n\n• Admin e Manager — acesso total\n• Editor — acesso total a Transações e Listas de Pagamento; na Bilheteira, escrita apenas em 'Planeamento'; no BP, edição apenas de 'Categoria' e 'Descrição'; módulos de Cachê e Sócios são ocultos\n• Accountant — acesso estritamente a dados e anexos contábeis\n• Viewer — apenas consulta\n• Partner — acesso read-only via Portal do Parceiro",
       },
     ],
   },
@@ -370,7 +464,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Taxas de IVA",
         content:
-          "Consulte e configure as taxas de IVA aplicáveis. Ao criar transações ou linhas de BP, selecione a taxa correta. O sistema calcula automaticamente o valor líquido e o IVA em todos os relatórios.",
+          "Consulte e configure as taxas de IVA aplicáveis (0%, 6%, 13%, 23%). Ao criar transações ou linhas de BP, selecione a taxa correta. O sistema calcula automaticamente o valor líquido e o IVA em todos os relatórios.",
       },
     ],
   },
@@ -410,6 +504,11 @@ const helpManual: HelpSection[] = [
         title: "Pesquisa global",
         content:
           "Use o ícone de lupa no cabeçalho para pesquisar rapidamente por eventos, transações, fornecedores ou cotações em qualquer parte do sistema.",
+      },
+      {
+        title: "Ajuda contextual",
+        content:
+          "Todas as secções, botões e campos importantes do sistema possuem ícones de ajuda (?) que explicam a funcionalidade ao passar o rato (desktop) ou ao tocar (mobile). O botão flutuante (📖) no canto inferior direito abre o manual na secção relevante à página atual.",
       },
       {
         title: "Timeout por inatividade",
