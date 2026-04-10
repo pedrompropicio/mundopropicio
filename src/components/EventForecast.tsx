@@ -1359,6 +1359,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
 
