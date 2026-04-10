@@ -949,7 +949,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           <TrendingDown className="h-5 w-5 text-primary shrink-0" />
           <div>
             <p className="text-sm font-medium">Despesas Partilhadas (Rateio)</p>
-            <p className="text-xs text-muted-foreground">As despesas aqui criadas serão rateadas igualmente entre todos os sub-eventos nos relatórios.</p>
+            <p className="text-xs text-muted-foreground">As despesas aqui criadas serão rateadas igualmente entre todos os eventos Split nos relatórios.</p>
           </div>
         </div>
       )}
