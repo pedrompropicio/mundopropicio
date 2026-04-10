@@ -58,7 +58,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
   const [bpSearch, setBpSearch] = useState("");
-  const descRef = useRef<HTMLInputElement>(null);
+  const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
