@@ -1025,21 +1025,33 @@ export default function Transactions() {
           )
         )}
       </div>
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar transação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação é irreversível. A transação será permanentemente eliminada e registada no log de auditoria.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Esta ação é irreversível. A transação será permanentemente eliminada e registada no log de auditoria.</p>
+                {!deleteChecked && <p className="text-muted-foreground text-xs">A verificar dependências…</p>}
+                {deleteChecked && deleteWarnings.length > 0 && (
+                  <div className="rounded-md border border-warning/30 bg-warning/10 p-3 space-y-1">
+                    <p className="text-xs font-semibold text-warning">⚠️ Atenção — esta transação tem vínculos:</p>
+                    <ul className="text-xs text-warning list-disc pl-4 space-y-0.5">
+                      {deleteWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); }}
+              disabled={!deleteChecked}
+              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); }}
             >
-              Eliminar
+              {deleteWarnings.length > 0 ? "Eliminar Mesmo Assim" : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
