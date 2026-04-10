@@ -297,7 +297,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         {/* Add form */}
         {showForm && (
           <div className="border border-border/50 rounded-lg p-4 space-y-4 bg-secondary/10">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Parceiro / Sócio</Label>
                 <div className="flex gap-2">
