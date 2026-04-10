@@ -1418,19 +1418,39 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
+  assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
+  canManagePartners?: boolean; queryClient?: any; eventId?: string;
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+
+  const togglePartner = async (partnerId: string) => {
+    if (!queryClient || !eventId) return;
+    const isAssigned = assignedPartnerIds.includes(partnerId);
+    if (isAssigned) {
+      await supabase
+        .from("event_forecast_partners")
+        .delete()
+        .eq("forecast_id", item.id)
+        .eq("partner_id", partnerId);
+    } else {
+      await supabase
+        .from("event_forecast_partners")
+        .insert({ forecast_id: item.id, partner_id: partnerId });
+    }
+    queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
+  };
 
   // Find all transactions matching this forecast's category and type
   const matchingTransactions = useMemo(() => {
