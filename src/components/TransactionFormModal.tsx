@@ -149,12 +149,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return map;
   }, [events]);
 
-  // For parent multi_day events, collect all child event IDs to aggregate BP
+  // For parent multi_day events, fetch parent's own BP (for proration) + child BPs for aggregation
   const forecastEventIds = useMemo(() => {
     if (!form.event_id) return [];
     if (isParentMultiDay) {
       const childIds = (subEventsByParent[form.event_id] || []).map((e: any) => e.id);
-      return childIds.length > 0 ? childIds : [form.event_id];
+      // Include the parent event itself so its own BP lines (for proration) are visible
+      return [form.event_id, ...childIds];
     }
     return [form.event_id];
   }, [form.event_id, isParentMultiDay, subEventsByParent]);
