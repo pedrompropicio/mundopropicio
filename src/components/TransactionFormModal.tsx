@@ -71,6 +71,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [isSplit, setIsSplit] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
   const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
+  const [isPaidByPartner, setIsPaidByPartner] = useState(false);
+  const [paidByPartnerId, setPaidByPartnerId] = useState("");
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
