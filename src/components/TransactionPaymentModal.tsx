@@ -219,6 +219,26 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         .eq("id", transaction.id);
       if (error) throw error;
 
+      // Record credit usages
+      const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      for (const [creditId, valStr] of Object.entries(creditAllocations)) {
+        const val = parseFloat(valStr) || 0;
+        if (val <= 0) continue;
+        await supabase.from("supplier_credit_usages" as any).insert({
+          credit_id: creditId,
+          transaction_id: transaction.id,
+          amount: val,
+          used_by: userName,
+        });
+        // Update used_amount on the credit
+        const credit = availableCredits.find((c: any) => c.id === creditId);
+        if (credit) {
+          const newUsed = Math.round((Number(credit.used_amount) + val) * 100) / 100;
+          const newStatus = newUsed >= Number(credit.amount) ? "exhausted" : "active";
+          await supabase.from("supplier_credits" as any).update({ used_amount: newUsed, status: newStatus }).eq("id", creditId);
+        }
+      }
+
       // Propagate payment to child transactions (split/rateio)
       if (hasChildren) {
         for (const child of childTransactions) {
