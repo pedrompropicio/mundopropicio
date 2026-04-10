@@ -1523,9 +1523,25 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar (aprovado)">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
-                  <button onClick={() => { if (window.confirm("Esta linha está aprovada. Tem a certeza que deseja removê-la?")) onDelete(item.id); }} className="rounded p-1 hover:bg-destructive/20" title="Remover (aprovado)">
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="rounded p-1 hover:bg-destructive/20" title="Remover (aprovado)">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remover linha aprovada</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta linha está aprovada. Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete!(item.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </>
               )}
             </div>
