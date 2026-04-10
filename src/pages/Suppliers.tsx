@@ -207,6 +207,11 @@ export default function Suppliers() {
                 isOpen={expandedId === s.id}
                 onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
               />
+              <SupplierCreditsPanel
+                supplierId={s.id}
+                isOpen={creditsExpandedId === s.id}
+                onToggle={() => setCreditsExpandedId(creditsExpandedId === s.id ? null : s.id)}
+              />
             </div>
           ))}
         </div>
