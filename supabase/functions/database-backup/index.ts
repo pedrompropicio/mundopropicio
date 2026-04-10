@@ -9,29 +9,83 @@ const corsHeaders = {
 const TABLES_TO_BACKUP = [
   "events",
   "event_dates",
+  "event_sessions",
   "event_forecasts",
   "event_cache_configs",
   "event_cache_deductions",
+  "event_cache_extras",
+  "event_closing_costs",
   "event_ticket_zones",
   "event_ticket_lots",
+  "event_ticket_office_assignments",
+  "event_partners",
+  "event_partner_extras",
   "ticket_sales",
+  "ticket_offices",
+  "ticket_import_logs",
   "transactions",
   "transaction_documents",
   "transaction_audit_log",
   "account_categories",
+  "accounting_exports",
   "suppliers",
   "supplier_documents",
   "financial_accounts",
+  "financial_account_access",
   "payment_lists",
   "payment_list_items",
   "quotations",
+  "recurring_transactions",
+  "reimbursement_notes",
+  "reimbursement_note_items",
+  "partner_paid_expenses",
+  "partner_event_access",
   "cities",
   "venues",
   "venue_reservations",
   "system_audit_log",
+  "forecast_audit_log",
   "profiles",
   "user_roles",
+  "user_permissions",
+  "role_permissions",
+  "login_attempts",
+  "email_send_log",
+  "email_send_state",
+  "email_unsubscribe_tokens",
+  "suppressed_emails",
 ];
+
+const STORAGE_BUCKETS = [
+  "database-backups",
+  "transaction-documents",
+  "supplier-documents",
+  "partner-extra-documents",
+  "cache-extra-documents",
+  "closing-cost-documents",
+  "import-reports",
+];
+
+async function listAllFiles(adminClient: any, bucket: string): Promise<any[]> {
+  const allFiles: any[] = [];
+  const limit = 100;
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await adminClient.storage
+      .from(bucket)
+      .list("", { limit, offset, sortBy: { column: "name", order: "asc" } });
+    if (error || !data || data.length === 0) {
+      hasMore = false;
+    } else {
+      allFiles.push(...data);
+      offset += data.length;
+      if (data.length < limit) hasMore = false;
+    }
+  }
+  return allFiles;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -68,10 +122,7 @@ Deno.serve(async (req) => {
         .eq("role", "admin")
         .maybeSingle();
 
-      if (roleError) {
-        throw new Error(`Erro ao validar permissões: ${roleError.message}`);
-      }
-
+      if (roleError) throw new Error(`Erro ao validar permissões: ${roleError.message}`);
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Apenas administradores podem criar backups" }), {
           status: 403,
@@ -85,12 +136,46 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
 
     for (const table of TABLES_TO_BACKUP) {
-      const { data, error } = await adminClient.from(table).select("*");
-      if (error) {
-        errors.push(`${table}: ${error.message}`);
-        backup[table] = [];
-      } else {
-        backup[table] = data || [];
+      // Paginate to handle tables >1000 rows
+      let allRows: unknown[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await adminClient
+          .from(table)
+          .select("*")
+          .range(from, from + pageSize - 1);
+        if (error) {
+          errors.push(`${table}: ${error.message}`);
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allRows = allRows.concat(data);
+          from += data.length;
+          if (data.length < pageSize) hasMore = false;
+        }
+      }
+      backup[table] = allRows;
+    }
+
+    // Export storage manifests
+    const storageManifest: Record<string, any[]> = {};
+    for (const bucket of STORAGE_BUCKETS) {
+      try {
+        const files = await listAllFiles(adminClient, bucket);
+        storageManifest[bucket] = files.map((f) => ({
+          name: f.name,
+          size: f.metadata?.size ?? null,
+          mimetype: f.metadata?.mimetype ?? null,
+          created_at: f.created_at,
+          updated_at: f.updated_at,
+        }));
+      } catch (e) {
+        errors.push(`storage/${bucket}: ${e instanceof Error ? e.message : "unknown"}`);
+        storageManifest[bucket] = [];
       }
     }
 
@@ -99,10 +184,15 @@ Deno.serve(async (req) => {
     const fileName = `backup-${timestamp}.json`;
 
     const backupData = {
+      version: 2,
       created_at: now.toISOString(),
       tables: backup,
+      storage_manifest: storageManifest,
       table_counts: Object.fromEntries(
         Object.entries(backup).map(([k, v]) => [k, v.length])
+      ),
+      storage_counts: Object.fromEntries(
+        Object.entries(storageManifest).map(([k, v]) => [k, v.length])
       ),
       errors: errors.length > 0 ? errors : undefined,
     };
@@ -118,9 +208,7 @@ Deno.serve(async (req) => {
         upsert: false,
       });
 
-    if (uploadError) {
-      throw new Error(`Erro ao guardar backup: ${uploadError.message}`);
-    }
+    if (uploadError) throw new Error(`Erro ao guardar backup: ${uploadError.message}`);
 
     // Clean up old backups (keep last 30)
     const { data: files } = await adminClient.storage
@@ -137,6 +225,7 @@ Deno.serve(async (req) => {
         success: true,
         file: fileName,
         table_counts: backupData.table_counts,
+        storage_counts: backupData.storage_counts,
         errors: backupData.errors,
       }),
       {
