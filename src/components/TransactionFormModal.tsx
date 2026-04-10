@@ -1280,7 +1280,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-warning">Lançamento no evento-pai (rateio)</p>
+                  <p className="text-sm font-semibold text-warning">Lançamento master (rateio)</p>
                   <p className="text-xs text-muted-foreground">
                     Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e BP.
                     Se pretende lançar para uma cidade específica, selecione a data correspondente.
