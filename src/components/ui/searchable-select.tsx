@@ -9,6 +9,8 @@ export interface SearchableSelectOption {
   group?: string;
   indent?: boolean;
   icon?: string;
+  /** Secondary text shown below the label */
+  description?: string;
   /** Extra text to match during search (not displayed) */
   searchText?: string;
 }
@@ -41,9 +43,7 @@ export function SearchableSelect({
 
   const filtered = search.trim()
     ? options.filter((o) => {
-        const haystack = o.searchText
-          ? `${o.label} ${o.searchText}`.toLowerCase()
-          : o.label.toLowerCase();
+        const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ").toLowerCase();
         return haystack.includes(search.toLowerCase());
       })
     : options;
@@ -116,8 +116,11 @@ export function SearchableSelect({
                     opt.indent && "pl-6"
                   )}
                 >
-                  <Check className={cn("h-3.5 w-3.5 shrink-0", opt.value === value ? "opacity-100" : "opacity-0")} />
-                  <span className="truncate">{opt.icon ? `${opt.icon} ` : ""}{opt.label}</span>
+                  <Check className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", opt.value === value ? "opacity-100" : "opacity-0")} />
+                  <div className="min-w-0">
+                    <span className="truncate block">{opt.icon ? `${opt.icon} ` : ""}{opt.label}</span>
+                    {opt.description && <span className="text-[10px] text-muted-foreground truncate block">{opt.description}</span>}
+                  </div>
                 </button>
               ))}
             </React.Fragment>
