@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { X, CalendarIcon, Paperclip } from "lucide-react";
+import { X, CalendarIcon, Paperclip, CreditCard } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -31,6 +31,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [withholdingAmount, setWithholdingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
+  const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
