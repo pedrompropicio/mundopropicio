@@ -117,7 +117,13 @@ function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: s
   const queryClient = useQueryClient();
   const remaining = Number(credit.amount) - Number(credit.used_amount);
   const isActive = credit.status === "active";
-  const isExpired = credit.valid_until && new Date(credit.valid_until) < new Date();
+  const isExpired = credit.valid_until && (() => {
+    const [y, m, d] = credit.valid_until.split("-").map(Number);
+    const now = new Date();
+    const todayNum = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+    const expiryNum = y * 10000 + m * 100 + d;
+    return expiryNum < todayNum;
+  })();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const deleteMutation = useMutation({
