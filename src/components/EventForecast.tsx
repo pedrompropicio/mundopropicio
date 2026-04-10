@@ -109,12 +109,38 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const { data: transactions = [] } = useQuery({
     queryKey: ["event_transactions_actual", eventId, childEventIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch transactions for the event and child events
+      const { data: directTx, error } = await supabase
         .from("transactions")
         .select("*, account_categories(code, name, type)")
         .in("event_id", allRelevantEventIds);
       if (error) throw error;
-      return data;
+
+      // Also fetch multi-event parent transactions (event_id IS NULL)
+      // that have child splits in our relevant events
+      const childTxIds = (directTx ?? [])
+        .filter((t: any) => t.parent_transaction_id)
+        .map((t: any) => t.parent_transaction_id);
+      
+      if (childTxIds.length === 0) return directTx ?? [];
+
+      const uniqueParentIds = [...new Set(childTxIds)];
+      const { data: parentTx, error: parentError } = await supabase
+        .from("transactions")
+        .select("*, account_categories(code, name, type)")
+        .in("id", uniqueParentIds)
+        .is("event_id", null);
+      if (parentError) throw parentError;
+
+      // Merge, avoiding duplicates
+      const existingIds = new Set((directTx ?? []).map((t: any) => t.id));
+      const merged = [...(directTx ?? [])];
+      for (const pt of (parentTx ?? [])) {
+        if (!existingIds.has(pt.id)) {
+          merged.push(pt);
+        }
+      }
+      return merged;
     },
   });
 
