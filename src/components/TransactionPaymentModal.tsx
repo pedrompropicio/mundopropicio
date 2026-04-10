@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { X, CalendarIcon, Paperclip } from "lucide-react";
+import { X, CalendarIcon, Paperclip, CreditCard } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -31,6 +31,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [withholdingAmount, setWithholdingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
+  const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -80,6 +81,29 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const hasChildren = childTransactions.length > 0;
 
+  const isExpense = transaction.type === "expense";
+  const { data: availableCredits = [] } = useQuery({
+    queryKey: ["supplier-credits-available", transaction.supplier_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("supplier_credits" as any)
+        .select("id, amount, used_amount, reason, document_ref, valid_until")
+        .eq("supplier_id", transaction.supplier_id)
+        .eq("status", "active");
+      if (error) throw error;
+      // Filter out expired and fully used
+      return (data as any[]).filter((c: any) => {
+        const remaining = Number(c.amount) - Number(c.used_amount);
+        if (remaining <= 0) return false;
+        if (c.valid_until && new Date(c.valid_until) < new Date()) return false;
+        return true;
+      });
+    },
+    enabled: !!transaction.supplier_id && isExpense,
+  });
+
+  const totalCreditApplied = Object.values(creditAllocations).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+
   function computeAccountBalance(accId: string) {
     const acc = financialAccounts.find((a: any) => a.id === accId);
     if (!acc) return 0;
@@ -104,7 +128,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
-  const isExpense = transaction.type === "expense";
+  // isExpense already declared above
   const modalTitle = isExpense ? "Registar Pagamento" : "Registar Recebimento";
   const confirmLabel = isExpense ? "Confirmar Pagamento" : "Confirmar Recebimento";
   const successMsg = isExpense ? "Pagamento registado com sucesso!" : "Recebimento registado com sucesso!";
@@ -114,15 +138,26 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     mutationFn: async () => {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
-      if (!accountId) throw new Error("Selecione a conta");
+      if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
       const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
       if (newPaid > amount + 0.05) throw new Error("O valor excede o saldo em aberto");
 
-      // Check account balance for expenses (net amount after withholding)
-      const netCashOut = addAmount - withholding;
+      // Validate credit allocations
+      for (const [creditId, valStr] of Object.entries(creditAllocations)) {
+        const val = parseFloat(valStr) || 0;
+        if (val <= 0) continue;
+        const credit = availableCredits.find((c: any) => c.id === creditId);
+        if (!credit) throw new Error("Crédito inválido");
+        const remaining = Number(credit.amount) - Number(credit.used_amount);
+        if (val > remaining + 0.01) throw new Error(`Crédito "${credit.reason}" tem apenas ${formatCurrency(remaining)} disponível`);
+      }
+      if (totalCreditApplied > addAmount + 0.01) throw new Error("Créditos aplicados excedem o valor do pagamento");
+
+      // Check account balance for expenses (net amount after withholding and credits)
+      const netCashOut = addAmount - withholding - totalCreditApplied;
       if (isExpense) {
         const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
         const skipCheck = selectedAcc?.skip_balance_check ?? false;
@@ -163,6 +198,15 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(addAmount - withholding)})`,
         });
       }
+      if (totalCreditApplied > 0) {
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Crédito fornecedor",
+          old_value: null,
+          new_value: `${formatCurrency(totalCreditApplied)} aplicado via crédito (saída de caixa: ${formatCurrency(netCashOut)})`,
+        });
+      }
       await supabase.from("transaction_audit_log").insert(auditEntries);
 
       const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
@@ -174,6 +218,26 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         .update(updateData)
         .eq("id", transaction.id);
       if (error) throw error;
+
+      // Record credit usages
+      const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      for (const [creditId, valStr] of Object.entries(creditAllocations)) {
+        const val = parseFloat(valStr) || 0;
+        if (val <= 0) continue;
+        await supabase.from("supplier_credit_usages" as any).insert({
+          credit_id: creditId,
+          transaction_id: transaction.id,
+          amount: val,
+          used_by: userName,
+        });
+        // Update used_amount on the credit
+        const credit = availableCredits.find((c: any) => c.id === creditId);
+        if (credit) {
+          const newUsed = Math.round((Number(credit.used_amount) + val) * 100) / 100;
+          const newStatus = newUsed >= Number(credit.amount) ? "exhausted" : "active";
+          await supabase.from("supplier_credits" as any).update({ used_amount: newUsed, status: newStatus }).eq("id", creditId);
+        }
+      }
 
       // Propagate payment to child transactions (split/rateio)
       if (hasChildren) {
@@ -198,6 +262,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
       onClose();
       toast({ title: successMsg });
     },
@@ -304,6 +369,45 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Pago ao fornecedor: <span className="font-semibold font-mono">{formatCurrency(parseFloat(paymentAmount) - parseFloat(withholdingAmount))}</span>
                   {" · "}Retido: <span className="font-semibold font-mono text-warning">{formatCurrency(parseFloat(withholdingAmount))}</span>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Supplier Credits */}
+          {isExpense && availableCredits.length > 0 && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                <CreditCard className="h-3.5 w-3.5" /> Créditos disponíveis
+              </label>
+              {availableCredits.map((c: any) => {
+                const remaining = Number(c.amount) - Number(c.used_amount);
+                return (
+                  <div key={c.id} className="flex items-center gap-2 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{c.reason}</span>
+                      {c.document_ref && <span className="text-muted-foreground ml-1">({c.document_ref})</span>}
+                      <span className="text-muted-foreground ml-1">— Disp: {formatCurrency(remaining)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={remaining}
+                      value={creditAllocations[c.id] ?? ""}
+                      onChange={(e) => setCreditAllocations(prev => ({ ...prev, [c.id]: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-24 rounded-md border border-border bg-background px-2 py-1 text-xs text-right"
+                    />
+                  </div>
+                );
+              })}
+              {totalCreditApplied > 0 && (
+                <p className="text-xs font-medium text-primary">
+                  Total crédito aplicado: {formatCurrency(totalCreditApplied)}
+                  {parseFloat(paymentAmount) > 0 && (
+                    <span className="text-muted-foreground font-normal"> · Saída de caixa: {formatCurrency(Math.max(0, parseFloat(paymentAmount) - (parseFloat(withholdingAmount) || 0) - totalCreditApplied))}</span>
+                  )}
                 </p>
               )}
             </div>

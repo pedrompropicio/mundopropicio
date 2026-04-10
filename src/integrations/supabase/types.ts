@@ -1460,6 +1460,114 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_credit_usages: {
+        Row: {
+          amount: number
+          created_at: string
+          credit_id: string
+          id: string
+          notes: string | null
+          transaction_id: string
+          used_by: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          credit_id: string
+          id?: string
+          notes?: string | null
+          transaction_id: string
+          used_by?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credit_id?: string
+          id?: string
+          notes?: string | null
+          transaction_id?: string
+          used_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_credit_usages_credit_id_fkey"
+            columns: ["credit_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_credits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_credit_usages_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_credits: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          document_ref: string | null
+          id: string
+          notes: string | null
+          origin_event_id: string | null
+          reason: string
+          status: string
+          supplier_id: string
+          updated_at: string
+          used_amount: number
+          valid_until: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          document_ref?: string | null
+          id?: string
+          notes?: string | null
+          origin_event_id?: string | null
+          reason?: string
+          status?: string
+          supplier_id: string
+          updated_at?: string
+          used_amount?: number
+          valid_until?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          document_ref?: string | null
+          id?: string
+          notes?: string | null
+          origin_event_id?: string | null
+          reason?: string
+          status?: string
+          supplier_id?: string
+          updated_at?: string
+          used_amount?: number
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_credits_origin_event_id_fkey"
+            columns: ["origin_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_credits_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_documents: {
         Row: {
           doc_type: string
