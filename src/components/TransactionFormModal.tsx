@@ -68,6 +68,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+  const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
   const [plExpanded, setPlExpanded] = useState(true);
   const [plOverride, setPlOverride] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
@@ -499,6 +501,49 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const rootFlags = getRootFlags(form.category_id);
 
+  const proceedWithCreate = () => {
+    setShowDuplicateConfirm(false);
+    setShowProrationConfirm(false);
+    createMutation.mutate(form);
+  };
+
+  const checkDuplicatesAndSubmit = async () => {
+    // Check for existing transactions with same description + event + similar amount
+    try {
+      let query = supabase
+        .from("transactions")
+        .select("id, description, amount, status, due_date, supplier_id, event_id")
+        .ilike("description", form.description.trim());
+
+      if (form.event_id) {
+        query = query.eq("event_id", form.event_id);
+      }
+
+      const { data: matches } = await query.limit(10);
+
+      if (matches && matches.length > 0) {
+        const amount = parseFloat(form.amount) || 0;
+        const relevant = matches.filter((m: any) => {
+          const diff = Math.abs(Number(m.amount) - amount);
+          return diff < 0.01 || form.supplier_id === m.supplier_id;
+        });
+        if (relevant.length > 0) {
+          setDuplicateMatches(relevant);
+          setShowDuplicateConfirm(true);
+          return;
+        }
+      }
+    } catch {
+      // If check fails, proceed anyway
+    }
+
+    if (isParentMultiDay && !showProrationConfirm) {
+      setShowProrationConfirm(true);
+      return;
+    }
+    proceedWithCreate();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.description || !form.amount) {
@@ -525,7 +570,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "A soma das percentagens deve ser 100%", variant: "destructive" });
         return;
       }
-      // BP bypass validation for split events
       if (splitNeedsBypass && !plOverride) {
         toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
         return;
@@ -535,7 +579,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
     } else {
-      // Single transaction validation
       if (rootFlags.event_required && !form.event_id) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
@@ -569,12 +612,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         });
       }
     }
-    if (isParentMultiDay && !showProrationConfirm) {
-      setShowProrationConfirm(true);
+
+    // Skip duplicate check if already confirmed
+    if (showDuplicateConfirm) {
+      if (isParentMultiDay && !showProrationConfirm) {
+        setShowProrationConfirm(true);
+        return;
+      }
+      proceedWithCreate();
       return;
     }
-    setShowProrationConfirm(false);
-    createMutation.mutate(form);
+
+    checkDuplicatesAndSubmit();
   };
 
   const filteredCategories = categories.filter((c) => {
@@ -1054,6 +1103,64 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             })()}
           </div>
 
+          {/* Duplicate detection warning */}
+          {showDuplicateConfirm && duplicateMatches.length > 0 && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-destructive">⚠️ Possível duplicação detectada</p>
+                  <p className="text-xs text-muted-foreground">
+                    Já existe(m) {duplicateMatches.length} transação(ões) com descrição e valores semelhantes:
+                  </p>
+                  <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto">
+                    {duplicateMatches.map((m: any) => {
+                      const evName = events.find((e: any) => e.id === m.event_id)?.name;
+                      const suppName = suppliers.find((s: any) => s.id === m.supplier_id)?.name;
+                      return (
+                        <div key={m.id} className="text-xs bg-background/60 rounded px-2 py-1.5 border border-border">
+                          <span className="font-medium">{m.description}</span>
+                          <span className="text-muted-foreground"> — {Number(m.amount).toFixed(2)}€</span>
+                          {evName && <span className="text-muted-foreground"> · {evName}</span>}
+                          {suppName && <span className="text-muted-foreground"> · {suppName}</span>}
+                          <span className={`ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                            m.status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+                          }`}>
+                            {m.status === "paid" ? "Pago" : m.status === "approved" ? "Aprovado" : "Pendente"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isParentMultiDay) {
+                      setShowDuplicateConfirm(false);
+                      setShowProrationConfirm(true);
+                    } else {
+                      proceedWithCreate();
+                    }
+                  }}
+                  disabled={createMutation.isPending}
+                  className="flex-1 rounded-lg bg-destructive/20 py-2 text-xs font-medium text-destructive hover:bg-destructive/30 transition-colors disabled:opacity-50"
+                >
+                  {createMutation.isPending ? "A guardar…" : "Criar Mesmo Assim"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowDuplicateConfirm(false); setDuplicateMatches([]); }}
+                  className="flex-1 rounded-lg bg-secondary py-2 text-xs font-medium text-muted-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
@@ -1270,7 +1377,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          {!showProrationConfirm && (
+          {!showProrationConfirm && !showDuplicateConfirm && (
             <button type="submit" disabled={createMutation.isPending}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
               {createMutation.isPending ? "A guardar…" : "Criar Transação"}
