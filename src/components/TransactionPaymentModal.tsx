@@ -162,10 +162,20 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       }
       if (totalCreditApplied > addAmount + 0.01) throw new Error("Créditos aplicados excedem o valor do pagamento");
 
-      // Check account balance for expenses (net amount after withholding and credits)
+      // Validate that credit + cash out + withholding = payment amount
       const netCashOut = addAmount - withholding - totalCreditApplied;
-      if (isExpense) {
+      if (netCashOut < -0.01) throw new Error("A soma do crédito e retenção excede o valor do pagamento");
+
+      // Validate: credit usage must match payment (credit + cash + withholding = total)
+      const totalComponents = Math.round((totalCreditApplied + netCashOut + withholding) * 100) / 100;
+      if (Math.abs(totalComponents - addAmount) > 0.02) {
+        throw new Error(`Inconsistência: crédito (${formatCurrency(totalCreditApplied)}) + saída de caixa (${formatCurrency(netCashOut)}) + retenção (${formatCurrency(withholding)}) ≠ valor pago (${formatCurrency(addAmount)})`);
+      }
+
+      // Check account balance for expenses (net amount after withholding and credits)
+      if (isExpense && netCashOut > 0) {
         const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
+        if (!accountId) throw new Error("Selecione a conta para o valor de saída de caixa");
         const skipCheck = selectedAcc?.skip_balance_check ?? false;
         if (!skipCheck) {
           const accBalance = computeAccountBalance(accountId);
