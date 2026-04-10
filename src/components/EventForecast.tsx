@@ -1355,7 +1355,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     enabled: showPayments && !!txId,
   });
 
-  const hasPayments = linkedTransaction && Number(linkedTransaction.paid_amount) > 0;
+  const hasLinkedTx = !!linkedTransaction;
   const colCount = isExpense ? 8 : 7;
 
   return (
@@ -1410,7 +1410,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
             <span className="text-[10px] text-primary/60 italic">rateio</span>
           ) : (
             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {hasPayments && (
+              {hasLinkedTx && (
                 <button
                   onClick={() => setShowPayments(!showPayments)}
                   className={`rounded p-1 hover:bg-primary/20 ${showPayments ? "bg-primary/10" : ""}`}
