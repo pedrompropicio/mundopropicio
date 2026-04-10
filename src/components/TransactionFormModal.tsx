@@ -26,6 +26,8 @@ interface TransactionForm {
   due_date: string;
   specification: string;
   pl_override_note: string;
+  is_reimbursement: boolean;
+  reimbursement_to: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -41,6 +43,8 @@ const emptyForm: TransactionForm = {
   due_date: "",
   specification: "",
   pl_override_note: "",
+  is_reimbursement: false,
+  reimbursement_to: "",
 };
 
 const formatDueDateInput = (value: string) => {
