@@ -507,6 +507,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Indique o nome do funcionário a reembolsar", variant: "destructive" });
       return;
     }
+    if (isPaidByPartner && !paidByPartnerId) {
+      toast({ title: "Selecione o sócio que pagou a despesa", variant: "destructive" });
+      return;
+    }
 
     // Split validation
     if (isSplit) {
