@@ -851,6 +851,18 @@ export default function EventDetail() {
           <EventClosingCosts eventId={selectedSubEvent || event.id} eventStatus={event.status} />
         </TabsContent>
 
+        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
+          <TabsContent value="partner-expenses">
+            <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
+          </TabsContent>
+        )}
+
+        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
+          <TabsContent value="partner-settlement">
+            <PartnerSettlementTab eventId={event.id} eventName={event.name} />
+          </TabsContent>
+        )}
+
       </Tabs>
 
       {/* Confirmation dialog */}
