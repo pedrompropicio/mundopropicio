@@ -15,6 +15,8 @@ import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
+import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
+import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -609,6 +611,8 @@ export default function EventDetail() {
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Fecho <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
+          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-expenses">Desp. Sócios</TabsTrigger>}
+          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-settlement">Fecho Parceiros</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -846,6 +850,18 @@ export default function EventDetail() {
         <TabsContent value="closing-costs">
           <EventClosingCosts eventId={selectedSubEvent || event.id} eventStatus={event.status} />
         </TabsContent>
+
+        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
+          <TabsContent value="partner-expenses">
+            <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
+          </TabsContent>
+        )}
+
+        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
+          <TabsContent value="partner-settlement">
+            <PartnerSettlementTab eventId={event.id} eventName={event.name} />
+          </TabsContent>
+        )}
 
       </Tabs>
 
