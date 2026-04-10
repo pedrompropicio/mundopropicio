@@ -456,7 +456,7 @@ export default function TicketManagement() {
             <div className="glass rounded-xl p-4 text-center">
               <p className="text-sm text-muted-foreground">
                 Eventos do tipo "Múltiplos Dias" não possuem bilheteira própria.
-                Configure a bilheteira nos sub-eventos individualmente.
+                Configure a bilheteira nos eventos Split individualmente.
               </p>
             </div>
           ) : (

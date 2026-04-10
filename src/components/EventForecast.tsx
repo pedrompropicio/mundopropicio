@@ -590,7 +590,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           .in("id", childEventIds);
         
         if (!childEvents || childEvents.length === 0) {
-          toast({ title: "Nenhum sub-evento encontrado", variant: "destructive" });
+          toast({ title: "Nenhum evento Split encontrado", variant: "destructive" });
           return;
         }
 
@@ -615,7 +615,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         }
 
         if (matchedSheets.length === 0) {
-          toast({ title: "Nenhuma aba corresponde aos sub-eventos", description: `Abas: ${sheetsWithData.map(s => s.sheetName).join(", ")}. Sub-eventos: ${childEvents.map((ce: any) => (ce.cities as any)?.name || ce.name).join(", ")}`, variant: "destructive" });
+          toast({ title: "Nenhuma aba corresponde aos eventos Split", description: `Abas: ${sheetsWithData.map(s => s.sheetName).join(", ")}. Splits: ${childEvents.map((ce: any) => (ce.cities as any)?.name || ce.name).join(", ")}`, variant: "destructive" });
           return;
         }
 
@@ -634,7 +634,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         }
         queryClient.invalidateQueries({ queryKey: ["transactions"] });
         toast({
-          title: `${totalCreated} linha(s) importada(s) em ${matchedSheets.length} sub-evento(s)!`,
+          title: `${totalCreated} linha(s) importada(s) em ${matchedSheets.length} evento(s) Split!`,
           description: allErrors.length > 0 ? `${allErrors.length} erro(s): ${allErrors[0]}` : undefined,
         });
       } else {

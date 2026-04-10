@@ -65,7 +65,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Wizard de criação (Turnês)",
         content:
-          "Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (sub-eventos), datas extra e múltiplas sessões num único fluxo atómico. Ao finalizar o wizard, toda a estrutura é criada de uma só vez.",
+          "Para eventos do tipo 'Múltiplos Dias', o sistema oferece um assistente avançado que permite configurar a hierarquia completa de cidades (eventos Split), datas extra e múltiplas sessões num único fluxo atómico. Ao finalizar o wizard, toda a estrutura é criada de uma só vez.",
       },
       {
         title: "Business Plan (BP)",
