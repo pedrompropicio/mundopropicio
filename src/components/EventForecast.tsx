@@ -102,14 +102,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
-  // Fetch event partners (sócios)
+  // Fetch event partners (sócios) — for child events, fetch from parent
+  const partnersSourceId = parentEventId || eventId;
   const { data: eventPartners = [] } = useQuery({
-    queryKey: ["event_partners_for_bp", eventId],
+    queryKey: ["event_partners_for_bp", partnersSourceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_partners")
         .select("id, percentage, suppliers:supplier_id(name)")
-        .eq("event_id", eventId);
+        .eq("event_id", partnersSourceId);
       if (error) throw error;
       return (data ?? []).map((p: any) => ({
         id: p.id,
