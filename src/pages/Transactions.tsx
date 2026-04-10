@@ -188,6 +188,13 @@ export default function Transactions() {
     mutationFn: async (id: string) => {
       // Fetch transaction data before deleting for audit
       const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
+      // Remove dependent records that block deletion
+      await supabase.from("payment_list_items").delete().eq("transaction_id", id);
+      await supabase.from("reimbursement_note_items").delete().eq("transaction_id", id);
+      await supabase.from("partner_paid_expenses").delete().eq("transaction_id", id);
+      await supabase.from("supplier_credit_usages").delete().eq("transaction_id", id);
+      // Delete child split transactions first
+      await supabase.from("transactions").delete().eq("parent_transaction_id", id);
       const { error } = await supabase
         .from("transactions")
         .delete()
