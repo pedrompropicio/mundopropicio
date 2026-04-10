@@ -486,6 +486,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                     <Checkbox checked={selectedIds.size === filteredTx.length && filteredTx.length > 0} onCheckedChange={toggleAll} />
                   </th>
                   <th className="p-2 text-left font-medium">Descrição</th>
+                  <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
