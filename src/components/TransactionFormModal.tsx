@@ -501,6 +501,49 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const rootFlags = getRootFlags(form.category_id);
 
+  const proceedWithCreate = () => {
+    setShowDuplicateConfirm(false);
+    setShowProrationConfirm(false);
+    createMutation.mutate(form);
+  };
+
+  const checkDuplicatesAndSubmit = async () => {
+    // Check for existing transactions with same description + event + similar amount
+    try {
+      let query = supabase
+        .from("transactions")
+        .select("id, description, amount, status, due_date, supplier_id, event_id")
+        .ilike("description", form.description.trim());
+
+      if (form.event_id) {
+        query = query.eq("event_id", form.event_id);
+      }
+
+      const { data: matches } = await query.limit(10);
+
+      if (matches && matches.length > 0) {
+        const amount = parseFloat(form.amount) || 0;
+        const relevant = matches.filter((m: any) => {
+          const diff = Math.abs(Number(m.amount) - amount);
+          return diff < 0.01 || form.supplier_id === m.supplier_id;
+        });
+        if (relevant.length > 0) {
+          setDuplicateMatches(relevant);
+          setShowDuplicateConfirm(true);
+          return;
+        }
+      }
+    } catch {
+      // If check fails, proceed anyway
+    }
+
+    if (isParentMultiDay && !showProrationConfirm) {
+      setShowProrationConfirm(true);
+      return;
+    }
+    proceedWithCreate();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.description || !form.amount) {
@@ -527,7 +570,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "A soma das percentagens deve ser 100%", variant: "destructive" });
         return;
       }
-      // BP bypass validation for split events
       if (splitNeedsBypass && !plOverride) {
         toast({ title: "Rateio inclui eventos com BP que requerem justificação. Ative 'Fora do BP'.", variant: "destructive" });
         return;
@@ -537,7 +579,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
     } else {
-      // Single transaction validation
       if (rootFlags.event_required && !form.event_id) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
@@ -571,12 +612,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         });
       }
     }
-    if (isParentMultiDay && !showProrationConfirm) {
-      setShowProrationConfirm(true);
+
+    // Skip duplicate check if already confirmed
+    if (showDuplicateConfirm) {
+      if (isParentMultiDay && !showProrationConfirm) {
+        setShowProrationConfirm(true);
+        return;
+      }
+      proceedWithCreate();
       return;
     }
-    setShowProrationConfirm(false);
-    createMutation.mutate(form);
+
+    checkDuplicatesAndSubmit();
   };
 
   const filteredCategories = categories.filter((c) => {
