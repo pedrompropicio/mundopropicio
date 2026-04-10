@@ -55,12 +55,12 @@ const helpManual: HelpSection[] = [
       {
         title: "Estados do evento",
         content:
-          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.\n\nPropagação em Turnês: a reabertura ou conclusão de um evento-pai (Tour) propaga o estado automaticamente para todos os eventos-filhos, enquanto alterações num evento-filho permanecem isoladas.",
+          "Planeamento → estado inicial, permite editar tudo livremente.\nConfirmado → o BP foi aprovado e o evento está agendado.\nAtivo → o evento está em curso ou próximo de acontecer.\nConcluído → evento finalizado. Impõe um bloqueio total (lockdown): não é possível alterar ou incluir bilhetes, transações, despesas, cachê, sociedade ou custos extras. A reabertura de um evento concluído é uma operação exclusiva de Administradores.\n\nPropagação em Turnês: a reabertura ou conclusão de um evento Master (Tour) propaga o estado automaticamente para todos os eventos Split, enquanto alterações num evento Split permanecem isoladas.",
       },
       {
         title: "Tipos de evento",
         content:
-          "Simples: evento com uma única data.\nFestival: evento com múltiplas atrações na mesma data/local.\nMúltiplos Dias (Turnê): mesmo evento repetido em diferentes datas/cidades. Permite gerir cada data individualmente mantendo a estrutura do evento-pai. O período exibido na listagem é calculado considerando o intervalo total de todas as datas (principal e extras) de todos os sub-eventos.",
+          "Simples: evento com uma única data.\nFestival: evento com múltiplas atrações na mesma data/local.\nMúltiplos Dias (Turnê): mesmo evento repetido em diferentes datas/cidades. Permite gerir cada data individualmente mantendo a estrutura do evento Master. O período exibido na listagem é calculado considerando o intervalo total de todas as datas (principal e extras) de todos os eventos Split.",
       },
       {
         title: "Wizard de criação (Turnês)",
@@ -420,7 +420,7 @@ const helpManual: HelpSection[] = [
       {
         title: "Acesso a eventos",
         content:
-          "O administrador controla quais eventos cada parceiro pode ver através da tabela de acessos (partner_event_access). Os acessos podem ser ativados ou desativados a qualquer momento.\n\nPara eventos multi-cidade (Turnês), pode-se autorizar o evento-pai (acesso a tudo) ou apenas sub-eventos específicos.",
+          "O administrador controla quais eventos cada parceiro pode ver através da tabela de acessos (partner_event_access). Os acessos podem ser ativados ou desativados a qualquer momento.\n\nPara eventos multi-cidade (Turnês), pode-se autorizar o evento Master (acesso a tudo) ou apenas eventos Split específicos.",
       },
       {
         title: "Informações disponíveis",
