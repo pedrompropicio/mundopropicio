@@ -136,16 +136,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: forecasts.length > 0,
   });
 
-  // Build a map: forecastId -> partner_ids[]
-  const forecastPartnerMap = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    forecastPartners.forEach((fp: any) => {
-      if (!map[fp.forecast_id]) map[fp.forecast_id] = [];
-      map[fp.forecast_id].push(fp.partner_id);
-    });
-    return map;
-  }, [forecastPartners]);
-
   // Fetch transactions for this event AND child events (for parent BP view)
   const allRelevantEventIds = useMemo(() => {
     const ids = [eventId];
@@ -274,6 +264,35 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: !!parentEventId,
   });
 
+  const parentForecastIds = useMemo(
+    () => parentForecasts.map((forecast: any) => forecast.id),
+    [parentForecasts]
+  );
+
+  const { data: parentForecastPartners = [] } = useQuery({
+    queryKey: ["parent_forecast_partners_for_bp", parentEventId, parentForecastIds.join(",")],
+    queryFn: async () => {
+      if (parentForecastIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecast_partners")
+        .select("forecast_id, partner_id")
+        .in("forecast_id", parentForecastIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!parentEventId && parentForecastIds.length > 0,
+  });
+
+  // Build a map: forecastId -> partner_ids[]
+  const forecastPartnerMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    [...forecastPartners, ...parentForecastPartners].forEach((fp: any) => {
+      if (!map[fp.forecast_id]) map[fp.forecast_id] = [];
+      map[fp.forecast_id].push(fp.partner_id);
+    });
+    return map;
+  }, [forecastPartners, parentForecastPartners]);
+
   // Count sibling sub-events for proration
   const { data: siblingCount = 1 } = useQuery({
     queryKey: ["sibling_count", parentEventId],
@@ -367,7 +386,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       ticketRevenueGross
     );
   }, [cacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, forecasts]);
-  const totalCacheAmount = useMemo(() => cacheLines.reduce((s, c) => s + c.amount, 0), [cacheLines]);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
@@ -749,6 +767,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
   const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
+  const filteredCacheLines = useMemo(() => {
+    if (partnerFilter === "all" || partnerFilter === "company") return cacheLines;
+    return [];
+  }, [cacheLines, partnerFilter]);
+  const filteredCacheAmount = useMemo(
+    () => filteredCacheLines.reduce((sum, line) => sum + line.amount, 0),
+    [filteredCacheLines]
+  );
+  const filteredProratedParentExpenses = useMemo(() => {
+    if (partnerFilter === "all") return allProratedParentExpenses;
+    return allProratedParentExpenses.filter((forecast: any) => {
+      const partners = forecastPartnerMap[forecast.id] ?? [];
+      if (partnerFilter === "company") return partners.length === 0;
+      return partners.includes(partnerFilter);
+    });
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -785,27 +819,27 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const expenseGroups = useMemo(() => {
     const groups = groupForecasts(expenseForecasts);
     // Ensure "Artístico" group exists if there are cache lines
-    if (cacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
+    if (filteredCacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
       groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
       groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
     }
     return groups;
-  }, [expenseForecasts, catLookup, cacheLines]);
+  }, [expenseForecasts, catLookup, filteredCacheLines]);
 
   // Groups for prorated parent expenses (separate from own expenses)
   const proratedExpenseGroups = useMemo(() => {
-    if (allProratedParentExpenses.length === 0) return [];
-    return groupForecasts(allProratedParentExpenses);
-  }, [allProratedParentExpenses, catLookup]);
+    if (filteredProratedParentExpenses.length === 0) return [];
+    return groupForecasts(filteredProratedParentExpenses);
+  }, [filteredProratedParentExpenses, catLookup]);
 
-  const proratedExpenseBase = allProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const proratedExpenseIva = allProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
+  const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
 
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
   const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
   const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
-  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + totalCacheAmount + proratedExpenseBase;
+  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + filteredCacheAmount + proratedExpenseBase;
   const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + proratedExpenseIva;
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
@@ -1244,16 +1278,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               <tr className="bg-secondary/10 border-t border-border/30">
                                 <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">
                                   <span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}
-                                  {group.groupCode === "2.1" && cacheLines.length > 0 && (
+                                  {group.groupCode === "2.1" && filteredCacheLines.length > 0 && (
                                     <span className="ml-2 text-muted-foreground font-normal">(incl. cachês)</span>
                                   )}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
-                                  {formatCurrency(group.groupCode === "2.1" ? groupBase + totalCacheAmount : groupBase)}
+                                  {formatCurrency(group.groupCode === "2.1" ? groupBase + filteredCacheAmount : groupBase)}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
-                                  {formatCurrency((group.groupCode === "2.1" ? groupBase + totalCacheAmount : groupBase) + groupIva)}
+                                  {formatCurrency((group.groupCode === "2.1" ? groupBase + filteredCacheAmount : groupBase) + groupIva)}
                                 </td>
                                 <td />
                               </tr>
@@ -1303,7 +1337,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
-                            {group.groupCode === "2.1" && cacheLines.length > 0 && cacheLines.map((cl, idx) => {
+                            {group.groupCode === "2.1" && filteredCacheLines.length > 0 && filteredCacheLines.map((cl, idx) => {
                               const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
                               return (
                                 <tr key={`cache-${idx}`} className="border-b border-border/10">
@@ -1326,7 +1360,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         );
                       })}
                       {/* Prorated parent expenses */}
-                      {allProratedParentExpenses.length > 0 && (
+                      {filteredProratedParentExpenses.length > 0 && (
                         <>
                           <tr className="bg-primary/5 border-t-2 border-primary/20">
                             <td colSpan={8} className="py-2.5 pl-2">
@@ -1362,7 +1396,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       )}
                       {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
-                    {(expenseForecasts.length > 0 || addingType === "expense" || cacheLines.length > 0) && (
+                    {(expenseForecasts.length > 0 || addingType === "expense" || filteredCacheLines.length > 0 || filteredProratedParentExpenses.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
@@ -1374,7 +1408,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       </tfoot>
                     )}
                   </table>
-                  {expenseForecasts.length === 0 && addingType !== "expense" && allProratedParentExpenses.length === 0 && (
+                  {expenseForecasts.length === 0 && addingType !== "expense" && filteredCacheLines.length === 0 && filteredProratedParentExpenses.length === 0 && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
                   )}
                 </div>
