@@ -1103,6 +1103,64 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             })()}
           </div>
 
+          {/* Duplicate detection warning */}
+          {showDuplicateConfirm && duplicateMatches.length > 0 && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-destructive">⚠️ Possível duplicação detectada</p>
+                  <p className="text-xs text-muted-foreground">
+                    Já existe(m) {duplicateMatches.length} transação(ões) com descrição e valores semelhantes:
+                  </p>
+                  <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto">
+                    {duplicateMatches.map((m: any) => {
+                      const evName = events.find((e: any) => e.id === m.event_id)?.name;
+                      const suppName = suppliers.find((s: any) => s.id === m.supplier_id)?.name;
+                      return (
+                        <div key={m.id} className="text-xs bg-background/60 rounded px-2 py-1.5 border border-border">
+                          <span className="font-medium">{m.description}</span>
+                          <span className="text-muted-foreground"> — {Number(m.amount).toFixed(2)}€</span>
+                          {evName && <span className="text-muted-foreground"> · {evName}</span>}
+                          {suppName && <span className="text-muted-foreground"> · {suppName}</span>}
+                          <span className={`ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                            m.status === "paid" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+                          }`}>
+                            {m.status === "paid" ? "Pago" : m.status === "approved" ? "Aprovado" : "Pendente"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isParentMultiDay) {
+                      setShowDuplicateConfirm(false);
+                      setShowProrationConfirm(true);
+                    } else {
+                      proceedWithCreate();
+                    }
+                  }}
+                  disabled={createMutation.isPending}
+                  className="flex-1 rounded-lg bg-destructive/20 py-2 text-xs font-medium text-destructive hover:bg-destructive/30 transition-colors disabled:opacity-50"
+                >
+                  {createMutation.isPending ? "A guardar…" : "Criar Mesmo Assim"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowDuplicateConfirm(false); setDuplicateMatches([]); }}
+                  className="flex-1 rounded-lg bg-secondary py-2 text-xs font-medium text-muted-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Proration confirmation for multi_day parent */}
           {showProrationConfirm && isParentMultiDay && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
