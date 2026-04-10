@@ -15,6 +15,7 @@ interface Props {
   onToggleSelect?: () => void;
   showSelectColumn?: boolean;
   eventCompleted?: boolean;
+  showPaymentDate?: boolean;
   onEdit: (id: string) => void;
   onApprove: (id: string) => void;
   onPayment: (id: string) => void;
@@ -56,7 +57,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   // Only consider as potential parent split if no parent and no event
@@ -292,7 +293,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         </td>
         <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
           <div className="flex items-center gap-1.5">
-            {t.due_date ? (
+            {showPaymentDate ? (
+              t.payment_date ? (
+                <span>{new Date(t.payment_date).toLocaleDateString("pt-PT")}</span>
+              ) : (
+                <span className="text-muted-foreground/50 italic text-xs">—</span>
+              )
+            ) : t.due_date ? (
               <>
                 <span>{new Date(t.due_date).toLocaleDateString("pt-PT")}</span>
                 {computedStatus !== "paid" && t.due_date.slice(0, 10) < new Date().toISOString().slice(0, 10) && (

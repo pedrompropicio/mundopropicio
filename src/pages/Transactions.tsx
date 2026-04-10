@@ -423,11 +423,16 @@ export default function Transactions() {
     }
     periodStart.setHours(0, 0, 0, 0);
 
-    return sortByDueDate(base.filter((t) => {
+    const result = base.filter((t) => {
       const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
       if (!paymentDate) return false;
       return paymentDate >= periodStart && paymentDate <= periodEnd;
-    }));
+    });
+    return [...result].sort((a, b) => {
+      const aDate = a.payment_date ?? a.date;
+      const bDate = b.payment_date ?? b.date;
+      return bDate.localeCompare(aDate); // mais recente primeiro
+    });
   }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo]);
 
   // Pending transactions in current filtered view
@@ -995,7 +1000,7 @@ export default function Transactions() {
                     <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
                     
                     <th className="pb-3 text-left font-medium">Estado</th>
-                    <th className="pb-3 text-left font-medium">Data Vcto</th>
+                    <th className="pb-3 text-left font-medium">Data Pgto</th>
                     <th className="pb-3 text-right font-medium">Pago</th>
                     <th className="pb-3 text-right font-medium">Valor c/IVA</th>
                     <th className="pb-3 text-center font-medium">Ações</th>
@@ -1012,6 +1017,7 @@ export default function Transactions() {
                       onToggleSelect={() => {}}
                       showSelectColumn={false}
                       eventCompleted={(t.events as any)?.status === "completed"}
+                      showPaymentDate={true}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
                       onPayment={(id) => setShowPaymentId(id)}
