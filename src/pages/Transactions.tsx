@@ -863,7 +863,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
 
@@ -894,7 +894,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
 
@@ -925,7 +925,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
                 </tbody>
@@ -971,7 +971,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
                 </tbody>
