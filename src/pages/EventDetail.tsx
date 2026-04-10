@@ -15,6 +15,8 @@ import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
+import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
+import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
