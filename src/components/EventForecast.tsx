@@ -62,6 +62,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const isEventLocked = eventStatus === "completed";
   const canApprove = (isAdmin || isManager) && !isEventLocked;
   const canEditBP = (isAdmin || isManager) && !isEventLocked;
+  const canEditApprovedBP = canEditBP && hasPermission("edit_approved_bp");
   const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
   const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
 
