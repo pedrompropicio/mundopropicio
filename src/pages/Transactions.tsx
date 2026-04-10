@@ -995,7 +995,7 @@ export default function Transactions() {
                     <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
                     
                     <th className="pb-3 text-left font-medium">Estado</th>
-                    <th className="pb-3 text-left font-medium">Data Vcto</th>
+                    <th className="pb-3 text-left font-medium">Data Pgto</th>
                     <th className="pb-3 text-right font-medium">Pago</th>
                     <th className="pb-3 text-right font-medium">Valor c/IVA</th>
                     <th className="pb-3 text-center font-medium">Ações</th>
