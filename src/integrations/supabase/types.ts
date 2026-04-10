@@ -549,6 +549,7 @@ export type Database = {
           event_id: string
           expense_includes_iva: boolean
           id: string
+          loss_percentage: number | null
           notes: string | null
           percentage: number
           supplier_id: string
@@ -559,6 +560,7 @@ export type Database = {
           event_id: string
           expense_includes_iva?: boolean
           id?: string
+          loss_percentage?: number | null
           notes?: string | null
           percentage?: number
           supplier_id: string
@@ -569,6 +571,7 @@ export type Database = {
           event_id?: string
           expense_includes_iva?: boolean
           id?: string
+          loss_percentage?: number | null
           notes?: string | null
           percentage?: number
           supplier_id?: string
