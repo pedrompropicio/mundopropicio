@@ -892,6 +892,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 ...prev,
                 category_id: detail.catId,
                 description: line.description || prev.description,
+                amount: String(Number(line.amount) || prev.amount),
                 iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: line.specification || prev.specification,
               }));
