@@ -397,9 +397,24 @@ export default function ReportBPTransactions() {
           </SelectContent>
         </Select>
         {selectedEventId && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={expandAll} className="text-xs text-primary hover:underline">Expandir tudo</button>
             <button onClick={collapseAll} className="text-xs text-primary hover:underline">Colapsar tudo</button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="ml-2 gap-1.5">
+                  <FileDown className="h-4 w-4" /> PDF
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExportPDF("synthetic")}>
+                  Sintético — Apenas totais por categoria
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportPDF("analytical")}>
+                  Analítico — Com detalhe das transações
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
