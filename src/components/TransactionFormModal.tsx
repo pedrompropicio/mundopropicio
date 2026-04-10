@@ -113,6 +113,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
   });
 
+  // Event partners for "paid by partner" feature
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["event-partners-for-tx", form.event_id],
+    queryFn: async () => {
+      if (!form.event_id) return [];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers(name)")
+        .eq("event_id", form.event_id)
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id,
+  });
+
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
   const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
