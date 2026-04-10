@@ -72,43 +72,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // RULE: Paid transactions cannot be edited by anyone
-    if (transaction.status === "paid") {
-      return new Response(
-        JSON.stringify({ error: "Transações pagas não podem ser editadas" }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // RULE: Financial fields (amount, iva_rate) on approved transactions → admin only
-    // EXCEPTION: BP-linked transactions (with a forecast) allow amount/iva changes for all authenticated users
-    const financialFields = ["amount", "iva_rate"];
-    const isApproved = transaction.status === "approved";
-
-    if (isApproved) {
-      const attemptedFinancialChanges = financialFields.filter((field) => {
-        if (!(field in updates)) return false;
-        return String(updates[field]) !== String(transaction[field]);
-      });
-
-      if (attemptedFinancialChanges.length > 0 && !isAdmin) {
-        // Check if transaction is linked to a BP forecast
-        const { data: linkedForecast } = await adminClient
-          .from("event_forecasts")
-          .select("id")
-          .eq("transaction_id", transaction_id)
-          .limit(1)
-          .maybeSingle();
-
-        if (!linkedForecast) {
-          return new Response(
-            JSON.stringify({
-              error: "Apenas administradores podem alterar valores financeiros em transações aprovadas",
-              restricted_fields: attemptedFinancialChanges,
-            }),
-            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+    // RULE: Paid transactions — only specification and supplier_id can be edited
+    const isPaid = transaction.status === "paid";
+    if (isPaid) {
+      const paidAllowedFields = ["specification", "supplier_id"];
+      const blockedFields = Object.keys(updates).filter((f) => !paidAllowedFields.includes(f));
+      if (blockedFields.length > 0) {
+        return new Response(
+          JSON.stringify({ error: "Transações pagas só permitem alteração de especificação e fornecedor" }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
