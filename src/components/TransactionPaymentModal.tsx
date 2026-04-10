@@ -262,6 +262,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
       onClose();
       toast({ title: successMsg });
     },
