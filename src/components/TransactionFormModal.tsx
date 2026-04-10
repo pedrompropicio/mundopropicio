@@ -822,7 +822,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 iva_rate: (firstLine?.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: firstLine?.specification || prev.specification,
               }));
-              setPlExpanded(false);
+              // Keep BP expanded so user can see the lines while filling the form
             };
 
             return (
