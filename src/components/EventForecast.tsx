@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { moveToTrash } from "@/lib/trash";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -378,6 +379,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Fetch full data before deleting
+      const { data: forecastData } = await supabase
+        .from("event_forecasts")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (forecastData) {
+        await moveToTrash({
+          entity_type: "forecast",
+          entity_id: id,
+          entity_data: forecastData,
+          deleted_by: user?.email || "sistema",
+        });
+      }
       const { error } = await supabase.from("event_forecasts").delete().eq("id", id);
       if (error) throw error;
     },

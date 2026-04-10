@@ -2111,6 +2111,42 @@ export type Database = {
           },
         ]
       }
+      trash: {
+        Row: {
+          deleted_at: string
+          deleted_by: string
+          entity_data: Json
+          entity_id: string
+          entity_type: string
+          expires_at: string
+          id: string
+          related_data: Json | null
+          restored_at: string | null
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string
+          entity_data?: Json
+          entity_id: string
+          entity_type: string
+          expires_at?: string
+          id?: string
+          related_data?: Json | null
+          restored_at?: string | null
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string
+          entity_data?: Json
+          entity_id?: string
+          entity_type?: string
+          expires_at?: string
+          id?: string
+          related_data?: Json | null
+          restored_at?: string | null
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string

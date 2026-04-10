@@ -52,6 +52,7 @@ import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
 import FloatingHelpButton from "./components/FloatingHelpButton";
+import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
 import { PartnerLayout } from "./components/PartnerLayout";
 
@@ -155,6 +156,7 @@ function ProtectedLayout() {
               <Route path="/admin/utilizadores" element={<UserManagement />} />
               <Route path="/admin/backups" element={<DatabaseBackups />} />
               <Route path="/admin/seguranca" element={<SecurityDashboard />} />
+              <Route path="/admin/lixeira" element={<TrashPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <FloatingHelpButton />

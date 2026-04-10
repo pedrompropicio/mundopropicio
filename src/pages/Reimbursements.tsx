@@ -3,6 +3,7 @@ import helpTexts from "@/lib/help-texts";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { moveToTrash } from "@/lib/trash";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -48,6 +49,15 @@ export default function Reimbursements() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      const { data: noteData } = await supabase.from("reimbursement_notes").select("*").eq("id", id).single();
+      if (noteData) {
+        await moveToTrash({
+          entity_type: "reimbursement_note",
+          entity_id: id,
+          entity_data: noteData,
+          deleted_by: user?.email || "sistema",
+        });
+      }
       const { error } = await supabase.from("reimbursement_notes").delete().eq("id", id);
       if (error) throw error;
     },

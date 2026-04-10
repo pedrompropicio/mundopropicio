@@ -1,6 +1,7 @@
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState } from "react";
+import { moveToTrash } from "@/lib/trash";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,7 +94,7 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -256,6 +257,24 @@ export default function EventDetail() {
 
   const deleteEventMutation = useMutation({
     mutationFn: async () => {
+      // Fetch event data for trash
+      const { data: eventData } = await supabase.from("events").select("*").eq("id", id!).single();
+      const { data: eventDates } = await supabase.from("event_dates").select("*").eq("event_id", id!);
+      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!);
+
+      if (eventData) {
+        await moveToTrash({
+          entity_type: "event",
+          entity_id: id!,
+          entity_data: eventData,
+          related_data: {
+            event_dates: eventDates || [],
+            event_forecasts: forecasts || [],
+          },
+          deleted_by: user?.email || "sistema",
+        });
+      }
+
       // Delete related data first
       await supabase.from("event_dates").delete().eq("event_id", id!);
       await supabase.from("event_forecasts").delete().eq("event_id", id!);
