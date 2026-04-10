@@ -1085,6 +1085,42 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {/* Reimbursement toggle — only for expenses */}
+          {form.type === "expense" && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !form.is_reimbursement;
+                    setForm({ ...form, is_reimbursement: next, reimbursement_to: "", account_id: next ? "" : form.account_id });
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    form.is_reimbursement
+                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  💰 {form.is_reimbursement ? "Reembolso Ativo" : "Marcar como Reembolso"}
+                </button>
+              </div>
+              {form.is_reimbursement && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Reembolsar a *</label>
+                  <input
+                    value={form.reimbursement_to}
+                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Nome do funcionário"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Despesa paga do bolso do funcionário — sem conta financeira associada
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Lançamento</label>
