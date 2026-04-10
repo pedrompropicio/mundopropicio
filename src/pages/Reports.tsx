@@ -15,6 +15,7 @@ import {
   FileWarning,
   FileOutput,
   UserCheck,
+  GitCompareArrows,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -43,6 +44,7 @@ const allReportItems = [
   { to: "/relatorios/pendencias-documentais", icon: FileWarning, label: "Pendências Documentais", permission: "view_report_document_pendencies" },
   { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_accounting_export", managementOnly: true },
   { to: "/relatorios/despesas-socios", icon: UserCheck, label: "Despesas Sócios", permission: "view_report_partner_expenses", managementOnly: true },
+  { to: "/relatorios/bp-transacoes", icon: GitCompareArrows, label: "BP x Transações", permission: "view_report_pl", managementOnly: true },
 ];
 
 export default function Reports() {

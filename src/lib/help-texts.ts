@@ -156,6 +156,8 @@ const helpTexts: Record<string, string> = {
     "Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. Crie a nota, adicione despesas marcadas como 'Reembolso', aprove (todas devem ter fatura contábil) e pague. O sistema gera automaticamente a transação de pagamento.",
   reportPartnerExpenses:
     "Consulte todas as despesas pagas diretamente por sócios/parceiros em qualquer evento. Filtre por evento ou sócio e exporte o relatório em PDF. Estas despesas compõem a apuração do resultado do evento independentemente de terem previsão no Business Plan.",
+  reportBPTransactions:
+    "Comparação detalhada entre as previsões do Business Plan (BP) e as transações de despesa efectivamente lançadas por evento. Cada categoria mostra o valor previsto vs. realizado, com as transações individuais listadas abaixo. Inclui despesas de reembolso, pagas por sócios e lançamentos fora do BP.",
   paidByPartnerToggle:
     "Despesa paga diretamente pelo sócio, sem movimentar contas da empresa. A despesa segue o ciclo de aprovação normal e aparece no encontro de contas do Fecho Parceiros.",
   reimbursementToggle:
