@@ -223,7 +223,8 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
 
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(`${s.partnerName} (${s.percentage}%)`, margin, y);
+      const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
+      doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
       y += 6;
 
       // Partner summary
