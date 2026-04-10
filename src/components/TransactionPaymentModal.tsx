@@ -373,7 +373,45 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             </div>
           )}
 
-          <div>
+          {/* Supplier Credits */}
+          {isExpense && availableCredits.length > 0 && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                <CreditCard className="h-3.5 w-3.5" /> Créditos disponíveis
+              </label>
+              {availableCredits.map((c: any) => {
+                const remaining = Number(c.amount) - Number(c.used_amount);
+                return (
+                  <div key={c.id} className="flex items-center gap-2 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">{c.reason}</span>
+                      {c.document_ref && <span className="text-muted-foreground ml-1">({c.document_ref})</span>}
+                      <span className="text-muted-foreground ml-1">— Disp: {formatCurrency(remaining)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={remaining}
+                      value={creditAllocations[c.id] ?? ""}
+                      onChange={(e) => setCreditAllocations(prev => ({ ...prev, [c.id]: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-24 rounded-md border border-border bg-background px-2 py-1 text-xs text-right"
+                    />
+                  </div>
+                );
+              })}
+              {totalCreditApplied > 0 && (
+                <p className="text-xs font-medium text-primary">
+                  Total crédito aplicado: {formatCurrency(totalCreditApplied)}
+                  {parseFloat(paymentAmount) > 0 && (
+                    <span className="text-muted-foreground font-normal"> · Saída de caixa: {formatCurrency(Math.max(0, parseFloat(paymentAmount) - (parseFloat(withholdingAmount) || 0) - totalCreditApplied))}</span>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Doc/Fatura</label>
             <input type="text" value={invoiceRef}
               onChange={(e) => setInvoiceRef(e.target.value)}
