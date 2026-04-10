@@ -477,6 +477,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       onClose();
       toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
     },
