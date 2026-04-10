@@ -128,7 +128,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
-  const isExpense = transaction.type === "expense";
+  // isExpense already declared above
   const modalTitle = isExpense ? "Registar Pagamento" : "Registar Recebimento";
   const confirmLabel = isExpense ? "Confirmar Pagamento" : "Confirmar Recebimento";
   const successMsg = isExpense ? "Pagamento registado com sucesso!" : "Recebimento registado com sucesso!";
