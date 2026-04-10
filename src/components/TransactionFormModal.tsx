@@ -268,8 +268,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }, 0);
   }, [ticketLots]);
 
+  // When selecting a parent multi_day event, only show the parent's own BP lines (for proration)
+  const relevantForecasts = useMemo(() => {
+    if (isParentMultiDay) {
+      return eventForecasts.filter((f: any) => f.event_id === form.event_id);
+    }
+    return eventForecasts;
+  }, [eventForecasts, isParentMultiDay, form.event_id]);
+
   const forecastBudgetByCategory = hasPL
-    ? eventForecasts.reduce<Record<string, number>>((acc, f) => {
+    ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
         const key = `${f.type}_${f.category_id || "none"}`;
         acc[key] = (acc[key] || 0) + Number(f.amount);
         return acc;
@@ -285,7 +293,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     : {};
 
   const allowedCategoryIds = hasPLRestriction
-    ? [...new Set(eventForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
+    ? [...new Set(relevantForecasts.filter(f => f.type === form.type).map(f => f.category_id).filter(Boolean))]
     : [];
 
   // --- BP data for split events ---
