@@ -739,8 +739,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     );
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch);
+  const matchesPartnerFilter = (f: any) => {
+    if (partnerFilter === "all") return true;
+    const partners = forecastPartnerMap[f.id] ?? [];
+    if (partnerFilter === "company") return partners.length === 0;
+    return partners.includes(partnerFilter);
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
