@@ -55,6 +55,8 @@ export default function Transactions() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
+  const [deleteChecked, setDeleteChecked] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
