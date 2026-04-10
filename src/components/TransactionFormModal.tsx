@@ -12,6 +12,8 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo } from "@/components/TransactionSplitConfig";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface TransactionForm {
   description: string;
@@ -1141,6 +1143,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   }`}
                 >
                   💰 {form.is_reimbursement ? "Reembolso Ativo" : "Marcar como Reembolso"}
+                  <HelpTooltip text={helpTexts.reimbursementToggle} size={12} />
                 </button>
 
                 {/* Paid by partner toggle — only when event has partners */}
@@ -1160,6 +1163,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                     }`}
                   >
                     🤝 {isPaidByPartner ? "Pago por Sócio" : "Pago por Sócio"}
+                    <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
                   </button>
                 )}
               </div>
