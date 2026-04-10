@@ -27,9 +27,11 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [percentage, setPercentage] = useState("");
+  const [lossPercentage, setLossPercentage] = useState("");
   const [notes, setNotes] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPercentage, setEditPercentage] = useState("");
+  const [editLossPercentage, setEditLossPercentage] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
   const { data: event } = useQuery({
@@ -82,6 +84,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         event_id: eventId,
         supplier_id: selectedSupplier,
         percentage: Number(percentage),
+        loss_percentage: lossPercentage ? Number(lossPercentage) : null,
         notes: notes || null,
       });
       if (error) throw error;
@@ -91,6 +94,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
       setShowForm(false);
       setSelectedSupplier("");
       setPercentage("");
+      setLossPercentage("");
       setNotes("");
       toast({ title: "Sócio adicionado" });
     },
@@ -111,8 +115,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   });
 
   const updatePartner = useMutation({
-    mutationFn: async ({ id, percentage: pct, notes: n }: { id: string; percentage: number; notes: string }) => {
-      const { error } = await supabase.from("event_partners").update({ percentage: pct, notes: n || null }).eq("id", id);
+    mutationFn: async ({ id, percentage: pct, loss_percentage: lp, notes: n }: { id: string; percentage: number; loss_percentage: number | null; notes: string }) => {
+      const { error } = await supabase.from("event_partners").update({ percentage: pct, loss_percentage: lp, notes: n || null }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -183,8 +187,8 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Sócio</TableHead>
-                <TableHead className="text-right">%</TableHead>
-                
+                <TableHead className="text-right">% Lucro</TableHead>
+                <TableHead className="text-right">% Prejuízo</TableHead>
                 <TableHead>Notas</TableHead>
                 {canEdit && <TableHead className="w-20" />}
               </TableRow>
@@ -194,6 +198,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                 const isEditing = editingId === p.id;
                 const otherTotal = partners.reduce((sum: number, op: any) => op.id === p.id ? sum : sum + Number(op.percentage), 0);
                 const maxPct = 100 - otherTotal;
+                const hasLoss = p.loss_percentage !== null && p.loss_percentage !== undefined;
                 return (
                   <React.Fragment key={p.id}>
                   <TableRow className="[&>td]:py-1 [&>td]:px-2">
@@ -208,6 +213,19 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                         />
                       ) : (
                         <>{Number(p.percentage).toFixed(1)}%</>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {isEditing ? (
+                        <Input
+                          type="number" min="0" max="100" step="0.1"
+                          value={editLossPercentage}
+                          onChange={(e) => setEditLossPercentage(e.target.value)}
+                          className="h-7 w-20 text-right ml-auto"
+                          placeholder="Igual"
+                        />
+                      ) : (
+                        hasLoss ? <>{Number(p.loss_percentage).toFixed(1)}%</> : <span className="text-muted-foreground text-xs">Igual</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
@@ -228,7 +246,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           {isEditing ? (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => updatePartner.mutate({ id: p.id, percentage: Number(editPercentage), notes: editNotes })}
+                                onClick={() => updatePartner.mutate({ id: p.id, percentage: Number(editPercentage), loss_percentage: editLossPercentage ? Number(editLossPercentage) : null, notes: editNotes })}
                                 disabled={!editPercentage || Number(editPercentage) <= 0 || updatePartner.isPending}
                               >
                                 <Check className="h-3.5 w-3.5 text-green-600" />
@@ -240,7 +258,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                           ) : (
                             <>
                               <Button size="icon" variant="ghost" className="h-7 w-7"
-                                onClick={() => { setEditingId(p.id); setEditPercentage(String(p.percentage)); setEditNotes(p.notes || ""); }}
+                                onClick={() => { setEditingId(p.id); setEditPercentage(String(p.percentage)); setEditLossPercentage(p.loss_percentage != null ? String(p.loss_percentage) : ""); setEditNotes(p.notes || ""); }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
@@ -254,7 +272,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     )}
                   </TableRow>
                   <TableRow>
-                    <TableCell colSpan={canEdit ? 4 : 3} className="pt-0 pb-2 px-2">
+                    <TableCell colSpan={canEdit ? 5 : 4} className="pt-0 pb-2 px-2">
                       <PartnerExtrasPanel
                         partnerId={p.id}
                         partnerName={p.suppliers?.name || "Sócio"}
@@ -279,7 +297,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
         {/* Add form */}
         {showForm && (
           <div className="border border-border/50 rounded-lg p-4 space-y-4 bg-secondary/10">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Parceiro / Sócio</Label>
                 <div className="flex gap-2">
@@ -308,7 +326,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                     />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Percentagem (%)</Label>
+                <Label className="text-xs">% no Lucro</Label>
                 <Input
                   type="number"
                   min="0"
@@ -317,6 +335,18 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
                   value={percentage}
                   onChange={(e) => setPercentage(e.target.value)}
                   placeholder={`Máx: ${(100 - totalPercentage).toFixed(1)}%`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">% no Prejuízo (opcional)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={lossPercentage}
+                  onChange={(e) => setLossPercentage(e.target.value)}
+                  placeholder="Igual ao lucro"
                 />
               </div>
             </div>

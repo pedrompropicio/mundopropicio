@@ -20,6 +20,8 @@ interface PartnerSettlement {
   partnerId: string;
   partnerName: string;
   percentage: number;
+  lossPercentage: number | null;
+  effectivePercentage: number;
   expenseIncludesIva: boolean;
   calcBasis: string;
   revenue: number;
@@ -146,7 +148,8 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
     const revenue = calcBasis === "net" ? totalRevenueNet : totalRevenueGross;
     const expenses = p.expense_includes_iva ? totalExpensesGross : totalExpensesNet;
     const result = revenue - expenses;
-    const partnerShare = result * (Number(p.percentage) / 100);
+    const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
+    const partnerShare = result * (effectivePercentage / 100);
 
     const partnerExpenses = paidExpenses
       .filter((pe: any) => pe.partner_id === p.id)
@@ -167,6 +170,8 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       partnerId: p.id,
       partnerName: p.suppliers?.name || "—",
       percentage: Number(p.percentage),
+      lossPercentage: p.loss_percentage != null ? Number(p.loss_percentage) : null,
+      effectivePercentage,
       expenseIncludesIva: p.expense_includes_iva,
       calcBasis,
       revenue,
@@ -218,7 +223,8 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
 
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(`${s.partnerName} (${s.percentage}%)`, margin, y);
+      const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
+      doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
       y += 6;
 
       // Partner summary
@@ -320,7 +326,14 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
             <div className="flex items-center gap-2">
               <UserCheck className="h-4 w-4 text-primary" />
               <span className="font-semibold">{s.partnerName}</span>
-              <Badge variant="outline" className="text-xs">{s.percentage}%</Badge>
+              <Badge variant="outline" className="text-xs">
+                {s.lossPercentage != null
+                  ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo`
+                  : `${s.percentage}%`}
+              </Badge>
+              {s.lossPercentage != null && s.effectivePercentage !== s.percentage && (
+                <Badge variant="secondary" className="text-xs">Aplicado: {s.effectivePercentage}%</Badge>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {s.settlement > 0 ? (
