@@ -413,6 +413,42 @@ export type Database = {
           },
         ]
       }
+      event_forecast_partners: {
+        Row: {
+          created_at: string
+          forecast_id: string
+          id: string
+          partner_id: string
+        }
+        Insert: {
+          created_at?: string
+          forecast_id: string
+          id?: string
+          partner_id: string
+        }
+        Update: {
+          created_at?: string
+          forecast_id?: string
+          id?: string
+          partner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_forecast_partners_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecast_partners_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_forecasts: {
         Row: {
           amount: number
