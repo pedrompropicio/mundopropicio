@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { ChevronDown, Plus, CreditCard, Calendar, Trash2, Paperclip, FileText, Loader2 } from "lucide-react";
+import { ChevronDown, Plus, CreditCard, Calendar, Trash2, Paperclip, FileText, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -15,6 +15,7 @@ interface Props {
 
 export function SupplierCreditsPanel({ supplierId, isOpen, onToggle }: Props) {
   const [showForm, setShowForm] = useState(false);
+  const [editingCredit, setEditingCredit] = useState<any>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -35,6 +36,16 @@ export function SupplierCreditsPanel({ supplierId, isOpen, onToggle }: Props) {
   const activeCredits = credits.filter((c: any) => c.status === "active");
   const exhaustedCredits = credits.filter((c: any) => c.status !== "active");
   const totalAvailable = activeCredits.reduce((s: number, c: any) => s + (Number(c.amount) - Number(c.used_amount)), 0);
+
+  const handleEdit = (credit: any) => {
+    setEditingCredit(credit);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingCredit(null);
+  };
 
   return (
     <div>
@@ -58,7 +69,7 @@ export function SupplierCreditsPanel({ supplierId, isOpen, onToggle }: Props) {
                   Disponível: {formatCurrency(totalAvailable)}
                 </span>
                 <button
-                  onClick={() => setShowForm(true)}
+                  onClick={() => { setEditingCredit(null); setShowForm(true); }}
                   className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80"
                 >
                   <Plus className="h-3 w-3" /> Novo crédito
@@ -73,23 +84,24 @@ export function SupplierCreditsPanel({ supplierId, isOpen, onToggle }: Props) {
                 <CreditForm
                   supplierId={supplierId}
                   userName={user?.user_metadata?.full_name ?? user?.email ?? "sistema"}
-                  onClose={() => setShowForm(false)}
+                  existingCredit={editingCredit}
+                  onClose={handleCloseForm}
                   onSuccess={() => {
                     queryClient.invalidateQueries({ queryKey: ["supplier-credits", supplierId] });
-                    setShowForm(false);
+                    handleCloseForm();
                   }}
                 />
               )}
 
               {activeCredits.map((c: any) => (
-                <CreditLine key={c.id} credit={c} supplierId={supplierId} />
+                <CreditLine key={c.id} credit={c} supplierId={supplierId} onEdit={() => handleEdit(c)} />
               ))}
 
               {exhaustedCredits.length > 0 && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Esgotados / Expirados</p>
                   {exhaustedCredits.map((c: any) => (
-                    <CreditLine key={c.id} credit={c} supplierId={supplierId} />
+                    <CreditLine key={c.id} credit={c} supplierId={supplierId} onEdit={() => handleEdit(c)} />
                   ))}
                 </div>
               )}
@@ -101,7 +113,7 @@ export function SupplierCreditsPanel({ supplierId, isOpen, onToggle }: Props) {
   );
 }
 
-function CreditLine({ credit, supplierId }: { credit: any; supplierId: string }) {
+function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: string; onEdit: () => void }) {
   const queryClient = useQueryClient();
   const remaining = Number(credit.amount) - Number(credit.used_amount);
   const isActive = credit.status === "active";
@@ -151,6 +163,9 @@ function CreditLine({ credit, supplierId }: { credit: any; supplierId: string })
           <span className={`font-mono font-semibold ${isActive ? "text-primary" : "text-muted-foreground"}`}>
             {formatCurrency(remaining)} / {formatCurrency(Number(credit.amount))}
           </span>
+          <button onClick={onEdit} className="text-muted-foreground hover:text-primary" title="Editar crédito">
+            <Pencil className="h-3 w-3" />
+          </button>
           {credit.file_url ? (
             <button onClick={handleViewFile} className="text-primary hover:text-primary/80" title="Ver anexo">
               <FileText className="h-3 w-3" />
@@ -203,22 +218,28 @@ function CreditLine({ credit, supplierId }: { credit: any; supplierId: string })
 function CreditForm({
   supplierId,
   userName,
+  existingCredit,
   onClose,
   onSuccess,
 }: {
   supplierId: string;
   userName: string;
+  existingCredit?: any;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [amount, setAmount] = useState("");
-  const [reason, setReason] = useState("");
-  const [documentRef, setDocumentRef] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [notes, setNotes] = useState("");
-  const [originEventId, setOriginEventId] = useState("");
+  const isEditing = !!existingCredit;
+  const [amount, setAmount] = useState(isEditing ? String(existingCredit.amount) : "");
+  const [reason, setReason] = useState(isEditing ? (existingCredit.reason ?? "") : "");
+  const [documentRef, setDocumentRef] = useState(isEditing ? (existingCredit.document_ref ?? "") : "");
+  const [validUntil, setValidUntil] = useState(isEditing ? (existingCredit.valid_until ?? "") : "");
+  const [notes, setNotes] = useState(isEditing ? (existingCredit.notes ?? "") : "");
+  const [originEventId, setOriginEventId] = useState(isEditing ? (existingCredit.origin_event_id ?? "") : "");
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // If editing and credit has been partially used, don't allow reducing amount below used_amount
+  const usedAmount = isEditing ? Number(existingCredit.used_amount) : 0;
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-for-credits"],
@@ -234,30 +255,64 @@ function CreditForm({
       const val = parseFloat(amount);
       if (!val || val <= 0) throw new Error("Valor inválido");
       if (!reason.trim()) throw new Error("Motivo obrigatório");
-      const insert: any = {
-        supplier_id: supplierId,
-        amount: val,
-        reason: reason.trim(),
-        created_by: userName,
-      };
-      if (documentRef.trim()) insert.document_ref = documentRef.trim();
-      if (validUntil) insert.valid_until = validUntil;
-      if (notes.trim()) insert.notes = notes.trim();
-      if (originEventId) insert.origin_event_id = originEventId;
+      if (isEditing && val < usedAmount) {
+        throw new Error(`Valor não pode ser inferior ao já utilizado (${formatCurrency(usedAmount)})`);
+      }
 
-      const { data: inserted, error } = await (supabase.from("supplier_credits" as any).insert(insert).select("id").single() as any);
-      if (error) throw error;
+      if (isEditing) {
+        // Update existing credit
+        const updates: any = {
+          amount: val,
+          reason: reason.trim(),
+          document_ref: documentRef.trim() || null,
+          valid_until: validUntil || null,
+          notes: notes.trim() || null,
+          origin_event_id: originEventId || null,
+        };
+        // Recalculate status
+        if (val <= usedAmount) {
+          updates.status = "exhausted";
+        } else if (existingCredit.status === "exhausted" && val > usedAmount) {
+          updates.status = "active";
+        }
+        const { error } = await supabase.from("supplier_credits" as any).update(updates).eq("id", existingCredit.id);
+        if (error) throw error;
 
-      if (file && inserted?.id) {
-        const ext = file.name.split(".").pop();
-        const path = `${supplierId}/${inserted.id}/${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
-        if (uploadErr) throw uploadErr;
-        await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", inserted.id);
+        // Handle file upload for edit
+        if (file) {
+          const ext = file.name.split(".").pop();
+          const path = `${supplierId}/${existingCredit.id}/${Date.now()}.${ext}`;
+          const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+          if (uploadErr) throw uploadErr;
+          await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", existingCredit.id);
+        }
+      } else {
+        // Create new credit
+        const insert: any = {
+          supplier_id: supplierId,
+          amount: val,
+          reason: reason.trim(),
+          created_by: userName,
+        };
+        if (documentRef.trim()) insert.document_ref = documentRef.trim();
+        if (validUntil) insert.valid_until = validUntil;
+        if (notes.trim()) insert.notes = notes.trim();
+        if (originEventId) insert.origin_event_id = originEventId;
+
+        const { data: inserted, error } = await (supabase.from("supplier_credits" as any).insert(insert).select("id").single() as any);
+        if (error) throw error;
+
+        if (file && inserted?.id) {
+          const ext = file.name.split(".").pop();
+          const path = `${supplierId}/${inserted.id}/${Date.now()}.${ext}`;
+          const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+          if (uploadErr) throw uploadErr;
+          await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", inserted.id);
+        }
       }
     },
     onSuccess: () => {
-      toast.success("Crédito registado");
+      toast.success(isEditing ? "Crédito atualizado" : "Crédito registado");
       onSuccess();
     },
     onError: (err: any) => toast.error(err.message),
@@ -265,11 +320,13 @@ function CreditForm({
 
   return (
     <div className="rounded-lg border border-border bg-background p-3 space-y-2">
-      <p className="text-xs font-semibold">Novo Crédito</p>
+      <p className="text-xs font-semibold">{isEditing ? "Editar Crédito" : "Novo Crédito"}</p>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-[10px] text-muted-foreground">Valor (€) *</label>
-          <input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+          <label className="text-[10px] text-muted-foreground">
+            Valor (€) * {usedAmount > 0 && <span className="text-warning">(mín: {formatCurrency(usedAmount)})</span>}
+          </label>
+          <input type="number" step="0.01" min={usedAmount > 0 ? usedAmount : 0.01} value={amount} onChange={(e) => setAmount(e.target.value)}
             className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs" placeholder="0.00" />
         </div>
         <div>
@@ -312,7 +369,7 @@ function CreditForm({
             className="flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
           >
             <Paperclip className="h-3 w-3" />
-            {file ? file.name : "Selecionar ficheiro…"}
+            {file ? file.name : isEditing && existingCredit.file_url ? "Substituir anexo…" : "Selecionar ficheiro…"}
           </button>
           {file && (
             <button onClick={() => setFile(null)} className="text-xs text-destructive hover:text-destructive/80">
@@ -332,7 +389,7 @@ function CreditForm({
         <button onClick={onClose} className="rounded-md px-3 py-1.5 text-xs border border-border hover:bg-secondary">Cancelar</button>
         <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
           className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-          {mutation.isPending ? "A guardar…" : "Guardar"}
+          {mutation.isPending ? "A guardar…" : isEditing ? "Atualizar" : "Guardar"}
         </button>
       </div>
     </div>
