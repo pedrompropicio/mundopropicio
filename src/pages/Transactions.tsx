@@ -55,6 +55,8 @@ export default function Transactions() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
+  const [deleteChecked, setDeleteChecked] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
@@ -184,11 +186,47 @@ export default function Transactions() {
     },
   });
 
+  // Check for dependent records before deleting
+  const checkDependencies = async (id: string) => {
+    const warnings: string[] = [];
+    const { data: payItems } = await supabase.from("payment_list_items").select("id, payment_list_id").eq("transaction_id", id);
+    if (payItems && payItems.length > 0) {
+      warnings.push(`Presente em ${payItems.length} lista(s) de pagamento — será removida da(s) lista(s)`);
+    }
+    const { data: reimbItems } = await supabase.from("reimbursement_note_items").select("id").eq("transaction_id", id);
+    if (reimbItems && reimbItems.length > 0) {
+      warnings.push(`Vinculada a ${reimbItems.length} nota(s) de reembolso — será desvinculada`);
+    }
+    const { data: partnerExp } = await supabase.from("partner_paid_expenses").select("id").eq("transaction_id", id);
+    if (partnerExp && partnerExp.length > 0) {
+      warnings.push(`Registada como despesa paga por parceiro — o registo será removido`);
+    }
+    const { data: creditUsages } = await supabase.from("supplier_credit_usages").select("id, amount").eq("transaction_id", id);
+    if (creditUsages && creditUsages.length > 0) {
+      const total = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
+      warnings.push(`Tem ${creditUsages.length} uso(s) de crédito de fornecedor (${total.toFixed(2)} €) — serão revertidos`);
+    }
+    const { data: children } = await supabase.from("transactions").select("id").eq("parent_transaction_id", id);
+    if (children && children.length > 0) {
+      warnings.push(`Tem ${children.length} transação(ões) filha(s) de split — serão eliminadas em conjunto`);
+    }
+    return warnings;
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    setDeletingId(id);
+    setDeleteChecked(false);
+    setDeleteWarnings([]);
+    const warnings = await checkDependencies(id);
+    setDeleteWarnings(warnings);
+    setDeleteChecked(true);
+  };
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       // Fetch transaction data before deleting for audit
       const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
-      // Remove dependent records that block deletion
+      // Remove dependent records safely
       await supabase.from("payment_list_items").delete().eq("transaction_id", id);
       await supabase.from("reimbursement_note_items").delete().eq("transaction_id", id);
       await supabase.from("partner_paid_expenses").delete().eq("transaction_id", id);
@@ -870,7 +908,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => setDeletingId(id)}
+                      onDelete={(id) => handleDeleteRequest(id)}
                     />
                   ))}
 
@@ -901,7 +939,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => setDeletingId(id)}
+                      onDelete={(id) => handleDeleteRequest(id)}
                     />
                   ))}
 
@@ -932,7 +970,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => setDeletingId(id)}
+                      onDelete={(id) => handleDeleteRequest(id)}
                     />
                   ))}
                 </tbody>
@@ -978,7 +1016,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => setDeletingId(id)}
+                      onDelete={(id) => handleDeleteRequest(id)}
                     />
                   ))}
                 </tbody>
@@ -987,21 +1025,33 @@ export default function Transactions() {
           )
         )}
       </div>
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) { setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar transação?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação é irreversível. A transação será permanentemente eliminada e registada no log de auditoria.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Esta ação é irreversível. A transação será permanentemente eliminada e registada no log de auditoria.</p>
+                {!deleteChecked && <p className="text-muted-foreground text-xs">A verificar dependências…</p>}
+                {deleteChecked && deleteWarnings.length > 0 && (
+                  <div className="rounded-md border border-warning/30 bg-warning/10 p-3 space-y-1">
+                    <p className="text-xs font-semibold text-warning">⚠️ Atenção — esta transação tem vínculos:</p>
+                    <ul className="text-xs text-warning list-disc pl-4 space-y-0.5">
+                      {deleteWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); }}
+              disabled={!deleteChecked}
+              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); setDeleteWarnings([]); setDeleteChecked(false); }}
             >
-              Eliminar
+              {deleteWarnings.length > 0 ? "Eliminar Mesmo Assim" : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
