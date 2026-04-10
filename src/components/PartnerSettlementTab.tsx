@@ -8,6 +8,8 @@ import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 
 interface Props {
   eventId: string;
@@ -284,7 +286,7 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ArrowRightLeft className="h-4 w-4 text-primary" />
-          <h3 className="text-lg font-bold">Encontro de Contas</h3>
+          <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
         <Button size="sm" variant="outline" onClick={exportPdf}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
