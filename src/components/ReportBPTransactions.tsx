@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, AlertTriangle, Handshake, ReceiptText } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertTriangle, Handshake, ReceiptText, FileDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildCategoryLookup, type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { exportBPTransactionsToPDF, type BPTransactionsPDFData } from "@/lib/export-bp-transactions";
 
 interface TransactionWithMeta {
   id: string;
@@ -378,6 +381,19 @@ export default function ReportBPTransactions() {
   const grandTotalForecast = totalForecast;
   const grandTotalActual = totalActual + outOfBPActual;
 
+  const handleExportPDF = (mode: "synthetic" | "analytical") => {
+    if (!selectedEvent) return;
+    const pdfData: BPTransactionsPDFData = {
+      eventName: selectedEvent.name,
+      eventDate: selectedEvent.date,
+      groupedData: groupedData as any,
+      outOfBPTransactions: outOfBPTransactions as any,
+      totalForecast,
+      totalActual,
+    };
+    exportBPTransactionsToPDF(pdfData, mode);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -394,9 +410,24 @@ export default function ReportBPTransactions() {
           </SelectContent>
         </Select>
         {selectedEventId && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={expandAll} className="text-xs text-primary hover:underline">Expandir tudo</button>
             <button onClick={collapseAll} className="text-xs text-primary hover:underline">Colapsar tudo</button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="ml-2 gap-1.5">
+                  <FileDown className="h-4 w-4" /> PDF
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExportPDF("synthetic")}>
+                  Sintético — Apenas totais por categoria
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportPDF("analytical")}>
+                  Analítico — Com detalhe das transações
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
