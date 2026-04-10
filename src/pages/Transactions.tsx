@@ -425,7 +425,8 @@ export default function Transactions() {
 
     const result = base.filter((t) => {
       const paymentDate = t.payment_date ? new Date(t.payment_date) : null;
-      if (!paymentDate) return false;
+      // If no payment_date, include only in "all" period so they don't disappear
+      if (!paymentDate) return paidPeriod === "all";
       return paymentDate >= periodStart && paymentDate <= periodEnd;
     });
     return [...result].sort((a, b) => {
