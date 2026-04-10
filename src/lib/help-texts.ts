@@ -162,6 +162,10 @@ const helpTexts: Record<string, string> = {
     "Despesa paga do bolso de um funcionário. Não movimenta contas bancárias até à liquidação via Nota de Reembolso. Indique o nome do funcionário a reembolsar.",
   splitTransaction:
     "Rateio de transação entre múltiplos eventos. Defina as percentagens de cada evento. Alterações na transação-pai propagam-se automaticamente para as filhas.",
+  splitEqual:
+    "Divide o valor igualmente entre todos os eventos selecionados. As percentagens são recalculadas automaticamente ao adicionar ou remover eventos.",
+  splitCustom:
+    "Permite definir manualmente a percentagem de cada evento. O total deve somar exatamente 100%.",
   partnerPortal:
     "Portal de acesso dedicado para parceiros/sócios. Mostra apenas os eventos autorizados pelo administrador, com dados somente leitura (bilhetes, BP e transações).",
   eventCompleted:
