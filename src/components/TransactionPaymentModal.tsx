@@ -138,15 +138,26 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     mutationFn: async () => {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
-      if (!accountId) throw new Error("Selecione a conta");
+      if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
       const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
       if (newPaid > amount + 0.05) throw new Error("O valor excede o saldo em aberto");
 
-      // Check account balance for expenses (net amount after withholding)
-      const netCashOut = addAmount - withholding;
+      // Validate credit allocations
+      for (const [creditId, valStr] of Object.entries(creditAllocations)) {
+        const val = parseFloat(valStr) || 0;
+        if (val <= 0) continue;
+        const credit = availableCredits.find((c: any) => c.id === creditId);
+        if (!credit) throw new Error("Crédito inválido");
+        const remaining = Number(credit.amount) - Number(credit.used_amount);
+        if (val > remaining + 0.01) throw new Error(`Crédito "${credit.reason}" tem apenas ${formatCurrency(remaining)} disponível`);
+      }
+      if (totalCreditApplied > addAmount + 0.01) throw new Error("Créditos aplicados excedem o valor do pagamento");
+
+      // Check account balance for expenses (net amount after withholding and credits)
+      const netCashOut = addAmount - withholding - totalCreditApplied;
       if (isExpense) {
         const selectedAcc = financialAccounts.find((a: any) => a.id === accountId);
         const skipCheck = selectedAcc?.skip_balance_check ?? false;
