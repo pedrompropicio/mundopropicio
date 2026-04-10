@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
   onClose: () => void;
@@ -17,15 +17,32 @@ interface Props {
 export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [employeeName, setEmployeeName] = useState("");
+  const [supplierId, setSupplierId] = useState("");
   const [notes, setNotes] = useState("");
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-collaborators"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, category")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const selectedSupplier = suppliers.find((s: any) => s.id === supplierId);
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedSupplier) throw new Error("Selecione um funcionário/fornecedor");
       const { data, error } = await supabase
         .from("reimbursement_notes")
         .insert({
-          employee_name: employeeName.trim(),
+          employee_name: selectedSupplier.name,
+          supplier_id: supplierId,
           notes: notes.trim() || null,
           created_by: user?.email || "system",
           code: "", // trigger will generate
@@ -43,6 +60,11 @@ export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
     onError: (err: any) => toast({ title: "Erro ao criar", description: err.message, variant: "destructive" }),
   });
 
+  const supplierOptions = suppliers.map((s: any) => ({
+    value: s.id,
+    label: `${s.name}${s.category ? ` (${s.category})` : ""}`,
+  }));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-md rounded-xl p-6 space-y-4">
@@ -53,13 +75,17 @@ export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Nome do Funcionário *</Label>
-            <Input
-              value={employeeName}
-              onChange={(e) => setEmployeeName(e.target.value)}
-              placeholder="Ex: João Silva"
-              autoFocus
+            <Label className="text-xs">Funcionário / Beneficiário *</Label>
+            <SearchableSelect
+              options={supplierOptions}
+              value={supplierId}
+              onValueChange={setSupplierId}
+              placeholder="Selecionar funcionário…"
+              searchPlaceholder="Pesquisar fornecedor…"
             />
+            <p className="text-[10px] text-muted-foreground">
+              O funcionário deve estar cadastrado como fornecedor. Recomenda-se a categoria "Colaborador".
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Observações</Label>
@@ -77,7 +103,7 @@ export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
           <Button
             size="sm"
             onClick={() => createMutation.mutate()}
-            disabled={!employeeName.trim() || createMutation.isPending}
+            disabled={!supplierId || createMutation.isPending}
           >
             <Check className="mr-1 h-3.5 w-3.5" /> Criar
           </Button>
