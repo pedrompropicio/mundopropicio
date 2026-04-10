@@ -443,7 +443,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         );
         const autoApproved = hasForecastMatch;
 
-        const { error } = await supabase.from("transactions").insert({
+        const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
+
+        const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description,
           type: data.type,
           amount: parseFloat(data.amount),
@@ -451,7 +453,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          account_id: data.is_reimbursement ? null : (data.account_id || null),
+          account_id: accountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
@@ -460,8 +462,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           paid_amount: 0,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
-        } as any);
+        } as any).select("id").single();
         if (error) throw error;
+
+        // Auto-link to partner if paid by partner
+        if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
+          await supabase.from("partner_paid_expenses").insert({
+            event_id: data.event_id,
+            partner_id: paidByPartnerId,
+            transaction_id: insertedTx.id,
+          });
+        }
       }
     },
     onSuccess: () => {
