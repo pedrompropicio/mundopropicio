@@ -146,6 +146,8 @@ const helpTexts: Record<string, string> = {
     "Exportação para contabilidade: selecione o período e descarregue todos os documentos fiscais (faturas, recibos, notas fiscais) anexados às transações. Apenas ficheiros marcados como 'Documento contábil' são incluídos. O sistema regista cada exportação para controlo e rastreabilidade.",
   reimbursements:
     "Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. Crie a nota, adicione despesas marcadas como 'Reembolso', aprove (todas devem ter fatura contábil) e pague. O sistema gera automaticamente a transação de pagamento.",
+  reportPartnerExpenses:
+    "Consulte todas as despesas pagas diretamente por sócios/parceiros em qualquer evento. Filtre por evento ou sócio e exporte o relatório em PDF. Estas despesas compõem a apuração do resultado do evento independentemente de terem previsão no Business Plan.",
 };
 
 export default helpTexts;

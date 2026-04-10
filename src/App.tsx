@@ -41,6 +41,7 @@ import ReportTicketOfficeAuditPage from "./pages/ReportTicketOfficeAuditPage";
 import ReportArtistCachePage from "./pages/ReportArtistCachePage";
 import ReportDocumentPendenciesPage from "./pages/ReportDocumentPendenciesPage";
 import ReportAccountingExportPage from "./pages/ReportAccountingExportPage";
+import ReportPartnerExpensesPage from "./pages/ReportPartnerExpensesPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
@@ -144,6 +145,7 @@ function ProtectedLayout() {
                 <Route path="cache-artista" element={<ReportArtistCachePage />} />
                 <Route path="pendencias-documentais" element={<ReportDocumentPendenciesPage />} />
                 <Route path="exportacao-contabil" element={<ReportAccountingExportPage />} />
+                <Route path="despesas-socios" element={<ReportPartnerExpensesPage />} />
               </Route>
               
               
