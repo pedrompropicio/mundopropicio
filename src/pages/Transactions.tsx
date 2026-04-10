@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X } from "lucide-react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,6 +54,7 @@ export default function Transactions() {
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
@@ -861,7 +863,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
 
@@ -892,7 +894,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
 
@@ -923,7 +925,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
                 </tbody>
@@ -969,7 +971,7 @@ export default function Transactions() {
                       onPayment={(id) => setShowPaymentId(id)}
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => deleteMutation.mutate(id)}
+                      onDelete={(id) => setDeletingId(id)}
                     />
                   ))}
                 </tbody>
@@ -978,6 +980,25 @@ export default function Transactions() {
           )
         )}
       </div>
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar transação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. A transação será permanentemente eliminada e registada no log de auditoria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (deletingId) deleteMutation.mutate(deletingId); setDeletingId(null); }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
