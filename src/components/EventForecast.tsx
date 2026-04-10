@@ -1566,6 +1566,39 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <svg className="h-3.5 w-3.5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
                 </button>
               )}
+              {/* Partner assign button */}
+              {canManagePartners && eventPartners.length > 0 && (
+                <Popover open={showPartnerPopover} onOpenChange={setShowPartnerPopover}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={`rounded p-1 hover:bg-indigo-500/20 ${assignedPartnerIds.length > 0 ? "text-indigo-400" : "text-muted-foreground"}`}
+                      title="Atribuir sócios"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="end">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Sócios Responsáveis</p>
+                    <div className="space-y-1">
+                      {eventPartners.map((p) => {
+                        const isAssigned = assignedPartnerIds.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => togglePartner(p.id)}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                          >
+                            <Checkbox checked={isAssigned} className="h-3.5 w-3.5 pointer-events-none" />
+                            <span className="truncate">{p.name}</span>
+                            <span className="text-[10px] text-muted-foreground ml-auto">{p.percentage}%</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
                   onClick={() => onEditApproved(item)}
