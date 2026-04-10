@@ -381,6 +381,19 @@ export default function ReportBPTransactions() {
   const grandTotalForecast = totalForecast;
   const grandTotalActual = totalActual + outOfBPActual;
 
+  const handleExportPDF = (mode: "synthetic" | "analytical") => {
+    if (!selectedEvent) return;
+    const pdfData: BPTransactionsPDFData = {
+      eventName: selectedEvent.name,
+      eventDate: selectedEvent.date,
+      groupedData: groupedData as any,
+      outOfBPTransactions: outOfBPTransactions as any,
+      totalForecast,
+      totalActual,
+    };
+    exportBPTransactionsToPDF(pdfData, mode);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
