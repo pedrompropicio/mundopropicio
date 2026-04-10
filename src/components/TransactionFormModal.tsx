@@ -1398,8 +1398,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   type="button"
                   onClick={() => {
                     const next = !form.is_reimbursement;
-                    setForm({ ...form, is_reimbursement: next, reimbursement_to: "", account_id: next ? "" : form.account_id });
-                    if (next) { setIsPaidByPartner(false); setPaidByPartnerId(""); }
+                    setForm({ ...form, is_reimbursement: next, reimbursement_to: "", reimbursement_note_id: "", account_id: next ? "" : form.account_id });
+                    if (next) { setIsPaidByPartner(false); setPaidByPartnerId(""); setShowNewReimbursementNote(false); setNewReimbursementEmployeeName(""); }
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     form.is_reimbursement
