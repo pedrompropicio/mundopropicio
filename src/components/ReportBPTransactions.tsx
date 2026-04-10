@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, AlertTriangle, Handshake, ReceiptText } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertTriangle, Handshake, ReceiptText, FileDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildCategoryLookup, type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { exportBPTransactionsToPDF, type BPTransactionsPDFData } from "@/lib/export-bp-transactions";
 
 interface TransactionWithMeta {
   id: string;
