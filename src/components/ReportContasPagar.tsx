@@ -135,7 +135,8 @@ export default function ReportContasPagar() {
     const paid = Number(t.paid_amount ?? 0);
     if (t.status === "paid" || paid >= amount) return "paid";
     if (t.status === "approved") return "approved";
-    if (t.due_date && t.due_date.slice(0, 10) < today && t.status !== "paid") return "overdue";
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (t.due_date && t.due_date.slice(0, 10) < todayStr && t.status !== "paid") return "overdue";
     return "pending";
   };
 
