@@ -137,6 +137,20 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: !!form.event_id,
   });
 
+  const { data: reimbursementNotes = [] } = useQuery({
+    queryKey: ["reimbursement-notes-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reimbursement_notes")
+        .select("id, code, employee_name, status")
+        .in("status", ["draft", "approved"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: form.is_reimbursement,
+  });
+
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
   const isActivePL = selectedEvent?.pl_mode === "active";
   const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
