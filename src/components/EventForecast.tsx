@@ -5,7 +5,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
@@ -57,6 +58,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
   const [bpSearch, setBpSearch] = useState("");
+  const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -99,6 +101,49 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       return data;
     },
   });
+
+  // Fetch event partners (sócios)
+  const { data: eventPartners = [] } = useQuery({
+    queryKey: ["event_partners_for_bp", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers:supplier_id(name)")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return (data ?? []).map((p: any) => ({
+        id: p.id,
+        percentage: p.percentage,
+        name: (p.suppliers as any)?.name ?? "Sócio",
+      }));
+    },
+  });
+
+  // Fetch forecast-partner assignments
+  const { data: forecastPartners = [] } = useQuery({
+    queryKey: ["forecast_partners", eventId],
+    queryFn: async () => {
+      const forecastIds = forecasts.map((f) => f.id);
+      if (forecastIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecast_partners")
+        .select("forecast_id, partner_id")
+        .in("forecast_id", forecastIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: forecasts.length > 0,
+  });
+
+  // Build a map: forecastId -> partner_ids[]
+  const forecastPartnerMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    forecastPartners.forEach((fp: any) => {
+      if (!map[fp.forecast_id]) map[fp.forecast_id] = [];
+      map[fp.forecast_id].push(fp.partner_id);
+    });
+    return map;
+  }, [forecastPartners]);
 
   // Fetch transactions for this event AND child events (for parent BP view)
   const allRelevantEventIds = useMemo(() => {
@@ -694,8 +739,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     );
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch);
+  const matchesPartnerFilter = (f: any) => {
+    if (partnerFilter === "all") return true;
+    const partners = forecastPartnerMap[f.id] ?? [];
+    if (partnerFilter === "company") return partners.length === 0;
+    return partners.includes(partnerFilter);
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -916,6 +968,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </button>
               )}
             </div>
+            {/* Partner filter */}
+            {eventPartners.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={partnerFilter}
+                  onChange={(e) => setPartnerFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="all">Todos</option>
+                  <option value="company">Empresa (MP Gestão)</option>
+                  {eventPartners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.percentage}%)</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
@@ -1066,7 +1135,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               )
                             ))}
                           </React.Fragment>
@@ -1229,7 +1298,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               )
                             ))}
                             {/* Inject cachê lines inside the Artístico group */}
@@ -1349,19 +1418,39 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
+  assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
+  canManagePartners?: boolean; queryClient?: any; eventId?: string;
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+
+  const togglePartner = async (partnerId: string) => {
+    if (!queryClient || !eventId) return;
+    const isAssigned = assignedPartnerIds.includes(partnerId);
+    if (isAssigned) {
+      await supabase
+        .from("event_forecast_partners")
+        .delete()
+        .eq("forecast_id", item.id)
+        .eq("partner_id", partnerId);
+    } else {
+      await supabase
+        .from("event_forecast_partners")
+        .insert({ forecast_id: item.id, partner_id: partnerId });
+    }
+    queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
+  };
 
   // Find all transactions matching this forecast's category and type
   const matchingTransactions = useMemo(() => {
@@ -1418,6 +1507,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
               )}
+              {/* Partner badges */}
+              {assignedPartnerIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {assignedPartnerIds.map((pid) => {
+                    const partner = eventPartners.find((p) => p.id === pid);
+                    return partner ? (
+                      <span key={pid} className="inline-flex items-center gap-0.5 rounded-full bg-indigo-500/15 text-indigo-400 px-1.5 py-0.5 text-[10px] font-medium">
+                        <Users className="h-2.5 w-2.5" />{partner.name}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </td>
@@ -1463,6 +1565,39 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 >
                   <svg className="h-3.5 w-3.5 text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
                 </button>
+              )}
+              {/* Partner assign button */}
+              {canManagePartners && eventPartners.length > 0 && (
+                <Popover open={showPartnerPopover} onOpenChange={setShowPartnerPopover}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={`rounded p-1 hover:bg-indigo-500/20 ${assignedPartnerIds.length > 0 ? "text-indigo-400" : "text-muted-foreground"}`}
+                      title="Atribuir sócios"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="end">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Sócios Responsáveis</p>
+                    <div className="space-y-1">
+                      {eventPartners.map((p) => {
+                        const isAssigned = assignedPartnerIds.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => togglePartner(p.id)}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                          >
+                            <Checkbox checked={isAssigned} className="h-3.5 w-3.5 pointer-events-none" />
+                            <span className="truncate">{p.name}</span>
+                            <span className="text-[10px] text-muted-foreground ml-auto">{p.percentage}%</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
