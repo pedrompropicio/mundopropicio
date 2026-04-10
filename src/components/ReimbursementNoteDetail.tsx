@@ -457,6 +457,9 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           <p className="text-xs text-muted-foreground">
             Será criada uma transação de pagamento de {formatCurrency(Number(note.total_amount))} e todas as despesas serão marcadas como pagas.
           </p>
+          {supplierData && (
+            <SupplierBankDetails supplier={supplierData} defaultExpanded />
+          )}
           <SearchableSelect
             options={accounts.map((a: any) => ({ value: a.id, label: a.name }))}
             value={paymentAccountId}
