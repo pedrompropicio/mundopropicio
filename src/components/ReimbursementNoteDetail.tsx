@@ -272,6 +272,68 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const canApprove = isDraft && items.length > 0 && allHaveDocs && (isAdmin || isManager);
   const canPay = isApproved && (isAdmin || isManager);
 
+  function exportPdf() {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    let y = 16;
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Nota de Reembolso ${note.code}`, margin, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Funcionário: ${note.employee_name}`, margin, y);
+    doc.text(`Estado: ${statusLabels[note.status] || note.status}`, pageW / 2, y);
+    y += 5;
+    doc.text(`Data de criação: ${format(new Date(note.created_at), "dd/MM/yyyy")}`, margin, y);
+    if (note.approved_by) {
+      doc.text(`Aprovada por: ${note.approved_by} em ${note.approved_at ? format(new Date(note.approved_at), "dd/MM/yyyy") : "—"}`, pageW / 2, y);
+    }
+    y += 5;
+    if (note.paid_at) {
+      doc.text(`Paga em: ${format(new Date(note.paid_at), "dd/MM/yyyy")}`, margin, y);
+      y += 5;
+    }
+    if (note.notes) {
+      doc.text(`Notas: ${note.notes}`, margin, y);
+      y += 5;
+    }
+    y += 3;
+
+    // Table
+    const tableData = items.map((item: any) => {
+      const tx = item.transactions;
+      return [
+        tx?.description || "—",
+        tx?.specification || "",
+        tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : "",
+        tx?.status === "paid" ? "Pago" : tx?.status === "approved" ? "Aprovado" : "Pendente",
+        docsMap[item.transaction_id] ? "Sim" : "Não",
+        formatCurrency(Number(tx?.amount || 0)),
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Descrição", "Especificação", "Data", "Estado", "Fatura", "Valor"]],
+      body: tableData,
+      foot: [["TOTAL", "", "", "", "", formatCurrency(Number(note.total_amount))]],
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [41, 41, 41] },
+      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+      columnStyles: {
+        5: { halign: "right" },
+      },
+    });
+
+    doc.save(`${note.code.replace(/\//g, "-")}.pdf`);
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
