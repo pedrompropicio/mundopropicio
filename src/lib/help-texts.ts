@@ -144,6 +144,8 @@ const helpTexts: Record<string, string> = {
     "Exporta a lista de pendências documentais em Excel. Inclui todas as transações com conta bancária que não possuem documentos contábeis anexados — útil para partilhar com a equipa e regularizar em lote.",
   accountingExport:
     "Exportação para contabilidade: selecione o período e descarregue todos os documentos fiscais (faturas, recibos, notas fiscais) anexados às transações. Apenas ficheiros marcados como 'Documento contábil' são incluídos. O sistema regista cada exportação para controlo e rastreabilidade.",
+  reimbursements:
+    "Notas de Reembolso permitem agrupar despesas pagas do bolso de um funcionário e processá-las num único pagamento. Crie a nota, adicione despesas marcadas como 'Reembolso', aprove (todas devem ter fatura contábil) e pague. O sistema gera automaticamente a transação de pagamento.",
 };
 
 export default helpTexts;

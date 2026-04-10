@@ -26,6 +26,8 @@ interface TransactionForm {
   due_date: string;
   specification: string;
   pl_override_note: string;
+  is_reimbursement: boolean;
+  reimbursement_to: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -41,6 +43,8 @@ const emptyForm: TransactionForm = {
   due_date: "",
   specification: "",
   pl_override_note: "",
+  is_reimbursement: false,
+  reimbursement_to: "",
 };
 
 const formatDueDateInput = (value: string) => {
@@ -429,13 +433,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           event_id: data.event_id || null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          account_id: data.account_id || null,
+          account_id: data.is_reimbursement ? null : (data.account_id || null),
           specification: data.type === "expense" ? (data.specification || null) : null,
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
           status: autoApproved ? "approved" : "pending",
           paid_amount: 0,
+          is_reimbursement: data.is_reimbursement,
+          reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
         } as any);
         if (error) throw error;
       }
@@ -465,6 +471,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    if (form.is_reimbursement && !form.reimbursement_to.trim()) {
+      toast({ title: "Indique o nome do funcionário a reembolsar", variant: "destructive" });
       return;
     }
 
@@ -1074,6 +1084,42 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               {selectedSupplier && (
                 <div className="mt-2">
                   <SupplierBankDetails supplier={selectedSupplier} defaultExpanded />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reimbursement toggle — only for expenses */}
+          {form.type === "expense" && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !form.is_reimbursement;
+                    setForm({ ...form, is_reimbursement: next, reimbursement_to: "", account_id: next ? "" : form.account_id });
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    form.is_reimbursement
+                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  💰 {form.is_reimbursement ? "Reembolso Ativo" : "Marcar como Reembolso"}
+                </button>
+              </div>
+              {form.is_reimbursement && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Reembolsar a *</label>
+                  <input
+                    value={form.reimbursement_to}
+                    onChange={(e) => setForm({ ...form, reimbursement_to: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Nome do funcionário"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Despesa paga do bolso do funcionário — sem conta financeira associada
+                  </p>
                 </div>
               )}
             </div>

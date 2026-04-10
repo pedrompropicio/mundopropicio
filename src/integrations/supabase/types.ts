@@ -1298,6 +1298,98 @@ export type Database = {
           },
         ]
       }
+      reimbursement_note_items: {
+        Row: {
+          created_at: string
+          id: string
+          reimbursement_note_id: string
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reimbursement_note_id: string
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reimbursement_note_id?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimbursement_note_items_reimbursement_note_id_fkey"
+            columns: ["reimbursement_note_id"]
+            isOneToOne: false
+            referencedRelation: "reimbursement_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reimbursement_note_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reimbursement_notes: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          code: string
+          created_at: string
+          created_by: string
+          employee_name: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_transaction_id: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code: string
+          created_at?: string
+          created_by?: string
+          employee_name: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_transaction_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          employee_name?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_transaction_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimbursement_notes_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -1754,11 +1846,13 @@ export type Database = {
           event_id: string | null
           id: string
           invoice_ref: string | null
+          is_reimbursement: boolean
           iva_rate: number
           paid_amount: number
           parent_transaction_id: string | null
           payment_date: string | null
           pl_override_note: string | null
+          reimbursement_to: string | null
           specification: string | null
           split_percentage: number | null
           status: string
@@ -1777,11 +1871,13 @@ export type Database = {
           event_id?: string | null
           id?: string
           invoice_ref?: string | null
+          is_reimbursement?: boolean
           iva_rate?: number
           paid_amount?: number
           parent_transaction_id?: string | null
           payment_date?: string | null
           pl_override_note?: string | null
+          reimbursement_to?: string | null
           specification?: string | null
           split_percentage?: number | null
           status?: string
@@ -1800,11 +1896,13 @@ export type Database = {
           event_id?: string | null
           id?: string
           invoice_ref?: string | null
+          is_reimbursement?: boolean
           iva_rate?: number
           paid_amount?: number
           parent_transaction_id?: string | null
           payment_date?: string | null
           pl_override_note?: string | null
+          reimbursement_to?: string | null
           specification?: string | null
           split_percentage?: number | null
           status?: string
