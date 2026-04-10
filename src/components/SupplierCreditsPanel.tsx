@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { ChevronDown, Plus, CreditCard, Calendar, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, CreditCard, Calendar, Trash2, Paperclip, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -106,6 +106,7 @@ function CreditLine({ credit, supplierId }: { credit: any; supplierId: string })
   const remaining = Number(credit.amount) - Number(credit.used_amount);
   const isActive = credit.status === "active";
   const isExpired = credit.valid_until && new Date(credit.valid_until) < new Date();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -120,6 +121,28 @@ function CreditLine({ credit, supplierId }: { credit: any; supplierId: string })
     onError: (err: any) => toast.error(err.message),
   });
 
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const ext = file.name.split(".").pop();
+      const path = `${supplierId}/${credit.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+      if (uploadErr) throw uploadErr;
+      await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", credit.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supplier-credits", supplierId] });
+      toast.success("Ficheiro anexado");
+    },
+    onError: (err: any) => toast.error("Erro ao anexar: " + err.message),
+  });
+
+  const handleViewFile = async () => {
+    if (!credit.file_url) return;
+    const { data } = await supabase.storage.from("supplier-credit-documents").createSignedUrl(credit.file_url, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    else toast.error("Erro ao abrir ficheiro");
+  };
+
   return (
     <div className={`rounded-lg px-3 py-2 text-xs space-y-1 ${isActive ? "bg-primary/5 border border-primary/20" : "bg-muted/50"}`}>
       <div className="flex items-center justify-between">
@@ -128,6 +151,20 @@ function CreditLine({ credit, supplierId }: { credit: any; supplierId: string })
           <span className={`font-mono font-semibold ${isActive ? "text-primary" : "text-muted-foreground"}`}>
             {formatCurrency(remaining)} / {formatCurrency(Number(credit.amount))}
           </span>
+          {credit.file_url ? (
+            <button onClick={handleViewFile} className="text-primary hover:text-primary/80" title="Ver anexo">
+              <FileText className="h-3 w-3" />
+            </button>
+          ) : (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-muted-foreground hover:text-primary"
+              title="Anexar ficheiro"
+              disabled={uploadMutation.isPending}
+            >
+              {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
+            </button>
+          )}
           {Number(credit.used_amount) === 0 && (
             <button onClick={() => deleteMutation.mutate()} className="text-muted-foreground hover:text-destructive" title="Eliminar">
               <Trash2 className="h-3 w-3" />
@@ -148,6 +185,17 @@ function CreditLine({ credit, supplierId }: { credit: any; supplierId: string })
         <span>Criado: {format(new Date(credit.created_at), "dd/MM/yyyy")}</span>
       </div>
       {credit.notes && <p className="text-muted-foreground/70 italic">{credit.notes}</p>}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadMutation.mutate(file);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
@@ -169,6 +217,8 @@ function CreditForm({
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
   const [originEventId, setOriginEventId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-for-credits"],
@@ -195,8 +245,16 @@ function CreditForm({
       if (notes.trim()) insert.notes = notes.trim();
       if (originEventId) insert.origin_event_id = originEventId;
 
-      const { error } = await supabase.from("supplier_credits" as any).insert(insert);
+      const { data: inserted, error } = await supabase.from("supplier_credits" as any).insert(insert).select("id").single();
       if (error) throw error;
+
+      if (file && inserted) {
+        const ext = file.name.split(".").pop();
+        const path = `${supplierId}/${inserted.id}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+        if (uploadErr) throw uploadErr;
+        await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", inserted.id);
+      }
     },
     onSuccess: () => {
       toast.success("Crédito registado");
@@ -244,6 +302,31 @@ function CreditForm({
         <label className="text-[10px] text-muted-foreground">Notas</label>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
           className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none" />
+      </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground">Anexo</label>
+        <div className="flex items-center gap-2 mt-0.5">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            <Paperclip className="h-3 w-3" />
+            {file ? file.name : "Selecionar ficheiro…"}
+          </button>
+          {file && (
+            <button onClick={() => setFile(null)} className="text-xs text-destructive hover:text-destructive/80">
+              Remover
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
+          />
+        </div>
       </div>
       <div className="flex gap-2 justify-end">
         <button onClick={onClose} className="rounded-md px-3 py-1.5 text-xs border border-border hover:bg-secondary">Cancelar</button>
