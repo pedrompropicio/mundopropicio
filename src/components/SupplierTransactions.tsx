@@ -100,7 +100,8 @@ export function SupplierTransactions({ supplierId, isOpen, onToggle }: SupplierT
 
 function TransactionLine({ tx }: { tx: any }) {
   const isPaid = tx.status === "paid";
-  const isOverdue = !isPaid && tx.due_date && new Date(tx.due_date) < new Date();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
 
   return (
     <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-xs">

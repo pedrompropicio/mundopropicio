@@ -162,7 +162,7 @@ export default function ReportMovementReconciliation() {
       const status = (() => {
         if (tx.status === "paid" || isPaid) return "Liquidado";
         if (tx.status === "approved") return isExpense ? "A Pagar" : "Aprovado";
-        if (isExpense && tx.due_date && new Date(tx.due_date) < new Date() && tx.status !== "paid") return "Atrasado";
+        if (isExpense && tx.due_date && tx.due_date.slice(0, 10) < new Date().toISOString().slice(0, 10) && tx.status !== "paid") return "Atrasado";
         return "Aguardando";
       })();
 
