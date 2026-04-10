@@ -577,8 +577,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
-    if (form.is_reimbursement && !form.reimbursement_to.trim()) {
-      toast({ title: "Indique o nome do funcionário a reembolsar", variant: "destructive" });
+    if (form.is_reimbursement && !form.reimbursement_note_id && !showNewReimbursementNote) {
+      toast({ title: "Selecione ou crie uma Nota de Reembolso", variant: "destructive" });
+      return;
+    }
+    if (form.is_reimbursement && showNewReimbursementNote && !newReimbursementEmployeeName.trim()) {
+      toast({ title: "Indique o nome do funcionário para a nova nota", variant: "destructive" });
       return;
     }
     if (isPaidByPartner && !paidByPartnerId) {
