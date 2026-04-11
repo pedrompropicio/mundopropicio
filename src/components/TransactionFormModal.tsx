@@ -901,9 +901,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 onMethodChange={setSplitMethod}
                 totalAmount={parseFloat(form.amount) || 0}
                 bpInfoByEvent={splitBPInfoByEvent}
-              />
+               />
+              {/* Category block warning for split mode */}
+              {splitCategoryBlockReason && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Categoria bloqueada para rateio
+                  </div>
+                  <p className="text-xs text-destructive/90 leading-relaxed">{splitCategoryBlockReason}</p>
+                </div>
+              )}
               {/* BP Override toggle for split mode */}
-              {splitNeedsBypass && (
+              {splitNeedsBypass && !splitCategoryBlockReason && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -914,7 +924,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
               )}
-              {plOverride && splitNeedsBypass && (
+              {plOverride && splitNeedsBypass && !splitCategoryBlockReason && (
                 <div>
                   <label className="mb-1 block text-xs font-medium text-warning">Justificação *</label>
                   <input
