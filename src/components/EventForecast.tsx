@@ -1452,15 +1452,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways }: {
   item: any; colorClass: string; isExpense?: boolean;
-  onEdit?: (item: any) => void; onDelete?: (id: string) => void;
+  onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
   assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
+  canDeleteAlways?: boolean;
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
