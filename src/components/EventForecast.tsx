@@ -67,6 +67,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const isEventLocked = eventStatus === "completed";
   const canApprove = (isAdmin || isManager) && !isEventLocked;
   const canEditBP = (isAdmin || isManager) && !isEventLocked;
+  const canDeleteBP = isAdmin; // Admin can delete BP lines regardless of event status
   const canEditApprovedBP = canEditBP && hasPermission("edit_approved_bp");
   const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
   const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
@@ -496,7 +497,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, cascadeTransactionIds }: { id: string; cascadeTransactionIds?: string[] }) => {
+      // Delete linked transactions first if cascading
+      if (cascadeTransactionIds && cascadeTransactionIds.length > 0) {
+        for (const txId of cascadeTransactionIds) {
+          // Fetch transaction data for trash
+          const { data: txData } = await supabase.from("transactions").select("*").eq("id", txId).single();
+          if (txData) {
+            await moveToTrash({ entity_type: "transaction", entity_id: txId, entity_data: txData, deleted_by: user?.email || "sistema" });
+          }
+          await supabase.from("transactions").delete().eq("id", txId);
+        }
+      }
       // Fetch full data before deleting
       const { data: forecastData } = await supabase
         .from("event_forecasts")
@@ -516,6 +528,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast({ title: "Previsão removida" });
     },
   });
@@ -1210,7 +1223,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} />
                               )
                             ))}
                           </React.Fragment>
@@ -1374,7 +1387,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               ) : f.cache_config_id ? (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} />
                               )
                             ))}
                           </React.Fragment>
@@ -1439,19 +1452,19 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways }: {
   item: any; colorClass: string; isExpense?: boolean;
-  onEdit?: (item: any) => void; onDelete?: (id: string) => void;
+  onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
   assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
+  canDeleteAlways?: boolean;
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
@@ -1482,6 +1495,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   }, [eventTransactions, item.category_id, item.type]);
 
   const hasMatchingTx = matchingTransactions.length > 0;
+
+  // For admin delete: check if any transactions are paid
+  const paidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
+    const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    const txPaid = Number(t.paid_amount ?? 0);
+    return t.status === "paid" || txPaid >= txTotal - 0.01;
+  }), [matchingTransactions]);
+  const unpaidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
+    const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    const txPaid = Number(t.paid_amount ?? 0);
+    return t.status !== "paid" && txPaid < txTotal - 0.01;
+  }), [matchingTransactions]);
+  const hasPaidTx = paidTransactions.length > 0;
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
@@ -1653,25 +1679,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
-                  <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                    <AlertDialogTrigger asChild>
-                      <button className="rounded p-1 hover:bg-destructive/20" title="Remover">
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remover linha do BP</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete!(item.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <DeleteForecastDialog
+                    item={item}
+                    onDelete={onDelete}
+                    hasPaidTx={hasPaidTx}
+                    unpaidTransactions={unpaidTransactions}
+                    paidTransactions={paidTransactions}
+                    title="Remover linha do BP"
+                  />
                 </>
               )}
               {isApproved && canEditApproved && onEdit && onDelete && (
@@ -1679,26 +1694,26 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <button onClick={() => onEdit(item)} className="rounded p-1 hover:bg-secondary" title="Editar (aprovado)">
                     <svg className="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button className="rounded p-1 hover:bg-destructive/20" title="Remover (aprovado)">
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remover linha aprovada</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta linha está aprovada. Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete!(item.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <DeleteForecastDialog
+                    item={item}
+                    onDelete={onDelete}
+                    hasPaidTx={hasPaidTx}
+                    unpaidTransactions={unpaidTransactions}
+                    paidTransactions={paidTransactions}
+                    title="Remover linha aprovada"
+                  />
                 </>
+              )}
+              {/* Admin-only: delete even when event is locked and line has no edit/onDelete from normal flow */}
+              {canDeleteAlways && !isDraft && !canEditApproved && onDelete && (
+                <DeleteForecastDialog
+                  item={item}
+                  onDelete={onDelete}
+                  hasPaidTx={hasPaidTx}
+                  unpaidTransactions={unpaidTransactions}
+                  paidTransactions={paidTransactions}
+                  title="Remover linha do BP"
+                />
               )}
             </div>
           )}
@@ -1977,5 +1992,76 @@ function ComparisonRowItem({ row, isIncome, indented }: { row: ComparisonRow; is
       <td className={`py-2 text-right font-mono ${isPositive ? "text-success" : "text-destructive"}`}>{row.variance >= 0 ? "+" : ""}{formatCurrency(row.variance)}</td>
       <td className={`py-2 text-right text-xs ${isPositive ? "text-success" : "text-destructive"}`}>{row.forecast > 0 ? `${variancePct >= 0 ? "+" : ""}${variancePct.toFixed(1)}%` : "—"}</td>
     </tr>
+  );
+}
+
+/* ── Delete Forecast Dialog with transaction check ── */
+function DeleteForecastDialog({ item, onDelete, hasPaidTx, unpaidTransactions, paidTransactions, title }: {
+  item: any;
+  onDelete: (id: string, cascadeTransactionIds?: string[]) => void;
+  hasPaidTx: boolean;
+  unpaidTransactions: any[];
+  paidTransactions: any[];
+  title: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasUnpaidTx = unpaidTransactions.length > 0;
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <button className="rounded p-1 hover:bg-destructive/20" title="Remover">
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              {hasPaidTx ? (
+                <>
+                  <p>Não é possível remover "{item.description}" porque existem transações <strong>liquidadas</strong> associadas:</p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {paidTransactions.map((tx: any) => (
+                      <div key={tx.id} className="rounded border border-border bg-muted/30 px-3 py-1.5 text-xs flex justify-between">
+                        <span className="truncate">{tx.description}</span>
+                        <span className="font-mono font-semibold shrink-0 ml-2">{formatCurrency(Number(tx.amount) * (1 + Number(tx.iva_rate) / 100))}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : hasUnpaidTx ? (
+                <>
+                  <p>"{item.description}" possui {unpaidTransactions.length} transação(ões) <strong>não liquidada(s)</strong> que serão removidas em conjunto:</p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {unpaidTransactions.map((tx: any) => (
+                      <div key={tx.id} className="rounded border border-border bg-muted/30 px-3 py-1.5 text-xs flex justify-between">
+                        <span className="truncate">{tx.description}</span>
+                        <span className="font-mono font-semibold shrink-0 ml-2">{formatCurrency(Number(tx.amount) * (1 + Number(tx.iva_rate) / 100))}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Tanto a linha do BP como as transações serão movidas para a Lixeira.</p>
+                </>
+              ) : (
+                <p>Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.</p>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          {!hasPaidTx && (
+            <AlertDialogAction
+              onClick={() => onDelete(item.id, hasUnpaidTx ? unpaidTransactions.map((t: any) => t.id) : undefined)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {hasUnpaidTx ? "Remover tudo" : "Remover"}
+            </AlertDialogAction>
+          )}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
