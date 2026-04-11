@@ -524,7 +524,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
-            const categoryDeduction = isVariable ? calculateDeductionAmount(config.id) : 0;
+            const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
+            const categoryDeduction = isVariable ? calculateDeductionAmount(config.id, deductionBasisGross) : 0;
             const fixedPctDeduction = isVariable ? calculateFixedPctDeduction(config) : 0;
             const totalDeduction = categoryDeduction + fixedPctDeduction;
             const variableValue = isVariable ? calculateVariableCache(config) : 0;
