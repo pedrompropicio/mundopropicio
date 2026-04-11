@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download, Paperclip } from "lucide-react";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -39,6 +40,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [showPayConfirm, setShowPayConfirm] = useState(false);
+  const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
 
   const { data: note, isLoading: noteLoading } = useQuery({
     queryKey: ["reimbursement-note", noteId],
@@ -516,11 +518,20 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {hasDocs ? (
-                        <span className="flex items-center gap-1 text-success text-xs"><FileText className="h-3 w-3" /> ✓</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-warning text-xs"><AlertTriangle className="h-3 w-3" /> Pendente</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {hasDocs ? (
+                          <span className="flex items-center gap-1 text-success text-xs"><FileText className="h-3 w-3" /> ✓</span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-warning text-xs"><AlertTriangle className="h-3 w-3" /> Pendente</span>
+                        )}
+                        <button
+                          onClick={() => setDocsModalTx({ id: item.transaction_id, description: tx?.description || "—" })}
+                          className="p-1 rounded hover:bg-secondary transition-colors"
+                          title="Gerir anexos"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
                     {isDraft && (
@@ -545,6 +556,17 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {docsModalTx && (
+        <TransactionDocumentsModal
+          transactionId={docsModalTx.id}
+          transactionDescription={docsModalTx.description}
+          onClose={() => {
+            setDocsModalTx(null);
+            queryClient.invalidateQueries({ queryKey: ["reimbursement-item-docs", transactionIds] });
+          }}
+        />
       )}
     </div>
   );
