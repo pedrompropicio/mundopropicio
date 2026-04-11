@@ -185,6 +185,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   // Fetch ticket zones and lots for auto-calculated ticket revenue
   const ticketEventIds = [eventId, ...(childEventIds || [])];
+  // Include parentEventId for cache config lookup on sub-events
+  const cacheEventIds = useMemo(() => {
+    const ids = [...ticketEventIds];
+    if (parentEventId && !ids.includes(parentEventId)) {
+      ids.push(parentEventId);
+    }
+    return ids;
+  }, [ticketEventIds, parentEventId]);
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["event_ticket_zones", eventId, childEventIds],
     queryFn: async () => {
@@ -221,12 +229,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   // Fetch cache configs for this event and its child events (for consolidated BP)
   const { data: cacheConfigs = [] } = useQuery({
-    queryKey: ["event_cache_configs", ticketEventIds.join(",")],
+    queryKey: ["event_cache_configs", cacheEventIds.join(",")],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_cache_configs")
         .select("*")
-        .in("event_id", ticketEventIds)
+        .in("event_id", cacheEventIds)
         .order("created_at");
       if (error) throw error;
       return data as unknown as CacheConfig[];
