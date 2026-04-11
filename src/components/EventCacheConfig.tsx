@@ -602,14 +602,14 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
-                    {/* Row: Finalized + Revenue Basis */}
-                    <div className="grid grid-cols-[1fr,auto] gap-3 items-start">
+                    {/* Row: Finalized + Revenue Basis + Deduction Basis */}
+                    <div className="grid grid-cols-[1fr,auto,auto] gap-3 items-start">
                       <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
                         <div className="flex items-center gap-2">
                           {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
                           <div>
                             <span className="text-xs font-medium">Finalizado</span>
-                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor contra recálculos.</p>
+                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor.</p>
                           </div>
                         </div>
                         <Switch
@@ -618,7 +618,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                         />
                       </div>
                       <div className="space-y-1">
-                        <span className="text-[10px] font-medium text-muted-foreground">Base de cálculo</span>
+                        <span className="text-[10px] font-medium text-muted-foreground">Receita</span>
                         <div className="flex gap-1">
                           {[
                             { value: "net", label: "s/ IVA" },
@@ -637,6 +637,35 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                               }}
                               className={`rounded border px-2.5 py-1.5 text-xs font-medium transition-all ${
                                 (config.cache_revenue_basis || "net") === opt.value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-medium text-muted-foreground">Deduções</span>
+                        <div className="flex gap-1">
+                          {[
+                            { value: "net", label: "s/ IVA" },
+                            { value: "gross", label: "c/ IVA" },
+                          ].map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => {
+                                supabase
+                                  .from("event_cache_configs" as any)
+                                  .update({ cache_deduction_basis: opt.value })
+                                  .eq("id", config.id)
+                                  .then(() => {
+                                    queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+                                  });
+                              }}
+                              className={`rounded border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                (config.cache_deduction_basis || "net") === opt.value
                                   ? "border-primary bg-primary/10 text-primary"
                                   : "border-border bg-background text-muted-foreground hover:border-primary/40"
                               }`}
