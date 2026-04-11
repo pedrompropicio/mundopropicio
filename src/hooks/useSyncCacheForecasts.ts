@@ -11,6 +11,7 @@ interface CacheConfig {
   percentage: number;
   fixed_deduction_percentage: number;
   cache_revenue_basis?: string;
+  cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
 }
@@ -21,7 +22,7 @@ interface SyncParams {
   childEventIds?: string[];
   cacheConfigs: CacheConfig[];
   deductions: { cache_config_id: string; category_id: string }[];
-  forecasts: { id: string; type: string; category_id: string | null; amount: number; cache_config_id?: string | null }[];
+  forecasts: { id: string; type: string; category_id: string | null; amount: number; iva_rate: number; cache_config_id?: string | null }[];
   /** Only used for simple events (non-tour) */
   ticketRevenueNet: number;
   ticketRevenueGross: number;
@@ -64,6 +65,7 @@ export function useSyncCacheForecasts({
         percentage: c.percentage,
         fixed_deduction_percentage: c.fixed_deduction_percentage,
         cache_revenue_basis: c.cache_revenue_basis,
+        cache_deduction_basis: c.cache_deduction_basis,
         minimum_guaranteed: c.minimum_guaranteed,
         is_finalized: c.is_finalized,
       })),
