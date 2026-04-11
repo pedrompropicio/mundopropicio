@@ -363,7 +363,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
       ticketRevenueGross
     );
-  }, [ownCacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, forecasts]);
+  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, forecasts]);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
