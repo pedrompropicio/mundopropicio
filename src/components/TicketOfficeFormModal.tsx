@@ -21,53 +21,37 @@ export function TicketOfficeFormModal({ office, onClose }: Props) {
 
   const [name, setName] = useState(office?.name ?? "");
   const [contactName, setContactName] = useState(office?.contact_name ?? "");
-  const [email, setEmail] = useState(office?.email ?? "");
+  const [email, setEmail] = useState(office?.email_contact ?? "");
   const [phone, setPhone] = useState(office?.phone ?? "");
-  const [notes, setNotes] = useState(office?.notes ?? "");
+  const [notes, setNotes] = useState(office?.description ?? "");
   const [isActive, setIsActive] = useState(office?.is_active ?? true);
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Nome é obrigatório");
 
+      const payload = {
+        name: name.trim(),
+        contact_name: contactName.trim() || null,
+        email_contact: email.trim() || null,
+        phone: phone.trim() || null,
+        description: notes.trim() || null,
+        is_active: isActive,
+      };
+
       if (isEditing) {
         const { error } = await supabase
-          .from("ticket_offices")
-          .update({
-            name: name.trim(),
-            contact_name: contactName.trim() || null,
-            email: email.trim() || null,
-            phone: phone.trim() || null,
-            notes: notes.trim() || null,
-            is_active: isActive,
-          })
+          .from("financial_accounts")
+          .update(payload)
           .eq("id", office.id);
         if (error) throw error;
       } else {
-        // Create financial account first
-        const { data: account, error: accError } = await supabase
+        const { error } = await supabase
           .from("financial_accounts")
           .insert({
-            name: `Bilheteira: ${name.trim()}`,
+            ...payload,
             type: "ticket_office",
-            description: `Conta de movimentação da bilheteira ${name.trim()}`,
             initial_balance: 0,
-          })
-          .select()
-          .single();
-        if (accError) throw accError;
-
-        // Create ticket office linked to the account
-        const { error } = await supabase
-          .from("ticket_offices")
-          .insert({
-            name: name.trim(),
-            contact_name: contactName.trim() || null,
-            email: email.trim() || null,
-            phone: phone.trim() || null,
-            notes: notes.trim() || null,
-            is_active: isActive,
-            financial_account_id: account.id,
           });
         if (error) throw error;
       }
