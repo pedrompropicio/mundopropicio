@@ -336,42 +336,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
   const ticketRevenue = ticketRevenueNet; // BP uses net values
 
-  const parentCacheConfigs = useMemo(
-    () => cacheConfigs.filter((config) => config.event_id === parentEventId),
-    [cacheConfigs, parentEventId]
-  );
-
-  const parentCacheLines = useMemo(() => {
-    if (!parentEventId || parentCacheConfigs.length === 0) return [] as CachePLLine[];
-    return calculateCacheLinesForPL(
-      parentCacheConfigs,
-      cacheDeductions,
-      ticketRevenueNet,
-      parentForecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
-      ticketRevenueGross
-    );
-  }, [parentEventId, parentCacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, parentForecasts]);
-
-  const proratedParentCacheExpenses = useMemo(() => {
-    if (!parentEventId || parentCacheLines.length === 0) return [];
-    return parentCacheLines.map((line, index) => ({
-      id: `parent-cache-${index}`,
-      event_id: parentEventId,
-      type: "expense",
-      description: line.artistName || "Cachê",
-      amount: Number(line.amount) / siblingCount,
-      iva_rate: 0,
-      status: "approved",
-      category_id: categories.find((category: any) => category.code === "2.1.01")?.id ?? null,
-      _prorated: true,
-      _originalAmount: Number(line.amount),
-      _siblingCount: siblingCount,
-    }));
-  }, [parentEventId, parentCacheLines, siblingCount, categories]);
-
+  // Cache: sub-events inherit parent's cache configs but calculate with OWN ticket revenue
+  // No proration — each sub-event gets its own full calculation based on its own tickets
   const allProratedParentExpenses = useMemo(
-    () => [...proratedParentExpenses, ...proratedParentCacheExpenses],
-    [proratedParentExpenses, proratedParentCacheExpenses]
+    () => [...proratedParentExpenses],
+    [proratedParentExpenses]
   );
 
   // Actual ticket sales: unit_price also includes IVA, extract net
@@ -384,15 +353,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
 
-  // Calculate cache lines — only for configs belonging to THIS event (not parent)
-  // Parent cache configs are handled separately via proratedParentCacheExpenses
-  const ownCacheConfigs = useMemo(
-    () => cacheConfigs.filter((config) => config.event_id === eventId),
-    [cacheConfigs, eventId]
-  );
+  // Calculate cache lines using ALL configs (own + inherited from parent)
+  // Each sub-event calculates with its own ticket revenue, not prorated
   const cacheLines = useMemo(() => {
     return calculateCacheLinesForPL(
-      ownCacheConfigs,
+      cacheConfigs,
       cacheDeductions,
       ticketRevenueNet,
       forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
