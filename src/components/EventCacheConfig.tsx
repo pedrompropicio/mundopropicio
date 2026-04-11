@@ -338,6 +338,9 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
 
   const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
+  // Revenue basis state for add form
+  const [revenueBasis, setRevenueBasis] = useState<"net" | "gross">("net");
+
   return (
     <div className="glass rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -369,113 +372,122 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             </button>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome da Atração *</label>
-            <input
-              value={artistName}
-              onChange={(e) => setArtistName(e.target.value)}
-              className={inputClass}
-              placeholder="Ex: Artista Principal"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">Tipo de Cachê</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setCacheType("fixed")}
-                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all text-left ${
-                  cacheType === "fixed"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-background text-muted-foreground hover:border-primary/40"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <DollarSign className="h-3 w-3" />
-                  <span className="font-semibold">Fixo</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCacheType("variable")}
-                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all text-left ${
-                  cacheType === "variable"
-                    ? "border-warning bg-warning/10 text-warning"
-                    : "border-border bg-background text-muted-foreground hover:border-warning/40"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Percent className="h-3 w-3" />
-                  <span className="font-semibold">Variável</span>
-                </div>
-              </button>
+          {/* Row 1: Name + Type */}
+          <div className="grid grid-cols-[1fr,auto] gap-3 items-end">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome da Atração *</label>
+              <input
+                value={artistName}
+                onChange={(e) => setArtistName(e.target.value)}
+                className={inputClass}
+                placeholder="Ex: Artista Principal"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo</label>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCacheType("fixed")}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    cacheType === "fixed"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  <DollarSign className="h-3 w-3" /> Fixo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCacheType("variable")}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    cacheType === "variable"
+                      ? "border-warning bg-warning/10 text-warning"
+                      : "border-border bg-background text-muted-foreground hover:border-warning/40"
+                  }`}
+                >
+                  <Percent className="h-3 w-3" /> Variável
+                </button>
+              </div>
             </div>
           </div>
 
-          {cacheType === "fixed" && (
-            <div>
+          {/* Row 2: Values based on type */}
+          {cacheType === "fixed" ? (
+            <div className="max-w-[200px]">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor do Cachê (€)</label>
               <input
                 type="number"
-                step="0.01"
+                step="1"
                 min="0"
                 value={fixedAmount}
                 onChange={(e) => setFixedAmount(e.target.value)}
                 className={inputClass}
-                placeholder="0.00"
+                placeholder="0"
               />
             </div>
-          )}
-
-          {cacheType === "variable" && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Percentual (%)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={percentage}
-                onChange={(e) => setPercentage(e.target.value)}
-                className={inputClass}
-                placeholder="Ex: 15"
-              />
-              <div className="mt-2">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Mínimo Garantido (€)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={minimumGuaranteed}
-                  onChange={(e) => setMinimumGuaranteed(e.target.value)}
-                  className={inputClass}
-                  placeholder="0.00 (opcional)"
-                />
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  <Info className="inline h-3 w-3 mr-0.5" />
-                  Se definido, o cachê será no mínimo este valor, mesmo que o cálculo variável resulte em menos.
-                </p>
-              </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                <Info className="inline h-3 w-3 mr-0.5" />
-                Após adicionar, configure os descontos na cabeça (despesas a subtrair da receita antes do cálculo).
-              </p>
-              <div className="mt-2">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Base de cálculo</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-1.5 rounded border border-primary bg-primary/10 px-2 py-1 text-xs cursor-pointer">
-                    <input type="radio" name="revenueBasis" value="net" defaultChecked className="accent-primary" />
-                    <span>Receita s/ IVA</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 rounded border border-border px-2 py-1 text-xs cursor-pointer hover:border-primary/40">
-                    <input type="radio" name="revenueBasis" value="gross" className="accent-primary" />
-                    <span>Receita c/ IVA</span>
-                  </label>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Percentual (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={percentage}
+                    onChange={(e) => setPercentage(e.target.value)}
+                    className={inputClass}
+                    placeholder="Ex: 50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Mín. Garantido (€)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={minimumGuaranteed}
+                    onChange={(e) => setMinimumGuaranteed(e.target.value)}
+                    className={inputClass}
+                    placeholder="0 (opcional)"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Base de cálculo</label>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setRevenueBasis("net")}
+                      className={`flex-1 rounded border px-2 py-2 text-xs font-medium transition-all ${
+                        revenueBasis === "net"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      s/ IVA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRevenueBasis("gross")}
+                      className={`flex-1 rounded border px-2 py-2 text-xs font-medium transition-all ${
+                        revenueBasis === "gross"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      c/ IVA
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+              <p className="text-[10px] text-muted-foreground">
+                <Info className="inline h-3 w-3 mr-0.5" />
+                Após adicionar, configure os descontos (despesas a subtrair da receita antes do cálculo).
+              </p>
+            </>
           )}
 
           <button
