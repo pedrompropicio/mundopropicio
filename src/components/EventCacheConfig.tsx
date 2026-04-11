@@ -533,6 +533,46 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
+                    {/* Finalized toggle */}
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
+                      <div className="flex items-center gap-2">
+                        {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <div>
+                          <span className="text-xs font-medium">Cachê Finalizado</span>
+                          <p className="text-[10px] text-muted-foreground">Quando ativado, o valor não recalcula mais com alterações de bilheteira ou custos.</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={isFinalized}
+                        onCheckedChange={(checked) => toggleFinalizedMutation.mutate({ configId: config.id, value: checked })}
+                      />
+                    </div>
+
+                    {/* Minimum guaranteed */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">Mínimo Garantido (€)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={Number(config.minimum_guaranteed) || ""}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            updateMinGuaranteedMutation.mutate({ configId: config.id, value: val });
+                          }}
+                          className={`${inputClass} max-w-[140px]`}
+                          placeholder="0.00"
+                          disabled={isFinalized}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          Valor mínimo a pagar, independente do cálculo variável
+                        </span>
+                      </div>
+                    </div>
                     {/* Fixed percentage deduction */}
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
