@@ -1319,7 +1319,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       </tfoot>
                     )}
                   </table>
-                  {expenseForecasts.length === 0 && addingType !== "expense" && filteredCacheLines.length === 0 && filteredProratedParentExpenses.length === 0 && (
+                  {expenseForecasts.length === 0 && addingType !== "expense" && filteredProratedParentExpenses.length === 0 && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
                   )}
                 </div>
