@@ -125,6 +125,44 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     }, 0);
   }, [ticketLots]);
 
+  // Find cache category (2.1.01) for forecast sync
+  const cacheCategoryId = useMemo(() => {
+    const cat = categories.find((c) => c.code === "2.1.01" && c.type === "expense");
+    return cat?.id ?? null;
+  }, [categories]);
+
+  // Sync cache configs to real forecasts in BP
+  useSyncCacheForecasts({
+    eventId,
+    cacheConfigs: cacheConfigs.map((c: any) => ({
+      id: c.id,
+      event_id: c.event_id,
+      artist_name: c.artist_name,
+      cache_type: c.cache_type,
+      fixed_amount: Number(c.fixed_amount),
+      percentage: Number(c.percentage),
+      fixed_deduction_percentage: Number(c.fixed_deduction_percentage),
+      cache_revenue_basis: c.cache_revenue_basis,
+      minimum_guaranteed: Number(c.minimum_guaranteed),
+      is_finalized: !!c.is_finalized,
+    })),
+    deductions: deductions.map((d: any) => ({
+      cache_config_id: d.cache_config_id,
+      category_id: d.category_id,
+    })),
+    forecasts: forecasts.map((f: any) => ({
+      id: f.id,
+      type: f.type,
+      category_id: f.category_id,
+      amount: Number(f.amount),
+      cache_config_id: (f as any).cache_config_id ?? null,
+    })),
+    ticketRevenueNet,
+    ticketRevenueGross,
+    cacheCategoryId,
+    enabled: canEdit && cacheConfigs.length > 0,
+  });
+
   // Expense categories (level 3 only - detail accounts)
   const expenseDetailCategories = useMemo(() => {
     return categories.filter((c) => c.type === "expense" && c.parent_id !== null);
