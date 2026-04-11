@@ -590,107 +590,97 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
-                    {/* Finalized toggle */}
-                    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
-                      <div className="flex items-center gap-2">
-                        {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
-                        <div>
-                          <span className="text-xs font-medium">Cachê Finalizado</span>
-                          <p className="text-[10px] text-muted-foreground">Quando ativado, o valor não recalcula mais com alterações de bilheteira ou custos.</p>
+                    {/* Row: Finalized + Revenue Basis */}
+                    <div className="grid grid-cols-[1fr,auto] gap-3 items-start">
+                      <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
+                        <div className="flex items-center gap-2">
+                          {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
+                          <div>
+                            <span className="text-xs font-medium">Finalizado</span>
+                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor contra recálculos.</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={isFinalized}
+                          onCheckedChange={(checked) => toggleFinalizedMutation.mutate({ configId: config.id, value: checked })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-medium text-muted-foreground">Base de cálculo</span>
+                        <div className="flex gap-1">
+                          {[
+                            { value: "net", label: "s/ IVA" },
+                            { value: "gross", label: "c/ IVA" },
+                          ].map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => {
+                                supabase
+                                  .from("event_cache_configs" as any)
+                                  .update({ cache_revenue_basis: opt.value })
+                                  .eq("id", config.id)
+                                  .then(() => {
+                                    queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+                                  });
+                              }}
+                              className={`rounded border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                (config.cache_revenue_basis || "net") === opt.value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                      <Switch
-                        checked={isFinalized}
-                        onCheckedChange={(checked) => toggleFinalizedMutation.mutate({ configId: config.id, value: checked })}
-                      />
                     </div>
 
-                    {/* Minimum guaranteed */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground">Mínimo Garantido (€)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
+                    {/* Row: Min Guaranteed + Fixed % Deduction */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" /> Mínimo Garantido (€)
+                        </label>
                         <input
                           type="number"
-                          step="0.01"
+                          step="1"
                           min="0"
                           value={Number(config.minimum_guaranteed) || ""}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value) || 0;
                             updateMinGuaranteedMutation.mutate({ configId: config.id, value: val });
                           }}
-                          className={`${inputClass} max-w-[140px]`}
-                          placeholder="0.00"
+                          className={`${inputClass} text-xs`}
+                          placeholder="0"
                           disabled={isFinalized}
                         />
-                        <span className="text-[10px] text-muted-foreground">
-                          Valor mínimo a pagar, independente do cálculo variável
-                        </span>
                       </div>
-                    </div>
-                    {/* Fixed percentage deduction */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <Percent className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Desconto Percentual Fixo
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="100"
-                          value={Number(config.fixed_deduction_percentage) || ""}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            updateFixedDeductionMutation.mutate({ configId: config.id, value: val });
-                          }}
-                          className={`${inputClass} max-w-[100px]`}
-                          placeholder="0"
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          % sobre a receita {config.cache_revenue_basis === "gross" ? "c/ IVA" : "s/ IVA"}
-                        </span>
-                        {fixedPctDeduction > 0 && (
-                          <span className="ml-auto font-mono text-xs font-semibold text-warning">
-                            − {formatCurrency(fixedPctDeduction)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Revenue basis toggle */}
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">Base de cálculo</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { value: "net", label: "Receita s/ IVA" },
-                          { value: "gross", label: "Receita c/ IVA" },
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              supabase
-                                .from("event_cache_configs" as any)
-                                .update({ cache_revenue_basis: opt.value })
-                                .eq("id", config.id)
-                                .then(() => {
-                                  queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
-                                });
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                          <Percent className="h-3 w-3" /> Desc. Percentual Fixo
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={Number(config.fixed_deduction_percentage) || ""}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              updateFixedDeductionMutation.mutate({ configId: config.id, value: val });
                             }}
-                            className={`rounded border px-2 py-1 text-xs font-medium transition-all ${
-                              (config.cache_revenue_basis || "net") === opt.value
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border bg-background text-muted-foreground hover:border-primary/40"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
+                            className={`${inputClass} text-xs max-w-[80px]`}
+                            placeholder="0"
+                          />
+                          <span className="text-[10px] text-muted-foreground">%</span>
+                          {fixedPctDeduction > 0 && (
+                            <span className="ml-auto font-mono text-xs font-semibold text-warning">
+                              − {formatCurrency(fixedPctDeduction)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
