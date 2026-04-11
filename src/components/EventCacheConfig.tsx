@@ -31,6 +31,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const [cacheType, setCacheType] = useState<"fixed" | "variable">("fixed");
   const [fixedAmount, setFixedAmount] = useState("");
   const [percentage, setPercentage] = useState("");
+  const [minimumGuaranteed, setMinimumGuaranteed] = useState("");
 
   // Fetch cache configs
   const { data: cacheConfigs = [], isLoading } = useQuery({
