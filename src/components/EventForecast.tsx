@@ -1497,6 +1497,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
   const hasMatchingTx = matchingTransactions.length > 0;
 
+  // For admin delete: check if any transactions are paid
+  const paidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
+    const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    const txPaid = Number(t.paid_amount ?? 0);
+    return t.status === "paid" || txPaid >= txTotal - 0.01;
+  }), [matchingTransactions]);
+  const unpaidTransactions = useMemo(() => matchingTransactions.filter((t: any) => {
+    const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    const txPaid = Number(t.paid_amount ?? 0);
+    return t.status !== "paid" && txPaid < txTotal - 0.01;
+  }), [matchingTransactions]);
+  const hasPaidTx = paidTransactions.length > 0;
+
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", item.id],
     queryFn: async () => {
