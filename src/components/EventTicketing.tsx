@@ -1,3 +1,4 @@
+import { SalesLogPanel } from "@/components/SalesLogPanel";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
