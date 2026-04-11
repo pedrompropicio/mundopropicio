@@ -1243,12 +1243,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               <tr className="bg-secondary/10 border-t border-border/30">
                                 <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">
                                   <span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}
-                                  {group.groupCode === "2.1" && filteredCacheLines.length > 0 && (
-                                    <span className="ml-2 text-muted-foreground font-normal">(incl. cachês)</span>
-                                  )}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
-                                  {formatCurrency(group.groupCode === "2.1" ? groupBase + filteredCacheAmount : groupBase)}
+                                  {formatCurrency(groupBase)}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
