@@ -1249,7 +1249,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
-                                  {formatCurrency((group.groupCode === "2.1" ? groupBase + filteredCacheAmount : groupBase) + groupIva)}
+                                  {formatCurrency(groupBase + groupIva)}
                                 </td>
                                 <td />
                               </tr>
