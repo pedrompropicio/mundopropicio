@@ -70,11 +70,13 @@ export default function ReportTicketOfficeAudit() {
     queryKey: ["report_ticket_offices"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_offices")
-        .select("id, name, financial_account_id, is_active")
+        .from("financial_accounts")
+        .select("id, name, is_active")
+        .eq("type", "ticket_office")
         .order("name");
       if (error) throw error;
-      return data;
+      // Map to expected shape: financial_account_id is the id itself
+      return (data || []).map((fa: any) => ({ ...fa, financial_account_id: fa.id }));
     },
   });
 
@@ -84,7 +86,7 @@ export default function ReportTicketOfficeAudit() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_office_assignments")
-        .select("ticket_office_id, event_id, is_conciliated, events(id, name, status)");
+        .select("financial_account_id, event_id, is_conciliated, events(id, name, status)");
       if (error) throw error;
       return data;
     },
