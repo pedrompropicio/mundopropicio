@@ -1339,7 +1339,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         </TabsContent>
 
         <TabsContent value="comparison">
-          <ComparisonTable data={comparisonData} cacheLines={cacheLines} />
+          <ComparisonTable data={comparisonData} />
         </TabsContent>
       </Tabs>
 
