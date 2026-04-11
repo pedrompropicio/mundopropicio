@@ -794,13 +794,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     // Merge own expenses with prorated parent expenses into a single list
     const mergedExpenses = [...expenseForecasts, ...filteredProratedParentExpenses.map((f: any) => ({ ...f, _prorated: true }))];
     const groups = groupForecasts(mergedExpenses);
-    // Ensure "Artístico" group exists if there are cache lines
-    if (filteredCacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
-      groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
-      groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
-    }
     return groups;
-  }, [expenseForecasts, filteredProratedParentExpenses, catLookup, filteredCacheLines]);
+  }, [expenseForecasts, filteredProratedParentExpenses, catLookup]);
 
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
   const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
