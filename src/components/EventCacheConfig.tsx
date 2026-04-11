@@ -161,7 +161,9 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
     const baseForCalc = basis - totalDeduction;
     const pct = Number(config.percentage) || 0;
-    return Math.max(0, baseForCalc * (pct / 100));
+    const calculated = Math.max(0, baseForCalc * (pct / 100));
+    const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+    return Math.max(minGuaranteed, calculated);
   };
 
   // Add config
