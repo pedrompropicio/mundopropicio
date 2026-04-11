@@ -814,7 +814,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <Store className="h-4 w-4 text-primary" />
-                    <span className="font-semibold text-sm">{a.ticket_offices?.name}</span>
+                    <span className="font-semibold text-sm">{a.financial_accounts?.name}</span>
                     {a.is_conciliated && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                         <CheckCircle2 className="h-3 w-3" /> Conciliada
