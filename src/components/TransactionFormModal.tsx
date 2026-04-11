@@ -1609,7 +1609,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {!showProrationConfirm && !showDuplicateConfirm && (
-            <button type="submit" disabled={createMutation.isPending}
+            <button type="submit" disabled={createMutation.isPending || !!(isSplit && splitCategoryBlockReason)}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
               {createMutation.isPending ? "A guardar…" : "Criar Transação"}
             </button>
