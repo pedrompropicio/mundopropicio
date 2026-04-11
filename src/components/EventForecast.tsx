@@ -1466,7 +1466,6 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
-  const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
 
