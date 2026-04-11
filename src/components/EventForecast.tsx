@@ -1995,3 +1995,74 @@ function ComparisonRowItem({ row, isIncome, indented }: { row: ComparisonRow; is
     </tr>
   );
 }
+
+/* ── Delete Forecast Dialog with transaction check ── */
+function DeleteForecastDialog({ item, onDelete, hasPaidTx, unpaidTransactions, paidTransactions, title }: {
+  item: any;
+  onDelete: (id: string, cascadeTransactionIds?: string[]) => void;
+  hasPaidTx: boolean;
+  unpaidTransactions: any[];
+  paidTransactions: any[];
+  title: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasUnpaidTx = unpaidTransactions.length > 0;
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <button className="rounded p-1 hover:bg-destructive/20" title="Remover">
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              {hasPaidTx ? (
+                <>
+                  <p>Não é possível remover "{item.description}" porque existem transações <strong>liquidadas</strong> associadas:</p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {paidTransactions.map((tx: any) => (
+                      <div key={tx.id} className="rounded border border-border bg-muted/30 px-3 py-1.5 text-xs flex justify-between">
+                        <span className="truncate">{tx.description}</span>
+                        <span className="font-mono font-semibold shrink-0 ml-2">{formatCurrency(Number(tx.amount) * (1 + Number(tx.iva_rate) / 100))}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : hasUnpaidTx ? (
+                <>
+                  <p>"{item.description}" possui {unpaidTransactions.length} transação(ões) <strong>não liquidada(s)</strong> que serão removidas em conjunto:</p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {unpaidTransactions.map((tx: any) => (
+                      <div key={tx.id} className="rounded border border-border bg-muted/30 px-3 py-1.5 text-xs flex justify-between">
+                        <span className="truncate">{tx.description}</span>
+                        <span className="font-mono font-semibold shrink-0 ml-2">{formatCurrency(Number(tx.amount) * (1 + Number(tx.iva_rate) / 100))}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Tanto a linha do BP como as transações serão movidas para a Lixeira.</p>
+                </>
+              ) : (
+                <p>Tem a certeza que deseja remover "{item.description}"? Esta ação pode ser revertida através da Lixeira.</p>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          {!hasPaidTx && (
+            <AlertDialogAction
+              onClick={() => onDelete(item.id, hasUnpaidTx ? unpaidTransactions.map((t: any) => t.id) : undefined)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {hasUnpaidTx ? "Remover tudo" : "Remover"}
+            </AlertDialogAction>
+          )}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
