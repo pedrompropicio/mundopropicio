@@ -1,3 +1,4 @@
+import { SalesLogPanel } from "@/components/SalesLogPanel";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -124,6 +125,16 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       return data;
     },
     enabled: zones.length > 0,
+  });
+
+  // Fetch event data for last_sales_date
+  const { data: eventData } = useQuery({
+    queryKey: ["event-ticketing-meta", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("last_sales_date").eq("id", eventId).single();
+      if (error) throw error;
+      return data;
+    },
   });
 
   // === Ticket Offices queries & mutations ===
@@ -876,6 +887,13 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           </div>
         )}
       </div>
+
+      {/* Sales Log */}
+      <SalesLogPanel
+        eventId={eventId}
+        lastSalesDate={(eventData as any)?.last_sales_date ?? null}
+        isEditable={canEditTickets}
+      />
 
       <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>
         <AlertDialogContent>
