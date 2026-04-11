@@ -347,5 +347,5 @@ function calculateCacheAmount(
   const pct = Number(config.percentage) || 0;
   const calculated = Math.max(0, baseForCalc * (pct / 100));
   const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-  return Math.max(minGuaranteed, calculated);
+  return Math.round(Math.max(minGuaranteed, calculated));
 }
