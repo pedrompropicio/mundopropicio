@@ -324,6 +324,12 @@ export default function ReportArtistCache() {
               <Badge variant={report.isVariable ? "default" : "secondary"}>
                 {report.isVariable ? "Variável" : "Fixo"}
               </Badge>
+              {report.isFinalized && (
+                <Badge variant="outline" className="border-success/50 text-success">Finalizado</Badge>
+              )}
+              {report.isUsingMinimum && (
+                <Badge variant="outline" className="border-accent text-accent-foreground">Mín. Garantido</Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
