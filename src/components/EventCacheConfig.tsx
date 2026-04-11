@@ -175,6 +175,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         cache_type: cacheType,
         fixed_amount: cacheType === "fixed" ? (parseFloat(fixedAmount) || 0) : 0,
         percentage: cacheType === "variable" ? (parseFloat(percentage) || 0) : 0,
+        minimum_guaranteed: cacheType === "variable" ? (parseFloat(minimumGuaranteed) || 0) : 0,
         cache_revenue_basis: cacheType === "variable" ? (document.querySelector<HTMLInputElement>('input[name="revenueBasis"]:checked')?.value || "net") : "net",
       } as any);
       if (error) throw error;
