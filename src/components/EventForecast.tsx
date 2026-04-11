@@ -380,6 +380,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       type: forecast.type,
       category_id: forecast.category_id,
       amount: Number(forecast.amount),
+      iva_rate: Number(forecast.iva_rate ?? 0),
       cache_config_id: forecast.cache_config_id ?? null,
     }));
   }, [tourSyncEventId, eventId, forecasts, parentForecasts]);
@@ -396,6 +397,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       percentage: Number(config.percentage),
       fixed_deduction_percentage: Number(config.fixed_deduction_percentage),
       cache_revenue_basis: config.cache_revenue_basis,
+      cache_deduction_basis: (config as any).cache_deduction_basis,
       minimum_guaranteed: Number(config.minimum_guaranteed),
       is_finalized: !!config.is_finalized,
     })),
