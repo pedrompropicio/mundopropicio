@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
 import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
+import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 
 interface Props {
   eventId: string;
