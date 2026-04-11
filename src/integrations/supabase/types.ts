@@ -1912,6 +1912,7 @@ export type Database = {
           notes: string | null
           quantity: number
           sale_date: string
+          sale_date_to: string | null
           source: string
           ticket_office_id: string | null
           unit_price: number
@@ -1925,6 +1926,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           sale_date?: string
+          sale_date_to?: string | null
           source?: string
           ticket_office_id?: string | null
           unit_price?: number
@@ -1938,6 +1940,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           sale_date?: string
+          sale_date_to?: string | null
           source?: string
           ticket_office_id?: string | null
           unit_price?: number

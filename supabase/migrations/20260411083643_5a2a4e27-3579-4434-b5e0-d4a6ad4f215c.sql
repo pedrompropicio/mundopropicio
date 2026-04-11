@@ -1,0 +1,1 @@
+ALTER TABLE public.ticket_sales ADD COLUMN sale_date_to date DEFAULT NULL;
