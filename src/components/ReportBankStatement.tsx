@@ -259,9 +259,13 @@ export default function ReportBankStatement() {
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="glass rounded-xl p-4">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo Inicial</p>
-              <p className={`mt-1 text-lg font-bold ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                {formatCurrency(openingBalance)}
-              </p>
+              {isUncontrolledBalance ? (
+                <p className="mt-1 text-sm italic text-muted-foreground">Saldo não controlado</p>
+              ) : (
+                <p className={`mt-1 text-lg font-bold ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                  {formatCurrency(openingBalance)}
+                </p>
+              )}
             </div>
             <div className="glass rounded-xl p-4">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Entradas</p>
@@ -273,9 +277,13 @@ export default function ReportBankStatement() {
             </div>
             <div className="glass rounded-xl p-4">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Saldo Final</p>
-              <p className={`mt-1 text-lg font-bold ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                {formatCurrency(closingBalance)}
-              </p>
+              {isUncontrolledBalance ? (
+                <p className="mt-1 text-sm italic text-muted-foreground">Saldo não controlado</p>
+              ) : (
+                <p className={`mt-1 text-lg font-bold ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                  {formatCurrency(closingBalance)}
+                </p>
+              )}
             </div>
           </div>
 
