@@ -15,11 +15,13 @@ interface Props {
 
 interface DaySummary {
   date: string;
+  dateTo?: string | null;
   quantity: number;
   revenue: number;
   sources: string[];
   hasImport: boolean;
   hasManual: boolean;
+  isPeriod: boolean;
 }
 
 export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
@@ -30,7 +32,6 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
   const { data: salesByDay = [] } = useQuery({
     queryKey: ["sales-log-daily", eventId],
     queryFn: async () => {
-      // Get all zones for this event
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
@@ -39,7 +40,6 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
 
       const zoneIds = zones.map((z) => z.id);
 
-      // Get all lots for these zones
       const { data: lots } = await supabase
         .from("event_ticket_lots")
         .select("id, price, zone_id")
@@ -47,27 +47,72 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
       if (!lots || lots.length === 0) return [];
 
       const lotIds = lots.map((l) => l.id);
-      const lotPriceMap = Object.fromEntries(lots.map((l) => [l.id, Number(l.price)]));
 
-      // Get all sales for these lots
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("sale_date, quantity, unit_price, source, lot_id")
+        .select("sale_date, sale_date_to, quantity, unit_price, source, lot_id")
         .in("lot_id", lotIds)
         .order("sale_date", { ascending: true });
       if (!sales) return [];
 
-      // Group by day
+      // Group by day, treating period entries separately
+      const entries: DaySummary[] = [];
       const dayMap = new Map<string, DaySummary>();
+
       for (const s of sales) {
-        const key = s.sale_date;
-        const existing = dayMap.get(key) || { date: key, quantity: 0, revenue: 0, sources: [], hasImport: false, hasManual: false };
-        existing.quantity += s.quantity;
-        existing.revenue += s.quantity * Number(s.unit_price);
-        if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
-        if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
-        if (s.source !== "import" && s.source !== "manual" && !existing.sources.includes(s.source)) existing.sources.push(s.source);
-        dayMap.set(key, existing);
+        const saleDateTo = (s as any).sale_date_to as string | null;
+        const isPeriod = !!saleDateTo && saleDateTo !== s.sale_date;
+
+        if (isPeriod) {
+          // Period entry — keep as separate line
+          const periodKey = `${s.sale_date}_${saleDateTo}`;
+          const existing = dayMap.get(periodKey);
+          if (existing) {
+            existing.quantity += s.quantity;
+            existing.revenue += s.quantity * Number(s.unit_price);
+            if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
+            if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
+          } else {
+            const entry: DaySummary = {
+              date: s.sale_date,
+              dateTo: saleDateTo,
+              quantity: s.quantity,
+              revenue: s.quantity * Number(s.unit_price),
+              sources: [],
+              hasImport: false,
+              hasManual: false,
+              isPeriod: true,
+            };
+            if (s.source === "import") { entry.hasImport = true; entry.sources.push("Importação"); }
+            if (s.source === "manual") { entry.hasManual = true; entry.sources.push("Manual"); }
+            dayMap.set(periodKey, entry);
+          }
+        } else {
+          // Single day entry
+          const key = s.sale_date;
+          const existing = dayMap.get(key);
+          if (existing) {
+            existing.quantity += s.quantity;
+            existing.revenue += s.quantity * Number(s.unit_price);
+            if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
+            if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
+          } else {
+            const entry: DaySummary = {
+              date: key,
+              dateTo: null,
+              quantity: s.quantity,
+              revenue: s.quantity * Number(s.unit_price),
+              sources: [],
+              hasImport: false,
+              hasManual: false,
+              isPeriod: false,
+            };
+            if (s.source === "import") { entry.hasImport = true; entry.sources.push("Importação"); }
+            if (s.source === "manual") { entry.hasManual = true; entry.sources.push("Manual"); }
+            if (s.source !== "import" && s.source !== "manual") entry.sources.push(s.source);
+            dayMap.set(key, entry);
+          }
+        }
       }
 
       return Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -88,24 +133,40 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
     },
   });
 
-  // Compute gaps (days without sales between first and last sale)
+  // Compute gaps (days without sales between first and last sale, excluding period-covered days)
   const { gaps, firstDate, lastDate, totalDays, daysWithSales } = useMemo(() => {
     if (salesByDay.length === 0) return { gaps: [] as string[], firstDate: null, lastDate: null, totalDays: 0, daysWithSales: 0 };
 
     const first = salesByDay[0].date;
-    const last = salesByDay[salesByDay.length - 1].date;
-    const salesDates = new Set(salesByDay.map((s) => s.date));
+    const allLastDates = salesByDay.map((s) => s.dateTo || s.date);
+    const last = allLastDates.sort().pop()!;
+
+    // Build set of all covered dates
+    const coveredDates = new Set<string>();
+    for (const s of salesByDay) {
+      if (s.isPeriod && s.dateTo) {
+        const from = parseISO(s.date);
+        const to = parseISO(s.dateTo);
+        if (isValid(from) && isValid(to)) {
+          eachDayOfInterval({ start: from, end: to }).forEach((d) =>
+            coveredDates.add(format(d, "yyyy-MM-dd"))
+          );
+        }
+      } else {
+        coveredDates.add(s.date);
+      }
+    }
 
     const firstParsed = parseISO(first);
     const lastParsed = parseISO(last);
-    if (!isValid(firstParsed) || !isValid(lastParsed)) return { gaps: [], firstDate: first, lastDate: last, totalDays: 0, daysWithSales: salesByDay.length };
+    if (!isValid(firstParsed) || !isValid(lastParsed)) return { gaps: [], firstDate: first, lastDate: last, totalDays: 0, daysWithSales: coveredDates.size };
 
     const allDays = eachDayOfInterval({ start: firstParsed, end: lastParsed });
     const gapDays = allDays
       .map((d) => format(d, "yyyy-MM-dd"))
-      .filter((d) => !salesDates.has(d));
+      .filter((d) => !coveredDates.has(d));
 
-    return { gaps: gapDays, firstDate: first, lastDate: last, totalDays: allDays.length, daysWithSales: salesByDay.length };
+    return { gaps: gapDays, firstDate: first, lastDate: last, totalDays: allDays.length, daysWithSales: coveredDates.size };
   }, [salesByDay]);
 
   // Update last_sales_date on event
@@ -252,9 +313,18 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                 </thead>
                 <tbody>
                   {salesByDay.map((day) => (
-                    <tr key={day.date} className="border-b border-border/20 hover:bg-secondary/10">
-                      <td className="px-3 py-1.5 font-mono text-xs">{formatDatePT(day.date)}</td>
-                      <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize">{formatDayOfWeek(day.date)}</td>
+                    <tr key={day.isPeriod ? `${day.date}_${day.dateTo}` : day.date} className="border-b border-border/20 hover:bg-secondary/10">
+                      <td className="px-3 py-1.5 font-mono text-xs">
+                        {day.isPeriod && day.dateTo ? (
+                          <span className="flex items-center gap-1">
+                            {formatDatePT(day.date)} — {formatDatePT(day.dateTo)}
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 border-primary/30 text-primary ml-1">Período</Badge>
+                          </span>
+                        ) : formatDatePT(day.date)}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize">
+                        {day.isPeriod ? "—" : formatDayOfWeek(day.date)}
+                      </td>
                       <td className="px-3 py-1.5 text-right font-mono text-xs">{day.quantity.toLocaleString("pt-PT")}</td>
                       <td className="px-3 py-1.5 text-right font-mono text-xs text-success">{formatCurrency(day.revenue)}</td>
                       <td className="px-3 py-1.5 text-center">
