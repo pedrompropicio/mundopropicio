@@ -20,7 +20,7 @@ const RESTORE_ORDER = [
   "financial_account_access",
   "suppliers",
   "supplier_documents",
-  "ticket_offices",
+  
   "events",
   "event_dates",
   "event_sessions",
