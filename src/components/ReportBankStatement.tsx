@@ -317,8 +317,8 @@ export default function ReportBankStatement() {
                     <TableCell />
                     <TableCell className="text-right">—</TableCell>
                     <TableCell className="text-right">—</TableCell>
-                    <TableCell className={`text-right font-mono font-bold ${openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(openingBalance)}
+                    <TableCell className={`text-right font-mono font-bold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : openingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                      {isUncontrolledBalance ? "N/C" : formatCurrency(openingBalance)}
                     </TableCell>
                   </TableRow>
 
@@ -360,8 +360,8 @@ export default function ReportBankStatement() {
                           <span className="text-warning">{formatCurrency(Math.abs(line.signedAmount))}</span>
                         ) : "—"}
                       </TableCell>
-                      <TableCell className={`text-right font-mono text-sm font-semibold ${line.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                        {formatCurrency(line.runningBalance)}
+                      <TableCell className={`text-right font-mono text-sm font-semibold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : line.runningBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                        {isUncontrolledBalance ? "N/C" : formatCurrency(line.runningBalance)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -373,8 +373,8 @@ export default function ReportBankStatement() {
                     <TableCell />
                     <TableCell className="text-right font-mono font-semibold text-success">{formatCurrency(totalIncome)}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-warning">{formatCurrency(totalExpense)}</TableCell>
-                    <TableCell className={`text-right font-mono font-bold ${closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(closingBalance)}
+                    <TableCell className={`text-right font-mono font-bold ${isUncontrolledBalance ? "text-muted-foreground italic text-xs" : closingBalance >= 0 ? "text-success" : "text-destructive"}`}>
+                      {isUncontrolledBalance ? "N/C" : formatCurrency(closingBalance)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
