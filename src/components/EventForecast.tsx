@@ -1296,30 +1296,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                     </div>
                                   </td>
                                 </tr>
+                              ) : f.cache_config_id ? (
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               )
-                            ))}
-                            {/* Inject cachê lines inside the Artístico group */}
-                            {group.groupCode === "2.1" && filteredCacheLines.length > 0 && filteredCacheLines.map((cl, idx) => {
-                              const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
-                              return (
-                                <tr key={`cache-${idx}`} className="border-b border-border/10">
-                                  <td className="py-2.5 pr-3 pl-4" colSpan={2}>
-                                    <div className="flex items-center gap-2">
-                                      <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                      <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
-                                    </div>
-                                  </td>
-                                  <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">2.1.01 - Cachês</td>
-                                  <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
-                                  <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
-                                  <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
-                                  <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
-                                  <td />
-                                </tr>
-                              );
-                            })}
                           </React.Fragment>
                         );
                       })}
