@@ -402,6 +402,22 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 className={inputClass}
                 placeholder="Ex: 15"
               />
+              <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Mínimo Garantido (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={minimumGuaranteed}
+                  onChange={(e) => setMinimumGuaranteed(e.target.value)}
+                  className={inputClass}
+                  placeholder="0.00 (opcional)"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  <Info className="inline h-3 w-3 mr-0.5" />
+                  Se definido, o cachê será no mínimo este valor, mesmo que o cálculo variável resulte em menos.
+                </p>
+              </div>
               <p className="mt-1 text-[10px] text-muted-foreground">
                 <Info className="inline h-3 w-3 mr-0.5" />
                 Após adicionar, configure os descontos na cabeça (despesas a subtrair da receita antes do cálculo).
