@@ -327,7 +327,7 @@ function calculateCacheAmount(
   configDeductions: { cache_config_id: string; category_id: string }[],
   ticketRevenueNet: number,
   ticketRevenueGross: number,
-  expenseForecasts: { type: string; category_id: string | null; amount: number }[]
+  expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[]
 ): number {
   if (config.cache_type === "fixed") {
     return Number(config.fixed_amount);
@@ -337,10 +337,18 @@ function calculateCacheAmount(
     config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
 
   const deductionCategoryIds = new Set(configDeductions.map((d) => d.category_id));
+  const deductionBasisGross = config.cache_deduction_basis === "gross";
 
   const categoryDeductionAmount = expenseForecasts
     .filter((f) => f.type === "expense" && deductionCategoryIds.has(f.category_id ?? ""))
-    .reduce((s, f) => s + Number(f.amount), 0);
+    .reduce((s, f) => {
+      const base = Number(f.amount);
+      if (deductionBasisGross) {
+        const rate = Number(f.iva_rate ?? 0);
+        return s + base * (1 + rate / 100);
+      }
+      return s + base;
+    }, 0);
 
   const fixedPctDeduction =
     basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
