@@ -11,6 +11,7 @@ export interface CacheConfig {
   percentage: number;
   fixed_deduction_percentage: number;
   cache_revenue_basis?: string;
+  cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
 }

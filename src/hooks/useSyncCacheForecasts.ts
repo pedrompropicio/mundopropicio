@@ -166,16 +166,16 @@ async function syncTourCacheForecasts(
   // Also fetch non-cache expense forecasts per child for deduction calc
   const { data: childExpenseForecasts } = await supabase
     .from("event_forecasts")
-    .select("event_id, type, category_id, amount, cache_config_id")
+    .select("event_id, type, category_id, amount, iva_rate, cache_config_id")
     .in("event_id", childEventIds)
     .eq("type", "expense")
     .is("cache_config_id", null);
 
-  const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number }[]> = {};
+  const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number; iva_rate?: number }[]> = {};
   for (const cid of childEventIds) expensesByChild[cid] = [];
   for (const f of (childExpenseForecasts ?? [])) {
     if (expensesByChild[f.event_id]) {
-      expensesByChild[f.event_id].push({ type: f.type, category_id: f.category_id, amount: Number(f.amount) });
+      expensesByChild[f.event_id].push({ type: f.type, category_id: f.category_id, amount: Number(f.amount), iva_rate: Number(f.iva_rate ?? 0) });
     }
   }
 
