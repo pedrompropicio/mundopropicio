@@ -98,11 +98,15 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is admin (if called from frontend)
+    // Verify caller: service role key, anon key (cron), or admin user
     const authHeader = req.headers.get("Authorization");
-    if (authHeader && authHeader !== `Bearer ${serviceRoleKey}`) {
+    const token = authHeader?.replace("Bearer ", "") ?? "";
+    const isServiceRole = token === serviceRoleKey;
+    const isCronCall = token === anonKey;
+
+    if (!isServiceRole && !isCronCall) {
+      // Must be a user JWT – verify admin role
       const anonClient = createClient(supabaseUrl, anonKey);
-      const token = authHeader.replace("Bearer ", "");
       const {
         data: { user },
         error: authErr,
