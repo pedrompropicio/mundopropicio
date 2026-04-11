@@ -69,7 +69,7 @@ export function calculateCacheLinesForPL(
     const pct = Number(config.percentage) || 0;
     const calculated = Math.max(0, baseForCalc * (pct / 100));
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-    const amount = Math.max(minGuaranteed, calculated);
+    const amount = Math.round(Math.max(minGuaranteed, calculated));
 
     return {
       artistName: config.artist_name,
