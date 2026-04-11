@@ -177,13 +177,20 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   };
 
   // Calculate deduction amount for a config (categories + fixed %)
-  const calculateDeductionAmount = (configId: string) => {
+  const calculateDeductionAmount = (configId: string, deductionBasisGross = false) => {
     const configDeductions = getDeductionsForConfig(configId);
     const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
 
     const categoryAmount = forecasts
       .filter((f) => f.type === "expense" && deductionCategoryIds.includes(f.category_id))
-      .reduce((s, f) => s + Number(f.amount), 0);
+      .reduce((s, f) => {
+        const base = Number(f.amount);
+        if (deductionBasisGross) {
+          const rate = Number(f.iva_rate ?? 0);
+          return s + base * (1 + rate / 100);
+        }
+        return s + base;
+      }, 0);
 
     return categoryAmount;
   };
@@ -197,7 +204,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
 
   // Calculate variable cachê
   const calculateVariableCache = (config: any) => {
-    const categoryDeduction = calculateDeductionAmount(config.id);
+    const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
+    const categoryDeduction = calculateDeductionAmount(config.id, deductionBasisGross);
     const fixedPctDeduction = calculateFixedPctDeduction(config);
     const totalDeduction = categoryDeduction + fixedPctDeduction;
     const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
