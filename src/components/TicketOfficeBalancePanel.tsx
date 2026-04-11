@@ -8,20 +8,19 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
 interface Props {
-  officeId: string;
+  officeId: string; // This is now the financial_account_id directly
   officeName: string;
-  financialAccountId: string | null;
 }
 
-export function TicketOfficeBalancePanel({ officeId, officeName, financialAccountId }: Props) {
-  // Get all assignments for this office
+export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
+  // Get all assignments for this office (financial_account_id)
   const { data: assignments = [] } = useQuery({
     queryKey: ["ticket_office_assignments", officeId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_office_assignments")
         .select("*, events(id, name, status)")
-        .eq("ticket_office_id", officeId);
+        .eq("financial_account_id", officeId);
       if (error) throw error;
       return data;
     },
@@ -33,7 +32,6 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
     queryKey: ["ticket_sales_for_office", officeId, eventIds],
     enabled: eventIds.length > 0,
     queryFn: async () => {
-      // Get zones for these events
       const { data: zones, error: zErr } = await supabase
         .from("event_ticket_zones")
         .select("id, event_id")
@@ -44,11 +42,10 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
       const zoneIds = zones.map((z: any) => z.id);
       const { data: sales, error: sErr } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, ticket_office_id")
+        .select("zone_id, quantity, unit_price, financial_account_id")
         .in("zone_id", zoneIds);
       if (sErr) throw sErr;
 
-      // Enrich with event_id
       const zoneEventMap = Object.fromEntries(zones.map((z: any) => [z.id, z.event_id]));
       return (sales || []).map((s: any) => ({
         ...s,
@@ -57,22 +54,20 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
     },
   });
 
-  // Get transactions on the financial account (transfers out, direct expenses)
+  // Get transactions on the financial account
   const { data: accountTxns = [] } = useQuery({
-    queryKey: ["ticket_office_account_txns", financialAccountId],
-    enabled: !!financialAccountId,
+    queryKey: ["ticket_office_account_txns", officeId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("type, amount, paid_amount, event_id, description")
-        .eq("account_id", financialAccountId!);
+        .eq("account_id", officeId);
       if (error) throw error;
       return data;
     },
   });
 
   const summary = useMemo(() => {
-    // Per-event breakdown
     const eventMap: Record<string, { name: string; status: string; sales: number; directExpenses: number; isConciliated: boolean }> = {};
     assignments.forEach((a: any) => {
       if (a.events) {
@@ -86,23 +81,20 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
       }
     });
 
-    // Sum sales per event (only from this office)
     ticketSales
-      .filter((s: any) => !s.ticket_office_id || s.ticket_office_id === officeId)
+      .filter((s: any) => !s.financial_account_id || s.financial_account_id === officeId)
       .forEach((s: any) => {
         if (eventMap[s.event_id]) {
           eventMap[s.event_id].sales += s.quantity * Number(s.unit_price);
         }
       });
 
-    // Sum direct expenses per event from account (using paid_amount for real cash flow)
     accountTxns.forEach((t: any) => {
       if (t.type === "expense" && t.event_id && eventMap[t.event_id]) {
         eventMap[t.event_id].directExpenses += Number(t.paid_amount || 0);
       }
     });
 
-    // Total transfers out (expenses without event_id)
     const totalTransfersOut = accountTxns
       .filter((t: any) => t.type === "expense" && !t.event_id)
       .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
@@ -134,7 +126,6 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
 
   return (
     <div className="space-y-3">
-      {/* Global summary */}
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vendas</p>
@@ -150,7 +141,6 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
         </div>
       </div>
 
-      {/* Global balance */}
       <div className={`rounded-lg p-3 text-center ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}>
         <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Saldo Disponível na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
@@ -163,7 +153,6 @@ export function TicketOfficeBalancePanel({ officeId, officeName, financialAccoun
         )}
       </div>
 
-      {/* Per-event breakdown */}
       {summary.events.length > 0 && (
         <div>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Saldo por Evento</h4>

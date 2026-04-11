@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCurrency } from "@/lib/mock-data";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,7 +34,7 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
     queryFn: async () => {
       let q = supabase
         .from("event_ticket_office_assignments")
-        .select("*, ticket_offices(id, name, contact_name, financial_account_id, financial_accounts:financial_account_id(id, name, initial_balance))")
+        .select("*, financial_accounts:financial_account_id(id, name, contact_name)")
         .eq("event_id", eventId);
 
       if (eventDateId) {
@@ -54,8 +53,9 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
     queryKey: ["ticket_offices_active"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_offices")
+        .from("financial_accounts")
         .select("id, name")
+        .eq("type", "ticket_office")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -63,22 +63,8 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
     },
   });
 
-  // Get ticket sales per office for this event
-  const { data: salesByOffice = [] } = useQuery({
-    queryKey: ["ticket_sales_by_office", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("ticket_office_id, quantity, unit_price")
-        .eq("zone_id", eventId); // This won't work directly - need to join through zones
-      // For now return empty - we'll calculate from zones
-      return [];
-    },
-    enabled: false, // Disable for now
-  });
-
   const availableOffices = ticketOffices.filter(
-    (to: any) => !assignments.some((a: any) => a.ticket_office_id === to.id)
+    (to: any) => !assignments.some((a: any) => a.financial_account_id === to.id)
   );
 
   const addMutation = useMutation({
@@ -86,7 +72,7 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
       const { error } = await supabase.from("event_ticket_office_assignments").insert({
         event_id: eventId,
-        ticket_office_id: selectedOfficeId,
+        financial_account_id: selectedOfficeId,
         event_date_id: eventDateId || null,
         commission_notes: commissionNotes.trim() || null,
       });
@@ -212,7 +198,7 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <Store className="h-4 w-4 text-primary" />
-                  <span className="font-semibold text-sm">{a.ticket_offices?.name}</span>
+                  <span className="font-semibold text-sm">{a.financial_accounts?.name}</span>
                   {a.is_conciliated && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                       <CheckCircle2 className="h-3 w-3" /> Conciliada
@@ -251,14 +237,11 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
                 </div>
               </div>
 
-              {/* Commission notes */}
               <div>
                 <Label className="text-xs text-muted-foreground">Negociação de comissão</Label>
                 <Textarea
                   value={a.commission_notes ?? ""}
-                  onChange={(e) => {
-                    // Local state update handled by react-query refetch
-                  }}
+                  onChange={() => {}}
                   onBlur={(e) => {
                     if (e.target.value !== (a.commission_notes ?? "")) {
                       updateNotesMutation.mutate({ id: a.id, notes: e.target.value });
@@ -276,7 +259,6 @@ export function EventTicketOfficesTab({ eventId, eventDateId, eventStatus }: Pro
         </div>
       )}
 
-      {/* Add form */}
       {addingOffice && (
         <div className="glass rounded-xl p-4 space-y-3 border border-primary/30">
           <h4 className="text-sm font-medium">Associar Bilheteira</h4>

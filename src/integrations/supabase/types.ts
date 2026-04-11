@@ -724,9 +724,9 @@ export type Database = {
           created_at: string
           event_date_id: string | null
           event_id: string
+          financial_account_id: string
           id: string
           is_conciliated: boolean
-          ticket_office_id: string
           updated_at: string
         }
         Insert: {
@@ -737,9 +737,9 @@ export type Database = {
           created_at?: string
           event_date_id?: string | null
           event_id: string
+          financial_account_id: string
           id?: string
           is_conciliated?: boolean
-          ticket_office_id: string
           updated_at?: string
         }
         Update: {
@@ -750,9 +750,9 @@ export type Database = {
           created_at?: string
           event_date_id?: string | null
           event_id?: string
+          financial_account_id?: string
           id?: string
           is_conciliated?: boolean
-          ticket_office_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -771,10 +771,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "event_ticket_office_assignments_ticket_office_id_fkey"
-            columns: ["ticket_office_id"]
+            foreignKeyName: "event_ticket_office_assignments_financial_account_id_fkey"
+            columns: ["financial_account_id"]
             isOneToOne: false
-            referencedRelation: "ticket_offices"
+            referencedRelation: "financial_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -939,13 +939,16 @@ export type Database = {
         Row: {
           balance_visible_to_all: boolean
           card_number: string | null
+          contact_name: string | null
           created_at: string
           description: string | null
+          email_contact: string | null
           iban: string | null
           id: string
           initial_balance: number
           is_active: boolean
           name: string
+          phone: string | null
           skip_balance_check: boolean
           type: string
           updated_at: string
@@ -953,13 +956,16 @@ export type Database = {
         Insert: {
           balance_visible_to_all?: boolean
           card_number?: string | null
+          contact_name?: string | null
           created_at?: string
           description?: string | null
+          email_contact?: string | null
           iban?: string | null
           id?: string
           initial_balance?: number
           is_active?: boolean
           name: string
+          phone?: string | null
           skip_balance_check?: boolean
           type?: string
           updated_at?: string
@@ -967,13 +973,16 @@ export type Database = {
         Update: {
           balance_visible_to_all?: boolean
           card_number?: string | null
+          contact_name?: string | null
           created_at?: string
           description?: string | null
+          email_contact?: string | null
           iban?: string | null
           id?: string
           initial_balance?: number
           is_active?: boolean
           name?: string
+          phone?: string | null
           skip_balance_check?: boolean
           type?: string
           updated_at?: string
@@ -1795,6 +1804,7 @@ export type Database = {
           created_at: string
           event_id: string | null
           file_name: string | null
+          financial_account_id: string | null
           id: string
           import_type: string
           imported_by: string
@@ -1804,13 +1814,13 @@ export type Database = {
           report_url: string | null
           rows_imported: number
           rows_skipped: number
-          ticket_office_id: string | null
           zones_created: number
         }
         Insert: {
           created_at?: string
           event_id?: string | null
           file_name?: string | null
+          financial_account_id?: string | null
           id?: string
           import_type?: string
           imported_by?: string
@@ -1820,13 +1830,13 @@ export type Database = {
           report_url?: string | null
           rows_imported?: number
           rows_skipped?: number
-          ticket_office_id?: string | null
           zones_created?: number
         }
         Update: {
           created_at?: string
           event_id?: string | null
           file_name?: string | null
+          financial_account_id?: string | null
           id?: string
           import_type?: string
           imported_by?: string
@@ -1836,7 +1846,6 @@ export type Database = {
           report_url?: string | null
           rows_imported?: number
           rows_skipped?: number
-          ticket_office_id?: string | null
           zones_created?: number
         }
         Relationships: [
@@ -1848,54 +1857,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ticket_import_logs_ticket_office_id_fkey"
-            columns: ["ticket_office_id"]
-            isOneToOne: false
-            referencedRelation: "ticket_offices"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ticket_offices: {
-        Row: {
-          contact_name: string | null
-          created_at: string
-          email: string | null
-          financial_account_id: string | null
-          id: string
-          is_active: boolean
-          name: string
-          notes: string | null
-          phone: string | null
-          updated_at: string
-        }
-        Insert: {
-          contact_name?: string | null
-          created_at?: string
-          email?: string | null
-          financial_account_id?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          notes?: string | null
-          phone?: string | null
-          updated_at?: string
-        }
-        Update: {
-          contact_name?: string | null
-          created_at?: string
-          email?: string | null
-          financial_account_id?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          notes?: string | null
-          phone?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_offices_financial_account_id_fkey"
+            foreignKeyName: "ticket_import_logs_financial_account_id_fkey"
             columns: ["financial_account_id"]
             isOneToOne: false
             referencedRelation: "financial_accounts"
@@ -1907,6 +1869,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          financial_account_id: string | null
           id: string
           lot_id: string | null
           notes: string | null
@@ -1914,13 +1877,13 @@ export type Database = {
           sale_date: string
           sale_date_to: string | null
           source: string
-          ticket_office_id: string | null
           unit_price: number
           zone_id: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string
+          financial_account_id?: string | null
           id?: string
           lot_id?: string | null
           notes?: string | null
@@ -1928,13 +1891,13 @@ export type Database = {
           sale_date?: string
           sale_date_to?: string | null
           source?: string
-          ticket_office_id?: string | null
           unit_price?: number
           zone_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string
+          financial_account_id?: string | null
           id?: string
           lot_id?: string | null
           notes?: string | null
@@ -1942,23 +1905,22 @@ export type Database = {
           sale_date?: string
           sale_date_to?: string | null
           source?: string
-          ticket_office_id?: string | null
           unit_price?: number
           zone_id?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "ticket_sales_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ticket_sales_lot_id_fkey"
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "event_ticket_lots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ticket_sales_ticket_office_id_fkey"
-            columns: ["ticket_office_id"]
-            isOneToOne: false
-            referencedRelation: "ticket_offices"
             referencedColumns: ["id"]
           },
           {

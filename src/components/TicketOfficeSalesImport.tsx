@@ -59,8 +59,9 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     queryKey: ["ticket_offices_active"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_offices")
+        .from("financial_accounts")
         .select("id, name")
+        .eq("type", "ticket_office")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -326,7 +327,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
           sale_date: r.date,
           quantity: r.quantity,
           unit_price: r.unit_price,
-          ticket_office_id: selectedOfficeId,
+          financial_account_id: selectedOfficeId,
           notes: `Importação ${fileName}`,
           source: "import" as const,
         };

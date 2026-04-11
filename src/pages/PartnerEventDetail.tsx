@@ -107,7 +107,7 @@ export default function PartnerEventDetail() {
 
       const [salesRes, docsRes] = await Promise.all([
         zoneIds.length > 0
-          ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, lot_id, ticket_office_id").in("zone_id", zoneIds)
+          ? supabase.from("ticket_sales").select("zone_id, quantity, unit_price, lot_id, financial_account_id").in("zone_id", zoneIds)
           : Promise.resolve({ data: [], error: null }),
         txIds.length > 0
           ? supabase.from("transaction_documents").select("id, transaction_id, name, file_url, doc_type").in("transaction_id", txIds)
