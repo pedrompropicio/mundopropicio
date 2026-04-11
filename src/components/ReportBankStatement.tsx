@@ -59,6 +59,7 @@ export default function ReportBankStatement() {
 
   const selectedAccount = accounts.find((a: any) => a.id === selectedAccountId);
   const canSeeBalance = selectedAccount && (isAdmin || selectedAccount.balance_visible_to_all);
+  const isUncontrolledBalance = selectedAccount?.skip_balance_check ?? false;
 
   function handleGenerate() {
     if (!selectedAccountId) return;

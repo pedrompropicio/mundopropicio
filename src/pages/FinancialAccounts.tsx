@@ -207,9 +207,9 @@ export default function FinancialAccounts() {
   const activeAccounts = accounts.filter((a: any) => a.is_active);
   const inactiveAccounts = accounts.filter((a: any) => !a.is_active);
 
-  // Summary cards
+  // Summary cards — exclude skip_balance_check accounts from total
   const totalBalance = activeAccounts.reduce((sum: number, acc: any) => {
-    if (!canSeeBalance(acc)) return sum;
+    if (!canSeeBalance(acc) || acc.skip_balance_check) return sum;
     return sum + computeBalance(acc.id, Number(acc.initial_balance));
   }, 0);
 
@@ -432,10 +432,14 @@ export default function FinancialAccounts() {
                           <Badge variant="secondary" className="text-xs">{typeInfo.label}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {showBalance ? formatCurrency(Number(acc.initial_balance)) : "••••••"}
+                          {acc.skip_balance_check ? (
+                            <span className="text-xs text-muted-foreground italic">Saldo não controlado</span>
+                          ) : showBalance ? formatCurrency(Number(acc.initial_balance)) : "••••••"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {showBalance ? (
+                          {acc.skip_balance_check ? (
+                            <span className="text-xs text-muted-foreground italic">Saldo não controlado</span>
+                          ) : showBalance ? (
                             <span className={`font-mono text-sm font-semibold ${balance >= 0 ? "text-success" : "text-destructive"}`}>
                               {formatCurrency(balance)}
                             </span>
