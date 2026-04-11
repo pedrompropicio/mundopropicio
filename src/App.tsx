@@ -125,7 +125,7 @@ function ProtectedLayout() {
               <Route path="/contas" element={<FinancialAccounts />} />
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
-              <Route path="/bilhetes" element={<TicketManagement />} />
+              <Route path="/bilhetes" element={<Navigate to="/bilheteiras" replace />} />
               <Route path="/bilheteiras" element={<TicketOffices />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
