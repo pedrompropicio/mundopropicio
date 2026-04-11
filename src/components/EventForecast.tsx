@@ -384,16 +384,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   }, 0);
   const ticketActualRevenue = ticketActualRevenueNet;
 
-  // Calculate cache lines (after ticketRevenueNet is available)
+  // Calculate cache lines — only for configs belonging to THIS event (not parent)
+  // Parent cache configs are handled separately via proratedParentCacheExpenses
+  const ownCacheConfigs = useMemo(
+    () => cacheConfigs.filter((config) => config.event_id === eventId),
+    [cacheConfigs, eventId]
+  );
   const cacheLines = useMemo(() => {
     return calculateCacheLinesForPL(
-      cacheConfigs,
+      ownCacheConfigs,
       cacheDeductions,
       ticketRevenueNet,
       forecasts.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
       ticketRevenueGross
     );
-  }, [cacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, forecasts]);
+  }, [ownCacheConfigs, cacheDeductions, ticketRevenueNet, ticketRevenueGross, forecasts]);
 
   const saveMutation = useMutation({
     mutationFn: async ({ form, id }: { form: InlineForm; id: string | null }) => {
