@@ -643,10 +643,27 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           new_value: String(amount),
         });
 
+        const pDate = list?.payment_date ?? new Date().toISOString().slice(0, 10);
         await supabase
           .from("transactions")
-          .update({ paid_amount: amount, status: "paid", payment_date: list?.payment_date ?? new Date().toISOString().slice(0, 10) })
+          .update({ paid_amount: amount, status: "paid", payment_date: pDate })
           .eq("id", txId);
+
+        // Propagate payment to child split transactions
+        const { data: children } = await supabase
+          .from("transactions")
+          .select("id, split_percentage, amount, iva_rate, paid_amount")
+          .eq("parent_transaction_id", txId);
+
+        if (children && children.length > 0) {
+          for (const child of children) {
+            const childAmount = Number(child.amount);
+            await supabase
+              .from("transactions")
+              .update({ paid_amount: childAmount, status: "paid", payment_date: pDate })
+              .eq("id", child.id);
+          }
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
