@@ -428,12 +428,13 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               lot_id: matchedLot.id,
               zone_id: zoneId,
               sale_date: effectiveFrom,
+              sale_date_to: effectiveTo !== effectiveFrom ? effectiveTo : null,
               quantity: row.quantidade_vendida,
               unit_price: row.preco_unitario,
               ticket_office_id: ticketOfficeId || null,
               notes: notesText,
               source: "import",
-            });
+            } as any);
             if (error) throw error;
             imported++;
           }
