@@ -67,7 +67,7 @@ export default function Suppliers() {
       return sortDir === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
     });
     return list;
-  }, [suppliers, search, sortField, sortDir]);
+  }, [suppliers, search, sortField, sortDir, hidePartners]);
 
   const toggleSort = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
 
