@@ -117,7 +117,7 @@ export default function ReportTicketOfficeAudit() {
         const batch = zoneIds.slice(i, i + batchSize);
         const { data, error } = await supabase
           .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, ticket_office_id, sale_date, notes")
+          .select("zone_id, quantity, unit_price, financial_account_id, sale_date, notes")
           .in("zone_id", batch);
         if (error) throw error;
         allData = allData.concat(data || []);
@@ -176,7 +176,7 @@ export default function ReportTicketOfficeAudit() {
   const auditData = useMemo(() => {
     return offices.map((office: any) => {
       const officeAssignments = assignments.filter(
-        (a: any) => a.ticket_office_id === office.id
+        (a: any) => a.financial_account_id === office.id
       );
       const accountId = office.financial_account_id;
 
@@ -194,7 +194,7 @@ export default function ReportTicketOfficeAudit() {
           .filter(
             (s: any) =>
               eventZoneIds.includes(s.zone_id) &&
-              (!s.ticket_office_id || s.ticket_office_id === office.id)
+              (!s.financial_account_id || s.financial_account_id === office.id)
           )
           .reduce((sum: number, s: any) => sum + s.quantity * Number(s.unit_price), 0);
 
@@ -264,7 +264,7 @@ export default function ReportTicketOfficeAudit() {
 
     offices.forEach((office: any) => {
       const lines: AnalyticalLine[] = [];
-      const officeAssignments = assignments.filter((a: any) => a.ticket_office_id === office.id);
+      const officeAssignments = assignments.filter((a: any) => a.financial_account_id === office.id);
       const assignedEventIds = officeAssignments.map((a: any) => a.event_id);
       const accountId = office.financial_account_id;
 
@@ -278,7 +278,7 @@ export default function ReportTicketOfficeAudit() {
           .filter(
             (s: any) =>
               eventZoneIds.includes(s.zone_id) &&
-              (!s.ticket_office_id || s.ticket_office_id === office.id)
+              (!s.financial_account_id || s.financial_account_id === office.id)
           )
           .forEach((s: any) => {
             const zoneName = zoneNameMap[s.zone_id] || "";
@@ -300,7 +300,7 @@ export default function ReportTicketOfficeAudit() {
           .filter((z: any) => z.event_id === eventId)
           .map((z: any) => z.id);
         eventSalesMap[eventId] = allSales
-          .filter((s: any) => eventZoneIds.includes(s.zone_id) && (!s.ticket_office_id || s.ticket_office_id === office.id))
+          .filter((s: any) => eventZoneIds.includes(s.zone_id) && (!s.financial_account_id || s.financial_account_id === office.id))
           .reduce((sum: number, s: any) => sum + s.quantity * Number(s.unit_price), 0);
       });
       const totalOfficeSales = Object.values(eventSalesMap).reduce((s, v) => s + v, 0);
