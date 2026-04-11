@@ -11,6 +11,8 @@ export interface CacheConfig {
   percentage: number;
   fixed_deduction_percentage: number;
   cache_revenue_basis?: string;
+  minimum_guaranteed?: number;
+  is_finalized?: boolean;
 }
 
 export interface CacheDeduction {
@@ -65,7 +67,9 @@ export function calculateCacheLinesForPL(
     const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
     const baseForCalc = basis - totalDeduction;
     const pct = Number(config.percentage) || 0;
-    const amount = Math.max(0, baseForCalc * (pct / 100));
+    const calculated = Math.max(0, baseForCalc * (pct / 100));
+    const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+    const amount = Math.max(minGuaranteed, calculated);
 
     return {
       artistName: config.artist_name,

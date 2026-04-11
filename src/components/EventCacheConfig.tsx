@@ -3,11 +3,12 @@ import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info, Lock, Unlock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
 import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
 
@@ -30,6 +31,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const [cacheType, setCacheType] = useState<"fixed" | "variable">("fixed");
   const [fixedAmount, setFixedAmount] = useState("");
   const [percentage, setPercentage] = useState("");
+  const [minimumGuaranteed, setMinimumGuaranteed] = useState("");
 
   // Fetch cache configs
   const { data: cacheConfigs = [], isLoading } = useQuery({
@@ -159,7 +161,9 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
     const baseForCalc = basis - totalDeduction;
     const pct = Number(config.percentage) || 0;
-    return Math.max(0, baseForCalc * (pct / 100));
+    const calculated = Math.max(0, baseForCalc * (pct / 100));
+    const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+    return Math.max(minGuaranteed, calculated);
   };
 
   // Add config
@@ -171,6 +175,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         cache_type: cacheType,
         fixed_amount: cacheType === "fixed" ? (parseFloat(fixedAmount) || 0) : 0,
         percentage: cacheType === "variable" ? (parseFloat(percentage) || 0) : 0,
+        minimum_guaranteed: cacheType === "variable" ? (parseFloat(minimumGuaranteed) || 0) : 0,
         cache_revenue_basis: cacheType === "variable" ? (document.querySelector<HTMLInputElement>('input[name="revenueBasis"]:checked')?.value || "net") : "net",
       } as any);
       if (error) throw error;
@@ -240,8 +245,38 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     setCacheType("fixed");
     setFixedAmount("");
     setPercentage("");
+    setMinimumGuaranteed("");
     setShowAddForm(false);
   };
+
+  // Toggle finalized
+  const toggleFinalizedMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: boolean }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ is_finalized: value })
+        .eq("id", configId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      toast({ title: "Estado atualizado" });
+    },
+  });
+
+  // Update minimum guaranteed
+  const updateMinGuaranteedMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: number }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ minimum_guaranteed: value })
+        .eq("id", configId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
+  });
 
   const handleAdd = () => {
     if (!artistName) {
@@ -367,6 +402,22 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 className={inputClass}
                 placeholder="Ex: 15"
               />
+              <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Mínimo Garantido (€)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={minimumGuaranteed}
+                  onChange={(e) => setMinimumGuaranteed(e.target.value)}
+                  className={inputClass}
+                  placeholder="0.00 (opcional)"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  <Info className="inline h-3 w-3 mr-0.5" />
+                  Se definido, o cachê será no mínimo este valor, mesmo que o cálculo variável resulte em menos.
+                </p>
+              </div>
               <p className="mt-1 text-[10px] text-muted-foreground">
                 <Info className="inline h-3 w-3 mr-0.5" />
                 Após adicionar, configure os descontos na cabeça (despesas a subtrair da receita antes do cálculo).
@@ -406,6 +457,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         <div className="space-y-2">
           {cacheConfigs.map((config: any) => {
             const isVariable = config.cache_type === "variable";
+            const isFinalized = !!config.is_finalized;
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
@@ -414,14 +466,16 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             const totalDeduction = categoryDeduction + fixedPctDeduction;
             const variableValue = isVariable ? calculateVariableCache(config) : 0;
             const displayValue = isVariable ? variableValue : Number(config.fixed_amount);
+            const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+            const isUsingMinimum = isVariable && minGuaranteed > 0 && variableValue === minGuaranteed;
 
             return (
-              <div key={config.id} className="rounded-lg border border-border bg-background overflow-hidden">
+              <div key={config.id} className={`rounded-lg border bg-background overflow-hidden ${isFinalized ? "border-success/40" : "border-border"}`}>
                 {/* Header */}
                 <div className="flex items-center gap-3 p-3">
                   <Music className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold truncate">{config.artist_name}</span>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         isVariable
@@ -430,12 +484,23 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                       }`}>
                         {isVariable ? `Variável · ${config.percentage}%` : "Fixo"}
                       </span>
+                      {isFinalized && (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-success/15 text-success flex items-center gap-1">
+                          <Lock className="h-2.5 w-2.5" /> Finalizado
+                        </span>
+                      )}
+                      {isUsingMinimum && !isFinalized && (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-accent text-accent-foreground">
+                          Mín. Garantido
+                        </span>
+                      )}
                     </div>
                     {isVariable && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         Receita s/ IVA ({formatCurrency(ticketRevenueNet)})
                         {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
                         {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - totalDeduction))}`}
+                        {minGuaranteed > 0 && ` · Mín: ${formatCurrency(minGuaranteed)}`}
                       </p>
                     )}
                   </div>
@@ -468,6 +533,46 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
+                    {/* Finalized toggle */}
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
+                      <div className="flex items-center gap-2">
+                        {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <div>
+                          <span className="text-xs font-medium">Cachê Finalizado</span>
+                          <p className="text-[10px] text-muted-foreground">Quando ativado, o valor não recalcula mais com alterações de bilheteira ou custos.</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={isFinalized}
+                        onCheckedChange={(checked) => toggleFinalizedMutation.mutate({ configId: config.id, value: checked })}
+                      />
+                    </div>
+
+                    {/* Minimum guaranteed */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">Mínimo Garantido (€)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={Number(config.minimum_guaranteed) || ""}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            updateMinGuaranteedMutation.mutate({ configId: config.id, value: val });
+                          }}
+                          className={`${inputClass} max-w-[140px]`}
+                          placeholder="0.00"
+                          disabled={isFinalized}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          Valor mínimo a pagar, independente do cálculo variável
+                        </span>
+                      </div>
+                    </div>
                     {/* Fixed percentage deduction */}
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">

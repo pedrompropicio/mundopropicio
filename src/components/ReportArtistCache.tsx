@@ -170,7 +170,10 @@ export default function ReportArtistCache() {
       const totalDeduction = categoryDeductionTotal + fixedPctAmount;
       const baseForCalc = basis - totalDeduction;
       const pct = Number(config.percentage) || 0;
-      const cacheAmount = isVariable ? Math.max(0, baseForCalc * (pct / 100)) : Number(config.fixed_amount);
+      const calculated = isVariable ? Math.max(0, baseForCalc * (pct / 100)) : Number(config.fixed_amount);
+      const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+      const cacheAmount = isVariable ? Math.max(minGuaranteed, calculated) : calculated;
+      const isUsingMinimum = isVariable && minGuaranteed > 0 && cacheAmount === minGuaranteed;
 
       // Extras for this config
       const configExtras = cacheExtras.filter((e: any) => e.cache_config_id === config.id);
@@ -181,6 +184,7 @@ export default function ReportArtistCache() {
         artistName: config.artist_name,
         cacheType: config.cache_type,
         isVariable,
+        isFinalized: !!config.is_finalized,
         basis,
         basisLabel,
         categoryDeductionItems,
@@ -191,6 +195,8 @@ export default function ReportArtistCache() {
         baseForCalc,
         pct,
         cacheAmount,
+        minGuaranteed,
+        isUsingMinimum,
         extras: configExtras,
         extrasTotal,
         netCache,
@@ -318,6 +324,12 @@ export default function ReportArtistCache() {
               <Badge variant={report.isVariable ? "default" : "secondary"}>
                 {report.isVariable ? "Variável" : "Fixo"}
               </Badge>
+              {report.isFinalized && (
+                <Badge variant="outline" className="border-success/50 text-success">Finalizado</Badge>
+              )}
+              {report.isUsingMinimum && (
+                <Badge variant="outline" className="border-accent text-accent-foreground">Mín. Garantido</Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
