@@ -700,6 +700,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
     // Split validation
     if (isSplit) {
+      if (splitCategoryBlockReason) {
+        toast({ title: "Categoria bloqueada para rateio", description: splitCategoryBlockReason, variant: "destructive" });
+        return;
+      }
       if (splitEntries.length < 2) {
         toast({ title: "Selecione pelo menos 2 eventos para rateio", variant: "destructive" });
         return;
