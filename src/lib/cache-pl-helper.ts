@@ -11,6 +11,7 @@ export interface CacheConfig {
   percentage: number;
   fixed_deduction_percentage: number;
   cache_revenue_basis?: string;
+  cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
 }
@@ -35,7 +36,7 @@ export function calculateCacheLinesForPL(
   configs: CacheConfig[],
   deductions: CacheDeduction[],
   ticketRevenueNet: number,
-  forecasts: { type: string; category_id: string | null; amount: number }[],
+  forecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
   ticketRevenueGross?: number
 ): CachePLLine[] {
   return configs.map((config) => {
@@ -56,12 +57,21 @@ export function calculateCacheLinesForPL(
       configDeductions.map((d) => d.category_id)
     );
 
+    const deductionBasisGross = config.cache_deduction_basis === "gross";
+
     const categoryDeductionAmount = forecasts
       .filter(
         (f) =>
           f.type === "expense" && deductionCategoryIds.has(f.category_id ?? "")
       )
-      .reduce((s, f) => s + Number(f.amount), 0);
+      .reduce((s, f) => {
+        const base = Number(f.amount);
+        if (deductionBasisGross) {
+          const rate = Number(f.iva_rate ?? 0);
+          return s + base * (1 + rate / 100);
+        }
+        return s + base;
+      }, 0);
 
     const fixedPctDeduction = basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
     const totalDeduction = categoryDeductionAmount + fixedPctDeduction;

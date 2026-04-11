@@ -144,6 +144,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
       percentage: Number(c.percentage),
       fixed_deduction_percentage: Number(c.fixed_deduction_percentage),
       cache_revenue_basis: c.cache_revenue_basis,
+      cache_deduction_basis: c.cache_deduction_basis,
       minimum_guaranteed: Number(c.minimum_guaranteed),
       is_finalized: !!c.is_finalized,
     })),
@@ -156,6 +157,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
       type: f.type,
       category_id: f.category_id,
       amount: Number(f.amount),
+      iva_rate: Number(f.iva_rate ?? 0),
       cache_config_id: (f as any).cache_config_id ?? null,
     })),
     ticketRevenueNet,
@@ -175,13 +177,20 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   };
 
   // Calculate deduction amount for a config (categories + fixed %)
-  const calculateDeductionAmount = (configId: string) => {
+  const calculateDeductionAmount = (configId: string, deductionBasisGross = false) => {
     const configDeductions = getDeductionsForConfig(configId);
     const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
 
     const categoryAmount = forecasts
       .filter((f) => f.type === "expense" && deductionCategoryIds.includes(f.category_id))
-      .reduce((s, f) => s + Number(f.amount), 0);
+      .reduce((s, f) => {
+        const base = Number(f.amount);
+        if (deductionBasisGross) {
+          const rate = Number(f.iva_rate ?? 0);
+          return s + base * (1 + rate / 100);
+        }
+        return s + base;
+      }, 0);
 
     return categoryAmount;
   };
@@ -195,7 +204,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
 
   // Calculate variable cachê
   const calculateVariableCache = (config: any) => {
-    const categoryDeduction = calculateDeductionAmount(config.id);
+    const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
+    const categoryDeduction = calculateDeductionAmount(config.id, deductionBasisGross);
     const fixedPctDeduction = calculateFixedPctDeduction(config);
     const totalDeduction = categoryDeduction + fixedPctDeduction;
     const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
@@ -514,7 +524,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
-            const categoryDeduction = isVariable ? calculateDeductionAmount(config.id) : 0;
+            const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
+            const categoryDeduction = isVariable ? calculateDeductionAmount(config.id, deductionBasisGross) : 0;
             const fixedPctDeduction = isVariable ? calculateFixedPctDeduction(config) : 0;
             const totalDeduction = categoryDeduction + fixedPctDeduction;
             const variableValue = isVariable ? calculateVariableCache(config) : 0;
@@ -591,14 +602,14 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
-                    {/* Row: Finalized + Revenue Basis */}
-                    <div className="grid grid-cols-[1fr,auto] gap-3 items-start">
+                    {/* Row: Finalized + Revenue Basis + Deduction Basis */}
+                    <div className="grid grid-cols-[1fr,auto,auto] gap-3 items-start">
                       <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
                         <div className="flex items-center gap-2">
                           {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
                           <div>
                             <span className="text-xs font-medium">Finalizado</span>
-                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor contra recálculos.</p>
+                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor.</p>
                           </div>
                         </div>
                         <Switch
@@ -607,7 +618,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                         />
                       </div>
                       <div className="space-y-1">
-                        <span className="text-[10px] font-medium text-muted-foreground">Base de cálculo</span>
+                        <span className="text-[10px] font-medium text-muted-foreground">Receita</span>
                         <div className="flex gap-1">
                           {[
                             { value: "net", label: "s/ IVA" },
@@ -626,6 +637,35 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                               }}
                               className={`rounded border px-2.5 py-1.5 text-xs font-medium transition-all ${
                                 (config.cache_revenue_basis || "net") === opt.value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-medium text-muted-foreground">Deduções</span>
+                        <div className="flex gap-1">
+                          {[
+                            { value: "net", label: "s/ IVA" },
+                            { value: "gross", label: "c/ IVA" },
+                          ].map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => {
+                                supabase
+                                  .from("event_cache_configs" as any)
+                                  .update({ cache_deduction_basis: opt.value })
+                                  .eq("id", config.id)
+                                  .then(() => {
+                                    queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+                                  });
+                              }}
+                              className={`rounded border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                (config.cache_deduction_basis || "net") === opt.value
                                   ? "border-primary bg-primary/10 text-primary"
                                   : "border-border bg-background text-muted-foreground hover:border-primary/40"
                               }`}

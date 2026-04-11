@@ -11,6 +11,7 @@ interface CacheConfig {
   percentage: number;
   fixed_deduction_percentage: number;
   cache_revenue_basis?: string;
+  cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
 }
@@ -21,7 +22,7 @@ interface SyncParams {
   childEventIds?: string[];
   cacheConfigs: CacheConfig[];
   deductions: { cache_config_id: string; category_id: string }[];
-  forecasts: { id: string; type: string; category_id: string | null; amount: number; cache_config_id?: string | null }[];
+  forecasts: { id: string; type: string; category_id: string | null; amount: number; iva_rate: number; cache_config_id?: string | null }[];
   /** Only used for simple events (non-tour) */
   ticketRevenueNet: number;
   ticketRevenueGross: number;
@@ -64,6 +65,7 @@ export function useSyncCacheForecasts({
         percentage: c.percentage,
         fixed_deduction_percentage: c.fixed_deduction_percentage,
         cache_revenue_basis: c.cache_revenue_basis,
+        cache_deduction_basis: c.cache_deduction_basis,
         minimum_guaranteed: c.minimum_guaranteed,
         is_finalized: c.is_finalized,
       })),
@@ -73,7 +75,7 @@ export function useSyncCacheForecasts({
       childEventIds: childEventIds?.sort(),
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
-        .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}`)
+        .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}:${f.iva_rate}`)
         .sort(),
     });
 
@@ -164,16 +166,16 @@ async function syncTourCacheForecasts(
   // Also fetch non-cache expense forecasts per child for deduction calc
   const { data: childExpenseForecasts } = await supabase
     .from("event_forecasts")
-    .select("event_id, type, category_id, amount, cache_config_id")
+    .select("event_id, type, category_id, amount, iva_rate, cache_config_id")
     .in("event_id", childEventIds)
     .eq("type", "expense")
     .is("cache_config_id", null);
 
-  const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number }[]> = {};
+  const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number; iva_rate?: number }[]> = {};
   for (const cid of childEventIds) expensesByChild[cid] = [];
   for (const f of (childExpenseForecasts ?? [])) {
     if (expensesByChild[f.event_id]) {
-      expensesByChild[f.event_id].push({ type: f.type, category_id: f.category_id, amount: Number(f.amount) });
+      expensesByChild[f.event_id].push({ type: f.type, category_id: f.category_id, amount: Number(f.amount), iva_rate: Number(f.iva_rate ?? 0) });
     }
   }
 
@@ -325,7 +327,7 @@ function calculateCacheAmount(
   configDeductions: { cache_config_id: string; category_id: string }[],
   ticketRevenueNet: number,
   ticketRevenueGross: number,
-  expenseForecasts: { type: string; category_id: string | null; amount: number }[]
+  expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[]
 ): number {
   if (config.cache_type === "fixed") {
     return Number(config.fixed_amount);
@@ -335,10 +337,18 @@ function calculateCacheAmount(
     config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
 
   const deductionCategoryIds = new Set(configDeductions.map((d) => d.category_id));
+  const deductionBasisGross = config.cache_deduction_basis === "gross";
 
   const categoryDeductionAmount = expenseForecasts
     .filter((f) => f.type === "expense" && deductionCategoryIds.has(f.category_id ?? ""))
-    .reduce((s, f) => s + Number(f.amount), 0);
+    .reduce((s, f) => {
+      const base = Number(f.amount);
+      if (deductionBasisGross) {
+        const rate = Number(f.iva_rate ?? 0);
+        return s + base * (1 + rate / 100);
+      }
+      return s + base;
+    }, 0);
 
   const fixedPctDeduction =
     basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
