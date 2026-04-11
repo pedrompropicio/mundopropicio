@@ -205,6 +205,7 @@ export type Database = {
       event_cache_configs: {
         Row: {
           artist_name: string
+          cache_deduction_basis: string
           cache_revenue_basis: string
           cache_type: string
           created_at: string
@@ -219,6 +220,7 @@ export type Database = {
         }
         Insert: {
           artist_name: string
+          cache_deduction_basis?: string
           cache_revenue_basis?: string
           cache_type?: string
           created_at?: string
@@ -233,6 +235,7 @@ export type Database = {
         }
         Update: {
           artist_name?: string
+          cache_deduction_basis?: string
           cache_revenue_basis?: string
           cache_type?: string
           created_at?: string
