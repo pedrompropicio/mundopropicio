@@ -17,9 +17,12 @@ interface CacheConfig {
 
 interface SyncParams {
   eventId: string;
+  /** For tours: child event IDs. When present, forecasts are created per child, not on the master. */
+  childEventIds?: string[];
   cacheConfigs: CacheConfig[];
   deductions: { cache_config_id: string; category_id: string }[];
   forecasts: { id: string; type: string; category_id: string | null; amount: number; cache_config_id?: string | null }[];
+  /** Only used for simple events (non-tour) */
   ticketRevenueNet: number;
   ticketRevenueGross: number;
   cacheCategoryId: string | null;
@@ -28,11 +31,13 @@ interface SyncParams {
 
 /**
  * Syncs cache configs to real forecast rows in event_forecasts.
- * Each cache config gets a corresponding forecast with formula_type='cache_module'.
- * If is_finalized, the forecast amount is NOT updated.
+ * For tours (childEventIds present): creates separate forecasts per child event,
+ * each calculated from the child's own ticket revenue.
+ * For simple events: creates forecasts on the event itself.
  */
 export function useSyncCacheForecasts({
   eventId,
+  childEventIds,
   cacheConfigs,
   deductions,
   forecasts,
@@ -43,13 +48,13 @@ export function useSyncCacheForecasts({
 }: SyncParams) {
   const queryClient = useQueryClient();
   const syncingRef = useRef(false);
-  // Track last synced state to avoid unnecessary updates
   const lastSyncHash = useRef("");
 
   useEffect(() => {
     if (!enabled || !cacheCategoryId || cacheConfigs.length === 0 || syncingRef.current) return;
 
-    // Build a hash of relevant state to detect changes
+    const isTour = childEventIds && childEventIds.length > 0;
+
     const hash = JSON.stringify({
       configs: cacheConfigs.map((c) => ({
         id: c.id,
@@ -65,7 +70,7 @@ export function useSyncCacheForecasts({
       deductions: deductions.map((d) => `${d.cache_config_id}:${d.category_id}`).sort(),
       ticketRevenueNet: Math.round(ticketRevenueNet * 100),
       ticketRevenueGross: Math.round(ticketRevenueGross * 100),
-      // Only include non-cache expense forecasts for deduction calc
+      childEventIds: childEventIds?.sort(),
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
         .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}`)
@@ -77,81 +82,28 @@ export function useSyncCacheForecasts({
     const doSync = async () => {
       syncingRef.current = true;
       try {
-        // Get existing cache forecasts for this event
-        const { data: existingForecasts } = await supabase
-          .from("event_forecasts")
-          .select("id, cache_config_id, amount")
-          .eq("event_id", eventId)
-          .not("cache_config_id", "is", null);
-
-        const existingMap = new Map(
-          (existingForecasts ?? []).map((f: any) => [f.cache_config_id, f])
-        );
-
-        // Non-cache expense forecasts for deduction calculation
-        const nonCacheExpenses = forecasts.filter(
-          (f) => f.type === "expense" && !f.cache_config_id
-        );
-
-        let changed = false;
-
-        for (const config of cacheConfigs) {
-          const existing = existingMap.get(config.id);
-          const amount = calculateCacheAmount(
-            config,
-            deductions.filter((d) => d.cache_config_id === config.id),
+        if (isTour) {
+          await syncTourCacheForecasts(
+            eventId,
+            childEventIds,
+            cacheConfigs,
+            deductions,
+            cacheCategoryId,
+            queryClient,
+          );
+        } else {
+          await syncSimpleCacheForecasts(
+            eventId,
+            cacheConfigs,
+            deductions,
+            forecasts,
             ticketRevenueNet,
             ticketRevenueGross,
-            nonCacheExpenses
+            cacheCategoryId,
+            queryClient,
           );
-
-          if (existing) {
-            // Update only if not finalized and amount changed
-            if (!config.is_finalized) {
-              const currentAmount = Math.round(Number(existing.amount) * 100);
-              const newAmount = Math.round(amount * 100);
-              if (currentAmount !== newAmount) {
-                await supabase
-                  .from("event_forecasts")
-                  .update({
-                    amount,
-                    description: `Cachê — ${config.artist_name}`,
-                  })
-                  .eq("id", existing.id);
-                changed = true;
-              }
-            }
-          } else {
-            // Create new forecast
-            await supabase.from("event_forecasts").insert({
-              event_id: eventId,
-              type: "expense",
-              description: `Cachê — ${config.artist_name}`,
-              amount,
-              iva_rate: 0,
-              category_id: cacheCategoryId,
-              formula_type: "cache_module",
-              cache_config_id: config.id,
-              status: "draft",
-            });
-            changed = true;
-          }
-
-          // Remove from map to track orphans
-          existingMap.delete(config.id);
         }
-
-        // Delete orphan forecasts (configs that were removed)
-        for (const [, orphan] of existingMap) {
-          await supabase.from("event_forecasts").delete().eq("id", (orphan as any).id);
-          changed = true;
-        }
-
         lastSyncHash.current = hash;
-
-        if (changed) {
-          queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-        }
       } catch (err) {
         console.error("Cache forecast sync error:", err);
       } finally {
@@ -160,7 +112,212 @@ export function useSyncCacheForecasts({
     };
 
     doSync();
-  }, [eventId, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient]);
+  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient]);
+}
+
+/**
+ * For tours: create one forecast per (cache_config × child_event),
+ * each using the child's own ticket revenue.
+ */
+async function syncTourCacheForecasts(
+  masterEventId: string,
+  childEventIds: string[],
+  cacheConfigs: CacheConfig[],
+  deductions: { cache_config_id: string; category_id: string }[],
+  cacheCategoryId: string,
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
+  // 1. Fetch ticket data for all children to calculate per-child revenue
+  const { data: zones } = await supabase
+    .from("event_ticket_zones")
+    .select("id, event_id")
+    .in("event_id", childEventIds);
+  const zoneIds = (zones ?? []).map((z) => z.id);
+  const { data: lots } = zoneIds.length > 0
+    ? await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds)
+    : { data: [] };
+
+  // Build per-child revenue map
+  const zoneToEvent = new Map((zones ?? []).map((z) => [z.id, z.event_id]));
+  const revenueByChild: Record<string, { gross: number; net: number }> = {};
+  for (const cid of childEventIds) {
+    revenueByChild[cid] = { gross: 0, net: 0 };
+  }
+  for (const l of (lots ?? [])) {
+    const eid = zoneToEvent.get(l.zone_id);
+    if (!eid || !revenueByChild[eid]) continue;
+    const price = Number(l.price);
+    const qty = Number(l.quantity);
+    const ivaRate = Number((l as any).iva_rate ?? 6);
+    revenueByChild[eid].gross += qty * price;
+    revenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+  }
+
+  // 2. Fetch expense forecasts per child (for deduction calculation)
+  const allTargetIds = [...childEventIds, masterEventId];
+  const { data: existingForecasts } = await supabase
+    .from("event_forecasts")
+    .select("id, event_id, cache_config_id, amount, type, category_id")
+    .in("event_id", allTargetIds)
+    .not("cache_config_id", "is", null);
+
+  // Also fetch non-cache expense forecasts per child for deduction calc
+  const { data: childExpenseForecasts } = await supabase
+    .from("event_forecasts")
+    .select("event_id, type, category_id, amount, cache_config_id")
+    .in("event_id", childEventIds)
+    .eq("type", "expense")
+    .is("cache_config_id", null);
+
+  const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number }[]> = {};
+  for (const cid of childEventIds) expensesByChild[cid] = [];
+  for (const f of (childExpenseForecasts ?? [])) {
+    if (expensesByChild[f.event_id]) {
+      expensesByChild[f.event_id].push({ type: f.type, category_id: f.category_id, amount: Number(f.amount) });
+    }
+  }
+
+  // Map existing cache forecasts: key = `${event_id}:${cache_config_id}`
+  const existingMap = new Map<string, { id: string; amount: number }>();
+  for (const f of (existingForecasts ?? [])) {
+    existingMap.set(`${f.event_id}:${f.cache_config_id}`, { id: f.id, amount: Number(f.amount) });
+  }
+
+  let changed = false;
+
+  // 3. For each config × child, create/update forecast
+  for (const config of cacheConfigs) {
+    const configDeductions = deductions.filter((d) => d.cache_config_id === config.id);
+
+    for (const childId of childEventIds) {
+      const rev = revenueByChild[childId] || { gross: 0, net: 0 };
+      const childExpenses = expensesByChild[childId] || [];
+      const amount = calculateCacheAmount(config, configDeductions, rev.net, rev.gross, childExpenses);
+
+      const key = `${childId}:${config.id}`;
+      const existing = existingMap.get(key);
+
+      if (existing) {
+        if (!config.is_finalized) {
+          const currentAmount = Math.round(existing.amount * 100);
+          const newAmount = Math.round(amount * 100);
+          if (currentAmount !== newAmount) {
+            await supabase
+              .from("event_forecasts")
+              .update({ amount, description: `Cachê — ${config.artist_name}` })
+              .eq("id", existing.id);
+            changed = true;
+          }
+        }
+        existingMap.delete(key);
+      } else {
+        await supabase.from("event_forecasts").insert({
+          event_id: childId,
+          type: "expense",
+          description: `Cachê — ${config.artist_name}`,
+          amount,
+          iva_rate: 0,
+          category_id: cacheCategoryId,
+          formula_type: "cache_module",
+          cache_config_id: config.id,
+          status: "draft",
+        });
+        changed = true;
+      }
+    }
+  }
+
+  // 4. Delete orphans (old forecasts on master or removed configs/children)
+  for (const [, orphan] of existingMap) {
+    await supabase.from("event_forecasts").delete().eq("id", orphan.id);
+    changed = true;
+  }
+
+  if (changed) {
+    // Invalidate all affected events
+    for (const eid of allTargetIds) {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eid] });
+    }
+  }
+}
+
+/**
+ * For simple (non-tour) events: create forecasts directly on the event.
+ */
+async function syncSimpleCacheForecasts(
+  eventId: string,
+  cacheConfigs: CacheConfig[],
+  deductions: { cache_config_id: string; category_id: string }[],
+  forecasts: { id: string; type: string; category_id: string | null; amount: number; cache_config_id?: string | null }[],
+  ticketRevenueNet: number,
+  ticketRevenueGross: number,
+  cacheCategoryId: string,
+  queryClient: ReturnType<typeof useQueryClient>,
+) {
+  const { data: existingForecasts } = await supabase
+    .from("event_forecasts")
+    .select("id, cache_config_id, amount")
+    .eq("event_id", eventId)
+    .not("cache_config_id", "is", null);
+
+  const existingMap = new Map(
+    (existingForecasts ?? []).map((f: any) => [f.cache_config_id, f])
+  );
+
+  const nonCacheExpenses = forecasts.filter(
+    (f) => f.type === "expense" && !f.cache_config_id
+  );
+
+  let changed = false;
+
+  for (const config of cacheConfigs) {
+    const existing = existingMap.get(config.id);
+    const amount = calculateCacheAmount(
+      config,
+      deductions.filter((d) => d.cache_config_id === config.id),
+      ticketRevenueNet,
+      ticketRevenueGross,
+      nonCacheExpenses
+    );
+
+    if (existing) {
+      if (!config.is_finalized) {
+        const currentAmount = Math.round(Number(existing.amount) * 100);
+        const newAmount = Math.round(amount * 100);
+        if (currentAmount !== newAmount) {
+          await supabase
+            .from("event_forecasts")
+            .update({ amount, description: `Cachê — ${config.artist_name}` })
+            .eq("id", existing.id);
+          changed = true;
+        }
+      }
+    } else {
+      await supabase.from("event_forecasts").insert({
+        event_id: eventId,
+        type: "expense",
+        description: `Cachê — ${config.artist_name}`,
+        amount,
+        iva_rate: 0,
+        category_id: cacheCategoryId,
+        formula_type: "cache_module",
+        cache_config_id: config.id,
+        status: "draft",
+      });
+      changed = true;
+    }
+
+    existingMap.delete(config.id);
+  }
+
+  for (const [, orphan] of existingMap) {
+    await supabase.from("event_forecasts").delete().eq("id", (orphan as any).id);
+    changed = true;
+  }
+
+  if (changed) {
+    queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+  }
 }
 
 function calculateCacheAmount(
