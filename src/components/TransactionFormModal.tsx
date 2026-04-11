@@ -317,6 +317,32 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   // --- BP data for split events ---
   const splitEventIds = useMemo(() => splitEntries.map(e => e.event_id), [splitEntries]);
 
+  // Find parent event IDs for split entries (for category validation)
+  const splitParentEventIds = useMemo(() => {
+    if (!isSplit || splitEventIds.length === 0) return [];
+    const parentIds = new Set<string>();
+    for (const eventId of splitEventIds) {
+      const ev = events.find((e: any) => e.id === eventId);
+      if (ev?.parent_event_id) parentIds.add(ev.parent_event_id);
+    }
+    return [...parentIds];
+  }, [isSplit, splitEventIds, events]);
+
+  // Fetch parent event forecasts for split validation
+  const { data: parentForecasts = [] } = useQuery({
+    queryKey: ["split-parent-bp-forecasts", splitParentEventIds],
+    queryFn: async () => {
+      if (splitParentEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("event_id, type, category_id, amount")
+        .in("event_id", splitParentEventIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isSplit && splitParentEventIds.length > 0,
+  });
+
   const { data: splitForecasts = [] } = useQuery({
     queryKey: ["split-bp-forecasts", splitEventIds],
     queryFn: async () => {
@@ -372,9 +398,49 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return result;
   }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events]);
 
+  // Validate split category against parent/child BP rules
+  const splitCategoryBlockReason = useMemo<string | null>(() => {
+    if (!isSplit || !form.category_id || splitEventIds.length === 0) return null;
+
+    // Rule 1: Category already exists in the parent/master event's BP → block
+    if (splitParentEventIds.length > 0) {
+      const categoryInParent = parentForecasts.some(
+        f => f.type === form.type && f.category_id === form.category_id
+      );
+      if (categoryInParent) {
+        const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
+        const parentName = parentEvent?.name ?? "evento master";
+        return `Esta categoria já existe no BP do ${parentName}. A transação deve ser criada directamente no evento master, que fará o rateio automático para os sub-eventos.`;
+      }
+    }
+
+    // Rule 2: Category exists in ALL child events but NOT in the parent → block & guide
+    if (splitParentEventIds.length > 0 && splitEventIds.length >= 2) {
+      const categoryInParent = parentForecasts.some(
+        f => f.type === form.type && f.category_id === form.category_id
+      );
+      if (!categoryInParent) {
+        const allChildrenHaveCategory = splitEventIds.every(eventId => {
+          return splitForecasts.some(
+            f => f.event_id === eventId && f.type === form.type && f.category_id === form.category_id
+          );
+        });
+        if (allChildrenHaveCategory) {
+          const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
+          const parentName = parentEvent?.name ?? "evento master";
+          const selectedCat = categories.find((c: any) => c.id === form.category_id);
+          const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
+          return `A categoria "${catLabel}" existe individualmente no BP de cada sub-evento, mas não no evento master (${parentName}). Para criar uma transação com rateio, primeiro adicione esta linha ao BP do evento master. O sistema fará a projeção automática para os sub-eventos.`;
+        }
+      }
+    }
+
+    return null;
+  }, [isSplit, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
+
   // Check if any split event needs BP bypass
   const splitNeedsBypass = useMemo(() => {
-    if (!isSplit || !form.category_id) return false;
+    if (!isSplit || !form.category_id || splitCategoryBlockReason) return false;
     const amount = parseFloat(form.amount) || 0;
     for (const entry of splitEntries) {
       const bp = splitBPInfoByEvent[entry.event_id];
@@ -387,7 +453,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (bp.forecast > 0 && childAmount > remaining) return true;
     }
     return false;
-  }, [isSplit, form.category_id, form.amount, splitEntries, splitBPInfoByEvent]);
+  }, [isSplit, form.category_id, form.amount, splitEntries, splitBPInfoByEvent, splitCategoryBlockReason]);
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
