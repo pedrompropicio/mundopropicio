@@ -54,12 +54,13 @@ export default function Suppliers() {
   });
 
   const filtered = useMemo(() => {
-    const list = suppliers.filter((s) =>
+    let list = suppliers.filter((s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.trade_name && s.trade_name.toLowerCase().includes(search.toLowerCase())) ||
       (s.nif && s.nif.includes(search)) ||
       (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
     );
+    if (hidePartners) list = list.filter((s) => !s.is_partner);
     list.sort((a, b) => {
       const valA = (sortField === "trade_name" ? (a.trade_name || a.name) : a.name).toLowerCase();
       const valB = (sortField === "trade_name" ? (b.trade_name || b.name) : b.name).toLowerCase();
