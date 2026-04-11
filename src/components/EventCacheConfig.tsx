@@ -547,14 +547,19 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                         </span>
                       )}
                     </div>
-                    {isVariable && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Receita s/ IVA ({formatCurrency(ticketRevenueNet)})
-                        {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
-                        {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - totalDeduction))}`}
-                        {minGuaranteed > 0 && ` · Mín: ${formatCurrency(minGuaranteed)}`}
-                      </p>
-                    )}
+                    {isVariable && (() => {
+                      const basisIsGross = (config.cache_revenue_basis || "net") === "gross";
+                      const basisRevenue = basisIsGross ? ticketRevenueGross : ticketRevenueNet;
+                      const basisLabel = basisIsGross ? "c/ IVA" : "s/ IVA";
+                      return (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Receita {basisLabel} ({formatCurrency(basisRevenue)})
+                          {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
+                          {` = Base: ${formatCurrency(Math.max(0, basisRevenue - totalDeduction))}`}
+                          {minGuaranteed > 0 && ` · Mín: ${formatCurrency(minGuaranteed)}`}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <span className="font-mono font-bold text-sm shrink-0">{formatCurrency(displayValue)}</span>
                   <div className="flex items-center gap-1 shrink-0">
