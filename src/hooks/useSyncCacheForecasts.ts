@@ -75,7 +75,7 @@ export function useSyncCacheForecasts({
       childEventIds: childEventIds?.sort(),
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
-        .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}`)
+        .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}:${f.iva_rate}`)
         .sort(),
     });
 
