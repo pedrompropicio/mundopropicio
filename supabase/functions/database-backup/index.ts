@@ -21,7 +21,7 @@ const TABLES_TO_BACKUP = [
   "event_partners",
   "event_partner_extras",
   "ticket_sales",
-  "ticket_offices",
+  
   "ticket_import_logs",
   "transactions",
   "transaction_documents",
