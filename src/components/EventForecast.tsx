@@ -745,14 +745,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
   const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
-  const filteredCacheLines = useMemo(() => {
-    if (partnerFilter === "all" || partnerFilter === "company") return cacheLines;
-    return [];
-  }, [cacheLines, partnerFilter]);
-  const filteredCacheAmount = useMemo(
-    () => filteredCacheLines.reduce((sum, line) => sum + line.amount, 0),
-    [filteredCacheLines]
-  );
+  // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
+  // No more virtual cache lines needed
+  const filteredCacheLines: CachePLLine[] = [];
+  const filteredCacheAmount = 0;
   const filteredProratedParentExpenses = useMemo(() => {
     if (partnerFilter === "all") return allProratedParentExpenses;
     return allProratedParentExpenses.filter((forecast: any) => {
@@ -798,13 +794,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     // Merge own expenses with prorated parent expenses into a single list
     const mergedExpenses = [...expenseForecasts, ...filteredProratedParentExpenses.map((f: any) => ({ ...f, _prorated: true }))];
     const groups = groupForecasts(mergedExpenses);
-    // Ensure "Artístico" group exists if there are cache lines
-    if (filteredCacheLines.length > 0 && !groups.some(g => g.groupCode === "2.1")) {
-      groups.push({ groupName: "Artístico", groupCode: "2.1", items: [] });
-      groups.sort((a, b) => compareHierarchicalCodes(a.groupCode || "Z", b.groupCode || "Z"));
-    }
     return groups;
-  }, [expenseForecasts, filteredProratedParentExpenses, catLookup, filteredCacheLines]);
+  }, [expenseForecasts, filteredProratedParentExpenses, catLookup]);
 
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
   const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
@@ -1252,16 +1243,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               <tr className="bg-secondary/10 border-t border-border/30">
                                 <td colSpan={4} className="py-2 pl-2 text-xs font-semibold text-foreground">
                                   <span className="text-muted-foreground mr-1">{group.groupCode}</span>{group.groupName}
-                                  {group.groupCode === "2.1" && filteredCacheLines.length > 0 && (
-                                    <span className="ml-2 text-muted-foreground font-normal">(incl. cachês)</span>
-                                  )}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
-                                  {formatCurrency(group.groupCode === "2.1" ? groupBase + filteredCacheAmount : groupBase)}
+                                  {formatCurrency(groupBase)}
                                 </td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold text-muted-foreground">{formatCurrency(groupIva)}</td>
                                 <td className="py-2 text-right font-mono text-xs font-semibold">
-                                  {formatCurrency((group.groupCode === "2.1" ? groupBase + filteredCacheAmount : groupBase) + groupIva)}
+                                  {formatCurrency(groupBase + groupIva)}
                                 </td>
                                 <td />
                               </tr>
@@ -1308,36 +1296,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                     </div>
                                   </td>
                                 </tr>
+                              ) : f.cache_config_id ? (
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={canEditBP ? (id) => deleteMutation.mutate(id) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               )
                             ))}
-                            {/* Inject cachê lines inside the Artístico group */}
-                            {group.groupCode === "2.1" && filteredCacheLines.length > 0 && filteredCacheLines.map((cl, idx) => {
-                              const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Variável)";
-                              return (
-                                <tr key={`cache-${idx}`} className="border-b border-border/10">
-                                  <td className="py-2.5 pr-3 pl-4" colSpan={2}>
-                                    <div className="flex items-center gap-2">
-                                      <Music className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                      <span className="font-medium">{cl.artistName} <span className="text-muted-foreground text-xs">{typeLabel}</span></span>
-                                    </div>
-                                  </td>
-                                  <td className="hidden sm:table-cell py-2.5 pr-3 text-muted-foreground text-xs">2.1.01 - Cachês</td>
-                                  <td className="py-2.5 text-right text-muted-foreground text-xs">0%</td>
-                                  <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
-                                  <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">{formatCurrency(0)}</td>
-                                  <td className="py-2.5 text-right font-mono font-semibold text-warning">{formatCurrency(cl.amount)}</td>
-                                  <td />
-                                </tr>
-                              );
-                            })}
                           </React.Fragment>
                         );
                       })}
                       {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
-                    {(expenseForecasts.length > 0 || addingType === "expense" || filteredCacheLines.length > 0 || filteredProratedParentExpenses.length > 0) && (
+                    {(expenseForecasts.length > 0 || addingType === "expense" || filteredProratedParentExpenses.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
@@ -1349,7 +1319,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       </tfoot>
                     )}
                   </table>
-                  {expenseForecasts.length === 0 && addingType !== "expense" && filteredCacheLines.length === 0 && filteredProratedParentExpenses.length === 0 && (
+                  {expenseForecasts.length === 0 && addingType !== "expense" && filteredProratedParentExpenses.length === 0 && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
                   )}
                 </div>
@@ -1369,7 +1339,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         </TabsContent>
 
         <TabsContent value="comparison">
-          <ComparisonTable data={comparisonData} cacheLines={cacheLines} />
+          <ComparisonTable data={comparisonData} />
         </TabsContent>
       </Tabs>
 
@@ -1816,13 +1786,12 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     });
 }
 
-function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cacheLines?: CachePLLine[] }) {
+function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
-  const totalCacheF = cacheLines.reduce((s, c) => s + c.amount, 0);
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
   const totalAI = incomeRows.reduce((s, r) => s + r.actual, 0);
-  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0) + totalCacheF;
+  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0);
   const totalAE = expenseRows.reduce((s, r) => s + r.actual, 0);
 
   // Group rows by L2 parent
@@ -1894,33 +1863,10 @@ function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cac
               </tr>
             </>
           )}
-          {(expenseRows.length > 0 || cacheLines.length > 0) && (
+          {expenseRows.length > 0 && (
             <>
               <tr><td colSpan={5} className="pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-warning">Despesas</td></tr>
               {renderGroupedRows(expenseGroups, false)}
-              {cacheLines.length > 0 && (
-                <>
-                  <tr className="bg-secondary/10 border-t border-border/30">
-                    <td className="py-1.5 pl-2 text-xs font-semibold">2.1.01 Cachês</td>
-                    <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(totalCacheF)}</td>
-                    <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(0)}</td>
-                    <td className={`py-1.5 text-right font-mono text-xs font-semibold text-destructive`}>{formatCurrency(0 - totalCacheF)}</td>
-                    <td />
-                  </tr>
-                  {cacheLines.map((cl, idx) => {
-                    const typeLabel = cl.cacheType === "fixed" ? "(Fixo)" : "(Var.)";
-                    return (
-                      <tr key={`cache-cmp-${idx}`} className="border-b border-border/20">
-                        <td className="py-2 pr-3 pl-4">{cl.artistName} <span className="text-xs text-muted-foreground">{typeLabel}</span></td>
-                        <td className="py-2 text-right font-mono">{formatCurrency(cl.amount)}</td>
-                        <td className="py-2 text-right font-mono">{formatCurrency(0)}</td>
-                        <td className="py-2 text-right font-mono text-destructive">{formatCurrency(0 - cl.amount)}</td>
-                        <td className="py-2 text-right text-xs">—</td>
-                      </tr>
-                    );
-                  })}
-                </>
-              )}
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2 text-xs text-muted-foreground">Subtotal Despesas</td>
                 <td className="py-2 text-right font-mono">{formatCurrency(totalFE)}</td>
