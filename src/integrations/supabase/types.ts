@@ -212,6 +212,8 @@ export type Database = {
           fixed_amount: number
           fixed_deduction_percentage: number
           id: string
+          is_finalized: boolean
+          minimum_guaranteed: number
           percentage: number
           updated_at: string
         }
@@ -224,6 +226,8 @@ export type Database = {
           fixed_amount?: number
           fixed_deduction_percentage?: number
           id?: string
+          is_finalized?: boolean
+          minimum_guaranteed?: number
           percentage?: number
           updated_at?: string
         }
@@ -236,6 +240,8 @@ export type Database = {
           fixed_amount?: number
           fixed_deduction_percentage?: number
           id?: string
+          is_finalized?: boolean
+          minimum_guaranteed?: number
           percentage?: number
           updated_at?: string
         }
@@ -454,6 +460,7 @@ export type Database = {
           amount: number
           approved_at: string | null
           approved_by: string | null
+          cache_config_id: string | null
           category_id: string | null
           created_at: string
           description: string
@@ -473,6 +480,7 @@ export type Database = {
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
+          cache_config_id?: string | null
           category_id?: string | null
           created_at?: string
           description: string
@@ -492,6 +500,7 @@ export type Database = {
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
+          cache_config_id?: string | null
           category_id?: string | null
           created_at?: string
           description?: string
@@ -508,6 +517,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_forecasts_cache_config_id_fkey"
+            columns: ["cache_config_id"]
+            isOneToOne: false
+            referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_forecasts_category_id_fkey"
             columns: ["category_id"]
