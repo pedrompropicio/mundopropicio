@@ -24,7 +24,7 @@ import FinancialAccounts from "./pages/FinancialAccounts";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
-import TicketManagement from "./pages/TicketManagement";
+// TicketManagement now embedded in TicketOffices module
 import EventCalendar from "./pages/EventCalendar";
 import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
