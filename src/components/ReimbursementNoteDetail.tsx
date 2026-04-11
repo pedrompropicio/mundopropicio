@@ -518,11 +518,20 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {hasDocs ? (
-                        <span className="flex items-center gap-1 text-success text-xs"><FileText className="h-3 w-3" /> ✓</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-warning text-xs"><AlertTriangle className="h-3 w-3" /> Pendente</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {hasDocs ? (
+                          <span className="flex items-center gap-1 text-success text-xs"><FileText className="h-3 w-3" /> ✓</span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-warning text-xs"><AlertTriangle className="h-3 w-3" /> Pendente</span>
+                        )}
+                        <button
+                          onClick={() => setDocsModalTx({ id: item.transaction_id, description: tx?.description || "—" })}
+                          className="p-1 rounded hover:bg-secondary transition-colors"
+                          title="Gerir anexos"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
                     {isDraft && (
