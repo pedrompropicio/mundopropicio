@@ -286,6 +286,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     setFixedAmount("");
     setPercentage("");
     setMinimumGuaranteed("");
+    setRevenueBasis("net");
     setShowAddForm(false);
   };
 
