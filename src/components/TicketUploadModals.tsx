@@ -486,7 +486,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       sessionLabel: selectedSession?.label,
       sessionDate: selectedSession?.date,
       sessionTime: selectedSession?.start_time?.slice(0, 5),
-      ticketOfficeName: selectedTicketOffice?.name,
+      ticketOfficeName: (selectedTicketOffice as any)?.name,
       pdfHeader,
       extractedRows,
       zoneMappings,

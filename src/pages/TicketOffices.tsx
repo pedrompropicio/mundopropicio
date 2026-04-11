@@ -27,29 +27,31 @@ export default function TicketOffices() {
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("manage_accounts");
 
+  // Query financial_accounts with type ticket_office
   const { data: offices = [], isLoading } = useQuery({
     queryKey: ["ticket_offices"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_offices")
-        .select("*, financial_accounts(id, name, initial_balance)")
+        .from("financial_accounts")
+        .select("*")
+        .eq("type", "ticket_office")
         .order("name");
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch ticket sales per office to calculate real revenue
   const officeIds = offices.map((o: any) => o.id);
+
+  // Fetch ticket sales per office
   const { data: officeSales = [] } = useQuery({
     queryKey: ["ticket_office_sales_all", officeIds],
     enabled: officeIds.length > 0,
     queryFn: async () => {
-      // Get all assignments for these offices
       const { data: assignments, error: aErr } = await supabase
         .from("event_ticket_office_assignments")
-        .select("ticket_office_id, event_id")
-        .in("ticket_office_id", officeIds);
+        .select("financial_account_id, event_id")
+        .in("financial_account_id", officeIds);
       if (aErr) throw aErr;
       if (!assignments || assignments.length === 0) return [];
 
@@ -64,43 +66,41 @@ export default function TicketOffices() {
       const zoneIds = zones.map((z: any) => z.id);
       const { data: sales, error: sErr } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, ticket_office_id")
+        .select("zone_id, quantity, unit_price, financial_account_id")
         .in("zone_id", zoneIds);
       if (sErr) throw sErr;
       return sales || [];
     },
   });
 
-  // Fetch transactions on financial accounts (expenses + transfers out)
-  const accountIds = offices.map((o: any) => o.financial_account_id).filter(Boolean);
+  // Fetch transactions on financial accounts
   const { data: txnSums = [] } = useQuery({
-    queryKey: ["ticket_office_balances", accountIds],
-    enabled: accountIds.length > 0,
+    queryKey: ["ticket_office_balances", officeIds],
+    enabled: officeIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("account_id, type, amount, paid_amount, status, event_id")
-        .in("account_id", accountIds);
+        .in("account_id", officeIds);
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch assignments separately for proper mapping
+  // Fetch assignments
   const { data: allAssignments = [] } = useQuery({
     queryKey: ["ticket_office_assignments_all", officeIds],
     enabled: officeIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_office_assignments")
-        .select("ticket_office_id, event_id")
-        .in("ticket_office_id", officeIds);
+        .select("financial_account_id, event_id")
+        .in("financial_account_id", officeIds);
       if (error) throw error;
       return data;
     },
   });
 
-  // Build zone -> event_id map for sales attribution
   const assignmentEventIds = [...new Set(allAssignments.map((a: any) => a.event_id))];
   const { data: allZones = [] } = useQuery({
     queryKey: ["ticket_office_zones_all", assignmentEventIds],
@@ -118,20 +118,15 @@ export default function TicketOffices() {
   const officeBalances = useMemo(() => {
     const map: Record<string, { retained: number; transferred: number; bankBalance: number }> = {};
 
-    // Build office -> event_ids mapping from assignments
     const officeEventMap: Record<string, Set<string>> = {};
     allAssignments.forEach((a: any) => {
-      if (!officeEventMap[a.ticket_office_id]) officeEventMap[a.ticket_office_id] = new Set();
-      officeEventMap[a.ticket_office_id].add(a.event_id);
+      if (!officeEventMap[a.financial_account_id]) officeEventMap[a.financial_account_id] = new Set();
+      officeEventMap[a.financial_account_id].add(a.event_id);
     });
 
-    // Build zone -> event_id mapping
     const zoneEventMap: Record<string, string> = {};
     allZones.forEach((z: any) => { zoneEventMap[z.id] = z.event_id; });
 
-    // Sum ticket sales per office using the same logic as TicketOfficeBalancePanel:
-    // Sales belong to an office if: the sale's zone belongs to an event assigned to the office
-    // AND (ticket_office_id is null OR matches the office)
     const salesByOffice: Record<string, number> = {};
     offices.forEach((o: any) => {
       const assignedEvents = officeEventMap[o.id] || new Set();
@@ -139,7 +134,7 @@ export default function TicketOffices() {
       officeSales.forEach((s: any) => {
         const saleEventId = zoneEventMap[s.zone_id];
         if (saleEventId && assignedEvents.has(saleEventId)) {
-          if (!s.ticket_office_id || s.ticket_office_id === o.id) {
+          if (!s.financial_account_id || s.financial_account_id === o.id) {
             total += s.quantity * Number(s.unit_price);
           }
         }
@@ -147,7 +142,6 @@ export default function TicketOffices() {
       salesByOffice[o.id] = total;
     });
 
-    // Sum expenses (with event_id) and transfers (without event_id) per account
     const expensesByAccount: Record<string, number> = {};
     const transfersByAccount: Record<string, number> = {};
     txnSums.forEach((t: any) => {
@@ -162,21 +156,19 @@ export default function TicketOffices() {
     });
 
     offices.forEach((o: any) => {
-      if (o.financial_account_id) {
-        const sales = salesByOffice[o.id] || 0;
-        const expenses = expensesByAccount[o.financial_account_id] || 0;
-        const transfers = transfersByAccount[o.financial_account_id] || 0;
-        map[o.financial_account_id] = {
-          retained: sales - expenses - transfers,
-          transferred: transfers,
-          bankBalance: Number(o.financial_accounts?.initial_balance || 0) +
-            txnSums.filter((t: any) => t.account_id === o.financial_account_id)
-              .reduce((sum: number, t: any) => {
-                const paid = Number(t.paid_amount || 0);
-                return t.type === "income" ? sum + paid : sum - paid;
-              }, 0),
-        };
-      }
+      const sales = salesByOffice[o.id] || 0;
+      const expenses = expensesByAccount[o.id] || 0;
+      const transfers = transfersByAccount[o.id] || 0;
+      map[o.id] = {
+        retained: sales - expenses - transfers,
+        transferred: transfers,
+        bankBalance: Number(o.initial_balance || 0) +
+          txnSums.filter((t: any) => t.account_id === o.id)
+            .reduce((sum: number, t: any) => {
+              const paid = Number(t.paid_amount || 0);
+              return t.type === "income" ? sum + paid : sum - paid;
+            }, 0),
+      };
     });
 
     return map;
@@ -184,11 +176,19 @@ export default function TicketOffices() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("ticket_offices").delete().eq("id", id);
+      // Check for transactions first
+      const { data: txns } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("account_id", id)
+        .limit(1);
+      if (txns && txns.length > 0) throw new Error("Não é possível eliminar: existem transações associadas");
+      const { error } = await supabase.from("financial_accounts").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket_offices"] });
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
       setDeletingId(null);
       toast.success("Bilheteira eliminada");
     },
@@ -247,7 +247,7 @@ export default function TicketOffices() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((office: any) => {
-            const bal = office.financial_account_id ? officeBalances[office.financial_account_id] : null;
+            const bal = officeBalances[office.id];
             const retained = bal?.retained ?? 0;
             const transferred = bal?.transferred ?? 0;
             const bankBalance = bal?.bankBalance ?? 0;
@@ -275,65 +275,60 @@ export default function TicketOffices() {
                 </div>
 
                 <div className="space-y-1 text-xs text-muted-foreground">
-                  {office.email && (
-                    <p className="flex items-center gap-1.5"><Mail className="h-3 w-3" /> {office.email}</p>
+                  {office.email_contact && (
+                    <p className="flex items-center gap-1.5"><Mail className="h-3 w-3" /> {office.email_contact}</p>
                   )}
                   {office.phone && (
                     <p className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {office.phone}</p>
                   )}
                 </div>
 
-                {office.financial_account_id && (
-                  <div className="space-y-1.5">
-                    {/* Three balance indicators */}
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
-                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
-                          <Landmark className="h-2.5 w-2.5" /> Retido
-                        </p>
-                        <p className={`text-xs font-mono font-semibold ${retained >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                          {formatCurrency(retained)}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
-                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
-                          <ArrowRightLeft className="h-2.5 w-2.5" /> Transferido
-                        </p>
-                        <p className="text-xs font-mono font-semibold text-amber-500">
-                          {formatCurrency(transferred)}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
-                        <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
-                          <Banknote className="h-2.5 w-2.5" /> Movimentado
-                        </p>
-                        <p className={`text-xs font-mono font-semibold ${bankBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                          {formatCurrency(bankBalance)}
-                        </p>
-                      </div>
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                      <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                        <Landmark className="h-2.5 w-2.5" /> Retido
+                      </p>
+                      <p className={`text-xs font-mono font-semibold ${retained >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                        {formatCurrency(retained)}
+                      </p>
                     </div>
-
-                    {/* Expand button */}
-                    <button
-                      onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-secondary/20 px-3 py-1 hover:bg-secondary/40 transition-colors text-xs text-muted-foreground"
-                    >
-                      {expandedId === office.id ? "Ocultar detalhe" : "Ver detalhe"}
-                      {expandedId === office.id ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    </button>
+                    <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                      <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                        <ArrowRightLeft className="h-2.5 w-2.5" /> Transferido
+                      </p>
+                      <p className="text-xs font-mono font-semibold text-amber-500">
+                        {formatCurrency(transferred)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-secondary/40 px-2 py-1.5 text-center">
+                      <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-0.5">
+                        <Banknote className="h-2.5 w-2.5" /> Movimentado
+                      </p>
+                      <p className={`text-xs font-mono font-semibold ${bankBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                        {formatCurrency(bankBalance)}
+                      </p>
+                    </div>
                   </div>
-                )}
 
-                {expandedId === office.id && office.financial_account_id && (
+                  <button
+                    onClick={() => setExpandedId(expandedId === office.id ? null : office.id)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-secondary/20 px-3 py-1 hover:bg-secondary/40 transition-colors text-xs text-muted-foreground"
+                  >
+                    {expandedId === office.id ? "Ocultar detalhe" : "Ver detalhe"}
+                    {expandedId === office.id ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  </button>
+                </div>
+
+                {expandedId === office.id && (
                   <TicketOfficeBalancePanel
                     officeId={office.id}
                     officeName={office.name}
-                    financialAccountId={office.financial_account_id}
                   />
                 )}
 
-                {office.notes && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">{office.notes}</p>
+                {office.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{office.description}</p>
                 )}
 
                 {canManage && (
@@ -370,7 +365,7 @@ export default function TicketOffices() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar bilheteira?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação é irreversível. A conta financeira associada não será eliminada.
+              Esta ação é irreversível e só é possível se não existirem transações associadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
