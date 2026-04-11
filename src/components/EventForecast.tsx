@@ -1307,7 +1307,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       })}
                       {addingType === "expense" && renderInlineRow("expense")}
                     </tbody>
-                    {(expenseForecasts.length > 0 || addingType === "expense" || filteredCacheLines.length > 0 || filteredProratedParentExpenses.length > 0) && (
+                    {(expenseForecasts.length > 0 || addingType === "expense" || filteredProratedParentExpenses.length > 0) && (
                       <tfoot>
                         <tr className="border-t border-border/50">
                           <td colSpan={4} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
