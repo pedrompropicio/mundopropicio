@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown } from "lucide-react";
+import { Plus, Search, FileText, Phone, Mail, Building2, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown, EyeOff, Eye } from "lucide-react";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
 import { SupplierCreditsPanel } from "@/components/SupplierCreditsPanel";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ export default function Suppliers() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [hidePartners, setHidePartners] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -53,19 +54,20 @@ export default function Suppliers() {
   });
 
   const filtered = useMemo(() => {
-    const list = suppliers.filter((s) =>
+    let list = suppliers.filter((s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.trade_name && s.trade_name.toLowerCase().includes(search.toLowerCase())) ||
       (s.nif && s.nif.includes(search)) ||
       (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
     );
+    if (hidePartners) list = list.filter((s) => !s.is_partner);
     list.sort((a, b) => {
       const valA = (sortField === "trade_name" ? (a.trade_name || a.name) : a.name).toLowerCase();
       const valB = (sortField === "trade_name" ? (b.trade_name || b.name) : b.name).toLowerCase();
       return sortDir === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
     });
     return list;
-  }, [suppliers, search, sortField, sortDir]);
+  }, [suppliers, search, sortField, sortDir, hidePartners]);
 
   const toggleSort = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
 
@@ -140,6 +142,14 @@ export default function Suppliers() {
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortDir === "asc" ? "A→Z" : "Z→A"}
+          </button>
+          <button
+            onClick={() => setHidePartners((h) => !h)}
+            className={`inline-flex items-center gap-1 rounded-lg border border-border px-2.5 h-9 text-xs transition-colors ${hidePartners ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+            title={hidePartners ? "Mostrar sócios/parceiros" : "Ocultar sócios/parceiros"}
+          >
+            {hidePartners ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Sócios
           </button>
           <div className="flex rounded-lg border border-border overflow-hidden">
             <button
