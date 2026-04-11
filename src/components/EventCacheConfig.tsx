@@ -134,6 +134,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   // Sync cache configs to real forecasts in BP
   useSyncCacheForecasts({
     eventId,
+    childEventIds,
     cacheConfigs: cacheConfigs.map((c: any) => ({
       id: c.id,
       event_id: c.event_id,
