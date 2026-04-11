@@ -120,8 +120,9 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     queryKey: ["ticket_offices_active"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_offices")
+        .from("financial_accounts")
         .select("id, name")
+        .eq("type", "ticket_office")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
@@ -241,10 +242,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       // Auto-detect ticket office
       if (data.ticket_office_name && ticketOffices.length > 0) {
         const pdfName = normalize(data.ticket_office_name);
-        const match = ticketOffices.find(to => normalize(to.name).includes(pdfName) || pdfName.includes(normalize(to.name)));
+        const match = ticketOffices.find((to: any) => normalize(to.name).includes(pdfName) || pdfName.includes(normalize(to.name)));
         if (match && !ticketOfficeId) {
-          setTicketOfficeId(match.id);
-          toast({ title: `Bilheteira detectada: ${match.name}` });
+          setTicketOfficeId((match as any).id);
+          toast({ title: `Bilheteira detectada: ${(match as any).name}` });
         }
       }
 
@@ -431,7 +432,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               sale_date_to: effectiveTo !== effectiveFrom ? effectiveTo : null,
               quantity: row.quantidade_vendida,
               unit_price: row.preco_unitario,
-              ticket_office_id: ticketOfficeId || null,
+              financial_account_id: ticketOfficeId || null,
               notes: notesText,
               source: "import",
             } as any);
@@ -446,7 +447,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     onSuccess: async (result) => {
       await supabase.from("ticket_import_logs").insert({
         event_id: eventId,
-        ticket_office_id: ticketOfficeId || null,
+        financial_account_id: ticketOfficeId || null,
         import_type: importType,
         period_from: pdfPeriodFrom || new Date().toISOString().slice(0, 10),
         period_to: pdfPeriodTo || pdfPeriodFrom || new Date().toISOString().slice(0, 10),
@@ -454,7 +455,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         rows_imported: result?.imported || 0,
         zones_created: result?.zonesCreated || 0,
         lots_created: result?.lotsCreated || 0,
-      });
+      } as any);
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots"] });
       queryClient.invalidateQueries({ queryKey: ["ticket-sales"] });
