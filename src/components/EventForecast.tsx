@@ -1786,13 +1786,12 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     });
 }
 
-function ComparisonTable({ data, cacheLines = [] }: { data: ComparisonRow[]; cacheLines?: CachePLLine[] }) {
+function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
-  const totalCacheF = cacheLines.reduce((s, c) => s + c.amount, 0);
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
   const totalAI = incomeRows.reduce((s, r) => s + r.actual, 0);
-  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0) + totalCacheF;
+  const totalFE = expenseRows.reduce((s, r) => s + r.forecast, 0);
   const totalAE = expenseRows.reduce((s, r) => s + r.actual, 0);
 
   // Group rows by L2 parent
