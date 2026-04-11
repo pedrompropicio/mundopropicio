@@ -170,7 +170,10 @@ export default function ReportArtistCache() {
       const totalDeduction = categoryDeductionTotal + fixedPctAmount;
       const baseForCalc = basis - totalDeduction;
       const pct = Number(config.percentage) || 0;
-      const cacheAmount = isVariable ? Math.max(0, baseForCalc * (pct / 100)) : Number(config.fixed_amount);
+      const calculated = isVariable ? Math.max(0, baseForCalc * (pct / 100)) : Number(config.fixed_amount);
+      const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+      const cacheAmount = isVariable ? Math.max(minGuaranteed, calculated) : calculated;
+      const isUsingMinimum = isVariable && minGuaranteed > 0 && cacheAmount === minGuaranteed;
 
       // Extras for this config
       const configExtras = cacheExtras.filter((e: any) => e.cache_config_id === config.id);
