@@ -457,6 +457,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         <div className="space-y-2">
           {cacheConfigs.map((config: any) => {
             const isVariable = config.cache_type === "variable";
+            const isFinalized = !!config.is_finalized;
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
@@ -465,14 +466,16 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             const totalDeduction = categoryDeduction + fixedPctDeduction;
             const variableValue = isVariable ? calculateVariableCache(config) : 0;
             const displayValue = isVariable ? variableValue : Number(config.fixed_amount);
+            const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+            const isUsingMinimum = isVariable && minGuaranteed > 0 && variableValue === minGuaranteed;
 
             return (
-              <div key={config.id} className="rounded-lg border border-border bg-background overflow-hidden">
+              <div key={config.id} className={`rounded-lg border bg-background overflow-hidden ${isFinalized ? "border-success/40" : "border-border"}`}>
                 {/* Header */}
                 <div className="flex items-center gap-3 p-3">
                   <Music className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold truncate">{config.artist_name}</span>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         isVariable
@@ -481,12 +484,23 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                       }`}>
                         {isVariable ? `Variável · ${config.percentage}%` : "Fixo"}
                       </span>
+                      {isFinalized && (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-success/15 text-success flex items-center gap-1">
+                          <Lock className="h-2.5 w-2.5" /> Finalizado
+                        </span>
+                      )}
+                      {isUsingMinimum && !isFinalized && (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-accent text-accent-foreground">
+                          Mín. Garantido
+                        </span>
+                      )}
                     </div>
                     {isVariable && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         Receita s/ IVA ({formatCurrency(ticketRevenueNet)})
                         {totalDeduction > 0 && ` − Descontos (${formatCurrency(totalDeduction)})`}
                         {` = Base: ${formatCurrency(Math.max(0, ticketRevenueNet - totalDeduction))}`}
+                        {minGuaranteed > 0 && ` · Mín: ${formatCurrency(minGuaranteed)}`}
                       </p>
                     )}
                   </div>
