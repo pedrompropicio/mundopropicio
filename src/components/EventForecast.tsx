@@ -497,7 +497,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, cascadeTransactionIds }: { id: string; cascadeTransactionIds?: string[] }) => {
+      // Delete linked transactions first if cascading
+      if (cascadeTransactionIds && cascadeTransactionIds.length > 0) {
+        for (const txId of cascadeTransactionIds) {
+          // Fetch transaction data for trash
+          const { data: txData } = await supabase.from("transactions").select("*").eq("id", txId).single();
+          if (txData) {
+            await moveToTrash({ entity_type: "transaction", entity_id: txId, entity_data: txData, deleted_by: user?.email || "sistema" });
+          }
+          await supabase.from("transactions").delete().eq("id", txId);
+        }
+      }
       // Fetch full data before deleting
       const { data: forecastData } = await supabase
         .from("event_forecasts")
@@ -517,6 +528,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast({ title: "Previsão removida" });
     },
   });
