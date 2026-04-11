@@ -832,6 +832,7 @@ export type Database = {
           date: string
           event_type: string
           id: string
+          last_sales_date: string | null
           location: string | null
           name: string
           parent_event_id: string | null
@@ -850,6 +851,7 @@ export type Database = {
           date: string
           event_type?: string
           id?: string
+          last_sales_date?: string | null
           location?: string | null
           name: string
           parent_event_id?: string | null
@@ -868,6 +870,7 @@ export type Database = {
           date?: string
           event_type?: string
           id?: string
+          last_sales_date?: string | null
           location?: string | null
           name?: string
           parent_event_id?: string | null
