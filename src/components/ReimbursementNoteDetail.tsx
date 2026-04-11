@@ -557,6 +557,17 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           </Table>
         </div>
       )}
+
+      {docsModalTx && (
+        <TransactionDocumentsModal
+          transactionId={docsModalTx.id}
+          transactionDescription={docsModalTx.description}
+          onClose={() => {
+            setDocsModalTx(null);
+            queryClient.invalidateQueries({ queryKey: ["reimbursement-item-docs", transactionIds] });
+          }}
+        />
+      )}
     </div>
   );
 }
