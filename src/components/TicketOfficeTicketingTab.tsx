@@ -1,0 +1,692 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatCurrency } from "@/lib/mock-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
+import { toast } from "@/hooks/use-toast";
+import {
+  Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, AlertTriangle,
+} from "lucide-react";
+import { TicketImportModal } from "@/components/TicketUploadModals";
+
+interface Props {
+  officeId: string;
+  officeName: string;
+}
+
+interface SaleForm {
+  zone_id: string;
+  lot_id: string;
+  sale_date: string;
+  quantity: string;
+  unit_price: string;
+  notes: string;
+}
+
+const emptySale: SaleForm = {
+  zone_id: "",
+  lot_id: "",
+  sale_date: new Date().toISOString().slice(0, 10),
+  quantity: "",
+  unit_price: "",
+  notes: "",
+};
+
+export function TicketOfficeTicketingTab({ officeId, officeName }: Props) {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
+  const [saleModalOpen, setSaleModalOpen] = useState(false);
+  const [saleForm, setSaleForm] = useState<SaleForm>(emptySale);
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
+
+  const [editingLotId, setEditingLotId] = useState<string | null>(null);
+  const [lotEditForm, setLotEditForm] = useState({ name: "", quantity: "", price: "" });
+  const [addingLotZoneId, setAddingLotZoneId] = useState<string | null>(null);
+  const [newLotForm, setNewLotForm] = useState({ name: "", quantity: "", price: "" });
+  const [addingZone, setAddingZone] = useState(false);
+  const [newZoneForm, setNewZoneForm] = useState({ name: "", total_capacity: "" });
+
+  // Events assigned to this office
+  const { data: assignedEvents = [] } = useQuery({
+    queryKey: ["ticket_office_assigned_events", officeId],
+    queryFn: async () => {
+      const { data: assignments, error } = await supabase
+        .from("event_ticket_office_assignments")
+        .select("event_id")
+        .eq("financial_account_id", officeId);
+      if (error) throw error;
+      if (!assignments || assignments.length === 0) return [];
+      const eventIds = assignments.map(a => a.event_id);
+      const { data: events, error: eErr } = await supabase
+        .from("events")
+        .select("*")
+        .in("id", eventIds)
+        .order("date", { ascending: false });
+      if (eErr) throw eErr;
+      return events || [];
+    },
+  });
+
+  const selectedEvent = assignedEvents.find((e: any) => e.id === selectedEventId);
+  const isParentEvent = selectedEvent?.event_type === "multi_day" && !selectedEvent?.parent_event_id;
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["ticket-mgmt-sessions", selectedEventId],
+    queryFn: async () => {
+      if (!selectedEventId) return [];
+      const { data, error } = await supabase.from("event_sessions").select("*").eq("event_id", selectedEventId).order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedEventId,
+  });
+
+  const { data: zones = [] } = useQuery({
+    queryKey: ["ticket-mgmt-zones", selectedEventId],
+    queryFn: async () => {
+      if (!selectedEventId) return [];
+      const { data, error } = await supabase.from("event_ticket_zones").select("*").eq("event_id", selectedEventId).order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedEventId,
+  });
+
+  const filteredZones = useMemo(() => {
+    if (selectedSessionId === "all") return zones;
+    return zones.filter(z => z.session_id === selectedSessionId);
+  }, [zones, selectedSessionId]);
+
+  const { data: lots = [] } = useQuery({
+    queryKey: ["ticket-mgmt-lots", selectedEventId],
+    queryFn: async () => {
+      const zoneIds = zones.map((z) => z.id);
+      if (zoneIds.length === 0) return [];
+      const { data, error } = await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds).order("lot_number");
+      if (error) throw error;
+      return data;
+    },
+    enabled: zones.length > 0,
+  });
+
+  const { data: sales = [] } = useQuery({
+    queryKey: ["ticket-sales", selectedEventId],
+    queryFn: async () => {
+      const zoneIds = zones.map((z) => z.id);
+      if (zoneIds.length === 0) return [];
+      const { data, error } = await supabase.from("ticket_sales").select("*").in("zone_id", zoneIds).order("sale_date", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: zones.length > 0,
+  });
+
+  // Mutations
+  const saveSaleMutation = useMutation({
+    mutationFn: async () => {
+      const payload: any = {
+        sale_date: saleForm.sale_date,
+        quantity: parseInt(saleForm.quantity) || 0,
+        unit_price: parseFloat(saleForm.unit_price) || 0,
+        notes: saleForm.notes || null,
+      };
+      const lotId = saleForm.lot_id && saleForm.lot_id !== "__none__" ? saleForm.lot_id : null;
+      if (lotId) {
+        payload.lot_id = lotId;
+        const lot = lots.find(l => l.id === saleForm.lot_id);
+        if (lot) payload.zone_id = lot.zone_id;
+      } else if (saleForm.zone_id) {
+        payload.zone_id = saleForm.zone_id;
+        payload.lot_id = null;
+      }
+      if (editingSaleId) {
+        const { error } = await supabase.from("ticket_sales").update(payload).eq("id", editingSaleId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("ticket_sales").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-sales", selectedEventId] });
+      toast({ title: editingSaleId ? "Venda atualizada!" : "Venda registada!" });
+      setSaleModalOpen(false);
+      setSaleForm(emptySale);
+      setEditingSaleId(null);
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteSaleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("ticket_sales").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-sales", selectedEventId] });
+      toast({ title: "Venda eliminada" });
+    },
+  });
+
+  const getZoneCapacityValidation = async (zoneId: string, currentLotId?: string | null) => {
+    const [{ data: zone, error: zoneError }, { data: zoneLots, error: lotsError }] = await Promise.all([
+      supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("id", zoneId).single(),
+      supabase.from("event_ticket_lots").select("id, quantity, lot_number").eq("zone_id", zoneId),
+    ]);
+    if (zoneError) throw zoneError;
+    if (lotsError) throw lotsError;
+    if (!zone) throw new Error("Zona não encontrada.");
+    const filteredLots = (zoneLots ?? []).filter((lot) => lot.id !== currentLotId);
+    const allocatedQuantity = filteredLots.reduce((sum, lot) => sum + Number(lot.quantity), 0);
+    return { zone, zoneLots: zoneLots ?? [], allocatedQuantity };
+  };
+
+  const updateLotMutation = useMutation({
+    mutationFn: async ({ id, zoneId, name, quantity, price }: { id: string; zoneId: string; name: string; quantity: number; price: number }) => {
+      if (!name.trim()) throw new Error("O nome do lote é obrigatório");
+      const { zone, allocatedQuantity } = await getZoneCapacityValidation(zoneId, id);
+      if (zone.total_capacity > 0 && allocatedQuantity + quantity > zone.total_capacity) {
+        const remaining = Math.max(zone.total_capacity - allocatedQuantity, 0);
+        throw new Error(`Capacidade excedida! Restam ${remaining.toLocaleString()} disponíveis.`);
+      }
+      const { error } = await supabase.from("event_ticket_lots").update({ name: name.trim(), quantity, price }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots", selectedEventId] });
+      toast({ title: "Lote atualizado!" });
+      setEditingLotId(null);
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const addLotMutation = useMutation({
+    mutationFn: async ({ zoneId, name, quantity, price }: { zoneId: string; name: string; quantity: number; price: number }) => {
+      const { zone, zoneLots, allocatedQuantity } = await getZoneCapacityValidation(zoneId);
+      if (zone.total_capacity > 0 && allocatedQuantity + quantity > zone.total_capacity) {
+        const remaining = Math.max(zone.total_capacity - allocatedQuantity, 0);
+        throw new Error(`Capacidade excedida! Restam ${remaining.toLocaleString()} disponíveis.`);
+      }
+      const { error } = await supabase.from("event_ticket_lots").insert({
+        zone_id: zoneId, name, quantity, price, lot_number: zoneLots.length + 1,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots", selectedEventId] });
+      toast({ title: "Lote adicionado!" });
+      setAddingLotZoneId(null);
+      setNewLotForm({ name: "", quantity: "", price: "" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteLotMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: lotSales } = await supabase.from("ticket_sales").select("id").eq("lot_id", id).limit(1);
+      if (lotSales && lotSales.length > 0) throw new Error("Não é possível eliminar um lote com vendas.");
+      const { error } = await supabase.from("event_ticket_lots").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-lots", selectedEventId] });
+      toast({ title: "Lote eliminado" });
+    },
+    onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+  });
+
+  const addZoneMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("event_ticket_zones").insert({
+        event_id: selectedEventId, name: newZoneForm.name, total_capacity: parseInt(newZoneForm.total_capacity) || 0,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-mgmt-zones", selectedEventId] });
+      toast({ title: "Zona criada!" });
+      setAddingZone(false);
+      setNewZoneForm({ name: "", total_capacity: "" });
+    },
+  });
+
+  const getZoneLots = (zoneId: string) => lots.filter((l) => l.zone_id === zoneId).sort((a, b) => Number(a.price) - Number(b.price));
+  const getLotSales = (lotId: string) => sales.filter((s) => s.lot_id === lotId);
+  const getZoneOnlySales = (zoneId: string) => sales.filter((s) => s.zone_id === zoneId && !s.lot_id);
+  const getLotSold = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity), 0);
+  const getLotRevenue = (lotId: string) => getLotSales(lotId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
+  const getZoneOnlySold = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity), 0);
+  const getZoneOnlyRevenue = (zoneId: string) => getZoneOnlySales(zoneId).reduce((s, sale) => s + Number(sale.quantity) * Number(sale.unit_price), 0);
+  const getZoneSold = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotSold(l.id), 0) + getZoneOnlySold(zoneId);
+  const getZoneCapacity = (zoneId: string) => {
+    const lotsCap = getZoneLots(zoneId).reduce((s, l) => s + l.quantity, 0);
+    const zone = zones.find(z => z.id === zoneId);
+    return lotsCap > 0 ? lotsCap : (zone?.total_capacity ?? 0);
+  };
+  const getZoneForecastRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + l.quantity * Number(l.price), 0);
+  const getZoneActualRevenue = (zoneId: string) => getZoneLots(zoneId).reduce((s, l) => s + getLotRevenue(l.id), 0) + getZoneOnlyRevenue(zoneId);
+
+  const sortedZones = useMemo(() => {
+    return [...filteredZones].sort((a, b) => {
+      const maxPriceA = Math.max(0, ...lots.filter(l => l.zone_id === a.id).map(l => Number(l.price)));
+      const maxPriceB = Math.max(0, ...lots.filter(l => l.zone_id === b.id).map(l => Number(l.price)));
+      return maxPriceB - maxPriceA;
+    });
+  }, [filteredZones, lots]);
+
+  const totalCapacity = filteredZones.reduce((s, z) => s + getZoneCapacity(z.id), 0);
+  const totalSold = filteredZones.reduce((s, z) => s + getZoneSold(z.id), 0);
+  const totalForecastRevenue = filteredZones.reduce((s, z) => s + getZoneForecastRevenue(z.id), 0);
+  const totalActualRevenue = filteredZones.reduce((s, z) => s + getZoneActualRevenue(z.id), 0);
+  const occupancyPct = totalCapacity > 0 ? Math.round((totalSold / totalCapacity) * 100) : 0;
+
+  const toggleZone = (id: string) => {
+    setExpandedZones((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const openSaleModal = (lotId?: string, zoneId?: string) => {
+    const lot = lotId ? lots.find((l) => l.id === lotId) : null;
+    setSaleForm({ ...emptySale, zone_id: zoneId || (lot ? lot.zone_id : ""), lot_id: lotId || "", unit_price: lot ? String(lot.price) : "" });
+    setEditingSaleId(null);
+    setSaleModalOpen(true);
+  };
+
+  const openEditSale = (sale: any) => {
+    setSaleForm({ zone_id: sale.zone_id || "", lot_id: sale.lot_id || "", sale_date: sale.sale_date, quantity: String(sale.quantity), unit_price: String(sale.unit_price), notes: sale.notes || "" });
+    setEditingSaleId(sale.id);
+    setSaleModalOpen(true);
+  };
+
+  if (assignedEvents.length === 0) {
+    return (
+      <div className="glass rounded-xl p-8 text-center">
+        <Ticket className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+        <p className="text-muted-foreground">Nenhum evento atribuído a esta bilheteira.</p>
+        <p className="text-xs text-muted-foreground mt-1">Atribua eventos no separador "Bilheteira" do detalhe do evento.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Event selector */}
+      <div className="glass rounded-xl p-4">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1">
+            <Label className="text-sm font-medium">Evento</Label>
+            <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedSessionId("all"); }}>
+              <SelectTrigger className="mt-2 w-full max-w-md">
+                <SelectValue placeholder="Escolha um evento…" />
+              </SelectTrigger>
+              <SelectContent>
+                {assignedEvents.map((e: any) => (
+                  <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedEventId && (
+            <TicketImportModal events={assignedEvents} selectedEventId={selectedEventId} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} />
+          )}
+        </div>
+      </div>
+
+      {selectedEventId && (
+        <>
+          {sessions.length > 0 && (
+            <div className="glass rounded-xl p-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sessão</p>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setSelectedSessionId("all")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedSessionId === "all" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}>
+                  Todas
+                </button>
+                {sessions.map((s) => (
+                  <button key={s.id} onClick={() => setSelectedSessionId(s.id)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedSessionId === s.id ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="glass rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Ticket className="h-4 w-4 text-primary" /> Bilhetes Vendidos</div>
+              <p className="font-mono text-xl font-bold">{totalSold.toLocaleString()} <span className="text-sm text-muted-foreground font-normal">/ {totalCapacity.toLocaleString()}</span></p>
+              <Progress value={occupancyPct} className="h-2 mt-2" />
+              <p className="text-xs text-muted-foreground">{occupancyPct}% de ocupação</p>
+            </div>
+            <div className="glass rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Layers className="h-4 w-4 text-primary" /> Zonas / Lotes</div>
+              <p className="font-mono text-xl font-bold">{zones.length} <span className="text-sm text-muted-foreground font-normal">/ {lots.length} lotes</span></p>
+              <p className="text-xs text-muted-foreground">{sales.length} vendas registadas</p>
+            </div>
+            <div className="glass rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-success" /> Receita Prevista</div>
+              <p className="font-mono text-xl font-bold text-muted-foreground">{formatCurrency(totalForecastRevenue)}</p>
+            </div>
+            <div className="glass rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><ShoppingCart className="h-4 w-4 text-success" /> Receita Realizada</div>
+              <p className="font-mono text-xl font-bold text-success">{formatCurrency(totalActualRevenue)}</p>
+              {totalForecastRevenue > 0 && <p className="text-xs text-muted-foreground">{Math.round((totalActualRevenue / totalForecastRevenue) * 100)}% do previsto</p>}
+            </div>
+          </div>
+
+          {isParentEvent ? (
+            <div className="glass rounded-xl p-4 text-center">
+              <p className="text-sm text-muted-foreground">Configure a bilheteira nos eventos Split individualmente.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => openSaleModal()} disabled={zones.length === 0}><Plus className="h-4 w-4 mr-2" /> Registar Venda</Button>
+                <TicketImportModal events={assignedEvents} selectedEventId={selectedEventId} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} />
+                {isAdmin && (
+                  <Button variant="outline" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}>
+                    <Plus className="h-4 w-4 mr-2" /> Nova Zona
+                  </Button>
+                )}
+              </div>
+
+              {addingZone && isAdmin && (
+                <div className="glass rounded-xl p-4 flex items-end gap-3">
+                  <div className="flex-1">
+                    <Label className="text-xs">Nome da Zona</Label>
+                    <Input value={newZoneForm.name} onChange={(e) => setNewZoneForm({ ...newZoneForm, name: e.target.value })} placeholder="Ex: Plateia" />
+                  </div>
+                  <div className="w-32">
+                    <Label className="text-xs">Capacidade</Label>
+                    <Input type="number" min="0" value={newZoneForm.total_capacity} onChange={(e) => setNewZoneForm({ ...newZoneForm, total_capacity: e.target.value })} />
+                  </div>
+                  <Button onClick={() => addZoneMutation.mutate()} disabled={!newZoneForm.name || addZoneMutation.isPending}>Criar</Button>
+                  <Button variant="ghost" onClick={() => setAddingZone(false)}>Cancelar</Button>
+                </div>
+              )}
+
+              {/* Zone progress bars */}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {sortedZones.map((zone) => {
+                  const cap = getZoneCapacity(zone.id);
+                  const sold = getZoneSold(zone.id);
+                  const pct = cap > 0 ? Math.round((sold / cap) * 100) : 0;
+                  return (
+                    <div key={zone.id} className="glass rounded-xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-sm truncate">{zone.name}</p>
+                        <span className="text-xs font-mono text-muted-foreground">{sold.toLocaleString()} / {cap.toLocaleString()}</span>
+                      </div>
+                      <Progress value={pct} className="h-2.5" />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{pct}% vendido</span>
+                        <span>{formatCurrency(getZoneActualRevenue(zone.id))}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Zones / Lots detail */}
+              <div className="space-y-3">
+                {sortedZones.map((zone) => {
+                  const zoneLots = getZoneLots(zone.id);
+                  const isExpanded = expandedZones.has(zone.id);
+                  return (
+                    <div key={zone.id} className="glass rounded-xl overflow-hidden">
+                      <button onClick={() => toggleZone(zone.id)} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-secondary/30">
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <Ticket className="h-4 w-4 text-primary" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{zone.name}</p>
+                          <p className="text-xs text-muted-foreground">{zoneLots.length} lotes · Cap: {(zone.total_capacity ?? 0).toLocaleString()}</p>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-4 text-sm">
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Vendido</p>
+                            <span className="font-mono font-bold">{getZoneSold(zone.id).toLocaleString()}</span>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">Receita</p>
+                            <span className="font-mono font-bold text-success">{formatCurrency(getZoneActualRevenue(zone.id))}</span>
+                          </div>
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t border-border/30 px-4 pb-4">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Lote</TableHead>
+                                <TableHead className="text-right">Carga</TableHead>
+                                <TableHead className="text-right">Preço Unit.</TableHead>
+                                <TableHead className="text-right">Vendidos</TableHead>
+                                <TableHead className="text-right">Disponível</TableHead>
+                                <TableHead className="text-right">Receita Prev.</TableHead>
+                                <TableHead className="text-right">Receita Real</TableHead>
+                                <TableHead className="text-right">Ações</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {zoneLots.map((lot) => {
+                                const sold = getLotSold(lot.id);
+                                const available = lot.quantity - sold;
+                                const revenue = getLotRevenue(lot.id);
+                                const isEditingThis = editingLotId === lot.id;
+                                return (
+                                  <TableRow key={lot.id}>
+                                    <TableCell className="font-medium">
+                                      <span className="text-xs text-muted-foreground mr-1">{lot.lot_number}º</span>
+                                      {isEditingThis ? <Input className="w-32 inline-block" value={lotEditForm.name} onChange={(e) => setLotEditForm({ ...lotEditForm, name: e.target.value })} /> : lot.name}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">
+                                      {isEditingThis ? <Input type="number" min="0" className="w-20 text-right ml-auto" value={lotEditForm.quantity} onChange={(e) => setLotEditForm({ ...lotEditForm, quantity: e.target.value })} /> : lot.quantity.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">
+                                      {isEditingThis ? <Input type="number" step="0.01" min="0" className="w-24 text-right ml-auto" value={lotEditForm.price} onChange={(e) => setLotEditForm({ ...lotEditForm, price: e.target.value })} /> : formatCurrency(Number(lot.price))}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono font-semibold">{sold.toLocaleString()}</TableCell>
+                                    <TableCell className={`text-right font-mono ${available <= 0 ? "text-destructive" : "text-success"}`}>{available.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(lot.quantity * Number(lot.price))}</TableCell>
+                                    <TableCell className="text-right font-mono text-success font-semibold">{formatCurrency(revenue)}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-1">
+                                        {isEditingThis ? (
+                                          <>
+                                            <Button size="sm" variant="ghost" onClick={() => updateLotMutation.mutate({ id: lot.id, zoneId: zone.id, name: lotEditForm.name, quantity: parseInt(lotEditForm.quantity) || 0, price: parseFloat(lotEditForm.price) || 0 })}>Salvar</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => setEditingLotId(null)}>Cancelar</Button>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openSaleModal(lot.id)} title="Registar venda"><ShoppingCart className="h-3.5 w-3.5" /></Button>
+                                            {isAdmin && (
+                                              <>
+                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingLotId(lot.id); setLotEditForm({ name: lot.name, quantity: String(lot.quantity), price: String(lot.price) }); }} title="Editar lote"><Pencil className="h-3.5 w-3.5" /></Button>
+                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm("Eliminar este lote?")) deleteLotMutation.mutate(lot.id); }} title="Eliminar lote"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                              </>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                              {isAdmin && addingLotZoneId === zone.id && (
+                                <TableRow className="bg-primary/5">
+                                  <TableCell><Input placeholder="Nome do lote" value={newLotForm.name} onChange={(e) => setNewLotForm({ ...newLotForm, name: e.target.value })} /></TableCell>
+                                  <TableCell className="text-right"><Input type="number" min="0" className="w-20 text-right ml-auto" value={newLotForm.quantity} onChange={(e) => setNewLotForm({ ...newLotForm, quantity: e.target.value })} /></TableCell>
+                                  <TableCell className="text-right"><Input type="number" step="0.01" min="0" className="w-24 text-right ml-auto" value={newLotForm.price} onChange={(e) => setNewLotForm({ ...newLotForm, price: e.target.value })} /></TableCell>
+                                  <TableCell colSpan={4}></TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      <Button size="sm" onClick={() => addLotMutation.mutate({ zoneId: zone.id, name: newLotForm.name, quantity: parseInt(newLotForm.quantity) || 0, price: parseFloat(newLotForm.price) || 0 })} disabled={!newLotForm.name || addLotMutation.isPending}>Criar</Button>
+                                      <Button size="sm" variant="ghost" onClick={() => setAddingLotZoneId(null)}>Cancelar</Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                          <div className="flex gap-2 mt-2">
+                            {isAdmin && addingLotZoneId !== zone.id && (
+                              <Button variant="ghost" size="sm" onClick={() => { setAddingLotZoneId(zone.id); setNewLotForm({ name: "", quantity: "", price: "" }); }}><Plus className="h-3.5 w-3.5 mr-1" /> Novo Lote</Button>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => openSaleModal(undefined, zone.id)}><ShoppingCart className="h-3.5 w-3.5 mr-1" /> Venda Directa (Zona)</Button>
+                          </div>
+                          {/* Recent sales */}
+                          {(zoneLots.some((l) => getLotSales(l.id).length > 0) || getZoneOnlySales(zone.id).length > 0) && (
+                            <div className="mt-4">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Vendas Recentes — {zone.name}</p>
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                {[
+                                  ...zoneLots.flatMap((l) => getLotSales(l.id).map((sale) => ({ ...sale, lotName: l.name, lotNumber: l.lot_number }))),
+                                  ...getZoneOnlySales(zone.id).map((sale) => ({ ...sale, lotName: null, lotNumber: null })),
+                                ]
+                                  .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
+                                  .slice(0, 10)
+                                  .map((sale: any) => (
+                                    <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
+                                      <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
+                                      <span className="flex-1 truncate">{sale.lotName ? `${sale.lotNumber}º ${sale.lotName}` : "Venda directa"}</span>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sale.source === "import" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
+                                        {sale.source === "import" ? "Importado" : "Manual"}
+                                      </span>
+                                      <span className="font-mono">{Number(sale.quantity).toLocaleString()} bilhetes</span>
+                                      <span className="font-mono text-success">{formatCurrency(Number(sale.quantity) * Number(sale.unit_price))}</span>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => openEditSale(sale)} className="rounded p-1 hover:bg-secondary" title="Editar"><Pencil className="h-3 w-3 text-muted-foreground" /></button>
+                                        {isAdmin && (
+                                          <button onClick={() => { if (confirm("Eliminar esta venda?")) deleteSaleMutation.mutate(sale.id); }} className="rounded p-1 hover:bg-destructive/20" title="Eliminar"><Trash2 className="h-3 w-3 text-destructive" /></button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {zones.length === 0 && (
+                  <div className="glass rounded-xl p-8 text-center">
+                    <Ticket className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">Este evento não tem zonas de bilhetes configuradas.</p>
+                    {isAdmin && (
+                      <Button variant="outline" className="mt-3" onClick={() => { setAddingZone(true); setNewZoneForm({ name: "", total_capacity: "" }); }}><Plus className="h-4 w-4 mr-2" /> Criar Zona</Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Sale registration modal */}
+      <Dialog open={saleModalOpen} onOpenChange={setSaleModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingSaleId ? "Editar Venda" : "Registar Venda de Bilhetes"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Zona</Label>
+              <Select value={saleForm.zone_id} onValueChange={(v) => setSaleForm({ ...saleForm, zone_id: v, lot_id: "", unit_price: "" })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a zona…" /></SelectTrigger>
+                <SelectContent>
+                  {sortedZones.map((zone) => <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {saleForm.zone_id && getZoneLots(saleForm.zone_id).length > 0 && (
+              <div>
+                <Label>Lote <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Select value={saleForm.lot_id} onValueChange={(v) => {
+                  const lot = lots.find((l) => l.id === v);
+                  setSaleForm({ ...saleForm, lot_id: v, unit_price: lot ? String(lot.price) : saleForm.unit_price });
+                }}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Sem lote (venda por zona)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem lote (venda por zona)</SelectItem>
+                    {getZoneLots(saleForm.zone_id).map((lot) => <SelectItem key={lot.id} value={lot.id}>{lot.name} ({formatCurrency(Number(lot.price))})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Data da Venda</Label>
+                <DatePicker value={saleForm.sale_date} onChange={(d) => setSaleForm({ ...saleForm, sale_date: d })} />
+              </div>
+              <div>
+                <Label>Quantidade</Label>
+                <Input type="number" min="1" className="mt-1" value={saleForm.quantity} onChange={(e) => setSaleForm({ ...saleForm, quantity: e.target.value })} placeholder="0" />
+              </div>
+            </div>
+            {saleForm.sale_date && (() => {
+              const targetZone = saleForm.zone_id;
+              const targetLot = saleForm.lot_id && saleForm.lot_id !== "__none__" ? saleForm.lot_id : null;
+              const existingSales = sales.filter((s: any) => {
+                if (editingSaleId && s.id === editingSaleId) return false;
+                if (s.sale_date !== saleForm.sale_date) return false;
+                if (targetLot) return s.lot_id === targetLot;
+                return s.zone_id === targetZone && !s.lot_id;
+              });
+              if (existingSales.length === 0) return null;
+              const totalQty = existingSales.reduce((sum: number, s: any) => sum + Number(s.quantity), 0);
+              return (
+                <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-medium text-warning">Já existem vendas nesta data</p>
+                    <p className="text-muted-foreground">{existingSales.length} registo{existingSales.length > 1 ? "s" : ""} com {totalQty.toLocaleString()} bilhetes</p>
+                  </div>
+                </div>
+              );
+            })()}
+            <div>
+              <Label>Preço Unitário (€)</Label>
+              <Input type="number" step="0.01" min="0" className="mt-1" value={saleForm.unit_price} onChange={(e) => setSaleForm({ ...saleForm, unit_price: e.target.value })} />
+            </div>
+            {(saleForm.zone_id || saleForm.lot_id) && saleForm.quantity && (
+              <div className="rounded-lg bg-success/10 p-3 text-sm">
+                <p className="font-medium">Total: <span className="font-mono text-success">{formatCurrency((parseInt(saleForm.quantity) || 0) * (parseFloat(saleForm.unit_price) || 0))}</span></p>
+              </div>
+            )}
+            <div>
+              <Label>Notas (opcional)</Label>
+              <Textarea className="mt-1" rows={2} value={saleForm.notes} onChange={(e) => setSaleForm({ ...saleForm, notes: e.target.value })} placeholder="Observações…" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaleModalOpen(false)}>Cancelar</Button>
+            <Button onClick={() => {
+              if (saleForm.lot_id === "__none__") setSaleForm(prev => ({ ...prev, lot_id: "" }));
+              saveSaleMutation.mutate();
+            }} disabled={(!saleForm.zone_id && !saleForm.lot_id) || !saleForm.quantity || saveSaleMutation.isPending}>
+              {editingSaleId ? "Atualizar" : "Registar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

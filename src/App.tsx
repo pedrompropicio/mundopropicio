@@ -24,7 +24,7 @@ import FinancialAccounts from "./pages/FinancialAccounts";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
-import TicketManagement from "./pages/TicketManagement";
+// TicketManagement now embedded in TicketOffices module
 import EventCalendar from "./pages/EventCalendar";
 import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
@@ -125,7 +125,7 @@ function ProtectedLayout() {
               <Route path="/contas" element={<FinancialAccounts />} />
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
-              <Route path="/bilhetes" element={<TicketManagement />} />
+              <Route path="/bilhetes" element={<Navigate to="/bilheteiras" replace />} />
               <Route path="/bilheteiras" element={<TicketOffices />} />
               <Route path="/iva" element={<IvaManagement />} />
               <Route path="/recorrentes" element={<RecurringTransactions />} />
