@@ -245,8 +245,38 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     setCacheType("fixed");
     setFixedAmount("");
     setPercentage("");
+    setMinimumGuaranteed("");
     setShowAddForm(false);
   };
+
+  // Toggle finalized
+  const toggleFinalizedMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: boolean }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ is_finalized: value })
+        .eq("id", configId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      toast({ title: "Estado atualizado" });
+    },
+  });
+
+  // Update minimum guaranteed
+  const updateMinGuaranteedMutation = useMutation({
+    mutationFn: async ({ configId, value }: { configId: string; value: number }) => {
+      const { error } = await supabase
+        .from("event_cache_configs" as any)
+        .update({ minimum_guaranteed: value })
+        .eq("id", configId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
+  });
 
   const handleAdd = () => {
     if (!artistName) {
