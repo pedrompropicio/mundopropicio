@@ -18,6 +18,7 @@ import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type C
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
+import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 
 interface InlineForm {
   type: string;
@@ -87,6 +88,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
   });
+
+  const cacheCategoryId = useMemo(() => {
+    const category = categories.find((item: any) => item.code === "2.1.01" && item.type === "expense");
+    return category?.id ?? null;
+  }, [categories]);
 
   const { data: forecasts = [], isLoading } = useQuery({
     queryKey: ["event_forecasts", eventId],
@@ -265,6 +271,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
+        .is("cache_config_id", null)
         .order("created_at");
       if (error) throw error;
       return data;
@@ -301,19 +308,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return map;
   }, [forecastPartners, parentForecastPartners]);
 
-  // Count sibling sub-events for proration
-  const { data: siblingCount = 1 } = useQuery({
-    queryKey: ["sibling_count", parentEventId],
+  // Fetch sibling sub-events for proration + tour cache sync
+  const { data: siblingEvents = [] } = useQuery({
+    queryKey: ["sibling_events", parentEventId],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("events")
-        .select("id", { count: "exact", head: true })
-        .eq("parent_event_id", parentEventId!);
+        .select("id")
+        .eq("parent_event_id", parentEventId!)
+        .order("date", { ascending: true });
       if (error) throw error;
-      return count || 1;
+      return data ?? [];
     },
     enabled: !!parentEventId,
   });
+
+  const siblingCount = siblingEvents.length || 1;
 
   // Prorated parent expenses (amount / number of sub-events)
   const proratedParentExpenses = useMemo(() => {
@@ -336,8 +346,71 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const ticketRevenueIva = ticketRevenueGross - ticketRevenueNet;
   const ticketRevenue = ticketRevenueNet; // BP uses net values
 
-  // Cache: sub-events inherit parent's cache configs but calculate with OWN ticket revenue
-  // No proration — each sub-event gets its own full calculation based on its own tickets
+  const tourSyncEventId = useMemo(() => {
+    if (childEventIds && childEventIds.length > 0) return eventId;
+    if (parentEventId && siblingEvents.length > 0) return parentEventId;
+    return null;
+  }, [eventId, childEventIds, parentEventId, siblingEvents.length]);
+
+  const tourSyncChildEventIds = useMemo(() => {
+    if (childEventIds && childEventIds.length > 0) return childEventIds;
+    if (parentEventId) return siblingEvents.map((event: any) => event.id);
+    return [] as string[];
+  }, [childEventIds, parentEventId, siblingEvents]);
+
+  const tourCacheConfigs = useMemo(() => {
+    if (!tourSyncEventId) return [] as CacheConfig[];
+    return cacheConfigs.filter((config) => config.event_id === tourSyncEventId);
+  }, [cacheConfigs, tourSyncEventId]);
+
+  const tourCacheConfigIds = useMemo(
+    () => new Set(tourCacheConfigs.map((config) => config.id)),
+    [tourCacheConfigs]
+  );
+
+  const tourCacheDeductions = useMemo(() => {
+    if (tourCacheConfigIds.size === 0) return [] as CacheDeduction[];
+    return cacheDeductions.filter((deduction) => tourCacheConfigIds.has(deduction.cache_config_id));
+  }, [cacheDeductions, tourCacheConfigIds]);
+
+  const syncSourceForecasts = useMemo(() => {
+    const source = tourSyncEventId === eventId ? forecasts : parentForecasts;
+    return source.map((forecast: any) => ({
+      id: forecast.id,
+      type: forecast.type,
+      category_id: forecast.category_id,
+      amount: Number(forecast.amount),
+      cache_config_id: forecast.cache_config_id ?? null,
+    }));
+  }, [tourSyncEventId, eventId, forecasts, parentForecasts]);
+
+  useSyncCacheForecasts({
+    eventId: tourSyncEventId ?? eventId,
+    childEventIds: tourSyncChildEventIds.length > 0 ? tourSyncChildEventIds : undefined,
+    cacheConfigs: tourCacheConfigs.map((config) => ({
+      id: config.id,
+      event_id: config.event_id,
+      artist_name: config.artist_name,
+      cache_type: config.cache_type,
+      fixed_amount: Number(config.fixed_amount),
+      percentage: Number(config.percentage),
+      fixed_deduction_percentage: Number(config.fixed_deduction_percentage),
+      cache_revenue_basis: config.cache_revenue_basis,
+      minimum_guaranteed: Number(config.minimum_guaranteed),
+      is_finalized: !!config.is_finalized,
+    })),
+    deductions: tourCacheDeductions.map((deduction) => ({
+      cache_config_id: deduction.cache_config_id,
+      category_id: deduction.category_id,
+    })),
+    forecasts: syncSourceForecasts,
+    ticketRevenueNet,
+    ticketRevenueGross,
+    cacheCategoryId,
+    enabled: canEditBP && !!tourSyncEventId && tourSyncChildEventIds.length > 0 && tourCacheConfigs.length > 0,
+  });
+
+  // Cache forecasts are synced as real rows on sub-events and must never be prorated from the parent
   const allProratedParentExpenses = useMemo(
     () => [...proratedParentExpenses],
     [proratedParentExpenses]
