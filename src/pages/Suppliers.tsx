@@ -25,6 +25,7 @@ export default function Suppliers() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [hidePartners, setHidePartners] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: suppliers = [], isLoading } = useQuery({
