@@ -745,14 +745,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
   const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
-  const filteredCacheLines = useMemo(() => {
-    if (partnerFilter === "all" || partnerFilter === "company") return cacheLines;
-    return [];
-  }, [cacheLines, partnerFilter]);
-  const filteredCacheAmount = useMemo(
-    () => filteredCacheLines.reduce((sum, line) => sum + line.amount, 0),
-    [filteredCacheLines]
-  );
+  // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
+  // No more virtual cache lines needed
+  const filteredCacheLines: CachePLLine[] = [];
+  const filteredCacheAmount = 0;
   const filteredProratedParentExpenses = useMemo(() => {
     if (partnerFilter === "all") return allProratedParentExpenses;
     return allProratedParentExpenses.filter((forecast: any) => {
