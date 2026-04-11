@@ -143,6 +143,14 @@ export default function Suppliers() {
             <ArrowUpDown className="h-3.5 w-3.5" />
             {sortDir === "asc" ? "A→Z" : "Z→A"}
           </button>
+          <button
+            onClick={() => setHidePartners((h) => !h)}
+            className={`inline-flex items-center gap-1 rounded-lg border border-border px-2.5 h-9 text-xs transition-colors ${hidePartners ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+            title={hidePartners ? "Mostrar sócios/parceiros" : "Ocultar sócios/parceiros"}
+          >
+            {hidePartners ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Sócios
+          </button>
           <div className="flex rounded-lg border border-border overflow-hidden">
             <button
               onClick={() => setViewMode("grid")}
