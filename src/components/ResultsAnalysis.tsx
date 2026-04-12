@@ -218,7 +218,7 @@ export function ResultsAnalysis() {
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, currentYear]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, currentYear]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
