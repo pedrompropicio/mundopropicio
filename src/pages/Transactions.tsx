@@ -679,6 +679,21 @@ export default function Transactions() {
           </button>
         </div>
 
+        {/* Show hidden toggle (admin only) */}
+        {isAdmin && (
+          <button
+            onClick={() => setShowHidden(!showHidden)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all",
+              showHidden ? "bg-warning/15 text-warning ring-1 ring-warning/30" : "bg-secondary text-muted-foreground hover:text-foreground"
+            )}
+            title={showHidden ? "A mostrar transações ocultas" : "Mostrar transações ocultas"}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ocultas</span>
+          </button>
+        )}
+
         {/* Event multi-select filter */}
         <Popover modal={false}>
           <PopoverTrigger asChild>
