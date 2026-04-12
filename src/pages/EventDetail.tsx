@@ -791,7 +791,7 @@ export default function EventDetail() {
 
               <EventTicketing
                 eventId={activeEventId}
-                eventDateId={selectedSubEvent && eventType === "multi_day" ? selectedSubEvent : null}
+                eventDateId={null}
                 eventStatus={event.status}
                 sessionId={selectedSessionId}
               />
