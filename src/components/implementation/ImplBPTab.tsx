@@ -712,7 +712,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
 
     return lines;
-  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher]);
+  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher, rateioDescriptions, allEvents, selectedEventId]);
 
   // Stats
   const totalMatched = matchedLines.filter((l) => l.match && l.idx >= 0).length;
