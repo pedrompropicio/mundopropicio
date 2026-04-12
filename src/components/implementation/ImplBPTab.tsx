@@ -1203,6 +1203,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           )}
                         </TableCell>
                         <TableCell>
+                          {isRateio ? (
+                            <span className="text-xs text-muted-foreground italic">Bloqueado</span>
+                          ) : (
                           <div className="flex items-center gap-1">
                             {/* Source row actions */}
                             {line.idx >= 0 && !isEditingSource && !isEditing && (
