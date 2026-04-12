@@ -89,6 +89,7 @@ interface ApportionmentSuggestion {
   sheets: string[];
   rowsBySheet: Record<string, number>;
   avgAmount: number;
+  avgIvaRate: number;
   promoteToMaster: boolean;
   /** Editable category ID for the consolidated Master line */
   categoryId: string;
@@ -303,6 +304,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           sheets: sheetNames,
           rowsBySheet: matches,
           avgAmount: candidate.row.baseAmount,
+          avgIvaRate: candidate.row.ivaRate,
           promoteToMaster: true,
           categoryId: "",
         });
@@ -465,7 +467,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
   // Matched lines totals (file side and app side)
   const compFileTotal = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.baseAmount, 0);
+  const compFileTotalIva = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.ivaAmount, 0);
+  const compFileTotalGross = compFileTotal + compFileTotalIva;
   const compAppTotal = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount), 0);
+
+  // Set of normalized descriptions that were promoted to master (rateio)
+  const rateioDescriptions = useMemo(() => {
+    if (masterSheetRows.length === 0) return new Set<string>();
+    return new Set(masterSheetRows.map(r => norm(r.description)));
+  }, [masterSheetRows]);
 
   const updateForecast = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
@@ -654,19 +664,19 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           <>
             <span className="text-muted-foreground">{fileLineCount} linhas interpretadas</span>
             {originalFileTotal && (
-              <span className="text-muted-foreground border-l pl-4 ml-2">
-                Total no Excel <span className="text-[10px]">(linha {originalFileTotal.rowIdx})</span>: <span className="font-semibold text-foreground">{fmtMoney(originalFileTotal.total)}</span>
-              </span>
-            )}
-            <span className="text-muted-foreground">
-              Total Interpretado: <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
-              {fileTotalIva > 0 && <span className="ml-1 text-xs">(+IVA {fmtMoney(fileTotalIva)} = {fmtMoney(fileTotalGross)})</span>}
-            </span>
-            {originalFileTotal && Math.abs(originalFileTotal.total - fileTotalBase) > 0.5 && (
-              <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
-                <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(originalFileTotal.total - fileTotalBase))}
-              </Badge>
-            )}
+               <span className="text-muted-foreground border-l pl-4 ml-2">
+                 Total no Excel <span className="text-[10px]">(linha {originalFileTotal.rowIdx})</span>: <span className="font-semibold text-foreground">{fmtMoney(originalFileTotal.total)}</span>
+               </span>
+             )}
+             <span className="text-muted-foreground">
+               Total Interpretado: <span className="font-semibold text-foreground">{fmtMoney(fileTotalGross)}</span>
+               <span className="ml-1 text-xs">(Base {fmtMoney(fileTotalBase)} + IVA {fmtMoney(fileTotalIva)})</span>
+             </span>
+             {originalFileTotal && Math.abs(originalFileTotal.total - fileTotalGross) > 0.5 && (
+               <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
+                 <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(originalFileTotal.total - fileTotalGross))}
+               </Badge>
+             )}
             {!originalFileTotal && Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)) > 0.5 && (
               <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
                 <AlertTriangle className="h-3 w-3" /> Divergência bruto vs base+IVA: {fmtMoney(Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)))}
@@ -827,35 +837,47 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     {/* Detail table: one row per sheet */}
                     <div className="ml-7 rounded-md border overflow-hidden">
                       <Table>
-                        <TableHeader>
+                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sheetDetails.map(({ sheetName, row, targetEvent }) => (
-                            <TableRow key={sheetName}>
-                              <TableCell className="text-xs py-1.5">
-                                <div>
-                                  <span className="font-medium">{sheetName}</span>
-                                  {targetEvent && (
-                                    <span className="block text-[10px] text-muted-foreground">→ {targetEvent.name}</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-xs py-1.5">{row?.description || "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-muted-foreground">{row?.specification || "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.baseAmount) : "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
+                             <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto">Categoria</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
+                           </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                           {sheetDetails.map(({ sheetName, row, targetEvent }) => {
+                             // Try to find matching forecast category for this row
+                             const mapping = sheetMappings?.find(m => m.sheetName === sheetName);
+                             const targetEventId = mapping?.targetType === "event" ? mapping.targetId : null;
+                             return (
+                             <TableRow key={sheetName}>
+                               <TableCell className="text-xs py-1.5">
+                                 <div>
+                                   <span className="font-medium">{sheetName}</span>
+                                   {targetEvent && (
+                                     <span className="block text-[10px] text-muted-foreground">→ {targetEvent.name}</span>
+                                   )}
+                                 </div>
+                               </TableCell>
+                               <TableCell className="text-xs py-1.5">{row?.description || "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-muted-foreground">{row?.specification || "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-muted-foreground">
+                                 {s.categoryId ? (() => {
+                                   const cat = leafCategories.find(c => c.id === s.categoryId);
+                                   return cat ? `${cat.code} ${cat.name}` : "—";
+                                 })() : "—"}
+                               </TableCell>
+                               <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.baseAmount) : "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
+                             </TableRow>
+                             );
+                           })}
+                         </TableBody>
                       </Table>
                     </div>
 
@@ -1051,14 +1073,16 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     const hasDivergence = line.divergences.length > 0 && line.match && line.idx >= 0;
                     const noMatch = !line.match && line.idx >= 0;
                     const onlyApp = line.idx < 0;
-                    const isEditing = line.match && editingId === line.match.id;
-                    const isEditingSource = line.idx >= 0 && editingSourceIdx === line.idx;
+                    const isRateio = line.idx >= 0 && rateioDescriptions.has(norm(line.source.description));
+                    const isEditing = !isRateio && line.match && editingId === line.match.id;
+                    const isEditingSource = !isRateio && line.idx >= 0 && editingSourceIdx === line.idx;
                     const cat = line.match?.account_categories;
 
                     return (
                       <React.Fragment key={`${line.idx}-${line.match?.id || i}`}>
                       <TableRow
                         className={`cursor-pointer ${
+                          isRateio ? "bg-primary/10 opacity-75" :
                           noMatch ? "bg-red-500/5" :
                           onlyApp ? "bg-blue-500/5" :
                           hasDivergence ? "bg-amber-500/5" :
@@ -1085,6 +1109,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </div>
                             ) : (
                               <div>
+                                {isRateio && <Badge variant="outline" className="text-[10px] mb-0.5 border-primary/50 text-primary"><GitMerge className="h-2.5 w-2.5 mr-1" />Rateio</Badge>}
                                 <span>{line.source.description}</span>
                                 {line.source.specification && (
                                   <span className="block text-xs text-muted-foreground">{line.source.specification}</span>
@@ -1178,6 +1203,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           )}
                         </TableCell>
                         <TableCell>
+                          {isRateio ? (
+                            <span className="text-xs text-muted-foreground italic">Bloqueado</span>
+                          ) : (
                           <div className="flex items-center gap-1">
                             {/* Source row actions */}
                             {line.idx >= 0 && !isEditingSource && !isEditing && (
@@ -1226,6 +1254,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </Button>
                             )}
                           </div>
+                          )}
                         </TableCell>
                       </TableRow>
                       {/* Expandable raw Excel values row */}
@@ -1278,17 +1307,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado ({fileLineCount} linhas)</TableCell>
                         <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
                         <TableCell className="border-r bg-muted/30 text-right text-xs">
-                          {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
+                          {compFileTotalIva > 0 && fmtMoney(compFileTotalIva)}
                         </TableCell>
                         <TableCell className="text-sm">Total no App</TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
                         <TableCell></TableCell>
                         <TableCell></TableCell>
                         <TableCell>
-                          {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotal) > 0.5 ? (
-                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel vs Interpretado: ${fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}`}>
+                          {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotalGross) > 0.5 ? (
+                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel (${fmtMoney(originalFileTotal.total)}) vs Interpretado c/ IVA (${fmtMoney(compFileTotalGross)})`}>
                               <AlertTriangle className="h-4 w-4 inline mr-1" />
-                              {fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}
+                              {fmtMoney(Math.abs(originalFileTotal.total - compFileTotalGross))}
                             </span>
                           ) : Math.abs(compFileTotal - compAppTotal) > 0.01 ? (
                             <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
