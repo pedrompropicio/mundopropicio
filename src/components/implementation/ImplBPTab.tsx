@@ -1300,7 +1300,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           <TableCell className="text-[10px] text-muted-foreground text-center align-top py-2">
                             <Eye className="h-3 w-3 mx-auto" />
                           </TableCell>
-                          <TableCell colSpan={9} className="py-2">
+                          <TableCell colSpan={10} className="py-2">
                             <div className="text-xs space-y-0.5">
                               <p className="font-semibold text-muted-foreground mb-1">Valores originais do Excel (Linha {line.source.excelRow}):</p>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
