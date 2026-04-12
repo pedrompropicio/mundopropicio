@@ -1117,26 +1117,49 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     );
                   })}
                   {matchedLines.length > 0 && (
-                    <TableRow className="bg-muted/50 font-semibold border-t-2">
-                      <TableCell className="text-xs">{fileLineCount}</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-right text-xs">
-                        {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
-                      </TableCell>
-                      <TableCell className="text-sm">Total no App</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell>
-                        {Math.abs(compFileTotal - compAppTotal) > 0.01 && (
-                          <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
-                            <AlertTriangle className="h-4 w-4" />
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
+                    <>
+                      {/* Original Excel total row */}
+                      {originalFileTotal && (
+                        <TableRow className="bg-muted/30 border-t-2">
+                          <TableCell className="text-xs text-muted-foreground">{originalFileTotal.rowIdx}</TableCell>
+                          <TableCell colSpan={3} className="border-r bg-muted/20 text-sm font-semibold">
+                            Total no Excel (linha original)
+                          </TableCell>
+                          <TableCell colSpan={2} className="text-right font-mono text-sm font-semibold">
+                            {fmtMoney(originalFileTotal.total)}
+                          </TableCell>
+                          <TableCell colSpan={4}></TableCell>
+                        </TableRow>
+                      )}
+                      {/* Interpreted total row */}
+                      <TableRow className={`bg-muted/50 font-semibold ${originalFileTotal ? "" : "border-t-2"}`}>
+                        <TableCell className="text-xs">{fileLineCount}</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado ({fileLineCount} linhas)</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-right text-xs">
+                          {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
+                        </TableCell>
+                        <TableCell className="text-sm">Total no App</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                        <TableCell>
+                          {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotal) > 0.5 ? (
+                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel vs Interpretado: ${fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}`}>
+                              <AlertTriangle className="h-4 w-4 inline mr-1" />
+                              {fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}
+                            </span>
+                          ) : Math.abs(compFileTotal - compAppTotal) > 0.01 ? (
+                            <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
+                              <AlertTriangle className="h-4 w-4" />
+                            </span>
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          )}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    </>
                   )}
                 </TableBody>
               </Table>
