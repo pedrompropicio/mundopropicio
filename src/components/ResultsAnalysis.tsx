@@ -99,8 +99,26 @@ export function ResultsAnalysis() {
     },
   });
 
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["ra_ticket_lots"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_lots")
+        .select("id, quantity, price, zone_id, event_ticket_zones(event_id)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { completed, active, yearTotals } = useMemo(() => {
     // Build maps
+    // Projected revenue from ticket lots (capacity × price)
+    const lotRevenueMap: Record<string, number> = {};
+    ticketLots.forEach((lot: any) => {
+      const eventId = lot.event_ticket_zones?.event_id;
+      if (!eventId) return;
+      lotRevenueMap[eventId] = (lotRevenueMap[eventId] || 0) + Number(lot.quantity) * Number(lot.price);
+    });
     const txnMap: Record<string, { income: number; expense: number }> = {};
     transactions.forEach((t: any) => {
       if (!t.event_id || t.is_transitory || t.exclude_from_result) return;
@@ -165,7 +183,7 @@ export function ResultsAnalysis() {
           hasPartners: totalPartnerPct > 0,
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        const bpIncome = forecastMap[e.id]?.income ?? 0;
+        const bpIncome = lotRevenueMap[e.id] ?? 0;
         const bpExpense = forecastMap[e.id]?.expense ?? 0;
         const margin100 = bpIncome - bpExpense;
         const margin80 = bpIncome * 0.8 - bpExpense;
@@ -200,7 +218,7 @@ export function ResultsAnalysis() {
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, currentYear]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, currentYear]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
