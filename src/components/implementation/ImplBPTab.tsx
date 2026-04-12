@@ -754,6 +754,58 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             </div>
           </CardContent>
         </Card>
+      ) : viewMode === "raw" && parsedSheets ? (
+        /* Raw Excel preview */
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+              {(() => {
+                const raw = rawSheetData[selectedSheet];
+                if (!raw || raw.length === 0) return <p className="p-6 text-muted-foreground text-center">Sem dados na aba selecionada</p>;
+                const maxCols = raw.reduce((m, r) => Math.max(m, r.length), 0);
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8 sticky top-0 bg-background z-10">#</TableHead>
+                        {Array.from({ length: maxCols }, (_, i) => (
+                          <TableHead key={i} className="sticky top-0 bg-background z-10 text-xs min-w-[80px]">
+                            {String.fromCharCode(65 + (i % 26))}{i >= 26 ? String.fromCharCode(65 + Math.floor(i / 26) - 1) : ""}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {raw.map((row, ri) => {
+                        const isEmpty = row.every((c: any) => String(c ?? "").trim() === "");
+                        if (isEmpty && ri > 0) return null;
+                        return (
+                          <TableRow key={ri} className={ri === 0 ? "bg-muted/30 font-medium" : ""}>
+                            <TableCell className="text-xs text-muted-foreground font-mono">{ri + 1}</TableCell>
+                            {Array.from({ length: maxCols }, (_, ci) => {
+                              const val = String(row[ci] ?? "");
+                              const isNumber = val && !isNaN(Number(val.replace(",", "."))) && val.trim() !== "";
+                              const hasError = val.includes("#REF") || val.includes("#VALUE") || val.includes("#N/A") || val.includes("#DIV");
+                              return (
+                                <TableCell
+                                  key={ci}
+                                  className={`text-xs py-1.5 px-2 ${isNumber ? "text-right font-mono" : ""} ${hasError ? "text-destructive font-semibold" : ""}`}
+                                  title={val.length > 30 ? val : undefined}
+                                >
+                                  {val.length > 40 ? val.substring(0, 37) + "…" : val}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         /* App-only view (original) */
         <Card>
