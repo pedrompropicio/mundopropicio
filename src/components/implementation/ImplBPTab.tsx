@@ -472,7 +472,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", masterEvent.id)
         .eq("type", "expense");
-      existingMasterForecasts = data || [];
+      existingMasterForecasts = (data || []).filter((f: any) => f.formula_type !== "cache_module");
     }
 
     // Build row lists per sheet with category info
@@ -664,6 +664,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const masterEvent = allEvents.find(e => !e.parent_event_id);
     const isCitySheet = masterEvent && selectedEventId !== masterEvent.id;
 
+    // Exclude auto-calculated cache forecasts from comparison (they don't come from the file)
+    const comparableForecasts = forecasts.filter((f: any) => f.formula_type !== "cache_module");
+
     const usedForecastIds = new Set<string>();
     const lines: MatchedLine[] = [];
 
@@ -678,7 +681,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       let bestScore = 0;
       let bestDivergences: string[] = [];
 
-      for (const f of forecasts) {
+      for (const f of comparableForecasts) {
         if (usedForecastIds.has(f.id)) continue;
         const { score, divergences } = matchScore(row, f);
         if (score > bestScore) {
@@ -704,7 +707,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
 
     // Add unmatched forecasts
-    for (const f of forecasts) {
+    for (const f of comparableForecasts) {
       if (!usedForecastIds.has(f.id)) {
         lines.push({
           idx: -1,
