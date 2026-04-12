@@ -212,7 +212,25 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     </>
   );
 
-  // Fetch import batches from audit log for all events in this implementation
+  const openCategoryModal = (callback: (catId: string) => void) => {
+    setCategoryModalCallback(() => callback);
+    setShowCategoryModal(true);
+  };
+
+  const renderAddCategoryButton = (onCreated: (catId: string) => void) => {
+    if (!isAdmin) return null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); openCategoryModal(onCreated); }}
+        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+        title="Nova conta"
+      >
+        <Plus className="h-3 w-3" /> Nova
+      </button>
+    );
+  };
+
   const allEventIds = allEvents.map(e => e.id);
 
   // Fetch expense forecast counts per event to detect already-imported events
