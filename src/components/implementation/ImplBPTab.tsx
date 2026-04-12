@@ -158,6 +158,49 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     (c) => !categories.some((other) => other.parent_id === c.id)
   );
 
+  // Build hierarchical category list: L1 > L2 > L3 (only L3 selectable)
+  const hierarchicalCategoryItems = useMemo(() => {
+    if (categories.length === 0) return [];
+    const expenseCategories = categories.filter(c => c.type === "expense");
+    const l1 = expenseCategories.filter(c => !c.parent_id).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+    const items: { id: string; code: string; name: string; level: number; isLeaf: boolean }[] = [];
+    for (const cat1 of l1) {
+      items.push({ id: cat1.id, code: cat1.code, name: cat1.name, level: 1, isLeaf: false });
+      const l2 = expenseCategories.filter(c => c.parent_id === cat1.id).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+      for (const cat2 of l2) {
+        const children = expenseCategories.filter(c => c.parent_id === cat2.id);
+        const isL2Leaf = children.length === 0;
+        items.push({ id: cat2.id, code: cat2.code, name: cat2.name, level: 2, isLeaf: isL2Leaf });
+        if (!isL2Leaf) {
+          const l3 = children.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+          for (const cat3 of l3) {
+            items.push({ id: cat3.id, code: cat3.code, name: cat3.name, level: 3, isLeaf: true });
+          }
+        }
+      }
+    }
+    return items;
+  }, [categories]);
+
+  const renderCategoryOptions = () => (
+    <>
+      {hierarchicalCategoryItems.map((item) => {
+        if (!item.isLeaf) {
+          return (
+            <div key={item.id} className={`px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide ${item.level === 2 ? "pl-4" : ""}`}>
+              {item.code} {item.name}
+            </div>
+          );
+        }
+        return (
+          <SelectItem key={item.id} value={item.id} className={item.level === 3 ? "pl-8 text-xs" : item.level === 2 ? "pl-4 text-xs" : "text-xs"}>
+            {item.code} {item.name}
+          </SelectItem>
+        );
+      })}
+    </>
+  );
+
   // Fetch import batches from audit log for all events in this implementation
   const allEventIds = allEvents.map(e => e.id);
 
@@ -1548,10 +1591,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <SelectTrigger className="h-7 w-72 text-xs">
                           <SelectValue placeholder="Selecionar categoria…" />
                         </SelectTrigger>
-                        <SelectContent>
-                          {leafCategories.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>
-                          ))}
+                        <SelectContent className="max-h-72">
+                          {renderCategoryOptions()}
                         </SelectContent>
                       </Select>
                       {!s.categoryId && (
@@ -1817,9 +1858,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 <SelectTrigger className="h-7 w-44 text-xs">
                                   <SelectValue placeholder="Sem cat." />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  {leafCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>)}
-                                </SelectContent>
+                                 <SelectContent className="max-h-72">
+                                   {renderCategoryOptions()}
+                                 </SelectContent>
                               </Select>
                             );
                           })() : "—"}
@@ -1865,9 +1906,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             isEditing ? (
                               <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
                                 <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
-                                <SelectContent>
-                                  {leafCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>)}
-                                </SelectContent>
+                                 <SelectContent className="max-h-72">
+                                   {renderCategoryOptions()}
+                                 </SelectContent>
                               </Select>
                             ) : cat ? (
                               <span>{cat.code} {cat.name}</span>
@@ -2142,9 +2183,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           {isEditing ? (
                             <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
                               <SelectTrigger className="h-7 w-48 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
-                              <SelectContent>
-                                {leafCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>)}
-                              </SelectContent>
+                               <SelectContent className="max-h-72">
+                                 {renderCategoryOptions()}
+                               </SelectContent>
                             </Select>
                           ) : (
                             <span className="text-xs">
