@@ -715,6 +715,26 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       </TableRow>
                     );
                   })}
+                  {matchedLines.length > 0 && (
+                    <TableRow className="bg-muted/50 font-semibold border-t-2">
+                      <TableCell className="text-xs">{fileLineCount}</TableCell>
+                      <TableCell className="border-r bg-muted/30 text-sm">Total do Ficheiro</TableCell>
+                      <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
+                      <TableCell className="border-r bg-muted/30"></TableCell>
+                      <TableCell className="text-sm">Total no App</TableCell>
+                      <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell>
+                        {Math.abs(compFileTotal - compAppTotal) > 0.01 && (
+                          <span className="text-xs text-amber-600" title={`Diferença: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
+                            <AlertTriangle className="h-4 w-4" />
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
