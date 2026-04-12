@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown } from "lucide-react";
+import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown, Plus } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
 import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
+import CategoryFormModal from "@/components/CategoryFormModal";
+import { useAuth } from "@/contexts/AuthContext";
 import * as XLSX from "xlsx";
 
 interface Props {
@@ -106,6 +108,7 @@ interface ApportionmentSuggestion {
 
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
   const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -127,6 +130,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [showImportHistory, setShowImportHistory] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [importedSheets, setImportedSheets] = useState<Set<string>>(new Set());
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryModalCallback, setCategoryModalCallback] = useState<((catId: string) => void) | null>(null);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
@@ -207,7 +212,25 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     </>
   );
 
-  // Fetch import batches from audit log for all events in this implementation
+  const openCategoryModal = (callback: (catId: string) => void) => {
+    setCategoryModalCallback(() => callback);
+    setShowCategoryModal(true);
+  };
+
+  const renderAddCategoryButton = (onCreated: (catId: string) => void) => {
+    if (!isAdmin) return null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); openCategoryModal(onCreated); }}
+        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+        title="Nova conta"
+      >
+        <Plus className="h-3 w-3" /> Nova
+      </button>
+    );
+  };
+
   const allEventIds = allEvents.map(e => e.id);
 
   // Fetch expense forecast counts per event to detect already-imported events
@@ -1868,6 +1891,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           {renderCategoryOptions()}
                         </SelectContent>
                       </Select>
+                      {renderAddCategoryButton((catId) => {
+                        const updated = [...apportionmentSuggestions];
+                        updated[idx] = { ...updated[idx], categoryId: catId };
+                        setApportionmentSuggestions(updated);
+                      })}
                       {!s.categoryId && (
                         <span className="text-xs text-amber-500 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" /> Sem categoria
@@ -2079,6 +2107,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 {renderCategoryOptions()}
                               </SelectContent>
                             </Select>
+                            {renderAddCategoryButton((catId) => {
+                              const updated = [...apportionmentSuggestions];
+                              const sIdx = updated.findIndex(s => norm(s.description) === norm(row.description));
+                              if (sIdx >= 0) {
+                                updated[sIdx] = { ...updated[sIdx], categoryId: catId };
+                                setApportionmentSuggestions(updated);
+                              }
+                            })}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -2306,17 +2342,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               ) : <span className="text-muted-foreground">—</span>;
                             }
                             return (
-                              <Select
-                                value={currentCatId}
-                                onValueChange={(v) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: v }))}
-                              >
-                                <SelectTrigger className="h-7 w-44 text-xs">
-                                  <SelectValue placeholder="Sem cat." />
-                                </SelectTrigger>
-                                 <SelectContent className="max-h-72">
-                                   {renderCategoryOptions()}
-                                 </SelectContent>
-                              </Select>
+                              <div className="flex items-center gap-1">
+                                <Select
+                                  value={currentCatId}
+                                  onValueChange={(v) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: v }))}
+                                >
+                                  <SelectTrigger className="h-7 w-44 text-xs">
+                                    <SelectValue placeholder="Sem cat." />
+                                  </SelectTrigger>
+                                   <SelectContent className="max-h-72">
+                                     {renderCategoryOptions()}
+                                   </SelectContent>
+                                </Select>
+                                {renderAddCategoryButton((catId) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: catId })))}
+                              </div>
                             );
                           })() : "—"}
                         </TableCell>
@@ -2359,12 +2398,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell className="text-xs">
                           {line.match ? (
                             isEditing ? (
-                              <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
-                                <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
-                                 <SelectContent className="max-h-72">
-                                   {renderCategoryOptions()}
-                                 </SelectContent>
-                              </Select>
+                              <div className="flex items-center gap-1">
+                                <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
+                                  <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
+                                   <SelectContent className="max-h-72">
+                                     {renderCategoryOptions()}
+                                   </SelectContent>
+                                </Select>
+                                {renderAddCategoryButton((catId) => setEditValues((prev: any) => ({ ...prev, category_id: catId })))}
+                              </div>
                             ) : cat ? (
                               <span>{cat.code} {cat.name}</span>
                             ) : (
@@ -2636,12 +2678,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         </TableCell>
                         <TableCell>
                           {isEditing ? (
-                            <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
-                              <SelectTrigger className="h-7 w-48 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
-                               <SelectContent className="max-h-72">
-                                 {renderCategoryOptions()}
-                               </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-1">
+                              <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
+                                <SelectTrigger className="h-7 w-48 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
+                                 <SelectContent className="max-h-72">
+                                   {renderCategoryOptions()}
+                                 </SelectContent>
+                              </Select>
+                              {renderAddCategoryButton((catId) => setEditValues((prev: any) => ({ ...prev, category_id: catId })))}
+                            </div>
                           ) : (
                             <span className="text-xs">
                               {cat ? `${cat.code} ${cat.name}` : <span className="text-amber-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Sem cat.</span>}
@@ -2703,6 +2748,16 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           </CardContent>
         </Card>
       )}
+      {/* Category Create Modal */}
+      <CategoryFormModal
+        open={showCategoryModal}
+        onOpenChange={setShowCategoryModal}
+        defaultType="expense"
+        onSuccess={(catId) => {
+          categoryModalCallback?.(catId);
+          setCategoryModalCallback(null);
+        }}
+      />
     </div>
   );
 }

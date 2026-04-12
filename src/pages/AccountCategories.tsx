@@ -3,14 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, ToggleLeft, ToggleRight, ChevronRight, ChevronDown, Pencil, Trash2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import CategoryFormModal from "@/components/CategoryFormModal";
 
 interface Category {
   id: string;
@@ -26,21 +24,17 @@ interface Category {
 function compareCategoryCodes(a: string, b: string) {
   const partsA = a.split(".").map(Number);
   const partsB = b.split(".").map(Number);
-
   for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
     const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
     if (diff !== 0) return diff;
   }
-
   return 0;
 }
 
 function buildTree(categories: Category[]): Category[] {
   const map = new Map<string, Category>();
   const roots: Category[] = [];
-
   categories.forEach((c) => map.set(c.id, { ...c, children: [] }));
-
   categories.forEach((c) => {
     const node = map.get(c.id)!;
     if (c.parent_id && map.has(c.parent_id)) {
@@ -49,36 +43,23 @@ function buildTree(categories: Category[]): Category[] {
       roots.push(node);
     }
   });
-
   const sortNodes = (nodes: Category[]) => {
     nodes.sort((a, b) => compareCategoryCodes(a.code, b.code));
     nodes.forEach((node) => {
       if (node.children?.length) sortNodes(node.children);
     });
   };
-
   sortNodes(roots);
   return roots;
 }
 
 function CategoryRow({
-  cat,
-  level,
-  isAdmin,
-  toggleActive,
-  onEdit,
-  onDelete,
-  expanded,
-  onToggleExpand,
+  cat, level, isAdmin, toggleActive, onEdit, onDelete, expanded, onToggleExpand,
 }: {
-  cat: Category;
-  level: number;
-  isAdmin: boolean;
+  cat: Category; level: number; isAdmin: boolean;
   toggleActive: (args: { id: string; is_active: boolean }) => void;
-  onEdit: (cat: Category) => void;
-  onDelete: (cat: Category) => void;
-  expanded: Set<string>;
-  onToggleExpand: (id: string) => void;
+  onEdit: (cat: Category) => void; onDelete: (cat: Category) => void;
+  expanded: Set<string>; onToggleExpand: (id: string) => void;
 }) {
   const hasChildren = cat.children && cat.children.length > 0;
   const isExpanded = expanded.has(cat.id);
@@ -91,10 +72,7 @@ function CategoryRow({
         <td className="py-2.5 pr-4" style={{ paddingLeft: `${indent + 12}px` }}>
           <div className="flex items-center gap-1.5">
             {hasChildren ? (
-              <button
-                onClick={() => onToggleExpand(cat.id)}
-                className="rounded p-0.5 hover:bg-secondary text-muted-foreground"
-              >
+              <button onClick={() => onToggleExpand(cat.id)} className="rounded p-0.5 hover:bg-secondary text-muted-foreground">
                 {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
             ) : (
@@ -126,29 +104,17 @@ function CategoryRow({
         <td className="py-2.5 text-center">
           <div className="flex items-center justify-center gap-1">
             {isLeaf && (
-              <button
-                onClick={() => toggleActive({ id: cat.id, is_active: !cat.is_active })}
-                className="rounded p-1 hover:bg-secondary text-muted-foreground"
-                title={cat.is_active ? "Desativar" : "Ativar"}
-              >
+              <button onClick={() => toggleActive({ id: cat.id, is_active: !cat.is_active })} className="rounded p-1 hover:bg-secondary text-muted-foreground" title={cat.is_active ? "Desativar" : "Ativar"}>
                 {cat.is_active ? <ToggleRight className="h-4 w-4 text-success" /> : <ToggleLeft className="h-4 w-4" />}
               </button>
             )}
             {isAdmin && (
               <>
-                <button
-                  onClick={() => onEdit(cat)}
-                  className="rounded p-1 hover:bg-secondary text-muted-foreground"
-                  title="Editar"
-                >
+                <button onClick={() => onEdit(cat)} className="rounded p-1 hover:bg-secondary text-muted-foreground" title="Editar">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 {isLeaf && (
-                  <button
-                    onClick={() => onDelete(cat)}
-                    className="rounded p-1 hover:bg-secondary text-destructive/70 hover:text-destructive"
-                    title="Excluir"
-                  >
+                  <button onClick={() => onDelete(cat)} className="rounded p-1 hover:bg-secondary text-destructive/70 hover:text-destructive" title="Excluir">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -159,17 +125,7 @@ function CategoryRow({
       </tr>
       {hasChildren && isExpanded &&
         cat.children!.map((child) => (
-          <CategoryRow
-            key={child.id}
-            cat={child}
-            level={level + 1}
-            isAdmin={isAdmin}
-            toggleActive={toggleActive}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            expanded={expanded}
-            onToggleExpand={onToggleExpand}
-          />
+          <CategoryRow key={child.id} cat={child} level={level + 1} isAdmin={isAdmin} toggleActive={toggleActive} onEdit={onEdit} onDelete={onDelete} expanded={expanded} onToggleExpand={onToggleExpand} />
         ))
       }
     </>
@@ -201,7 +157,6 @@ export default function AccountCategories() {
     return buildTree(filtered as Category[]);
   }, [categories, typeFilter]);
 
-  // Auto-expand all on first load
   useMemo(() => {
     if (categories.length > 0 && expanded.size === 0) {
       const allIds = new Set(categories.filter((c) => c.parent_id === null || categories.some((child) => child.parent_id === c.id)).map((c) => c.id));
@@ -209,53 +164,14 @@ export default function AccountCategories() {
     }
   }, [categories]);
 
-  const createMutation = useMutation({
-    mutationFn: async (cat: { code: string; name: string; type: string; parent_id?: string; event_required?: boolean }) => {
-      const { error } = await supabase.from("account_categories").insert({
-        code: cat.code,
-        name: cat.name,
-        type: cat.type,
-        parent_id: cat.parent_id || null,
-        event_required: cat.event_required ?? true,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidate();
-      setIsOpen(false);
-      toast.success("Conta criada com sucesso");
-    },
-    onError: () => toast.error("Erro ao criar conta"),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, code, name, event_required }: { id: string; code: string; name: string; event_required?: boolean }) => {
-      const updateData: any = { code, name };
-      if (event_required !== undefined) updateData.event_required = event_required;
-      const { error } = await supabase.from("account_categories").update(updateData).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidate();
-      setEditingCat(null);
-      toast.success("Conta atualizada com sucesso");
-    },
-    onError: () => toast.error("Erro ao atualizar conta"),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // First nullify any transaction/forecast references
       await supabase.from("transactions").update({ category_id: null }).eq("category_id", id);
       await supabase.from("event_forecasts").update({ category_id: null }).eq("category_id", id);
       const { error } = await supabase.from("account_categories").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidate();
-      setDeletingCat(null);
-      toast.success("Conta excluída com sucesso");
-    },
+    onSuccess: () => { invalidate(); setDeletingCat(null); toast.success("Conta excluída com sucesso"); },
     onError: (err: any) => toast.error("Erro ao excluir conta", { description: err.message }),
   });
 
@@ -283,40 +199,6 @@ export default function AccountCategories() {
   const expenseCount = categories.filter((c) => c.type === "expense").length;
   const leafCount = categories.filter((c) => !categories.some((child) => child.parent_id === c.id)).length;
 
-  const parentOptions = categories.filter((c) => {
-    const depth = c.code.split(".").length;
-    return depth <= 2;
-  });
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const parentId = fd.get("parent_id") as string;
-    const isRoot = !parentId;
-    createMutation.mutate({
-      code: fd.get("code") as string,
-      name: fd.get("name") as string,
-      type: fd.get("type") as string,
-      parent_id: parentId || undefined,
-      event_required: isRoot ? fd.get("event_required") === "on" : true,
-    });
-  };
-
-  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!editingCat) return;
-    const fd = new FormData(e.currentTarget);
-    const isRoot = !editingCat.parent_id;
-    updateMutation.mutate({
-      id: editingCat.id,
-      code: fd.get("code") as string,
-      name: fd.get("name") as string,
-      ...(isRoot ? {
-        event_required: fd.get("edit_event_required") === "on",
-      } : {}),
-    });
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -325,65 +207,12 @@ export default function AccountCategories() {
           <p className="text-sm text-muted-foreground">Estrutura hierárquica de 3 níveis · {leafCount} contas de detalhe</p>
         </div>
         {isAdmin && (
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary">
-                <Plus className="h-4 w-4" /> Nova Conta
-              </button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Nova Conta</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="code">Código *</Label>
-                    <Input id="code" name="code" placeholder="2.3.05" required />
-                  </div>
-                  <div className="col-span-2 grid gap-2">
-                    <Label htmlFor="name">Descrição *</Label>
-                    <Input id="name" name="name" required />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Tipo *</Label>
-                    <Select name="type" required>
-                      <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="income">Receita</SelectItem>
-                        <SelectItem value="expense">Despesa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Conta-Pai</Label>
-                    <Select name="parent_id">
-                      <SelectTrigger><SelectValue placeholder="Nenhuma (raiz)" /></SelectTrigger>
-                      <SelectContent>
-                        {parentOptions.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.code} {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2 rounded-lg border border-border/50 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (apenas para nível 1)</p>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="event_required" name="event_required" defaultChecked={true} className="rounded border-border" />
-                    <Label htmlFor="event_required" className="text-sm">Evento obrigatório</Label>
-                  </div>
-                </div>
-                <button type="submit" className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground">
-                  Criar Conta
-                </button>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <button
+            onClick={() => setIsOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground glow-primary"
+          >
+            <Plus className="h-4 w-4" /> Nova Conta
+          </button>
         )}
       </div>
 
@@ -464,44 +293,20 @@ export default function AccountCategories() {
         </div>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingCat} onOpenChange={(open) => !open && setEditingCat(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Conta</DialogTitle>
-          </DialogHeader>
-          {editingCat && (
-            <form onSubmit={handleEditSubmit} className="grid gap-4 py-2">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-code">Código *</Label>
-                  <Input id="edit-code" name="code" defaultValue={editingCat.code} required />
-                </div>
-                <div className="col-span-2 grid gap-2">
-                  <Label htmlFor="edit-name">Descrição *</Label>
-                  <Input id="edit-name" name="name" defaultValue={editingCat.name} required />
-                </div>
-              </div>
-              {!editingCat.parent_id && (
-                <div className="space-y-2 rounded-lg border border-border/50 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (nível 1)</p>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="edit_event_required" name="edit_event_required" defaultChecked={editingCat.event_required} className="rounded border-border" />
-                    <Label htmlFor="edit_event_required" className="text-sm">Evento obrigatório</Label>
-                  </div>
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={updateMutation.isPending}
-                className="mt-2 w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
-              >
-                {updateMutation.isPending ? "A guardar…" : "Guardar Alterações"}
-              </button>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Create Modal */}
+      <CategoryFormModal
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        onSuccess={() => invalidate()}
+      />
+
+      {/* Edit Modal */}
+      <CategoryFormModal
+        open={!!editingCat}
+        onOpenChange={(open) => !open && setEditingCat(null)}
+        editingCategory={editingCat}
+        onSuccess={() => invalidate()}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deletingCat} onOpenChange={(open) => !open && setDeletingCat(null)}>
