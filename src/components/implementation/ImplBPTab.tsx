@@ -1151,6 +1151,32 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             ) : `${line.source.ivaRate}%`
                           ) : "—"}
                         </TableCell>
+                        {/* Suggested category for source row */}
+                        <TableCell className="border-r bg-muted/10 text-xs">
+                          {line.idx >= 0 ? (() => {
+                            const key = `${selectedSheet}:${line.idx}`;
+                            const currentCatId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? "";
+                            const currentCat = currentCatId ? leafCategories.find(c => c.id === currentCatId) : null;
+                            if (isRateio) {
+                              return currentCat ? (
+                                <span className="text-muted-foreground">{currentCat.code} {currentCat.name}</span>
+                              ) : <span className="text-muted-foreground">—</span>;
+                            }
+                            return (
+                              <Select
+                                value={currentCatId}
+                                onValueChange={(v) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: v }))}
+                              >
+                                <SelectTrigger className="h-7 w-44 text-xs">
+                                  <SelectValue placeholder="Sem cat." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {leafCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })() : "—"}
+                        </TableCell>
 
                         {/* App columns */}
                         <TableCell className="text-sm max-w-48 truncate">
