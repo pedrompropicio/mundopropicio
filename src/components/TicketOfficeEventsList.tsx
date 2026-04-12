@@ -186,13 +186,16 @@ export function TicketOfficeEventsList({ officeId }: Props) {
             <TableHead>Evento</TableHead>
             <TableHead className="text-right">Receita</TableHead>
             <TableHead className="text-right">Despesas</TableHead>
-            <TableHead className="text-right">IVA</TableHead>
+            <TableHead className="text-right">IVA Rec.</TableHead>
+            <TableHead className="text-right">IVA Desp.</TableHead>
+            <TableHead className="text-right">Saldo IVA</TableHead>
             <TableHead className="w-8" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {events.map((ev: any) => {
-            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, iva: 0, qty: 0 };
+            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0 };
+            const ivaBalance = s.ivaRevenue - s.ivaExpenses;
             return (
               <TableRow
                 key={ev.id}
@@ -214,7 +217,13 @@ export function TicketOfficeEventsList({ officeId }: Props) {
                   <span className="text-sm font-mono text-red-400">{formatCurrency(s.expenses)}</span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className="text-sm font-mono text-muted-foreground">{formatCurrency(s.iva)}</span>
+                  <span className="text-sm font-mono text-muted-foreground">{formatCurrency(s.ivaRevenue)}</span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className="text-sm font-mono text-muted-foreground">{formatCurrency(s.ivaExpenses)}</span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className={`text-sm font-mono ${ivaBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>{formatCurrency(ivaBalance)}</span>
                 </TableCell>
                 <TableCell>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -222,7 +231,6 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               </TableRow>
             );
           })}
-          {/* Totals row */}
           <TableRow className="border-t-2 font-semibold bg-muted/30">
             <TableCell>
               <span className="text-sm">Total</span>
@@ -234,7 +242,13 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               <span className="text-sm font-mono text-red-400">{formatCurrency(totalExpenses)}</span>
             </TableCell>
             <TableCell className="text-right">
-              <span className="text-sm font-mono text-muted-foreground">{formatCurrency(totalIva)}</span>
+              <span className="text-sm font-mono text-muted-foreground">{formatCurrency(totalIvaRevenue)}</span>
+            </TableCell>
+            <TableCell className="text-right">
+              <span className="text-sm font-mono text-muted-foreground">{formatCurrency(totalIvaExpenses)}</span>
+            </TableCell>
+            <TableCell className="text-right">
+              <span className={`text-sm font-mono ${totalIvaBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>{formatCurrency(totalIvaBalance)}</span>
             </TableCell>
             <TableCell />
           </TableRow>
