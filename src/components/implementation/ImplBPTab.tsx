@@ -83,6 +83,19 @@ interface SheetMapping {
   autoMatched: boolean;
 }
 
+interface ApportionmentSuggestion {
+  description: string;
+  normalizedKey: string;
+  /** Sheet names where this item appears */
+  sheets: string[];
+  /** Row indices per sheet */
+  rowsBySheet: Record<string, number>;
+  /** Average base amount across sheets */
+  avgAmount: number;
+  /** Should go to Master */
+  promoteToMaster: boolean;
+}
+
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
