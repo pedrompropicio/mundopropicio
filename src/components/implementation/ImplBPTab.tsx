@@ -759,14 +759,110 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     if (!isMasterImport && (!parsedSheets || !selectedSheet || matchedLines.length === 0)) return;
     
     const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
-    const isNewImport = existingExpenses.length === 0;
+    const currentCount = (eventForecastCounts as Record<string, number>)[selectedEventId] ?? 0;
+    // If the event already has data, force sync mode (no full re-import allowed)
+    const isNewImport = existingExpenses.length === 0 && currentCount === 0;
     
     // Master-specific import flow
     if (isMasterImport) {
-      const currentCount = (eventForecastCounts as Record<string, number>)[selectedEventId] ?? 0;
-      const confirmMsg = currentCount > 0
-        ? `⚠️ O Master já possui ${currentCount} despesas.\n\nDeseja importar ${masterSheetRows.length} custos de rateio?`
-        : `Importar ${masterSheetRows.length} custos de rateio para o Master?`;
+      if (currentCount > 0) {
+        // Master already has data — use sync mode: update existing, create only new
+        const confirmMsg = `O Master já possui ${currentCount} despesas.\n\nSerá feita uma sincronização: linhas divergentes serão atualizadas e novas serão criadas. Linhas existentes sem alteração serão mantidas.`;
+        if (!confirm(confirmMsg)) return;
+
+        setImporting(true);
+        try {
+          const batchId = `bp-impl-${selectedEventId.substring(0, 8)}-${Date.now()}`;
+          const { data: userData } = await supabase.auth.getUser();
+          const changedBy = userData?.user?.user_metadata?.full_name ?? userData?.user?.email ?? "sistema";
+          let created = 0;
+          let updated = 0;
+          let skipped = 0;
+          const errors: string[] = [];
+
+          // Fetch existing master forecasts for matching
+          const { data: existingMasterForecasts } = await supabase
+            .from("event_forecasts")
+            .select("*, account_categories(code, name)")
+            .eq("event_id", selectedEventId)
+            .eq("type", "expense");
+
+          for (const row of masterSheetRows) {
+            const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));
+            const categoryId = suggestion?.categoryId || null;
+
+            // Try to find an existing forecast with same normalized description
+            const existing = (existingMasterForecasts || []).find(
+              (f: any) => norm(f.description) === norm(row.description)
+            );
+
+            if (existing) {
+              // Check for divergences
+              const amountDiff = Math.abs(Number(existing.amount) - row.baseAmount) > 0.01;
+              const ivaDiff = Number(existing.iva_rate) !== row.ivaRate;
+              const catDiff = categoryId && categoryId !== existing.category_id;
+
+              if (!amountDiff && !ivaDiff && !catDiff) {
+                skipped++;
+                continue;
+              }
+
+              // Update divergent fields
+              const updates: any = {};
+              if (amountDiff) updates.amount = row.baseAmount;
+              if (ivaDiff) updates.iva_rate = row.ivaRate;
+              if (catDiff) updates.category_id = categoryId;
+
+              const { error } = await supabase.from("event_forecasts").update(updates).eq("id", existing.id);
+              if (error) { errors.push(`"${row.description}": ${error.message}`); continue; }
+              updated++;
+
+              // Audit log
+              if (amountDiff) {
+                await supabase.from("forecast_audit_log").insert({
+                  forecast_id: existing.id, changed_by: changedBy, field_name: "amount",
+                  old_value: String(existing.amount), new_value: String(row.baseAmount),
+                  observation: `batch:${batchId} | ação:atualizar | master-sync`,
+                });
+              }
+            } else {
+              // Create new line
+              const { data: inserted, error } = await supabase.from("event_forecasts").insert({
+                event_id: selectedEventId, type: "expense" as const,
+                description: row.description, specification: row.specification,
+                amount: row.baseAmount, iva_rate: row.ivaRate,
+                category_id: categoryId, status: "draft",
+              }).select("id").single();
+              if (error) { errors.push(`"${row.description}": ${error.message}`); continue; }
+              created++;
+              await supabase.from("forecast_audit_log").insert({
+                forecast_id: inserted.id, changed_by: changedBy, field_name: "importação",
+                old_value: null, new_value: `${row.description} — ${row.baseAmount}€`,
+                observation: `batch:${batchId} | ação:criar | master-sync`,
+              });
+            }
+          }
+
+          const parts: string[] = [];
+          if (updated > 0) parts.push(`${updated} atualizadas`);
+          if (created > 0) parts.push(`${created} novas`);
+          if (skipped > 0) parts.push(`${skipped} sem alteração`);
+          if (errors.length > 0) parts.push(`${errors.length} erros`);
+          toast.success(`Sincronização Master: ${parts.join(", ")}`);
+          if (errors.length > 0) toast.error(`${errors.length} erro(s)`, { description: errors.slice(0, 3).join("; ") });
+          queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
+          queryClient.invalidateQueries({ queryKey: ["impl-forecast-counts"] });
+          refetchBatches();
+        } catch (err: any) {
+          toast.error("Erro na sincronização: " + err.message);
+        } finally {
+          setImporting(false);
+        }
+        return;
+      }
+
+      // Master with no existing data — full import
+      const confirmMsg = `Importar ${masterSheetRows.length} custos de rateio para o Master?`;
       if (!confirm(confirmMsg)) return;
       
       setImporting(true);
@@ -820,18 +916,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     // Check if this sheet was already imported in this session
     if (importedSheets.has(selectedSheet)) {
       const forceReimport = confirm(
-        `⚠️ A aba "${selectedSheet}" já foi importada nesta sessão.\n\nDeseja importar novamente? Isto pode causar duplicidade de dados.\n\nRecomenda-se utilizar "Sincronizar BP" apenas se houve alterações no ficheiro.`
+        `⚠️ A aba "${selectedSheet}" já foi importada nesta sessão.\n\nSerá feita uma sincronização: linhas divergentes serão atualizadas e novas serão criadas.`
       );
       if (!forceReimport) return;
     }
     
-    // Check if target event already has data in the database
-    const currentCount = (eventForecastCounts as Record<string, number>)[selectedEventId] ?? 0;
+    // Check if target event already has data in the database — force sync mode
     const confirmMsg = isNewImport
-      ? currentCount > 0
-        ? `⚠️ O evento já possui ${currentCount} despesas na base de dados.\n\nDeseja criar mais ${matchedLines.filter(l => l.idx >= 0).length} previsões? Isto pode gerar duplicidade.\n\nRecomenda-se verificar antes na aba "Apenas App".`
-        : `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
-      : `Sincronizar previsões com o ficheiro? Linhas divergentes serão atualizadas e novas serão criadas.`;
+      ? `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
+      : `O evento já possui ${currentCount} despesas.\n\nSerá feita uma sincronização: linhas divergentes serão atualizadas e novas serão criadas. Não serão criados duplicados.`;
     if (!confirm(confirmMsg)) return;
     
     setImporting(true);
