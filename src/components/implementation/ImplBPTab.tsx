@@ -360,12 +360,53 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const totalUnmatchedSource = matchedLines.filter((l) => !l.match && l.idx >= 0).length;
   const totalUnmatchedApp = matchedLines.filter((l) => l.idx < 0).length;
 
-  // File totals for current sheet
+  // File totals for current sheet (interpreted)
   const currentSheet = parsedSheets?.find((s) => s.sheetName === selectedSheet);
   const fileTotalBase = currentSheet?.rows.reduce((s, r) => s + r.baseAmount, 0) ?? 0;
   const fileTotalIva = currentSheet?.rows.reduce((s, r) => s + r.ivaAmount, 0) ?? 0;
   const fileTotalGross = currentSheet?.rows.reduce((s, r) => s + r.total, 0) ?? 0;
   const fileLineCount = currentSheet?.rows.length ?? 0;
+
+  // Original file total: extract from raw data "Total" row
+  const originalFileTotal = useMemo(() => {
+    if (!selectedSheet || !rawSheetData[selectedSheet]) return null;
+    const raw = rawSheetData[selectedSheet];
+    if (!raw || raw.length < 2) return null;
+
+    // Find header row to locate the "total" column
+    let headerIdx = -1;
+    let totalColIdx = -1;
+    let costColIdx = -1;
+    for (let i = 0; i < Math.min(raw.length, 15); i++) {
+      const row = raw[i].map((v: any) => norm(String(v || "")));
+      const hasDesc = row.some((c: string) => c.includes("descri"));
+      const hasCost = row.findIndex((c: string) => c.includes("custo") || c.includes("valor") || c.includes("base"));
+      const hasTotal = row.findIndex((c: string) => c.includes("total"));
+      if (hasDesc && (hasCost >= 0 || hasTotal >= 0)) {
+        headerIdx = i;
+        costColIdx = hasCost;
+        totalColIdx = hasTotal >= 0 ? hasTotal : hasCost;
+        break;
+      }
+    }
+    if (headerIdx < 0 || totalColIdx < 0) return null;
+
+    // Scan for rows starting with "total" (case insensitive) after header
+    for (let i = raw.length - 1; i > headerIdx; i--) {
+      const row = raw[i];
+      const desc = norm(String(row[0] ?? row[1] ?? ""));
+      // Check all cells in the row for "total" keyword
+      const hasTotal = row.some((c: any, ci: number) => ci <= 2 && norm(String(c || "")).startsWith("total"));
+      if (hasTotal) {
+        // Try total column first, then cost column
+        const valFromTotal = parseFloat(String(row[totalColIdx] ?? "").replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
+        const valFromCost = costColIdx >= 0 ? parseFloat(String(row[costColIdx] ?? "").replace(/[^\d.,-]/g, "").replace(",", ".")) || 0 : 0;
+        const val = valFromTotal || valFromCost;
+        if (val > 0) return { total: val, costCol: valFromCost, totalCol: valFromTotal, rowIdx: i + 1 };
+      }
+    }
+    return null;
+  }, [selectedSheet, rawSheetData]);
 
   // Matched lines totals (file side and app side)
   const compFileTotal = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.baseAmount, 0);
