@@ -123,6 +123,57 @@ export default function EventImplementationDetail() {
     enabled: !impl?.event_id,
   });
 
+  // Auto-extract event info from XLSX
+  const extractFromFile = useCallback(async () => {
+    if (!impl?.reference_file_url || !impl.reference_file_name?.match(/\.xlsx?$/i)) return;
+    setExtracting(true);
+    try {
+      const { data: signedData, error: signErr } = await supabase.storage
+        .from("implementation-files")
+        .createSignedUrl(impl.reference_file_url, 300);
+      if (signErr || !signedData?.signedUrl) throw new Error("Erro ao aceder ficheiro");
+
+      const resp = await fetch(signedData.signedUrl);
+      const buf = await resp.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+
+      const sheetNames = wb.SheetNames.filter(
+        (n) => !/^(resumo|total|geral|master|consolidado|template)/i.test(n)
+      );
+      const isTour = sheetNames.length > 1;
+
+      // Extract name from first sheet header
+      const firstSheet = wb.Sheets[wb.SheetNames[0]];
+      const eventName = extractEventName(firstSheet) || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+
+      // Extract date from first sheet
+      const dateStr = extractDateFromSheet(firstSheet) || "";
+
+      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour };
+      setExtracted(info);
+
+      // Pre-fill form
+      setSetupName(eventName);
+      if (dateStr) setSetupDate(dateStr);
+      if (isTour) {
+        setSetupMode("create_master");
+        setSetupCities(sheetNames.join(", "));
+      } else {
+        setSetupMode("create_simple");
+      }
+    } catch (err: any) {
+      console.error("Extraction error:", err);
+    } finally {
+      setExtracting(false);
+    }
+  }, [impl?.reference_file_url, impl?.reference_file_name]);
+
+  useEffect(() => {
+    if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
+      extractFromFile();
+    }
+  }, [impl, extracted, extractFromFile]);
+
   // For master events, fetch splits
   const { data: splitEvents = [] } = useQuery({
     queryKey: ["split-events-impl", event?.id],
