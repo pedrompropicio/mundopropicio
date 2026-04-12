@@ -462,7 +462,7 @@ export function ResultsAnalysis() {
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-3 text-left font-medium" rowSpan={2}>Evento</th>
                   <th className="p-3 text-center font-medium border-b border-border/30" colSpan={4}>Projeção</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={5}>Resultado Real</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={4}>Resultado Real</th>
                 </tr>
                 <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-right font-medium">Margem 100%</th>
@@ -473,7 +473,6 @@ export function ResultsAnalysis() {
                   <th className="p-2 text-right font-medium">Despesa</th>
                   <th className="p-2 text-right font-medium">Margem</th>
                   <th className="p-2 text-right font-medium">%</th>
-                  <th className="p-2 text-right font-medium hidden lg:table-cell">Empresa</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -508,21 +507,25 @@ export function ResultsAnalysis() {
                     </td>
                     <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.actualIncome)}</td>
                     <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.actualExpense)}</td>
-                    <td className={`p-3 text-right font-mono font-semibold ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(e.actualMargin)}
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`font-mono font-semibold ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                          {formatCurrency(e.actualMargin)}
+                        </span>
+                        {e.totalPartnerPct > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                              Empresa {(100 - e.totalPartnerPct).toFixed(0)}%
+                            </Badge>
+                            <span className={`font-mono text-xs ${e.companyActualMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                              {formatCurrency(e.companyActualMargin)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className={`p-3 text-right font-mono text-xs ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
                       {e.actualMarginPct.toFixed(1)}%
-                    </td>
-                    <td className={`p-3 text-right font-mono hidden lg:table-cell ${e.companyActualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                      {e.totalPartnerPct > 0 ? (
-                        <div className="flex flex-col items-end">
-                          <span>{formatCurrency(e.companyActualMargin)}</span>
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                            {(100 - e.totalPartnerPct).toFixed(0)}%
-                          </Badge>
-                        </div>
-                      ) : "—"}
                     </td>
                   </tr>
                 ))}
