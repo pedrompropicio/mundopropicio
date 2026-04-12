@@ -1254,6 +1254,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </Button>
                             )}
                           </div>
+                          )}
                         </TableCell>
                       </TableRow>
                       {/* Expandable raw Excel values row */}
