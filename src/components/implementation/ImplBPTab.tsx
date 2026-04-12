@@ -725,6 +725,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const totalDivergent = matchedLines.filter((l) => l.match && l.idx >= 0 && l.divergences.length > 0).length;
   const totalUnmatchedSource = matchedLines.filter((l) => !l.match && l.idx >= 0).length;
   const totalUnmatchedApp = matchedLines.filter((l) => l.idx < 0).length;
+  // Count how many rows in this sheet were filtered as rateio (for display)
+  const totalRateioFiltered = useMemo(() => {
+    if (!parsedSheets || !selectedSheet || rateioDescriptions.size === 0) return 0;
+    const masterEvent = allEvents.find(e => !e.parent_event_id);
+    if (!masterEvent || selectedEventId === masterEvent.id) return 0;
+    const sheet = parsedSheets.find(s => s.sheetName === selectedSheet);
+    if (!sheet) return 0;
+    return sheet.rows.filter(r => rateioDescriptions.has(norm(r.description))).length;
+  }, [parsedSheets, selectedSheet, rateioDescriptions, allEvents, selectedEventId]);
 
   // File totals for current sheet (interpreted)
   const currentSheet = parsedSheets?.find((s) => s.sheetName === selectedSheet);
