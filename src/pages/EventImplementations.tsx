@@ -205,7 +205,8 @@ export default function EventImplementations() {
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <CardTitle className="text-base flex items-center gap-2">
-                        {event ? event.name : impl.event_structure ? `Turnê: ${(impl.event_structure as any)?.splits?.map((s: any) => s.city).join(", ") || "A definir"}` : "Evento não associado"}
+                        {event ? event.name : impl.reference_file_name ? `📄 ${impl.reference_file_name}` : "Aguardando configuração"}
+                        {!event && <Badge variant="outline" className="text-xs">Evento a criar</Badge>}
                         <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                       </CardTitle>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
