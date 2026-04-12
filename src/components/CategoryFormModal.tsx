@@ -270,7 +270,7 @@ export default function CategoryFormModal({
             </div>
           </div>
 
-          {!parentId && (
+          {!effectiveParentId && (
             <div className="space-y-2 rounded-lg border border-border/50 p-3">
               <p className="text-xs font-medium text-muted-foreground">Obrigatoriedade (apenas para nível 1)</p>
               <div className="flex items-center gap-2">
