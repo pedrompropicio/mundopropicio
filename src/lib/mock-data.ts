@@ -122,13 +122,20 @@ export const monthlyData = [
 ];
 
 // IVA calculation helpers
-export function calcIvaAmount(amountWithIva: number, ivaRate: IvaRate): number {
+// NOTE: In the database, `amount` is always the BASE value (without IVA).
+// These helpers calculate IVA from the base amount.
+export function calcIvaAmount(baseAmount: number, ivaRate: IvaRate): number {
   if (ivaRate === 0) return 0;
-  return amountWithIva - amountWithIva / (1 + ivaRate / 100);
+  return Math.round(baseAmount * ivaRate / 100 * 100) / 100;
 }
 
-export function calcBaseAmount(amountWithIva: number, ivaRate: IvaRate): number {
-  return amountWithIva / (1 + ivaRate / 100);
+export function calcBaseAmount(baseAmount: number, _ivaRate: IvaRate): number {
+  // amount IS already the base — return as-is
+  return baseAmount;
+}
+
+export function calcTotalWithIva(baseAmount: number, ivaRate: IvaRate): number {
+  return Math.round(baseAmount * (1 + ivaRate / 100) * 100) / 100;
 }
 
 export function getQuarter(dateStr: string): number {
