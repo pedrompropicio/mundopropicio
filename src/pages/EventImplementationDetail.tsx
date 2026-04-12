@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,7 +163,10 @@ export default function EventImplementationDetail() {
 
       // Detect cities from instructions
       const detectedCities = parseCitiesFromInstructions(impl.import_instructions ?? null);
-      const isTour = detectedCities.length > 1 || sheetNames.length > 1;
+      
+      // Determine tour from saved event_structure or detected cities
+      const savedType = (impl.event_structure as any)?.event_type;
+      const isTour = savedType === "new_master" || detectedCities.length > 1;
 
       // Extract name from first sheet header
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
@@ -175,13 +177,24 @@ export default function EventImplementationDetail() {
 
       const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities };
       setExtracted(info);
-      setSelectedSheets(sheetNames); // all selected by default for user to refine
+      setSelectedSheets(sheetNames);
+
+      // Auto-fill form directly (skip sheet selection step)
+      setSetupName(eventName);
+      if (dateStr) setSetupDate(dateStr);
+      if (isTour) {
+        setSetupMode("create_master");
+        setSetupCities(detectedCities.length > 0 ? detectedCities.join(", ") : sheetNames.join(", "));
+      } else {
+        setSetupMode("create_simple");
+      }
+      setSheetSelectionDone(true);
     } catch (err: any) {
       console.error("Extraction error:", err);
     } finally {
       setExtracting(false);
     }
-  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, parseCitiesFromInstructions]);
+  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, impl?.event_structure, parseCitiesFromInstructions]);
 
   useEffect(() => {
     if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
@@ -372,96 +385,30 @@ export default function EventImplementationDetail() {
 
       {/* Event Setup Panel — shown when no event is linked */}
       {needsEventSetup ? (
-        extracted && !sheetSelectionDone ? (
-          /* Step 1: Sheet selection */
+        extracting ? (
           <Card className="border-primary/30">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" /> Abas detetadas no ficheiro
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Selecione as abas que serão utilizadas na importação. Abas não selecionadas serão ignoradas.
-              </p>
-              {extracted.detectedCities.length > 0 && (
-                <p className="text-sm text-primary font-medium mt-1">
-                  Cidades detetadas nas instruções: {extracted.detectedCities.join(", ")}
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {extracted.sheetNames.map((name) => (
-                  <label key={name} className="flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-accent/50">
-                    <Checkbox
-                      checked={selectedSheets.includes(name)}
-                      onCheckedChange={(checked) => {
-                        setSelectedSheets(prev =>
-                          checked ? [...prev, name] : prev.filter(s => s !== name)
-                        );
-                      }}
-                    />
-                    <span className="text-sm">{name}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedSheets(extracted.sheetNames)}
-                >
-                  Selecionar todas
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedSheets([])}
-                >
-                  Limpar seleção
-                </Button>
-              </div>
-              <Button
-                className="mt-2"
-                disabled={selectedSheets.length === 0}
-                onClick={() => {
-                  setSheetSelectionDone(true);
-                  // Pre-fill form based on instructions + selected sheets
-                  const cities = extracted.detectedCities.length > 0
-                    ? extracted.detectedCities
-                    : selectedSheets;
-                  setSetupName(extracted.eventName);
-                  if (extracted.date) setSetupDate(extracted.date);
-                  if (cities.length > 1 || extracted.detectedCities.length > 1) {
-                    setSetupMode("create_master");
-                    setSetupCities(cities.join(", "));
-                  } else if (cities.length === 1) {
-                    setSetupMode("create_simple");
-                  }
-                }}
-              >
-                Continuar com {selectedSheets.length} aba(s) selecionada(s)
-              </Button>
+            <CardContent className="flex items-center gap-3 py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-muted-foreground">A analisar ficheiro…</span>
             </CardContent>
           </Card>
         ) : (
-          /* Step 2: Event creation form (or direct if no extraction) */
           <Card className="border-primary/30">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 {extracted ? (
                   <><Sparkles className="h-5 w-5 text-primary" /> Configurar Evento</>
-                ) : extracting ? (
-                  <><Loader2 className="h-5 w-5 animate-spin" /> A analisar ficheiro…</>
                 ) : (
                   <><Plus className="h-5 w-5" /> Configurar Evento</>
                 )}
               </CardTitle>
-              {extracted && sheetSelectionDone && (
+              {extracted && (
                 <p className="text-sm text-muted-foreground">
-                  {selectedSheets.length} aba(s) selecionada(s): {selectedSheets.join(", ")}.{" "}
-                  <button className="text-primary underline" onClick={() => setSheetSelectionDone(false)}>
-                    Alterar seleção
-                  </button>
+                  Dados extraídos do ficheiro ({extracted.sheetNames.length} abas detetadas).
+                  {extracted.detectedCities.length > 0 && (
+                    <> Cidades nas instruções: <span className="font-medium text-primary">{extracted.detectedCities.join(", ")}</span>.</>
+                  )}
+                  {" "}Confirme os dados abaixo e ajuste se necessário.
                 </p>
               )}
             </CardHeader>

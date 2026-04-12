@@ -103,7 +103,7 @@ export default function EventImplementations() {
         reference_file_name: fileName,
         import_instructions: newInstructions || null,
         notes: newNotes || null,
-        event_structure: null,
+        event_structure: eventId ? null : { event_type: newEventType },
       });
       if (error) throw error;
     },
