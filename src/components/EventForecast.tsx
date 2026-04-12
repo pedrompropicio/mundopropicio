@@ -1345,8 +1345,28 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
                       </div>
                     )}
+                    {isAdmin && expenseForecasts.some((f) => f.status === "approved" && !f.cache_config_id) && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={expenseForecasts.filter((f) => f.status === "approved" && !f.cache_config_id).every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllApproved("expense")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar aprovadas</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {isAdmin && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "approved") && (
+                      <button
+                        onClick={handleBulkCreateTx}
+                        disabled={bulkCreateTxMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/15 hover:bg-primary/25 transition-colors disabled:opacity-50"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {bulkCreateTxMutation.isPending ? "A criar…" : `Gerar Transações (${expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "approved").length})`}
+                      </button>
+                    )}
                     {canApprove && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
                       <button
                         onClick={handleBulkApprove}
