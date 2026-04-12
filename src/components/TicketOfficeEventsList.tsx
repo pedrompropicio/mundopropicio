@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, TrendingUp, TrendingDown, Receipt, ChevronRight } from "lucide-react";
+import { Calendar, ChevronRight } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
 import { format } from "date-fns";
 
@@ -105,7 +105,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("event_id, type, amount, paid_amount, account_id")
+        .select("event_id, type, amount, paid_amount, account_id, iva_rate")
         .in("event_id", eventIds)
         .in("account_id", officeIds);
       if (error) throw error;
@@ -125,23 +125,21 @@ export function TicketOfficeEventsList({ officeId }: Props) {
 
   // Aggregate per event
   const eventSummaries = useMemo(() => {
-    const map: Record<string, { revenue: number; iva: number; expenses: number; qty: number }> = {};
-    eventIds.forEach((eid) => { map[eid] = { revenue: 0, iva: 0, expenses: 0, qty: 0 }; });
+    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number }> = {};
+    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0 }; });
 
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
       if (!eventId || !map[eventId]) return;
-      // Filter by office if specified
       if (officeId && s.financial_account_id && s.financial_account_id !== officeId) return;
       const lineTotal = s.quantity * Number(s.unit_price);
       map[eventId].revenue += lineTotal;
       map[eventId].qty += s.quantity;
-      // IVA: find rate from lots matching this zone and price
       const zoneIva = lotIvaMap[s.zone_id];
       if (zoneIva) {
         const rate = zoneIva[Number(s.unit_price)] ?? 0;
         if (rate > 0) {
-          map[eventId].iva += lineTotal - lineTotal / (1 + rate / 100);
+          map[eventId].ivaRevenue += lineTotal - lineTotal / (1 + rate / 100);
         }
       }
     });
@@ -149,7 +147,12 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     txns.forEach((t: any) => {
       if (!t.event_id || !map[t.event_id]) return;
       if (t.type === "expense") {
-        map[t.event_id].expenses += Number(t.paid_amount || t.amount || 0);
+        const expAmount = Number(t.paid_amount || t.amount || 0);
+        map[t.event_id].expenses += expAmount;
+        const rate = Number(t.iva_rate || 0);
+        if (rate > 0) {
+          map[t.event_id].ivaExpenses += expAmount - expAmount / (1 + rate / 100);
+        }
       }
     });
 
@@ -158,7 +161,9 @@ export function TicketOfficeEventsList({ officeId }: Props) {
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
-  const totalIva = Object.values(eventSummaries).reduce((s, e) => s + e.iva, 0);
+  const totalIvaRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.ivaRevenue, 0);
+  const totalIvaExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.ivaExpenses, 0);
+  const totalIvaBalance = totalIvaRevenue - totalIvaExpenses;
 
   if (events.length === 0) {
     return (
@@ -181,13 +186,16 @@ export function TicketOfficeEventsList({ officeId }: Props) {
             <TableHead>Evento</TableHead>
             <TableHead className="text-right">Receita</TableHead>
             <TableHead className="text-right">Despesas</TableHead>
-            <TableHead className="text-right">IVA</TableHead>
+            <TableHead className="text-right">IVA Rec.</TableHead>
+            <TableHead className="text-right">IVA Desp.</TableHead>
+            <TableHead className="text-right">Saldo IVA</TableHead>
             <TableHead className="w-8" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {events.map((ev: any) => {
-            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, iva: 0, qty: 0 };
+            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0 };
+            const ivaBalance = s.ivaRevenue - s.ivaExpenses;
             return (
               <TableRow
                 key={ev.id}
@@ -209,7 +217,13 @@ export function TicketOfficeEventsList({ officeId }: Props) {
                   <span className="text-sm font-mono text-red-400">{formatCurrency(s.expenses)}</span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className="text-sm font-mono text-muted-foreground">{formatCurrency(s.iva)}</span>
+                  <span className="text-sm font-mono text-muted-foreground">{formatCurrency(s.ivaRevenue)}</span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className="text-sm font-mono text-muted-foreground">{formatCurrency(s.ivaExpenses)}</span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className={`text-sm font-mono ${ivaBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>{formatCurrency(ivaBalance)}</span>
                 </TableCell>
                 <TableCell>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -217,7 +231,6 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               </TableRow>
             );
           })}
-          {/* Totals row */}
           <TableRow className="border-t-2 font-semibold bg-muted/30">
             <TableCell>
               <span className="text-sm">Total</span>
@@ -229,7 +242,13 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               <span className="text-sm font-mono text-red-400">{formatCurrency(totalExpenses)}</span>
             </TableCell>
             <TableCell className="text-right">
-              <span className="text-sm font-mono text-muted-foreground">{formatCurrency(totalIva)}</span>
+              <span className="text-sm font-mono text-muted-foreground">{formatCurrency(totalIvaRevenue)}</span>
+            </TableCell>
+            <TableCell className="text-right">
+              <span className="text-sm font-mono text-muted-foreground">{formatCurrency(totalIvaExpenses)}</span>
+            </TableCell>
+            <TableCell className="text-right">
+              <span className={`text-sm font-mono ${totalIvaBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>{formatCurrency(totalIvaBalance)}</span>
             </TableCell>
             <TableCell />
           </TableRow>
