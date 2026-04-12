@@ -1043,6 +1043,8 @@ export default function Transactions() {
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
+
+                  {noDateGroup.length > 0 && (
                     <tr>
                       <td colSpan={10} className="pt-4 pb-2 px-1">
                         <div className="flex items-center gap-2">
