@@ -158,6 +158,24 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     (c) => !categories.some((other) => other.parent_id === c.id)
   );
 
+  // Fetch expense forecast counts per event to detect already-imported events
+  const { data: eventForecastCounts = {} } = useQuery({
+    queryKey: ["impl-forecast-counts", ...allEventIds],
+    queryFn: async () => {
+      const counts: Record<string, number> = {};
+      for (const eid of allEventIds) {
+        const { count, error } = await supabase
+          .from("event_forecasts")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", eid)
+          .eq("type", "expense");
+        if (!error) counts[eid] = count ?? 0;
+      }
+      return counts;
+    },
+    enabled: allEventIds.length > 0,
+  });
+
   // Fetch import batches from audit log for all events in this implementation
   const allEventIds = allEvents.map(e => e.id);
   const { data: importBatches = [], refetch: refetchBatches } = useQuery({
