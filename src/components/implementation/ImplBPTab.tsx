@@ -649,9 +649,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     const noMatch = !line.match && line.idx >= 0;
                     const onlyApp = line.idx < 0;
                     const isEditing = line.match && editingId === line.match.id;
+                    const isEditingSource = line.idx >= 0 && editingSourceIdx === line.idx;
                     const cat = line.match?.account_categories;
-
-                    return (
                       <React.Fragment key={`${line.idx}-${line.match?.id || i}`}>
                       <TableRow
                         className={`cursor-pointer ${
