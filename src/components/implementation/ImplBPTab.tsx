@@ -2107,6 +2107,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 {renderCategoryOptions()}
                               </SelectContent>
                             </Select>
+                            {renderAddCategoryButton((catId) => {
+                              const updated = [...apportionmentSuggestions];
+                              const sIdx = updated.findIndex(s => norm(s.description) === norm(row.description));
+                              if (sIdx >= 0) {
+                                updated[sIdx] = { ...updated[sIdx], categoryId: catId };
+                                setApportionmentSuggestions(updated);
+                              }
+                            })}
                           </TableCell>
                           <TableCell>
                             <Button
