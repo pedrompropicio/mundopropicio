@@ -673,7 +673,99 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         </Card>
       )}
 
-      {parsedSheets && (viewMode === "comparison" || viewMode === "raw") && (
+      {/* Apportionment analysis step */}
+      {showApportionmentStep && apportionmentSuggestions.length > 0 && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitMerge className="h-4 w-4" />
+              Análise de Rateio — Custos Partilhados
+            </CardTitle>
+            <CardDescription>
+              Os seguintes custos aparecem em múltiplas cidades. Selecione quais devem ser consolidados no evento Master (custos rateados) — os restantes serão mantidos como custos individuais de cada cidade.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 gap-y-0 items-center text-xs font-semibold text-muted-foreground pb-2 border-b mb-1 px-2">
+                <span>Master</span>
+                <span>Descrição</span>
+                <span className="text-right">Valor Médio</span>
+                <span className="text-center">Cidades</span>
+                <span className="text-center">Abas</span>
+              </div>
+              {apportionmentSuggestions.map((s, idx) => (
+                <div
+                  key={s.normalizedKey}
+                  className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 items-center py-2 px-2 rounded-md ${
+                    s.promoteToMaster ? "bg-primary/5" : "bg-muted/20"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={s.promoteToMaster}
+                    onChange={(e) => {
+                      const updated = [...apportionmentSuggestions];
+                      updated[idx] = { ...updated[idx], promoteToMaster: e.target.checked };
+                      setApportionmentSuggestions(updated);
+                    }}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <span className="text-sm font-medium">{s.description}</span>
+                  <span className="text-sm font-mono text-right">{fmtMoney(s.avgAmount)}</span>
+                  <span className="text-center">
+                    <Badge variant="outline" className="text-xs">{s.sheets.length}</Badge>
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate max-w-32" title={s.sheets.join(", ")}>
+                    {s.sheets.join(", ")}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-4 pt-3 border-t">
+              <div className="text-xs text-muted-foreground">
+                {apportionmentSuggestions.filter(s => s.promoteToMaster).length} de {apportionmentSuggestions.length} custos para o Master
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={applyApportionment}>
+                  <GitMerge className="h-4 w-4 mr-2" />
+                  Aplicar Rateio
+                </Button>
+                <Button variant="outline" onClick={() => setShowApportionmentStep(false)}>
+                  Ignorar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Master rows indicator */}
+      {masterSheetRows.length > 0 && (
+        <div className="flex items-center gap-3 py-2 px-4 rounded-md bg-primary/5 border border-primary/20">
+          <GitMerge className="h-4 w-4 text-primary" />
+          <span className="text-sm">
+            <strong>{masterSheetRows.length}</strong> linha(s) consolidada(s) para o evento Master
+            {" "}({fmtMoney(masterSheetRows.reduce((s, r) => s + r.baseAmount, 0))} total)
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-xs"
+            onClick={() => {
+              // Show master rows in a special view
+              const masterEvent = allEvents.find(e => !e.parent_event_id);
+              if (masterEvent) {
+                setSelectedEventId(masterEvent.id);
+                setSelectedDateId("all");
+              }
+            }}
+          >
+            Ver Master
+          </Button>
+        </div>
+      )}
+
         <div className="flex items-center gap-4 flex-wrap">
           {parsedSheets.length > 1 && (
             <Select value={selectedSheet} onValueChange={(v) => {
