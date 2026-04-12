@@ -133,29 +133,51 @@ export default function EventImplementationDetail() {
     enabled: !impl?.event_id,
   });
 
+  // Parse structured data from notes field (name, per-city dates, venues)
+  const parseNotesData = useCallback((notes: string | null): { eventName: string | null; cityDetails: CityInfo[] } => {
+    if (!notes) return { eventName: null, cityDetails: [] };
+    const nameMatch = notes.match(/se\s+chama\s+["""]([^"""]+)["""]|chama\s+["""]([^"""]+)["""]/i);
+    const eventName = nameMatch ? (nameMatch[1] || nameMatch[2])?.trim() || null : null;
+    const cityDetails: CityInfo[] = [];
+    const cityPattern = /dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?\s+(?:n[oa]\s+)?([A-ZÀ-Ú][\wÀ-ú\s]*?)(?:\s+n[oa]\s+(.+?))?(?=\s+e\s+em\b|\s+e\s+(?:n[oa]|em)\b|\s+e\s+(?=.*dia\s)|\s*[.]|\s*$)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = cityPattern.exec(notes)) !== null) {
+      const day = m[1].padStart(2, "0");
+      const month = m[2].padStart(2, "0");
+      const year = m[3] || new Date().getFullYear().toString();
+      cityDetails.push({ name: m[4].trim(), date: `${year}-${month}-${day}`, venue: m[5]?.trim() || "" });
+    }
+    if (cityDetails.length === 0) {
+      const altPattern = /(?:n[oa]|em)\s+([A-ZÀ-Ú][\wÀ-ú]+).*?dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?(?:\s+n[oa]\s+(.+?))?(?=\s+e\s+|\s*[.,]|\s*$)/gi;
+      while ((m = altPattern.exec(notes)) !== null) {
+        const day = m[2].padStart(2, "0");
+        const month = m[3].padStart(2, "0");
+        const year = m[4] || new Date().getFullYear().toString();
+        cityDetails.push({ name: m[1].trim(), date: `${year}-${month}-${day}`, venue: m[5]?.trim() || "" });
+      }
+    }
+    return { eventName, cityDetails };
+  }, []);
+
   // Parse cities from import_instructions
   const parseCitiesFromInstructions = useCallback((instructions: string | null): string[] => {
     if (!instructions) return [];
-    // Patterns to extract city names from free-form instructions
     const cityPatterns = [
-      // "cidades: Lisboa, Porto" or "múltiplas cidades, Lisboa e Porto"
       /cidades[,:\s]+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
-      // "em Lisboa e Porto" or "para Lisboa, Porto e Braga"
-      /(?:em|para)\s+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
-      // "Lisboa e Porto" standalone (two+ capitalized words joined by , or e)
+      /(?:em|para|n[oa])\s+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
       /\b([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,]\s*[A-ZÀ-Ú][\wÀ-ú]+)*\s+e\s+[A-ZÀ-Ú][\wÀ-ú]+)/,
     ];
     for (const pat of cityPatterns) {
-      const m = instructions.match(pat);
-      if (m) {
-        return m[1]
-          .split(/\s*[,]\s*|\s+e\s+/i)
-          .map(c => c.trim())
-          .filter(c => c.length >= 3 && /^[A-ZÀ-Ú]/.test(c));
+      const match = instructions.match(pat);
+      if (match) {
+        return match[1].split(/\s*[,]\s*|\s+e\s+/i).map(c => c.trim()).filter(c => c.length >= 3 && /^[A-ZÀ-Ú]/.test(c));
       }
     }
     return [];
   }, []);
+
+  // State for per-city details
+  const [cityDetails, setCityDetails] = useState<CityInfo[]>([]);
 
   // Auto-extract event info from XLSX
   const extractFromFile = useCallback(async () => {
