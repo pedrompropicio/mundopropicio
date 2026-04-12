@@ -510,6 +510,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             split_percentage: entry.percentage,
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory,
+            exclude_from_result: isExcludeFromResult,
           };
         });
 
@@ -536,6 +537,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           split_percentage: null,
           parent_transaction_id: null,
           is_transitory: isTransitory,
+          exclude_from_result: isExcludeFromResult,
         } as any).select("id").single();
         if (parentError) throw parentError;
         const parentId = parentRow.id;
@@ -571,6 +573,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: isTransitory,
+          exclude_from_result: isExcludeFromResult,
         } as any).select("id").single();
         if (error) throw error;
 
@@ -1590,7 +1593,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 {(authIsAdmin || authIsManager) && (
                 <button
                   type="button"
-                  onClick={() => setIsTransitory(!isTransitory)}
+                  onClick={() => { setIsTransitory(!isTransitory); if (!isTransitory) setIsExcludeFromResult(false); }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isTransitory
                       ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/30"
@@ -1599,6 +1602,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 >
                   🔄 {isTransitory ? "Transitória" : "Marcar como Transitória"}
                   <HelpTooltip text={helpTexts.transitoryToggle} size={12} />
+                </button>
+                )}
+
+                {/* Exclude from result toggle — admin/manager only, mutually exclusive with transitory */}
+                {(authIsAdmin || authIsManager) && !isTransitory && (
+                <button
+                  type="button"
+                  onClick={() => setIsExcludeFromResult(!isExcludeFromResult)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    isExcludeFromResult
+                      ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  📋 {isExcludeFromResult ? "Fora do Resultado" : "Excluir do Resultado"}
+                  <HelpTooltip text={helpTexts.excludeFromResultToggle} size={12} />
                 </button>
                 )}
               </div>
