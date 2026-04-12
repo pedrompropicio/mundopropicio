@@ -28,6 +28,7 @@ interface MatchedLine {
   match: any | null; // forecast from DB
   matchScore: number;
   divergences: string[];
+  suggestedCategoryId: string | null;
 }
 
 function norm(s: string): string {
