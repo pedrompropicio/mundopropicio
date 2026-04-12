@@ -790,41 +790,78 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 gap-y-0 items-center text-xs font-semibold text-muted-foreground pb-2 border-b mb-1 px-2">
-                <span>Master</span>
-                <span>Descrição</span>
-                <span className="text-right">Valor Médio</span>
-                <span className="text-center">Cidades</span>
-                <span className="text-center">Abas</span>
-              </div>
-              {apportionmentSuggestions.map((s, idx) => (
-                <div
-                  key={s.normalizedKey}
-                  className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 items-center py-2 px-2 rounded-md ${
-                    s.promoteToMaster ? "bg-primary/5" : "bg-muted/20"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={s.promoteToMaster}
-                    onChange={(e) => {
-                      const updated = [...apportionmentSuggestions];
-                      updated[idx] = { ...updated[idx], promoteToMaster: e.target.checked };
-                      setApportionmentSuggestions(updated);
-                    }}
-                    className="h-4 w-4 rounded border-input"
-                  />
-                  <span className="text-sm font-medium">{s.description}</span>
-                  <span className="text-sm font-mono text-right">{fmtMoney(s.avgAmount)}</span>
-                  <span className="text-center">
-                    <Badge variant="outline" className="text-xs">{s.sheets.length}</Badge>
-                  </span>
-                  <span className="text-xs text-muted-foreground truncate max-w-32" title={s.sheets.join(", ")}>
-                    {s.sheets.join(", ")}
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {apportionmentSuggestions.map((s, idx) => {
+                // Get the actual row data from each sheet
+                const sheetDetails = s.sheets.map(sheetName => {
+                  const sheet = parsedSheets?.find(ps => ps.sheetName === sheetName);
+                  const rowIdx = s.rowsBySheet[sheetName];
+                  const row = sheet?.rows[rowIdx];
+                  const mapping = sheetMappings?.find(m => m.sheetName === sheetName);
+                  const targetEvent = mapping?.targetType === "event" ? allEvents.find(e => e.id === mapping.targetId) : null;
+                  return { sheetName, row, targetEvent };
+                });
+
+                return (
+                  <div
+                    key={s.normalizedKey}
+                    className={`rounded-lg border p-3 ${s.promoteToMaster ? "border-primary/30 bg-primary/5" : "border-border bg-muted/10"}`}
+                  >
+                    {/* Header with checkbox */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <input
+                        type="checkbox"
+                        checked={s.promoteToMaster}
+                        onChange={(e) => {
+                          const updated = [...apportionmentSuggestions];
+                          updated[idx] = { ...updated[idx], promoteToMaster: e.target.checked };
+                          setApportionmentSuggestions(updated);
+                        }}
+                        className="h-4 w-4 rounded border-input"
+                      />
+                      <span className="text-sm font-semibold flex-1">{s.description}</span>
+                      <Badge variant={s.promoteToMaster ? "default" : "outline"} className="text-xs">
+                        {s.promoteToMaster ? "→ Master" : "Manter individual"}
+                      </Badge>
+                    </div>
+
+                    {/* Detail table: one row per sheet */}
+                    <div className="ml-7 rounded-md border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
+                            <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
+                            <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
+                            <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
+                            <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
+                            <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sheetDetails.map(({ sheetName, row, targetEvent }) => (
+                            <TableRow key={sheetName}>
+                              <TableCell className="text-xs py-1.5">
+                                <div>
+                                  <span className="font-medium">{sheetName}</span>
+                                  {targetEvent && (
+                                    <span className="block text-[10px] text-muted-foreground">→ {targetEvent.name}</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs py-1.5">{row?.description || "—"}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-muted-foreground">{row?.specification || "—"}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.baseAmount) : "—"}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="flex items-center justify-between mt-4 pt-3 border-t">
               <div className="text-xs text-muted-foreground">
