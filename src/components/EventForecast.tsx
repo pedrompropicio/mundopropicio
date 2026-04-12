@@ -60,6 +60,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [importingXlsx, setImportingXlsx] = useState(false);
   const [bpSearch, setBpSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
+  const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
