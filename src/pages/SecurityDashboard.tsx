@@ -10,6 +10,7 @@ import helpTexts from "@/lib/help-texts";
 
 export default function SecurityDashboard() {
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
   const [showMfaSetup, setShowMfaSetup] = useState(false);
 
   const { data: auditLogs = [], isLoading: loadingAudit } = useQuery({

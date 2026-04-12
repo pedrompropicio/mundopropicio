@@ -23,6 +23,7 @@ const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer", "pa
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");

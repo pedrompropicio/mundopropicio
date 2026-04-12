@@ -15,6 +15,7 @@ import { pt } from "date-fns/locale";
 
 export default function TrashPage() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
