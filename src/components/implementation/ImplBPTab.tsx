@@ -156,6 +156,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         return;
       }
 
+      // Store raw Excel data for preview
+      const wb = XLSX.read(buffer, { type: "array" });
+      const rawData: Record<string, any[][]> = {};
+      for (const sn of wb.SheetNames) {
+        const ws = wb.Sheets[sn];
+        rawData[sn] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+      }
+      setRawSheetData(rawData);
+
       const sheets = parseXlsxPL(buffer);
       setParsedSheets(sheets);
 
