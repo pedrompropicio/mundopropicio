@@ -239,6 +239,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const totalUnmatchedSource = matchedLines.filter((l) => !l.match && l.idx >= 0).length;
   const totalUnmatchedApp = matchedLines.filter((l) => l.idx < 0).length;
 
+  // File totals for current sheet
+  const currentSheet = parsedSheets?.find((s) => s.sheetName === selectedSheet);
+  const fileTotalBase = currentSheet?.rows.reduce((s, r) => s + r.baseAmount, 0) ?? 0;
+  const fileTotalIva = currentSheet?.rows.reduce((s, r) => s + r.ivaAmount, 0) ?? 0;
+  const fileTotalGross = currentSheet?.rows.reduce((s, r) => s + r.total, 0) ?? 0;
+  const fileLineCount = currentSheet?.rows.length ?? 0;
+
+  // Matched lines totals (file side and app side)
+  const compFileTotal = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.baseAmount, 0);
+  const compAppTotal = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount), 0);
+
   const updateForecast = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
       const { error } = await supabase.from("event_forecasts").update(updates).eq("id", id);
