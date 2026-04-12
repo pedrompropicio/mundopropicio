@@ -129,13 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 1. Restore session from storage FIRST
-    supabase.auth.getSession().then(({ data: { session: restored } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: restored } }) => {
       if (!initializedRef.current) {
         initializedRef.current = true;
         setSession(restored);
         setUser(restored?.user ?? null);
         if (restored?.user) {
-          fetchRoleAndPermissions(restored.user.id);
+          await fetchRoleAndPermissions(restored.user.id);
         }
         setLoading(false);
       }
