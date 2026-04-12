@@ -12,13 +12,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
-type EventType = "simple" | "festival" | "multi_day" | "tour";
+type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
 const eventTypeLabels: Record<EventType, string> = {
   simple: "Evento Simples",
   festival: "Festival",
   multi_day: "Múltiplos Dias",
   tour: "Turnê",
+  master: "Master",
+  split: "Split",
 };
 
 const eventTypeIcons: Record<EventType, typeof Calendar> = {
@@ -26,6 +28,8 @@ const eventTypeIcons: Record<EventType, typeof Calendar> = {
   festival: Layers,
   multi_day: Route,
   tour: Route,
+  master: Route,
+  split: Calendar,
 };
 
 interface SessionDraft {
