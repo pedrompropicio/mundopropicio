@@ -84,14 +84,16 @@ export default function CategoryFormModal({
     return items;
   }, [categories]);
 
+  const effectiveParentId = parentId === "__none__" ? "" : parentId;
+
   // Auto-suggest next code when parent changes
   const suggestedCode = useMemo(() => {
-    if (!parentId || isEditing) return "";
-    const parent = categories.find(c => c.id === parentId);
+    if (!effectiveParentId || isEditing) return "";
+    const parent = categories.find(c => c.id === effectiveParentId);
     if (!parent) return "";
 
     const siblings = categories
-      .filter(c => c.parent_id === parentId)
+      .filter(c => c.parent_id === effectiveParentId)
       .map(c => {
         const parts = c.code.split(".");
         return parseInt(parts[parts.length - 1]) || 0;
@@ -100,7 +102,7 @@ export default function CategoryFormModal({
     const nextNum = siblings.length > 0 ? Math.max(...siblings) + 1 : 1;
     const padded = String(nextNum).padStart(2, "0");
     return `${parent.code}.${padded}`;
-  }, [parentId, categories, isEditing]);
+  }, [effectiveParentId, categories, isEditing]);
 
   // Reset form when opening
   useEffect(() => {
