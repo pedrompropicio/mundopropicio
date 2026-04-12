@@ -1620,6 +1620,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 onCheckedChange={() => onToggleSelect(item.id)}
                 className="h-3.5 w-3.5 shrink-0"
               />
+            ) : isApproved && isAdmin && onToggleSelect ? (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggleSelect(item.id)}
+                className="h-3.5 w-3.5 shrink-0"
+              />
             ) : isApproved ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
             ) : (
