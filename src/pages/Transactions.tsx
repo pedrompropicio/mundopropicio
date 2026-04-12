@@ -62,6 +62,22 @@ export default function Transactions() {
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+  const highlightRef = useRef<HTMLTableRowElement>(null);
+
+  // When highlight param is set, switch to a view that shows the transaction
+  useEffect(() => {
+    if (!highlightId) return;
+    // Show all transactions (paid view shows everything)
+    setViewMode("paid");
+    setPaidPeriod("all");
+    // Clean up the URL param after a delay
+    const timer = setTimeout(() => {
+      setSearchParams({}, { replace: true });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
