@@ -1008,6 +1008,7 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
 
@@ -1039,10 +1040,8 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
-                  ))}
-
-                  {noDateGroup.length > 0 && (
                     <tr>
                       <td colSpan={10} className="pt-4 pb-2 px-1">
                         <div className="flex items-center gap-2">
@@ -1070,9 +1069,8 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
-                  ))}
-                </tbody>
               </table>
             </div>
           )
@@ -1117,6 +1115,7 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
                 </tbody>
