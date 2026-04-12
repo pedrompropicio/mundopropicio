@@ -1902,7 +1902,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   return (
                     <a
                       key={tx.id}
-                      href={`/transactions?highlight=${tx.id}`}
+                      href={`/transacoes?highlight=${tx.id}`}
                       className="block rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center justify-between gap-2">
