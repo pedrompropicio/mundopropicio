@@ -36,8 +36,10 @@ interface ActiveProjection {
   actualIncome: number;
   actualExpense: number;
   actualMargin: number;
+  actualMarginPct: number;
   totalPartnerPct: number;
   companyMargin100: number;
+  companyActualMargin: number;
   incomeSource: "lot_projection" | "ticket_sales";
   expenseSource: "forecasts" | "transactions";
 }
