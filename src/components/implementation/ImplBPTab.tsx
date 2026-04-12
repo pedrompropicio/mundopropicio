@@ -776,8 +776,21 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            {line.match && !isEditing && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEdit(line.match); }} title="Editar">
+                            {/* Source row actions */}
+                            {line.idx >= 0 && !isEditingSource && !isEditing && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEditSource(line.idx, line.source); }} title="Editar interpretação">
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                            )}
+                            {isEditingSource && (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); saveEditSource(); }}><Save className="h-3.5 w-3.5 text-green-600" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditingSourceIdx(null); }}><X className="h-3.5 w-3.5" /></Button>
+                              </>
+                            )}
+                            {/* App forecast actions */}
+                            {line.match && !isEditing && !isEditingSource && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEdit(line.match); }} title="Editar no App">
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                             )}
@@ -787,18 +800,21 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditingId(null); }}><X className="h-3.5 w-3.5" /></Button>
                               </>
                             )}
-                            {line.match && line.idx >= 0 && hasDivergence && !isEditing && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                title="Aplicar valores do ficheiro"
-                                onClick={(e) => { e.stopPropagation(); applySourceToForecast.mutate({ forecastId: line.match.id, source: line.source }); }}
-                              >
+                            {line.match && line.idx >= 0 && hasDivergence && !isEditing && !isEditingSource && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" title="Aplicar valores do ficheiro"
+                                onClick={(e) => { e.stopPropagation(); applySourceToForecast.mutate({ forecastId: line.match.id, source: line.source }); }}>
                                 <ArrowRight className="h-3.5 w-3.5 text-primary" />
                               </Button>
                             )}
-                            {line.match && !isEditing && (
+                            {line.idx >= 0 && !isEditing && !isEditingSource && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Remover esta linha da interpretação?")) deleteSourceRow(line.idx);
+                              }} title="Remover linha">
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {line.match && !line.idx && line.idx < 0 && !isEditing && (
                               <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => {
                                 e.stopPropagation();
                                 if (confirm("Remover esta previsão?")) deleteForecast.mutate(line.match.id);
