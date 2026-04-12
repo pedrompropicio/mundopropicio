@@ -136,13 +136,15 @@ export default function CategoryFormModal({
     }
   }, [parentId, categories, isEditing]);
 
+  const effectiveParentId = parentId === "__none__" ? "" : parentId;
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.from("account_categories").insert({
         code,
         name,
         type,
-        parent_id: parentId || null,
+        parent_id: effectiveParentId || null,
         event_required: !parentId ? eventRequired : true,
       }).select("id").single();
       if (error) throw error;
