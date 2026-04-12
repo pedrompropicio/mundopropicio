@@ -39,6 +39,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
         .from("events")
         .select("id, name, date, status, event_type")
         .in("id", eventIds)
+        .in("status", ["confirmed", "active"])
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
