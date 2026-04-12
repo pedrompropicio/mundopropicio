@@ -105,7 +105,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("event_id, type, amount, paid_amount, account_id")
+        .select("event_id, type, amount, paid_amount, account_id, iva_rate")
         .in("event_id", eventIds)
         .in("account_id", officeIds);
       if (error) throw error;
