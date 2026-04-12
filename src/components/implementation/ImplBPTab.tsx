@@ -384,9 +384,18 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm flex-wrap">
         <span>{forecasts.length} linhas no App</span>
+        {currentSheet && viewMode === "comparison" && (
+          <span className="text-muted-foreground">{fileLineCount} linhas no Ficheiro</span>
+        )}
         <span className="text-green-600 dark:text-green-400">Receitas: {fmtMoney(totalIncome)}</span>
         <span className="text-red-600 dark:text-red-400">Despesas: {fmtMoney(totalExpense)}</span>
         <span className="font-semibold">Resultado: {fmtMoney(totalIncome - totalExpense)}</span>
+        {currentSheet && viewMode === "comparison" && (
+          <span className="text-muted-foreground border-l pl-4 ml-2">
+            Total Ficheiro: <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
+            {fileTotalIva > 0 && <span className="ml-2 text-xs">(+IVA {fmtMoney(fileTotalIva)} = {fmtMoney(fileTotalGross)})</span>}
+          </span>
+        )}
       </div>
 
       {/* Sheet mapping step */}
