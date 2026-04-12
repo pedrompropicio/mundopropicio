@@ -2726,6 +2726,16 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           </CardContent>
         </Card>
       )}
+      {/* Category Create Modal */}
+      <CategoryFormModal
+        open={showCategoryModal}
+        onOpenChange={setShowCategoryModal}
+        defaultType="expense"
+        onSuccess={(catId) => {
+          categoryModalCallback?.(catId);
+          setCategoryModalCallback(null);
+        }}
+      />
     </div>
   );
 }
