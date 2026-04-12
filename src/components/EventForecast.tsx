@@ -1326,7 +1326,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} />
                               )
                             ))}
                           </React.Fragment>
@@ -1467,7 +1467,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                             )}
                             {group.items.map((f) => (
                               f._prorated ? (
-                                <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} />
+                                <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
                                   <td className="py-1.5 pr-2">
@@ -1510,7 +1510,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               ) : f.cache_config_id ? (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} />
                               )
                             ))}
                           </React.Fragment>
@@ -1576,7 +1576,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [] }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -1585,7 +1585,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   canEditApproved?: boolean; eventTransactions?: any[];
   assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
-  canDeleteAlways?: boolean;
+  canDeleteAlways?: boolean; allForecasts?: any[];
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
@@ -1610,13 +1610,40 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
   };
 
-  // Find all transactions matching this forecast's category and type
+  // Find transactions matching this forecast line
+  // Priority: 1) direct transaction_id link, 2) category + description match
   const matchingTransactions = useMemo(() => {
-    if (!eventTransactions || !item.category_id) return [];
-    return eventTransactions.filter(
+    if (!eventTransactions) return [];
+    
+    // If forecast has a direct transaction_id, show only that transaction
+    if (item.transaction_id) {
+      const direct = eventTransactions.filter((t: any) => t.id === item.transaction_id);
+      if (direct.length > 0) return direct;
+    }
+    
+    // Otherwise match by category + description similarity
+    if (!item.category_id) return [];
+    const sameCat = eventTransactions.filter(
       (t: any) => t.category_id === item.category_id && t.type === item.type
     );
-  }, [eventTransactions, item.category_id, item.type]);
+    
+    // If only one forecast uses this category, show all transactions for it
+    // Otherwise, try to match by description
+    const forecastsWithSameCat = allForecasts?.filter(
+      (f: any) => f.category_id === item.category_id && f.type === item.type
+    ) ?? [];
+    
+    if (forecastsWithSameCat.length <= 1) return sameCat;
+    
+    // Multiple forecasts share this category — match by description
+    const descLower = item.description?.toLowerCase().trim() ?? "";
+    const matched = sameCat.filter((t: any) => {
+      const txDesc = t.description?.toLowerCase().trim() ?? "";
+      return txDesc === descLower || txDesc.includes(descLower) || descLower.includes(txDesc);
+    });
+    
+    return matched.length > 0 ? matched : [];
+  }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, allForecasts]);
 
   const hasMatchingTx = matchingTransactions.length > 0;
 
