@@ -2183,6 +2183,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 {totalUnmatchedApp} no App sem match
               </Badge>
             )}
+            {totalRateioFiltered > 0 && (
+              <Badge variant="outline" className="gap-1 border-purple-500/50 text-purple-600">
+                <Crown className="h-3 w-3" /> {totalRateioFiltered} rateio (Master)
+              </Badge>
+            )}
           </div>
         </div>
       )}
