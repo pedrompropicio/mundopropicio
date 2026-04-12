@@ -524,6 +524,32 @@ export default function Transactions() {
     bulkApproveMutation.mutate(ids);
   };
 
+  const toggleHiddenMutation = useMutation({
+    mutationFn: async ({ id, currentlyHidden }: { id: string; currentlyHidden: boolean }) => {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ is_hidden: !currentlyHidden } as any)
+        .eq("id", id);
+      if (error) throw error;
+      const auditUser = getAuditUser(user);
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: id,
+        action: currentlyHidden ? "unhide" : "hide",
+        changed_by: auditUser,
+      });
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: vars.currentlyHidden ? "Transação tornada visível" : "Transação ocultada" });
+    },
+    onError: () => toast({ title: "Erro ao alterar visibilidade", variant: "destructive" }),
+  });
+
+  const handleToggleHidden = (id: string, currentlyHidden: boolean) => {
+    toggleHiddenMutation.mutate({ id, currentlyHidden });
+  };
+
   const editingTransaction = transactions.find((t) => t.id === editingId);
   const paymentTransaction = transactions.find((t) => t.id === showPaymentId);
 
