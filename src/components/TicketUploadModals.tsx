@@ -116,7 +116,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   });
   const events = eventsProp || fetchedEvents;
 
-  const { data: ticketOffices = [] } = useQuery({
+  const { data: allTicketOffices = [] } = useQuery({
     queryKey: ["ticket_offices_active"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -130,6 +130,28 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     },
     enabled: open,
   });
+
+  // Fetch assignments for the selected event to filter ticket offices
+  const { data: eventOfficeAssignments = [] } = useQuery({
+    queryKey: ["event_office_assignments_for_import", eventId],
+    queryFn: async () => {
+      if (!eventId) return [];
+      const { data, error } = await supabase
+        .from("event_ticket_office_assignments")
+        .select("financial_account_id")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!eventId,
+  });
+
+  // Filter ticket offices: if event has assignments, show only those; otherwise show all
+  const ticketOffices = useMemo(() => {
+    if (!eventId || eventOfficeAssignments.length === 0) return allTicketOffices;
+    const assignedIds = new Set(eventOfficeAssignments.map((a: any) => a.financial_account_id));
+    return allTicketOffices.filter((to: any) => assignedIds.has(to.id));
+  }, [allTicketOffices, eventOfficeAssignments, eventId]);
 
   const { data: eventSessions = [] } = useQuery({
     queryKey: ["event_sessions_for_import", eventId],
