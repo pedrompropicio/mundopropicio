@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -58,6 +58,7 @@ export default function Transactions() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
@@ -325,8 +326,9 @@ export default function Transactions() {
     );
   };
 
-  // Base filter (type, event, account, open only, search)
+  // Base filter (type, event, account, open only, search, hidden)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t: any) => showHidden || !t.is_hidden) // hide hidden transactions unless toggle is on
     .filter(matchesSearch)
     .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
@@ -431,6 +433,7 @@ export default function Transactions() {
   // Paid transactions filtered by payment_date period
   const paidTransactions = useMemo(() => {
     const base = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+      .filter((t: any) => showHidden || !t.is_hidden)
       .filter(matchesSearch)
       .filter(matchesEventFilter)
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
@@ -482,7 +485,7 @@ export default function Transactions() {
       const bDate = b.payment_date ?? b.date;
       return bDate.localeCompare(aDate); // mais recente primeiro
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -521,6 +524,32 @@ export default function Transactions() {
     const ids = [...selectedIds].filter((id) => pendingInView.some((t) => t.id === id));
     if (ids.length === 0) return;
     bulkApproveMutation.mutate(ids);
+  };
+
+  const toggleHiddenMutation = useMutation({
+    mutationFn: async ({ id, currentlyHidden }: { id: string; currentlyHidden: boolean }) => {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ is_hidden: !currentlyHidden } as any)
+        .eq("id", id);
+      if (error) throw error;
+      const auditUser = getAuditUser(user);
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: id,
+        action: currentlyHidden ? "unhide" : "hide",
+        changed_by: auditUser,
+      });
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: vars.currentlyHidden ? "Transação tornada visível" : "Transação ocultada" });
+    },
+    onError: () => toast({ title: "Erro ao alterar visibilidade", variant: "destructive" }),
+  });
+
+  const handleToggleHidden = (id: string, currentlyHidden: boolean) => {
+    toggleHiddenMutation.mutate({ id, currentlyHidden });
   };
 
   const editingTransaction = transactions.find((t) => t.id === editingId);
@@ -649,6 +678,21 @@ export default function Transactions() {
             Liquidadas
           </button>
         </div>
+
+        {/* Show hidden toggle (admin only) */}
+        {isAdmin && (
+          <button
+            onClick={() => setShowHidden(!showHidden)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all",
+              showHidden ? "bg-warning/15 text-warning ring-1 ring-warning/30" : "bg-secondary text-muted-foreground hover:text-foreground"
+            )}
+            title={showHidden ? "A mostrar transações ocultas" : "Mostrar transações ocultas"}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ocultas</span>
+          </button>
+        )}
 
         {/* Event multi-select filter */}
         <Popover modal={false}>
@@ -964,6 +1008,7 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
 
@@ -995,6 +1040,7 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
 
@@ -1026,6 +1072,7 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
                 </tbody>
@@ -1073,6 +1120,7 @@ export default function Transactions() {
                       onDocs={(id) => setShowDocsId(id)}
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
+                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
                   ))}
                 </tbody>
