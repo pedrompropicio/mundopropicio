@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
@@ -205,8 +206,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{isPaid ? "Editar (Liquidada)" : "Editar Transação"}</h2>
