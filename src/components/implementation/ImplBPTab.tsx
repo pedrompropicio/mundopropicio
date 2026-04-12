@@ -858,6 +858,33 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         </TableBody>
                       </Table>
                     </div>
+
+                    {/* Editable category */}
+                    <div className="ml-7 mt-2 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Categoria:</span>
+                      <Select
+                        value={s.categoryId}
+                        onValueChange={(v) => {
+                          const updated = [...apportionmentSuggestions];
+                          updated[idx] = { ...updated[idx], categoryId: v };
+                          setApportionmentSuggestions(updated);
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-72 text-xs">
+                          <SelectValue placeholder="Selecionar categoria…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leafCategories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!s.categoryId && (
+                        <span className="text-xs text-amber-500 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Sem categoria
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
