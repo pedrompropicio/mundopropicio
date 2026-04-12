@@ -28,6 +28,7 @@ interface MatchedLine {
   match: any | null; // forecast from DB
   matchScore: number;
   divergences: string[];
+  suggestedCategoryId: string | null;
 }
 
 function norm(s: string): string {
@@ -323,7 +324,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
   }, [parsedSheets, sheetMappings]);
 
-  // Apply apportionment: move promoted rows to master collection, remove from sheets
+  // Apply apportionment: mark promoted rows, keep them in sheets but track as rateio
   const applyApportionment = useCallback(() => {
     if (!parsedSheets || !sheetMappings) return;
     const promoted = apportionmentSuggestions.filter(s => s.promoteToMaster);
@@ -332,14 +333,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       return;
     }
 
-    const promotedKeys = new Set(promoted.map(s => s.normalizedKey));
     const masterRows: ParsedRow[] = [];
-    const updatedSheets = [...parsedSheets];
 
     // Collect one representative row per promoted item (use first sheet's row)
     for (const suggestion of promoted) {
       const firstSheet = suggestion.sheets[0];
-      const sheet = updatedSheets.find(s => s.sheetName === firstSheet);
+      const sheet = parsedSheets.find(s => s.sheetName === firstSheet);
       if (!sheet) continue;
       const rowIdx = suggestion.rowsBySheet[firstSheet];
       if (rowIdx !== undefined && sheet.rows[rowIdx]) {
@@ -347,23 +346,22 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       }
     }
 
-    // Remove promoted rows from all sheets
-    for (let si = 0; si < updatedSheets.length; si++) {
-      const mapping = sheetMappings.find(m => m.sheetName === updatedSheets[si].sheetName);
-      if (!mapping || mapping.targetType === "ignore") continue;
-      updatedSheets[si] = {
-        ...updatedSheets[si],
-        rows: updatedSheets[si].rows.filter(r => !promotedKeys.has(norm(r.description))),
-      };
-    }
-
-    setParsedSheets(updatedSheets);
+    // Do NOT remove rows from sheets — they stay visible but marked as rateio
     setMasterSheetRows(masterRows);
     setShowApportionmentStep(false);
 
-    toast.success(`${promoted.length} custo(s) promovido(s) ao Master, ${masterRows.length} linha(s) consolidadas`);
+    toast.success(`${promoted.length} custo(s) marcado(s) como rateio para o Master`);
   }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
 
+
+  // Category matcher for source rows
+  const categoryMatcher = useMemo(() => {
+    if (categories.length === 0) return null;
+    return createExpenseCategoryMatcher(categories as any);
+  }, [categories]);
+
+  // Override categories for source rows (keyed by sheet:idx)
+  const [sourceCategoryOverrides, setSourceCategoryOverrides] = useState<Record<string, string>>({});
 
   const matchedLines = useMemo((): MatchedLine[] => {
     if (!parsedSheets || !selectedSheet) return [];
@@ -396,7 +394,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         bestDivergences = ["Sem correspondência no App"];
       }
 
-      lines.push({ idx: i, source: row, match: bestMatch, matchScore: bestScore, divergences: bestDivergences });
+      // Auto-suggest category for source row
+      const suggestedCategoryId = categoryMatcher
+        ? categoryMatcher({ description: row.description, specification: row.specification })
+        : null;
+
+      lines.push({ idx: i, source: row, match: bestMatch, matchScore: bestScore, divergences: bestDivergences, suggestedCategoryId });
     }
 
     // Add unmatched forecasts
@@ -408,12 +411,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           match: f,
           matchScore: 0,
           divergences: ["Sem correspondência no ficheiro"],
+          suggestedCategoryId: null,
         });
       }
     }
 
     return lines;
-  }, [parsedSheets, selectedSheet, forecasts]);
+  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher]);
 
   // Stats
   const totalMatched = matchedLines.filter((l) => l.match && l.idx >= 0).length;
@@ -1060,6 +1064,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     <TableHead className="bg-muted/30 border-r">Ficheiro — Descrição</TableHead>
                     <TableHead className="bg-muted/30 border-r text-right">Ficheiro — Valor</TableHead>
                     <TableHead className="bg-muted/30 border-r text-right">IVA</TableHead>
+                    <TableHead className="bg-muted/30 border-r">Cat. Sugerida</TableHead>
                     <TableHead>App — Descrição</TableHead>
                     <TableHead className="text-right">App — Valor</TableHead>
                     <TableHead className="text-right">IVA</TableHead>
@@ -1071,7 +1076,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 <TableBody>
                   {matchedLines.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                         Nenhuma linha para comparar
                       </TableCell>
                     </TableRow>
@@ -1145,6 +1150,32 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </Select>
                             ) : `${line.source.ivaRate}%`
                           ) : "—"}
+                        </TableCell>
+                        {/* Suggested category for source row */}
+                        <TableCell className="border-r bg-muted/10 text-xs">
+                          {line.idx >= 0 ? (() => {
+                            const key = `${selectedSheet}:${line.idx}`;
+                            const currentCatId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? "";
+                            const currentCat = currentCatId ? leafCategories.find(c => c.id === currentCatId) : null;
+                            if (isRateio) {
+                              return currentCat ? (
+                                <span className="text-muted-foreground">{currentCat.code} {currentCat.name}</span>
+                              ) : <span className="text-muted-foreground">—</span>;
+                            }
+                            return (
+                              <Select
+                                value={currentCatId}
+                                onValueChange={(v) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: v }))}
+                              >
+                                <SelectTrigger className="h-7 w-44 text-xs">
+                                  <SelectValue placeholder="Sem cat." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {leafCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })() : "—"}
                         </TableCell>
 
                         {/* App columns */}
@@ -1269,7 +1300,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           <TableCell className="text-[10px] text-muted-foreground text-center align-top py-2">
                             <Eye className="h-3 w-3 mx-auto" />
                           </TableCell>
-                          <TableCell colSpan={9} className="py-2">
+                          <TableCell colSpan={10} className="py-2">
                             <div className="text-xs space-y-0.5">
                               <p className="font-semibold text-muted-foreground mb-1">Valores originais do Excel (Linha {line.source.excelRow}):</p>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
@@ -1298,13 +1329,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       {originalFileTotal && (
                         <TableRow className="bg-muted/30 border-t-2">
                           <TableCell className="text-xs text-muted-foreground">{originalFileTotal.rowIdx}</TableCell>
-                          <TableCell colSpan={3} className="border-r bg-muted/20 text-sm font-semibold">
+                          <TableCell colSpan={4} className="border-r bg-muted/20 text-sm font-semibold">
                             Total no Excel (linha original)
                           </TableCell>
                           <TableCell colSpan={2} className="text-right font-mono text-sm font-semibold">
                             {fmtMoney(originalFileTotal.total)}
                           </TableCell>
-                          <TableCell colSpan={4}></TableCell>
+                          <TableCell colSpan={5}></TableCell>
                         </TableRow>
                       )}
                       {/* Interpreted total row */}
@@ -1318,6 +1349,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell className="border-r bg-muted/30 text-right text-xs">
                           {compFileTotalIva > 0 && fmtMoney(compFileTotalIva)}
                         </TableCell>
+                        <TableCell className="border-r bg-muted/30"></TableCell>
                         <TableCell className="text-sm">
                           Total no App
                           <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compAppTotalGross)}</span>
