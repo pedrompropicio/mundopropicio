@@ -766,6 +766,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         </div>
       )}
 
+      {parsedSheets && (viewMode === "comparison" || viewMode === "raw") && (
         <div className="flex items-center gap-4 flex-wrap">
           {parsedSheets.length > 1 && (
             <Select value={selectedSheet} onValueChange={(v) => {
