@@ -323,7 +323,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
   }, [parsedSheets, sheetMappings]);
 
-  // Apply apportionment: move promoted rows to master collection, remove from sheets
+  // Apply apportionment: mark promoted rows, keep them in sheets but track as rateio
   const applyApportionment = useCallback(() => {
     if (!parsedSheets || !sheetMappings) return;
     const promoted = apportionmentSuggestions.filter(s => s.promoteToMaster);
@@ -332,14 +332,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       return;
     }
 
-    const promotedKeys = new Set(promoted.map(s => s.normalizedKey));
     const masterRows: ParsedRow[] = [];
-    const updatedSheets = [...parsedSheets];
 
     // Collect one representative row per promoted item (use first sheet's row)
     for (const suggestion of promoted) {
       const firstSheet = suggestion.sheets[0];
-      const sheet = updatedSheets.find(s => s.sheetName === firstSheet);
+      const sheet = parsedSheets.find(s => s.sheetName === firstSheet);
       if (!sheet) continue;
       const rowIdx = suggestion.rowsBySheet[firstSheet];
       if (rowIdx !== undefined && sheet.rows[rowIdx]) {
@@ -347,21 +345,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       }
     }
 
-    // Remove promoted rows from all sheets
-    for (let si = 0; si < updatedSheets.length; si++) {
-      const mapping = sheetMappings.find(m => m.sheetName === updatedSheets[si].sheetName);
-      if (!mapping || mapping.targetType === "ignore") continue;
-      updatedSheets[si] = {
-        ...updatedSheets[si],
-        rows: updatedSheets[si].rows.filter(r => !promotedKeys.has(norm(r.description))),
-      };
-    }
-
-    setParsedSheets(updatedSheets);
+    // Do NOT remove rows from sheets — they stay visible but marked as rateio
     setMasterSheetRows(masterRows);
     setShowApportionmentStep(false);
 
-    toast.success(`${promoted.length} custo(s) promovido(s) ao Master, ${masterRows.length} linha(s) consolidadas`);
+    toast.success(`${promoted.length} custo(s) marcado(s) como rateio para o Master`);
   }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
 
 
