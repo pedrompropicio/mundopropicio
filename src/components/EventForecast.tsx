@@ -600,6 +600,54 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     bulkApproveMutation.mutate(items);
   };
 
+  // Bulk create "A Pagar" transactions from selected approved lines (admin only)
+  const bulkCreateTxMutation = useMutation({
+    mutationFn: async (forecastItems: any[]) => {
+      let created = 0;
+      for (const f of forecastItems) {
+        const { error } = await supabase.from("transactions").insert({
+          event_id: eventId,
+          type: f.type,
+          description: f.description,
+          specification: f.specification || null,
+          amount: Number(f.amount),
+          iva_rate: Number(f.iva_rate),
+          category_id: f.category_id || null,
+          date: eventDate,
+          due_date: eventDate,
+          status: "pending",
+        });
+        if (error) throw error;
+        created++;
+      }
+      return created;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setSelectedIds(new Set());
+      toast({ title: `${count} transação(ões) "A Pagar" criada(s)!` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleBulkCreateTx = () => {
+    // Filter selected approved items that don't already have matching transactions
+    const items = forecasts.filter((f) => {
+      if (!selectedIds.has(f.id) || f.status !== "approved") return false;
+      // Check if already has transaction for this category
+      const hasTx = transactions.some((t: any) => t.category_id === f.category_id && t.type === f.type);
+      return !hasTx;
+    });
+    if (items.length === 0) {
+      toast({ title: "Nenhuma linha selecionada sem transação", variant: "destructive" });
+      return;
+    }
+    bulkCreateTxMutation.mutate(items);
+  };
+
   const generateHistoricalMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
