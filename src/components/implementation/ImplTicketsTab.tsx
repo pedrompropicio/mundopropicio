@@ -103,8 +103,18 @@ export function ImplTicketsTab({ implementation, event, allEvents, eventDates = 
   const fmtMoney = (n: number) =>
     n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
 
-  const totalTickets = lots.reduce((s: number, l: any) => s + Number(l.quantity), 0);
-  const totalRevenue = lots.reduce((s: number, l: any) => s + Number(l.price) * Number(l.quantity), 0);
+  // Filter zones by selected date (via session)
+  const filteredZones = selectedDateId === "all" ? zones : zones.filter((z: any) => {
+    if (!z.session_id) return true; // zones without session always show
+    const session = sessionsForEvent.find((s: any) => s.id === z.session_id);
+    if (!session) return true;
+    const selectedDate = datesForEvent.find((d: any) => d.id === selectedDateId);
+    return selectedDate && session.date === selectedDate.date;
+  });
+  const filteredZoneIds = new Set(filteredZones.map((z: any) => z.id));
+  const filteredLots = lots.filter((l: any) => filteredZoneIds.has(l.zone_id));
+  const totalTickets = filteredLots.reduce((s: number, l: any) => s + Number(l.quantity), 0);
+  const totalRevenue = filteredLots.reduce((s: number, l: any) => s + Number(l.price) * Number(l.quantity), 0);
 
   return (
     <div className="space-y-4">
