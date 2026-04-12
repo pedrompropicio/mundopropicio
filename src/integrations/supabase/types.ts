@@ -2042,6 +2042,7 @@ export type Database = {
           event_id: string | null
           id: string
           invoice_ref: string | null
+          is_hidden: boolean
           is_reimbursement: boolean
           iva_rate: number
           paid_amount: number
@@ -2067,6 +2068,7 @@ export type Database = {
           event_id?: string | null
           id?: string
           invoice_ref?: string | null
+          is_hidden?: boolean
           is_reimbursement?: boolean
           iva_rate?: number
           paid_amount?: number
@@ -2092,6 +2094,7 @@ export type Database = {
           event_id?: string | null
           id?: string
           invoice_ref?: string | null
+          is_hidden?: boolean
           is_reimbursement?: boolean
           iva_rate?: number
           paid_amount?: number
