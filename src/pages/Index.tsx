@@ -532,7 +532,7 @@ export default function Dashboard() {
       </section>
 
       {/* --- RESULTS ANALYSIS --- */}
-      <ResultsAnalysis />
+      {(isAdmin || isManager) && <ResultsAnalysis />}
     </div>
   );
 }
