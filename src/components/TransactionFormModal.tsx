@@ -68,6 +68,7 @@ const parseDueDateForDb = (value: string) => {
 };
 
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
+  const { isAdmin: authIsAdmin, isManager: authIsManager } = useAuth();
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
