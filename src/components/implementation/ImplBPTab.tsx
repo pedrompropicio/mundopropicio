@@ -1694,13 +1694,25 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               Análise de Rateio — Custos Partilhados
             </CardTitle>
             <CardDescription>
-              Os seguintes custos aparecem em múltiplas cidades. Selecione quais devem ser consolidados no evento Master (custos rateados) — os restantes serão mantidos como custos individuais de cada cidade.
+              Comparação entre os custos sugeridos pelo ficheiro e os já existentes no evento Master.
+              Selecione quais devem ser consolidados, altere categorias/valores, ou remova sugestões indesejadas.
             </CardDescription>
+            {/* Status legend */}
+            <div className="flex items-center gap-4 mt-2">
+              <span className="flex items-center gap-1 text-[10px]">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" /> Já existe no Master
+              </span>
+              <span className="flex items-center gap-1 text-[10px]">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" /> Divergente
+              </span>
+              <span className="flex items-center gap-1 text-[10px]">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" /> Novo (ficheiro)
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {apportionmentSuggestions.map((s, idx) => {
-                // Get the actual row data from each sheet
                 const sheetDetails = s.sheets.map(sheetName => {
                   const sheet = parsedSheets?.find(ps => ps.sheetName === sheetName);
                   const rowIdx = s.rowsBySheet[sheetName];
@@ -1710,12 +1722,19 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   return { sheetName, row, targetEvent };
                 });
 
+                const statusColor = s.status === "exists" ? "border-emerald-500/40 bg-emerald-500/5" : s.status === "divergent" ? "border-amber-500/40 bg-amber-500/5" : "border-blue-500/40 bg-blue-500/5";
+                const statusBadge = s.status === "exists"
+                  ? <Badge variant="outline" className="text-[10px] border-emerald-500/50 text-emerald-600">✓ Já existe</Badge>
+                  : s.status === "divergent"
+                  ? <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">⚠ Divergente</Badge>
+                  : <Badge variant="outline" className="text-[10px] border-blue-500/50 text-blue-600">+ Novo</Badge>;
+
                 return (
                   <div
-                    key={s.normalizedKey}
-                    className={`rounded-lg border p-3 ${s.promoteToMaster ? "border-primary/30 bg-primary/5" : "border-border bg-muted/10"}`}
+                    key={s.normalizedKey + idx}
+                    className={`rounded-lg border p-3 ${s.promoteToMaster ? statusColor : "border-border bg-muted/10 opacity-60"}`}
                   >
-                    {/* Header with checkbox */}
+                    {/* Header with checkbox + status */}
                     <div className="flex items-center gap-3 mb-2">
                       <input
                         type="checkbox"
@@ -1728,31 +1747,58 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         className="h-4 w-4 rounded border-input"
                       />
                       <span className="text-sm font-semibold flex-1">{s.description}</span>
+                      {statusBadge}
                       <Badge variant={s.promoteToMaster ? "default" : "outline"} className="text-xs">
                         {s.promoteToMaster ? "→ Master" : "Manter individual"}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          const updated = apportionmentSuggestions.filter((_, i) => i !== idx);
+                          setApportionmentSuggestions(updated);
+                          toast.success("Sugestão removida");
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
 
-                    {/* Detail table: one row per sheet */}
-                    <div className="ml-7 rounded-md border overflow-hidden">
-                      <Table>
-                         <TableHeader>
-                          <TableRow className="bg-muted/50">
-                             <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
-                             <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
-                             <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
-                             <TableHead className="text-xs py-1.5 h-auto">Categoria</TableHead>
-                             <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
-                             <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
-                             <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
-                           </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                           {sheetDetails.map(({ sheetName, row, targetEvent }) => {
-                             // Try to find matching forecast category for this row
-                             const mapping = sheetMappings?.find(m => m.sheetName === sheetName);
-                             const targetEventId = mapping?.targetType === "event" ? mapping.targetId : null;
-                             return (
+                    {/* Divergence details */}
+                    {s.status === "divergent" && s.divergenceDetails && s.divergenceDetails.length > 0 && (
+                      <div className="ml-7 mb-2 rounded-md bg-amber-500/10 px-3 py-1.5 text-xs space-y-0.5">
+                        <span className="font-medium text-amber-700">Diferenças encontradas:</span>
+                        {s.divergenceDetails.map((d, di) => (
+                          <p key={di} className="text-amber-600">• {d}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Existing forecast info */}
+                    {s.status === "exists" && s.existingForecast && s.sheets.length === 0 && (
+                      <div className="ml-7 mb-2 rounded-md bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-700">
+                        Já existe no Master — não encontrado no ficheiro. Será mantido sem alterações.
+                      </div>
+                    )}
+
+                    {/* Detail table: one row per sheet (only if from file) */}
+                    {sheetDetails.length > 0 && (
+                      <div className="ml-7 rounded-md border overflow-hidden">
+                        <Table>
+                           <TableHeader>
+                            <TableRow className="bg-muted/50">
+                               <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto">Categoria</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
+                               <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
+                             </TableRow>
+                           </TableHeader>
+                           <TableBody>
+                             {sheetDetails.map(({ sheetName, row, targetEvent }) => (
                              <TableRow key={sheetName}>
                                <TableCell className="text-xs py-1.5">
                                  <div>
@@ -1774,14 +1820,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
                                <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
                              </TableRow>
-                             );
-                           })}
-                         </TableBody>
-                      </Table>
-                    </div>
+                             ))}
+                           </TableBody>
+                        </Table>
+                      </div>
+                    )}
 
-                    {/* Editable category */}
-                    <div className="ml-7 mt-2 flex items-center gap-2">
+                    {/* Editable category + amount for divergent/new */}
+                    <div className="ml-7 mt-2 flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground">Categoria:</span>
                       <Select
                         value={s.categoryId}
@@ -1810,6 +1856,10 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             </div>
             {/* Totals summary */}
             {(() => {
+              const fileSuggestions = apportionmentSuggestions.filter(s => s.sheets.length > 0);
+              const existingOnly = apportionmentSuggestions.filter(s => s.status === "exists" && s.sheets.length === 0);
+              const newCount = apportionmentSuggestions.filter(s => s.status === "new").length;
+              const divergentCount = apportionmentSuggestions.filter(s => s.status === "divergent").length;
               const rateioTotal = apportionmentSuggestions
                 .filter(s => s.promoteToMaster)
                 .reduce((sum, s) => sum + s.avgAmount, 0);
@@ -1821,12 +1871,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       return sum + (sheet?.rows.reduce((s, r) => s + r.baseAmount, 0) ?? 0);
                     }, 0) ?? 0
                 : 0;
-              const remainingPerSheet = allSheetsTotal - rateioTotal * (sheetMappings?.filter(m => m.targetType !== "ignore").length ?? 1);
               return (
-                <div className="flex items-center gap-6 text-xs text-muted-foreground flex-wrap">
-                  <span>Total todas as abas: <span className="font-semibold text-foreground">{fmtMoney(allSheetsTotal)}</span></span>
-                  <span>Rateio (Master): <span className="font-semibold text-foreground">{fmtMoney(rateioTotal)}</span></span>
-                  <span>Restante nos Splits: <span className="font-semibold text-foreground">{fmtMoney(remainingPerSheet)}</span></span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-6 text-xs text-muted-foreground flex-wrap">
+                    <span>Novos: <span className="font-semibold text-blue-600">{newCount}</span></span>
+                    <span>Divergentes: <span className="font-semibold text-amber-600">{divergentCount}</span></span>
+                    <span>Já existentes: <span className="font-semibold text-emerald-600">{existingOnly.length}</span></span>
+                    <span>Rateio (Master): <span className="font-semibold text-foreground">{fmtMoney(rateioTotal)}</span></span>
+                  </div>
                 </div>
               );
             })()}
