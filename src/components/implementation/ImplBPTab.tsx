@@ -96,6 +96,12 @@ interface ApportionmentSuggestion {
   promoteToMaster: boolean;
   /** Editable category ID for the consolidated Master line */
   categoryId: string;
+  /** Comparison status with existing master forecasts */
+  status: "new" | "exists" | "divergent";
+  /** Existing forecast that matches this suggestion (if any) */
+  existingForecast?: any;
+  /** Divergence details */
+  divergenceDetails?: string[];
 }
 
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
