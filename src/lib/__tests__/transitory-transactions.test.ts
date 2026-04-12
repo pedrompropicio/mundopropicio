@@ -87,14 +87,12 @@ describe("Transitory toggle role restriction logic", () => {
   });
 
   it("conversion from transitory to definitive requires admin/manager", () => {
-    const transaction = { is_transitory: true };
-    const userRole = "editor";
+    const checkCanConvert = (role: string) => role === "admin" || role === "manager";
 
-    const canConvert = userRole === "admin" || userRole === "manager";
-    expect(canConvert).toBe(false);
-
-    const adminRole = "admin";
-    const adminCanConvert = adminRole === "admin" || adminRole === "manager";
-    expect(adminCanConvert).toBe(true);
+    expect(checkCanConvert("editor")).toBe(false);
+    expect(checkCanConvert("viewer")).toBe(false);
+    expect(checkCanConvert("user")).toBe(false);
+    expect(checkCanConvert("admin")).toBe(true);
+    expect(checkCanConvert("manager")).toBe(true);
   });
 });
