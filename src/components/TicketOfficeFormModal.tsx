@@ -1,11 +1,14 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/AuthContext";
+import { Calendar, Search } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,6 +21,8 @@ interface Props {
 export function TicketOfficeFormModal({ office, onClose }: Props) {
   const isEditing = !!office;
   const queryClient = useQueryClient();
+  const { isAdmin, hasPermission } = useAuth();
+  const canManageAssignments = isAdmin || hasPermission("manage_accounts");
 
   const [name, setName] = useState(office?.name ?? "");
   const [contactName, setContactName] = useState(office?.contact_name ?? "");
@@ -25,6 +30,73 @@ export function TicketOfficeFormModal({ office, onClose }: Props) {
   const [phone, setPhone] = useState(office?.phone ?? "");
   const [notes, setNotes] = useState(office?.description ?? "");
   const [isActive, setIsActive] = useState(office?.is_active ?? true);
+  const [eventSearch, setEventSearch] = useState("");
+
+  // Fetch events for association (only confirmed/active)
+  const { data: events = [] } = useQuery({
+    queryKey: ["events_for_office_assignment"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date, status, event_type, parent_event_id")
+        .in("status", ["confirmed", "active"])
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: isEditing && canManageAssignments,
+  });
+
+  // Fetch existing assignments for this office
+  const { data: assignments = [] } = useQuery({
+    queryKey: ["office_event_assignments", office?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_office_assignments")
+        .select("id, event_id")
+        .eq("financial_account_id", office.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isEditing && canManageAssignments && !!office?.id,
+  });
+
+  const assignedEventIds = useMemo(
+    () => new Set(assignments.map((a: any) => a.event_id)),
+    [assignments]
+  );
+
+  const filteredEvents = useMemo(() => {
+    if (!eventSearch.trim()) return events;
+    const q = eventSearch.toLowerCase();
+    return events.filter((e: any) => e.name.toLowerCase().includes(q));
+  }, [events, eventSearch]);
+
+  const toggleAssignment = useMutation({
+    mutationFn: async (eventId: string) => {
+      const existing = assignments.find((a: any) => a.event_id === eventId);
+      if (existing) {
+        const { error } = await supabase
+          .from("event_ticket_office_assignments")
+          .delete()
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("event_ticket_office_assignments")
+          .insert({ event_id: eventId, financial_account_id: office.id });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["office_event_assignments", office?.id] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_assignments_all"] });
+      queryClient.invalidateQueries({ queryKey: ["to_event_assignments"] });
+    },
+    onError: (err: any) => {
+      toast.error("Erro ao alterar associação", { description: err.message });
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -69,7 +141,7 @@ export function TicketOfficeFormModal({ office, onClose }: Props) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Bilheteira" : "Nova Bilheteira"}</DialogTitle>
         </DialogHeader>
@@ -101,6 +173,57 @@ export function TicketOfficeFormModal({ office, onClose }: Props) {
             <Switch checked={isActive} onCheckedChange={setIsActive} id="to-active" />
             <Label htmlFor="to-active">Ativa</Label>
           </div>
+
+          {/* Event associations - only when editing and user has permission */}
+          {isEditing && canManageAssignments && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Eventos Associados</Label>
+                <span className="text-xs text-muted-foreground">({assignedEventIds.size})</span>
+              </div>
+
+              {events.length > 5 && (
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Pesquisar eventos..."
+                    value={eventSearch}
+                    onChange={(e) => setEventSearch(e.target.value)}
+                    className="pl-8 h-8 text-sm"
+                  />
+                </div>
+              )}
+
+              <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-border/50 p-2">
+                {filteredEvents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">Nenhum evento encontrado</p>
+                ) : (
+                  filteredEvents.map((event: any) => {
+                    const isAssigned = assignedEventIds.has(event.id);
+                    return (
+                      <label
+                        key={event.id}
+                        className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <Checkbox
+                          checked={isAssigned}
+                          onCheckedChange={() => toggleAssignment.mutate(event.id)}
+                          disabled={toggleAssignment.isPending}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm truncate">{event.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(event.date).toLocaleDateString("pt-PT")}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
