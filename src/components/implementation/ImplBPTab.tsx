@@ -2342,17 +2342,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               ) : <span className="text-muted-foreground">—</span>;
                             }
                             return (
-                              <Select
-                                value={currentCatId}
-                                onValueChange={(v) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: v }))}
-                              >
-                                <SelectTrigger className="h-7 w-44 text-xs">
-                                  <SelectValue placeholder="Sem cat." />
-                                </SelectTrigger>
-                                 <SelectContent className="max-h-72">
-                                   {renderCategoryOptions()}
-                                 </SelectContent>
-                              </Select>
+                              <div className="flex items-center gap-1">
+                                <Select
+                                  value={currentCatId}
+                                  onValueChange={(v) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: v }))}
+                                >
+                                  <SelectTrigger className="h-7 w-44 text-xs">
+                                    <SelectValue placeholder="Sem cat." />
+                                  </SelectTrigger>
+                                   <SelectContent className="max-h-72">
+                                     {renderCategoryOptions()}
+                                   </SelectContent>
+                                </Select>
+                                {renderAddCategoryButton((catId) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: catId })))}
+                              </div>
                             );
                           })() : "—"}
                         </TableCell>
