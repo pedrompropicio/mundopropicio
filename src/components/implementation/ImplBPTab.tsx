@@ -617,7 +617,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           {allEvents.length > 1 && (
             <>
               <span className="text-sm font-medium text-muted-foreground">Evento:</span>
-              <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedDateId("all"); }}>
+              <Select value={selectedEventId} onValueChange={(v) => {
+                setSelectedEventId(v);
+                setSelectedDateId("all");
+                // Auto-switch sheet based on mapping when changing event
+                if (sheetMappings && parsedSheets) {
+                  const mapping = sheetMappings.find(m => m.targetType === "event" && m.targetId === v);
+                  if (mapping) {
+                    setSelectedSheet(mapping.sheetName);
+                  }
+                }
+              }}>
                 <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {allEvents.map((e) => (
