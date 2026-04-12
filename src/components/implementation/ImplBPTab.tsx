@@ -1027,7 +1027,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     } finally {
       setImporting(false);
     }
-  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories, importedSheets, eventForecastCounts]);
+  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories, importedSheets, eventForecastCounts, refetchBatches]);
 
   const startEdit = (forecast: any) => {
     setEditingId(forecast.id);
