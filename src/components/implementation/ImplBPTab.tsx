@@ -1591,10 +1591,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <SelectTrigger className="h-7 w-72 text-xs">
                           <SelectValue placeholder="Selecionar categoria…" />
                         </SelectTrigger>
-                        <SelectContent>
-                          {leafCategories.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>
-                          ))}
+                        <SelectContent className="max-h-72">
+                          {renderCategoryOptions()}
                         </SelectContent>
                       </Select>
                       {!s.categoryId && (
