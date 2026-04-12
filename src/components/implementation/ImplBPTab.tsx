@@ -108,6 +108,7 @@ interface ApportionmentSuggestion {
 
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
   const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -129,6 +130,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [showImportHistory, setShowImportHistory] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [importedSheets, setImportedSheets] = useState<Set<string>>(new Set());
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryModalCallback, setCategoryModalCallback] = useState<((catId: string) => void) | null>(null);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
