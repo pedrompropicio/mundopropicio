@@ -1036,6 +1036,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 : "Sincronizar BP"}
             </Button>
           )}
+          {importBatches.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImportHistory(!showImportHistory)}
+              className="gap-2"
+            >
+              <History className="h-4 w-4" />
+              Histórico ({importBatches.length})
+            </Button>
+          )}
           {parsedSheets && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
@@ -1049,6 +1060,93 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           )}
         </div>
       </div>
+
+      {/* Import History & Rollback Panel */}
+      {showImportHistory && importBatches.length > 0 && (
+        <Card className="border-amber-500/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Histórico de Importações
+            </CardTitle>
+            <CardDescription>
+              Importações realizadas neste projeto. Pode reverter um lote inteiro — previsões criadas serão eliminadas e as atualizadas voltarão ao estado anterior.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Data</TableHead>
+                  <TableHead className="text-xs">Utilizador</TableHead>
+                  <TableHead className="text-xs">Lote</TableHead>
+                  <TableHead className="text-xs text-center">Criadas</TableHead>
+                  <TableHead className="text-xs text-center">Atualizadas</TableHead>
+                  <TableHead className="text-xs text-center">Total Registos</TableHead>
+                  <TableHead className="text-xs w-24">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {importBatches.map((batch) => {
+                  const isRollbacked = batch.entries.some((e: any) => (e.observation || "").includes("rollback"));
+                  return (
+                    <TableRow key={batch.batchId} className={isRollbacked ? "opacity-50" : ""}>
+                      <TableCell className="text-xs">
+                        {new Date(batch.date).toLocaleDateString("pt-PT")} {new Date(batch.date).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      </TableCell>
+                      <TableCell className="text-xs">{batch.changedBy}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{batch.batchId.substring(9)}</TableCell>
+                      <TableCell className="text-xs text-center">
+                        {batch.createdCount > 0 && <Badge variant="outline" className="text-[10px]">{batch.createdCount}</Badge>}
+                      </TableCell>
+                      <TableCell className="text-xs text-center">
+                        {batch.updatedCount > 0 && <Badge variant="outline" className="text-[10px]">{batch.updatedCount}</Badge>}
+                      </TableCell>
+                      <TableCell className="text-xs text-center">{batch.entries.length}</TableCell>
+                      <TableCell>
+                        {isRollbacked ? (
+                          <span className="text-xs text-muted-foreground italic">Revertido</span>
+                        ) : (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" disabled={reverting}>
+                                {reverting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                                Reverter
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reverter importação?</AlertDialogTitle>
+                                <AlertDialogDescription className="space-y-2">
+                                  <p>Esta ação irá:</p>
+                                  <ul className="list-disc ml-4 space-y-1">
+                                    {batch.createdCount > 0 && <li><strong>Eliminar {batch.createdCount}</strong> previsão(ões) criada(s) por esta importação</li>}
+                                    {batch.updatedCount > 0 && <li><strong>Restaurar {batch.updatedCount}</strong> previsão(ões) aos valores anteriores</li>}
+                                  </ul>
+                                  <p className="text-xs text-muted-foreground mt-2">Lote: {batch.batchId}</p>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleRollback(batch)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Confirmar Reversão
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )
 
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm flex-wrap">
