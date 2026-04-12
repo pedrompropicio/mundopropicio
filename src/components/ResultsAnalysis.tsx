@@ -391,8 +391,18 @@ export function ResultsAnalysis() {
                       </a>
                     </td>
                     <td className="p-3 text-muted-foreground hidden md:table-cell">{formatDate(e.date)}</td>
-                    <td className="p-3 text-right font-mono text-success">{formatCurrency(e.totalIncome)}</td>
-                    <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.totalExpense)}</td>
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="font-mono text-success">{formatCurrency(e.totalIncome)}</span>
+                        <SourceBadge source={e.incomeSource} />
+                      </div>
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="font-mono text-warning">{formatCurrency(e.totalExpense)}</span>
+                        <SourceBadge source={e.expenseSource} />
+                      </div>
+                    </td>
                     <td className={`p-3 text-right font-mono font-semibold ${e.margin >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(e.margin)}
                     </td>
