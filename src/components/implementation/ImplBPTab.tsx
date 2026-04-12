@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload } from "lucide-react";
+import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
 import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
 import * as XLSX from "xlsx";
@@ -117,6 +118,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [apportionmentSuggestions, setApportionmentSuggestions] = useState<ApportionmentSuggestion[]>([]);
   const [masterSheetRows, setMasterSheetRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
+  const [showImportHistory, setShowImportHistory] = useState(false);
+  const [reverting, setReverting] = useState(false);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
@@ -153,6 +156,152 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const leafCategories = categories.filter(
     (c) => !categories.some((other) => other.parent_id === c.id)
   );
+
+  // Fetch import batches from audit log for all events in this implementation
+  const allEventIds = allEvents.map(e => e.id);
+  const { data: importBatches = [], refetch: refetchBatches } = useQuery({
+    queryKey: ["impl-import-batches", ...allEventIds],
+    queryFn: async () => {
+      // Get all forecast IDs for these events
+      const { data: eventForecasts, error: fErr } = await supabase
+        .from("event_forecasts")
+        .select("id")
+        .in("event_id", allEventIds);
+      if (fErr || !eventForecasts || eventForecasts.length === 0) return [];
+
+      const forecastIds = eventForecasts.map(f => f.id);
+
+      // Query audit log for import entries (in batches of 100 to avoid query limit issues)
+      const allLogs: any[] = [];
+      for (let i = 0; i < forecastIds.length; i += 100) {
+        const chunk = forecastIds.slice(i, i + 100);
+        const { data: logs } = await supabase
+          .from("forecast_audit_log")
+          .select("*")
+          .in("forecast_id", chunk)
+          .like("observation", "batch:bp-impl-%")
+          .order("created_at", { ascending: false });
+        if (logs) allLogs.push(...logs);
+      }
+
+      if (allLogs.length === 0) return [];
+
+      // Group by batch ID
+      const batchMap: Record<string, { batchId: string; date: string; changedBy: string; entries: any[]; createdCount: number; updatedCount: number }> = {};
+      for (const log of allLogs) {
+        const obs = log.observation || "";
+        const batchMatch = obs.match(/batch:(bp-impl-[^\s|]+)/);
+        if (!batchMatch) continue;
+        const batchId = batchMatch[1];
+        if (!batchMap[batchId]) {
+          batchMap[batchId] = {
+            batchId,
+            date: log.created_at,
+            changedBy: log.changed_by,
+            entries: [],
+            createdCount: 0,
+            updatedCount: 0,
+          };
+        }
+        batchMap[batchId].entries.push(log);
+        if (obs.includes("ação:criar")) batchMap[batchId].createdCount++;
+        if (obs.includes("ação:atualizar")) batchMap[batchId].updatedCount++;
+      }
+
+      return Object.values(batchMap).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    },
+    enabled: allEventIds.length > 0,
+  });
+
+  // Rollback handler
+  const handleRollback = useCallback(async (batch: typeof importBatches[0]) => {
+    setReverting(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const changedBy = userData?.user?.user_metadata?.full_name ?? userData?.user?.email ?? "sistema";
+
+      let deleted = 0;
+      let restored = 0;
+      const errors: string[] = [];
+
+      // Separate created vs updated entries
+      const createdEntries = batch.entries.filter((e: any) => (e.observation || "").includes("ação:criar"));
+      const updatedEntries = batch.entries.filter((e: any) => (e.observation || "").includes("ação:atualizar"));
+
+      // Delete forecasts that were CREATED by this batch
+      const createdForecastIds = [...new Set(createdEntries.map((e: any) => e.forecast_id))];
+      for (const fId of createdForecastIds) {
+        const { error } = await supabase.from("event_forecasts").delete().eq("id", fId);
+        if (error) {
+          errors.push(`Eliminar ${fId.substring(0, 8)}: ${error.message}`);
+        } else {
+          deleted++;
+          // Log the rollback action
+          await supabase.from("forecast_audit_log").insert({
+            forecast_id: fId,
+            changed_by: changedBy,
+            field_name: "rollback",
+            old_value: null,
+            new_value: null,
+            observation: `rollback batch:${batch.batchId} | ação:eliminar`,
+          });
+        }
+      }
+
+      // Restore original values for UPDATED forecasts
+      const updatedForecastIds = [...new Set(updatedEntries.map((e: any) => e.forecast_id))];
+      for (const fId of updatedForecastIds) {
+        // Get all field changes for this forecast in this batch
+        const fieldChanges = updatedEntries.filter((e: any) => e.forecast_id === fId && e.field_name !== "importação");
+        if (fieldChanges.length === 0) continue;
+
+        const restoreValues: Record<string, any> = {};
+        for (const change of fieldChanges) {
+          const field = change.field_name;
+          const oldVal = change.old_value;
+          if (field === "amount") restoreValues.amount = Number(oldVal) || 0;
+          else if (field === "iva_rate") restoreValues.iva_rate = Number(oldVal) || 0;
+          else if (field === "category_id") {
+            // old_value stores "code name" — need to find the ID
+            const cat = categories.find(c => oldVal && `${c.code} ${c.name}` === oldVal);
+            restoreValues.category_id = cat?.id || null;
+          }
+          else if (field === "description") restoreValues.description = oldVal || "";
+          else if (field === "specification") restoreValues.specification = oldVal || null;
+        }
+
+        if (Object.keys(restoreValues).length > 0) {
+          const { error } = await supabase.from("event_forecasts").update(restoreValues as any).eq("id", fId);
+          if (error) {
+            errors.push(`Restaurar ${fId.substring(0, 8)}: ${error.message}`);
+          } else {
+            restored++;
+            await supabase.from("forecast_audit_log").insert({
+              forecast_id: fId,
+              changed_by: changedBy,
+              field_name: "rollback",
+              old_value: null,
+              new_value: JSON.stringify(restoreValues),
+              observation: `rollback batch:${batch.batchId} | ação:restaurar`,
+            });
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        toast.error(`Rollback parcial: ${errors.length} erro(s)`, { description: errors.slice(0, 3).join("; ") });
+      } else {
+        toast.success(`Rollback concluído: ${deleted} eliminadas, ${restored} restauradas`);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
+      refetchBatches();
+    } catch (err: any) {
+      toast.error("Erro no rollback: " + err.message);
+    } finally {
+      setReverting(false);
+    }
+  }, [categories, queryClient, refetchBatches]);
 
   // Parse reference file
   const handleParseFile = useCallback(async () => {
@@ -887,6 +1036,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 : "Sincronizar BP"}
             </Button>
           )}
+          {importBatches.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImportHistory(!showImportHistory)}
+              className="gap-2"
+            >
+              <History className="h-4 w-4" />
+              Histórico ({importBatches.length})
+            </Button>
+          )}
           {parsedSheets && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
@@ -900,6 +1060,93 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           )}
         </div>
       </div>
+
+      {/* Import History & Rollback Panel */}
+      {showImportHistory && importBatches.length > 0 && (
+        <Card className="border-amber-500/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Histórico de Importações
+            </CardTitle>
+            <CardDescription>
+              Importações realizadas neste projeto. Pode reverter um lote inteiro — previsões criadas serão eliminadas e as atualizadas voltarão ao estado anterior.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Data</TableHead>
+                  <TableHead className="text-xs">Utilizador</TableHead>
+                  <TableHead className="text-xs">Lote</TableHead>
+                  <TableHead className="text-xs text-center">Criadas</TableHead>
+                  <TableHead className="text-xs text-center">Atualizadas</TableHead>
+                  <TableHead className="text-xs text-center">Total Registos</TableHead>
+                  <TableHead className="text-xs w-24">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {importBatches.map((batch) => {
+                  const isRollbacked = batch.entries.some((e: any) => (e.observation || "").includes("rollback"));
+                  return (
+                    <TableRow key={batch.batchId} className={isRollbacked ? "opacity-50" : ""}>
+                      <TableCell className="text-xs">
+                        {new Date(batch.date).toLocaleDateString("pt-PT")} {new Date(batch.date).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      </TableCell>
+                      <TableCell className="text-xs">{batch.changedBy}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{batch.batchId.substring(9)}</TableCell>
+                      <TableCell className="text-xs text-center">
+                        {batch.createdCount > 0 && <Badge variant="outline" className="text-[10px]">{batch.createdCount}</Badge>}
+                      </TableCell>
+                      <TableCell className="text-xs text-center">
+                        {batch.updatedCount > 0 && <Badge variant="outline" className="text-[10px]">{batch.updatedCount}</Badge>}
+                      </TableCell>
+                      <TableCell className="text-xs text-center">{batch.entries.length}</TableCell>
+                      <TableCell>
+                        {isRollbacked ? (
+                          <span className="text-xs text-muted-foreground italic">Revertido</span>
+                        ) : (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" disabled={reverting}>
+                                {reverting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+                                Reverter
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reverter importação?</AlertDialogTitle>
+                                <AlertDialogDescription className="space-y-2">
+                                  <p>Esta ação irá:</p>
+                                  <ul className="list-disc ml-4 space-y-1">
+                                    {batch.createdCount > 0 && <li><strong>Eliminar {batch.createdCount}</strong> previsão(ões) criada(s) por esta importação</li>}
+                                    {batch.updatedCount > 0 && <li><strong>Restaurar {batch.updatedCount}</strong> previsão(ões) aos valores anteriores</li>}
+                                  </ul>
+                                  <p className="text-xs text-muted-foreground mt-2">Lote: {batch.batchId}</p>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleRollback(batch)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Confirmar Reversão
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm flex-wrap">
