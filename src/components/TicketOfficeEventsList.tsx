@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, TrendingUp, TrendingDown, Receipt, ChevronRight } from "lucide-react";
+import { Calendar, ChevronRight } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
 import { format } from "date-fns";
 
