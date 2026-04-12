@@ -1072,6 +1072,8 @@ export default function Transactions() {
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
+                  ))}
+                </tbody>
               </table>
             </div>
           )
