@@ -1556,9 +1556,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     : m?.targetType === "date"
                     ? `📅 ${eventDates.find((d: any) => d.id === m?.targetId)?.date || ""}`
                     : null;
+                  const isImported = importedSheets.has(s.sheetName);
+                  const targetEventId = m?.targetType === "event" ? m.targetId : null;
+                  const hasExisting = targetEventId ? ((eventForecastCounts as Record<string, number>)[targetEventId] ?? 0) > 0 : false;
+                  const statusIcon = isImported ? "✅ " : hasExisting ? "⚠️ " : "";
                   return (
                     <SelectItem key={s.sheetName} value={s.sheetName}>
-                      {s.sheetName} ({s.rows.length}) {target ? `→ ${target}` : ""}
+                      {statusIcon}{s.sheetName} ({s.rows.length}) {target ? `→ ${target}` : ""}
                     </SelectItem>
                   );
                 })}
