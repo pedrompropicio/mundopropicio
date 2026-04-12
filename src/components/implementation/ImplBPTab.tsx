@@ -1329,13 +1329,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       {originalFileTotal && (
                         <TableRow className="bg-muted/30 border-t-2">
                           <TableCell className="text-xs text-muted-foreground">{originalFileTotal.rowIdx}</TableCell>
-                          <TableCell colSpan={3} className="border-r bg-muted/20 text-sm font-semibold">
+                          <TableCell colSpan={4} className="border-r bg-muted/20 text-sm font-semibold">
                             Total no Excel (linha original)
                           </TableCell>
                           <TableCell colSpan={2} className="text-right font-mono text-sm font-semibold">
                             {fmtMoney(originalFileTotal.total)}
                           </TableCell>
-                          <TableCell colSpan={4}></TableCell>
+                          <TableCell colSpan={5}></TableCell>
                         </TableRow>
                       )}
                       {/* Interpreted total row */}
