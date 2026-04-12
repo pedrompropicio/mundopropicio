@@ -815,6 +815,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     });
   };
 
+  const toggleSelectAllApproved = (type: "income" | "expense") => {
+    const approved = forecasts.filter((f) => f.type === type && f.status === "approved" && !f.cache_config_id);
+    const allSelected = approved.every((f) => selectedIds.has(f.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        approved.forEach((f) => next.delete(f.id));
+      } else {
+        approved.forEach((f) => next.add(f.id));
+      }
+      return next;
+    });
+  };
+
   const handleInlineSave = () => {
     if (!inlineForm.description || !inlineForm.amount) {
       toast({ title: "Preencha a descrição e valor", variant: "destructive" });
