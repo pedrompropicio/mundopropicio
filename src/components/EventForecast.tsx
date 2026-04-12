@@ -1143,8 +1143,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </select>
               </div>
             )}
+            {/* Transaction link filter */}
+            <div className="flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={txLinkFilter}
+                onChange={(e) => setTxLinkFilter(e.target.value)}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="all">Todas</option>
+                <option value="with_tx">Com transação</option>
+                <option value="without_tx">Sem transação</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
             {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
               <button
                 onClick={handleGenerateHistorical}
