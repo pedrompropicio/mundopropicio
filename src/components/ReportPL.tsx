@@ -177,8 +177,8 @@ function buildPL(
 
   const fInc = forecasts.filter((f) => f.type === "income");
   const fExp = forecasts.filter((f) => f.type === "expense");
-  const tInc = transactions.filter((t) => t.type === "income");
-  const tExp = transactions.filter((t) => t.type === "expense");
+  const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory);
+  const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory);
 
   const fIncGroups = aggregateByHierarchy(fInc, lookup);
   const fExpGroups = aggregateByHierarchy(fExp, lookup);
