@@ -60,6 +60,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [importingXlsx, setImportingXlsx] = useState(false);
   const [bpSearch, setBpSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
+  const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -893,8 +894,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return partners.includes(partnerFilter);
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
+  const matchesTxLinkFilter = (f: any) => {
+    if (txLinkFilter === "all") return true;
+    if (txLinkFilter === "with_tx") return !!f.transaction_id;
+    if (txLinkFilter === "without_tx") return !f.transaction_id;
+    return true;
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
@@ -1135,6 +1143,19 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </select>
               </div>
             )}
+            {/* Transaction link filter */}
+            <div className="flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={txLinkFilter}
+                onChange={(e) => setTxLinkFilter(e.target.value)}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="all">Todas</option>
+                <option value="with_tx">Com transação</option>
+                <option value="without_tx">Sem transação</option>
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
