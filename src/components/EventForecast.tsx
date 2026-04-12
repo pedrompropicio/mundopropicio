@@ -5,7 +5,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -600,6 +600,54 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     bulkApproveMutation.mutate(items);
   };
 
+  // Bulk create "A Pagar" transactions from selected approved lines (admin only)
+  const bulkCreateTxMutation = useMutation({
+    mutationFn: async (forecastItems: any[]) => {
+      let created = 0;
+      for (const f of forecastItems) {
+        const { error } = await supabase.from("transactions").insert({
+          event_id: eventId,
+          type: f.type,
+          description: f.description,
+          specification: f.specification || null,
+          amount: Number(f.amount),
+          iva_rate: Number(f.iva_rate),
+          category_id: f.category_id || null,
+          date: eventDate,
+          due_date: eventDate,
+          status: "pending",
+        });
+        if (error) throw error;
+        created++;
+      }
+      return created;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setSelectedIds(new Set());
+      toast({ title: `${count} transação(ões) "A Pagar" criada(s)!` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleBulkCreateTx = () => {
+    // Filter selected approved items that don't already have matching transactions
+    const items = forecasts.filter((f) => {
+      if (!selectedIds.has(f.id) || f.status !== "approved") return false;
+      // Check if already has transaction for this category
+      const hasTx = transactions.some((t: any) => t.category_id === f.category_id && t.type === f.type);
+      return !hasTx;
+    });
+    if (items.length === 0) {
+      toast({ title: "Nenhuma linha selecionada sem transação", variant: "destructive" });
+      return;
+    }
+    bulkCreateTxMutation.mutate(items);
+  };
+
   const generateHistoricalMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
@@ -762,6 +810,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         drafts.forEach((f) => next.delete(f.id));
       } else {
         drafts.forEach((f) => next.add(f.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllApproved = (type: "income" | "expense") => {
+    const approved = forecasts.filter((f) => f.type === type && f.status === "approved" && !f.cache_config_id);
+    const allSelected = approved.every((f) => selectedIds.has(f.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        approved.forEach((f) => next.delete(f.id));
+      } else {
+        approved.forEach((f) => next.add(f.id));
       }
       return next;
     });
@@ -1133,8 +1195,28 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
                       </div>
                     )}
+                    {isAdmin && incomeForecasts.some((f) => f.status === "approved") && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={incomeForecasts.filter((f) => f.status === "approved").every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllApproved("income")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar aprovadas</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "approved") && (
+                      <button
+                        onClick={handleBulkCreateTx}
+                        disabled={bulkCreateTxMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/15 hover:bg-primary/25 transition-colors disabled:opacity-50"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {bulkCreateTxMutation.isPending ? "A criar…" : `Gerar Transações (${incomeForecasts.filter((f) => selectedIds.has(f.id) && f.status === "approved").length})`}
+                      </button>
+                    )}
                     {canApprove && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
                       <button
                         onClick={handleBulkApprove}
@@ -1283,8 +1365,28 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
                       </div>
                     )}
+                    {isAdmin && expenseForecasts.some((f) => f.status === "approved" && !f.cache_config_id) && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={expenseForecasts.filter((f) => f.status === "approved" && !f.cache_config_id).every((f) => selectedIds.has(f.id))}
+                          onCheckedChange={() => toggleSelectAllApproved("expense")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs text-muted-foreground">Selecionar aprovadas</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {isAdmin && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "approved") && (
+                      <button
+                        onClick={handleBulkCreateTx}
+                        disabled={bulkCreateTxMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/15 hover:bg-primary/25 transition-colors disabled:opacity-50"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {bulkCreateTxMutation.isPending ? "A criar…" : `Gerar Transações (${expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "approved").length})`}
+                      </button>
+                    )}
                     {canApprove && expenseForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
                       <button
                         onClick={handleBulkApprove}
@@ -1538,6 +1640,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 onCheckedChange={() => onToggleSelect(item.id)}
                 className="h-3.5 w-3.5 shrink-0"
               />
+            ) : isApproved && isAdmin && onToggleSelect ? (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggleSelect(item.id)}
+                className="h-3.5 w-3.5 shrink-0"
+              />
             ) : isApproved ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
             ) : (
@@ -1549,7 +1657,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 {item.description}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-              {isApproved && item.transaction_id && (
+              {hasMatchingTx && (
+                <p className="text-xs flex items-center gap-1 mt-0.5">
+                  <FileText className="h-3 w-3 text-primary shrink-0" />
+                  <span className="text-primary/70 font-medium">{matchingTransactions.length} transação(ões)</span>
+                  {paidTransactions.length > 0 && <span className="text-success text-[10px]">({paidTransactions.length} paga{paidTransactions.length > 1 ? "s" : ""})</span>}
+                </p>
+              )}
+              {!hasMatchingTx && isApproved && item.transaction_id && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
