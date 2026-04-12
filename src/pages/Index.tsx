@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
+import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -527,6 +528,9 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* --- RESULTS ANALYSIS --- */}
+      <ResultsAnalysis />
     </div>
   );
 }
