@@ -59,12 +59,19 @@ function extractEventName(sheet: XLSX.WorkSheet): string | null {
   return null;
 }
 
+type CityInfo = {
+  name: string;
+  date: string;
+  venue: string;
+};
+
 type ExtractedInfo = {
   eventName: string;
   date: string;
   sheetNames: string[];
   isTour: boolean;
   detectedCities: string[];
+  cityDetails: CityInfo[];
 };
 
 export default function EventImplementationDetail() {
@@ -126,29 +133,55 @@ export default function EventImplementationDetail() {
     enabled: !impl?.event_id,
   });
 
+  // Parse structured data from notes field (name, per-city dates, venues)
+  const parseNotesData = useCallback((notes: string | null): { eventName: string | null; cityDetails: CityInfo[] } => {
+    if (!notes) return { eventName: null, cityDetails: [] };
+    const nameMatch = notes.match(/se\s+chama\s+["""]([^"""]+)["""]|chama\s+["""]([^"""]+)["""]/i);
+    const eventName = nameMatch ? (nameMatch[1] || nameMatch[2])?.trim() || null : null;
+
+    const cityDetails: CityInfo[] = [];
+    const seen = new Set<string>();
+    let m: RegExpExecArray | null;
+
+    // Pattern 1: "dia DD/MM no City na Venue"
+    const p1 = /dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?\s+n[oa]\s+([A-ZÀ-Ú][\wÀ-ú]+)(?:\s+n[oa]\s+(.+?))?(?=\s+e\s|\s*[.]|\s*$)/gi;
+    while ((m = p1.exec(notes)) !== null) {
+      const day = m[1].padStart(2, "0"), month = m[2].padStart(2, "0"), year = m[3] || new Date().getFullYear().toString();
+      seen.add(m[4].toLowerCase());
+      cityDetails.push({ name: m[4].trim(), date: `${year}-${month}-${day}`, venue: m[5]?.trim() || "" });
+    }
+
+    // Pattern 2: "em City [no] dia DD/MM [no Venue]"
+    const p2 = /(?:em|n[oa])\s+([A-ZÀ-Ú][\wÀ-ú]+)\s+(?:no\s+)?dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?(?:\s+n[oa]\s+(.+?))?(?=\s*[.]|\s*$)/gi;
+    while ((m = p2.exec(notes)) !== null) {
+      if (!seen.has(m[1].toLowerCase())) {
+        const day = m[2].padStart(2, "0"), month = m[3].padStart(2, "0"), year = m[4] || new Date().getFullYear().toString();
+        cityDetails.push({ name: m[1].trim(), date: `${year}-${month}-${day}`, venue: m[5]?.trim() || "" });
+      }
+    }
+
+    return { eventName, cityDetails };
+  }, []);
+
   // Parse cities from import_instructions
   const parseCitiesFromInstructions = useCallback((instructions: string | null): string[] => {
     if (!instructions) return [];
-    // Patterns to extract city names from free-form instructions
     const cityPatterns = [
-      // "cidades: Lisboa, Porto" or "múltiplas cidades, Lisboa e Porto"
       /cidades[,:\s]+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
-      // "em Lisboa e Porto" or "para Lisboa, Porto e Braga"
-      /(?:em|para)\s+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
-      // "Lisboa e Porto" standalone (two+ capitalized words joined by , or e)
+      /(?:em|para|n[oa])\s+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
       /\b([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,]\s*[A-ZÀ-Ú][\wÀ-ú]+)*\s+e\s+[A-ZÀ-Ú][\wÀ-ú]+)/,
     ];
     for (const pat of cityPatterns) {
-      const m = instructions.match(pat);
-      if (m) {
-        return m[1]
-          .split(/\s*[,]\s*|\s+e\s+/i)
-          .map(c => c.trim())
-          .filter(c => c.length >= 3 && /^[A-ZÀ-Ú]/.test(c));
+      const match = instructions.match(pat);
+      if (match) {
+        return match[1].split(/\s*[,]\s*|\s+e\s+/i).map(c => c.trim()).filter(c => c.length >= 3 && /^[A-ZÀ-Ú]/.test(c));
       }
     }
     return [];
   }, []);
+
+  // State for per-city details
+  const [cityDetails, setCityDetails] = useState<CityInfo[]>([]);
 
   // Auto-extract event info from XLSX
   const extractFromFile = useCallback(async () => {
@@ -168,48 +201,52 @@ export default function EventImplementationDetail() {
         (n) => !/^(resumo|total|geral|master|consolidado|template)/i.test(n)
       );
 
+      // Parse notes for structured data (event name, per-city dates/venues)
+      const notesData = parseNotesData(impl.notes ?? null);
+
       // Detect cities from instructions
       const detectedCities = parseCitiesFromInstructions(impl.import_instructions ?? null);
       
-      // Determine tour from saved event_structure or detected cities
+      // Merge: if notes has city details, use those; otherwise fall back to instruction cities
+      const parsedCityDetails = notesData.cityDetails.length > 0
+        ? notesData.cityDetails
+        : detectedCities.map(c => ({ name: c, date: "", venue: "" }));
+
+      // Determine tour from saved event_structure, notes city details, or instruction cities
       const savedType = (impl.event_structure as any)?.event_type;
-      const isTour = savedType === "new_master" || detectedCities.length > 1;
+      const isTour = savedType === "new_master" || parsedCityDetails.length > 1 || detectedCities.length > 1;
 
-      // Extract name from first sheet header
+      // Event name priority: 1) notes field, 2) cleaned Excel name, 3) file name
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
-      let eventName = extractEventName(firstSheet) || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+      let eventName = notesData.eventName
+        || extractEventName(firstSheet)
+        || impl.reference_file_name.replace(/\.xlsx?$/i, "");
 
-      // If it's a tour, clean the event name by removing city suffixes
-      // e.g. "MEM 2026 - LISBOA" → "MEM 2026"
-      if (isTour && detectedCities.length > 0) {
-        for (const city of detectedCities) {
+      // If it's a tour and name came from Excel, clean city suffixes
+      if (isTour && !notesData.eventName) {
+        const allCityNames = parsedCityDetails.map(c => c.name);
+        for (const city of allCityNames) {
           const cityPattern = new RegExp(`\\s*[-–—]\\s*${city}\\s*$`, "i");
           eventName = eventName.replace(cityPattern, "").trim();
         }
-        // Also try to extract from event_structure or instructions
-        const nameFromInstructions = impl.import_instructions
-          ?.match(/(?:turnê|turne|tour|evento)\s+(?:d[oe]\s+)?(.+?)(?:\s+que\b|\s+com\b|\s*$)/i)?.[1]?.trim();
-        // If instructions have a name hint and it's shorter/cleaner, prefer it
-        // But only if it looks like a real name (not too generic)
-        if (nameFromInstructions && nameFromInstructions.length >= 3 && !/^(múltiplas|multiplas|varias)/i.test(nameFromInstructions)) {
-          eventName = nameFromInstructions;
-        }
       }
 
-      // Extract date from first sheet
-      const dateStr = extractDateFromSheet(firstSheet) || "";
+      // Extract date from first sheet (fallback if no per-city dates)
+      const dateStr = extractDateFromSheet(firstSheet)
+        || (parsedCityDetails.length > 0 ? parsedCityDetails[0].date : "")
+        || "";
 
-      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities };
+      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities, cityDetails: parsedCityDetails };
       setExtracted(info);
       setSelectedSheets(sheetNames);
+      setCityDetails(parsedCityDetails);
 
-      // Auto-fill form directly (skip sheet selection step)
+      // Auto-fill form
       setSetupName(eventName);
       if (dateStr) setSetupDate(dateStr);
       if (isTour) {
         setSetupMode("create_master");
-        // ONLY use cities from instructions, never fallback to sheet names
-        setSetupCities(detectedCities.join(", "));
+        setSetupCities(parsedCityDetails.map(c => c.name).join(", "));
       } else {
         setSetupMode("create_simple");
       }
@@ -219,7 +256,7 @@ export default function EventImplementationDetail() {
     } finally {
       setExtracting(false);
     }
-  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, impl?.event_structure, parseCitiesFromInstructions]);
+  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, impl?.event_structure, impl?.notes, parseCitiesFromInstructions, parseNotesData]);
 
   useEffect(() => {
     if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
@@ -316,15 +353,19 @@ export default function EventImplementationDetail() {
         eventId = master.id;
 
         const cities = setupCities.split(",").map(c => c.trim()).filter(Boolean);
-        for (const city of cities) {
+        for (const cityName of cities) {
+          // Find per-city date from cityDetails
+          const cityInfo = cityDetails.find(cd => cd.name.toLowerCase() === cityName.toLowerCase());
+          const cityDate = cityInfo?.date || setupDate || new Date().toISOString().slice(0, 10);
           const { error } = await supabase
             .from("events")
             .insert({
-              name: `${setupName} — ${city}`,
-              date: setupDate || new Date().toISOString().slice(0, 10),
+              name: `${setupName} — ${cityName}`,
+              date: cityDate,
               event_type: "split",
               parent_event_id: master.id,
               status: "planning",
+              location: cityInfo?.venue || null,
             });
           if (error) throw error;
         }
@@ -491,14 +532,19 @@ export default function EventImplementationDetail() {
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">Master</Badge>
                               {setupName}
                             </div>
-                            {setupCities.split(",").map(c => c.trim()).filter(Boolean).map((city, i) => (
-                              <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
-                                <span className="text-primary/60">↳</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Split</Badge>
-                                {setupName} — {city}
-                                {setupDate && <span className="text-xs">({format(new Date(setupDate), "dd/MM/yyyy")})</span>}
-                              </div>
-                            ))}
+                            {setupCities.split(",").map(c => c.trim()).filter(Boolean).map((city, i) => {
+                              const ci = cityDetails.find(cd => cd.name.toLowerCase() === city.toLowerCase());
+                              const cityDate = ci?.date || setupDate;
+                              return (
+                                <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
+                                  <span className="text-primary/60">↳</span>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Split</Badge>
+                                  <span>{setupName} — {city}</span>
+                                  {cityDate && <span className="text-xs">({format(new Date(cityDate), "dd/MM/yyyy")})</span>}
+                                  {ci?.venue && <span className="text-xs text-muted-foreground/70">• {ci.venue}</span>}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
