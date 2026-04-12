@@ -28,18 +28,18 @@ interface ActiveProjection {
   id: string;
   name: string;
   date: string;
-  // BP projections
   bpIncome100: number;
   bpExpense: number;
   margin100: number;
   margin80: number;
   breakEvenPct: number;
-  // Actual so far
   actualIncome: number;
   actualExpense: number;
   actualMargin: number;
   totalPartnerPct: number;
   companyMargin100: number;
+  incomeSource: "lot_projection" | "ticket_sales";
+  expenseSource: "forecasts" | "transactions";
 }
 
 export function ResultsAnalysis() {
