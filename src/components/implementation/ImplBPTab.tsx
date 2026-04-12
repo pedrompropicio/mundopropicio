@@ -1645,31 +1645,202 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         </Card>
       )}
 
-      {/* Master rows indicator */}
-      {masterSheetRows.length > 0 && (
-        <div className="flex items-center gap-3 py-2 px-4 rounded-md bg-primary/5 border border-primary/20">
-          <GitMerge className="h-4 w-4 text-primary" />
-          <span className="text-sm">
-            <strong>{masterSheetRows.length}</strong> linha(s) consolidada(s) para o evento Master
-            {" "}({fmtMoney(masterSheetRows.reduce((s, r) => s + r.baseAmount, 0))} total)
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto text-xs"
-            onClick={() => {
-              // Show master rows in a special view
-              const masterEvent = allEvents.find(e => !e.parent_event_id);
-              if (masterEvent) {
-                setSelectedEventId(masterEvent.id);
-                setSelectedDateId("all");
-              }
-            }}
-          >
-            Ver Master
-          </Button>
-        </div>
-      )}
+      {/* Master rows indicator (shown when viewing a split/child event) */}
+      {masterSheetRows.length > 0 && (() => {
+        const masterEvent = allEvents.find(e => !e.parent_event_id);
+        const isMasterSelected = masterEvent && selectedEventId === masterEvent.id;
+        if (isMasterSelected) return null; // Don't show banner when master is active — we show the full table below
+        return (
+          <div className="flex items-center gap-3 py-2 px-4 rounded-md bg-primary/5 border border-primary/20">
+            <GitMerge className="h-4 w-4 text-primary" />
+            <span className="text-sm">
+              <strong>{masterSheetRows.length}</strong> linha(s) consolidada(s) para o evento Master
+              {" "}({fmtMoney(masterSheetRows.reduce((s, r) => s + r.baseAmount, 0))} total)
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-xs"
+              onClick={() => {
+                if (masterEvent) {
+                  setSelectedEventId(masterEvent.id);
+                  setSelectedDateId("all");
+                }
+              }}
+            >
+              Ver Master
+            </Button>
+          </div>
+        );
+      })()}
+
+      {/* Master Rateio View — when master event is selected */}
+      {(() => {
+        const masterEvent = allEvents.find(e => !e.parent_event_id);
+        const isMasterSelected = masterEvent && selectedEventId === masterEvent.id;
+        if (!isMasterSelected || !parsedSheets) return null;
+
+        const masterCount = (eventForecastCounts as Record<string, number>)[masterEvent.id] ?? 0;
+        const hasExistingMasterData = masterCount > 0;
+
+        return (
+          <Card className="border-primary/20">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Crown className="h-4 w-4 text-amber-500" />
+                Custos de Rateio — Master
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {masterSheetRows.length > 0
+                  ? `${masterSheetRows.length} custo(s) partilhado(s) entre todas as cidades. Edite valores e categorias antes de importar.`
+                  : "Nenhum custo de rateio detectado. Execute a análise de rateio após confirmar o mapeamento de abas."
+                }
+                {hasExistingMasterData && (
+                  <Badge variant="outline" className="ml-2 text-[10px] border-green-500/40 text-green-600">
+                    {masterCount} despesas já importadas
+                  </Badge>
+                )}
+              </CardDescription>
+            </CardHeader>
+            {masterSheetRows.length > 0 && (
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs w-8">#</TableHead>
+                      <TableHead className="text-xs">Descrição</TableHead>
+                      <TableHead className="text-xs">Especificação</TableHead>
+                      <TableHead className="text-xs text-right w-28">Valor Base</TableHead>
+                      <TableHead className="text-xs text-right w-20">IVA</TableHead>
+                      <TableHead className="text-xs w-52">Categoria</TableHead>
+                      <TableHead className="text-xs w-16">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {masterSheetRows.map((row, idx) => {
+                      const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));
+                      const catId = suggestion?.categoryId || "";
+                      const cat = catId ? leafCategories.find(c => c.id === catId) : null;
+                      return (
+                        <TableRow key={idx}>
+                          <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                          <TableCell>
+                            <Input
+                              className="h-7 text-xs"
+                              value={row.description}
+                              onChange={(e) => {
+                                const updated = [...masterSheetRows];
+                                updated[idx] = { ...updated[idx], description: e.target.value };
+                                setMasterSheetRows(updated);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              className="h-7 text-xs"
+                              value={row.specification || ""}
+                              onChange={(e) => {
+                                const updated = [...masterSheetRows];
+                                updated[idx] = { ...updated[idx], specification: e.target.value || null };
+                                setMasterSheetRows(updated);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="h-7 text-xs text-right w-24 ml-auto"
+                              value={row.baseAmount}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                const updated = [...masterSheetRows];
+                                const iva = Math.round(val * row.ivaRate) / 100;
+                                updated[idx] = { ...updated[idx], baseAmount: Math.round(val * 100) / 100, ivaAmount: Math.round(iva * 100) / 100, total: Math.round((val + iva) * 100) / 100 };
+                                setMasterSheetRows(updated);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Select
+                              value={String(row.ivaRate)}
+                              onValueChange={(v) => {
+                                const rate = Number(v);
+                                const updated = [...masterSheetRows];
+                                const iva = Math.round(row.baseAmount * rate) / 100;
+                                updated[idx] = { ...updated[idx], ivaRate: rate, ivaAmount: Math.round(iva * 100) / 100, total: Math.round((row.baseAmount + iva) * 100) / 100 };
+                                setMasterSheetRows(updated);
+                              }}
+                            >
+                              <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0">0%</SelectItem>
+                                <SelectItem value="6">6%</SelectItem>
+                                <SelectItem value="13">13%</SelectItem>
+                                <SelectItem value="23">23%</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={catId}
+                              onValueChange={(v) => {
+                                const updated = [...apportionmentSuggestions];
+                                const sIdx = updated.findIndex(s => norm(s.description) === norm(row.description));
+                                if (sIdx >= 0) {
+                                  updated[sIdx] = { ...updated[sIdx], categoryId: v };
+                                  setApportionmentSuggestions(updated);
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-7 w-48 text-xs">
+                                <SelectValue placeholder="Sem cat." />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-72">
+                                {renderCategoryOptions()}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                const updated = masterSheetRows.filter((_, i) => i !== idx);
+                                setMasterSheetRows(updated);
+                                toast.success("Linha removida do Master");
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                {/* Totals */}
+                <div className="flex items-center justify-between px-4 py-3 border-t text-xs">
+                  <span className="text-muted-foreground">
+                    Total Master: <span className="font-semibold text-foreground">{fmtMoney(masterSheetRows.reduce((s, r) => s + r.baseAmount, 0))}</span>
+                    <span className="ml-2">+ IVA {fmtMoney(masterSheetRows.reduce((s, r) => s + r.ivaAmount, 0))}</span>
+                    <span className="ml-2">= {fmtMoney(masterSheetRows.reduce((s, r) => s + r.total, 0))}</span>
+                  </span>
+                  <Button
+                    onClick={handleImportBP}
+                    disabled={importing || masterSheetRows.length === 0}
+                    className="gap-2"
+                  >
+                    {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {hasExistingMasterData ? "Sincronizar Master" : "Importar Master"}
+                  </Button>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        );
+      })()}
 
       {parsedSheets && (viewMode === "comparison" || viewMode === "raw") && (
         <div className="flex items-center gap-4 flex-wrap">
