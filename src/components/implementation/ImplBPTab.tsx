@@ -546,7 +546,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       return;
     }
 
-    const masterRows: ParsedRow[] = [];
+    const rawMasterRows: ParsedRow[] = [];
 
     // Collect one representative row per promoted item (use first sheet's row)
     for (const suggestion of promoted) {
@@ -555,9 +555,23 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       if (!sheet) continue;
       const rowIdx = suggestion.rowsBySheet[firstSheet];
       if (rowIdx !== undefined && sheet.rows[rowIdx]) {
-        masterRows.push({ ...sheet.rows[rowIdx] });
+        rawMasterRows.push({ ...sheet.rows[rowIdx] });
       }
     }
+
+    // Consolidate rows with the same description (e.g. multi-day events listing the same cost per day)
+    const consolidatedMap = new Map<string, ParsedRow>();
+    for (const row of rawMasterRows) {
+      const key = norm(row.description);
+      const existing = consolidatedMap.get(key);
+      if (existing) {
+        // Sum amounts, keep the rest from first occurrence
+        existing.baseAmount = existing.baseAmount + row.baseAmount;
+      } else {
+        consolidatedMap.set(key, { ...row });
+      }
+    }
+    const masterRows = Array.from(consolidatedMap.values());
 
     // Do NOT remove rows from sheets — they stay visible but marked as rateio
     setMasterSheetRows(masterRows);
