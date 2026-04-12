@@ -112,6 +112,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [expandedRawRow, setExpandedRawRow] = useState<number | null>(null);
   const [editingSourceIdx, setEditingSourceIdx] = useState<number | null>(null);
   const [editSourceValues, setEditSourceValues] = useState<{ description: string; specification: string; baseAmount: string; ivaRate: string }>({ description: "", specification: "", baseAmount: "0", ivaRate: "0" });
+  const [showApportionmentStep, setShowApportionmentStep] = useState(false);
+  const [apportionmentSuggestions, setApportionmentSuggestions] = useState<ApportionmentSuggestion[]>([]);
+  const [masterSheetRows, setMasterSheetRows] = useState<ParsedRow[]>([]);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
