@@ -1891,6 +1891,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           {renderCategoryOptions()}
                         </SelectContent>
                       </Select>
+                      {renderAddCategoryButton((catId) => {
+                        const updated = [...apportionmentSuggestions];
+                        updated[idx] = { ...updated[idx], categoryId: catId };
+                        setApportionmentSuggestions(updated);
+                      })}
                       {!s.categoryId && (
                         <span className="text-xs text-amber-500 flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" /> Sem categoria
