@@ -14,13 +14,20 @@ interface Props {
   implementation: any;
   event: any;
   allEvents: any[];
+  eventDates?: any[];
+  eventSessions?: any[];
 }
 
-export function ImplTicketsTab({ implementation, event, allEvents }: Props) {
+export function ImplTicketsTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
+  const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
+
+  // Event dates/sessions for selected event
+  const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
+  const sessionsForEvent = eventSessions.filter((s: any) => s.event_id === selectedEventId);
 
   // Fetch zones for the selected event
   const { data: zones = [], isLoading } = useQuery({
@@ -96,34 +103,62 @@ export function ImplTicketsTab({ implementation, event, allEvents }: Props) {
   const fmtMoney = (n: number) =>
     n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
 
-  const totalTickets = lots.reduce((s: number, l: any) => s + Number(l.quantity), 0);
-  const totalRevenue = lots.reduce((s: number, l: any) => s + Number(l.price) * Number(l.quantity), 0);
+  // Filter zones by selected date (via session)
+  const filteredZones = selectedDateId === "all" ? zones : zones.filter((z: any) => {
+    if (!z.session_id) return true; // zones without session always show
+    const session = sessionsForEvent.find((s: any) => s.id === z.session_id);
+    if (!session) return true;
+    const selectedDate = datesForEvent.find((d: any) => d.id === selectedDateId);
+    return selectedDate && session.date === selectedDate.date;
+  });
+  const filteredZoneIds = new Set(filteredZones.map((z: any) => z.id));
+  const filteredLots = lots.filter((l: any) => filteredZoneIds.has(l.zone_id));
+  const totalTickets = filteredLots.reduce((s: number, l: any) => s + Number(l.quantity), 0);
+  const totalRevenue = filteredLots.reduce((s: number, l: any) => s + Number(l.price) * Number(l.quantity), 0);
 
   return (
     <div className="space-y-4">
-      {/* Event selector */}
-      {allEvents.length > 1 && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Evento:</span>
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-80">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {allEvents.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Event + Date selector */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {allEvents.length > 1 && (
+          <>
+            <span className="text-sm font-medium text-muted-foreground">Evento:</span>
+            <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedDateId("all"); }}>
+              <SelectTrigger className="w-80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allEvents.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+        {datesForEvent.length > 0 && (
+          <>
+            <span className="text-sm font-medium text-muted-foreground">Data:</span>
+            <Select value={selectedDateId} onValueChange={setSelectedDateId}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as datas</SelectItem>
+                {datesForEvent.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+      </div>
 
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm">
-        <span>{zones.length} zonas</span>
-        <span>{lots.length} lotes</span>
+        <span>{filteredZones.length} zonas</span>
+        <span>{filteredLots.length} lotes</span>
         <span>Total bilhetes: {totalTickets.toLocaleString("pt-PT")}</span>
         <span className="font-semibold">Receita potencial: {fmtMoney(totalRevenue)}</span>
       </div>
@@ -151,15 +186,15 @@ export function ImplTicketsTab({ implementation, event, allEvents }: Props) {
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">A carregar…</TableCell>
                   </TableRow>
-                ) : zones.length === 0 ? (
+                ) : filteredZones.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      Nenhuma zona configurada para este evento
+                      {selectedDateId !== "all" ? "Nenhuma zona para esta data" : "Nenhuma zona configurada para este evento"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  zones.map((zone: any) => {
-                    const zoneLots = lots.filter((l: any) => l.zone_id === zone.id);
+                  filteredZones.map((zone: any) => {
+                    const zoneLots = filteredLots.filter((l: any) => l.zone_id === zone.id);
                     if (zoneLots.length === 0) {
                       return (
                         <TableRow key={zone.id}>

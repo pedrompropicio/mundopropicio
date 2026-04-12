@@ -16,6 +16,8 @@ interface Props {
   implementation: any;
   event: any;
   allEvents: any[];
+  eventDates?: any[];
+  eventSessions?: any[];
 }
 
 interface MatchedLine {
@@ -50,15 +52,52 @@ function matchScore(source: ParsedRow, forecast: any): { score: number; divergen
   return { score, divergences };
 }
 
-export function ImplBPTab({ implementation, event, allEvents }: Props) {
+// Auto-match a sheet name to an event or date
+function autoMatchSheet(sheetName: string, events: any[], dates: any[]): { type: "event" | "date" | "none"; id: string } {
+  const sn = norm(sheetName);
+  // Try matching event names
+  for (const e of events) {
+    const en = norm(e.name);
+    if (sn === en || en.includes(sn) || sn.includes(en)) return { type: "event", id: e.id };
+    // Try city names from event name (e.g. "Lisboa" in "Artista - Lisboa")
+    const parts = e.name.split(/[-–—]/);
+    for (const p of parts) {
+      if (norm(p).length > 2 && sn.includes(norm(p))) return { type: "event", id: e.id };
+    }
+  }
+  // Try matching dates
+  for (const d of dates) {
+    const dateStr = new Date(d.date).toLocaleDateString("pt-PT");
+    const dateShort = dateStr.replace(/\//g, "-");
+    if (sn.includes(dateStr) || sn.includes(dateShort) || sn.includes(d.date)) return { type: "date", id: d.id };
+    if (d.label && norm(d.label).length > 2 && sn.includes(norm(d.label))) return { type: "date", id: d.id };
+  }
+  return { type: "none", id: "" };
+}
+
+interface SheetMapping {
+  sheetName: string;
+  targetType: "event" | "date" | "ignore";
+  targetId: string;
+  autoMatched: boolean;
+}
+
+export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
+  const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
   const [parsedSheets, setParsedSheets] = useState<ParsedSheet[] | null>(null);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [parsing, setParsing] = useState(false);
   const [viewMode, setViewMode] = useState<"comparison" | "app">("app");
+  const [sheetMappings, setSheetMappings] = useState<SheetMapping[] | null>(null);
+  const [showMappingStep, setShowMappingStep] = useState(false);
+
+  // Event dates for selected event
+  const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
+  const sessionsForEvent = eventSessions.filter((s: any) => s.event_id === selectedEventId);
 
   // Fetch forecasts for the selected event
   const { data: forecasts = [], isLoading } = useQuery({
@@ -117,7 +156,21 @@ export function ImplBPTab({ implementation, event, allEvents }: Props) {
 
       const sheets = parseXlsxPL(buffer);
       setParsedSheets(sheets);
-      if (sheets.length > 0) {
+
+      // Build auto-mappings if multiple sheets
+      if (sheets.length > 1) {
+        const mappings: SheetMapping[] = sheets.map(s => {
+          const match = autoMatchSheet(s.sheetName, allEvents, eventDates);
+          return {
+            sheetName: s.sheetName,
+            targetType: match.type === "none" ? "ignore" : (match.type as "event" | "date"),
+            targetId: match.id,
+            autoMatched: match.type !== "none",
+          };
+        });
+        setSheetMappings(mappings);
+        setShowMappingStep(true);
+      } else if (sheets.length === 1) {
         setSelectedSheet(sheets[0].sheetName);
         setViewMode("comparison");
       }
@@ -266,16 +319,32 @@ export function ImplBPTab({ implementation, event, allEvents }: Props) {
     <div className="space-y-4">
       {/* Event selector + File analysis button */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {allEvents.length > 1 && (
             <>
               <span className="text-sm font-medium text-muted-foreground">Evento:</span>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedDateId("all"); }}>
                 <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {allEvents.map((e) => (
                     <SelectItem key={e.id} value={e.id}>
                       {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+          {datesForEvent.length > 0 && (
+            <>
+              <span className="text-sm font-medium text-muted-foreground">Data:</span>
+              <Select value={selectedDateId} onValueChange={setSelectedDateId}>
+                <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as datas</SelectItem>
+                  {datesForEvent.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -309,18 +378,136 @@ export function ImplBPTab({ implementation, event, allEvents }: Props) {
         <span className="font-semibold">Resultado: {fmtMoney(totalIncome - totalExpense)}</span>
       </div>
 
-      {/* Comparison stats */}
+      {/* Sheet mapping step */}
+      {showMappingStep && sheetMappings && parsedSheets && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Mapeamento de Abas do Ficheiro</CardTitle>
+            <CardDescription>
+              O sistema tentou associar cada aba a um evento ou data. Confirme ou corrija antes de prosseguir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sheetMappings.map((m, idx) => {
+                const sheet = parsedSheets.find(s => s.sheetName === m.sheetName);
+                return (
+                  <div key={m.sheetName} className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/30">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium">{m.sheetName}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({sheet?.rows.length || 0} linhas)</span>
+                      {m.autoMatched && (
+                        <Badge variant="outline" className="ml-2 text-xs border-green-500/50 text-green-600">Auto</Badge>
+                      )}
+                    </div>
+                    <Select
+                      value={m.targetType === "ignore" ? "ignore" : `${m.targetType}:${m.targetId}`}
+                      onValueChange={(v) => {
+                        const updated = [...sheetMappings];
+                        if (v === "ignore") {
+                          updated[idx] = { ...m, targetType: "ignore", targetId: "", autoMatched: false };
+                        } else {
+                          const [type, id] = v.split(":");
+                          updated[idx] = { ...m, targetType: type as "event" | "date", targetId: id, autoMatched: false };
+                        }
+                        setSheetMappings(updated);
+                      }}
+                    >
+                      <SelectTrigger className="w-64"><SelectValue placeholder="Selecionar destino" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ignore">❌ Ignorar</SelectItem>
+                        {allEvents.map(e => (
+                          <SelectItem key={`event:${e.id}`} value={`event:${e.id}`}>
+                            {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                          </SelectItem>
+                        ))}
+                        {eventDates.length > 0 && eventDates.map((d: any) => {
+                          const ev = allEvents.find(e => e.id === d.event_id);
+                          return (
+                            <SelectItem key={`date:${d.id}`} value={`date:${d.id}`}>
+                              📅 {new Date(d.date).toLocaleDateString("pt-PT")} {d.label || ""} {ev ? `(${ev.name})` : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Button
+                onClick={() => {
+                  setShowMappingStep(false);
+                  // Select the first non-ignored sheet and switch to its event
+                  const first = sheetMappings.find(m => m.targetType !== "ignore");
+                  if (first) {
+                    setSelectedSheet(first.sheetName);
+                    if (first.targetType === "event") {
+                      setSelectedEventId(first.targetId);
+                      setSelectedDateId("all");
+                    } else if (first.targetType === "date") {
+                      const date = eventDates.find((d: any) => d.id === first.targetId);
+                      if (date) {
+                        setSelectedEventId(date.event_id);
+                        setSelectedDateId(date.id);
+                      }
+                    }
+                  } else if (parsedSheets.length > 0) {
+                    setSelectedSheet(parsedSheets[0].sheetName);
+                  }
+                  setViewMode("comparison");
+                }}
+              >
+                Confirmar Mapeamento
+              </Button>
+              <Button variant="outline" onClick={() => setShowMappingStep(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {parsedSheets && viewMode === "comparison" && (
         <div className="flex items-center gap-4 flex-wrap">
           {parsedSheets.length > 1 && (
-            <Select value={selectedSheet} onValueChange={setSelectedSheet}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <Select value={selectedSheet} onValueChange={(v) => {
+              setSelectedSheet(v);
+              // Auto-switch event/date based on mapping
+              if (sheetMappings) {
+                const mapping = sheetMappings.find(m => m.sheetName === v);
+                if (mapping && mapping.targetType === "event") {
+                  setSelectedEventId(mapping.targetId);
+                  setSelectedDateId("all");
+                } else if (mapping && mapping.targetType === "date") {
+                  const date = eventDates.find((d: any) => d.id === mapping.targetId);
+                  if (date) {
+                    setSelectedEventId(date.event_id);
+                    setSelectedDateId(date.id);
+                  }
+                }
+              }
+            }}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {parsedSheets.map((s) => (
-                  <SelectItem key={s.sheetName} value={s.sheetName}>
-                    {s.sheetName} ({s.rows.length} linhas)
-                  </SelectItem>
-                ))}
+                {parsedSheets.filter(s => {
+                  if (!sheetMappings) return true;
+                  const m = sheetMappings.find(mm => mm.sheetName === s.sheetName);
+                  return !m || m.targetType !== "ignore";
+                }).map((s) => {
+                  const m = sheetMappings?.find(mm => mm.sheetName === s.sheetName);
+                  const target = m?.targetType === "event"
+                    ? allEvents.find(e => e.id === m.targetId)?.name
+                    : m?.targetType === "date"
+                    ? `📅 ${eventDates.find((d: any) => d.id === m?.targetId)?.date || ""}`
+                    : null;
+                  return (
+                    <SelectItem key={s.sheetName} value={s.sheetName}>
+                      {s.sheetName} ({s.rows.length}) {target ? `→ ${target}` : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}

@@ -61,6 +61,44 @@ export default function EventImplementationDetail() {
     enabled: !!event && (event.event_type === "master" || event.event_type === "multi_day"),
   });
 
+  // Fetch event_dates for each event in the list
+  const allEvents = event ? (
+    (event.event_type === "master" || event.event_type === "multi_day") ? [event, ...splitEvents] : [event]
+  ) : [];
+
+  const allEventIds = allEvents.map(e => e.id);
+
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["impl-event-dates", allEventIds],
+    queryFn: async () => {
+      if (allEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("*")
+        .in("event_id", allEventIds)
+        .order("date");
+      if (error) throw error;
+      return data;
+    },
+    enabled: allEventIds.length > 0,
+  });
+
+  // Fetch sessions for all events
+  const { data: eventSessions = [] } = useQuery({
+    queryKey: ["impl-event-sessions", allEventIds],
+    queryFn: async () => {
+      if (allEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_sessions")
+        .select("*")
+        .in("event_id", allEventIds)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: allEventIds.length > 0,
+  });
+
   const handleDownloadRef = async () => {
     if (!impl?.reference_file_url) return;
     const { data, error } = await supabase.storage
@@ -81,7 +119,6 @@ export default function EventImplementationDetail() {
     return <div className="p-6 text-destructive">Implantação não encontrada</div>;
   }
 
-  const allEvents = event ? (event.event_type === "master" ? [event, ...splitEvents] : [event]) : [];
   const isMaster = event?.event_type === "master" || event?.event_type === "multi_day";
 
   return (
@@ -103,6 +140,7 @@ export default function EventImplementationDetail() {
           <div className="ml-10 flex items-center gap-4 text-xs text-muted-foreground">
             {event && <span>{format(new Date(event.date), "dd/MM/yyyy")}</span>}
             {isMaster && <span>Turnê ({splitEvents.length} sub-eventos)</span>}
+            {eventDates.length > 0 && <span>{eventDates.length} datas</span>}
             <span>Atualizado em {format(new Date(impl.updated_at), "dd/MM/yyyy HH:mm", { locale: pt })}</span>
           </div>
         </div>
@@ -136,6 +174,8 @@ export default function EventImplementationDetail() {
             implementation={impl}
             event={event}
             allEvents={allEvents}
+            eventDates={eventDates}
+            eventSessions={eventSessions}
           />
         </TabsContent>
 
@@ -144,6 +184,8 @@ export default function EventImplementationDetail() {
             implementation={impl}
             event={event}
             allEvents={allEvents}
+            eventDates={eventDates}
+            eventSessions={eventSessions}
           />
         </TabsContent>
 
