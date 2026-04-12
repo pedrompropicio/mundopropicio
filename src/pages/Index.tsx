@@ -159,6 +159,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
 }
 
 export default function Dashboard() {
+  const { isAdmin, isManager } = useAuth();
   const { data: events = [], isLoading: loadingEvents } = useQuery({
     queryKey: ["dashboard_events"],
     queryFn: async () => {
