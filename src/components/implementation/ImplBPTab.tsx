@@ -1349,6 +1349,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell className="border-r bg-muted/30 text-right text-xs">
                           {compFileTotalIva > 0 && fmtMoney(compFileTotalIva)}
                         </TableCell>
+                        <TableCell className="border-r bg-muted/30"></TableCell>
                         <TableCell className="text-sm">
                           Total no App
                           <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compAppTotalGross)}</span>
