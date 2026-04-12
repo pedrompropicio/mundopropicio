@@ -475,10 +475,33 @@ export default function EventImplementationDetail() {
                     <Input type="date" value={setupDate} onChange={(e) => setSetupDate(e.target.value)} />
                   </div>
                   {setupMode === "create_master" && (
-                    <div>
-                      <Label>Cidades (sub-eventos)</Label>
-                      <Input value={setupCities} onChange={(e) => setSetupCities(e.target.value)} placeholder="Lisboa, Porto, Braga" />
-                      <p className="text-xs text-muted-foreground mt-1">Separadas por vírgula — cada uma criará um sub-evento</p>
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Cidades (sub-eventos)</Label>
+                        <Input value={setupCities} onChange={(e) => setSetupCities(e.target.value)} placeholder="Lisboa, Porto, Braga" />
+                        <p className="text-xs text-muted-foreground mt-1">Separadas por vírgula — cada uma criará um sub-evento</p>
+                      </div>
+
+                      {/* Structure preview */}
+                      {setupName && setupCities && (
+                        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide">Estrutura a criar:</p>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">Master</Badge>
+                              {setupName}
+                            </div>
+                            {setupCities.split(",").map(c => c.trim()).filter(Boolean).map((city, i) => (
+                              <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
+                                <span className="text-primary/60">↳</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Split</Badge>
+                                {setupName} — {city}
+                                {setupDate && <span className="text-xs">({format(new Date(setupDate), "dd/MM/yyyy")})</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
