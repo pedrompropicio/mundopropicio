@@ -7,6 +7,9 @@ import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
+import HelpTooltip from "@/components/HelpTooltip";
+import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
 import { sortByHierarchicalCode } from "@/lib/utils";
 
@@ -38,6 +41,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     date: transaction.date,
     due_date: transaction.due_date ?? "",
     specification: transaction.specification ?? "",
+    is_transitory: transaction.is_transitory ?? false,
   });
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -99,8 +103,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         description: "Descrição", amount: "Valor", iva_rate: "Taxa IVA",
         event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
+        is_transitory: "Transitória",
       };
-      const allowedFields = isPaid ? ["specification", "supplier_id"] : Object.keys(fieldLabels);
+      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory"] : Object.keys(fieldLabels);
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
@@ -113,6 +118,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const updates = isPaid ? {
         supplier_id: form.supplier_id || null,
         specification: transaction.type === "expense" ? (form.specification || null) : null,
+        is_transitory: form.is_transitory,
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -124,6 +130,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         date: form.date,
         due_date: form.due_date || null,
+        is_transitory: form.is_transitory,
       };
 
       const { data, error } = await supabase.functions.invoke("update-transaction", {
@@ -365,6 +372,19 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             )}
           </div>
           )}
+
+          {/* Transitory toggle — always editable */}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
+            <Switch
+              checked={form.is_transitory}
+              onCheckedChange={(v) => setForm({ ...form, is_transitory: v })}
+            />
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium">🔄 Transitória</span>
+              <HelpTooltip text={helpTexts.transitoryTransaction} size={13} />
+            </div>
+            <span className="ml-auto text-xs text-muted-foreground">Sem impacto no resultado</span>
+          </div>
 
           <button type="submit" disabled={editMutation.isPending}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
