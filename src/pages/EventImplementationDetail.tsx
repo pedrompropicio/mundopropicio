@@ -138,24 +138,28 @@ export default function EventImplementationDetail() {
     if (!notes) return { eventName: null, cityDetails: [] };
     const nameMatch = notes.match(/se\s+chama\s+["""]([^"""]+)["""]|chama\s+["""]([^"""]+)["""]/i);
     const eventName = nameMatch ? (nameMatch[1] || nameMatch[2])?.trim() || null : null;
+
     const cityDetails: CityInfo[] = [];
-    const cityPattern = /dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?\s+(?:n[oa]\s+)?([A-ZÀ-Ú][\wÀ-ú\s]*?)(?:\s+n[oa]\s+(.+?))?(?=\s+e\s+em\b|\s+e\s+(?:n[oa]|em)\b|\s+e\s+(?=.*dia\s)|\s*[.]|\s*$)/gi;
+    const seen = new Set<string>();
     let m: RegExpExecArray | null;
-    while ((m = cityPattern.exec(notes)) !== null) {
-      const day = m[1].padStart(2, "0");
-      const month = m[2].padStart(2, "0");
-      const year = m[3] || new Date().getFullYear().toString();
+
+    // Pattern 1: "dia DD/MM no City na Venue"
+    const p1 = /dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?\s+n[oa]\s+([A-ZÀ-Ú][\wÀ-ú]+)(?:\s+n[oa]\s+(.+?))?(?=\s+e\s|\s*[.]|\s*$)/gi;
+    while ((m = p1.exec(notes)) !== null) {
+      const day = m[1].padStart(2, "0"), month = m[2].padStart(2, "0"), year = m[3] || new Date().getFullYear().toString();
+      seen.add(m[4].toLowerCase());
       cityDetails.push({ name: m[4].trim(), date: `${year}-${month}-${day}`, venue: m[5]?.trim() || "" });
     }
-    if (cityDetails.length === 0) {
-      const altPattern = /(?:n[oa]|em)\s+([A-ZÀ-Ú][\wÀ-ú]+).*?dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?(?:\s+n[oa]\s+(.+?))?(?=\s+e\s+|\s*[.,]|\s*$)/gi;
-      while ((m = altPattern.exec(notes)) !== null) {
-        const day = m[2].padStart(2, "0");
-        const month = m[3].padStart(2, "0");
-        const year = m[4] || new Date().getFullYear().toString();
+
+    // Pattern 2: "em City [no] dia DD/MM [no Venue]"
+    const p2 = /(?:em|n[oa])\s+([A-ZÀ-Ú][\wÀ-ú]+)\s+(?:no\s+)?dia\s+(\d{1,2})[/.](\d{1,2})(?:[/.](\d{4}))?(?:\s+n[oa]\s+(.+?))?(?=\s*[.]|\s*$)/gi;
+    while ((m = p2.exec(notes)) !== null) {
+      if (!seen.has(m[1].toLowerCase())) {
+        const day = m[2].padStart(2, "0"), month = m[3].padStart(2, "0"), year = m[4] || new Date().getFullYear().toString();
         cityDetails.push({ name: m[1].trim(), date: `${year}-${month}-${day}`, venue: m[5]?.trim() || "" });
       }
     }
+
     return { eventName, cityDetails };
   }, []);
 
