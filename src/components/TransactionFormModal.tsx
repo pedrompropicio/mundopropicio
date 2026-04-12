@@ -1068,20 +1068,21 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: line.specification || prev.specification,
               }));
+              setPlExpanded(false);
             };
 
             const handleDetailClick = (detail: PLDetail) => {
               if (detail.catId === "none") return;
-              // If only one line, auto-fill from it
               if (detail.lines.length === 1) {
                 handleLineClick(detail.lines[0], detail);
                 return;
               }
-              // Just set the category — user picks specific line below
+              // Multiple lines — set category and collapse
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
               }));
+              setPlExpanded(false);
             };
 
             return (
