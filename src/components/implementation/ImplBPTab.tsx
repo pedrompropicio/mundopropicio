@@ -1064,6 +1064,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     <TableHead className="bg-muted/30 border-r">Ficheiro — Descrição</TableHead>
                     <TableHead className="bg-muted/30 border-r text-right">Ficheiro — Valor</TableHead>
                     <TableHead className="bg-muted/30 border-r text-right">IVA</TableHead>
+                    <TableHead className="bg-muted/30 border-r">Cat. Sugerida</TableHead>
                     <TableHead>App — Descrição</TableHead>
                     <TableHead className="text-right">App — Valor</TableHead>
                     <TableHead className="text-right">IVA</TableHead>
