@@ -132,11 +132,11 @@ export default function CategoryFormModal({
 
   // Auto-set type from parent
   useEffect(() => {
-    if (parentId && !isEditing) {
-      const parent = categories.find(c => c.id === parentId);
+    if (effectiveParentId && !isEditing) {
+      const parent = categories.find(c => c.id === effectiveParentId);
       if (parent) setType(parent.type);
     }
-  }, [parentId, categories, isEditing]);
+  }, [effectiveParentId, categories, isEditing]);
 
 
   const createMutation = useMutation({
@@ -146,7 +146,7 @@ export default function CategoryFormModal({
         name,
         type,
         parent_id: effectiveParentId || null,
-        event_required: !parentId ? eventRequired : true,
+        event_required: !effectiveParentId ? eventRequired : true,
       }).select("id").single();
       if (error) throw error;
       return data.id;
@@ -164,8 +164,8 @@ export default function CategoryFormModal({
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingCategory) return;
-      const updateData: any = { code, name, type, parent_id: parentId || null };
-      if (!parentId) updateData.event_required = eventRequired;
+      const updateData: any = { code, name, type, parent_id: effectiveParentId || null };
+      if (!effectiveParentId) updateData.event_required = eventRequired;
       const { error } = await supabase.from("account_categories").update(updateData).eq("id", editingCategory.id);
       if (error) throw error;
       return editingCategory.id;
