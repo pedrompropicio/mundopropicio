@@ -125,23 +125,21 @@ export function TicketOfficeEventsList({ officeId }: Props) {
 
   // Aggregate per event
   const eventSummaries = useMemo(() => {
-    const map: Record<string, { revenue: number; iva: number; expenses: number; qty: number }> = {};
-    eventIds.forEach((eid) => { map[eid] = { revenue: 0, iva: 0, expenses: 0, qty: 0 }; });
+    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number }> = {};
+    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0 }; });
 
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
       if (!eventId || !map[eventId]) return;
-      // Filter by office if specified
       if (officeId && s.financial_account_id && s.financial_account_id !== officeId) return;
       const lineTotal = s.quantity * Number(s.unit_price);
       map[eventId].revenue += lineTotal;
       map[eventId].qty += s.quantity;
-      // IVA: find rate from lots matching this zone and price
       const zoneIva = lotIvaMap[s.zone_id];
       if (zoneIva) {
         const rate = zoneIva[Number(s.unit_price)] ?? 0;
         if (rate > 0) {
-          map[eventId].iva += lineTotal - lineTotal / (1 + rate / 100);
+          map[eventId].ivaRevenue += lineTotal - lineTotal / (1 + rate / 100);
         }
       }
     });
@@ -149,7 +147,12 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     txns.forEach((t: any) => {
       if (!t.event_id || !map[t.event_id]) return;
       if (t.type === "expense") {
-        map[t.event_id].expenses += Number(t.paid_amount || t.amount || 0);
+        const expAmount = Number(t.paid_amount || t.amount || 0);
+        map[t.event_id].expenses += expAmount;
+        const rate = Number(t.iva_rate || 0);
+        if (rate > 0) {
+          map[t.event_id].ivaExpenses += expAmount - expAmount / (1 + rate / 100);
+        }
       }
     });
 
@@ -158,7 +161,9 @@ export function TicketOfficeEventsList({ officeId }: Props) {
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
-  const totalIva = Object.values(eventSummaries).reduce((s, e) => s + e.iva, 0);
+  const totalIvaRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.ivaRevenue, 0);
+  const totalIvaExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.ivaExpenses, 0);
+  const totalIvaBalance = totalIvaRevenue - totalIvaExpenses;
 
   if (events.length === 0) {
     return (
