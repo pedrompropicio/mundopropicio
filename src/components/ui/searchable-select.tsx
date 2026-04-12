@@ -45,12 +45,31 @@ export function SearchableSelect({
 
   const selectedOption = options.find((o) => o.value === value);
 
-  const filtered = search.trim()
-    ? options.filter((o) => {
-        const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ").toLowerCase();
-        return haystack.includes(search.toLowerCase());
-      })
-    : options;
+  const filtered = React.useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    // First pass: find which non-header items match
+    const matchSet = new Set<number>();
+    options.forEach((o, i) => {
+      if (o.isHeader) return;
+      const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ").toLowerCase();
+      if (haystack.includes(q)) matchSet.add(i);
+    });
+    // Second pass: include headers that precede at least one matched item
+    const result: SearchableSelectOption[] = [];
+    let lastHeader: { opt: SearchableSelectOption; idx: number } | null = null;
+    options.forEach((o, i) => {
+      if (o.isHeader) {
+        lastHeader = { opt: o, idx: i };
+        return;
+      }
+      if (matchSet.has(i)) {
+        if (lastHeader) { result.push(lastHeader.opt); lastHeader = null; }
+        result.push(o);
+      }
+    });
+    return result;
+  }, [options, search]);
 
   // Group options
   const groups: { group: string | null; items: SearchableSelectOption[] }[] = [];
