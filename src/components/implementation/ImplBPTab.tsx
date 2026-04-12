@@ -86,14 +86,12 @@ interface SheetMapping {
 interface ApportionmentSuggestion {
   description: string;
   normalizedKey: string;
-  /** Sheet names where this item appears */
   sheets: string[];
-  /** Row indices per sheet */
   rowsBySheet: Record<string, number>;
-  /** Average base amount across sheets */
   avgAmount: number;
-  /** Should go to Master */
   promoteToMaster: boolean;
+  /** Editable category ID for the consolidated Master line */
+  categoryId: string;
 }
 
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
@@ -306,6 +304,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           rowsBySheet: matches,
           avgAmount: candidate.row.baseAmount,
           promoteToMaster: true,
+          categoryId: "",
         });
       }
     }
@@ -859,11 +858,60 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         </TableBody>
                       </Table>
                     </div>
+
+                    {/* Editable category */}
+                    <div className="ml-7 mt-2 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Categoria:</span>
+                      <Select
+                        value={s.categoryId}
+                        onValueChange={(v) => {
+                          const updated = [...apportionmentSuggestions];
+                          updated[idx] = { ...updated[idx], categoryId: v };
+                          setApportionmentSuggestions(updated);
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-72 text-xs">
+                          <SelectValue placeholder="Selecionar categoria…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leafCategories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!s.categoryId && (
+                        <span className="text-xs text-amber-500 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Sem categoria
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            {/* Totals summary */}
+            {(() => {
+              const rateioTotal = apportionmentSuggestions
+                .filter(s => s.promoteToMaster)
+                .reduce((sum, s) => sum + s.avgAmount, 0);
+              const allSheetsTotal = parsedSheets
+                ? sheetMappings
+                    ?.filter(m => m.targetType !== "ignore")
+                    .reduce((sum, m) => {
+                      const sheet = parsedSheets.find(s => s.sheetName === m.sheetName);
+                      return sum + (sheet?.rows.reduce((s, r) => s + r.baseAmount, 0) ?? 0);
+                    }, 0) ?? 0
+                : 0;
+              const remainingPerSheet = allSheetsTotal - rateioTotal * (sheetMappings?.filter(m => m.targetType !== "ignore").length ?? 1);
+              return (
+                <div className="flex items-center gap-6 text-xs text-muted-foreground flex-wrap">
+                  <span>Total todas as abas: <span className="font-semibold text-foreground">{fmtMoney(allSheetsTotal)}</span></span>
+                  <span>Rateio (Master): <span className="font-semibold text-foreground">{fmtMoney(rateioTotal)}</span></span>
+                  <span>Restante nos Splits: <span className="font-semibold text-foreground">{fmtMoney(remainingPerSheet)}</span></span>
+                </div>
+              );
+            })()}
+            <div className="flex items-center justify-between pt-3 border-t">
               <div className="text-xs text-muted-foreground">
                 {apportionmentSuggestions.filter(s => s.promoteToMaster).length} de {apportionmentSuggestions.length} custos para o Master
               </div>
