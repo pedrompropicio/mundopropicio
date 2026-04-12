@@ -1906,9 +1906,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             isEditing ? (
                               <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
                                 <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
-                                <SelectContent>
-                                  {leafCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} {c.name}</SelectItem>)}
-                                </SelectContent>
+                                 <SelectContent className="max-h-72">
+                                   {renderCategoryOptions()}
+                                 </SelectContent>
                               </Select>
                             ) : cat ? (
                               <span>{cat.code} {cat.name}</span>
