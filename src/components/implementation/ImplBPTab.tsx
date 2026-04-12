@@ -304,6 +304,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           rowsBySheet: matches,
           avgAmount: candidate.row.baseAmount,
           promoteToMaster: true,
+          categoryId: "",
         });
       }
     }
