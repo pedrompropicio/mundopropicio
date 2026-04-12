@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
@@ -1583,7 +1584,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   </button>
                 )}
 
-                {/* Transitory toggle */}
+                {/* Transitory toggle — admin/manager only */}
+                {(authIsAdmin || authIsManager) && (
                 <button
                   type="button"
                   onClick={() => setIsTransitory(!isTransitory)}
@@ -1596,6 +1598,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   🔄 {isTransitory ? "Transitória" : "Marcar como Transitória"}
                   <HelpTooltip text={helpTexts.transitoryToggle} size={12} />
                 </button>
+                )}
               </div>
               {form.is_reimbursement && (
                 <div className="space-y-2">
