@@ -252,7 +252,7 @@ export default function EventImplementationDetail() {
     } finally {
       setExtracting(false);
     }
-  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, impl?.event_structure, parseCitiesFromInstructions]);
+  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, impl?.event_structure, impl?.notes, parseCitiesFromInstructions, parseNotesData]);
 
   useEffect(() => {
     if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
