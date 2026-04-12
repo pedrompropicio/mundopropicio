@@ -637,8 +637,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               <Button
                 onClick={() => {
                   setShowMappingStep(false);
-                  // Select the first non-ignored sheet and switch to its event
-                  const first = sheetMappings.find(m => m.targetType !== "ignore");
+                  // Check if this is a multi-event tour → trigger apportionment analysis
+                  const activeSheets = sheetMappings.filter(m => m.targetType !== "ignore");
+                  const hasMasterEvent = allEvents.some(e => !e.parent_event_id);
+                  if (activeSheets.length >= 2 && hasMasterEvent) {
+                    analyzeApportionment();
+                  }
+                  // Select the first non-ignored sheet
+                  const first = activeSheets[0];
                   if (first) {
                     setSelectedSheet(first.sheetName);
                     if (first.targetType === "event") {
@@ -654,7 +660,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   } else if (parsedSheets.length > 0) {
                     setSelectedSheet(parsedSheets[0].sheetName);
                   }
-                  setViewMode("comparison");
+                  if (!showApportionmentStep) setViewMode("comparison");
                 }}
               >
                 Confirmar Mapeamento
