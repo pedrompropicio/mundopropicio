@@ -22,6 +22,7 @@ interface Props {
   onDocs: (id: string) => void;
   onAudit: (id: string) => void;
   onDelete: (id: string) => void;
+  onToggleHidden?: (id: string, currentlyHidden: boolean) => void;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
