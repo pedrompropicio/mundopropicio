@@ -158,6 +158,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     (c) => !categories.some((other) => other.parent_id === c.id)
   );
 
+  // Fetch import batches from audit log for all events in this implementation
+  const allEventIds = allEvents.map(e => e.id);
+
   // Fetch expense forecast counts per event to detect already-imported events
   const { data: eventForecastCounts = {} } = useQuery({
     queryKey: ["impl-forecast-counts", ...allEventIds],
@@ -176,8 +179,6 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     enabled: allEventIds.length > 0,
   });
 
-  // Fetch import batches from audit log for all events in this implementation
-  const allEventIds = allEvents.map(e => e.id);
   const { data: importBatches = [], refetch: refetchBatches } = useQuery({
     queryKey: ["impl-import-batches", ...allEventIds],
     queryFn: async () => {
