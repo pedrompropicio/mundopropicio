@@ -791,17 +791,78 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return true;
   });
 
-  const categoryOptions = filteredCategories.map((c) => {
-    // When BP is active, show BP descriptions alongside the category
-    if (hasPL && form.event_id && !plOverride) {
-      const bpLines = relevantForecasts.filter(f => f.category_id === c.id && f.type === form.type);
-      if (bpLines.length > 0) {
-        const descriptions = bpLines.map(l => l.description).join(", ");
-        return { value: c.id, label: `${c.code} ${c.name}`, description: descriptions };
+  // Build hierarchical category options: L1/L2 as headers, L3 as selectable
+  const categoryOptions = useMemo(() => {
+    const opts: { value: string; label: string; description?: string; isHeader?: boolean; indentLevel?: number; searchText?: string }[] = [];
+
+    // Build parent maps
+    const catById = new Map(categories.map(c => [c.id, c]));
+    
+    // Group filtered (leaf) categories by their ancestry
+    const leafSet = new Set(filteredCategories.map(c => c.id));
+    
+    // Collect all ancestor chains for visible leaves
+    type TreeNode = { cat: any; children: TreeNode[] };
+    const rootNodes: TreeNode[] = [];
+    const nodeMap = new Map<string, TreeNode>();
+
+    // Find all ancestors needed
+    const neededIds = new Set<string>();
+    filteredCategories.forEach(c => {
+      neededIds.add(c.id);
+      let cur = c;
+      while (cur.parent_id && catById.has(cur.parent_id)) {
+        neededIds.add(cur.parent_id);
+        cur = catById.get(cur.parent_id)!;
       }
-    }
-    return { value: c.id, label: `${c.code} ${c.name}` };
-  });
+    });
+
+    // Build tree from needed categories
+    const neededCats = Array.from(neededIds).map(id => catById.get(id)!).filter(Boolean);
+    neededCats.forEach(c => nodeMap.set(c.id, { cat: c, children: [] }));
+    neededCats.forEach(c => {
+      const node = nodeMap.get(c.id)!;
+      if (c.parent_id && nodeMap.has(c.parent_id)) {
+        nodeMap.get(c.parent_id)!.children.push(node);
+      } else {
+        rootNodes.push(node);
+      }
+    });
+
+    // Sort by code
+    const sortNodes = (nodes: TreeNode[]) => {
+      nodes.sort((a, b) => compareHierarchicalCodes(a.cat.code, b.cat.code));
+      nodes.forEach(n => sortNodes(n.children));
+    };
+    sortNodes(rootNodes);
+
+    // Flatten tree into options
+    const flatten = (nodes: TreeNode[], level: number) => {
+      nodes.forEach(node => {
+        const isLeaf = leafSet.has(node.cat.id);
+        if (isLeaf) {
+          // BP description enrichment
+          let description: string | undefined;
+          if (hasPL && form.event_id && !plOverride) {
+            const bpLines = relevantForecasts.filter(f => f.category_id === node.cat.id && f.type === form.type);
+            if (bpLines.length > 0) {
+              description = bpLines.map(l => l.description).join(", ");
+            }
+          }
+          opts.push({ value: node.cat.id, label: `${node.cat.code} ${node.cat.name}`, description, indentLevel: level, searchText: description });
+        } else {
+          // Header (L1 or L2)
+          opts.push({ value: `header-${node.cat.id}`, label: `${node.cat.code} ${node.cat.name}`, isHeader: true, indentLevel: level });
+        }
+        if (node.children.length > 0) {
+          flatten(node.children, level + 1);
+        }
+      });
+    };
+    flatten(rootNodes, 0);
+
+    return opts;
+  }, [filteredCategories, categories, hasPL, form.event_id, form.type, plOverride, relevantForecasts]);
   const supplierOptions = suppliers.map((s: any) => ({ value: s.id, label: s.trade_name ? `${s.name} (${s.trade_name})` : s.name, searchText: s.trade_name ?? undefined }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
