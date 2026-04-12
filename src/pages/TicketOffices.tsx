@@ -1,4 +1,5 @@
 import HelpTooltip from "@/components/HelpTooltip";
+import { TicketOfficeEventsList } from "@/components/TicketOfficeEventsList";
 import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -289,7 +290,10 @@ export default function TicketOffices() {
           </TabsContent>
 
           <TabsContent value="vendas">
-            <TicketOfficeTicketingTab officeId={selectedOffice.id} officeName={selectedOffice.name} />
+            <div className="space-y-6">
+              <TicketOfficeEventsList officeId={selectedOffice.id} />
+              <TicketOfficeTicketingTab officeId={selectedOffice.id} officeName={selectedOffice.name} />
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -444,6 +448,8 @@ export default function TicketOffices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TicketOfficeEventsList />
 
       <TicketImportModal open={showImport} onClose={() => setShowImport(false)} />
     </div>
