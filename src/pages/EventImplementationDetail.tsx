@@ -177,7 +177,24 @@ export default function EventImplementationDetail() {
 
       // Extract name from first sheet header
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
-      const eventName = extractEventName(firstSheet) || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+      let eventName = extractEventName(firstSheet) || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+
+      // If it's a tour, clean the event name by removing city suffixes
+      // e.g. "MEM 2026 - LISBOA" → "MEM 2026"
+      if (isTour && detectedCities.length > 0) {
+        for (const city of detectedCities) {
+          const cityPattern = new RegExp(`\\s*[-–—]\\s*${city}\\s*$`, "i");
+          eventName = eventName.replace(cityPattern, "").trim();
+        }
+        // Also try to extract from event_structure or instructions
+        const nameFromInstructions = impl.import_instructions
+          ?.match(/(?:turnê|turne|tour|evento)\s+(?:d[oe]\s+)?(.+?)(?:\s+que\b|\s+com\b|\s*$)/i)?.[1]?.trim();
+        // If instructions have a name hint and it's shorter/cleaner, prefer it
+        // But only if it looks like a real name (not too generic)
+        if (nameFromInstructions && nameFromInstructions.length >= 3 && !/^(múltiplas|multiplas|varias)/i.test(nameFromInstructions)) {
+          eventName = nameFromInstructions;
+        }
+      }
 
       // Extract date from first sheet
       const dateStr = extractDateFromSheet(firstSheet) || "";
@@ -191,7 +208,8 @@ export default function EventImplementationDetail() {
       if (dateStr) setSetupDate(dateStr);
       if (isTour) {
         setSetupMode("create_master");
-        setSetupCities(detectedCities.length > 0 ? detectedCities.join(", ") : sheetNames.join(", "));
+        // ONLY use cities from instructions, never fallback to sheet names
+        setSetupCities(detectedCities.join(", "));
       } else {
         setSetupMode("create_simple");
       }
