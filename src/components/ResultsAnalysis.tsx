@@ -99,6 +99,17 @@ export function ResultsAnalysis() {
     },
   });
 
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["ra_ticket_lots"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_lots")
+        .select("id, quantity, price, zone_id, event_ticket_zones(event_id)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { completed, active, yearTotals } = useMemo(() => {
     // Build maps
     const txnMap: Record<string, { income: number; expense: number }> = {};
