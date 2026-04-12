@@ -18,6 +18,7 @@ import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type C
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 
 interface InlineForm {
@@ -1590,6 +1591,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
+  const [viewingTransaction, setViewingTransaction] = useState<any>(null);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
 
@@ -1900,10 +1902,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   const todayStr = new Date().toISOString().slice(0, 10);
                   const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
                   return (
-                    <a
+                    <button
                       key={tx.id}
-                      href={`/transacoes?highlight=${tx.id}`}
-                      className="block rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer"
+                      type="button"
+                      onClick={() => setViewingTransaction(tx)}
+                      className="block w-full text-left rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -1927,7 +1930,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                         {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
                         {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                       </div>
-                    </a>
+                    </button>
                   );
                 })}
               </div>
@@ -1966,6 +1969,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
             </div>
           </td>
         </tr>
+      )}
+      {viewingTransaction && (
+        <TransactionEditModal
+          transaction={viewingTransaction}
+          onClose={() => {
+            setViewingTransaction(null);
+            if (queryClient && eventId) {
+              queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+              queryClient.invalidateQueries({ queryKey: ["event-transactions", eventId] });
+            }
+          }}
+          isAdmin={isAdmin}
+        />
       )}
     </>
   );
