@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -23,6 +23,7 @@ interface Props {
   onAudit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (id: string, currentlyHidden: boolean) => void;
+  highlightId?: string | null;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
@@ -58,9 +59,17 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, highlightId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const isHidden = !!t.is_hidden;
+  const isHighlighted = highlightId === t.id;
+  const rowRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isHighlighted]);
 
   // Only consider as potential parent split if no parent and no event
   const mightBeParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
@@ -173,7 +182,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   return (
     <>
-      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""}`}>
+      <tr ref={rowRef} className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""} ${isHighlighted ? "ring-2 ring-primary ring-inset bg-primary/10 animate-pulse" : ""}`}>
         {showSelectColumn && (
           <td className="py-3 pr-2 text-center w-8">
             {selectable ? (
