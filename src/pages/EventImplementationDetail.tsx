@@ -164,7 +164,10 @@ export default function EventImplementationDetail() {
 
       // Detect cities from instructions
       const detectedCities = parseCitiesFromInstructions(impl.import_instructions ?? null);
-      const isTour = detectedCities.length > 1 || sheetNames.length > 1;
+      
+      // Determine tour from saved event_structure or detected cities
+      const savedType = (impl.event_structure as any)?.event_type;
+      const isTour = savedType === "new_master" || detectedCities.length > 1;
 
       // Extract name from first sheet header
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
@@ -175,13 +178,24 @@ export default function EventImplementationDetail() {
 
       const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities };
       setExtracted(info);
-      setSelectedSheets(sheetNames); // all selected by default for user to refine
+      setSelectedSheets(sheetNames);
+
+      // Auto-fill form directly (skip sheet selection step)
+      setSetupName(eventName);
+      if (dateStr) setSetupDate(dateStr);
+      if (isTour) {
+        setSetupMode("create_master");
+        setSetupCities(detectedCities.length > 0 ? detectedCities.join(", ") : sheetNames.join(", "));
+      } else {
+        setSetupMode("create_simple");
+      }
+      setSheetSelectionDone(true);
     } catch (err: any) {
       console.error("Extraction error:", err);
     } finally {
       setExtracting(false);
     }
-  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, parseCitiesFromInstructions]);
+  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, impl?.event_structure, parseCitiesFromInstructions]);
 
   useEffect(() => {
     if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
