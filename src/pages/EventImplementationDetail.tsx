@@ -59,12 +59,19 @@ function extractEventName(sheet: XLSX.WorkSheet): string | null {
   return null;
 }
 
+type CityInfo = {
+  name: string;
+  date: string;
+  venue: string;
+};
+
 type ExtractedInfo = {
   eventName: string;
   date: string;
   sheetNames: string[];
   isTour: boolean;
   detectedCities: string[];
+  cityDetails: CityInfo[];
 };
 
 export default function EventImplementationDetail() {
