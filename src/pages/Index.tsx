@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Progress } from "@/components/ui/progress";
