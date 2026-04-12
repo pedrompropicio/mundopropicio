@@ -528,14 +528,19 @@ export default function EventImplementationDetail() {
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary">Master</Badge>
                               {setupName}
                             </div>
-                            {setupCities.split(",").map(c => c.trim()).filter(Boolean).map((city, i) => (
-                              <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
-                                <span className="text-primary/60">↳</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Split</Badge>
-                                {setupName} — {city}
-                                {setupDate && <span className="text-xs">({format(new Date(setupDate), "dd/MM/yyyy")})</span>}
-                              </div>
-                            ))}
+                            {setupCities.split(",").map(c => c.trim()).filter(Boolean).map((city, i) => {
+                              const ci = cityDetails.find(cd => cd.name.toLowerCase() === city.toLowerCase());
+                              const cityDate = ci?.date || setupDate;
+                              return (
+                                <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground ml-6">
+                                  <span className="text-primary/60">↳</span>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Split</Badge>
+                                  <span>{setupName} — {city}</span>
+                                  {cityDate && <span className="text-xs">({format(new Date(cityDate), "dd/MM/yyyy")})</span>}
+                                  {ci?.venue && <span className="text-xs text-muted-foreground/70">• {ci.venue}</span>}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
