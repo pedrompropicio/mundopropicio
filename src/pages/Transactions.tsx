@@ -485,7 +485,7 @@ export default function Transactions() {
       const bDate = b.payment_date ?? b.date;
       return bDate.localeCompare(aDate); // mais recente primeiro
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
