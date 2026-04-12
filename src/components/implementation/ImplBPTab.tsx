@@ -535,13 +535,38 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     
     const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
     const isNewImport = existingExpenses.length === 0;
+    
+    const confirmMsg = isNewImport
+      ? `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
+      : `Sincronizar previsões com o ficheiro? Linhas divergentes serão atualizadas e novas serão criadas.`;
+    if (!confirm(confirmMsg)) return;
+    
     setImporting(true);
     
     try {
+      // Generate unique batch ID for rollback capability
+      const batchId = `bp-impl-${selectedEventId.substring(0, 8)}-${Date.now()}`;
+      const { data: userData } = await supabase.auth.getUser();
+      const changedBy = userData?.user?.user_metadata?.full_name ?? userData?.user?.email ?? "sistema";
+      
       let created = 0;
       let updated = 0;
       let skipped = 0;
       const errors: string[] = [];
+      const createdIds: string[] = [];
+      const updatedIds: string[] = [];
+      
+      // Helper: log audit entry for a forecast
+      const logAuditEntry = async (forecastId: string, fieldName: string, oldValue: string | null, newValue: string | null, observation?: string) => {
+        await supabase.from("forecast_audit_log").insert({
+          forecast_id: forecastId,
+          changed_by: changedBy,
+          field_name: fieldName,
+          old_value: oldValue,
+          new_value: newValue,
+          observation: observation || null,
+        });
+      };
       
       if (isNewImport) {
         // === NEW IMPORT: create all source lines as forecasts ===
@@ -553,7 +578,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           const key = `${selectedSheet}:${line.idx}`;
           const categoryId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? null;
           
-          const { error } = await supabase.from("event_forecasts").insert({
+          const { data: inserted, error } = await supabase.from("event_forecasts").insert({
             event_id: selectedEventId,
             type: "expense" as const,
             description: line.source.description,
@@ -562,10 +587,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             iva_rate: line.source.ivaRate,
             category_id: categoryId,
             status: "draft",
-          });
+          }).select("id").single();
           
-          if (error) errors.push(`"${line.source.description}": ${error.message}`);
-          else created++;
+          if (error) { errors.push(`"${line.source.description}": ${error.message}`); continue; }
+          created++;
+          createdIds.push(inserted.id);
+          
+          // Log creation in audit
+          await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${line.source.baseAmount}€`, `batch:${batchId} | ação:criar`);
         }
         
         // Create master/rateio lines
@@ -575,7 +604,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             for (const row of masterSheetRows) {
               const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));
               const categoryId = suggestion?.categoryId || null;
-              const { error } = await supabase.from("event_forecasts").insert({
+              const { data: inserted, error } = await supabase.from("event_forecasts").insert({
                 event_id: masterEvent.id,
                 type: "expense" as const,
                 description: row.description,
@@ -584,9 +613,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 iva_rate: row.ivaRate,
                 category_id: categoryId,
                 status: "draft",
-              });
-              if (error) errors.push(`Master "${row.description}": ${error.message}`);
-              else created++;
+              }).select("id").single();
+              if (error) { errors.push(`Master "${row.description}": ${error.message}`); continue; }
+              created++;
+              createdIds.push(inserted.id);
+              await logAuditEntry(inserted.id, "importação", null, `${row.description} — ${row.baseAmount}€`, `batch:${batchId} | ação:criar | master`);
             }
           }
         }
@@ -606,18 +637,29 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           
           if (line.match && line.matchScore >= 30) {
             if (line.divergences.length === 0) {
-              // Check category-only update
               if (categoryId && categoryId !== line.match.category_id) {
+                const oldCat = line.match.account_categories;
+                const newCat = leafCategories.find(c => c.id === categoryId);
                 const { error } = await supabase.from("event_forecasts").update({ category_id: categoryId }).eq("id", line.match.id);
-                if (error) errors.push(`Cat. "${line.source.description}": ${error.message}`);
-                else updated++;
+                if (error) { errors.push(`Cat. "${line.source.description}": ${error.message}`); continue; }
+                updated++;
+                updatedIds.push(line.match.id);
+                await logAuditEntry(line.match.id, "category_id", oldCat ? `${oldCat.code} ${oldCat.name}` : null, newCat ? `${newCat.code} ${newCat.name}` : null, `batch:${batchId} | ação:atualizar`);
               } else {
                 skipped++;
               }
               continue;
             }
             
-            // Update divergent forecast
+            // Store old values for audit trail
+            const oldValues = {
+              description: line.match.description,
+              specification: line.match.specification,
+              amount: String(line.match.amount),
+              iva_rate: String(line.match.iva_rate),
+              category_id: line.match.category_id,
+            };
+            
             const updates: any = {
               description: line.source.description,
               specification: line.source.specification,
@@ -627,8 +669,23 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             if (categoryId) updates.category_id = categoryId;
             
             const { error } = await supabase.from("event_forecasts").update(updates).eq("id", line.match.id);
-            if (error) errors.push(`"${line.source.description}": ${error.message}`);
-            else updated++;
+            if (error) { errors.push(`"${line.source.description}": ${error.message}`); continue; }
+            updated++;
+            updatedIds.push(line.match.id);
+            
+            // Log each changed field
+            const changedFields: { field: string; old: string; new_: string }[] = [];
+            if (oldValues.description !== line.source.description) changedFields.push({ field: "description", old: oldValues.description, new_: line.source.description });
+            if (oldValues.amount !== String(line.source.baseAmount)) changedFields.push({ field: "amount", old: oldValues.amount, new_: String(line.source.baseAmount) });
+            if (oldValues.iva_rate !== String(line.source.ivaRate)) changedFields.push({ field: "iva_rate", old: oldValues.iva_rate, new_: String(line.source.ivaRate) });
+            if (oldValues.specification !== line.source.specification) changedFields.push({ field: "specification", old: oldValues.specification || "", new_: line.source.specification || "" });
+            
+            for (const cf of changedFields) {
+              await logAuditEntry(line.match.id, cf.field, cf.old, cf.new_, `batch:${batchId} | ação:atualizar`);
+            }
+            if (changedFields.length === 0) {
+              await logAuditEntry(line.match.id, "importação", null, null, `batch:${batchId} | ação:atualizar | sem divergências detectadas`);
+            }
           } else {
             newLines.push(line);
           }
@@ -638,7 +695,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         for (const line of newLines) {
           const key = `${selectedSheet}:${line.idx}`;
           const categoryId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? null;
-          const { error } = await supabase.from("event_forecasts").insert({
+          const { data: inserted, error } = await supabase.from("event_forecasts").insert({
             event_id: selectedEventId,
             type: "expense" as const,
             description: line.source.description,
@@ -647,10 +704,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             iva_rate: line.source.ivaRate,
             category_id: categoryId,
             status: "draft",
-            notes: "Nova linha — adicionada por importação",
-          });
-          if (error) errors.push(`Criar "${line.source.description}": ${error.message}`);
-          else created++;
+          }).select("id").single();
+          if (error) { errors.push(`Criar "${line.source.description}": ${error.message}`); continue; }
+          created++;
+          createdIds.push(inserted.id);
+          await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${line.source.baseAmount}€`, `batch:${batchId} | ação:criar | nova`);
         }
         
         const parts: string[] = [];
@@ -661,9 +719,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         toast.success(`Sincronização concluída: ${parts.join(", ")}`);
       }
       
+      // Log batch summary
+      console.info(`[Import BP] batch=${batchId} | created=${created} (${createdIds.length} ids) | updated=${updated} (${updatedIds.length} ids) | skipped=${skipped} | errors=${errors.length}`);
+      
       if (errors.length > 0) {
         console.warn("Import errors:", errors);
         toast.error(`${errors.length} erro(s)`, { description: errors.slice(0, 3).join("; ") });
+      }
+      
+      // Show batch ID for rollback reference
+      if (created > 0 || updated > 0) {
+        toast.info(`Lote: ${batchId}`, { description: `${createdIds.length} criadas, ${updatedIds.length} atualizadas — utilize este ID para reverter se necessário`, duration: 10000 });
       }
       
       queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
@@ -672,7 +738,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     } finally {
       setImporting(false);
     }
-  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient]);
+  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories]);
 
   const startEdit = (forecast: any) => {
     setEditingId(forecast.id);
