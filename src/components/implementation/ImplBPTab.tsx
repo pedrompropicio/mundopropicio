@@ -273,16 +273,32 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     <div className="space-y-4">
       {/* Event selector + File analysis button */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {allEvents.length > 1 && (
             <>
               <span className="text-sm font-medium text-muted-foreground">Evento:</span>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedDateId("all"); }}>
                 <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {allEvents.map((e) => (
                     <SelectItem key={e.id} value={e.id}>
                       {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+          {datesForEvent.length > 0 && (
+            <>
+              <span className="text-sm font-medium text-muted-foreground">Data:</span>
+              <Select value={selectedDateId} onValueChange={setSelectedDateId}>
+                <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as datas</SelectItem>
+                  {datesForEvent.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

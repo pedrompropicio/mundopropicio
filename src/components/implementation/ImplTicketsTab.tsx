@@ -18,11 +18,16 @@ interface Props {
   eventSessions?: any[];
 }
 
-export function ImplTicketsTab({ implementation, event, allEvents }: Props) {
+export function ImplTicketsTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
+  const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
+
+  // Event dates/sessions for selected event
+  const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
+  const sessionsForEvent = eventSessions.filter((s: any) => s.event_id === selectedEventId);
 
   // Fetch zones for the selected event
   const { data: zones = [], isLoading } = useQuery({
