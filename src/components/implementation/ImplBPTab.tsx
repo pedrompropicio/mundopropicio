@@ -1146,7 +1146,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             </Table>
           </CardContent>
         </Card>
-      )
+      )}
 
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm flex-wrap">
