@@ -164,6 +164,10 @@ const helpTexts: Record<string, string> = {
     "Despesa paga do bolso de um funcionário. Não movimenta contas bancárias até à liquidação via Nota de Reembolso. Indique o nome do funcionário a reembolsar.",
   transitoryToggle:
     "Transação transitória (cauções, depósitos, garantias). Não impacta o resultado financeiro do evento (DRE/PL) mas aparece no fecho de sócios para encontro de contas.",
+  excludeFromResultToggle:
+    "Despesa real que não compõe o resultado financeiro do evento (DRE/PL). Fica registada para histórico e rastreabilidade mas não afeta lucro/prejuízo.",
+  excludeFromResultTransaction:
+    "Transação excluída do resultado — registada apenas para efeito de histórico, sem impacto no DRE/PL.",
   splitTransaction:
     "Rateio de transação entre múltiplos eventos. Defina as percentagens de cada evento. Alterações na transação-pai propagam-se automaticamente para as filhas.",
   splitEqual:

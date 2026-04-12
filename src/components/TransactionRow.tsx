@@ -276,6 +276,18 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {t.exclude_from_result && !t.is_transitory && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600 dark:text-sky-400 cursor-help">
+                        📋 Fora do Resultado
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>Despesa registada para histórico — não impacta o resultado financeiro (DRE/PL).</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>

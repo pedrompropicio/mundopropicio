@@ -42,6 +42,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     due_date: transaction.due_date ?? "",
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
+    exclude_from_result: transaction.exclude_from_result ?? false,
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -104,8 +105,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
         is_transitory: "Transitória",
+        exclude_from_result: "Fora do Resultado",
       };
-      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory"] : Object.keys(fieldLabels);
+      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result"] : Object.keys(fieldLabels);
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
@@ -119,6 +121,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         supplier_id: form.supplier_id || null,
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
+        exclude_from_result: form.exclude_from_result,
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -131,6 +134,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         date: form.date,
         due_date: form.due_date || null,
         is_transitory: form.is_transitory,
+        exclude_from_result: form.exclude_from_result,
       };
 
       const { data, error } = await supabase.functions.invoke("update-transaction", {

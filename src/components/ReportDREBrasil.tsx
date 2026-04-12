@@ -60,7 +60,7 @@ function buildDREBrasil(
   const eventZones = ticketZones.filter((z) => z.event_id === eventId);
   const hasTicketMgmt = eventZones.length > 0;
 
-  let incomes = transactions.filter((t) => t.type === "income" && !t.is_transitory);
+  let incomes = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   let ticketIncomeExIva = 0;
   let ticketIncomeIncIva = 0;
 
@@ -74,7 +74,7 @@ function buildDREBrasil(
     ticketIncomeIncIva = calcAmountWithIva(ticketIncomeExIva, 23);
   }
 
-  const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory);
+  const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
   const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
