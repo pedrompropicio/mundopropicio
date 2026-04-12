@@ -92,9 +92,10 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [parsedSheets, setParsedSheets] = useState<ParsedSheet[] | null>(null);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [parsing, setParsing] = useState(false);
-  const [viewMode, setViewMode] = useState<"comparison" | "app">("app");
+  const [viewMode, setViewMode] = useState<"comparison" | "app" | "raw">("app");
   const [sheetMappings, setSheetMappings] = useState<SheetMapping[] | null>(null);
   const [showMappingStep, setShowMappingStep] = useState(false);
+  const [rawSheetData, setRawSheetData] = useState<Record<string, any[][]>>({});
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
