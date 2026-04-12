@@ -108,29 +108,47 @@ export function ImplTicketsTab({ implementation, event, allEvents, eventDates = 
 
   return (
     <div className="space-y-4">
-      {/* Event selector */}
-      {allEvents.length > 1 && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Evento:</span>
-          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-            <SelectTrigger className="w-80">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {allEvents.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Event + Date selector */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {allEvents.length > 1 && (
+          <>
+            <span className="text-sm font-medium text-muted-foreground">Evento:</span>
+            <Select value={selectedEventId} onValueChange={(v) => { setSelectedEventId(v); setSelectedDateId("all"); }}>
+              <SelectTrigger className="w-80">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allEvents.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+        {datesForEvent.length > 0 && (
+          <>
+            <span className="text-sm font-medium text-muted-foreground">Data:</span>
+            <Select value={selectedDateId} onValueChange={setSelectedDateId}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as datas</SelectItem>
+                {datesForEvent.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+      </div>
 
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm">
-        <span>{zones.length} zonas</span>
-        <span>{lots.length} lotes</span>
+        <span>{filteredZones.length} zonas</span>
+        <span>{filteredLots.length} lotes</span>
         <span>Total bilhetes: {totalTickets.toLocaleString("pt-PT")}</span>
         <span className="font-semibold">Receita potencial: {fmtMoney(totalRevenue)}</span>
       </div>
