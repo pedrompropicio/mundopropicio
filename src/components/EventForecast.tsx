@@ -897,8 +897,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const matchesTxLinkFilter = (f: any) => {
     if (txLinkFilter === "all") return true;
-    if (txLinkFilter === "with_tx") return !!f.transaction_id;
-    if (txLinkFilter === "without_tx") return !f.transaction_id;
+    // Check both direct link (transaction_id) and matching transactions by category
+    const hasDirectLink = !!f.transaction_id;
+    const hasMatchingTx = transactions.some((t: any) => t.category_id === f.category_id && t.type === f.type);
+    const hasTx = hasDirectLink || hasMatchingTx;
+    if (txLinkFilter === "with_tx") return hasTx;
+    if (txLinkFilter === "without_tx") return !hasTx;
     return true;
   };
 
