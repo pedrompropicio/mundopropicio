@@ -197,48 +197,52 @@ export default function EventImplementationDetail() {
         (n) => !/^(resumo|total|geral|master|consolidado|template)/i.test(n)
       );
 
+      // Parse notes for structured data (event name, per-city dates/venues)
+      const notesData = parseNotesData(impl.notes ?? null);
+
       // Detect cities from instructions
       const detectedCities = parseCitiesFromInstructions(impl.import_instructions ?? null);
       
-      // Determine tour from saved event_structure or detected cities
+      // Merge: if notes has city details, use those; otherwise fall back to instruction cities
+      const parsedCityDetails = notesData.cityDetails.length > 0
+        ? notesData.cityDetails
+        : detectedCities.map(c => ({ name: c, date: "", venue: "" }));
+
+      // Determine tour from saved event_structure, notes city details, or instruction cities
       const savedType = (impl.event_structure as any)?.event_type;
-      const isTour = savedType === "new_master" || detectedCities.length > 1;
+      const isTour = savedType === "new_master" || parsedCityDetails.length > 1 || detectedCities.length > 1;
 
-      // Extract name from first sheet header
+      // Event name priority: 1) notes field, 2) cleaned Excel name, 3) file name
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
-      let eventName = extractEventName(firstSheet) || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+      let eventName = notesData.eventName
+        || extractEventName(firstSheet)
+        || impl.reference_file_name.replace(/\.xlsx?$/i, "");
 
-      // If it's a tour, clean the event name by removing city suffixes
-      // e.g. "MEM 2026 - LISBOA" → "MEM 2026"
-      if (isTour && detectedCities.length > 0) {
-        for (const city of detectedCities) {
+      // If it's a tour and name came from Excel, clean city suffixes
+      if (isTour && !notesData.eventName) {
+        const allCityNames = parsedCityDetails.map(c => c.name);
+        for (const city of allCityNames) {
           const cityPattern = new RegExp(`\\s*[-–—]\\s*${city}\\s*$`, "i");
           eventName = eventName.replace(cityPattern, "").trim();
         }
-        // Also try to extract from event_structure or instructions
-        const nameFromInstructions = impl.import_instructions
-          ?.match(/(?:turnê|turne|tour|evento)\s+(?:d[oe]\s+)?(.+?)(?:\s+que\b|\s+com\b|\s*$)/i)?.[1]?.trim();
-        // If instructions have a name hint and it's shorter/cleaner, prefer it
-        // But only if it looks like a real name (not too generic)
-        if (nameFromInstructions && nameFromInstructions.length >= 3 && !/^(múltiplas|multiplas|varias)/i.test(nameFromInstructions)) {
-          eventName = nameFromInstructions;
-        }
       }
 
-      // Extract date from first sheet
-      const dateStr = extractDateFromSheet(firstSheet) || "";
+      // Extract date from first sheet (fallback if no per-city dates)
+      const dateStr = extractDateFromSheet(firstSheet)
+        || (parsedCityDetails.length > 0 ? parsedCityDetails[0].date : "")
+        || "";
 
-      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities };
+      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities, cityDetails: parsedCityDetails };
       setExtracted(info);
       setSelectedSheets(sheetNames);
+      setCityDetails(parsedCityDetails);
 
-      // Auto-fill form directly (skip sheet selection step)
+      // Auto-fill form
       setSetupName(eventName);
       if (dateStr) setSetupDate(dateStr);
       if (isTour) {
         setSetupMode("create_master");
-        // ONLY use cities from instructions, never fallback to sheet names
-        setSetupCities(detectedCities.join(", "));
+        setSetupCities(parsedCityDetails.map(c => c.name).join(", "));
       } else {
         setSetupMode("create_simple");
       }
