@@ -983,30 +983,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           await logAuditEntry(inserted.id, "importação", null, `${line.source.description} — ${line.source.baseAmount}€`, `batch:${batchId} | ação:criar`);
         }
         
-        // Create master/rateio lines
-        if (masterSheetRows.length > 0) {
-          const masterEvent = allEvents.find(e => !e.parent_event_id);
-          if (masterEvent) {
-            for (const row of masterSheetRows) {
-              const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));
-              const categoryId = suggestion?.categoryId || null;
-              const { data: inserted, error } = await supabase.from("event_forecasts").insert({
-                event_id: masterEvent.id,
-                type: "expense" as const,
-                description: row.description,
-                specification: row.specification,
-                amount: row.baseAmount,
-                iva_rate: row.ivaRate,
-                category_id: categoryId,
-                status: "draft",
-              }).select("id").single();
-              if (error) { errors.push(`Master "${row.description}": ${error.message}`); continue; }
-              created++;
-              createdIds.push(inserted.id);
-              await logAuditEntry(inserted.id, "importação", null, `${row.description} — ${row.baseAmount}€`, `batch:${batchId} | ação:criar | master`);
-            }
-          }
-        }
+        // Note: Master/rateio lines are NOT created here — they are imported
+        // exclusively via the Master event card. Sub-events only import their
+        // city-exclusive expenses.
         
         toast.success(`Importação concluída: ${created} previsões criadas${skipped > 0 ? `, ${skipped} rateio ignorados` : ""}${errors.length > 0 ? `, ${errors.length} erros` : ""}`);
       } else {
