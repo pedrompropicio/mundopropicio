@@ -598,16 +598,23 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         {currentSheet && (viewMode === "comparison" || viewMode === "raw") && (
           <>
             <span className="text-muted-foreground">{fileLineCount} linhas interpretadas</span>
-            <span className="text-muted-foreground border-l pl-4 ml-2">
-              Total Ficheiro (bruto): <span className="font-semibold text-foreground">{fmtMoney(fileTotalGross)}</span>
-            </span>
+            {originalFileTotal && (
+              <span className="text-muted-foreground border-l pl-4 ml-2">
+                Total no Excel <span className="text-[10px]">(linha {originalFileTotal.rowIdx})</span>: <span className="font-semibold text-foreground">{fmtMoney(originalFileTotal.total)}</span>
+              </span>
+            )}
             <span className="text-muted-foreground">
-              Total Interpretado (base): <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
-              {fileTotalIva > 0 && <span className="ml-1 text-xs">(+IVA {fmtMoney(fileTotalIva)})</span>}
+              Total Interpretado: <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
+              {fileTotalIva > 0 && <span className="ml-1 text-xs">(+IVA {fmtMoney(fileTotalIva)} = {fmtMoney(fileTotalGross)})</span>}
             </span>
-            {Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)) > 0.5 && (
+            {originalFileTotal && Math.abs(originalFileTotal.total - fileTotalBase) > 0.5 && (
+              <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
+                <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(originalFileTotal.total - fileTotalBase))}
+              </Badge>
+            )}
+            {!originalFileTotal && Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)) > 0.5 && (
               <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
-                <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)))}
+                <AlertTriangle className="h-3 w-3" /> Divergência bruto vs base+IVA: {fmtMoney(Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)))}
               </Badge>
             )}
           </>
