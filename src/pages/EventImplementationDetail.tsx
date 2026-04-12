@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,13 +9,62 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, Download, Plus, Link2 } from "lucide-react";
+import { ArrowLeft, FileText, Download, Plus, Link2, Loader2, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { ImplBPTab } from "@/components/implementation/ImplBPTab";
 import { ImplTicketsTab } from "@/components/implementation/ImplTicketsTab";
 import { ImplApportionmentTab } from "@/components/implementation/ImplApportionmentTab";
+
+/** Try to find a date-like value in the first rows of a sheet */
+function extractDateFromSheet(sheet: XLSX.WorkSheet): string | null {
+  const range = XLSX.utils.decode_range(sheet["!ref"] || "A1:Z10");
+  const maxRow = Math.min(range.e.r, 9);
+  const maxCol = Math.min(range.e.c, 10);
+  for (let r = 0; r <= maxRow; r++) {
+    for (let c = 0; c <= maxCol; c++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+      if (!cell) continue;
+      const val = String(cell.v ?? "");
+      // Match dd/mm/yyyy or yyyy-mm-dd
+      const m1 = val.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
+      const m2 = val.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (m2) return m2[0];
+      // Excel serial date
+      if (cell.t === "n" && cell.v > 40000 && cell.v < 60000) {
+        const d = XLSX.SSF.parse_date_code(cell.v);
+        if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+      }
+    }
+  }
+  return null;
+}
+
+/** Try to find event name from first rows of the first sheet */
+function extractEventName(sheet: XLSX.WorkSheet): string | null {
+  for (let r = 0; r <= 4; r++) {
+    for (let c = 0; c <= 3; c++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+      if (!cell || cell.t !== "s") continue;
+      const val = String(cell.v ?? "").trim();
+      // Heuristic: a name-like string that's long enough and not a header keyword
+      if (val.length >= 5 && !/^(descri|cat|valor|total|item|data|receita|despesa|resumo)/i.test(val)) {
+        return val;
+      }
+    }
+  }
+  return null;
+}
+
+type ExtractedInfo = {
+  eventName: string;
+  date: string;
+  sheetNames: string[];
+  isTour: boolean;
+};
 
 export default function EventImplementationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +78,8 @@ export default function EventImplementationDetail() {
   const [setupDate, setSetupDate] = useState("");
   const [setupCities, setSetupCities] = useState("");
   const [setupExistingId, setSetupExistingId] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [extracted, setExtracted] = useState<ExtractedInfo | null>(null);
 
   const { data: impl, isLoading } = useQuery({
     queryKey: ["event-implementation", id],
@@ -71,6 +122,57 @@ export default function EventImplementationDetail() {
     },
     enabled: !impl?.event_id,
   });
+
+  // Auto-extract event info from XLSX
+  const extractFromFile = useCallback(async () => {
+    if (!impl?.reference_file_url || !impl.reference_file_name?.match(/\.xlsx?$/i)) return;
+    setExtracting(true);
+    try {
+      const { data: signedData, error: signErr } = await supabase.storage
+        .from("implementation-files")
+        .createSignedUrl(impl.reference_file_url, 300);
+      if (signErr || !signedData?.signedUrl) throw new Error("Erro ao aceder ficheiro");
+
+      const resp = await fetch(signedData.signedUrl);
+      const buf = await resp.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+
+      const sheetNames = wb.SheetNames.filter(
+        (n) => !/^(resumo|total|geral|master|consolidado|template)/i.test(n)
+      );
+      const isTour = sheetNames.length > 1;
+
+      // Extract name from first sheet header
+      const firstSheet = wb.Sheets[wb.SheetNames[0]];
+      const eventName = extractEventName(firstSheet) || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+
+      // Extract date from first sheet
+      const dateStr = extractDateFromSheet(firstSheet) || "";
+
+      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour };
+      setExtracted(info);
+
+      // Pre-fill form
+      setSetupName(eventName);
+      if (dateStr) setSetupDate(dateStr);
+      if (isTour) {
+        setSetupMode("create_master");
+        setSetupCities(sheetNames.join(", "));
+      } else {
+        setSetupMode("create_simple");
+      }
+    } catch (err: any) {
+      console.error("Extraction error:", err);
+    } finally {
+      setExtracting(false);
+    }
+  }, [impl?.reference_file_url, impl?.reference_file_name]);
+
+  useEffect(() => {
+    if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
+      extractFromFile();
+    }
+  }, [impl, extracted, extractFromFile]);
 
   // For master events, fetch splits
   const { data: splitEvents = [] } = useQuery({
@@ -255,14 +357,21 @@ export default function EventImplementationDetail() {
 
       {/* Event Setup Panel — shown when no event is linked */}
       {needsEventSetup ? (
-        <Card className="border-warning/50 bg-warning/5">
+        <Card className="border-primary/30">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Configurar Evento
+              {extracting ? (
+                <><Loader2 className="h-5 w-5 animate-spin" /> A analisar ficheiro…</>
+              ) : extracted ? (
+                <><Sparkles className="h-5 w-5 text-primary" /> Dados extraídos do ficheiro</>
+              ) : (
+                <><Plus className="h-5 w-5" /> Configurar Evento</>
+              )}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Esta implantação ainda não tem um evento associado. Crie um novo ou vincule a um existente para iniciar a reconciliação.
+              {extracted
+                ? `Foram detetadas ${extracted.sheetNames.length} aba(s): ${extracted.sheetNames.join(", ")}. Confirme os dados abaixo e ajuste se necessário.`
+                : "Crie um novo evento ou vincule a um existente para iniciar a reconciliação."}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
