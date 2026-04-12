@@ -889,7 +889,29 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                 );
               })}
             </div>
-            <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            {/* Totals summary */}
+            {(() => {
+              const rateioTotal = apportionmentSuggestions
+                .filter(s => s.promoteToMaster)
+                .reduce((sum, s) => sum + s.avgAmount, 0);
+              const allSheetsTotal = parsedSheets
+                ? sheetMappings
+                    ?.filter(m => m.targetType !== "ignore")
+                    .reduce((sum, m) => {
+                      const sheet = parsedSheets.find(s => s.sheetName === m.sheetName);
+                      return sum + (sheet?.rows.reduce((s, r) => s + r.baseAmount, 0) ?? 0);
+                    }, 0) ?? 0
+                : 0;
+              const remainingPerSheet = allSheetsTotal - rateioTotal * (sheetMappings?.filter(m => m.targetType !== "ignore").length ?? 1);
+              return (
+                <div className="flex items-center gap-6 text-xs text-muted-foreground flex-wrap">
+                  <span>Total todas as abas: <span className="font-semibold text-foreground">{fmtMoney(allSheetsTotal)}</span></span>
+                  <span>Rateio (Master): <span className="font-semibold text-foreground">{fmtMoney(rateioTotal)}</span></span>
+                  <span>Restante nos Splits: <span className="font-semibold text-foreground">{fmtMoney(remainingPerSheet)}</span></span>
+                </div>
+              );
+            })()}
+            <div className="flex items-center justify-between pt-3 border-t">
               <div className="text-xs text-muted-foreground">
                 {apportionmentSuggestions.filter(s => s.promoteToMaster).length} de {apportionmentSuggestions.length} custos para o Master
               </div>
