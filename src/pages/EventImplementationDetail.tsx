@@ -399,18 +399,17 @@ export default function EventImplementationDetail() {
               <CardTitle className="text-base flex items-center gap-2">
                 {extracted ? (
                   <><Sparkles className="h-5 w-5 text-primary" /> Configurar Evento</>
-                ) : extracting ? (
-                  <><Loader2 className="h-5 w-5 animate-spin" /> A analisar ficheiro…</>
                 ) : (
                   <><Plus className="h-5 w-5" /> Configurar Evento</>
                 )}
               </CardTitle>
-              {extracted && sheetSelectionDone && (
+              {extracted && (
                 <p className="text-sm text-muted-foreground">
-                  {selectedSheets.length} aba(s) selecionada(s): {selectedSheets.join(", ")}.{" "}
-                  <button className="text-primary underline" onClick={() => setSheetSelectionDone(false)}>
-                    Alterar seleção
-                  </button>
+                  Dados extraídos do ficheiro ({extracted.sheetNames.length} abas detetadas).
+                  {extracted.detectedCities.length > 0 && (
+                    <> Cidades nas instruções: <span className="font-medium text-primary">{extracted.detectedCities.join(", ")}</span>.</>
+                  )}
+                  {" "}Confirme os dados abaixo e ajuste se necessário.
                 </p>
               )}
             </CardHeader>
