@@ -164,12 +164,15 @@ export function ResultsAnalysis() {
     const completed: CompletedResult[] = [];
     const active: ActiveProjection[] = [];
 
+    const today = new Date().toISOString().slice(0, 10);
+
     yearEvents.forEach((e: any) => {
       const income = txnMap[e.id]?.income ?? 0;
       const expense = txnMap[e.id]?.expense ?? 0;
       const margin = income - expense;
       const totalPartnerPct = partnerMap[e.id]?.totalPct ?? 0;
       const companyPct = 100 - totalPartnerPct;
+      const hasSales = (salesByEvent[e.id] ?? 0) > 0;
 
       if (e.status === "completed") {
         completed.push({
@@ -183,10 +186,18 @@ export function ResultsAnalysis() {
           totalPartnerPct,
           companyShare: margin * (companyPct / 100),
           hasPartners: totalPartnerPct > 0,
+          incomeSource: hasSales ? "ticket_sales" : "transactions",
+          expenseSource: "transactions",
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        const bpIncome = lotRevenueMap[e.id] ?? 0;
-        const bpExpense = forecastMap[e.id]?.expense ?? 0;
+        // If event date already passed, use actual ticket sales as revenue projection
+        const eventPassed = e.date <= today;
+        const bpIncome = eventPassed
+          ? (salesByEvent[e.id] ?? 0)
+          : (lotRevenueMap[e.id] ?? 0);
+        const bpExpense = eventPassed
+          ? (txnMap[e.id]?.expense ?? 0)
+          : (forecastMap[e.id]?.expense ?? 0);
         const margin100 = bpIncome - bpExpense;
         const margin80 = bpIncome * 0.8 - bpExpense;
         const breakEvenPct = bpIncome > 0 ? (bpExpense / bpIncome) * 100 : 0;
@@ -205,6 +216,8 @@ export function ResultsAnalysis() {
           actualMargin: margin,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
+          incomeSource: eventPassed ? "ticket_sales" : "lot_projection",
+          expenseSource: eventPassed ? "transactions" : "forecasts",
         });
       }
     });
