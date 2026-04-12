@@ -467,7 +467,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
   // Matched lines totals (file side and app side)
   const compFileTotal = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.baseAmount, 0);
+  const compFileTotalIva = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.ivaAmount, 0);
+  const compFileTotalGross = compFileTotal + compFileTotalIva;
   const compAppTotal = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount), 0);
+
+  // Set of normalized descriptions that were promoted to master (rateio)
+  const rateioDescriptions = useMemo(() => {
+    if (masterSheetRows.length === 0) return new Set<string>();
+    return new Set(masterSheetRows.map(r => norm(r.description)));
+  }, [masterSheetRows]);
 
   const updateForecast = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
