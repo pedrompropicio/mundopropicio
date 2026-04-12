@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { Download, TrendingUp, TrendingDown, Target, BarChart3, Users } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Target, BarChart3, Users, Ticket, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,24 +20,43 @@ interface CompletedResult {
   totalPartnerPct: number;
   companyShare: number;
   hasPartners: boolean;
+  incomeSource: "transactions" | "ticket_sales";
+  expenseSource: "transactions";
 }
 
 interface ActiveProjection {
   id: string;
   name: string;
   date: string;
-  // BP projections
   bpIncome100: number;
   bpExpense: number;
   margin100: number;
   margin80: number;
   breakEvenPct: number;
-  // Actual so far
   actualIncome: number;
   actualExpense: number;
   actualMargin: number;
   totalPartnerPct: number;
   companyMargin100: number;
+  incomeSource: "lot_projection" | "ticket_sales";
+  expenseSource: "forecasts" | "transactions";
+}
+
+const sourceLabels: Record<string, { label: string; icon: "ticket" | "file" }> = {
+  ticket_sales: { label: "Vendas", icon: "ticket" },
+  lot_projection: { label: "Projeção Lotes", icon: "ticket" },
+  transactions: { label: "Transações", icon: "file" },
+  forecasts: { label: "BP", icon: "file" },
+};
+
+function SourceBadge({ source }: { source: string }) {
+  const info = sourceLabels[source] ?? { label: source, icon: "file" };
+  return (
+    <Badge variant="outline" className="text-[9px] px-1 py-0 gap-0.5 font-normal text-muted-foreground">
+      {info.icon === "ticket" ? <Ticket className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />}
+      {info.label}
+    </Badge>
+  );
 }
 
 export function ResultsAnalysis() {
@@ -162,12 +181,15 @@ export function ResultsAnalysis() {
     const completed: CompletedResult[] = [];
     const active: ActiveProjection[] = [];
 
+    const today = new Date().toISOString().slice(0, 10);
+
     yearEvents.forEach((e: any) => {
       const income = txnMap[e.id]?.income ?? 0;
       const expense = txnMap[e.id]?.expense ?? 0;
       const margin = income - expense;
       const totalPartnerPct = partnerMap[e.id]?.totalPct ?? 0;
       const companyPct = 100 - totalPartnerPct;
+      const hasSales = (salesByEvent[e.id] ?? 0) > 0;
 
       if (e.status === "completed") {
         completed.push({
@@ -181,10 +203,18 @@ export function ResultsAnalysis() {
           totalPartnerPct,
           companyShare: margin * (companyPct / 100),
           hasPartners: totalPartnerPct > 0,
+          incomeSource: hasSales ? "ticket_sales" : "transactions",
+          expenseSource: "transactions",
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        const bpIncome = lotRevenueMap[e.id] ?? 0;
-        const bpExpense = forecastMap[e.id]?.expense ?? 0;
+        // If event date already passed, use actual ticket sales as revenue projection
+        const eventPassed = e.date <= today;
+        const bpIncome = eventPassed
+          ? (salesByEvent[e.id] ?? 0)
+          : (lotRevenueMap[e.id] ?? 0);
+        const bpExpense = eventPassed
+          ? (txnMap[e.id]?.expense ?? 0)
+          : (forecastMap[e.id]?.expense ?? 0);
         const margin100 = bpIncome - bpExpense;
         const margin80 = bpIncome * 0.8 - bpExpense;
         const breakEvenPct = bpIncome > 0 ? (bpExpense / bpIncome) * 100 : 0;
@@ -203,6 +233,8 @@ export function ResultsAnalysis() {
           actualMargin: margin,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
+          incomeSource: eventPassed ? "ticket_sales" : "lot_projection",
+          expenseSource: eventPassed ? "transactions" : "forecasts",
         });
       }
     });
@@ -359,8 +391,18 @@ export function ResultsAnalysis() {
                       </a>
                     </td>
                     <td className="p-3 text-muted-foreground hidden md:table-cell">{formatDate(e.date)}</td>
-                    <td className="p-3 text-right font-mono text-success">{formatCurrency(e.totalIncome)}</td>
-                    <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.totalExpense)}</td>
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="font-mono text-success">{formatCurrency(e.totalIncome)}</span>
+                        <SourceBadge source={e.incomeSource} />
+                      </div>
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="font-mono text-warning">{formatCurrency(e.totalExpense)}</span>
+                        <SourceBadge source={e.expenseSource} />
+                      </div>
+                    </td>
                     <td className={`p-3 text-right font-mono font-semibold ${e.margin >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(e.margin)}
                     </td>
@@ -435,7 +477,11 @@ export function ResultsAnalysis() {
                       <a href={`/eventos/${e.id}`} className="font-medium hover:text-primary transition-colors">
                         {e.name}
                       </a>
-                      <p className="text-[10px] text-muted-foreground">{formatDate(e.date)}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] text-muted-foreground">{formatDate(e.date)}</span>
+                        <SourceBadge source={e.incomeSource} />
+                        <SourceBadge source={e.expenseSource} />
+                      </div>
                     </td>
                     <td className={`p-3 text-right font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(e.margin100)}
