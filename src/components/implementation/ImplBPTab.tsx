@@ -639,6 +639,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     toast.success(`${totalPromoted} custo(s) marcado(s) como rateio para o Master (${existingOnly.length} já existente(s))`);
   }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
 
+  // Set of normalized descriptions that were promoted to master (rateio)
+  const rateioDescriptions = useMemo(() => {
+    if (masterSheetRows.length === 0) return new Set<string>();
+    return new Set(masterSheetRows.map(r => norm(r.description)));
+  }, [masterSheetRows]);
+
 
   // Category matcher for source rows
   const categoryMatcher = useMemo(() => {
