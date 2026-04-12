@@ -89,6 +89,7 @@ interface ApportionmentSuggestion {
   sheets: string[];
   rowsBySheet: Record<string, number>;
   avgAmount: number;
+  avgIvaRate: number;
   promoteToMaster: boolean;
   /** Editable category ID for the consolidated Master line */
   categoryId: string;
@@ -303,6 +304,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           sheets: sheetNames,
           rowsBySheet: matches,
           avgAmount: candidate.row.baseAmount,
+          avgIvaRate: candidate.row.ivaRate,
           promoteToMaster: true,
           categoryId: "",
         });
