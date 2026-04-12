@@ -349,15 +349,19 @@ export default function EventImplementationDetail() {
         eventId = master.id;
 
         const cities = setupCities.split(",").map(c => c.trim()).filter(Boolean);
-        for (const city of cities) {
+        for (const cityName of cities) {
+          // Find per-city date from cityDetails
+          const cityInfo = cityDetails.find(cd => cd.name.toLowerCase() === cityName.toLowerCase());
+          const cityDate = cityInfo?.date || setupDate || new Date().toISOString().slice(0, 10);
           const { error } = await supabase
             .from("events")
             .insert({
-              name: `${setupName} — ${city}`,
-              date: setupDate || new Date().toISOString().slice(0, 10),
+              name: `${setupName} — ${cityName}`,
+              date: cityDate,
               event_type: "split",
               parent_event_id: master.id,
               status: "planning",
+              location: cityInfo?.venue || null,
             });
           if (error) throw error;
         }
