@@ -664,6 +664,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const masterEvent = allEvents.find(e => !e.parent_event_id);
     const isCitySheet = masterEvent && selectedEventId !== masterEvent.id;
 
+    // Exclude auto-calculated cache forecasts from comparison (they don't come from the file)
+    const comparableForecasts = forecasts.filter((f: any) => f.formula_type !== "cache_module");
+
     const usedForecastIds = new Set<string>();
     const lines: MatchedLine[] = [];
 
