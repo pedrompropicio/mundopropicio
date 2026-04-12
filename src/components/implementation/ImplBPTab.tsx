@@ -681,7 +681,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       let bestScore = 0;
       let bestDivergences: string[] = [];
 
-      for (const f of forecasts) {
+      for (const f of comparableForecasts) {
         if (usedForecastIds.has(f.id)) continue;
         const { score, divergences } = matchScore(row, f);
         if (score > bestScore) {
@@ -707,7 +707,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
 
     // Add unmatched forecasts
-    for (const f of forecasts) {
+    for (const f of comparableForecasts) {
       if (!usedForecastIds.has(f.id)) {
         lines.push({
           idx: -1,
