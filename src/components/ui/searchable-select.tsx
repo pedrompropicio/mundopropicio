@@ -13,6 +13,10 @@ export interface SearchableSelectOption {
   description?: string;
   /** Extra text to match during search (not displayed) */
   searchText?: string;
+  /** If true, the option is shown but not selectable (used for hierarchy headers) */
+  isHeader?: boolean;
+  /** Indentation level for hierarchy (0=root, 1=child, 2=grandchild) */
+  indentLevel?: number;
 }
 
 interface SearchableSelectProps {
@@ -105,24 +109,41 @@ export function SearchableSelect({
                   {g.group}
                 </div>
               )}
-              {g.items.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => { onValueChange(opt.value); setOpen(false); setSearch(""); }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
-                    opt.value === value && "bg-accent/50",
-                    opt.indent && "pl-6"
-                  )}
-                >
-                  <Check className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", opt.value === value ? "opacity-100" : "opacity-0")} />
-                  <div className="min-w-0">
-                    <span className="truncate block">{opt.icon ? `${opt.icon} ` : ""}{opt.label}</span>
-                    {opt.description && <span className="text-[10px] text-muted-foreground truncate block">{opt.description}</span>}
-                  </div>
-                </button>
-              ))}
+              {g.items.map((opt) => {
+                const paddingLeft = opt.indentLevel ? `${(opt.indentLevel * 16) + 8}px` : opt.indent ? '24px' : undefined;
+                if (opt.isHeader) {
+                  return (
+                    <div
+                      key={opt.value}
+                      className={cn(
+                        "px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider select-none",
+                        opt.indentLevel === 1 && "font-semibold normal-case tracking-normal text-foreground/70"
+                      )}
+                      style={paddingLeft ? { paddingLeft } : undefined}
+                    >
+                      {opt.label}
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { onValueChange(opt.value); setOpen(false); setSearch(""); }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
+                      opt.value === value && "bg-accent/50",
+                    )}
+                    style={paddingLeft ? { paddingLeft } : undefined}
+                  >
+                    <Check className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", opt.value === value ? "opacity-100" : "opacity-0")} />
+                    <div className="min-w-0">
+                      <span className="truncate block">{opt.icon ? `${opt.icon} ` : ""}{opt.label}</span>
+                      {opt.description && <span className="text-[10px] text-muted-foreground truncate block">{opt.description}</span>}
+                    </div>
+                  </button>
+                );
+              })}
             </React.Fragment>
           ))}
           {filtered.length === 0 && (
