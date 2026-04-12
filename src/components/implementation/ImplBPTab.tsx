@@ -1081,7 +1081,6 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   : "Sincronizar BP"}
               </Button>
             </>
-          )
           )}
           {importBatches.length > 0 && (
             <Button
