@@ -183,7 +183,7 @@ export function ResultsAnalysis() {
           hasPartners: totalPartnerPct > 0,
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        const bpIncome = forecastMap[e.id]?.income ?? 0;
+        const bpIncome = lotRevenueMap[e.id] ?? 0;
         const bpExpense = forecastMap[e.id]?.expense ?? 0;
         const margin100 = bpIncome - bpExpense;
         const margin80 = bpIncome * 0.8 - bpExpense;
