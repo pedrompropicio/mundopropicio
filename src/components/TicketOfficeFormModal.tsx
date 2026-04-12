@@ -39,7 +39,7 @@ export function TicketOfficeFormModal({ office, onClose }: Props) {
       const { data, error } = await supabase
         .from("events")
         .select("id, name, date, status, event_type, parent_event_id")
-        .in("status", ["confirmed", "active"])
+        .in("status", ["planning", "confirmed", "active"])
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
