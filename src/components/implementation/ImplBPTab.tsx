@@ -157,6 +157,152 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     (c) => !categories.some((other) => other.parent_id === c.id)
   );
 
+  // Fetch import batches from audit log for all events in this implementation
+  const allEventIds = allEvents.map(e => e.id);
+  const { data: importBatches = [], refetch: refetchBatches } = useQuery({
+    queryKey: ["impl-import-batches", ...allEventIds],
+    queryFn: async () => {
+      // Get all forecast IDs for these events
+      const { data: eventForecasts, error: fErr } = await supabase
+        .from("event_forecasts")
+        .select("id")
+        .in("event_id", allEventIds);
+      if (fErr || !eventForecasts || eventForecasts.length === 0) return [];
+
+      const forecastIds = eventForecasts.map(f => f.id);
+
+      // Query audit log for import entries (in batches of 100 to avoid query limit issues)
+      const allLogs: any[] = [];
+      for (let i = 0; i < forecastIds.length; i += 100) {
+        const chunk = forecastIds.slice(i, i + 100);
+        const { data: logs } = await supabase
+          .from("forecast_audit_log")
+          .select("*")
+          .in("forecast_id", chunk)
+          .like("observation", "batch:bp-impl-%")
+          .order("created_at", { ascending: false });
+        if (logs) allLogs.push(...logs);
+      }
+
+      if (allLogs.length === 0) return [];
+
+      // Group by batch ID
+      const batchMap: Record<string, { batchId: string; date: string; changedBy: string; entries: any[]; createdCount: number; updatedCount: number }> = {};
+      for (const log of allLogs) {
+        const obs = log.observation || "";
+        const batchMatch = obs.match(/batch:(bp-impl-[^\s|]+)/);
+        if (!batchMatch) continue;
+        const batchId = batchMatch[1];
+        if (!batchMap[batchId]) {
+          batchMap[batchId] = {
+            batchId,
+            date: log.created_at,
+            changedBy: log.changed_by,
+            entries: [],
+            createdCount: 0,
+            updatedCount: 0,
+          };
+        }
+        batchMap[batchId].entries.push(log);
+        if (obs.includes("ação:criar")) batchMap[batchId].createdCount++;
+        if (obs.includes("ação:atualizar")) batchMap[batchId].updatedCount++;
+      }
+
+      return Object.values(batchMap).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    },
+    enabled: allEventIds.length > 0,
+  });
+
+  // Rollback handler
+  const handleRollback = useCallback(async (batch: typeof importBatches[0]) => {
+    setReverting(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const changedBy = userData?.user?.user_metadata?.full_name ?? userData?.user?.email ?? "sistema";
+
+      let deleted = 0;
+      let restored = 0;
+      const errors: string[] = [];
+
+      // Separate created vs updated entries
+      const createdEntries = batch.entries.filter((e: any) => (e.observation || "").includes("ação:criar"));
+      const updatedEntries = batch.entries.filter((e: any) => (e.observation || "").includes("ação:atualizar"));
+
+      // Delete forecasts that were CREATED by this batch
+      const createdForecastIds = [...new Set(createdEntries.map((e: any) => e.forecast_id))];
+      for (const fId of createdForecastIds) {
+        const { error } = await supabase.from("event_forecasts").delete().eq("id", fId);
+        if (error) {
+          errors.push(`Eliminar ${fId.substring(0, 8)}: ${error.message}`);
+        } else {
+          deleted++;
+          // Log the rollback action
+          await supabase.from("forecast_audit_log").insert({
+            forecast_id: fId,
+            changed_by: changedBy,
+            field_name: "rollback",
+            old_value: null,
+            new_value: null,
+            observation: `rollback batch:${batch.batchId} | ação:eliminar`,
+          });
+        }
+      }
+
+      // Restore original values for UPDATED forecasts
+      const updatedForecastIds = [...new Set(updatedEntries.map((e: any) => e.forecast_id))];
+      for (const fId of updatedForecastIds) {
+        // Get all field changes for this forecast in this batch
+        const fieldChanges = updatedEntries.filter((e: any) => e.forecast_id === fId && e.field_name !== "importação");
+        if (fieldChanges.length === 0) continue;
+
+        const restoreValues: Record<string, any> = {};
+        for (const change of fieldChanges) {
+          const field = change.field_name;
+          const oldVal = change.old_value;
+          if (field === "amount") restoreValues.amount = Number(oldVal) || 0;
+          else if (field === "iva_rate") restoreValues.iva_rate = Number(oldVal) || 0;
+          else if (field === "category_id") {
+            // old_value stores "code name" — need to find the ID
+            const cat = categories.find(c => oldVal && `${c.code} ${c.name}` === oldVal);
+            restoreValues.category_id = cat?.id || null;
+          }
+          else if (field === "description") restoreValues.description = oldVal || "";
+          else if (field === "specification") restoreValues.specification = oldVal || null;
+        }
+
+        if (Object.keys(restoreValues).length > 0) {
+          const { error } = await supabase.from("event_forecasts").update(restoreValues).eq("id", fId);
+          if (error) {
+            errors.push(`Restaurar ${fId.substring(0, 8)}: ${error.message}`);
+          } else {
+            restored++;
+            await supabase.from("forecast_audit_log").insert({
+              forecast_id: fId,
+              changed_by: changedBy,
+              field_name: "rollback",
+              old_value: null,
+              new_value: JSON.stringify(restoreValues),
+              observation: `rollback batch:${batch.batchId} | ação:restaurar`,
+            });
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        toast.error(`Rollback parcial: ${errors.length} erro(s)`, { description: errors.slice(0, 3).join("; ") });
+      } else {
+        toast.success(`Rollback concluído: ${deleted} eliminadas, ${restored} restauradas`);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
+      refetchBatches();
+    } catch (err: any) {
+      toast.error("Erro no rollback: " + err.message);
+    } finally {
+      setReverting(false);
+    }
+  }, [categories, queryClient, refetchBatches]);
+
   // Parse reference file
   const handleParseFile = useCallback(async () => {
     if (!implementation.reference_file_url) {
