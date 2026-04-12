@@ -20,6 +20,8 @@ interface CompletedResult {
   totalPartnerPct: number;
   companyShare: number;
   hasPartners: boolean;
+  incomeSource: "transactions" | "ticket_sales";
+  expenseSource: "transactions";
 }
 
 interface ActiveProjection {
