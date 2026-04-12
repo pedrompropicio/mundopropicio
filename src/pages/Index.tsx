@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
+import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Progress } from "@/components/ui/progress";
@@ -158,6 +159,7 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
 }
 
 export default function Dashboard() {
+  const { isAdmin, isManager } = useAuth();
   const { data: events = [], isLoading: loadingEvents } = useQuery({
     queryKey: ["dashboard_events"],
     queryFn: async () => {
@@ -530,7 +532,7 @@ export default function Dashboard() {
       </section>
 
       {/* --- RESULTS ANALYSIS --- */}
-      <ResultsAnalysis />
+      {(isAdmin || isManager) && <ResultsAnalysis />}
     </div>
   );
 }
