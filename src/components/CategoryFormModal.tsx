@@ -138,7 +138,6 @@ export default function CategoryFormModal({
     }
   }, [parentId, categories, isEditing]);
 
-  const effectiveParentId = parentId === "__none__" ? "" : parentId;
 
   const createMutation = useMutation({
     mutationFn: async () => {
