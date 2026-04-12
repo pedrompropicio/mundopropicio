@@ -97,6 +97,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [showMappingStep, setShowMappingStep] = useState(false);
   const [rawSheetData, setRawSheetData] = useState<Record<string, any[][]>>({});
   const [expandedRawRow, setExpandedRawRow] = useState<number | null>(null);
+  const [editingSourceIdx, setEditingSourceIdx] = useState<number | null>(null);
+  const [editSourceValues, setEditSourceValues] = useState<{ description: string; specification: string; baseAmount: string; ivaRate: string }>({ description: "", specification: "", baseAmount: "0", ivaRate: "0" });
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
@@ -334,6 +336,52 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
   const fmtMoney = (n: number) =>
     n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
+
+  // --- Source row editing ---
+  const startEditSource = (idx: number, row: ParsedRow) => {
+    setEditingSourceIdx(idx);
+    setEditSourceValues({
+      description: row.description,
+      specification: row.specification || "",
+      baseAmount: String(row.baseAmount),
+      ivaRate: String(row.ivaRate),
+    });
+  };
+
+  const saveEditSource = () => {
+    if (editingSourceIdx === null || !parsedSheets || !selectedSheet) return;
+    const sheetIdx = parsedSheets.findIndex((s) => s.sheetName === selectedSheet);
+    if (sheetIdx < 0) return;
+    const updated = [...parsedSheets];
+    const rows = [...updated[sheetIdx].rows];
+    const base = Number(editSourceValues.baseAmount) || 0;
+    const rate = Number(editSourceValues.ivaRate) || 0;
+    const iva = Math.round(base * rate) / 100;
+    rows[editingSourceIdx] = {
+      ...rows[editingSourceIdx],
+      description: editSourceValues.description,
+      specification: editSourceValues.specification || null,
+      baseAmount: Math.round(base * 100) / 100,
+      ivaRate: rate,
+      ivaAmount: Math.round(iva * 100) / 100,
+      total: Math.round((base + iva) * 100) / 100,
+    };
+    updated[sheetIdx] = { ...updated[sheetIdx], rows };
+    setParsedSheets(updated);
+    setEditingSourceIdx(null);
+  };
+
+  const deleteSourceRow = (idx: number) => {
+    if (!parsedSheets || !selectedSheet) return;
+    const sheetIdx = parsedSheets.findIndex((s) => s.sheetName === selectedSheet);
+    if (sheetIdx < 0) return;
+    const updated = [...parsedSheets];
+    const rows = [...updated[sheetIdx].rows];
+    rows.splice(idx, 1);
+    updated[sheetIdx] = { ...updated[sheetIdx], rows };
+    setParsedSheets(updated);
+    toast.success("Linha removida da interpretação");
+  };
 
   const totalExpense = forecasts.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
   const totalIncome = forecasts.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
@@ -601,6 +649,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     const noMatch = !line.match && line.idx >= 0;
                     const onlyApp = line.idx < 0;
                     const isEditing = line.match && editingId === line.match.id;
+                    const isEditingSource = line.idx >= 0 && editingSourceIdx === line.idx;
                     const cat = line.match?.account_categories;
 
                     return (
@@ -623,22 +672,45 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           ) : "—"}
                         </TableCell>
 
-                        {/* Source columns */}
-                        <TableCell className="border-r bg-muted/10 text-sm max-w-48 truncate">
+                        {/* Source columns — editable */}
+                        <TableCell className="border-r bg-muted/10 text-sm max-w-48">
                           {line.idx >= 0 ? (
-                            <div>
-                              <span>{line.source.description}</span>
-                              {line.source.specification && (
-                                <span className="block text-xs text-muted-foreground">{line.source.specification}</span>
-                              )}
-                            </div>
+                            isEditingSource ? (
+                              <div className="space-y-1">
+                                <Input className="h-7 text-xs" value={editSourceValues.description} onChange={(e) => setEditSourceValues({ ...editSourceValues, description: e.target.value })} />
+                                <Input className="h-6 text-[10px]" placeholder="Especificação" value={editSourceValues.specification} onChange={(e) => setEditSourceValues({ ...editSourceValues, specification: e.target.value })} />
+                              </div>
+                            ) : (
+                              <div>
+                                <span>{line.source.description}</span>
+                                {line.source.specification && (
+                                  <span className="block text-xs text-muted-foreground">{line.source.specification}</span>
+                                )}
+                              </div>
+                            )
                           ) : <span className="text-muted-foreground italic">—</span>}
                         </TableCell>
                         <TableCell className="border-r bg-muted/10 text-right font-mono text-sm">
-                          {line.idx >= 0 ? fmtMoney(line.source.baseAmount) : "—"}
+                          {line.idx >= 0 ? (
+                            isEditingSource ? (
+                              <Input type="number" step="0.01" className="h-7 text-xs text-right w-24" value={editSourceValues.baseAmount} onChange={(e) => setEditSourceValues({ ...editSourceValues, baseAmount: e.target.value })} />
+                            ) : fmtMoney(line.source.baseAmount)
+                          ) : "—"}
                         </TableCell>
                         <TableCell className="border-r bg-muted/10 text-right text-xs">
-                          {line.idx >= 0 ? `${line.source.ivaRate}%` : "—"}
+                          {line.idx >= 0 ? (
+                            isEditingSource ? (
+                              <Select value={editSourceValues.ivaRate} onValueChange={(v) => setEditSourceValues({ ...editSourceValues, ivaRate: v })}>
+                                <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="0">0%</SelectItem>
+                                  <SelectItem value="6">6%</SelectItem>
+                                  <SelectItem value="13">13%</SelectItem>
+                                  <SelectItem value="23">23%</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : `${line.source.ivaRate}%`
+                          ) : "—"}
                         </TableCell>
 
                         {/* App columns */}
@@ -704,8 +776,21 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            {line.match && !isEditing && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEdit(line.match); }} title="Editar">
+                            {/* Source row actions */}
+                            {line.idx >= 0 && !isEditingSource && !isEditing && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEditSource(line.idx, line.source); }} title="Editar interpretação">
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                            )}
+                            {isEditingSource && (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); saveEditSource(); }}><Save className="h-3.5 w-3.5 text-green-600" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditingSourceIdx(null); }}><X className="h-3.5 w-3.5" /></Button>
+                              </>
+                            )}
+                            {/* App forecast actions */}
+                            {line.match && !isEditing && !isEditingSource && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEdit(line.match); }} title="Editar no App">
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                             )}
@@ -715,18 +800,21 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditingId(null); }}><X className="h-3.5 w-3.5" /></Button>
                               </>
                             )}
-                            {line.match && line.idx >= 0 && hasDivergence && !isEditing && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                title="Aplicar valores do ficheiro"
-                                onClick={(e) => { e.stopPropagation(); applySourceToForecast.mutate({ forecastId: line.match.id, source: line.source }); }}
-                              >
+                            {line.match && line.idx >= 0 && hasDivergence && !isEditing && !isEditingSource && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" title="Aplicar valores do ficheiro"
+                                onClick={(e) => { e.stopPropagation(); applySourceToForecast.mutate({ forecastId: line.match.id, source: line.source }); }}>
                                 <ArrowRight className="h-3.5 w-3.5 text-primary" />
                               </Button>
                             )}
-                            {line.match && !isEditing && (
+                            {line.idx >= 0 && !isEditing && !isEditingSource && (
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Remover esta linha da interpretação?")) deleteSourceRow(line.idx);
+                              }} title="Remover linha">
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {line.match && !line.idx && line.idx < 0 && !isEditing && (
                               <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => {
                                 e.stopPropagation();
                                 if (confirm("Remover esta previsão?")) deleteForecast.mutate(line.match.id);
