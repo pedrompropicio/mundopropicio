@@ -271,7 +271,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         }
 
         if (Object.keys(restoreValues).length > 0) {
-          const { error } = await supabase.from("event_forecasts").update(restoreValues).eq("id", fId);
+          const { error } = await supabase.from("event_forecasts").update(restoreValues as any).eq("id", fId);
           if (error) {
             errors.push(`Restaurar ${fId.substring(0, 8)}: ${error.message}`);
           } else {
