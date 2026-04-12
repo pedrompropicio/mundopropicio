@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
-import { ShieldCheck, Users, FileText, AlertTriangle, Activity } from "lucide-react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { ShieldCheck, Users, FileText, AlertTriangle, Activity, ArrowLeft } from "lucide-react";
 import { MfaEnroll } from "@/components/MfaEnroll";
 import { useState } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -74,7 +74,10 @@ export default function SecurityDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">Segurança & Monitoramento <HelpTooltip text={helpTexts.securityDashboard} /></h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
+            Segurança & Monitoramento <HelpTooltip text={helpTexts.securityDashboard} />
+          </h1>
           <p className="text-sm text-muted-foreground">Visão geral da segurança do sistema</p>
         </div>
       </div>

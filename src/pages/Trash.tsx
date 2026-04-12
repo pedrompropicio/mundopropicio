@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { RotateCcw, Trash2, Eye, ChevronDown, ChevronRight } from "lucide-react";
+import { RotateCcw, Trash2, Eye, ChevronDown, ChevronRight, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 
@@ -124,7 +125,10 @@ export default function TrashPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold tracking-tight lg:text-2xl">🗑️ Lixeira</h1>
+        <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
+          <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
+          🗑️ Lixeira
+        </h1>
         <p className="text-sm text-muted-foreground">
           Itens eliminados são mantidos por 30 dias antes da remoção permanente
         </p>

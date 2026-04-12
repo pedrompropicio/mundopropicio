@@ -18,7 +18,7 @@ import {
   XCircle,
   FolderArchive,
 } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
@@ -159,7 +159,7 @@ export default function DatabaseBackups() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-            Backups <HelpTooltip text={helpTexts.databaseBackups} />
+            import { ArrowLeft } from "lucide-react";
           </h1>
           <p className="text-sm text-muted-foreground">Cópias de segurança da base de dados e ficheiros</p>
         </div>
