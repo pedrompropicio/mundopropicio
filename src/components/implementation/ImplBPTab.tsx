@@ -86,14 +86,12 @@ interface SheetMapping {
 interface ApportionmentSuggestion {
   description: string;
   normalizedKey: string;
-  /** Sheet names where this item appears */
   sheets: string[];
-  /** Row indices per sheet */
   rowsBySheet: Record<string, number>;
-  /** Average base amount across sheets */
   avgAmount: number;
-  /** Should go to Master */
   promoteToMaster: boolean;
+  /** Editable category ID for the consolidated Master line */
+  categoryId: string;
 }
 
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
