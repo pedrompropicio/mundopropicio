@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge } from "lucide-react";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
+import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
 import * as XLSX from "xlsx";
 
 interface Props {
@@ -298,6 +299,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       // Only suggest if found in ALL active sheets
       if (allMatch) {
         otherSheetNames.forEach(sn => { usedInOtherSheets[sn].add(matches[sn]); });
+        // Auto-suggest category using matcher
+        const matcher = createExpenseCategoryMatcher(categories as any);
+        const suggestedCategoryId = matcher({ description: candidate.row.description, specification: candidate.row.specification }) || "";
         suggestions.push({
           description: candidate.row.description,
           normalizedKey: norm(candidate.row.description),
@@ -306,7 +310,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           avgAmount: candidate.row.baseAmount,
           avgIvaRate: candidate.row.ivaRate,
           promoteToMaster: true,
-          categoryId: "",
+          categoryId: suggestedCategoryId,
         });
       }
     }
