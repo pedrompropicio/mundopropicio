@@ -1585,7 +1585,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   canEditApproved?: boolean; eventTransactions?: any[];
   assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
-  canDeleteAlways?: boolean;
+  canDeleteAlways?: boolean; allForecasts?: any[];
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
