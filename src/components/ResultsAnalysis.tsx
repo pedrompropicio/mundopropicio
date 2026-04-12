@@ -209,14 +209,9 @@ export function ResultsAnalysis() {
           expenseSource: "transactions",
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        // If event date already passed, use actual ticket sales as revenue projection
-        const eventPassed = e.date <= today;
-        const bpIncome = eventPassed
-          ? (salesByEvent[e.id] ?? 0)
-          : (lotRevenueMap[e.id] ?? 0);
-        const bpExpense = eventPassed
-          ? (txnMap[e.id]?.expense ?? 0)
-          : (forecastMap[e.id]?.expense ?? 0);
+        // Projections always use planning data (lots + BP)
+        const bpIncome = lotRevenueMap[e.id] ?? 0;
+        const bpExpense = forecastMap[e.id]?.expense ?? 0;
         const margin100 = bpIncome - bpExpense;
         const margin80 = bpIncome * 0.8 - bpExpense;
         const breakEvenPct = bpIncome > 0 ? (bpExpense / bpIncome) * 100 : 0;
@@ -237,8 +232,8 @@ export function ResultsAnalysis() {
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyActualMargin: margin * (companyPct / 100),
-          incomeSource: eventPassed ? "ticket_sales" : "lot_projection",
-          expenseSource: eventPassed ? "transactions" : "forecasts",
+          incomeSource: "lot_projection",
+          expenseSource: "forecasts",
         });
       }
     });
