@@ -776,11 +776,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const compAppTotalIva = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount) * Number(l.match.iva_rate ?? 0) / 100, 0);
   const compAppTotalGross = compAppTotal + compAppTotalIva;
 
-  // Set of normalized descriptions that were promoted to master (rateio)
-  const rateioDescriptions = useMemo(() => {
-    if (masterSheetRows.length === 0) return new Set<string>();
-    return new Set(masterSheetRows.map(r => norm(r.description)));
-  }, [masterSheetRows]);
+  // rateioDescriptions moved above matchedLines
 
   const updateForecast = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
