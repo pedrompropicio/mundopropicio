@@ -82,6 +82,8 @@ export default function EventImplementationDetail() {
   const [setupExistingId, setSetupExistingId] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [extracted, setExtracted] = useState<ExtractedInfo | null>(null);
+  const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
+  const [sheetSelectionDone, setSheetSelectionDone] = useState(false);
 
   const { data: impl, isLoading } = useQuery({
     queryKey: ["event-implementation", id],
