@@ -42,6 +42,23 @@ interface ActiveProjection {
   expenseSource: "forecasts" | "transactions";
 }
 
+const sourceLabels: Record<string, { label: string; icon: "ticket" | "file" }> = {
+  ticket_sales: { label: "Vendas", icon: "ticket" },
+  lot_projection: { label: "Projeção Lotes", icon: "ticket" },
+  transactions: { label: "Transações", icon: "file" },
+  forecasts: { label: "BP", icon: "file" },
+};
+
+function SourceBadge({ source }: { source: string }) {
+  const info = sourceLabels[source] ?? { label: source, icon: "file" };
+  return (
+    <Badge variant="outline" className="text-[9px] px-1 py-0 gap-0.5 font-normal text-muted-foreground">
+      {info.icon === "ticket" ? <Ticket className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />}
+      {info.label}
+    </Badge>
+  );
+}
+
 export function ResultsAnalysis() {
   const currentYear = new Date().getFullYear();
 
