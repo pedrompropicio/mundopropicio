@@ -1063,16 +1063,25 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             </Button>
           )}
           {parsedSheets && viewMode === "comparison" && matchedLines.length > 0 && (
-            <Button
-              onClick={handleImportBP}
-              disabled={importing}
-              className="gap-2"
-            >
-              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {forecasts.filter((f: any) => f.type === "expense").length === 0
-                ? "Importar BP"
-                : "Sincronizar BP"}
-            </Button>
+            <>
+              {importedSheets.has(selectedSheet) && (
+                <Badge variant="outline" className="gap-1 border-green-500/50 text-green-600 text-xs">
+                  <CheckCircle2 className="h-3 w-3" /> Aba já importada
+                </Badge>
+              )}
+              <Button
+                onClick={handleImportBP}
+                disabled={importing}
+                variant={importedSheets.has(selectedSheet) ? "outline" : "default"}
+                className="gap-2"
+              >
+                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {forecasts.filter((f: any) => f.type === "expense").length === 0
+                  ? "Importar BP"
+                  : "Sincronizar BP"}
+              </Button>
+            </>
+          )
           )}
           {importBatches.length > 0 && (
             <Button
