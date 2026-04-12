@@ -112,6 +112,13 @@ export function ResultsAnalysis() {
 
   const { completed, active, yearTotals } = useMemo(() => {
     // Build maps
+    // Projected revenue from ticket lots (capacity × price)
+    const lotRevenueMap: Record<string, number> = {};
+    ticketLots.forEach((lot: any) => {
+      const eventId = lot.event_ticket_zones?.event_id;
+      if (!eventId) return;
+      lotRevenueMap[eventId] = (lotRevenueMap[eventId] || 0) + Number(lot.quantity) * Number(lot.price);
+    });
     const txnMap: Record<string, { income: number; expense: number }> = {};
     transactions.forEach((t: any) => {
       if (!t.event_id || t.is_transitory || t.exclude_from_result) return;
