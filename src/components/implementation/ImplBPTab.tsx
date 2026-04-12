@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge } from "lucide-react";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
+import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
 import * as XLSX from "xlsx";
 
 interface Props {
@@ -298,6 +299,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       // Only suggest if found in ALL active sheets
       if (allMatch) {
         otherSheetNames.forEach(sn => { usedInOtherSheets[sn].add(matches[sn]); });
+        // Auto-suggest category using matcher
+        const matcher = createExpenseCategoryMatcher(categories as any);
+        const suggestedCategoryId = matcher({ description: candidate.row.description, specification: candidate.row.specification }) || "";
         suggestions.push({
           description: candidate.row.description,
           normalizedKey: norm(candidate.row.description),
@@ -306,7 +310,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           avgAmount: candidate.row.baseAmount,
           avgIvaRate: candidate.row.ivaRate,
           promoteToMaster: true,
-          categoryId: "",
+          categoryId: suggestedCategoryId,
         });
       }
     }
@@ -470,6 +474,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const compFileTotalIva = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.ivaAmount, 0);
   const compFileTotalGross = compFileTotal + compFileTotalIva;
   const compAppTotal = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount), 0);
+  const compAppTotalIva = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount) * Number(l.match.iva_rate ?? 0) / 100, 0);
+  const compAppTotalGross = compAppTotal + compAppTotalIva;
 
   // Set of normalized descriptions that were promoted to master (rateio)
   const rateioDescriptions = useMemo(() => {
@@ -1304,23 +1310,29 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       {/* Interpreted total row */}
                       <TableRow className={`bg-muted/50 font-semibold ${originalFileTotal ? "" : "border-t-2"}`}>
                         <TableCell className="text-xs">{fileLineCount}</TableCell>
-                        <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado ({fileLineCount} linhas)</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-sm">
+                          Total Interpretado ({fileLineCount} linhas)
+                          <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compFileTotalGross)}</span>
+                        </TableCell>
                         <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
                         <TableCell className="border-r bg-muted/30 text-right text-xs">
                           {compFileTotalIva > 0 && fmtMoney(compFileTotalIva)}
                         </TableCell>
-                        <TableCell className="text-sm">Total no App</TableCell>
+                        <TableCell className="text-sm">
+                          Total no App
+                          <span className="block text-xs font-normal text-muted-foreground">c/ IVA: {fmtMoney(compAppTotalGross)}</span>
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
-                        <TableCell></TableCell>
+                        <TableCell className="text-right text-xs">{compAppTotalIva > 0 && fmtMoney(compAppTotalIva)}</TableCell>
                         <TableCell></TableCell>
                         <TableCell>
                           {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotalGross) > 0.5 ? (
-                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel (${fmtMoney(originalFileTotal.total)}) vs Interpretado c/ IVA (${fmtMoney(compFileTotalGross)})`}>
+                            <span className="text-xs text-destructive font-semibold" title={`Excel: ${fmtMoney(originalFileTotal.total)} vs Interpretado c/ IVA: ${fmtMoney(compFileTotalGross)}`}>
                               <AlertTriangle className="h-4 w-4 inline mr-1" />
                               {fmtMoney(Math.abs(originalFileTotal.total - compFileTotalGross))}
                             </span>
-                          ) : Math.abs(compFileTotal - compAppTotal) > 0.01 ? (
-                            <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
+                          ) : Math.abs(compFileTotalGross - compAppTotalGross) > 0.01 ? (
+                            <span className="text-xs text-amber-600" title={`Diferença c/ IVA: ${fmtMoney(Math.abs(compFileTotalGross - compAppTotalGross))}`}>
                               <AlertTriangle className="h-4 w-4" />
                             </span>
                           ) : (
