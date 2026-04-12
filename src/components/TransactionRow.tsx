@@ -198,6 +198,11 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             <div>
               <div className="flex items-center gap-1.5">
                 <p className="font-medium">{t.description}</p>
+                {isHidden && (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <EyeOff className="h-2.5 w-2.5" /> Oculta
+                  </span>
+                )}
                 {t.pl_override_note && (
                   <Tooltip>
                     <TooltipTrigger asChild>
