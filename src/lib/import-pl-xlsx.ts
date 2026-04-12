@@ -196,6 +196,15 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
         if (val && val.length > 2) attachments.push(val);
       }
 
+      const rawValues: Record<string, string> = {
+        descricao: String(row[descIdx] ?? ""),
+      };
+      if (specIdx >= 0) rawValues.especificacao = String(row[specIdx] ?? "");
+      if (costIdx >= 0) rawValues.custo = String(costRaw);
+      if (ivaIdx >= 0) rawValues.iva = String(row[ivaIdx] ?? "");
+      if (totalIdx >= 0) rawValues.total = String(totalRaw);
+      if (statusIdx >= 0) rawValues.status = String(row[statusIdx] ?? "");
+
       rows.push({
         description: desc,
         specification,
@@ -206,6 +215,8 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
         attachments,
         status,
         hasFormulaError: rowHasFormulaError,
+        excelRow: i + 1, // 1-based Excel row number
+        rawValues,
       });
     }
 
