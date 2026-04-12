@@ -18,6 +18,7 @@ import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type C
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 
 interface InlineForm {
@@ -1968,6 +1969,19 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
             </div>
           </td>
         </tr>
+      )}
+      {viewingTransaction && (
+        <TransactionEditModal
+          transaction={viewingTransaction}
+          onClose={() => {
+            setViewingTransaction(null);
+            if (queryClient && eventId) {
+              queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+              queryClient.invalidateQueries({ queryKey: ["event-transactions", eventId] });
+            }
+          }}
+          isAdmin={isAdmin}
+        />
       )}
     </>
   );
