@@ -357,14 +357,21 @@ export default function EventImplementationDetail() {
 
       {/* Event Setup Panel — shown when no event is linked */}
       {needsEventSetup ? (
-        <Card className="border-warning/50 bg-warning/5">
+        <Card className="border-primary/30">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Configurar Evento
+              {extracting ? (
+                <><Loader2 className="h-5 w-5 animate-spin" /> A analisar ficheiro…</>
+              ) : extracted ? (
+                <><Sparkles className="h-5 w-5 text-primary" /> Dados extraídos do ficheiro</>
+              ) : (
+                <><Plus className="h-5 w-5" /> Configurar Evento</>
+              )}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Esta implantação ainda não tem um evento associado. Crie um novo ou vincule a um existente para iniciar a reconciliação.
+              {extracted
+                ? `Foram detetadas ${extracted.sheetNames.length} aba(s): ${extracted.sheetNames.join(", ")}. Confirme os dados abaixo e ajuste se necessário.`
+                : "Crie um novo evento ou vincule a um existente para iniciar a reconciliação."}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
