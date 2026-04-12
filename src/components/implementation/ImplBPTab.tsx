@@ -2354,9 +2354,6 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                      {renderCategoryOptions()}
                                    </SelectContent>
                                 </Select>
-                                {renderAddCategoryButton((catId) => setSourceCategoryOverrides(prev => ({ ...prev, [`${selectedSheet}:${line.idx}`]: catId })))}
-                                   </SelectContent>
-                                </Select>
                                 {renderAddCategoryButton((catId) => setSourceCategoryOverrides(prev => ({ ...prev, [key]: catId })))}
                               </div>
                             );
