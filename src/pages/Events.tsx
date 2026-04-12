@@ -127,7 +127,7 @@ export default function Events() {
         .order("date", { ascending: false });
       if (error) throw error;
 
-      const parentIds = (evts ?? []).filter((e: any) => e.event_type === "multi_day").map((e: any) => e.id);
+      const parentIds = (evts ?? []).filter((e: any) => e.event_type === "multi_day" || e.event_type === "master").map((e: any) => e.id);
       let subEventsMap: Record<string, any[]> = {};
       if (parentIds.length > 0) {
         const { data: subs } = await (supabase
@@ -174,7 +174,7 @@ export default function Events() {
         let totalIncome = totals[e.id]?.income ?? 0;
         let totalExpenses = totals[e.id]?.expense ?? 0;
 
-        if (eventType === "multi_day" && subEventsMap[e.id]) {
+        if ((eventType === "multi_day" || eventType === "master") && subEventsMap[e.id]) {
           subEventsMap[e.id].forEach(sub => {
             totalIncome += totals[sub.id]?.income ?? 0;
             totalExpenses += totals[sub.id]?.expense ?? 0;
@@ -413,12 +413,14 @@ export default function Events() {
   };
 
   const EventTypeBadge = ({ type }: { type: EventType }) => {
-    const Icon = eventTypeIcons[type];
+    const Icon = eventTypeIcons[type] ?? Calendar;
     const colors: Record<EventType, string> = {
       simple: "bg-blue-500/15 text-blue-400",
       festival: "bg-purple-500/15 text-purple-400",
       multi_day: "bg-amber-500/15 text-amber-400",
       tour: "bg-amber-500/15 text-amber-400",
+      master: "bg-amber-500/15 text-amber-400",
+      split: "bg-blue-500/15 text-blue-400",
     };
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[type]}`}>
@@ -456,9 +458,9 @@ export default function Events() {
   const sortedEvents = [...events].sort((a: any, b: any) => {
     if (!sortField) return 0;
     const dir = sortDir === "asc" ? 1 : -1;
-    const getEffectiveDate = (e: any) => {
-      if (e.event_type === "multi_day" && e.subEvents?.length > 0) {
-        return e.subEvents[0].date; // already sorted by date
+      const getEffectiveDate = (e: any) => {
+        if ((e.event_type === "multi_day" || e.event_type === "master") && e.subEvents?.length > 0) {
+          return e.subEvents[0].date;
       }
       return e.date;
     };
@@ -906,7 +908,7 @@ export default function Events() {
           {sortedEvents.map((event: any) => {
             const profit = event.totalIncome - event.totalExpenses;
             const budgetUsed = event.budget > 0 ? (event.totalExpenses / event.budget) * 100 : 0;
-            const eventType = event.event_type as EventType;
+            const eventType = ((event.event_type as EventType) in eventTypeLabels ? event.event_type : "simple") as EventType;
             const locationDisplay = getLocationDisplay(event);
             return (
               <Link
@@ -924,7 +926,7 @@ export default function Events() {
 
                 <div className="flex items-center gap-2 mb-3">
                   <EventTypeBadge type={eventType} />
-                  {eventType === "multi_day" && event.subEvents?.length > 0 && (
+                  {((eventType === "multi_day" || eventType === "master") && event.subEvents?.length > 0) && (
                     <span className="text-[10px] text-muted-foreground">{event.subEvents.length} datas</span>
                   )}
                 </div>
@@ -1003,9 +1005,9 @@ export default function Events() {
             <tbody>
               {sortedEvents.map((event: any) => {
                 const profit = event.totalIncome - event.totalExpenses;
-                const eventType = event.event_type as EventType;
+                const eventType = ((event.event_type as EventType) in eventTypeLabels ? event.event_type : "simple") as EventType;
                 const locationDisplay = getLocationDisplay(event);
-                const isMultiDay = eventType === "multi_day" && event.subEvents?.length > 0;
+                const isMultiDay = (eventType === "multi_day" || eventType === "master") && event.subEvents?.length > 0;
                 return (
                   <>
                     <tr key={event.id} className="border-b border-border/30 last:border-0 hover:bg-secondary/30 transition-colors">
