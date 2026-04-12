@@ -604,16 +604,24 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     const cat = line.match?.account_categories;
 
                     return (
+                      <React.Fragment key={`${line.idx}-${line.match?.id || i}`}>
                       <TableRow
-                        key={`${line.idx}-${line.match?.id || i}`}
-                        className={
+                        className={`cursor-pointer ${
                           noMatch ? "bg-red-500/5" :
                           onlyApp ? "bg-blue-500/5" :
                           hasDivergence ? "bg-amber-500/5" :
                           isEditing ? "bg-primary/5" : ""
-                        }
+                        }`}
+                        onClick={() => line.idx >= 0 && line.source.excelRow ? setExpandedRawRow(expandedRawRow === line.idx ? null : line.idx) : undefined}
                       >
-                        <TableCell className="text-xs text-muted-foreground">{line.idx >= 0 ? line.idx + 1 : "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground font-mono">
+                          {line.idx >= 0 ? (
+                            <div className="flex flex-col items-center">
+                              <span className="font-semibold">{line.source.excelRow || "?"}</span>
+                              <span className="text-[10px] opacity-60">#{line.idx + 1}</span>
+                            </div>
+                          ) : "—"}
+                        </TableCell>
 
                         {/* Source columns */}
                         <TableCell className="border-r bg-muted/10 text-sm max-w-48 truncate">
@@ -697,14 +705,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {line.match && !isEditing && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(line.match)} title="Editar">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); startEdit(line.match); }} title="Editar">
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                             )}
                             {isEditing && (
                               <>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={saveEdit}><Save className="h-3.5 w-3.5 text-green-600" /></Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); saveEdit(); }}><Save className="h-3.5 w-3.5 text-green-600" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditingId(null); }}><X className="h-3.5 w-3.5" /></Button>
                               </>
                             )}
                             {line.match && line.idx >= 0 && hasDivergence && !isEditing && (
@@ -713,13 +721,14 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                                 variant="ghost"
                                 className="h-7 w-7"
                                 title="Aplicar valores do ficheiro"
-                                onClick={() => applySourceToForecast.mutate({ forecastId: line.match.id, source: line.source })}
+                                onClick={(e) => { e.stopPropagation(); applySourceToForecast.mutate({ forecastId: line.match.id, source: line.source }); }}
                               >
                                 <ArrowRight className="h-3.5 w-3.5 text-primary" />
                               </Button>
                             )}
                             {line.match && !isEditing && (
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => {
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={(e) => {
+                                e.stopPropagation();
                                 if (confirm("Remover esta previsão?")) deleteForecast.mutate(line.match.id);
                               }}>
                                 <X className="h-3.5 w-3.5" />
@@ -728,6 +737,33 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           </div>
                         </TableCell>
                       </TableRow>
+                      {/* Expandable raw Excel values row */}
+                      {expandedRawRow === line.idx && line.idx >= 0 && line.source.rawValues && (
+                        <TableRow className="bg-muted/20 border-b-2 border-primary/10">
+                          <TableCell className="text-[10px] text-muted-foreground text-center align-top py-2">
+                            <Eye className="h-3 w-3 mx-auto" />
+                          </TableCell>
+                          <TableCell colSpan={9} className="py-2">
+                            <div className="text-xs space-y-0.5">
+                              <p className="font-semibold text-muted-foreground mb-1">Valores originais do Excel (Linha {line.source.excelRow}):</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1">
+                                {Object.entries(line.source.rawValues).map(([key, val]) => (
+                                  <div key={key} className="flex gap-2">
+                                    <span className="text-muted-foreground capitalize min-w-16">{key}:</span>
+                                    <span className="font-mono break-all">{val || "—"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-1.5 pt-1.5 border-t border-border/50 flex gap-6 text-muted-foreground">
+                                <span>Interpretado → Base: <span className="font-mono text-foreground">{fmtMoney(line.source.baseAmount)}</span></span>
+                                <span>IVA: <span className="font-mono text-foreground">{fmtMoney(line.source.ivaAmount)}</span> ({line.source.ivaRate}%)</span>
+                                <span>Total: <span className="font-mono text-foreground">{fmtMoney(line.source.total)}</span></span>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                   {matchedLines.length > 0 && (
