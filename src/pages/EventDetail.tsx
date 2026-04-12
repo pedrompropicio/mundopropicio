@@ -115,7 +115,7 @@ export default function EventDetail() {
   });
 
   const eventType = event?.event_type || "simple";
-  const isMultiEvent = isMultiEvent || eventType === "master";
+  const isMultiEvent = eventType === "multi_day" || eventType === "master";
 
   // Fetch sub-events for multi-day
   const { data: subEvents = [] } = useQuery({
