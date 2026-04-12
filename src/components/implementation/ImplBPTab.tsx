@@ -118,6 +118,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [apportionmentSuggestions, setApportionmentSuggestions] = useState<ApportionmentSuggestion[]>([]);
   const [masterSheetRows, setMasterSheetRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
+  const [showImportHistory, setShowImportHistory] = useState(false);
+  const [reverting, setReverting] = useState(false);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
