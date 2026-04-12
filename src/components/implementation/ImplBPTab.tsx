@@ -472,14 +472,42 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       {parsedSheets && viewMode === "comparison" && (
         <div className="flex items-center gap-4 flex-wrap">
           {parsedSheets.length > 1 && (
-            <Select value={selectedSheet} onValueChange={setSelectedSheet}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <Select value={selectedSheet} onValueChange={(v) => {
+              setSelectedSheet(v);
+              // Auto-switch event/date based on mapping
+              if (sheetMappings) {
+                const mapping = sheetMappings.find(m => m.sheetName === v);
+                if (mapping && mapping.targetType === "event") {
+                  setSelectedEventId(mapping.targetId);
+                  setSelectedDateId("all");
+                } else if (mapping && mapping.targetType === "date") {
+                  const date = eventDates.find((d: any) => d.id === mapping.targetId);
+                  if (date) {
+                    setSelectedEventId(date.event_id);
+                    setSelectedDateId(date.id);
+                  }
+                }
+              }
+            }}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {parsedSheets.map((s) => (
-                  <SelectItem key={s.sheetName} value={s.sheetName}>
-                    {s.sheetName} ({s.rows.length} linhas)
-                  </SelectItem>
-                ))}
+                {parsedSheets.filter(s => {
+                  if (!sheetMappings) return true;
+                  const m = sheetMappings.find(mm => mm.sheetName === s.sheetName);
+                  return !m || m.targetType !== "ignore";
+                }).map((s) => {
+                  const m = sheetMappings?.find(mm => mm.sheetName === s.sheetName);
+                  const target = m?.targetType === "event"
+                    ? allEvents.find(e => e.id === m.targetId)?.name
+                    : m?.targetType === "date"
+                    ? `📅 ${eventDates.find((d: any) => d.id === m?.targetId)?.date || ""}`
+                    : null;
+                  return (
+                    <SelectItem key={s.sheetName} value={s.sheetName}>
+                      {s.sheetName} ({s.rows.length}) {target ? `→ ${target}` : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}
