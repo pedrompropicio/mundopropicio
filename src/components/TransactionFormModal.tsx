@@ -565,6 +565,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           paid_amount: 0,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
+          is_transitory: isTransitory,
         } as any).select("id").single();
         if (error) throw error;
 
