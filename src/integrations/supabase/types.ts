@@ -556,6 +556,53 @@ export type Database = {
           },
         ]
       }
+      event_implementations: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          event_structure: Json | null
+          id: string
+          import_instructions: string | null
+          notes: string | null
+          reference_file_name: string | null
+          reference_file_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          event_structure?: Json | null
+          id?: string
+          import_instructions?: string | null
+          notes?: string | null
+          reference_file_name?: string | null
+          reference_file_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          event_structure?: Json | null
+          id?: string
+          import_instructions?: string | null
+          notes?: string | null
+          reference_file_name?: string | null
+          reference_file_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_implementations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_partner_extras: {
         Row: {
           amount: number
