@@ -36,8 +36,10 @@ interface ActiveProjection {
   actualIncome: number;
   actualExpense: number;
   actualMargin: number;
+  actualMarginPct: number;
   totalPartnerPct: number;
   companyMargin100: number;
+  companyActualMargin: number;
   incomeSource: "lot_projection" | "ticket_sales";
   expenseSource: "forecasts" | "transactions";
 }
@@ -231,8 +233,10 @@ export function ResultsAnalysis() {
           actualIncome: income,
           actualExpense: expense,
           actualMargin: margin,
+          actualMarginPct: income > 0 ? (margin / income) * 100 : 0,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
+          companyActualMargin: margin * (companyPct / 100),
           incomeSource: eventPassed ? "ticket_sales" : "lot_projection",
           expenseSource: eventPassed ? "transactions" : "forecasts",
         });
@@ -457,17 +461,19 @@ export function ResultsAnalysis() {
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-3 text-left font-medium" rowSpan={2}>Evento</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={4}>Projeção BP</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={3}>Resultado Real</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={4}>Projeção</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={5}>Resultado Real</th>
                 </tr>
                 <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-right font-medium">Margem 100%</th>
                   <th className="p-2 text-right font-medium">Margem 80%</th>
                   <th className="p-2 text-right font-medium">Break-Even</th>
-                  <th className="p-2 text-right font-medium hidden lg:table-cell">Parte Empresa</th>
-                  <th className="p-2 text-right font-medium">Receita</th>
+                  <th className="p-2 text-right font-medium hidden lg:table-cell">Empresa</th>
+                  <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
                   <th className="p-2 text-right font-medium">Despesa</th>
                   <th className="p-2 text-right font-medium">Margem</th>
+                  <th className="p-2 text-right font-medium">%</th>
+                  <th className="p-2 text-right font-medium hidden lg:table-cell">Empresa</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -500,10 +506,23 @@ export function ResultsAnalysis() {
                     <td className={`p-3 text-right font-mono hidden lg:table-cell ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
                       {e.totalPartnerPct > 0 ? formatCurrency(e.companyMargin100) : "—"}
                     </td>
-                    <td className="p-3 text-right font-mono text-success">{formatCurrency(e.actualIncome)}</td>
+                    <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.actualIncome)}</td>
                     <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.actualExpense)}</td>
                     <td className={`p-3 text-right font-mono font-semibold ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(e.actualMargin)}
+                    </td>
+                    <td className={`p-3 text-right font-mono text-xs ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                      {e.actualMarginPct.toFixed(1)}%
+                    </td>
+                    <td className={`p-3 text-right font-mono hidden lg:table-cell ${e.companyActualMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                      {e.totalPartnerPct > 0 ? (
+                        <div className="flex flex-col items-end">
+                          <span>{formatCurrency(e.companyActualMargin)}</span>
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                            {(100 - e.totalPartnerPct).toFixed(0)}%
+                          </Badge>
+                        </div>
+                      ) : "—"}
                     </td>
                   </tr>
                 ))}
