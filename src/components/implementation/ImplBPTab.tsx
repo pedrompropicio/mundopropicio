@@ -1073,14 +1073,16 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     const hasDivergence = line.divergences.length > 0 && line.match && line.idx >= 0;
                     const noMatch = !line.match && line.idx >= 0;
                     const onlyApp = line.idx < 0;
-                    const isEditing = line.match && editingId === line.match.id;
-                    const isEditingSource = line.idx >= 0 && editingSourceIdx === line.idx;
+                    const isRateio = line.idx >= 0 && rateioDescriptions.has(norm(line.source.description));
+                    const isEditing = !isRateio && line.match && editingId === line.match.id;
+                    const isEditingSource = !isRateio && line.idx >= 0 && editingSourceIdx === line.idx;
                     const cat = line.match?.account_categories;
 
                     return (
                       <React.Fragment key={`${line.idx}-${line.match?.id || i}`}>
                       <TableRow
                         className={`cursor-pointer ${
+                          isRateio ? "bg-primary/10 opacity-75" :
                           noMatch ? "bg-red-500/5" :
                           onlyApp ? "bg-blue-500/5" :
                           hasDivergence ? "bg-amber-500/5" :
