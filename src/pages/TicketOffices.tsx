@@ -1,4 +1,5 @@
 import HelpTooltip from "@/components/HelpTooltip";
+import { TicketOfficeEventsList } from "@/components/TicketOfficeEventsList";
 import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
