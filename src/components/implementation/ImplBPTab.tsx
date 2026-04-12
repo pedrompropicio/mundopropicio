@@ -455,12 +455,24 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   };
 
   // Analyze apportionment: find rows that appear in ALL active sheets with strict criteria
-  const analyzeApportionment = useCallback(() => {
+  const analyzeApportionment = useCallback(async () => {
     if (!parsedSheets || !sheetMappings) return;
     const activeSheets = sheetMappings.filter(m => m.targetType !== "ignore");
     if (activeSheets.length < 2) {
       setShowApportionmentStep(false);
       return;
+    }
+
+    // Fetch existing master forecasts for comparison
+    const masterEvent = allEvents.find(e => !e.parent_event_id);
+    let existingMasterForecasts: any[] = [];
+    if (masterEvent) {
+      const { data } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories:category_id(id, name, code)")
+        .eq("event_id", masterEvent.id)
+        .eq("type", "expense");
+      existingMasterForecasts = data || [];
     }
 
     // Build row lists per sheet with category info
@@ -481,6 +493,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const suggestions: ApportionmentSuggestion[] = [];
     const usedInOtherSheets: Record<string, Set<number>> = {};
     otherSheetNames.forEach(sn => { usedInOtherSheets[sn] = new Set(); });
+    const matchedExistingIds = new Set<string>();
 
     // For each row in the first sheet, try to find a matching row in ALL other sheets
     for (const candidate of (sheetRows[firstSheetName] || [])) {
@@ -494,17 +507,10 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
         for (const other of rows) {
           if (usedInOtherSheets[otherSheet].has(other.idx)) continue;
-
-          // Criterion 1: Exact same base amount
           if (Math.abs(candidate.row.baseAmount - other.row.baseAmount) > 0.01) continue;
-
-          // Criterion 2: Same IVA rate (proxy for same category)
           if (candidate.row.ivaRate !== other.row.ivaRate) continue;
-
-          // Criterion 3: Description similarity >= 80%
           const sim = stringSimilarity(candidate.row.description, other.row.description);
           if (sim < 0.8) continue;
-
           if (sim > bestSim) { bestSim = sim; bestIdx = other.idx; }
         }
 
@@ -516,12 +522,41 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         }
       }
 
-      // Only suggest if found in ALL active sheets
       if (allMatch) {
         otherSheetNames.forEach(sn => { usedInOtherSheets[sn].add(matches[sn]); });
-        // Auto-suggest category using matcher
         const matcher = createExpenseCategoryMatcher(categories as any);
         const suggestedCategoryId = matcher({ description: candidate.row.description, specification: candidate.row.specification }) || "";
+
+        // The consolidated amount sums all cities
+        const totalAmount = candidate.row.baseAmount * sheetNames.length;
+
+        // Compare with existing master forecasts
+        const existingMatch = existingMasterForecasts.find(
+          (f: any) => stringSimilarity(f.description, candidate.row.description) >= 0.8
+        );
+
+        let status: "new" | "exists" | "divergent" = "new";
+        const divergenceDetails: string[] = [];
+
+        if (existingMatch) {
+          matchedExistingIds.add(existingMatch.id);
+          const amountDiff = Math.abs(Number(existingMatch.amount) - totalAmount) > 0.01;
+          const ivaDiff = Number(existingMatch.iva_rate) !== candidate.row.ivaRate;
+          const catDiff = suggestedCategoryId && existingMatch.category_id && suggestedCategoryId !== existingMatch.category_id;
+
+          if (!amountDiff && !ivaDiff && !catDiff) {
+            status = "exists";
+          } else {
+            status = "divergent";
+            if (amountDiff) divergenceDetails.push(`Valor: ${Number(existingMatch.amount).toFixed(2)}€ → ${totalAmount.toFixed(2)}€`);
+            if (ivaDiff) divergenceDetails.push(`IVA: ${existingMatch.iva_rate}% → ${candidate.row.ivaRate}%`);
+            if (catDiff) {
+              const oldCat = existingMatch.account_categories;
+              divergenceDetails.push(`Categoria: ${oldCat ? `${oldCat.code} ${oldCat.name}` : "—"} → diferente`);
+            }
+          }
+        }
+
         suggestions.push({
           description: candidate.row.description,
           normalizedKey: norm(candidate.row.description),
@@ -530,9 +565,30 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           avgAmount: candidate.row.baseAmount,
           avgIvaRate: candidate.row.ivaRate,
           promoteToMaster: true,
-          categoryId: suggestedCategoryId,
+          categoryId: existingMatch?.category_id || suggestedCategoryId,
+          status,
+          existingForecast: existingMatch || undefined,
+          divergenceDetails: divergenceDetails.length > 0 ? divergenceDetails : undefined,
         });
       }
+    }
+
+    // Add existing master forecasts that are NOT in the file suggestions (so user sees the full picture)
+    for (const existing of existingMasterForecasts) {
+      if (matchedExistingIds.has(existing.id)) continue;
+      suggestions.push({
+        description: existing.description,
+        normalizedKey: norm(existing.description),
+        sheets: [],
+        rowsBySheet: {},
+        avgAmount: Number(existing.amount) / Math.max(sheetNames.length, 1),
+        avgIvaRate: Number(existing.iva_rate),
+        promoteToMaster: true,
+        categoryId: existing.category_id || "",
+        status: "exists",
+        existingForecast: existing,
+        divergenceDetails: undefined,
+      });
     }
 
     setApportionmentSuggestions(suggestions);
@@ -541,7 +597,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     if (suggestions.length === 0) {
       toast.info("Nenhum custo idêntico em todas as cidades encontrado");
     }
-  }, [parsedSheets, sheetMappings]);
+  }, [parsedSheets, sheetMappings, allEvents, categories]);
 
   // Apply apportionment: mark promoted rows, keep them in sheets but track as rateio
   const applyApportionment = useCallback(() => {
