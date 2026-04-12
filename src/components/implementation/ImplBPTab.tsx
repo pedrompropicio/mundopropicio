@@ -52,6 +52,36 @@ function matchScore(source: ParsedRow, forecast: any): { score: number; divergen
   return { score, divergences };
 }
 
+// Auto-match a sheet name to an event or date
+function autoMatchSheet(sheetName: string, events: any[], dates: any[]): { type: "event" | "date" | "none"; id: string } {
+  const sn = norm(sheetName);
+  // Try matching event names
+  for (const e of events) {
+    const en = norm(e.name);
+    if (sn === en || en.includes(sn) || sn.includes(en)) return { type: "event", id: e.id };
+    // Try city names from event name (e.g. "Lisboa" in "Artista - Lisboa")
+    const parts = e.name.split(/[-–—]/);
+    for (const p of parts) {
+      if (norm(p).length > 2 && sn.includes(norm(p))) return { type: "event", id: e.id };
+    }
+  }
+  // Try matching dates
+  for (const d of dates) {
+    const dateStr = new Date(d.date).toLocaleDateString("pt-PT");
+    const dateShort = dateStr.replace(/\//g, "-");
+    if (sn.includes(dateStr) || sn.includes(dateShort) || sn.includes(d.date)) return { type: "date", id: d.id };
+    if (d.label && norm(d.label).length > 2 && sn.includes(norm(d.label))) return { type: "date", id: d.id };
+  }
+  return { type: "none", id: "" };
+}
+
+interface SheetMapping {
+  sheetName: string;
+  targetType: "event" | "date" | "ignore";
+  targetId: string;
+  autoMatched: boolean;
+}
+
 export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
@@ -62,6 +92,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [parsing, setParsing] = useState(false);
   const [viewMode, setViewMode] = useState<"comparison" | "app">("app");
+  const [sheetMappings, setSheetMappings] = useState<SheetMapping[] | null>(null);
+  const [showMappingStep, setShowMappingStep] = useState(false);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
