@@ -173,7 +173,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   return (
     <>
-      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""}`}>
+      <tr className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""}`}>
         {showSelectColumn && (
           <td className="py-3 pr-2 text-center w-8">
             {selectable ? (
