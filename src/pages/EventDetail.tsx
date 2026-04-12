@@ -43,6 +43,8 @@ const eventTypeLabels: Record<string, string> = {
   simple: "Evento Simples",
   festival: "Festival",
   multi_day: "Múltiplos Dias / Turnê",
+  master: "Turnê",
+  split: "Sub-evento",
 };
 
 function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
