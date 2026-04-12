@@ -96,6 +96,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [sheetMappings, setSheetMappings] = useState<SheetMapping[] | null>(null);
   const [showMappingStep, setShowMappingStep] = useState(false);
   const [rawSheetData, setRawSheetData] = useState<Record<string, any[][]>>({});
+  const [expandedRawRow, setExpandedRawRow] = useState<number | null>(null);
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
