@@ -529,6 +529,151 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     },
   });
 
+  // --- Import BP Handler ---
+  const handleImportBP = useCallback(async () => {
+    if (!parsedSheets || !selectedSheet || matchedLines.length === 0) return;
+    
+    const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
+    const isNewImport = existingExpenses.length === 0;
+    setImporting(true);
+    
+    try {
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+      
+      if (isNewImport) {
+        // === NEW IMPORT: create all source lines as forecasts ===
+        for (const line of matchedLines) {
+          if (line.idx < 0) continue;
+          const isRateio = rateioDescriptions.has(norm(line.source.description));
+          if (isRateio) { skipped++; continue; }
+          
+          const key = `${selectedSheet}:${line.idx}`;
+          const categoryId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? null;
+          
+          const { error } = await supabase.from("event_forecasts").insert({
+            event_id: selectedEventId,
+            type: "expense" as const,
+            description: line.source.description,
+            specification: line.source.specification,
+            amount: line.source.baseAmount,
+            iva_rate: line.source.ivaRate,
+            category_id: categoryId,
+            status: "draft",
+          });
+          
+          if (error) errors.push(`"${line.source.description}": ${error.message}`);
+          else created++;
+        }
+        
+        // Create master/rateio lines
+        if (masterSheetRows.length > 0) {
+          const masterEvent = allEvents.find(e => !e.parent_event_id);
+          if (masterEvent) {
+            for (const row of masterSheetRows) {
+              const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));
+              const categoryId = suggestion?.categoryId || null;
+              const { error } = await supabase.from("event_forecasts").insert({
+                event_id: masterEvent.id,
+                type: "expense" as const,
+                description: row.description,
+                specification: row.specification,
+                amount: row.baseAmount,
+                iva_rate: row.ivaRate,
+                category_id: categoryId,
+                status: "draft",
+              });
+              if (error) errors.push(`Master "${row.description}": ${error.message}`);
+              else created++;
+            }
+          }
+        }
+        
+        toast.success(`Importação concluída: ${created} previsões criadas${skipped > 0 ? `, ${skipped} rateio ignorados` : ""}${errors.length > 0 ? `, ${errors.length} erros` : ""}`);
+      } else {
+        // === UPDATE MODE: compare and update only divergent lines ===
+        const newLines: MatchedLine[] = [];
+        
+        for (const line of matchedLines) {
+          if (line.idx < 0) continue;
+          const isRateio = rateioDescriptions.has(norm(line.source.description));
+          if (isRateio) { skipped++; continue; }
+          
+          const key = `${selectedSheet}:${line.idx}`;
+          const categoryId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? null;
+          
+          if (line.match && line.matchScore >= 30) {
+            if (line.divergences.length === 0) {
+              // Check category-only update
+              if (categoryId && categoryId !== line.match.category_id) {
+                const { error } = await supabase.from("event_forecasts").update({ category_id: categoryId }).eq("id", line.match.id);
+                if (error) errors.push(`Cat. "${line.source.description}": ${error.message}`);
+                else updated++;
+              } else {
+                skipped++;
+              }
+              continue;
+            }
+            
+            // Update divergent forecast
+            const updates: any = {
+              description: line.source.description,
+              specification: line.source.specification,
+              amount: line.source.baseAmount,
+              iva_rate: line.source.ivaRate,
+            };
+            if (categoryId) updates.category_id = categoryId;
+            
+            const { error } = await supabase.from("event_forecasts").update(updates).eq("id", line.match.id);
+            if (error) errors.push(`"${line.source.description}": ${error.message}`);
+            else updated++;
+          } else {
+            newLines.push(line);
+          }
+        }
+        
+        // Create unmatched lines as new
+        for (const line of newLines) {
+          const key = `${selectedSheet}:${line.idx}`;
+          const categoryId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? null;
+          const { error } = await supabase.from("event_forecasts").insert({
+            event_id: selectedEventId,
+            type: "expense" as const,
+            description: line.source.description,
+            specification: line.source.specification,
+            amount: line.source.baseAmount,
+            iva_rate: line.source.ivaRate,
+            category_id: categoryId,
+            status: "draft",
+            notes: "Nova linha — adicionada por importação",
+          });
+          if (error) errors.push(`Criar "${line.source.description}": ${error.message}`);
+          else created++;
+        }
+        
+        const parts: string[] = [];
+        if (updated > 0) parts.push(`${updated} atualizadas`);
+        if (created > 0) parts.push(`${created} novas criadas`);
+        if (skipped > 0) parts.push(`${skipped} sem alteração`);
+        if (errors.length > 0) parts.push(`${errors.length} erros`);
+        toast.success(`Sincronização concluída: ${parts.join(", ")}`);
+      }
+      
+      if (errors.length > 0) {
+        console.warn("Import errors:", errors);
+        toast.error(`${errors.length} erro(s)`, { description: errors.slice(0, 3).join("; ") });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
+    } catch (err: any) {
+      toast.error("Erro na importação: " + err.message);
+    } finally {
+      setImporting(false);
+    }
+  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient]);
+
   const startEdit = (forecast: any) => {
     setEditingId(forecast.id);
     setEditValues({
