@@ -233,8 +233,10 @@ export function ResultsAnalysis() {
           actualIncome: income,
           actualExpense: expense,
           actualMargin: margin,
+          actualMarginPct: income > 0 ? (margin / income) * 100 : 0,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
+          companyActualMargin: margin * (companyPct / 100),
           incomeSource: eventPassed ? "ticket_sales" : "lot_projection",
           expenseSource: eventPassed ? "transactions" : "forecasts",
         });
