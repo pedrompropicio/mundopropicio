@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2, Handshake } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2, Handshake, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -22,6 +23,7 @@ const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer", "pa
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -145,7 +147,10 @@ export default function UserManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">Gestão de Utilizadores <HelpTooltip text={helpTexts.userManagement} /></h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl flex items-center gap-2">
+            <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
+            Gestão de Utilizadores <HelpTooltip text={helpTexts.userManagement} />
+          </h1>
           <p className="text-sm text-muted-foreground">Gerir acessos e permissões</p>
         </div>
         <button
