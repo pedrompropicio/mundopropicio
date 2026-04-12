@@ -1536,6 +1536,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       {editApprovedForecast && (
         <ForecastEditModal
           forecast={editApprovedForecast}
+          categories={categories}
           onClose={() => setEditApprovedForecast(null)}
         />
       )}
