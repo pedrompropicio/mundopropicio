@@ -48,26 +48,32 @@ export function SearchableSelect({
   const filtered = React.useMemo(() => {
     if (!search.trim()) return options;
     const q = search.toLowerCase();
-    // First pass: find which non-header items match
-    const matchSet = new Set<number>();
+    // Find which non-header items match
+    const matchIndices = new Set<number>();
     options.forEach((o, i) => {
       if (o.isHeader) return;
       const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ").toLowerCase();
-      if (haystack.includes(q)) matchSet.add(i);
+      if (haystack.includes(q)) matchIndices.add(i);
     });
-    // Second pass: include headers that precede at least one matched item
+    // Keep matched items and any preceding headers
     const result: SearchableSelectOption[] = [];
-    let lastHeader: { opt: SearchableSelectOption; idx: number } | null = null;
-    options.forEach((o, i) => {
+    const pendingHeaders: SearchableSelectOption[] = [];
+    for (let i = 0; i < options.length; i++) {
+      const o = options[i];
       if (o.isHeader) {
-        lastHeader = { opt: o, idx: i };
-        return;
+        // Track headers at each indent level
+        const lvl = o.indentLevel ?? 0;
+        pendingHeaders.length = lvl; // trim deeper pending headers
+        pendingHeaders[lvl] = o;
+        continue;
       }
-      if (matchSet.has(i)) {
-        if (lastHeader) { result.push(lastHeader.opt); lastHeader = null; }
+      if (matchIndices.has(i)) {
+        // Flush any pending headers
+        pendingHeaders.forEach(h => { if (h && !result.includes(h)) result.push(h); });
+        pendingHeaders.length = 0;
         result.push(o);
       }
-    });
+    }
     return result;
   }, [options, search]);
 
