@@ -231,20 +231,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       // Delete forecasts that were CREATED by this batch
       const createdForecastIds = [...new Set(createdEntries.map((e: any) => e.forecast_id))];
       for (const fId of createdForecastIds) {
+        // Log BEFORE deleting (FK constraint requires forecast to exist)
+        await supabase.from("forecast_audit_log").insert({
+          forecast_id: fId,
+          changed_by: changedBy,
+          field_name: "rollback",
+          old_value: null,
+          new_value: null,
+          observation: `rollback batch:${batch.batchId} | ação:eliminar`,
+        });
         const { error } = await supabase.from("event_forecasts").delete().eq("id", fId);
         if (error) {
           errors.push(`Eliminar ${fId.substring(0, 8)}: ${error.message}`);
         } else {
           deleted++;
-          // Log the rollback action
-          await supabase.from("forecast_audit_log").insert({
-            forecast_id: fId,
-            changed_by: changedBy,
-            field_name: "rollback",
-            old_value: null,
-            new_value: null,
-            observation: `rollback batch:${batch.batchId} | ação:eliminar`,
-          });
         }
       }
 
