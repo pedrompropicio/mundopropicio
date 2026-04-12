@@ -44,7 +44,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     is_transitory: transaction.is_transitory ?? false,
   });
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isManager } = useAuth();
 
   // Check if this is a parent split transaction (has children)
   const { data: childTransactions = [] } = useQuery({
