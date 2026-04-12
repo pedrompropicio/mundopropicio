@@ -41,10 +41,7 @@ export default function EventImplementations() {
   const [newEventId, setNewEventId] = useState<string>("");
   const [newInstructions, setNewInstructions] = useState("");
   const [newNotes, setNewNotes] = useState("");
-  const [newEventType, setNewEventType] = useState<"existing" | "new_simple" | "new_master">("existing");
-  const [newEventName, setNewEventName] = useState("");
-  const [newEventDate, setNewEventDate] = useState("");
-  const [newMasterSplits, setNewMasterSplits] = useState("");
+  const [newEventType, setNewEventType] = useState<"existing" | "new_simple" | "new_master">("new_simple");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -162,10 +159,7 @@ export default function EventImplementations() {
     setNewEventId("");
     setNewInstructions("");
     setNewNotes("");
-    setNewEventType("existing");
-    setNewEventName("");
-    setNewEventDate("");
-    setNewMasterSplits("");
+    setNewEventType("new_simple");
     setSelectedFile(null);
   }
 
