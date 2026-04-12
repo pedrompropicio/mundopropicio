@@ -468,6 +468,7 @@ export type Database = {
           created_at: string
           description: string
           event_id: string
+          exclude_from_result: boolean
           formula_type: string
           formula_value: number
           id: string
@@ -489,6 +490,7 @@ export type Database = {
           created_at?: string
           description: string
           event_id: string
+          exclude_from_result?: boolean
           formula_type?: string
           formula_value?: number
           id?: string
@@ -510,6 +512,7 @@ export type Database = {
           created_at?: string
           description?: string
           event_id?: string
+          exclude_from_result?: boolean
           formula_type?: string
           formula_value?: number
           id?: string
@@ -2043,6 +2046,7 @@ export type Database = {
           description: string
           due_date: string | null
           event_id: string | null
+          exclude_from_result: boolean
           id: string
           invoice_ref: string | null
           is_hidden: boolean
@@ -2070,6 +2074,7 @@ export type Database = {
           description: string
           due_date?: string | null
           event_id?: string | null
+          exclude_from_result?: boolean
           id?: string
           invoice_ref?: string | null
           is_hidden?: boolean
@@ -2097,6 +2102,7 @@ export type Database = {
           description?: string
           due_date?: string | null
           event_id?: string | null
+          exclude_from_result?: boolean
           id?: string
           invoice_ref?: string | null
           is_hidden?: boolean
