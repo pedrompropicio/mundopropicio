@@ -913,13 +913,19 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         toast.info(`Lote: ${batchId}`, { description: `${createdIds.length} criadas, ${updatedIds.length} atualizadas — utilize este ID para reverter se necessário`, duration: 10000 });
       }
       
+      // Mark sheet as imported and refresh counts
+      if (created > 0 || updated > 0) {
+        setImportedSheets(prev => new Set([...prev, selectedSheet]));
+        queryClient.invalidateQueries({ queryKey: ["impl-forecast-counts"] });
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
     } catch (err: any) {
       toast.error("Erro na importação: " + err.message);
     } finally {
       setImporting(false);
     }
-  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories]);
+  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories, importedSheets, eventForecastCounts]);
 
   const startEdit = (forecast: any) => {
     setEditingId(forecast.id);
