@@ -82,6 +82,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
+  const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
   const [newReimbursementEmployeeName, setNewReimbursementEmployeeName] = useState("");
   const queryClient = useQueryClient();
