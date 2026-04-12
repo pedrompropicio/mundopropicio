@@ -129,15 +129,22 @@ export default function EventImplementationDetail() {
   // Parse cities from import_instructions
   const parseCitiesFromInstructions = useCallback((instructions: string | null): string[] => {
     if (!instructions) return [];
-    // Look for city names after keywords like "cidades", "Lisboa e Porto", etc.
+    // Patterns to extract city names from free-form instructions
     const cityPatterns = [
-      /cidades[:\s,]+(.+)/i,
-      /(?:em|para)\s+([\wÀ-ú]+(?:\s*[,e]+\s*[\wÀ-ú]+)+)/i,
+      // "cidades: Lisboa, Porto" or "múltiplas cidades, Lisboa e Porto"
+      /cidades[,:\s]+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
+      // "em Lisboa e Porto" or "para Lisboa, Porto e Braga"
+      /(?:em|para)\s+([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,e]+\s*[A-ZÀ-Ú][\wÀ-ú]+)+)/i,
+      // "Lisboa e Porto" standalone (two+ capitalized words joined by , or e)
+      /\b([A-ZÀ-Ú][\wÀ-ú]+(?:\s*[,]\s*[A-ZÀ-Ú][\wÀ-ú]+)*\s+e\s+[A-ZÀ-Ú][\wÀ-ú]+)/,
     ];
     for (const pat of cityPatterns) {
       const m = instructions.match(pat);
       if (m) {
-        return m[1].split(/[,e]+/i).map(c => c.trim()).filter(c => c.length >= 3);
+        return m[1]
+          .split(/\s*[,]\s*|\s+e\s+/i)
+          .map(c => c.trim())
+          .filter(c => c.length >= 3 && /^[A-ZÀ-Ú]/.test(c));
       }
     }
     return [];
