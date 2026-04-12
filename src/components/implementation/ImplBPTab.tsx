@@ -577,7 +577,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-8">#</TableHead>
+                    <TableHead className="w-14">Linha Excel</TableHead>
                     <TableHead className="bg-muted/30 border-r">Ficheiro — Descrição</TableHead>
                     <TableHead className="bg-muted/30 border-r text-right">Ficheiro — Valor</TableHead>
                     <TableHead className="bg-muted/30 border-r text-right">IVA</TableHead>
