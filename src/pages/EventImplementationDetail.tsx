@@ -127,6 +127,23 @@ export default function EventImplementationDetail() {
     enabled: !impl?.event_id,
   });
 
+  // Parse cities from import_instructions
+  const parseCitiesFromInstructions = useCallback((instructions: string | null): string[] => {
+    if (!instructions) return [];
+    // Look for city names after keywords like "cidades", "Lisboa e Porto", etc.
+    const cityPatterns = [
+      /cidades[:\s,]+(.+)/i,
+      /(?:em|para)\s+([\wÀ-ú]+(?:\s*[,e]+\s*[\wÀ-ú]+)+)/i,
+    ];
+    for (const pat of cityPatterns) {
+      const m = instructions.match(pat);
+      if (m) {
+        return m[1].split(/[,e]+/i).map(c => c.trim()).filter(c => c.length >= 3);
+      }
+    }
+    return [];
+  }, []);
+
   // Auto-extract event info from XLSX
   const extractFromFile = useCallback(async () => {
     if (!impl?.reference_file_url || !impl.reference_file_name?.match(/\.xlsx?$/i)) return;
@@ -144,7 +161,10 @@ export default function EventImplementationDetail() {
       const sheetNames = wb.SheetNames.filter(
         (n) => !/^(resumo|total|geral|master|consolidado|template)/i.test(n)
       );
-      const isTour = sheetNames.length > 1;
+
+      // Detect cities from instructions
+      const detectedCities = parseCitiesFromInstructions(impl.import_instructions ?? null);
+      const isTour = detectedCities.length > 1 || sheetNames.length > 1;
 
       // Extract name from first sheet header
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
@@ -153,24 +173,15 @@ export default function EventImplementationDetail() {
       // Extract date from first sheet
       const dateStr = extractDateFromSheet(firstSheet) || "";
 
-      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour };
+      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities };
       setExtracted(info);
-
-      // Pre-fill form
-      setSetupName(eventName);
-      if (dateStr) setSetupDate(dateStr);
-      if (isTour) {
-        setSetupMode("create_master");
-        setSetupCities(sheetNames.join(", "));
-      } else {
-        setSetupMode("create_simple");
-      }
+      setSelectedSheets(sheetNames); // all selected by default for user to refine
     } catch (err: any) {
       console.error("Extraction error:", err);
     } finally {
       setExtracting(false);
     }
-  }, [impl?.reference_file_url, impl?.reference_file_name]);
+  }, [impl?.reference_file_url, impl?.reference_file_name, impl?.import_instructions, parseCitiesFromInstructions]);
 
   useEffect(() => {
     if (impl && !impl.event_id && impl.reference_file_url && !extracted) {
