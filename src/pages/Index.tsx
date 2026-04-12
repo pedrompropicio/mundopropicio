@@ -528,6 +528,9 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* --- RESULTS ANALYSIS --- */}
+      <ResultsAnalysis />
     </div>
   );
 }
