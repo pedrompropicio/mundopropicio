@@ -120,6 +120,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [importing, setImporting] = useState(false);
   const [showImportHistory, setShowImportHistory] = useState(false);
   const [reverting, setReverting] = useState(false);
+  const [importedSheets, setImportedSheets] = useState<Set<string>>(new Set());
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
@@ -159,6 +160,25 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
   // Fetch import batches from audit log for all events in this implementation
   const allEventIds = allEvents.map(e => e.id);
+
+  // Fetch expense forecast counts per event to detect already-imported events
+  const { data: eventForecastCounts = {} } = useQuery({
+    queryKey: ["impl-forecast-counts", ...allEventIds],
+    queryFn: async () => {
+      const counts: Record<string, number> = {};
+      for (const eid of allEventIds) {
+        const { count, error } = await supabase
+          .from("event_forecasts")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", eid)
+          .eq("type", "expense");
+        if (!error) counts[eid] = count ?? 0;
+      }
+      return counts;
+    },
+    enabled: allEventIds.length > 0,
+  });
+
   const { data: importBatches = [], refetch: refetchBatches } = useQuery({
     queryKey: ["impl-import-batches", ...allEventIds],
     queryFn: async () => {
@@ -685,8 +705,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
     const isNewImport = existingExpenses.length === 0;
     
+    // Check if this sheet was already imported in this session
+    if (importedSheets.has(selectedSheet)) {
+      const forceReimport = confirm(
+        `⚠️ A aba "${selectedSheet}" já foi importada nesta sessão.\n\nDeseja importar novamente? Isto pode causar duplicidade de dados.\n\nRecomenda-se utilizar "Sincronizar BP" apenas se houve alterações no ficheiro.`
+      );
+      if (!forceReimport) return;
+    }
+    
+    // Check if target event already has data in the database
+    const currentCount = (eventForecastCounts as Record<string, number>)[selectedEventId] ?? 0;
     const confirmMsg = isNewImport
-      ? `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
+      ? currentCount > 0
+        ? `⚠️ O evento já possui ${currentCount} despesas na base de dados.\n\nDeseja criar mais ${matchedLines.filter(l => l.idx >= 0).length} previsões? Isto pode gerar duplicidade.\n\nRecomenda-se verificar antes na aba "Apenas App".`
+        : `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
       : `Sincronizar previsões com o ficheiro? Linhas divergentes serão atualizadas e novas serão criadas.`;
     if (!confirm(confirmMsg)) return;
     
@@ -881,13 +913,19 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         toast.info(`Lote: ${batchId}`, { description: `${createdIds.length} criadas, ${updatedIds.length} atualizadas — utilize este ID para reverter se necessário`, duration: 10000 });
       }
       
+      // Mark sheet as imported and refresh counts
+      if (created > 0 || updated > 0) {
+        setImportedSheets(prev => new Set([...prev, selectedSheet]));
+        queryClient.invalidateQueries({ queryKey: ["impl-forecast-counts"] });
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
     } catch (err: any) {
       toast.error("Erro na importação: " + err.message);
     } finally {
       setImporting(false);
     }
-  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories]);
+  }, [parsedSheets, selectedSheet, matchedLines, forecasts, selectedEventId, sourceCategoryOverrides, rateioDescriptions, masterSheetRows, allEvents, apportionmentSuggestions, queryClient, leafCategories, importedSheets, eventForecastCounts]);
 
   const startEdit = (forecast: any) => {
     setEditingId(forecast.id);
@@ -1025,16 +1063,24 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             </Button>
           )}
           {parsedSheets && viewMode === "comparison" && matchedLines.length > 0 && (
-            <Button
-              onClick={handleImportBP}
-              disabled={importing}
-              className="gap-2"
-            >
-              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {forecasts.filter((f: any) => f.type === "expense").length === 0
-                ? "Importar BP"
-                : "Sincronizar BP"}
-            </Button>
+            <>
+              {importedSheets.has(selectedSheet) && (
+                <Badge variant="outline" className="gap-1 border-green-500/50 text-green-600 text-xs">
+                  <CheckCircle2 className="h-3 w-3" /> Aba já importada
+                </Badge>
+              )}
+              <Button
+                onClick={handleImportBP}
+                disabled={importing}
+                variant={importedSheets.has(selectedSheet) ? "outline" : "default"}
+                className="gap-2"
+              >
+                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {forecasts.filter((f: any) => f.type === "expense").length === 0
+                  ? "Importar BP"
+                  : "Sincronizar BP"}
+              </Button>
+            </>
           )}
           {importBatches.length > 0 && (
             <Button
@@ -1193,13 +1239,26 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             <div className="space-y-2">
               {sheetMappings.map((m, idx) => {
                 const sheet = parsedSheets.find(s => s.sheetName === m.sheetName);
+                const targetEventId = m.targetType === "event" ? m.targetId : null;
+                const existingCount = targetEventId ? (eventForecastCounts as Record<string, number>)[targetEventId] ?? 0 : 0;
+                const alreadyImported = importedSheets.has(m.sheetName);
                 return (
-                  <div key={m.sheetName} className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/30">
+                  <div key={m.sheetName} className={`flex items-center gap-3 py-2 px-3 rounded-md ${alreadyImported ? "bg-green-500/10 border border-green-500/30" : existingCount > 0 ? "bg-amber-500/10 border border-amber-500/30" : "bg-muted/30"}`}>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium">{m.sheetName}</span>
                       <span className="text-xs text-muted-foreground ml-2">({sheet?.rows.length || 0} linhas)</span>
                       {m.autoMatched && (
                         <Badge variant="outline" className="ml-2 text-xs border-green-500/50 text-green-600">Auto</Badge>
+                      )}
+                      {alreadyImported && (
+                        <Badge variant="outline" className="ml-2 text-xs border-green-500/50 text-green-600 gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Importado
+                        </Badge>
+                      )}
+                      {!alreadyImported && existingCount > 0 && (
+                        <Badge variant="outline" className="ml-2 text-xs border-amber-500/50 text-amber-600 gap-1">
+                          <AlertTriangle className="h-3 w-3" /> {existingCount} despesas existentes
+                        </Badge>
                       )}
                     </div>
                     <Select
@@ -1218,11 +1277,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       <SelectTrigger className="w-64"><SelectValue placeholder="Selecionar destino" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ignore">❌ Ignorar</SelectItem>
-                        {allEvents.map(e => (
-                          <SelectItem key={`event:${e.id}`} value={`event:${e.id}`}>
-                            {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
-                          </SelectItem>
-                        ))}
+                        {allEvents.map(e => {
+                          const eCount = (eventForecastCounts as Record<string, number>)[e.id] ?? 0;
+                          return (
+                            <SelectItem key={`event:${e.id}`} value={`event:${e.id}`}>
+                              {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                              {eCount > 0 ? ` (${eCount} desp.)` : ""}
+                            </SelectItem>
+                          );
+                        })}
                         {eventDates.length > 0 && eventDates.map((d: any) => {
                           const ev = allEvents.find(e => e.id === d.event_id);
                           return (
@@ -1501,9 +1564,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     : m?.targetType === "date"
                     ? `📅 ${eventDates.find((d: any) => d.id === m?.targetId)?.date || ""}`
                     : null;
+                  const isImported = importedSheets.has(s.sheetName);
+                  const targetEventId = m?.targetType === "event" ? m.targetId : null;
+                  const hasExisting = targetEventId ? ((eventForecastCounts as Record<string, number>)[targetEventId] ?? 0) > 0 : false;
+                  const statusIcon = isImported ? "✅ " : hasExisting ? "⚠️ " : "";
                   return (
                     <SelectItem key={s.sheetName} value={s.sheetName}>
-                      {s.sheetName} ({s.rows.length}) {target ? `→ ${target}` : ""}
+                      {statusIcon}{s.sheetName} ({s.rows.length}) {target ? `→ ${target}` : ""}
                     </SelectItem>
                   );
                 })}
