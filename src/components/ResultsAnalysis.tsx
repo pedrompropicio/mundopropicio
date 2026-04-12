@@ -477,7 +477,11 @@ export function ResultsAnalysis() {
                       <a href={`/eventos/${e.id}`} className="font-medium hover:text-primary transition-colors">
                         {e.name}
                       </a>
-                      <p className="text-[10px] text-muted-foreground">{formatDate(e.date)}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[10px] text-muted-foreground">{formatDate(e.date)}</span>
+                        <SourceBadge source={e.incomeSource} />
+                        <SourceBadge source={e.expenseSource} />
+                      </div>
                     </td>
                     <td className={`p-3 text-right font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatCurrency(e.margin100)}
