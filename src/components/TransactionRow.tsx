@@ -405,6 +405,23 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
+                {/* Hide/Show: admin only */}
+                {isAdmin && onToggleHidden && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onToggleHidden(t.id, isHidden)}
+                        className={`rounded-lg p-1.5 transition-colors ${isHidden ? "text-warning hover:bg-warning/15" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                        title={isHidden ? "Tornar visível" : "Ocultar transação"}
+                      >
+                        {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {isHidden ? "Tornar visível" : "Ocultar transação"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 <button onClick={() => onAudit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Histórico de alterações">
                   <History className="h-3.5 w-3.5" />
