@@ -52,15 +52,20 @@ function matchScore(source: ParsedRow, forecast: any): { score: number; divergen
   return { score, divergences };
 }
 
-export function ImplBPTab({ implementation, event, allEvents }: Props) {
+export function ImplBPTab({ implementation, event, allEvents, eventDates = [], eventSessions = [] }: Props) {
   const queryClient = useQueryClient();
   const [selectedEventId, setSelectedEventId] = useState<string>(event?.id || "");
+  const [selectedDateId, setSelectedDateId] = useState<string>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
   const [parsedSheets, setParsedSheets] = useState<ParsedSheet[] | null>(null);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [parsing, setParsing] = useState(false);
   const [viewMode, setViewMode] = useState<"comparison" | "app">("app");
+
+  // Event dates for selected event
+  const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
+  const sessionsForEvent = eventSessions.filter((s: any) => s.event_id === selectedEventId);
 
   // Fetch forecasts for the selected event
   const { data: forecasts = [], isLoading } = useQuery({
