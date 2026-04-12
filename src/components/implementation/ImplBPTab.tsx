@@ -211,7 +211,30 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       setParsing(false);
     }
   }, [implementation]);
-  // Analyze apportionment: find rows that appear in multiple sheets
+  // String similarity (Dice coefficient) for description matching
+  const stringSimilarity = (a: string, b: string): number => {
+    const na = norm(a);
+    const nb = norm(b);
+    if (na === nb) return 1;
+    if (na.length < 2 || nb.length < 2) return 0;
+    const bigrams = (s: string) => {
+      const set: Record<string, number> = {};
+      for (let i = 0; i < s.length - 1; i++) {
+        const bi = s.substring(i, i + 2);
+        set[bi] = (set[bi] || 0) + 1;
+      }
+      return set;
+    };
+    const bg1 = bigrams(na);
+    const bg2 = bigrams(nb);
+    let intersection = 0;
+    for (const bi in bg1) {
+      if (bg2[bi]) intersection += Math.min(bg1[bi], bg2[bi]);
+    }
+    return (2 * intersection) / (na.length - 1 + nb.length - 1);
+  };
+
+  // Analyze apportionment: find rows that appear in ALL active sheets with strict criteria
   const analyzeApportionment = useCallback(() => {
     if (!parsedSheets || !sheetMappings) return;
     const activeSheets = sheetMappings.filter(m => m.targetType !== "ignore");
@@ -220,45 +243,78 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       return;
     }
 
-    // Index all rows by normalized description
-    const descMap: Record<string, { sheets: string[]; rowsBySheet: Record<string, number>; amounts: number[]; row: ParsedRow }> = {};
-
+    // Build row lists per sheet with category info
+    type SheetRow = { row: ParsedRow; idx: number; sheetName: string; ivaRate: number };
+    const sheetRows: Record<string, SheetRow[]> = {};
     for (const mapping of activeSheets) {
       const sheet = parsedSheets.find(s => s.sheetName === mapping.sheetName);
       if (!sheet) continue;
-      for (let ri = 0; ri < sheet.rows.length; ri++) {
-        const row = sheet.rows[ri];
-        const key = norm(row.description);
-        if (!key || key.length < 3) continue;
-        if (!descMap[key]) {
-          descMap[key] = { sheets: [], rowsBySheet: {}, amounts: [], row };
-        }
-        if (!descMap[key].sheets.includes(mapping.sheetName)) {
-          descMap[key].sheets.push(mapping.sheetName);
-          descMap[key].rowsBySheet[mapping.sheetName] = ri;
-          descMap[key].amounts.push(row.baseAmount);
-        }
-      }
+      sheetRows[mapping.sheetName] = sheet.rows.map((row, idx) => ({
+        row, idx, sheetName: mapping.sheetName, ivaRate: row.ivaRate,
+      }));
     }
 
-    // Items appearing in 2+ sheets are candidates for Master
-    const suggestions: ApportionmentSuggestion[] = Object.entries(descMap)
-      .filter(([, v]) => v.sheets.length >= 2)
-      .map(([key, v]) => ({
-        description: v.row.description,
-        normalizedKey: key,
-        sheets: v.sheets,
-        rowsBySheet: v.rowsBySheet,
-        avgAmount: v.amounts.reduce((s, a) => s + a, 0) / v.amounts.length,
-        promoteToMaster: true, // default: suggest promotion
-      }))
-      .sort((a, b) => b.sheets.length - a.sheets.length || b.avgAmount - a.avgAmount);
+    const sheetNames = activeSheets.map(m => m.sheetName);
+    const firstSheetName = sheetNames[0];
+    const otherSheetNames = sheetNames.slice(1);
+
+    const suggestions: ApportionmentSuggestion[] = [];
+    const usedInOtherSheets: Record<string, Set<number>> = {};
+    otherSheetNames.forEach(sn => { usedInOtherSheets[sn] = new Set(); });
+
+    // For each row in the first sheet, try to find a matching row in ALL other sheets
+    for (const candidate of (sheetRows[firstSheetName] || [])) {
+      const matches: Record<string, number> = { [firstSheetName]: candidate.idx };
+      let allMatch = true;
+
+      for (const otherSheet of otherSheetNames) {
+        const rows = sheetRows[otherSheet] || [];
+        let bestIdx = -1;
+        let bestSim = 0;
+
+        for (const other of rows) {
+          if (usedInOtherSheets[otherSheet].has(other.idx)) continue;
+
+          // Criterion 1: Exact same base amount
+          if (Math.abs(candidate.row.baseAmount - other.row.baseAmount) > 0.01) continue;
+
+          // Criterion 2: Same IVA rate (proxy for same category)
+          if (candidate.row.ivaRate !== other.row.ivaRate) continue;
+
+          // Criterion 3: Description similarity >= 80%
+          const sim = stringSimilarity(candidate.row.description, other.row.description);
+          if (sim < 0.8) continue;
+
+          if (sim > bestSim) { bestSim = sim; bestIdx = other.idx; }
+        }
+
+        if (bestIdx >= 0) {
+          matches[otherSheet] = bestIdx;
+        } else {
+          allMatch = false;
+          break;
+        }
+      }
+
+      // Only suggest if found in ALL active sheets
+      if (allMatch) {
+        otherSheetNames.forEach(sn => { usedInOtherSheets[sn].add(matches[sn]); });
+        suggestions.push({
+          description: candidate.row.description,
+          normalizedKey: norm(candidate.row.description),
+          sheets: sheetNames,
+          rowsBySheet: matches,
+          avgAmount: candidate.row.baseAmount,
+          promoteToMaster: true,
+        });
+      }
+    }
 
     setApportionmentSuggestions(suggestions);
     setShowApportionmentStep(suggestions.length > 0);
 
     if (suggestions.length === 0) {
-      toast.info("Nenhum custo repetido entre cidades encontrado");
+      toast.info("Nenhum custo idêntico em todas as cidades encontrado");
     }
   }, [parsedSheets, sheetMappings]);
 
