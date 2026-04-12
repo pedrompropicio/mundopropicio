@@ -497,11 +497,13 @@ export default function EventImplementationDetail() {
                   <Select value={setupExistingId} onValueChange={setSetupExistingId}>
                     <SelectTrigger><SelectValue placeholder="Selecionar evento…" /></SelectTrigger>
                     <SelectContent>
-                      {existingEvents.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.parent_event_id ? "↳ " : ""}{e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
-                        </SelectItem>
-                      ))}
+                      {existingEvents
+                        .filter((e) => !e.parent_event_id)
+                        .map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

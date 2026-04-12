@@ -302,11 +302,22 @@ export default function EventImplementations() {
                 <Select value={newEventId} onValueChange={setNewEventId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar evento…" /></SelectTrigger>
                   <SelectContent>
-                    {events.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.parent_event_id ? "↳ " : ""}{e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
-                      </SelectItem>
-                    ))}
+                    {(() => {
+                      // Group: masters/standalone first, then their children
+                      const roots = events.filter((e) => !e.parent_event_id);
+                      const children = events.filter((e) => e.parent_event_id);
+                      const grouped: typeof events = [];
+                      for (const r of roots) {
+                        grouped.push(r);
+                        grouped.push(...children.filter((c) => c.parent_event_id === r.id));
+                      }
+                      // Only show master/standalone for linking (not sub-events)
+                      return grouped.filter((e) => !e.parent_event_id).map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
+                        </SelectItem>
+                      ));
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
