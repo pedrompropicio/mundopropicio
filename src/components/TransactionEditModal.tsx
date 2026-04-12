@@ -373,7 +373,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
-          {/* Transitory toggle — always editable */}
+          {/* Transitory toggle — only admin/manager can change */}
+          {(isAdmin || isManager) && (
           <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3">
             <Switch
               checked={form.is_transitory}
@@ -385,6 +386,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
             <span className="ml-auto text-xs text-muted-foreground">Sem impacto no resultado</span>
           </div>
+          )}
 
           <button type="submit" disabled={editMutation.isPending}
             className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
