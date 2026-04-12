@@ -1307,17 +1307,17 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado ({fileLineCount} linhas)</TableCell>
                         <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
                         <TableCell className="border-r bg-muted/30 text-right text-xs">
-                          {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
+                          {compFileTotalIva > 0 && fmtMoney(compFileTotalIva)}
                         </TableCell>
                         <TableCell className="text-sm">Total no App</TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
                         <TableCell></TableCell>
                         <TableCell></TableCell>
                         <TableCell>
-                          {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotal) > 0.5 ? (
-                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel vs Interpretado: ${fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}`}>
+                          {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotalGross) > 0.5 ? (
+                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel (${fmtMoney(originalFileTotal.total)}) vs Interpretado c/ IVA (${fmtMoney(compFileTotalGross)})`}>
                               <AlertTriangle className="h-4 w-4 inline mr-1" />
-                              {fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}
+                              {fmtMoney(Math.abs(originalFileTotal.total - compFileTotalGross))}
                             </span>
                           ) : Math.abs(compFileTotal - compAppTotal) > 0.01 ? (
                             <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
