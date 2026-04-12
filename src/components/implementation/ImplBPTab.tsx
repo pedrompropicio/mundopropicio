@@ -337,6 +337,52 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const fmtMoney = (n: number) =>
     n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
 
+  // --- Source row editing ---
+  const startEditSource = (idx: number, row: ParsedRow) => {
+    setEditingSourceIdx(idx);
+    setEditSourceValues({
+      description: row.description,
+      specification: row.specification || "",
+      baseAmount: String(row.baseAmount),
+      ivaRate: String(row.ivaRate),
+    });
+  };
+
+  const saveEditSource = () => {
+    if (editingSourceIdx === null || !parsedSheets || !selectedSheet) return;
+    const sheetIdx = parsedSheets.findIndex((s) => s.sheetName === selectedSheet);
+    if (sheetIdx < 0) return;
+    const updated = [...parsedSheets];
+    const rows = [...updated[sheetIdx].rows];
+    const base = Number(editSourceValues.baseAmount) || 0;
+    const rate = Number(editSourceValues.ivaRate) || 0;
+    const iva = Math.round(base * rate) / 100;
+    rows[editingSourceIdx] = {
+      ...rows[editingSourceIdx],
+      description: editSourceValues.description,
+      specification: editSourceValues.specification || null,
+      baseAmount: Math.round(base * 100) / 100,
+      ivaRate: rate,
+      ivaAmount: Math.round(iva * 100) / 100,
+      total: Math.round((base + iva) * 100) / 100,
+    };
+    updated[sheetIdx] = { ...updated[sheetIdx], rows };
+    setParsedSheets(updated);
+    setEditingSourceIdx(null);
+  };
+
+  const deleteSourceRow = (idx: number) => {
+    if (!parsedSheets || !selectedSheet) return;
+    const sheetIdx = parsedSheets.findIndex((s) => s.sheetName === selectedSheet);
+    if (sheetIdx < 0) return;
+    const updated = [...parsedSheets];
+    const rows = [...updated[sheetIdx].rows];
+    rows.splice(idx, 1);
+    updated[sheetIdx] = { ...updated[sheetIdx], rows };
+    setParsedSheets(updated);
+    toast.success("Linha removida da interpretação");
+  };
+
   const totalExpense = forecasts.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
   const totalIncome = forecasts.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
 
