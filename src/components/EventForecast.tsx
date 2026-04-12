@@ -1637,7 +1637,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 {item.description}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-              {isApproved && item.transaction_id && (
+              {hasMatchingTx && (
+                <p className="text-xs flex items-center gap-1 mt-0.5">
+                  <FileText className="h-3 w-3 text-primary shrink-0" />
+                  <span className="text-primary/70 font-medium">{matchingTransactions.length} transação(ões)</span>
+                  {paidTransactions.length > 0 && <span className="text-success text-[10px]">({paidTransactions.length} paga{paidTransactions.length > 1 ? "s" : ""})</span>}
+                </p>
+              )}
+              {!hasMatchingTx && isApproved && item.transaction_id && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
