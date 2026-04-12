@@ -385,6 +385,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
                 <TabsTrigger value="comparison" className="text-xs px-3 h-7">Comparação</TabsTrigger>
+                <TabsTrigger value="raw" className="text-xs px-3 h-7">
+                  <Eye className="h-3 w-3 mr-1" />Ficheiro Original
+                </TabsTrigger>
                 <TabsTrigger value="app" className="text-xs px-3 h-7">Apenas App</TabsTrigger>
               </TabsList>
             </Tabs>
