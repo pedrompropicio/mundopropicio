@@ -360,12 +360,53 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const totalUnmatchedSource = matchedLines.filter((l) => !l.match && l.idx >= 0).length;
   const totalUnmatchedApp = matchedLines.filter((l) => l.idx < 0).length;
 
-  // File totals for current sheet
+  // File totals for current sheet (interpreted)
   const currentSheet = parsedSheets?.find((s) => s.sheetName === selectedSheet);
   const fileTotalBase = currentSheet?.rows.reduce((s, r) => s + r.baseAmount, 0) ?? 0;
   const fileTotalIva = currentSheet?.rows.reduce((s, r) => s + r.ivaAmount, 0) ?? 0;
   const fileTotalGross = currentSheet?.rows.reduce((s, r) => s + r.total, 0) ?? 0;
   const fileLineCount = currentSheet?.rows.length ?? 0;
+
+  // Original file total: extract from raw data "Total" row
+  const originalFileTotal = useMemo(() => {
+    if (!selectedSheet || !rawSheetData[selectedSheet]) return null;
+    const raw = rawSheetData[selectedSheet];
+    if (!raw || raw.length < 2) return null;
+
+    // Find header row to locate the "total" column
+    let headerIdx = -1;
+    let totalColIdx = -1;
+    let costColIdx = -1;
+    for (let i = 0; i < Math.min(raw.length, 15); i++) {
+      const row = raw[i].map((v: any) => norm(String(v || "")));
+      const hasDesc = row.some((c: string) => c.includes("descri"));
+      const hasCost = row.findIndex((c: string) => c.includes("custo") || c.includes("valor") || c.includes("base"));
+      const hasTotal = row.findIndex((c: string) => c.includes("total"));
+      if (hasDesc && (hasCost >= 0 || hasTotal >= 0)) {
+        headerIdx = i;
+        costColIdx = hasCost;
+        totalColIdx = hasTotal >= 0 ? hasTotal : hasCost;
+        break;
+      }
+    }
+    if (headerIdx < 0 || totalColIdx < 0) return null;
+
+    // Scan for rows starting with "total" (case insensitive) after header
+    for (let i = raw.length - 1; i > headerIdx; i--) {
+      const row = raw[i];
+      const desc = norm(String(row[0] ?? row[1] ?? ""));
+      // Check all cells in the row for "total" keyword
+      const hasTotal = row.some((c: any, ci: number) => ci <= 2 && norm(String(c || "")).startsWith("total"));
+      if (hasTotal) {
+        // Try total column first, then cost column
+        const valFromTotal = parseFloat(String(row[totalColIdx] ?? "").replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
+        const valFromCost = costColIdx >= 0 ? parseFloat(String(row[costColIdx] ?? "").replace(/[^\d.,-]/g, "").replace(",", ".")) || 0 : 0;
+        const val = valFromTotal || valFromCost;
+        if (val > 0) return { total: val, costCol: valFromCost, totalCol: valFromTotal, rowIdx: i + 1 };
+      }
+    }
+    return null;
+  }, [selectedSheet, rawSheetData]);
 
   // Matched lines totals (file side and app side)
   const compFileTotal = matchedLines.filter(l => l.idx >= 0).reduce((s, l) => s + l.source.baseAmount, 0);
@@ -557,16 +598,23 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         {currentSheet && (viewMode === "comparison" || viewMode === "raw") && (
           <>
             <span className="text-muted-foreground">{fileLineCount} linhas interpretadas</span>
-            <span className="text-muted-foreground border-l pl-4 ml-2">
-              Total Ficheiro (bruto): <span className="font-semibold text-foreground">{fmtMoney(fileTotalGross)}</span>
-            </span>
+            {originalFileTotal && (
+              <span className="text-muted-foreground border-l pl-4 ml-2">
+                Total no Excel <span className="text-[10px]">(linha {originalFileTotal.rowIdx})</span>: <span className="font-semibold text-foreground">{fmtMoney(originalFileTotal.total)}</span>
+              </span>
+            )}
             <span className="text-muted-foreground">
-              Total Interpretado (base): <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
-              {fileTotalIva > 0 && <span className="ml-1 text-xs">(+IVA {fmtMoney(fileTotalIva)})</span>}
+              Total Interpretado: <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
+              {fileTotalIva > 0 && <span className="ml-1 text-xs">(+IVA {fmtMoney(fileTotalIva)} = {fmtMoney(fileTotalGross)})</span>}
             </span>
-            {Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)) > 0.5 && (
+            {originalFileTotal && Math.abs(originalFileTotal.total - fileTotalBase) > 0.5 && (
+              <Badge variant="outline" className="gap-1 border-destructive/50 text-destructive">
+                <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(originalFileTotal.total - fileTotalBase))}
+              </Badge>
+            )}
+            {!originalFileTotal && Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)) > 0.5 && (
               <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
-                <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)))}
+                <AlertTriangle className="h-3 w-3" /> Divergência bruto vs base+IVA: {fmtMoney(Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)))}
               </Badge>
             )}
           </>
@@ -1069,26 +1117,49 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     );
                   })}
                   {matchedLines.length > 0 && (
-                    <TableRow className="bg-muted/50 font-semibold border-t-2">
-                      <TableCell className="text-xs">{fileLineCount}</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-right text-xs">
-                        {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
-                      </TableCell>
-                      <TableCell className="text-sm">Total no App</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell>
-                        {Math.abs(compFileTotal - compAppTotal) > 0.01 && (
-                          <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
-                            <AlertTriangle className="h-4 w-4" />
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
+                    <>
+                      {/* Original Excel total row */}
+                      {originalFileTotal && (
+                        <TableRow className="bg-muted/30 border-t-2">
+                          <TableCell className="text-xs text-muted-foreground">{originalFileTotal.rowIdx}</TableCell>
+                          <TableCell colSpan={3} className="border-r bg-muted/20 text-sm font-semibold">
+                            Total no Excel (linha original)
+                          </TableCell>
+                          <TableCell colSpan={2} className="text-right font-mono text-sm font-semibold">
+                            {fmtMoney(originalFileTotal.total)}
+                          </TableCell>
+                          <TableCell colSpan={4}></TableCell>
+                        </TableRow>
+                      )}
+                      {/* Interpreted total row */}
+                      <TableRow className={`bg-muted/50 font-semibold ${originalFileTotal ? "" : "border-t-2"}`}>
+                        <TableCell className="text-xs">{fileLineCount}</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado ({fileLineCount} linhas)</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
+                        <TableCell className="border-r bg-muted/30 text-right text-xs">
+                          {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
+                        </TableCell>
+                        <TableCell className="text-sm">Total no App</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                        <TableCell>
+                          {originalFileTotal && Math.abs(originalFileTotal.total - compFileTotal) > 0.5 ? (
+                            <span className="text-xs text-destructive font-semibold" title={`Divergência Excel vs Interpretado: ${fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}`}>
+                              <AlertTriangle className="h-4 w-4 inline mr-1" />
+                              {fmtMoney(Math.abs(originalFileTotal.total - compFileTotal))}
+                            </span>
+                          ) : Math.abs(compFileTotal - compAppTotal) > 0.01 ? (
+                            <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
+                              <AlertTriangle className="h-4 w-4" />
+                            </span>
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          )}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    </>
                   )}
                 </TableBody>
               </Table>
