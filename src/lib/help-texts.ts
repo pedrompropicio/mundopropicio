@@ -162,6 +162,8 @@ const helpTexts: Record<string, string> = {
     "Despesa paga diretamente pelo sócio, sem movimentar contas da empresa. A despesa segue o ciclo de aprovação normal e aparece no encontro de contas do Fecho Parceiros.",
   reimbursementToggle:
     "Despesa paga do bolso de um funcionário. Não movimenta contas bancárias até à liquidação via Nota de Reembolso. Indique o nome do funcionário a reembolsar.",
+  transitoryToggle:
+    "Transação transitória (cauções, depósitos, garantias). Não impacta o resultado financeiro do evento (DRE/PL) mas aparece no fecho de sócios para encontro de contas.",
   splitTransaction:
     "Rateio de transação entre múltiplos eventos. Defina as percentagens de cada evento. Alterações na transação-pai propagam-se automaticamente para as filhas.",
   splitEqual:
