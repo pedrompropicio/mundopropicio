@@ -14,6 +14,10 @@ export interface ParsedRow {
   attachments: string[];
   status: "paid" | "approved";
   hasFormulaError?: boolean;
+  /** 1-based row number in the original Excel sheet */
+  excelRow?: number;
+  /** Raw cell values from Excel for this row (description, cost, iva, total, status) */
+  rawValues?: Record<string, string>;
 }
 
 export interface ParsedSheet {
