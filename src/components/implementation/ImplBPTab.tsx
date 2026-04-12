@@ -16,6 +16,8 @@ interface Props {
   implementation: any;
   event: any;
   allEvents: any[];
+  eventDates?: any[];
+  eventSessions?: any[];
 }
 
 interface MatchedLine {
