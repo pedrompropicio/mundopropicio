@@ -447,18 +447,26 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       {/* Summary */}
       <div className="flex items-center gap-6 text-sm flex-wrap">
         <span>{forecasts.length} linhas no App</span>
-        {currentSheet && viewMode === "comparison" && (
-          <span className="text-muted-foreground">{fileLineCount} linhas no Ficheiro</span>
+        {currentSheet && (viewMode === "comparison" || viewMode === "raw") && (
+          <>
+            <span className="text-muted-foreground">{fileLineCount} linhas interpretadas</span>
+            <span className="text-muted-foreground border-l pl-4 ml-2">
+              Total Ficheiro (bruto): <span className="font-semibold text-foreground">{fmtMoney(fileTotalGross)}</span>
+            </span>
+            <span className="text-muted-foreground">
+              Total Interpretado (base): <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
+              {fileTotalIva > 0 && <span className="ml-1 text-xs">(+IVA {fmtMoney(fileTotalIva)})</span>}
+            </span>
+            {Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)) > 0.5 && (
+              <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
+                <AlertTriangle className="h-3 w-3" /> Divergência: {fmtMoney(Math.abs(fileTotalGross - (fileTotalBase + fileTotalIva)))}
+              </Badge>
+            )}
+          </>
         )}
         <span className="text-green-600 dark:text-green-400">Receitas: {fmtMoney(totalIncome)}</span>
         <span className="text-red-600 dark:text-red-400">Despesas: {fmtMoney(totalExpense)}</span>
         <span className="font-semibold">Resultado: {fmtMoney(totalIncome - totalExpense)}</span>
-        {currentSheet && viewMode === "comparison" && (
-          <span className="text-muted-foreground border-l pl-4 ml-2">
-            Total Ficheiro: <span className="font-semibold text-foreground">{fmtMoney(fileTotalBase)}</span>
-            {fileTotalIva > 0 && <span className="ml-2 text-xs">(+IVA {fmtMoney(fileTotalIva)} = {fmtMoney(fileTotalGross)})</span>}
-          </span>
-        )}
       </div>
 
       {/* Sheet mapping step */}
@@ -857,16 +865,18 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   {matchedLines.length > 0 && (
                     <TableRow className="bg-muted/50 font-semibold border-t-2">
                       <TableCell className="text-xs">{fileLineCount}</TableCell>
-                      <TableCell className="border-r bg-muted/30 text-sm">Total do Ficheiro</TableCell>
+                      <TableCell className="border-r bg-muted/30 text-sm">Total Interpretado</TableCell>
                       <TableCell className="border-r bg-muted/30 text-right font-mono text-sm">{fmtMoney(compFileTotal)}</TableCell>
-                      <TableCell className="border-r bg-muted/30"></TableCell>
+                      <TableCell className="border-r bg-muted/30 text-right text-xs">
+                        {fileTotalIva > 0 && fmtMoney(fileTotalIva)}
+                      </TableCell>
                       <TableCell className="text-sm">Total no App</TableCell>
                       <TableCell className="text-right font-mono text-sm">{fmtMoney(compAppTotal)}</TableCell>
                       <TableCell></TableCell>
                       <TableCell></TableCell>
                       <TableCell>
                         {Math.abs(compFileTotal - compAppTotal) > 0.01 && (
-                          <span className="text-xs text-amber-600" title={`Diferença: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
+                          <span className="text-xs text-amber-600" title={`Diferença Interp. vs App: ${fmtMoney(Math.abs(compFileTotal - compAppTotal))}`}>
                             <AlertTriangle className="h-4 w-4" />
                           </span>
                         )}
