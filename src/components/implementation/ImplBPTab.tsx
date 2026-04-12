@@ -743,7 +743,10 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
   // --- Import BP Handler ---
   const handleImportBP = useCallback(async () => {
-    if (!parsedSheets || !selectedSheet || matchedLines.length === 0) return;
+    const masterEvent = allEvents.find(e => !e.parent_event_id);
+    const isMasterImport = masterEvent && selectedEventId === masterEvent.id && masterSheetRows.length > 0;
+
+    if (!isMasterImport && (!parsedSheets || !selectedSheet || matchedLines.length === 0)) return;
     
     const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
     const isNewImport = existingExpenses.length === 0;
