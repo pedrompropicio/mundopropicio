@@ -82,7 +82,7 @@ export default function EventImplementationDetail() {
   }
 
   const allEvents = event ? (event.event_type === "master" ? [event, ...splitEvents] : [event]) : [];
-  const isMaster = event?.event_type === "master";
+  const isMaster = event?.event_type === "master" || event?.event_type === "multi_day";
 
   return (
     <div className="space-y-6">
