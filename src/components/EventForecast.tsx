@@ -68,7 +68,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const canApprove = (isAdmin || isManager) && !isEventLocked;
   const canEditBP = (isAdmin || isManager) && !isEventLocked;
   const canDeleteBP = isAdmin; // Admin can delete BP lines regardless of event status
-  const canEditApprovedBP = canEditBP && hasPermission("edit_approved_bp");
+  const canEditApprovedBP = canEditBP; // Admin/Manager can always edit approved BP lines
   const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
   const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
 
@@ -1536,6 +1536,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       {editApprovedForecast && (
         <ForecastEditModal
           forecast={editApprovedForecast}
+          categories={categories}
           onClose={() => setEditApprovedForecast(null)}
         />
       )}

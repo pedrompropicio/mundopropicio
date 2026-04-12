@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X } from "lucide-react";
@@ -9,15 +9,41 @@ import { format } from "date-fns";
 
 interface Props {
   forecast: any;
+  categories?: any[];
   onClose: () => void;
 }
 
-export function ForecastEditModal({ forecast, onClose }: Props) {
+export function ForecastEditModal({ forecast, categories: externalCategories, onClose }: Props) {
+  const [description, setDescription] = useState(forecast.description || "");
+  const [specification, setSpecification] = useState(forecast.specification || "");
+  const [categoryId, setCategoryId] = useState(forecast.category_id || "");
   const [amount, setAmount] = useState(String(forecast.amount));
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  const { data: loadedCategories = [] } = useQuery({
+    queryKey: ["account_categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("*")
+        .eq("is_active", true);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !externalCategories,
+  });
+
+  const categories = externalCategories || loadedCategories;
+
+  const filteredCategories = useMemo(() => {
+    const catType = forecast.type === "income" ? "income" : "expense";
+    return categories
+      .filter((c: any) => c.type === catType && c.code.split(".").length === 3)
+      .sort((a: any, b: any) => a.code.localeCompare(b.code));
+  }, [categories, forecast.type]);
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["forecast_audit_log", forecast.id],
@@ -36,8 +62,29 @@ export function ForecastEditModal({ forecast, onClose }: Props) {
     mutationFn: async () => {
       const newAmount = parseFloat(amount) || 0;
       const newIvaRate = parseInt(ivaRate) || 0;
+      const newDescription = description.trim();
+      const newSpecification = specification.trim() || null;
+      const newCategoryId = categoryId || null;
+
+      if (!newDescription) throw new Error("A descrição é obrigatória.");
+
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
 
+      if (newDescription !== (forecast.description || "")) {
+        changes.push({ field_name: "Descrição", old_value: forecast.description || "", new_value: newDescription });
+      }
+      if ((newSpecification || "") !== (forecast.specification || "")) {
+        changes.push({ field_name: "Especificação", old_value: forecast.specification || "—", new_value: newSpecification || "—" });
+      }
+      if (newCategoryId !== (forecast.category_id || null)) {
+        const oldCat = categories.find((c: any) => c.id === forecast.category_id);
+        const newCat = categories.find((c: any) => c.id === newCategoryId);
+        changes.push({
+          field_name: "Categoria",
+          old_value: oldCat ? `${oldCat.code} ${oldCat.name}` : "—",
+          new_value: newCat ? `${newCat.code} ${newCat.name}` : "—",
+        });
+      }
       if (newAmount !== Number(forecast.amount)) {
         changes.push({ field_name: "Valor", old_value: String(forecast.amount), new_value: String(newAmount) });
       }
@@ -49,9 +96,16 @@ export function ForecastEditModal({ forecast, onClose }: Props) {
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
       // Update forecast
+      const updatePayload: any = {
+        description: newDescription,
+        specification: newSpecification,
+        category_id: newCategoryId,
+        amount: newAmount,
+        iva_rate: newIvaRate,
+      };
       const { error: updateError } = await supabase
         .from("event_forecasts")
-        .update({ amount: newAmount, iva_rate: newIvaRate })
+        .update(updatePayload)
         .eq("id", forecast.id);
       if (updateError) throw updateError;
 
@@ -82,39 +136,51 @@ export function ForecastEditModal({ forecast, onClose }: Props) {
     },
   });
 
+  const isExpense = forecast.type === "expense";
+  const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-md rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="glass w-full max-w-lg rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold">Alterar Valor — BP Aprovado</h2>
+          <h2 className="text-base font-bold">Editar Previsão Aprovada</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs space-y-1">
-          <p className="font-medium">{forecast.description}</p>
-          {forecast.specification && <p className="text-muted-foreground">Especificação: {forecast.specification}</p>}
-          <p className="text-muted-foreground">Valor atual: {formatCurrency(Number(forecast.amount))} | IVA: {forecast.iva_rate}%</p>
+        {/* Description */}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
+          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
         </div>
 
+        {/* Specification (expenses only) */}
+        {isExpense && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Especificação</label>
+            <input type="text" value={specification} onChange={(e) => setSpecification(e.target.value)} className={inputClass} placeholder="Detalhes adicionais…" />
+          </div>
+        )}
+
+        {/* Category */}
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria Contabilística</label>
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={inputClass}>
+            <option value="">— Sem categoria —</option>
+            {filteredCategories.map((c: any) => (
+              <option key={c.id} value={c.id}>{c.code} {c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Amount + IVA */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Novo Valor s/ IVA (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor s/ IVA (€)</label>
+            <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-            <select
-              value={ivaRate}
-              onChange={(e) => setIvaRate(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
+            <select value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className={inputClass}>
               <option value="23">23%</option>
               <option value="13">13%</option>
               <option value="6">6%</option>
@@ -123,14 +189,15 @@ export function ForecastEditModal({ forecast, onClose }: Props) {
           </div>
         </div>
 
+        {/* Observation */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Observação *</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Observação / Justificação *</label>
           <textarea
             value={observation}
             onChange={(e) => setObservation(e.target.value)}
-            placeholder="Justificação da alteração…"
+            placeholder="Motivo da alteração…"
             rows={2}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+            className={`${inputClass} resize-none`}
           />
         </div>
 
