@@ -378,7 +378,97 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         <span className="font-semibold">Resultado: {fmtMoney(totalIncome - totalExpense)}</span>
       </div>
 
-      {/* Comparison stats */}
+      {/* Sheet mapping step */}
+      {showMappingStep && sheetMappings && parsedSheets && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Mapeamento de Abas do Ficheiro</CardTitle>
+            <CardDescription>
+              O sistema tentou associar cada aba a um evento ou data. Confirme ou corrija antes de prosseguir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sheetMappings.map((m, idx) => {
+                const sheet = parsedSheets.find(s => s.sheetName === m.sheetName);
+                return (
+                  <div key={m.sheetName} className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/30">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium">{m.sheetName}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({sheet?.rows.length || 0} linhas)</span>
+                      {m.autoMatched && (
+                        <Badge variant="outline" className="ml-2 text-xs border-green-500/50 text-green-600">Auto</Badge>
+                      )}
+                    </div>
+                    <Select
+                      value={m.targetType === "ignore" ? "ignore" : `${m.targetType}:${m.targetId}`}
+                      onValueChange={(v) => {
+                        const updated = [...sheetMappings];
+                        if (v === "ignore") {
+                          updated[idx] = { ...m, targetType: "ignore", targetId: "", autoMatched: false };
+                        } else {
+                          const [type, id] = v.split(":");
+                          updated[idx] = { ...m, targetType: type as "event" | "date", targetId: id, autoMatched: false };
+                        }
+                        setSheetMappings(updated);
+                      }}
+                    >
+                      <SelectTrigger className="w-64"><SelectValue placeholder="Selecionar destino" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ignore">❌ Ignorar</SelectItem>
+                        {allEvents.map(e => (
+                          <SelectItem key={`event:${e.id}`} value={`event:${e.id}`}>
+                            {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                          </SelectItem>
+                        ))}
+                        {eventDates.length > 0 && eventDates.map((d: any) => {
+                          const ev = allEvents.find(e => e.id === d.event_id);
+                          return (
+                            <SelectItem key={`date:${d.id}`} value={`date:${d.id}`}>
+                              📅 {new Date(d.date).toLocaleDateString("pt-PT")} {d.label || ""} {ev ? `(${ev.name})` : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Button
+                onClick={() => {
+                  setShowMappingStep(false);
+                  // Select the first non-ignored sheet and switch to its event
+                  const first = sheetMappings.find(m => m.targetType !== "ignore");
+                  if (first) {
+                    setSelectedSheet(first.sheetName);
+                    if (first.targetType === "event") {
+                      setSelectedEventId(first.targetId);
+                      setSelectedDateId("all");
+                    } else if (first.targetType === "date") {
+                      const date = eventDates.find((d: any) => d.id === first.targetId);
+                      if (date) {
+                        setSelectedEventId(date.event_id);
+                        setSelectedDateId(date.id);
+                      }
+                    }
+                  } else if (parsedSheets.length > 0) {
+                    setSelectedSheet(parsedSheets[0].sheetName);
+                  }
+                  setViewMode("comparison");
+                }}
+              >
+                Confirmar Mapeamento
+              </Button>
+              <Button variant="outline" onClick={() => setShowMappingStep(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {parsedSheets && viewMode === "comparison" && (
         <div className="flex items-center gap-4 flex-wrap">
           {parsedSheets.length > 1 && (
