@@ -531,6 +531,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           paid_amount: 0,
           split_percentage: null,
           parent_transaction_id: null,
+          is_transitory: isTransitory,
         } as any).select("id").single();
         if (parentError) throw parentError;
         const parentId = parentRow.id;
@@ -1580,6 +1581,20 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                     <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
                   </button>
                 )}
+
+                {/* Transitory toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsTransitory(!isTransitory)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    isTransitory
+                      ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  🔄 {isTransitory ? "Transitória" : "Marcar como Transitória"}
+                  <HelpTooltip text={helpTexts.transitoryToggle} size={12} />
+                </button>
               </div>
               {form.is_reimbursement && (
                 <div className="space-y-2">
