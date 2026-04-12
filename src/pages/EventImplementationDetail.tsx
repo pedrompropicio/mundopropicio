@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, FileText, Download, Plus, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
@@ -16,7 +20,15 @@ import { ImplApportionmentTab } from "@/components/implementation/ImplApportionm
 export default function EventImplementationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("bp");
+
+  // Setup state for event creation
+  const [setupMode, setSetupMode] = useState<"create_simple" | "create_master" | "link_existing">("create_simple");
+  const [setupName, setSetupName] = useState("");
+  const [setupDate, setSetupDate] = useState("");
+  const [setupCities, setSetupCities] = useState("");
+  const [setupExistingId, setSetupExistingId] = useState("");
 
   const { data: impl, isLoading } = useQuery({
     queryKey: ["event-implementation", id],
@@ -46,6 +58,20 @@ export default function EventImplementationDetail() {
     enabled: !!impl?.event_id,
   });
 
+  // Fetch existing events for linking
+  const { data: existingEvents = [] } = useQuery({
+    queryKey: ["events-for-impl-link"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date, parent_event_id")
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !impl?.event_id,
+  });
+
   // For master events, fetch splits
   const { data: splitEvents = [] } = useQuery({
     queryKey: ["split-events-impl", event?.id],
@@ -61,7 +87,6 @@ export default function EventImplementationDetail() {
     enabled: !!event && (event.event_type === "master" || event.event_type === "multi_day"),
   });
 
-  // Fetch event_dates for each event in the list
   const allEvents = event ? (
     (event.event_type === "master" || event.event_type === "multi_day") ? [event, ...splitEvents] : [event]
   ) : [];
@@ -83,7 +108,6 @@ export default function EventImplementationDetail() {
     enabled: allEventIds.length > 0,
   });
 
-  // Fetch sessions for all events
   const { data: eventSessions = [] } = useQuery({
     queryKey: ["impl-event-sessions", allEventIds],
     queryFn: async () => {
@@ -97,6 +121,73 @@ export default function EventImplementationDetail() {
       return data;
     },
     enabled: allEventIds.length > 0,
+  });
+
+  // Mutation to create event and link to implementation
+  const createAndLinkMutation = useMutation({
+    mutationFn: async () => {
+      let eventId: string;
+
+      if (setupMode === "link_existing") {
+        if (!setupExistingId) throw new Error("Selecione um evento");
+        eventId = setupExistingId;
+      } else if (setupMode === "create_simple") {
+        if (!setupName) throw new Error("Informe o nome do evento");
+        const { data, error } = await supabase
+          .from("events")
+          .insert({
+            name: setupName,
+            date: setupDate || new Date().toISOString().slice(0, 10),
+            status: "planning",
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        eventId = data.id;
+      } else {
+        // create_master
+        if (!setupName) throw new Error("Informe o nome do evento");
+        const { data: master, error: masterErr } = await supabase
+          .from("events")
+          .insert({
+            name: setupName,
+            date: setupDate || new Date().toISOString().slice(0, 10),
+            event_type: "master",
+            status: "planning",
+          })
+          .select("id")
+          .single();
+        if (masterErr) throw masterErr;
+        eventId = master.id;
+
+        const cities = setupCities.split(",").map(c => c.trim()).filter(Boolean);
+        for (const city of cities) {
+          const { error } = await supabase
+            .from("events")
+            .insert({
+              name: `${setupName} — ${city}`,
+              date: setupDate || new Date().toISOString().slice(0, 10),
+              event_type: "split",
+              parent_event_id: master.id,
+              status: "planning",
+            });
+          if (error) throw error;
+        }
+      }
+
+      // Link to implementation
+      const { error } = await supabase
+        .from("event_implementations")
+        .update({ event_id: eventId })
+        .eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event-implementation", id] });
+      queryClient.invalidateQueries({ queryKey: ["event-for-impl"] });
+      toast.success("Evento associado com sucesso");
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
   const handleDownloadRef = async () => {
@@ -120,6 +211,7 @@ export default function EventImplementationDetail() {
   }
 
   const isMaster = event?.event_type === "master" || event?.event_type === "multi_day";
+  const needsEventSetup = !impl.event_id;
 
   return (
     <div className="space-y-6">
@@ -161,44 +253,121 @@ export default function EventImplementationDetail() {
         </div>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="bp">BP / Despesas</TabsTrigger>
-          <TabsTrigger value="tickets">Vendas / Bilhetes</TabsTrigger>
-          {isMaster && <TabsTrigger value="apportionment">Análise de Rateio</TabsTrigger>}
-        </TabsList>
+      {/* Event Setup Panel — shown when no event is linked */}
+      {needsEventSetup ? (
+        <Card className="border-warning/50 bg-warning/5">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Configurar Evento
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Esta implantação ainda não tem um evento associado. Crie um novo ou vincule a um existente para iniciar a reconciliação.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Ação</Label>
+              <Select value={setupMode} onValueChange={(v) => setSetupMode(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="create_simple">Criar evento simples</SelectItem>
+                  <SelectItem value="create_master">Criar turnê (Master + Splits)</SelectItem>
+                  <SelectItem value="link_existing">Vincular a evento existente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <TabsContent value="bp" className="mt-4">
-          <ImplBPTab
-            implementation={impl}
-            event={event}
-            allEvents={allEvents}
-            eventDates={eventDates}
-            eventSessions={eventSessions}
-          />
-        </TabsContent>
+            {setupMode === "link_existing" ? (
+              <div>
+                <Label>Evento</Label>
+                <Select value={setupExistingId} onValueChange={setSetupExistingId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar evento…" /></SelectTrigger>
+                  <SelectContent>
+                    {existingEvents.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.parent_event_id ? "↳ " : ""}{e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label>Nome do Evento</Label>
+                  <Input value={setupName} onChange={(e) => setSetupName(e.target.value)} placeholder="Ex: Artista — Tour 2025" />
+                </div>
+                <div>
+                  <Label>Data</Label>
+                  <Input type="date" value={setupDate} onChange={(e) => setSetupDate(e.target.value)} />
+                </div>
+                {setupMode === "create_master" && (
+                  <div>
+                    <Label>Cidades (sub-eventos)</Label>
+                    <Input value={setupCities} onChange={(e) => setSetupCities(e.target.value)} placeholder="Lisboa, Porto, Braga" />
+                    <p className="text-xs text-muted-foreground mt-1">Separadas por vírgula — cada uma criará um sub-evento</p>
+                  </div>
+                )}
+              </>
+            )}
 
-        <TabsContent value="tickets" className="mt-4">
-          <ImplTicketsTab
-            implementation={impl}
-            event={event}
-            allEvents={allEvents}
-            eventDates={eventDates}
-            eventSessions={eventSessions}
-          />
-        </TabsContent>
+            <Button
+              onClick={() => createAndLinkMutation.mutate()}
+              disabled={
+                createAndLinkMutation.isPending ||
+                (setupMode === "link_existing" && !setupExistingId) ||
+                (setupMode !== "link_existing" && !setupName)
+              }
+            >
+              {setupMode === "link_existing" ? (
+                <><Link2 className="h-4 w-4 mr-2" /> Vincular Evento</>
+              ) : (
+                <><Plus className="h-4 w-4 mr-2" /> Criar e Vincular Evento</>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Tabs — only shown when event is linked */
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="bp">BP / Despesas</TabsTrigger>
+            <TabsTrigger value="tickets">Vendas / Bilhetes</TabsTrigger>
+            {isMaster && <TabsTrigger value="apportionment">Análise de Rateio</TabsTrigger>}
+          </TabsList>
 
-        {isMaster && (
-          <TabsContent value="apportionment" className="mt-4">
-            <ImplApportionmentTab
+          <TabsContent value="bp" className="mt-4">
+            <ImplBPTab
               implementation={impl}
-              masterEvent={event!}
-              splitEvents={splitEvents}
+              event={event}
+              allEvents={allEvents}
+              eventDates={eventDates}
+              eventSessions={eventSessions}
             />
           </TabsContent>
-        )}
-      </Tabs>
+
+          <TabsContent value="tickets" className="mt-4">
+            <ImplTicketsTab
+              implementation={impl}
+              event={event}
+              allEvents={allEvents}
+              eventDates={eventDates}
+              eventSessions={eventSessions}
+            />
+          </TabsContent>
+
+          {isMaster && (
+            <TabsContent value="apportionment" className="mt-4">
+              <ImplApportionmentTab
+                implementation={impl}
+                masterEvent={event!}
+                splitEvents={splitEvents}
+              />
+            </TabsContent>
+          )}
+        </Tabs>
+      )}
     </div>
   );
 }
