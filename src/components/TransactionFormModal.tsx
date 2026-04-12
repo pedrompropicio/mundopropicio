@@ -506,6 +506,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             paid_amount: 0,
             split_percentage: entry.percentage,
             parent_transaction_id: "", // placeholder, set after parent insert
+            is_transitory: isTransitory,
           };
         });
 
