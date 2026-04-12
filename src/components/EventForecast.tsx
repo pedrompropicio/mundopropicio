@@ -894,8 +894,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return partners.includes(partnerFilter);
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter);
+  const matchesTxLinkFilter = (f: any) => {
+    if (txLinkFilter === "all") return true;
+    if (txLinkFilter === "with_tx") return !!f.transaction_id;
+    if (txLinkFilter === "without_tx") return !f.transaction_id;
+    return true;
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
