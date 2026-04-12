@@ -705,8 +705,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
     const isNewImport = existingExpenses.length === 0;
     
+    // Check if this sheet was already imported in this session
+    if (importedSheets.has(selectedSheet)) {
+      const forceReimport = confirm(
+        `⚠️ A aba "${selectedSheet}" já foi importada nesta sessão.\n\nDeseja importar novamente? Isto pode causar duplicidade de dados.\n\nRecomenda-se utilizar "Sincronizar BP" apenas se houve alterações no ficheiro.`
+      );
+      if (!forceReimport) return;
+    }
+    
+    // Check if target event already has data in the database
+    const currentCount = (eventForecastCounts as Record<string, number>)[selectedEventId] ?? 0;
     const confirmMsg = isNewImport
-      ? `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
+      ? currentCount > 0
+        ? `⚠️ O evento já possui ${currentCount} despesas na base de dados.\n\nDeseja criar mais ${matchedLines.filter(l => l.idx >= 0).length} previsões? Isto pode gerar duplicidade.\n\nRecomenda-se verificar antes na aba "Apenas App".`
+        : `Criar ${matchedLines.filter(l => l.idx >= 0).length} previsões de despesa?`
       : `Sincronizar previsões com o ficheiro? Linhas divergentes serão atualizadas e novas serão criadas.`;
     if (!confirm(confirmMsg)) return;
     
