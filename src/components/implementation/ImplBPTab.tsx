@@ -751,6 +751,62 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const existingExpenses = forecasts.filter((f: any) => f.type === "expense");
     const isNewImport = existingExpenses.length === 0;
     
+    // Master-specific import flow
+    if (isMasterImport) {
+      const currentCount = (eventForecastCounts as Record<string, number>)[selectedEventId] ?? 0;
+      const confirmMsg = currentCount > 0
+        ? `⚠️ O Master já possui ${currentCount} despesas.\n\nDeseja importar ${masterSheetRows.length} custos de rateio?`
+        : `Importar ${masterSheetRows.length} custos de rateio para o Master?`;
+      if (!confirm(confirmMsg)) return;
+      
+      setImporting(true);
+      try {
+        const batchId = `bp-impl-${selectedEventId.substring(0, 8)}-${Date.now()}`;
+        const { data: userData } = await supabase.auth.getUser();
+        const changedBy = userData?.user?.user_metadata?.full_name ?? userData?.user?.email ?? "sistema";
+        let created = 0;
+        const errors: string[] = [];
+
+        for (const row of masterSheetRows) {
+          const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));
+          const categoryId = suggestion?.categoryId || null;
+          const { data: inserted, error } = await supabase.from("event_forecasts").insert({
+            event_id: selectedEventId,
+            type: "expense" as const,
+            description: row.description,
+            specification: row.specification,
+            amount: row.baseAmount,
+            iva_rate: row.ivaRate,
+            category_id: categoryId,
+            status: "draft",
+          }).select("id").single();
+          if (error) { errors.push(`"${row.description}": ${error.message}`); continue; }
+          created++;
+          await supabase.from("forecast_audit_log").insert({
+            forecast_id: inserted.id,
+            changed_by: changedBy,
+            field_name: "importação",
+            old_value: null,
+            new_value: `${row.description} — ${row.baseAmount}€`,
+            observation: `batch:${batchId} | ação:criar | master-rateio`,
+          });
+        }
+
+        if (errors.length > 0) {
+          toast.error(`${errors.length} erro(s)`, { description: errors.slice(0, 3).join("; ") });
+        }
+        toast.success(`Master importado: ${created} custos de rateio criados`);
+        queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
+        queryClient.invalidateQueries({ queryKey: ["impl-forecast-counts"] });
+        refetchBatches();
+      } catch (err: any) {
+        toast.error("Erro na importação: " + err.message);
+      } finally {
+        setImporting(false);
+      }
+      return;
+    }
+
     // Check if this sheet was already imported in this session
     if (importedSheets.has(selectedSheet)) {
       const forceReimport = confirm(
