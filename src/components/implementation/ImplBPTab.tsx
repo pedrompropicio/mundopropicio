@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight } from "lucide-react";
+import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye } from "lucide-react";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
+import * as XLSX from "xlsx";
 
 interface Props {
   implementation: any;
@@ -91,9 +92,10 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [parsedSheets, setParsedSheets] = useState<ParsedSheet[] | null>(null);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [parsing, setParsing] = useState(false);
-  const [viewMode, setViewMode] = useState<"comparison" | "app">("app");
+  const [viewMode, setViewMode] = useState<"comparison" | "app" | "raw">("app");
   const [sheetMappings, setSheetMappings] = useState<SheetMapping[] | null>(null);
   const [showMappingStep, setShowMappingStep] = useState(false);
+  const [rawSheetData, setRawSheetData] = useState<Record<string, any[][]>>({});
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
@@ -153,6 +155,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         setParsing(false);
         return;
       }
+
+      // Store raw Excel data for preview
+      const wb = XLSX.read(buffer, { type: "array" });
+      const rawData: Record<string, any[][]> = {};
+      for (const sn of wb.SheetNames) {
+        const ws = wb.Sheets[sn];
+        rawData[sn] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as any[][];
+      }
+      setRawSheetData(rawData);
 
       const sheets = parseXlsxPL(buffer);
       setParsedSheets(sheets);
@@ -374,6 +385,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
                 <TabsTrigger value="comparison" className="text-xs px-3 h-7">Comparação</TabsTrigger>
+                <TabsTrigger value="raw" className="text-xs px-3 h-7">
+                  <Eye className="h-3 w-3 mr-1" />Ficheiro Original
+                </TabsTrigger>
                 <TabsTrigger value="app" className="text-xs px-3 h-7">Apenas App</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -489,7 +503,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         </Card>
       )}
 
-      {parsedSheets && viewMode === "comparison" && (
+      {parsedSheets && (viewMode === "comparison" || viewMode === "raw") && (
         <div className="flex items-center gap-4 flex-wrap">
           {parsedSheets.length > 1 && (
             <Select value={selectedSheet} onValueChange={(v) => {
@@ -737,6 +751,58 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   )}
                 </TableBody>
               </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : viewMode === "raw" && parsedSheets ? (
+        /* Raw Excel preview */
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+              {(() => {
+                const raw = rawSheetData[selectedSheet];
+                if (!raw || raw.length === 0) return <p className="p-6 text-muted-foreground text-center">Sem dados na aba selecionada</p>;
+                const maxCols = raw.reduce((m, r) => Math.max(m, r.length), 0);
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8 sticky top-0 bg-background z-10">#</TableHead>
+                        {Array.from({ length: maxCols }, (_, i) => (
+                          <TableHead key={i} className="sticky top-0 bg-background z-10 text-xs min-w-[80px]">
+                            {String.fromCharCode(65 + (i % 26))}{i >= 26 ? String.fromCharCode(65 + Math.floor(i / 26) - 1) : ""}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {raw.map((row, ri) => {
+                        const isEmpty = row.every((c: any) => String(c ?? "").trim() === "");
+                        if (isEmpty && ri > 0) return null;
+                        return (
+                          <TableRow key={ri} className={ri === 0 ? "bg-muted/30 font-medium" : ""}>
+                            <TableCell className="text-xs text-muted-foreground font-mono">{ri + 1}</TableCell>
+                            {Array.from({ length: maxCols }, (_, ci) => {
+                              const val = String(row[ci] ?? "");
+                              const isNumber = val && !isNaN(Number(val.replace(",", "."))) && val.trim() !== "";
+                              const hasError = val.includes("#REF") || val.includes("#VALUE") || val.includes("#N/A") || val.includes("#DIV");
+                              return (
+                                <TableCell
+                                  key={ci}
+                                  className={`text-xs py-1.5 px-2 ${isNumber ? "text-right font-mono" : ""} ${hasError ? "text-destructive font-semibold" : ""}`}
+                                  title={val.length > 30 ? val : undefined}
+                                >
+                                  {val.length > 40 ? val.substring(0, 37) + "…" : val}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
