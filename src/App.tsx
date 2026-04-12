@@ -51,6 +51,7 @@ import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
+import EventImplementations from "./pages/EventImplementations";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";

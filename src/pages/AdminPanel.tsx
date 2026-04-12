@@ -29,6 +29,12 @@ const adminCards = [
     title: "Lixeira",
     description: "Recuperar itens eliminados nos últimos 30 dias",
   },
+  {
+    to: "/admin/implantacao",
+    icon: History,
+    title: "Implantação",
+    description: "Importar e reconciliar dados de eventos passados",
+  },
 ];
 
 export default function AdminPanel() {
