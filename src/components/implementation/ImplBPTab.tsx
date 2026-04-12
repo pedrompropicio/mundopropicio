@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2 } from "lucide-react";
+import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
 import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
@@ -1010,35 +1010,134 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
   return (
     <div className="space-y-4">
-      {/* Event selector + File analysis button */}
+      {/* Multi-event import selector panel */}
+      {allEvents.length > 1 && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Importação por Evento / Cidade
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Selecione o evento para importar. Importe um de cada vez e confira os resultados antes de avançar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+              {allEvents.map((e) => {
+                const count = (eventForecastCounts as Record<string, number>)[e.id] ?? 0;
+                const isSelected = selectedEventId === e.id;
+                const isMasterEvt = !e.parent_event_id;
+                const hasData = count > 0;
+                const wasImportedInSession = sheetMappings
+                  ? sheetMappings.some(m => m.targetType === "event" && m.targetId === e.id && importedSheets.has(m.sheetName))
+                  : false;
+                // Find matching batch for this event
+                const eventBatches = importBatches.filter((b: any) =>
+                  b.batchId.includes(e.id.substring(0, 8))
+                );
+                const cityName = isMasterEvt
+                  ? null
+                  : e.name.split(/[-–—]/).pop()?.trim() || e.name;
+
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => {
+                      setSelectedEventId(e.id);
+                      setSelectedDateId("all");
+                      if (sheetMappings && parsedSheets) {
+                        const mapping = sheetMappings.find(m => m.targetType === "event" && m.targetId === e.id);
+                        if (mapping) setSelectedSheet(mapping.sheetName);
+                      }
+                    }}
+                    className={`relative flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:shadow-sm ${
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    {/* Status indicator */}
+                    <div className="absolute top-2 right-2">
+                      {hasData || wasImportedInSession ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {isMasterEvt ? (
+                        <Crown className="h-3.5 w-3.5 text-amber-500" />
+                      ) : (
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className="text-xs font-medium truncate max-w-[180px]">
+                        {isMasterEvt ? "Master (Rateio)" : cityName}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      {hasData && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-green-500/40 text-green-600">
+                          {count} despesas
+                        </Badge>
+                      )}
+                      {eventBatches.length > 0 && (
+                        <span>{eventBatches.length} importação(ões)</span>
+                      )}
+                      {!hasData && !wasImportedInSession && (
+                        <span className="text-muted-foreground/60">Pendente</span>
+                      )}
+                    </div>
+
+                    {isMasterEvt && (
+                      <span className="text-[10px] text-muted-foreground/60 italic">Custos globais compartilhados</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Progress summary */}
+            {(() => {
+              const total = allEvents.length;
+              const done = allEvents.filter(e => ((eventForecastCounts as Record<string, number>)[e.id] ?? 0) > 0).length;
+              return (
+                <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span>{done}/{total} importados</span>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Event selector (simple events) + File analysis button */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          {allEvents.length > 1 && (
+          {allEvents.length <= 1 && datesForEvent.length > 0 && (
             <>
-              <span className="text-sm font-medium text-muted-foreground">Evento:</span>
-              <Select value={selectedEventId} onValueChange={(v) => {
-                setSelectedEventId(v);
-                setSelectedDateId("all");
-                // Auto-switch sheet based on mapping when changing event
-                if (sheetMappings && parsedSheets) {
-                  const mapping = sheetMappings.find(m => m.targetType === "event" && m.targetId === v);
-                  if (mapping) {
-                    setSelectedSheet(mapping.sheetName);
-                  }
-                }
-              }}>
-                <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
+              <span className="text-sm font-medium text-muted-foreground">Data:</span>
+              <Select value={selectedDateId} onValueChange={setSelectedDateId}>
+                <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {allEvents.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                  <SelectItem value="all">Todas as datas</SelectItem>
+                  {datesForEvent.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </>
           )}
-          {datesForEvent.length > 0 && (
+          {allEvents.length > 1 && datesForEvent.length > 0 && (
             <>
               <span className="text-sm font-medium text-muted-foreground">Data:</span>
               <Select value={selectedDateId} onValueChange={setSelectedDateId}>
