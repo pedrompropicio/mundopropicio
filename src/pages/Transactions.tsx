@@ -1042,6 +1042,7 @@ export default function Transactions() {
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
                     />
+                  ))}
                     <tr>
                       <td colSpan={10} className="pt-4 pb-2 px-1">
                         <div className="flex items-center gap-2">
