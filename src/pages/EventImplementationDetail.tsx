@@ -372,86 +372,163 @@ export default function EventImplementationDetail() {
 
       {/* Event Setup Panel — shown when no event is linked */}
       {needsEventSetup ? (
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              {extracting ? (
-                <><Loader2 className="h-5 w-5 animate-spin" /> A analisar ficheiro…</>
-              ) : extracted ? (
-                <><Sparkles className="h-5 w-5 text-primary" /> Dados extraídos do ficheiro</>
-              ) : (
-                <><Plus className="h-5 w-5" /> Configurar Evento</>
+        extracted && !sheetSelectionDone ? (
+          /* Step 1: Sheet selection */
+          <Card className="border-primary/30">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" /> Abas detetadas no ficheiro
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Selecione as abas que serão utilizadas na importação. Abas não selecionadas serão ignoradas.
+              </p>
+              {extracted.detectedCities.length > 0 && (
+                <p className="text-sm text-primary font-medium mt-1">
+                  Cidades detetadas nas instruções: {extracted.detectedCities.join(", ")}
+                </p>
               )}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {extracted
-                ? `Foram detetadas ${extracted.sheetNames.length} aba(s): ${extracted.sheetNames.join(", ")}. Confirme os dados abaixo e ajuste se necessário.`
-                : "Crie um novo evento ou vincule a um existente para iniciar a reconciliação."}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Ação</Label>
-              <Select value={setupMode} onValueChange={(v) => setSetupMode(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="create_simple">Criar evento simples</SelectItem>
-                  <SelectItem value="create_master">Criar turnê (Master + Splits)</SelectItem>
-                  <SelectItem value="link_existing">Vincular a evento existente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {setupMode === "link_existing" ? (
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {extracted.sheetNames.map((name) => (
+                  <label key={name} className="flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-accent/50">
+                    <Checkbox
+                      checked={selectedSheets.includes(name)}
+                      onCheckedChange={(checked) => {
+                        setSelectedSheets(prev =>
+                          checked ? [...prev, name] : prev.filter(s => s !== name)
+                        );
+                      }}
+                    />
+                    <span className="text-sm">{name}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedSheets(extracted.sheetNames)}
+                >
+                  Selecionar todas
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedSheets([])}
+                >
+                  Limpar seleção
+                </Button>
+              </div>
+              <Button
+                className="mt-2"
+                disabled={selectedSheets.length === 0}
+                onClick={() => {
+                  setSheetSelectionDone(true);
+                  // Pre-fill form based on instructions + selected sheets
+                  const cities = extracted.detectedCities.length > 0
+                    ? extracted.detectedCities
+                    : selectedSheets;
+                  setSetupName(extracted.eventName);
+                  if (extracted.date) setSetupDate(extracted.date);
+                  if (cities.length > 1 || extracted.detectedCities.length > 1) {
+                    setSetupMode("create_master");
+                    setSetupCities(cities.join(", "));
+                  } else if (cities.length === 1) {
+                    setSetupMode("create_simple");
+                  }
+                }}
+              >
+                Continuar com {selectedSheets.length} aba(s) selecionada(s)
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Step 2: Event creation form (or direct if no extraction) */
+          <Card className="border-primary/30">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                {extracted ? (
+                  <><Sparkles className="h-5 w-5 text-primary" /> Configurar Evento</>
+                ) : extracting ? (
+                  <><Loader2 className="h-5 w-5 animate-spin" /> A analisar ficheiro…</>
+                ) : (
+                  <><Plus className="h-5 w-5" /> Configurar Evento</>
+                )}
+              </CardTitle>
+              {extracted && sheetSelectionDone && (
+                <p className="text-sm text-muted-foreground">
+                  {selectedSheets.length} aba(s) selecionada(s): {selectedSheets.join(", ")}.{" "}
+                  <button className="text-primary underline" onClick={() => setSheetSelectionDone(false)}>
+                    Alterar seleção
+                  </button>
+                </p>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label>Evento</Label>
-                <Select value={setupExistingId} onValueChange={setSetupExistingId}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar evento…" /></SelectTrigger>
+                <Label>Ação</Label>
+                <Select value={setupMode} onValueChange={(v) => setSetupMode(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {existingEvents.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.parent_event_id ? "↳ " : ""}{e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="create_simple">Criar evento simples</SelectItem>
+                    <SelectItem value="create_master">Criar turnê (Master + Splits)</SelectItem>
+                    <SelectItem value="link_existing">Vincular a evento existente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            ) : (
-              <>
-                <div>
-                  <Label>Nome do Evento</Label>
-                  <Input value={setupName} onChange={(e) => setSetupName(e.target.value)} placeholder="Ex: Artista — Tour 2025" />
-                </div>
-                <div>
-                  <Label>Data</Label>
-                  <Input type="date" value={setupDate} onChange={(e) => setSetupDate(e.target.value)} />
-                </div>
-                {setupMode === "create_master" && (
-                  <div>
-                    <Label>Cidades (sub-eventos)</Label>
-                    <Input value={setupCities} onChange={(e) => setSetupCities(e.target.value)} placeholder="Lisboa, Porto, Braga" />
-                    <p className="text-xs text-muted-foreground mt-1">Separadas por vírgula — cada uma criará um sub-evento</p>
-                  </div>
-                )}
-              </>
-            )}
 
-            <Button
-              onClick={() => createAndLinkMutation.mutate()}
-              disabled={
-                createAndLinkMutation.isPending ||
-                (setupMode === "link_existing" && !setupExistingId) ||
-                (setupMode !== "link_existing" && !setupName)
-              }
-            >
               {setupMode === "link_existing" ? (
-                <><Link2 className="h-4 w-4 mr-2" /> Vincular Evento</>
+                <div>
+                  <Label>Evento</Label>
+                  <Select value={setupExistingId} onValueChange={setSetupExistingId}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar evento…" /></SelectTrigger>
+                    <SelectContent>
+                      {existingEvents.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.parent_event_id ? "↳ " : ""}{e.name} ({format(new Date(e.date), "dd/MM/yyyy")})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               ) : (
-                <><Plus className="h-4 w-4 mr-2" /> Criar e Vincular Evento</>
+                <>
+                  <div>
+                    <Label>Nome do Evento</Label>
+                    <Input value={setupName} onChange={(e) => setSetupName(e.target.value)} placeholder="Ex: Artista — Tour 2025" />
+                  </div>
+                  <div>
+                    <Label>Data</Label>
+                    <Input type="date" value={setupDate} onChange={(e) => setSetupDate(e.target.value)} />
+                  </div>
+                  {setupMode === "create_master" && (
+                    <div>
+                      <Label>Cidades (sub-eventos)</Label>
+                      <Input value={setupCities} onChange={(e) => setSetupCities(e.target.value)} placeholder="Lisboa, Porto, Braga" />
+                      <p className="text-xs text-muted-foreground mt-1">Separadas por vírgula — cada uma criará um sub-evento</p>
+                    </div>
+                  )}
+                </>
               )}
-            </Button>
-          </CardContent>
-        </Card>
+
+              <Button
+                onClick={() => createAndLinkMutation.mutate()}
+                disabled={
+                  createAndLinkMutation.isPending ||
+                  (setupMode === "link_existing" && !setupExistingId) ||
+                  (setupMode !== "link_existing" && !setupName)
+                }
+              >
+                {setupMode === "link_existing" ? (
+                  <><Link2 className="h-4 w-4 mr-2" /> Vincular Evento</>
+                ) : (
+                  <><Plus className="h-4 w-4 mr-2" /> Criar e Vincular Evento</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )
       ) : (
         /* Tabs — only shown when event is linked */
         <Tabs value={activeTab} onValueChange={setActiveTab}>
