@@ -2337,9 +2337,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                             const currentCatId = sourceCategoryOverrides[key] ?? line.suggestedCategoryId ?? "";
                             const currentCat = currentCatId ? leafCategories.find(c => c.id === currentCatId) : null;
                             if (isRateio) {
-                              return currentCat ? (
-                                <span className="text-muted-foreground">{currentCat.code} {currentCat.name}</span>
-                              ) : <span className="text-muted-foreground">—</span>;
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-muted-foreground">{currentCat ? `${currentCat.code} ${currentCat.name}` : "—"}</span>
+                                </div>
+                              );
                             }
                             return (
                               <div className="flex items-center gap-1">
