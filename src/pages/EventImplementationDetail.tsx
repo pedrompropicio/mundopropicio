@@ -65,6 +65,7 @@ type ExtractedInfo = {
   date: string;
   sheetNames: string[];
   isTour: boolean;
+  detectedCities: string[];
 };
 
 export default function EventImplementationDetail() {
