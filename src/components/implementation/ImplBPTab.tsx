@@ -829,35 +829,47 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                     {/* Detail table: one row per sheet */}
                     <div className="ml-7 rounded-md border overflow-hidden">
                       <Table>
-                        <TableHeader>
+                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
-                            <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sheetDetails.map(({ sheetName, row, targetEvent }) => (
-                            <TableRow key={sheetName}>
-                              <TableCell className="text-xs py-1.5">
-                                <div>
-                                  <span className="font-medium">{sheetName}</span>
-                                  {targetEvent && (
-                                    <span className="block text-[10px] text-muted-foreground">→ {targetEvent.name}</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-xs py-1.5">{row?.description || "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-muted-foreground">{row?.specification || "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.baseAmount) : "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
-                              <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
+                             <TableHead className="text-xs py-1.5 h-auto">Aba / Cidade</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto">Descrição</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto">Especificação</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto">Categoria</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto text-right">Valor Base</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto text-center">IVA</TableHead>
+                             <TableHead className="text-xs py-1.5 h-auto text-right">Total</TableHead>
+                           </TableRow>
+                         </TableHeader>
+                         <TableBody>
+                           {sheetDetails.map(({ sheetName, row, targetEvent }) => {
+                             // Try to find matching forecast category for this row
+                             const mapping = sheetMappings?.find(m => m.sheetName === sheetName);
+                             const targetEventId = mapping?.targetType === "event" ? mapping.targetId : null;
+                             return (
+                             <TableRow key={sheetName}>
+                               <TableCell className="text-xs py-1.5">
+                                 <div>
+                                   <span className="font-medium">{sheetName}</span>
+                                   {targetEvent && (
+                                     <span className="block text-[10px] text-muted-foreground">→ {targetEvent.name}</span>
+                                   )}
+                                 </div>
+                               </TableCell>
+                               <TableCell className="text-xs py-1.5">{row?.description || "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-muted-foreground">{row?.specification || "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-muted-foreground">
+                                 {s.categoryId ? (() => {
+                                   const cat = leafCategories.find(c => c.id === s.categoryId);
+                                   return cat ? `${cat.code} ${cat.name}` : "—";
+                                 })() : "—"}
+                               </TableCell>
+                               <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.baseAmount) : "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-center">{row ? `${row.ivaRate}%` : "—"}</TableCell>
+                               <TableCell className="text-xs py-1.5 text-right font-mono">{row ? fmtMoney(row.total) : "—"}</TableCell>
+                             </TableRow>
+                             );
+                           })}
+                         </TableBody>
                       </Table>
                     </div>
 
