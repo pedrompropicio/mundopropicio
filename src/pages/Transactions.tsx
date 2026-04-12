@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -62,6 +62,22 @@ export default function Transactions() {
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+  const highlightRef = useRef<HTMLTableRowElement>(null);
+
+  // When highlight param is set, switch to a view that shows the transaction
+  useEffect(() => {
+    if (!highlightId) return;
+    // Show all transactions (paid view shows everything)
+    setViewMode("paid");
+    setPaidPeriod("all");
+    // Clean up the URL param after a delay
+    const timer = setTimeout(() => {
+      setSearchParams({}, { replace: true });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
@@ -1009,6 +1025,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      highlightId={highlightId}
                     />
                   ))}
 
@@ -1041,6 +1058,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      highlightId={highlightId}
                     />
                   ))}
 
@@ -1073,6 +1091,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      highlightId={highlightId}
                     />
                   ))}
                 </tbody>
@@ -1121,6 +1140,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      highlightId={highlightId}
                     />
                   ))}
                 </tbody>

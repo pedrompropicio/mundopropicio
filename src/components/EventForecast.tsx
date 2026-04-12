@@ -1680,11 +1680,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
               {hasMatchingTx && (
-                <p className="text-xs flex items-center gap-1 mt-0.5">
+                <button onClick={() => setShowPayments(!showPayments)} className="text-xs flex items-center gap-1 mt-0.5 hover:underline cursor-pointer">
                   <FileText className="h-3 w-3 text-primary shrink-0" />
                   <span className="text-primary/70 font-medium">{matchingTransactions.length} transação(ões)</span>
                   {paidTransactions.length > 0 && <span className="text-success text-[10px]">({paidTransactions.length} paga{paidTransactions.length > 1 ? "s" : ""})</span>}
-                </p>
+                </button>
               )}
               {!hasMatchingTx && isApproved && item.transaction_id && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -1873,7 +1873,11 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   const todayStr = new Date().toISOString().slice(0, 10);
                   const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
                   return (
-                    <div key={tx.id} className="rounded-lg border border-border/30 bg-background/50 px-3 py-2">
+                    <a
+                      key={tx.id}
+                      href={`/transactions?highlight=${tx.id}`}
+                      className="block rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{tx.description}</p>
@@ -1896,7 +1900,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                         {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
                         {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                       </div>
-                    </div>
+                    </a>
                   );
                 })}
               </div>
