@@ -671,22 +671,45 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           ) : "—"}
                         </TableCell>
 
-                        {/* Source columns */}
-                        <TableCell className="border-r bg-muted/10 text-sm max-w-48 truncate">
+                        {/* Source columns — editable */}
+                        <TableCell className="border-r bg-muted/10 text-sm max-w-48">
                           {line.idx >= 0 ? (
-                            <div>
-                              <span>{line.source.description}</span>
-                              {line.source.specification && (
-                                <span className="block text-xs text-muted-foreground">{line.source.specification}</span>
-                              )}
-                            </div>
+                            isEditingSource ? (
+                              <div className="space-y-1">
+                                <Input className="h-7 text-xs" value={editSourceValues.description} onChange={(e) => setEditSourceValues({ ...editSourceValues, description: e.target.value })} />
+                                <Input className="h-6 text-[10px]" placeholder="Especificação" value={editSourceValues.specification} onChange={(e) => setEditSourceValues({ ...editSourceValues, specification: e.target.value })} />
+                              </div>
+                            ) : (
+                              <div>
+                                <span>{line.source.description}</span>
+                                {line.source.specification && (
+                                  <span className="block text-xs text-muted-foreground">{line.source.specification}</span>
+                                )}
+                              </div>
+                            )
                           ) : <span className="text-muted-foreground italic">—</span>}
                         </TableCell>
                         <TableCell className="border-r bg-muted/10 text-right font-mono text-sm">
-                          {line.idx >= 0 ? fmtMoney(line.source.baseAmount) : "—"}
+                          {line.idx >= 0 ? (
+                            isEditingSource ? (
+                              <Input type="number" step="0.01" className="h-7 text-xs text-right w-24" value={editSourceValues.baseAmount} onChange={(e) => setEditSourceValues({ ...editSourceValues, baseAmount: e.target.value })} />
+                            ) : fmtMoney(line.source.baseAmount)
+                          ) : "—"}
                         </TableCell>
                         <TableCell className="border-r bg-muted/10 text-right text-xs">
-                          {line.idx >= 0 ? `${line.source.ivaRate}%` : "—"}
+                          {line.idx >= 0 ? (
+                            isEditingSource ? (
+                              <Select value={editSourceValues.ivaRate} onValueChange={(v) => setEditSourceValues({ ...editSourceValues, ivaRate: v })}>
+                                <SelectTrigger className="h-7 w-16 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="0">0%</SelectItem>
+                                  <SelectItem value="6">6%</SelectItem>
+                                  <SelectItem value="13">13%</SelectItem>
+                                  <SelectItem value="23">23%</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : `${line.source.ivaRate}%`
+                          ) : "—"}
                         </TableCell>
 
                         {/* App columns */}
