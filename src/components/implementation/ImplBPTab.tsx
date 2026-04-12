@@ -1213,13 +1213,26 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             <div className="space-y-2">
               {sheetMappings.map((m, idx) => {
                 const sheet = parsedSheets.find(s => s.sheetName === m.sheetName);
+                const targetEventId = m.targetType === "event" ? m.targetId : null;
+                const existingCount = targetEventId ? (eventForecastCounts as Record<string, number>)[targetEventId] ?? 0 : 0;
+                const alreadyImported = importedSheets.has(m.sheetName);
                 return (
-                  <div key={m.sheetName} className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/30">
+                  <div key={m.sheetName} className={`flex items-center gap-3 py-2 px-3 rounded-md ${alreadyImported ? "bg-green-500/10 border border-green-500/30" : existingCount > 0 ? "bg-amber-500/10 border border-amber-500/30" : "bg-muted/30"}`}>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium">{m.sheetName}</span>
                       <span className="text-xs text-muted-foreground ml-2">({sheet?.rows.length || 0} linhas)</span>
                       {m.autoMatched && (
                         <Badge variant="outline" className="ml-2 text-xs border-green-500/50 text-green-600">Auto</Badge>
+                      )}
+                      {alreadyImported && (
+                        <Badge variant="outline" className="ml-2 text-xs border-green-500/50 text-green-600 gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Importado
+                        </Badge>
+                      )}
+                      {!alreadyImported && existingCount > 0 && (
+                        <Badge variant="outline" className="ml-2 text-xs border-amber-500/50 text-amber-600 gap-1">
+                          <AlertTriangle className="h-3 w-3" /> {existingCount} despesas existentes
+                        </Badge>
                       )}
                     </div>
                     <Select
@@ -1238,11 +1251,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                       <SelectTrigger className="w-64"><SelectValue placeholder="Selecionar destino" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ignore">❌ Ignorar</SelectItem>
-                        {allEvents.map(e => (
-                          <SelectItem key={`event:${e.id}`} value={`event:${e.id}`}>
-                            {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
-                          </SelectItem>
-                        ))}
+                        {allEvents.map(e => {
+                          const eCount = (eventForecastCounts as Record<string, number>)[e.id] ?? 0;
+                          return (
+                            <SelectItem key={`event:${e.id}`} value={`event:${e.id}`}>
+                              {e.parent_event_id ? "↳ " : "🎤 "}{e.name}
+                              {eCount > 0 ? ` (${eCount} desp.)` : ""}
+                            </SelectItem>
+                          );
+                        })}
                         {eventDates.length > 0 && eventDates.map((d: any) => {
                           const ev = allEvents.find(e => e.id === d.event_id);
                           return (
