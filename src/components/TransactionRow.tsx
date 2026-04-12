@@ -58,8 +58,9 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const isHidden = !!t.is_hidden;
 
   // Only consider as potential parent split if no parent and no event
   const mightBeParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
