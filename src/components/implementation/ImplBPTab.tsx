@@ -809,6 +809,18 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               {parsedSheets ? "Re-analisar Ficheiro" : "Analisar Ficheiro"}
             </Button>
           )}
+          {parsedSheets && viewMode === "comparison" && matchedLines.length > 0 && (
+            <Button
+              onClick={handleImportBP}
+              disabled={importing}
+              className="gap-2"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {forecasts.filter((f: any) => f.type === "expense").length === 0
+                ? "Importar BP"
+                : "Sincronizar BP"}
+            </Button>
+          )}
           {parsedSheets && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
