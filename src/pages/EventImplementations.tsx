@@ -81,48 +81,9 @@ export default function EventImplementations() {
     mutationFn: async () => {
       setUploading(true);
       let eventId: string | null = null;
-      let eventStructure: any = null;
 
-      if (newEventType === "existing") {
-        eventId = newEventId || null;
-      } else if (newEventType === "new_simple") {
-        // Create a new simple event
-        const { data: newEvent, error } = await supabase
-          .from("events")
-          .insert({ name: newEventName, date: newEventDate || new Date().toISOString().slice(0, 10), status: "planning" })
-          .select("id")
-          .single();
-        if (error) throw error;
-        eventId = newEvent.id;
-      } else if (newEventType === "new_master") {
-        // Create master event
-        const { data: masterEvent, error: masterErr } = await supabase
-          .from("events")
-          .insert({ name: newEventName, date: newEventDate || new Date().toISOString().slice(0, 10), event_type: "master", status: "planning" })
-          .select("id")
-          .single();
-        if (masterErr) throw masterErr;
-        eventId = masterEvent.id;
-
-        // Create splits from comma-separated cities
-        const cities = newMasterSplits.split(",").map((c) => c.trim()).filter(Boolean);
-        const splitIds: string[] = [];
-        for (const city of cities) {
-          const { data: splitEvent, error: splitErr } = await supabase
-            .from("events")
-            .insert({
-              name: `${newEventName} — ${city}`,
-              date: newEventDate || new Date().toISOString().slice(0, 10),
-              event_type: "split",
-              parent_event_id: masterEvent.id,
-              status: "planning",
-            })
-            .select("id")
-            .single();
-          if (splitErr) throw splitErr;
-          splitIds.push(splitEvent.id);
-        }
-        eventStructure = { master_id: masterEvent.id, splits: cities.map((c, i) => ({ city: c, event_id: splitIds[i] })) };
+      if (newEventType === "existing" && newEventId) {
+        eventId = newEventId;
       }
 
       // Upload file if selected
@@ -145,7 +106,7 @@ export default function EventImplementations() {
         reference_file_name: fileName,
         import_instructions: newInstructions || null,
         notes: newNotes || null,
-        event_structure: eventStructure,
+        event_structure: null,
       });
       if (error) throw error;
     },
@@ -328,11 +289,16 @@ export default function EventImplementations() {
               <Select value={newEventType} onValueChange={(v) => setNewEventType(v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="new_simple">Evento simples (ou a extrair do ficheiro)</SelectItem>
+                  <SelectItem value="new_master">Turnê / Multi-cidade</SelectItem>
                   <SelectItem value="existing">Associar a evento existente</SelectItem>
-                  <SelectItem value="new_simple">Criar evento simples</SelectItem>
-                  <SelectItem value="new_master">Criar turnê (Master + Splits)</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {newEventType === "existing"
+                  ? "Vincular a um evento já criado no sistema"
+                  : "O evento será criado automaticamente a partir dos dados do ficheiro importado"}
+              </p>
             </div>
 
             {newEventType === "existing" && (
@@ -351,27 +317,6 @@ export default function EventImplementations() {
               </div>
             )}
 
-            {(newEventType === "new_simple" || newEventType === "new_master") && (
-              <>
-                <div>
-                  <Label>Nome do Evento</Label>
-                  <Input value={newEventName} onChange={(e) => setNewEventName(e.target.value)} placeholder="Ex: Artista — Tour 2025" />
-                </div>
-                <div>
-                  <Label>Data</Label>
-                  <Input type="date" value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} />
-                </div>
-              </>
-            )}
-
-            {newEventType === "new_master" && (
-              <div>
-                <Label>Cidades (sub-eventos)</Label>
-                <Input value={newMasterSplits} onChange={(e) => setNewMasterSplits(e.target.value)} placeholder="Lisboa, Porto, Braga (separadas por vírgula)" />
-                <p className="text-xs text-muted-foreground mt-1">Cada cidade criará um sub-evento vinculado ao Master</p>
-              </div>
-            )}
-
             <div>
               <Label>Ficheiro de Referência (XLSX ou PDF)</Label>
               <div className="mt-1">
@@ -383,6 +328,9 @@ export default function EventImplementations() {
                   <input type="file" className="hidden" accept=".xlsx,.xls,.pdf" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
                 </label>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Nomes, datas e estrutura do evento serão extraídos automaticamente do ficheiro
+              </p>
             </div>
 
             <div>
@@ -390,7 +338,7 @@ export default function EventImplementations() {
               <Textarea
                 value={newInstructions}
                 onChange={(e) => setNewInstructions(e.target.value)}
-                placeholder="Orientações específicas para a importação (ex: ignorar aba X, cachê está na aba Y, etc.)"
+                placeholder="Orientações específicas (ex: ignorar aba X, cachê está na aba Y, receitas na aba Z, etc.)"
                 rows={3}
               />
             </div>
@@ -409,7 +357,7 @@ export default function EventImplementations() {
             <Button variant="outline" onClick={resetDialog}>Cancelar</Button>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={uploading || (newEventType === "existing" && !newEventId) || ((newEventType === "new_simple" || newEventType === "new_master") && !newEventName)}
+              disabled={uploading || (newEventType === "existing" && !newEventId)}
             >
               {uploading ? "A criar…" : "Criar Implantação"}
             </Button>
