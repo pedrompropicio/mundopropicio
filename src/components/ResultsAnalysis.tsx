@@ -508,21 +508,26 @@ export function ResultsAnalysis() {
                     </td>
                     <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.actualIncome)}</td>
                     <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.actualExpense)}</td>
-                    <td className={`p-3 text-right font-mono font-semibold ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(e.actualMargin)}
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`font-mono font-semibold ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                          {formatCurrency(e.actualMargin)}
+                        </span>
+                        {e.totalPartnerPct > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                              Empresa {(100 - e.totalPartnerPct).toFixed(0)}%
+                            </Badge>
+                            <span className={`font-mono text-xs ${e.companyActualMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                              {formatCurrency(e.companyActualMargin)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className={`p-3 text-right font-mono text-xs ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
                       {e.actualMarginPct.toFixed(1)}%
                     </td>
-                    <td className={`p-3 text-right font-mono hidden lg:table-cell ${e.companyActualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                      {e.totalPartnerPct > 0 ? (
-                        <div className="flex flex-col items-end">
-                          <span>{formatCurrency(e.companyActualMargin)}</span>
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                            {(100 - e.totalPartnerPct).toFixed(0)}%
-                          </Badge>
-                        </div>
-                      ) : "—"}
                     </td>
                   </tr>
                 ))}
