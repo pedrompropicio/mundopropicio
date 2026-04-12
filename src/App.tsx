@@ -51,6 +51,7 @@ import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
+import EventImplementations from "./pages/EventImplementations";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -157,6 +158,7 @@ function ProtectedLayout() {
               <Route path="/admin/backups" element={<DatabaseBackups />} />
               <Route path="/admin/seguranca" element={<SecurityDashboard />} />
               <Route path="/admin/lixeira" element={<TrashPage />} />
+              <Route path="/admin/implantacao" element={<EventImplementations />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             
