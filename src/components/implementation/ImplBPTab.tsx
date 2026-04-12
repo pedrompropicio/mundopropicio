@@ -602,8 +602,9 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   // Apply apportionment: mark promoted rows, keep them in sheets but track as rateio
   const applyApportionment = useCallback(() => {
     if (!parsedSheets || !sheetMappings) return;
-    const promoted = apportionmentSuggestions.filter(s => s.promoteToMaster);
-    if (promoted.length === 0) {
+    const promoted = apportionmentSuggestions.filter(s => s.promoteToMaster && s.sheets.length > 0);
+    const existingOnly = apportionmentSuggestions.filter(s => s.promoteToMaster && s.sheets.length === 0);
+    if (promoted.length === 0 && existingOnly.length === 0) {
       setShowApportionmentStep(false);
       return;
     }
@@ -622,7 +623,6 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         const key = norm(suggestion.description);
         const existing = consolidatedMap.get(key);
         if (existing) {
-          // Sum amounts across all cities/days
           existing.baseAmount = existing.baseAmount + row.baseAmount;
         } else {
           consolidatedMap.set(key, { ...row });
@@ -635,7 +635,8 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     setMasterSheetRows(masterRows);
     setShowApportionmentStep(false);
 
-    toast.success(`${promoted.length} custo(s) marcado(s) como rateio para o Master`);
+    const totalPromoted = promoted.length + existingOnly.length;
+    toast.success(`${totalPromoted} custo(s) marcado(s) como rateio para o Master (${existingOnly.length} já existente(s))`);
   }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
 
 
