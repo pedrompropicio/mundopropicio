@@ -372,6 +372,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
