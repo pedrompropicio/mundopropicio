@@ -115,7 +115,7 @@ export default function EventDetail() {
   });
 
   const eventType = event?.event_type || "simple";
-  const isMultiEvent = eventType === "multi_day" || eventType === "master";
+  const isMultiEvent = isMultiEvent || eventType === "master";
 
   // Fetch sub-events for multi-day
   const { data: subEvents = [] } = useQuery({
@@ -129,7 +129,7 @@ export default function EventDetail() {
       if (error) throw error;
       return (data ?? []) as any[];
     },
-    enabled: !!id && eventType === "multi_day",
+    enabled: !!id && isMultiEvent,
   });
 
   // Fetch festival dates
@@ -165,7 +165,7 @@ export default function EventDetail() {
   });
 
   // Determine which event IDs to use for transactions
-  const allEventIds = eventType === "multi_day" && !selectedSubEvent
+  const allEventIds = isMultiEvent && !selectedSubEvent
     ? [id!, ...subEvents.map((s: any) => s.id)]
     : selectedSubEvent
       ? [selectedSubEvent]
@@ -230,7 +230,7 @@ export default function EventDetail() {
       if (error) throw error;
 
       // If this is a parent (multi_day) event, propagate status to all child events
-      if (eventType === "multi_day" && subEvents.length > 0) {
+      if (isMultiEvent && subEvents.length > 0) {
         const childIds = subEvents.map((s: any) => s.id);
         const { error: childError } = await (supabase
           .from("events")
@@ -244,7 +244,7 @@ export default function EventDetail() {
       queryClient.invalidateQueries({ queryKey: ["events_full"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
       // Invalidate sub-event detail pages too
-      if (eventType === "multi_day" && subEvents.length > 0) {
+      if (isMultiEvent && subEvents.length > 0) {
         subEvents.forEach((s: any) => {
           queryClient.invalidateQueries({ queryKey: ["event_detail", s.id] });
         });
@@ -419,7 +419,7 @@ export default function EventDetail() {
   };
 
   // For multi-day with shared costs (parent transactions), calculate proration
-  const isGlobalView = eventType === "multi_day" && !selectedSubEvent;
+  const isGlobalView = isMultiEvent && !selectedSubEvent;
   const subEventCount = subEvents.length || 1;
 
   // Pie data by category
@@ -438,7 +438,7 @@ export default function EventDetail() {
     overdue: "Atrasado",
   };
 
-  const EventTypeIcon = eventType === "festival" ? Layers : eventType === "multi_day" ? Route : Calendar;
+  const EventTypeIcon = eventType === "festival" ? Layers : isMultiEvent ? Route : Calendar;
 
   return (
     <div className="space-y-6">
@@ -540,7 +540,7 @@ export default function EventDetail() {
       </div>
 
       {/* Multi-day sub-event selector */}
-      {eventType === "multi_day" && subEvents.length > 0 && (
+      {isMultiEvent && subEvents.length > 0 && (
         <div className="glass rounded-xl p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Datas da Turnê</h3>
           <div className="flex flex-wrap gap-2">
@@ -733,7 +733,7 @@ export default function EventDetail() {
         </TabsContent>
 
         <TabsContent value="ticketing">
-          {eventType === "multi_day" && !selectedSubEvent ? (
+          {isMultiEvent && !selectedSubEvent ? (
             <div className="glass rounded-xl p-8 text-center space-y-2">
               <Ticket className="h-8 w-8 mx-auto text-muted-foreground" />
               <p className="text-muted-foreground">Selecione uma data da turnê acima para configurar a bilheteira.</p>
@@ -741,7 +741,7 @@ export default function EventDetail() {
             </div>
           ) : (
             <div className="space-y-4">
-              {eventType === "multi_day" && selectedSubEvent && subEvents.length > 1 && (
+              {isMultiEvent && selectedSubEvent && subEvents.length > 1 && (
                 <CopyFromSelector
                   label="Copiar bilheteira de"
                   currentId={selectedSubEvent}
@@ -803,19 +803,19 @@ export default function EventDetail() {
         {(isAdmin || isManager) && <TabsContent value="cache">
           <EventCacheConfig
             eventId={selectedSubEvent || event.id}
-            childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined}
+            childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : undefined}
             eventStatus={event.status}
           />
         </TabsContent>}
 
         <TabsContent value="forecast">
-          {eventType === "multi_day" && !selectedSubEvent && !event?.parent_event_id ? (
+          {isMultiEvent && !selectedSubEvent && !event?.parent_event_id ? (
             <div className="space-y-4">
               <EventForecast eventId={event.id} eventDate={event.date} eventName={event.name} expenseOnly eventStatus={event.status} childEventIds={subEvents.map((s: any) => s.id)} />
             </div>
           ) : (
             <div className="space-y-4">
-              {eventType === "multi_day" && selectedSubEvent && subEvents.length > 1 && (
+              {isMultiEvent && selectedSubEvent && subEvents.length > 1 && (
                 <CopyFromSelector
                   label="Copiar BP de"
                   currentId={selectedSubEvent}
@@ -847,7 +847,7 @@ export default function EventDetail() {
                   }}
                 />
               )}
-              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && eventType === "multi_day" ? subEvents.map((s: any) => s.id) : undefined} parentEventId={(selectedSubEvent && eventType === "multi_day" ? id : undefined) || (event?.parent_event_id ? event.parent_event_id : undefined)} eventStatus={event.status} />
+              <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : undefined} parentEventId={(selectedSubEvent && isMultiEvent ? id : undefined) || (event?.parent_event_id ? event.parent_event_id : undefined)} eventStatus={event.status} />
             </div>
           )}
         </TabsContent>
@@ -860,7 +860,7 @@ export default function EventDetail() {
                 <PartnerAccessManager
                   eventId={event.id}
                   eventName={event.name}
-                  subEvents={eventType === "multi_day" ? subEvents.map((s: any) => ({ id: s.id, name: s.name, date: s.date })) : []}
+                  subEvents={isMultiEvent ? subEvents.map((s: any) => ({ id: s.id, name: s.name, date: s.date })) : []}
                 />
               )}
             </div>
