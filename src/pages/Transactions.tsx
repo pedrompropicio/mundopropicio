@@ -326,8 +326,9 @@ export default function Transactions() {
     );
   };
 
-  // Base filter (type, event, account, open only, search)
+  // Base filter (type, event, account, open only, search, hidden)
   const baseFiltered = (filter === "all" ? transactions : transactions.filter((t) => t.type === filter))
+    .filter((t: any) => showHidden || !t.is_hidden) // hide hidden transactions unless toggle is on
     .filter(matchesSearch)
     .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
