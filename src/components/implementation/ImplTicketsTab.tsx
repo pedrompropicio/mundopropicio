@@ -186,15 +186,15 @@ export function ImplTicketsTab({ implementation, event, allEvents, eventDates = 
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">A carregar…</TableCell>
                   </TableRow>
-                ) : zones.length === 0 ? (
+                ) : filteredZones.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      Nenhuma zona configurada para este evento
+                      {selectedDateId !== "all" ? "Nenhuma zona para esta data" : "Nenhuma zona configurada para este evento"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  zones.map((zone: any) => {
-                    const zoneLots = lots.filter((l: any) => l.zone_id === zone.id);
+                  filteredZones.map((zone: any) => {
+                    const zoneLots = filteredLots.filter((l: any) => l.zone_id === zone.id);
                     if (zoneLots.length === 0) {
                       return (
                         <TableRow key={zone.id}>
