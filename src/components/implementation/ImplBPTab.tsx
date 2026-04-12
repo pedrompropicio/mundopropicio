@@ -220,14 +220,16 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const renderAddCategoryButton = (onCreated: (catId: string) => void) => {
     if (!isAdmin) return null;
     return (
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         onClick={(e) => { e.stopPropagation(); openCategoryModal(onCreated); }}
-        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
+        className="h-7 px-2 text-[11px] font-medium text-primary border-primary/30 hover:bg-primary/10 gap-1 shrink-0"
         title="Nova conta"
       >
         <Plus className="h-3 w-3" /> Nova
-      </button>
+      </Button>
     );
   };
 
