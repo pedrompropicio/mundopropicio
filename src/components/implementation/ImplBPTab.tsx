@@ -354,6 +354,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
 
 
+  // Category matcher for source rows
+  const categoryMatcher = useMemo(() => {
+    if (categories.length === 0) return null;
+    return createExpenseCategoryMatcher(categories as any);
+  }, [categories]);
+
+  // Override categories for source rows (keyed by sheet:idx)
+  const [sourceCategoryOverrides, setSourceCategoryOverrides] = useState<Record<string, string>>({});
+
   const matchedLines = useMemo((): MatchedLine[] => {
     if (!parsedSheets || !selectedSheet) return [];
     const sheet = parsedSheets.find((s) => s.sheetName === selectedSheet);
@@ -385,7 +394,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         bestDivergences = ["Sem correspondência no App"];
       }
 
-      lines.push({ idx: i, source: row, match: bestMatch, matchScore: bestScore, divergences: bestDivergences });
+      // Auto-suggest category for source row
+      const suggestedCategoryId = categoryMatcher
+        ? categoryMatcher({ description: row.description, specification: row.specification })
+        : null;
+
+      lines.push({ idx: i, source: row, match: bestMatch, matchScore: bestScore, divergences: bestDivergences, suggestedCategoryId });
     }
 
     // Add unmatched forecasts
@@ -397,12 +411,13 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           match: f,
           matchScore: 0,
           divergences: ["Sem correspondência no ficheiro"],
+          suggestedCategoryId: null,
         });
       }
     }
 
     return lines;
-  }, [parsedSheets, selectedSheet, forecasts]);
+  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher]);
 
   // Stats
   const totalMatched = matchedLines.filter((l) => l.match && l.idx >= 0).length;
