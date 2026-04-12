@@ -472,7 +472,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", masterEvent.id)
         .eq("type", "expense");
-      existingMasterForecasts = data || [];
+      existingMasterForecasts = (data || []).filter((f: any) => f.formula_type !== "cache_module");
     }
 
     // Build row lists per sheet with category info
