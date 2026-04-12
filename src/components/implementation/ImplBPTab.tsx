@@ -211,8 +211,99 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       setParsing(false);
     }
   }, [implementation]);
+  // Analyze apportionment: find rows that appear in multiple sheets
+  const analyzeApportionment = useCallback(() => {
+    if (!parsedSheets || !sheetMappings) return;
+    const activeSheets = sheetMappings.filter(m => m.targetType !== "ignore");
+    if (activeSheets.length < 2) {
+      setShowApportionmentStep(false);
+      return;
+    }
 
-  // Build matched lines
+    // Index all rows by normalized description
+    const descMap: Record<string, { sheets: string[]; rowsBySheet: Record<string, number>; amounts: number[]; row: ParsedRow }> = {};
+
+    for (const mapping of activeSheets) {
+      const sheet = parsedSheets.find(s => s.sheetName === mapping.sheetName);
+      if (!sheet) continue;
+      for (let ri = 0; ri < sheet.rows.length; ri++) {
+        const row = sheet.rows[ri];
+        const key = norm(row.description);
+        if (!key || key.length < 3) continue;
+        if (!descMap[key]) {
+          descMap[key] = { sheets: [], rowsBySheet: {}, amounts: [], row };
+        }
+        if (!descMap[key].sheets.includes(mapping.sheetName)) {
+          descMap[key].sheets.push(mapping.sheetName);
+          descMap[key].rowsBySheet[mapping.sheetName] = ri;
+          descMap[key].amounts.push(row.baseAmount);
+        }
+      }
+    }
+
+    // Items appearing in 2+ sheets are candidates for Master
+    const suggestions: ApportionmentSuggestion[] = Object.entries(descMap)
+      .filter(([, v]) => v.sheets.length >= 2)
+      .map(([key, v]) => ({
+        description: v.row.description,
+        normalizedKey: key,
+        sheets: v.sheets,
+        rowsBySheet: v.rowsBySheet,
+        avgAmount: v.amounts.reduce((s, a) => s + a, 0) / v.amounts.length,
+        promoteToMaster: true, // default: suggest promotion
+      }))
+      .sort((a, b) => b.sheets.length - a.sheets.length || b.avgAmount - a.avgAmount);
+
+    setApportionmentSuggestions(suggestions);
+    setShowApportionmentStep(suggestions.length > 0);
+
+    if (suggestions.length === 0) {
+      toast.info("Nenhum custo repetido entre cidades encontrado");
+    }
+  }, [parsedSheets, sheetMappings]);
+
+  // Apply apportionment: move promoted rows to master collection, remove from sheets
+  const applyApportionment = useCallback(() => {
+    if (!parsedSheets || !sheetMappings) return;
+    const promoted = apportionmentSuggestions.filter(s => s.promoteToMaster);
+    if (promoted.length === 0) {
+      setShowApportionmentStep(false);
+      return;
+    }
+
+    const promotedKeys = new Set(promoted.map(s => s.normalizedKey));
+    const masterRows: ParsedRow[] = [];
+    const updatedSheets = [...parsedSheets];
+
+    // Collect one representative row per promoted item (use first sheet's row)
+    for (const suggestion of promoted) {
+      const firstSheet = suggestion.sheets[0];
+      const sheet = updatedSheets.find(s => s.sheetName === firstSheet);
+      if (!sheet) continue;
+      const rowIdx = suggestion.rowsBySheet[firstSheet];
+      if (rowIdx !== undefined && sheet.rows[rowIdx]) {
+        masterRows.push({ ...sheet.rows[rowIdx] });
+      }
+    }
+
+    // Remove promoted rows from all sheets
+    for (let si = 0; si < updatedSheets.length; si++) {
+      const mapping = sheetMappings.find(m => m.sheetName === updatedSheets[si].sheetName);
+      if (!mapping || mapping.targetType === "ignore") continue;
+      updatedSheets[si] = {
+        ...updatedSheets[si],
+        rows: updatedSheets[si].rows.filter(r => !promotedKeys.has(norm(r.description))),
+      };
+    }
+
+    setParsedSheets(updatedSheets);
+    setMasterSheetRows(masterRows);
+    setShowApportionmentStep(false);
+
+    toast.success(`${promoted.length} custo(s) promovido(s) ao Master, ${masterRows.length} linha(s) consolidadas`);
+  }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
+
+
   const matchedLines = useMemo((): MatchedLine[] => {
     if (!parsedSheets || !selectedSheet) return [];
     const sheet = parsedSheets.find((s) => s.sheetName === selectedSheet);
