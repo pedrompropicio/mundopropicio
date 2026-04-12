@@ -58,7 +58,7 @@ export default function EventImplementationDetail() {
       if (error) throw error;
       return data;
     },
-    enabled: !!event && event.event_type === "master",
+    enabled: !!event && (event.event_type === "master" || event.event_type === "multi_day"),
   });
 
   const handleDownloadRef = async () => {
