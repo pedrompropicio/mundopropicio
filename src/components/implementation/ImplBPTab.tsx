@@ -156,7 +156,21 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
       const sheets = parseXlsxPL(buffer);
       setParsedSheets(sheets);
-      if (sheets.length > 0) {
+
+      // Build auto-mappings if multiple sheets
+      if (sheets.length > 1) {
+        const mappings: SheetMapping[] = sheets.map(s => {
+          const match = autoMatchSheet(s.sheetName, allEvents, eventDates);
+          return {
+            sheetName: s.sheetName,
+            targetType: match.type === "none" ? "ignore" : (match.type as "event" | "date"),
+            targetId: match.id,
+            autoMatched: match.type !== "none",
+          };
+        });
+        setSheetMappings(mappings);
+        setShowMappingStep(true);
+      } else if (sheets.length === 1) {
         setSelectedSheet(sheets[0].sheetName);
         setViewMode("comparison");
       }
