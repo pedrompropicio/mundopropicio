@@ -654,11 +654,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const sheet = parsedSheets.find((s) => s.sheetName === selectedSheet);
     if (!sheet) return [];
 
+    // Determine if the current sheet is a city (sub-event) sheet — not the master
+    const masterEvent = allEvents.find(e => !e.parent_event_id);
+    const isCitySheet = masterEvent && selectedEventId !== masterEvent.id;
+
     const usedForecastIds = new Set<string>();
     const lines: MatchedLine[] = [];
 
     for (let i = 0; i < sheet.rows.length; i++) {
       const row = sheet.rows[i];
+
+      // Skip rateio rows in city comparison views — they belong to Master
+      if (isCitySheet && rateioDescriptions.size > 0 && rateioDescriptions.has(norm(row.description))) {
+        continue;
+      }
       let bestMatch: any = null;
       let bestScore = 0;
       let bestDivergences: string[] = [];
