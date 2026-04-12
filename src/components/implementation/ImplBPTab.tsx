@@ -1109,6 +1109,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                               </div>
                             ) : (
                               <div>
+                                {isRateio && <Badge variant="outline" className="text-[10px] mb-0.5 border-primary/50 text-primary"><GitMerge className="h-2.5 w-2.5 mr-1" />Rateio</Badge>}
                                 <span>{line.source.description}</span>
                                 {line.source.specification && (
                                   <span className="block text-xs text-muted-foreground">{line.source.specification}</span>
