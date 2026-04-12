@@ -639,6 +639,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     toast.success(`${totalPromoted} custo(s) marcado(s) como rateio para o Master (${existingOnly.length} já existente(s))`);
   }, [parsedSheets, sheetMappings, apportionmentSuggestions]);
 
+  // Set of normalized descriptions that were promoted to master (rateio)
+  const rateioDescriptions = useMemo(() => {
+    if (masterSheetRows.length === 0) return new Set<string>();
+    return new Set(masterSheetRows.map(r => norm(r.description)));
+  }, [masterSheetRows]);
+
 
   // Category matcher for source rows
   const categoryMatcher = useMemo(() => {
@@ -654,11 +660,20 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     const sheet = parsedSheets.find((s) => s.sheetName === selectedSheet);
     if (!sheet) return [];
 
+    // Determine if the current sheet is a city (sub-event) sheet — not the master
+    const masterEvent = allEvents.find(e => !e.parent_event_id);
+    const isCitySheet = masterEvent && selectedEventId !== masterEvent.id;
+
     const usedForecastIds = new Set<string>();
     const lines: MatchedLine[] = [];
 
     for (let i = 0; i < sheet.rows.length; i++) {
       const row = sheet.rows[i];
+
+      // Skip rateio rows in city comparison views — they belong to Master
+      if (isCitySheet && rateioDescriptions.size > 0 && rateioDescriptions.has(norm(row.description))) {
+        continue;
+      }
       let bestMatch: any = null;
       let bestScore = 0;
       let bestDivergences: string[] = [];
@@ -703,13 +718,22 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     }
 
     return lines;
-  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher]);
+  }, [parsedSheets, selectedSheet, forecasts, categoryMatcher, rateioDescriptions, allEvents, selectedEventId]);
 
   // Stats
   const totalMatched = matchedLines.filter((l) => l.match && l.idx >= 0).length;
   const totalDivergent = matchedLines.filter((l) => l.match && l.idx >= 0 && l.divergences.length > 0).length;
   const totalUnmatchedSource = matchedLines.filter((l) => !l.match && l.idx >= 0).length;
   const totalUnmatchedApp = matchedLines.filter((l) => l.idx < 0).length;
+  // Count how many rows in this sheet were filtered as rateio (for display)
+  const totalRateioFiltered = useMemo(() => {
+    if (!parsedSheets || !selectedSheet || rateioDescriptions.size === 0) return 0;
+    const masterEvent = allEvents.find(e => !e.parent_event_id);
+    if (!masterEvent || selectedEventId === masterEvent.id) return 0;
+    const sheet = parsedSheets.find(s => s.sheetName === selectedSheet);
+    if (!sheet) return 0;
+    return sheet.rows.filter(r => rateioDescriptions.has(norm(r.description))).length;
+  }, [parsedSheets, selectedSheet, rateioDescriptions, allEvents, selectedEventId]);
 
   // File totals for current sheet (interpreted)
   const currentSheet = parsedSheets?.find((s) => s.sheetName === selectedSheet);
@@ -767,11 +791,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const compAppTotalIva = matchedLines.filter(l => l.match).reduce((s, l) => s + Number(l.match.amount) * Number(l.match.iva_rate ?? 0) / 100, 0);
   const compAppTotalGross = compAppTotal + compAppTotalIva;
 
-  // Set of normalized descriptions that were promoted to master (rateio)
-  const rateioDescriptions = useMemo(() => {
-    if (masterSheetRows.length === 0) return new Set<string>();
-    return new Set(masterSheetRows.map(r => norm(r.description)));
-  }, [masterSheetRows]);
+  // rateioDescriptions moved above matchedLines
 
   const updateForecast = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
@@ -2161,6 +2181,11 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             {totalUnmatchedApp > 0 && (
               <Badge variant="outline" className="gap-1 border-blue-500/50 text-blue-600">
                 {totalUnmatchedApp} no App sem match
+              </Badge>
+            )}
+            {totalRateioFiltered > 0 && (
+              <Badge variant="outline" className="gap-1 border-purple-500/50 text-purple-600">
+                <Crown className="h-3 w-3" /> {totalRateioFiltered} rateio (Master)
               </Badge>
             )}
           </div>
