@@ -2678,12 +2678,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                         </TableCell>
                         <TableCell>
                           {isEditing ? (
-                            <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
-                              <SelectTrigger className="h-7 w-48 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
-                               <SelectContent className="max-h-72">
-                                 {renderCategoryOptions()}
-                               </SelectContent>
-                            </Select>
+                            <div className="flex items-center gap-1">
+                              <Select value={editValues.category_id} onValueChange={(v) => setEditValues({ ...editValues, category_id: v })}>
+                                <SelectTrigger className="h-7 w-48 text-xs"><SelectValue placeholder="Sem cat." /></SelectTrigger>
+                                 <SelectContent className="max-h-72">
+                                   {renderCategoryOptions()}
+                                 </SelectContent>
+                              </Select>
+                              {renderAddCategoryButton((catId) => setEditValues((prev: any) => ({ ...prev, category_id: catId })))}
+                            </div>
                           ) : (
                             <span className="text-xs">
                               {cat ? `${cat.code} ${cat.name}` : <span className="text-amber-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Sem cat.</span>}
