@@ -471,6 +471,7 @@ export type Database = {
           formula_type: string
           formula_value: number
           id: string
+          is_transitory: boolean
           iva_rate: number
           notes: string | null
           specification: string | null
@@ -491,6 +492,7 @@ export type Database = {
           formula_type?: string
           formula_value?: number
           id?: string
+          is_transitory?: boolean
           iva_rate?: number
           notes?: string | null
           specification?: string | null
@@ -511,6 +513,7 @@ export type Database = {
           formula_type?: string
           formula_value?: number
           id?: string
+          is_transitory?: boolean
           iva_rate?: number
           notes?: string | null
           specification?: string | null
@@ -2044,6 +2047,7 @@ export type Database = {
           invoice_ref: string | null
           is_hidden: boolean
           is_reimbursement: boolean
+          is_transitory: boolean
           iva_rate: number
           paid_amount: number
           parent_transaction_id: string | null
@@ -2070,6 +2074,7 @@ export type Database = {
           invoice_ref?: string | null
           is_hidden?: boolean
           is_reimbursement?: boolean
+          is_transitory?: boolean
           iva_rate?: number
           paid_amount?: number
           parent_transaction_id?: string | null
@@ -2096,6 +2101,7 @@ export type Database = {
           invoice_ref?: string | null
           is_hidden?: boolean
           is_reimbursement?: boolean
+          is_transitory?: boolean
           iva_rate?: number
           paid_amount?: number
           parent_transaction_id?: string | null
