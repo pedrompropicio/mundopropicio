@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolvePercentageFromTiers } from "@/lib/cache-pl-helper";
 
 export interface DeductionDetail {
   categoryId: string;
