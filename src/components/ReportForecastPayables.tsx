@@ -15,6 +15,7 @@ import autoTable from "jspdf-autotable";
 import { utils, writeFile } from "xlsx";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 import { format } from "date-fns";
+import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 
 interface CategoryLine {
   categoryId: string;
