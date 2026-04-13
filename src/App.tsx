@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -73,9 +74,7 @@ function ProtectedLayout() {
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
-
-  // Track user activity for admin analytics
-  const { useActivityTracker } = require("@/hooks/useActivityTracker");
+  useActivityTracker();
 
   // If recovery is in progress and user somehow landed here, force sign out
   useEffect(() => {
