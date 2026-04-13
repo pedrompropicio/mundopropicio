@@ -140,12 +140,12 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     queryFn: async () => {
       if (configIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_cache_tiers" as any)
+        .from("event_cache_tiers")
         .select("*")
         .in("cache_config_id", configIds)
         .order("sort_order");
       if (error) throw error;
-      return data as any[];
+      return data ?? [];
     },
     enabled: configIds.length > 0,
   });
