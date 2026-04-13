@@ -666,7 +666,11 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                           ? "bg-warning/15 text-warning"
                           : "bg-primary/15 text-primary"
                       }`}>
-                        {isVariable ? `Variável · ${config.percentage}%` : "Fixo"}
+                        {isVariable
+                          ? hasTiers
+                            ? `Variável · ${configTiers.length} faixas`
+                            : `Variável · ${config.percentage}%`
+                          : "Fixo"}
                       </span>
                       {config.withholding_applicable && (
                         <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-destructive/15 text-destructive">
