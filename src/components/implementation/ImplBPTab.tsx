@@ -649,6 +649,12 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         const existing = consolidatedMap.get(key);
         if (existing) {
           existing.baseAmount = existing.baseAmount + row.baseAmount;
+          // Keep the most informative specification across cities
+          if (!existing.specification && row.specification) {
+            existing.specification = row.specification;
+          } else if (row.specification && existing.specification && row.specification.length > existing.specification.length) {
+            existing.specification = row.specification;
+          }
         } else {
           consolidatedMap.set(key, { ...row });
         }
