@@ -440,16 +440,28 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const splitBPInfoByEvent = useMemo<Record<string, SplitBPInfo>>(() => {
     if (!isSplit || splitEventIds.length === 0 || !form.category_id) return {};
+    // Check if the category exists in the parent/master BP (projected to children)
+    const categoryInParentBP = parentForecasts.some(
+      f => f.type === form.type && f.category_id === form.category_id
+    );
+    const parentForecastTotal = parentForecasts
+      .filter(f => f.type === form.type && f.category_id === form.category_id)
+      .reduce((s, f) => s + Number(f.amount), 0);
+
     const result: Record<string, SplitBPInfo> = {};
     for (const eventId of splitEventIds) {
       const ev = events.find((e: any) => e.id === eventId);
       const evForecasts = splitForecasts.filter(f => f.event_id === eventId);
       const evTransactions = splitTransactions.filter(t => t.event_id === eventId);
-      const hasAnyForecasts = evForecasts.length > 0;
-      const hasForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id);
-      const forecast = evForecasts
+      const hasAnyForecasts = evForecasts.length > 0 || categoryInParentBP;
+      // Match if the category exists in the child's own BP OR in the parent/master BP
+      const hasForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id)
+        || categoryInParentBP;
+      const childForecast = evForecasts
         .filter(f => f.type === form.type && f.category_id === form.category_id)
         .reduce((s, f) => s + Number(f.amount), 0);
+      // If category comes from parent BP, use parent forecast as reference
+      const forecast = childForecast > 0 ? childForecast : parentForecastTotal;
       const used = evTransactions
         .filter(t => t.type === form.type && t.category_id === form.category_id)
         .reduce((s, t) => s + Number(t.amount), 0);
@@ -463,7 +475,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       };
     }
     return result;
-  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events]);
+  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events, parentForecasts]);
 
   // Validate split category against parent/child BP rules
   const splitCategoryBlockReason = useMemo<string | null>(() => {
