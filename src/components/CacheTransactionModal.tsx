@@ -149,7 +149,7 @@ export function CacheTransactionModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["cache_artist_transactions", eventId, artistName] });
+      queryClient.invalidateQueries({ queryKey: ["cache_artist_transactions", eventId, cacheCategory?.id] });
       toast({
         title: "Transação criada",
         description: `Transação de cachê para ${artistName} no valor de ${formatCurrency(finalAmount)} criada com sucesso.`,
