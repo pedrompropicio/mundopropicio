@@ -417,8 +417,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             </button>
           </div>
 
-          {/* Row 1: Name + Type */}
-          <div className="grid grid-cols-[1fr,auto] gap-3 items-end">
+          {/* Row 1: Name + Supplier + Type */}
+          <div className="grid grid-cols-[1fr,1fr,auto] gap-3 items-end">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome da Atração *</label>
               <input
@@ -427,6 +427,17 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 className={inputClass}
                 placeholder="Ex: Artista Principal"
                 autoFocus
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Building2 className="h-3 w-3" /> Beneficiário / Fornecedor
+              </label>
+              <SearchableSelect
+                options={supplierOptions}
+                value={formSupplierId}
+                onValueChange={setFormSupplierId}
+                placeholder="Selecionar..."
               />
             </div>
             <div>
