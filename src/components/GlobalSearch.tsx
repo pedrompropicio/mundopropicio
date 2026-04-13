@@ -37,7 +37,7 @@ const PAGES = [
   { label: "Fornecedores / Parceiros", path: "/fornecedores", icon: Users },
   { label: "Cotações", path: "/cotacoes", icon: FileCheck },
   { label: "Gestão IVA", path: "/iva", icon: Receipt },
-  { label: "Gestão Bilhetes", path: "/bilhetes", icon: Ticket },
+  { label: "Bilheteiras", path: "/bilheteiras", icon: Store },
   { label: "Transações Recorrentes", path: "/recorrentes", icon: BarChart3 },
   { label: "Relatórios — DRE", path: "/relatorios/dre", icon: BarChart3 },
   { label: "Relatórios — Business Plan", path: "/relatorios/pl", icon: BarChart3 },
