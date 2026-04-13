@@ -1457,9 +1457,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 const switched = tryAutoSplitFromSubEvent(v, form.type);
                 if (!switched) {
                   setForm({ ...form, category_id: v });
-                } else {
-                  setForm(prev => ({ ...prev, category_id: v }));
                 }
+                // If switched, disambiguation dialog handles everything
               }}
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
