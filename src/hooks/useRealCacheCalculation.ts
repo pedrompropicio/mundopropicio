@@ -225,12 +225,13 @@ export function useRealCacheCalculation(
         missingDeductionCategories,
       };
     });
-  }, [cacheConfigs, deductions, realRevenue, realExpenses, categoryMap]);
+  }, [cacheConfigs, deductions, realRevenue, occupancyPct, realExpenses, categoryMap]);
 
   return {
     results,
     realRevenue,
     realExpenses,
+    occupancyPct,
     isLoading: !salesData,
   };
 }
