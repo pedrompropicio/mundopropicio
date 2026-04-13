@@ -53,6 +53,7 @@ import HelpCenter from "./pages/HelpCenter";
 import Reimbursements from "./pages/Reimbursements";
 import EventImplementations from "./pages/EventImplementations";
 import EventImplementationDetail from "./pages/EventImplementationDetail";
+import UserActivityLog from "./pages/UserActivityLog";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -72,6 +73,9 @@ function ProtectedLayout() {
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
+
+  // Track user activity for admin analytics
+  const { useActivityTracker } = require("@/hooks/useActivityTracker");
 
   // If recovery is in progress and user somehow landed here, force sign out
   useEffect(() => {
@@ -161,6 +165,7 @@ function ProtectedLayout() {
               <Route path="/admin/lixeira" element={<TrashPage />} />
               <Route path="/admin/implantacao" element={<EventImplementations />} />
               <Route path="/admin/implantacao/:id" element={<EventImplementationDetail />} />
+              <Route path="/admin/atividade" element={<UserActivityLog />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             
