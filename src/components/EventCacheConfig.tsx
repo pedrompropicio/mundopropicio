@@ -259,10 +259,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   // Enrich configs with tiers for calculation hooks
   const enrichedConfigs = useMemo(() => cacheConfigs.map((c: any) => ({
     ...c,
-    tiers: getTiersForConfig(c.id).map((t: any) => ({
-      occupancy_threshold: Number(t.occupancy_threshold),
-      percentage: Number(t.percentage),
-    })),
+    tiers: tiers
+      .filter((t: any) => t.cache_config_id === c.id)
+      .sort((a: any, b: any) => Number(a.occupancy_threshold) - Number(b.occupancy_threshold))
+      .map((t: any) => ({
+        occupancy_threshold: Number(t.occupancy_threshold),
+        percentage: Number(t.percentage),
+      })),
   })), [cacheConfigs, tiers]);
 
   // Real cache calculation (for settlement)
