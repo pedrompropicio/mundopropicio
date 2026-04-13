@@ -261,7 +261,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     return basis * (pct / 100);
   };
 
-  // Calculate variable cachê
+  // Calculate variable cachê (using tiers if available, defaulting to 100% occupancy for projection)
   const calculateVariableCache = (config: any) => {
     const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
     const categoryDeduction = calculateDeductionAmount(config.id, deductionBasisGross);
@@ -269,11 +269,49 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     const totalDeduction = categoryDeduction + fixedPctDeduction;
     const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
     const baseForCalc = basis - totalDeduction;
-    const pct = Number(config.percentage) || 0;
+    const configTiers = getTiersForConfig(config.id);
+    let pct: number;
+    if (configTiers.length > 0) {
+      // For projection, use highest tier (100% occupancy)
+      const sorted = [...configTiers].sort((a: any, b: any) => Number(b.occupancy_threshold) - Number(a.occupancy_threshold));
+      pct = Number(sorted[0].percentage) || 0;
+    } else {
+      pct = Number(config.percentage) || 0;
+    }
     const calculated = Math.max(0, baseForCalc * (pct / 100));
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
     return Math.max(minGuaranteed, calculated);
   };
+
+  // Tier mutations
+  const addTierMutation = useMutation({
+    mutationFn: async ({ configId, threshold, pct }: { configId: string; threshold: number; pct: number }) => {
+      const existing = getTiersForConfig(configId);
+      const { error } = await supabase.from("event_cache_tiers" as any).insert({
+        cache_config_id: configId,
+        occupancy_threshold: threshold,
+        percentage: pct,
+        sort_order: existing.length,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
+    onError: (err: any) => toast({ title: "Erro ao adicionar faixa", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteTierMutation = useMutation({
+    mutationFn: async (tierId: string) => {
+      const { error } = await supabase.from("event_cache_tiers" as any).delete().eq("id", tierId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
+  });
 
   // Add config
   const addMutation = useMutation({
