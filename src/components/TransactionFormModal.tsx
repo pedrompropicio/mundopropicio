@@ -1884,6 +1884,87 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </form>
+
+        {/* Split disambiguation dialog */}
+        {showSplitDisambiguation && disambiguationForecast && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setShowSplitDisambiguation(false)}>
+            <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <Split className="h-4 w-4 text-primary" />
+                  Rateio ou Exclusivo?
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Esta categoria existe no BP do evento Master (rateio). Como deseja lançar esta despesa?
+                </p>
+              </div>
+
+              {(() => {
+                const catInfo = categories.find((c: any) => c.id === disambiguationCategoryId);
+                const catLabel = catInfo ? `${catInfo.code} ${catInfo.name}` : "Categoria";
+                const parentEvent = events.find((e: any) => e.id === disambiguationForecast.parentId);
+                const masterAmount = Number(disambiguationForecast.parentForecast?.amount || 0);
+                const subForecast = disambiguationForecast.subEventForecast;
+                const siblingCount = disambiguationForecast.siblings?.length || 0;
+                const fmtMoney = (n: number) => n.toLocaleString("pt-PT", { minimumFractionDigits: 2 }) + "€";
+
+                return (
+                  <div className="space-y-2">
+                    <div className="rounded-lg bg-secondary/50 p-3 text-xs space-y-1">
+                      <p className="font-medium text-foreground">{catLabel}</p>
+                      <p className="text-muted-foreground">Master: {parentEvent?.name} — BP: {fmtMoney(masterAmount)}</p>
+                      {subForecast && (
+                        <p className="text-muted-foreground">Sub-evento: BP local — {fmtMoney(Number(subForecast.amount))}</p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={confirmSplitFromDisambiguation}
+                      className="w-full rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-left transition-all hover:border-primary/60 hover:bg-primary/10"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Split className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Rateio — Dividir por {siblingCount} cidades</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            O valor será dividido por todos os sub-eventos. Usa os dados do BP Master.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={confirmExclusiveFromDisambiguation}
+                      className="w-full rounded-lg border-2 border-border bg-background p-3 text-left transition-all hover:border-accent hover:bg-accent/5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base shrink-0">📌</span>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Exclusivo deste evento</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {subForecast
+                              ? "Despesa específica desta cidade. Usa os dados do BP local."
+                              : "Despesa específica desta cidade. Sem previsão no BP — será marcada como 'Fora do BP'."}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              <button
+                type="button"
+                onClick={() => setShowSplitDisambiguation(false)}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
