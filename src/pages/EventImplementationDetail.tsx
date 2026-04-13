@@ -264,6 +264,50 @@ export default function EventImplementationDetail() {
     }
   }, [impl, extracted, extractFromFile]);
 
+  // Auto-match: after extraction, check if an existing event matches the extracted/notes name
+  useEffect(() => {
+    if (!extracted || existingEvents.length === 0 || setupMode === "link_existing") return;
+
+    // Collect candidate names: from notes instructions and extracted name
+    const candidates: string[] = [];
+    if (extracted.eventName) candidates.push(extracted.eventName);
+    // Also check notes/instructions for explicit event name references
+    const notesName = parseNotesData(impl?.notes ?? null).eventName;
+    if (notesName) candidates.push(notesName);
+    // Check import_instructions for event name mentions
+    const instrText = impl?.import_instructions ?? "";
+    const instrMatch = instrText.match(/evento\s+(?:já\s+criado\s+)?(?:e\s+se\s+chama\s+|chamado\s+)?["""]?([^""".,]+)/i);
+    if (instrMatch) candidates.push(instrMatch[1].trim());
+    // Also try matching the pattern "evento <Name> já criado"
+    const instrMatch2 = instrText.match(/evento\s+(.+?)\s+já\s+criado/i);
+    if (instrMatch2) candidates.push(instrMatch2[1].trim());
+
+    // Normalize for comparison
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-záàâãéèêíïóôõöúüç0-9\s]/gi, "").replace(/\s+/g, " ").trim();
+
+    // Find best match among root events
+    const rootEvents = existingEvents.filter(e => !e.parent_event_id);
+    for (const candidate of candidates) {
+      const normCandidate = normalize(candidate);
+      if (normCandidate.length < 4) continue;
+
+      const match = rootEvents.find(e => {
+        const normName = normalize(e.name);
+        // Exact or substring match
+        return normName === normCandidate
+          || normName.includes(normCandidate)
+          || normCandidate.includes(normName);
+      });
+
+      if (match) {
+        setSetupMode("link_existing");
+        setSetupExistingId(match.id);
+        toast.info(`Evento "${match.name}" encontrado — vinculação automática sugerida`);
+        return;
+      }
+    }
+  }, [extracted, existingEvents, impl?.notes, impl?.import_instructions, parseNotesData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // For master events, fetch splits
   const { data: splitEvents = [] } = useQuery({
     queryKey: ["split-events-impl", event?.id],
