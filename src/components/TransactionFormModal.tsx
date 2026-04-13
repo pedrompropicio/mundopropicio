@@ -316,7 +316,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   }, [eventForecasts, isParentMultiDay, effectiveEventId]);
 
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
-  // auto-activate split mode with all sibling cities pre-filled
+  // show disambiguation dialog instead of auto-activating split
   const tryAutoSplitFromSubEvent = (categoryId: string, type: string) => {
     if (!isSubEvent || isSplit || !categoryId) return false;
     const parentId = selectedEvent?.parent_event_id;
@@ -328,11 +328,25 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     );
     if (!parentForecast) return false;
 
+    // Check if category also exists in the sub-event's own BP
+    const subEventForecast = eventForecasts.find(
+      (f: any) => f.event_id === form.event_id && f.type === type && f.category_id === categoryId
+    );
+
     // Get all sibling sub-events (children of the same parent)
     const siblings = subEventsByParent[parentId] || [];
     if (siblings.length < 2) return false;
 
-    // Activate split with all cities
+    // Show disambiguation dialog
+    setDisambiguationCategoryId(categoryId);
+    setDisambiguationForecast({ parentForecast, subEventForecast, parentId, siblings });
+    setShowSplitDisambiguation(true);
+    return true;
+  };
+
+  // Confirm split (rateio) from disambiguation
+  const confirmSplitFromDisambiguation = () => {
+    const { parentForecast, parentId, siblings } = disambiguationForecast;
     const parentEvent = events.find((e: any) => e.id === parentId);
     const pct = +(100 / siblings.length).toFixed(2);
     const entries: SplitEntry[] = siblings.map((child: any, idx: number) => {
@@ -354,13 +368,43 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     setForm(prev => ({
       ...prev,
       event_id: "",
-      category_id: categoryId,
-      description: (parentForecast as any).description || prev.description,
-      amount: String(Number((parentForecast as any).amount) || prev.amount),
-      iva_rate: ((parentForecast as any).iva_rate ?? prev.iva_rate) as IvaRate,
-      specification: (parentForecast as any).specification || prev.specification,
+      category_id: disambiguationCategoryId,
+      description: parentForecast.description || prev.description,
+      amount: String(Number(parentForecast.amount) || prev.amount),
+      iva_rate: (parentForecast.iva_rate ?? prev.iva_rate) as IvaRate,
+      specification: parentForecast.specification || prev.specification,
     }));
-    return true;
+
+    setShowSplitDisambiguation(false);
+    setDisambiguationCategoryId("");
+    setDisambiguationForecast(null);
+  };
+
+  // Confirm exclusive (this event only) from disambiguation
+  const confirmExclusiveFromDisambiguation = () => {
+    const categoryId = disambiguationCategoryId;
+    const subForecast = disambiguationForecast?.subEventForecast;
+
+    if (subForecast) {
+      // Category exists in sub-event's BP — fill from it
+      setForm(prev => ({
+        ...prev,
+        category_id: categoryId,
+        description: subForecast.description || prev.description,
+        amount: String(Number(subForecast.amount) || prev.amount),
+        iva_rate: (subForecast.iva_rate ?? prev.iva_rate) as IvaRate,
+        specification: subForecast.specification || prev.specification,
+      }));
+    } else {
+      // Not in sub-event BP — set category and activate override
+      setForm(prev => ({ ...prev, category_id: categoryId }));
+      setPlOverride(true);
+    }
+
+    setShowSplitDisambiguation(false);
+    setDisambiguationCategoryId("");
+    setDisambiguationForecast(null);
+    setPlExpanded(false);
   };
 
 
