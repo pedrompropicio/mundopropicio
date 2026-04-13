@@ -32,6 +32,7 @@ interface ForecastWithEvent {
 interface ApportionmentCandidate {
   key: string; // category_id or description-based key
   description: string;
+  specification: string | null;
   category_id: string | null;
   category_code: string;
   category_name: string;
