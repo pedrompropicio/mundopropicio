@@ -615,18 +615,6 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
                      {/* Row: Revenue Basis + Deduction Basis */}
                     <div className="grid grid-cols-[auto,auto] gap-3 items-start">
-                        <div className="flex items-center gap-2">
-                          {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <div>
-                            <span className="text-xs font-medium">Finalizado</span>
-                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor.</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={isFinalized}
-                          onCheckedChange={(checked) => toggleFinalizedMutation.mutate({ configId: config.id, value: checked })}
-                        />
-                      </div>
                       <div className="space-y-1">
                         <span className="text-[10px] font-medium text-muted-foreground">Receita</span>
                         <div className="flex gap-1">
