@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ArrowUpRight, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 
 interface Props {
   implementation: any;
@@ -30,7 +30,7 @@ interface ForecastWithEvent {
 }
 
 interface ApportionmentCandidate {
-  key: string; // category_id or description-based key
+  key: string;
   description: string;
   specification: string | null;
   category_id: string | null;
@@ -41,10 +41,23 @@ interface ApportionmentCandidate {
   suggested: boolean;
 }
 
+interface MasterForecastRow {
+  id: string;
+  description: string;
+  specification: string | null;
+  amount: number;
+  iva_rate: number;
+  category_id: string | null;
+  category_code: string;
+  category_name: string;
+}
+
 export function ImplApportionmentTab({ implementation, masterEvent, splitEvents }: Props) {
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [promoting, setPromoting] = useState(false);
+  const [selectedMasterIds, setSelectedMasterIds] = useState<Set<string>>(new Set());
+  const [distributing, setDistributing] = useState(false);
 
   const allSplitIds = splitEvents.map((e) => e.id);
 
@@ -69,17 +82,22 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
     enabled: allSplitIds.length > 0,
   });
 
-  // Fetch existing master forecasts to avoid duplicates
+  // Fetch existing master forecasts (full details for distribute feature)
   const { data: masterForecasts = [] } = useQuery({
     queryKey: ["impl-master-forecasts", masterEvent.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, description, category_id, amount")
+        .select("id, description, specification, amount, iva_rate, category_id, account_categories:category_id(code, name)")
         .eq("event_id", masterEvent.id)
-        .eq("type", "expense");
+        .eq("type", "expense")
+        .order("description");
       if (error) throw error;
-      return data;
+      return data.map((f: any) => ({
+        ...f,
+        category_code: f.account_categories?.code || "",
+        category_name: f.account_categories?.name || "",
+      })) as MasterForecastRow[];
     },
   });
 
@@ -105,7 +123,6 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         });
       }
       const g = groups.get(key)!;
-      // Use the most informative specification (prefer non-null, then longest)
       if (!g.specification && f.specification) {
         g.specification = f.specification;
       } else if (f.specification && g.specification && f.specification.length > g.specification.length) {
@@ -122,10 +139,8 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
 
     const result: ApportionmentCandidate[] = [];
     for (const [, g] of groups) {
-      // Count unique events
       const uniqueEvents = new Set(g.occurrences.map((o) => o.event_id));
       if (uniqueEvents.size >= 2) {
-        // Check if same amount in all events → strong signal for apportionment
         const amounts = g.occurrences.map((o) => o.amount);
         const allSame = amounts.every((a) => Math.abs(a - amounts[0]) < 0.01);
         g.suggested = allSame;
@@ -133,11 +148,10 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
       }
     }
 
-    // Check against existing master forecasts
     const masterCatIds = new Set(masterForecasts.map((f) => f.category_id).filter(Boolean));
     for (const c of result) {
       if (c.category_id && masterCatIds.has(c.category_id)) {
-        c.suggested = false; // Already in master
+        c.suggested = false;
       }
     }
 
@@ -162,6 +176,17 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
   const selectAll = () => setSelectedIds(new Set(candidates.map((c) => c.key)));
   const deselectAll = () => setSelectedIds(new Set());
 
+  const toggleMasterSelect = (id: string) => {
+    setSelectedMasterIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const selectAllMaster = () => setSelectedMasterIds(new Set(masterForecasts.map((f) => f.id)));
+  const deselectAllMaster = () => setSelectedMasterIds(new Set());
+
   const handlePromote = async () => {
     if (selectedIds.size === 0) {
       toast.error("Selecione pelo menos uma despesa");
@@ -173,10 +198,8 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
       const selected = candidates.filter((c) => selectedIds.has(c.key));
 
       for (const candidate of selected) {
-        // Calculate average amount for the master
         const avgAmount = candidate.totalAmount / candidate.occurrences.length;
 
-        // Create forecast in master
         const { error: insertErr } = await supabase.from("event_forecasts").insert({
           event_id: masterEvent.id,
           type: "expense",
@@ -189,7 +212,6 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         });
         if (insertErr) throw insertErr;
 
-        // Delete from splits
         const forecastIds = candidate.occurrences.map((o) => o.forecast_id);
         const { error: deleteErr } = await supabase
           .from("event_forecasts")
@@ -209,6 +231,60 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
     }
   };
 
+  const handleDistribute = async () => {
+    if (selectedMasterIds.size === 0) {
+      toast.error("Selecione pelo menos uma despesa do Master");
+      return;
+    }
+    if (allSplitIds.length === 0) {
+      toast.error("Nenhum sub-evento encontrado");
+      return;
+    }
+
+    setDistributing(true);
+    try {
+      const selected = masterForecasts.filter((f) => selectedMasterIds.has(f.id));
+      const splitCount = allSplitIds.length;
+
+      for (const forecast of selected) {
+        const splitAmount = Math.round((Number(forecast.amount) / splitCount) * 100) / 100;
+        // Adjust last split to absorb rounding difference
+        const totalDistributed = splitAmount * (splitCount - 1);
+        const lastAmount = Math.round((Number(forecast.amount) - totalDistributed) * 100) / 100;
+
+        const inserts = allSplitIds.map((eventId, idx) => ({
+          event_id: eventId,
+          type: "expense" as const,
+          description: forecast.description,
+          specification: forecast.specification,
+          amount: idx === splitCount - 1 ? lastAmount : splitAmount,
+          iva_rate: forecast.iva_rate,
+          category_id: forecast.category_id,
+          status: "draft",
+        }));
+
+        const { error: insertErr } = await supabase.from("event_forecasts").insert(inserts);
+        if (insertErr) throw insertErr;
+
+        // Delete from master
+        const { error: deleteErr } = await supabase
+          .from("event_forecasts")
+          .delete()
+          .eq("id", forecast.id);
+        if (deleteErr) throw deleteErr;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["impl-split-forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["impl-master-forecasts"] });
+      toast.success(`${selected.length} despesa(s) distribuída(s) para ${splitCount} sub-eventos`);
+      setSelectedMasterIds(new Set());
+    } catch (err: any) {
+      toast.error("Erro ao distribuir: " + err.message);
+    } finally {
+      setDistributing(false);
+    }
+  };
+
   const fmtMoney = (n: number) =>
     n.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€";
 
@@ -217,11 +293,92 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
   }
 
   return (
-    <div className="space-y-4">
-      {/* Info */}
+    <div className="space-y-6">
+      {/* === SECTION 1: Distribute Master → Splits === */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Análise de Rateio</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ArrowDownRight className="h-4 w-4 text-blue-500" />
+            Distribuir Master → Sub-Eventos
+          </CardTitle>
+          <CardDescription>
+            Despesas do Master que podem ser divididas igualmente por todos os {allSplitIds.length} sub-eventos.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {masterForecasts.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <p className="text-sm">Nenhuma despesa no Master para distribuir</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 text-sm">
+              <span>{masterForecasts.length} no Master</span>
+              <span className="text-muted-foreground">|</span>
+              <span>{selectedMasterIds.size} selecionadas</span>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={selectAllMaster}>Selecionar todas</Button>
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={deselectAllMaster}>Limpar</Button>
+            </div>
+            <Button onClick={handleDistribute} disabled={distributing || selectedMasterIds.size === 0} variant="outline">
+              {distributing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowDownRight className="h-4 w-4 mr-2" />}
+              Distribuir ({selectedMasterIds.size}) → {allSplitIds.length} sub-eventos
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10"></TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead className="text-right">Valor Total</TableHead>
+                      <TableHead className="text-right">Valor/Sub-Evento</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {masterForecasts.map((f) => {
+                      const perSplit = Number(f.amount) / allSplitIds.length;
+                      return (
+                        <TableRow key={f.id} className={selectedMasterIds.has(f.id) ? "bg-blue-500/5" : ""}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedMasterIds.has(f.id)}
+                              onCheckedChange={() => toggleMasterSelect(f.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium text-sm">{f.description}</TableCell>
+                          <TableCell className="text-xs">
+                            {f.category_code ? `${f.category_code} ${f.category_name}` : (
+                              <span className="text-amber-500">Sem categoria</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold">{fmtMoney(Number(f.amount))}</TableCell>
+                          <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtMoney(perSplit)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* === SECTION 2: Promote Splits → Master === */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ArrowUpRight className="h-4 w-4 text-green-500" />
+            Promover Sub-Eventos → Master
+          </CardTitle>
           <CardDescription>
             Despesas que aparecem em 2 ou mais sub-eventos e podem ser consolidadas no Master como rateio.
             Despesas com mesmo valor em todos os sub-eventos são automaticamente sugeridas.
@@ -231,18 +388,16 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
 
       {candidates.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <CheckCircle2 className="h-12 w-12 mb-4 opacity-50" />
-            <p className="text-lg font-medium">Nenhuma despesa candidata a rateio</p>
-            <p className="text-sm">Todas as despesas são específicas de cada sub-evento</p>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <CheckCircle2 className="h-10 w-10 mb-3 opacity-50" />
+            <p className="text-sm font-medium">Nenhuma despesa candidata a rateio</p>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Actions */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-sm">
-              <span>{candidates.length} candidatas encontradas</span>
+              <span>{candidates.length} candidatas</span>
               <span className="text-muted-foreground">|</span>
               <span>{selectedIds.size} selecionadas</span>
               <Button variant="link" size="sm" className="h-auto p-0" onClick={selectAll}>Selecionar todas</Button>
@@ -254,7 +409,6 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
             </Button>
           </div>
 
-          {/* Table */}
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
