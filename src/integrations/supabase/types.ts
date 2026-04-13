@@ -220,6 +220,7 @@ export type Database = {
           minimum_guaranteed: number
           percentage: number
           real_amount: number | null
+          supplier_id: string | null
           updated_at: string
         }
         Insert: {
@@ -239,6 +240,7 @@ export type Database = {
           minimum_guaranteed?: number
           percentage?: number
           real_amount?: number | null
+          supplier_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -258,6 +260,7 @@ export type Database = {
           minimum_guaranteed?: number
           percentage?: number
           real_amount?: number | null
+          supplier_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -266,6 +269,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_configs_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
