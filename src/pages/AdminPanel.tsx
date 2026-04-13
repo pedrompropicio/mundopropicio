@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, Trash2, History } from "lucide-react";
+import { Users, Database, ShieldAlert, Trash2, History, Activity } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -34,6 +34,12 @@ const adminCards = [
     icon: History,
     title: "Implantação",
     description: "Importar e reconciliar dados de eventos passados",
+  },
+  {
+    to: "/admin/atividade",
+    icon: Activity,
+    title: "Atividade",
+    description: "Tempo de utilização e secções mais usadas por utilizador",
   },
 ];
 
