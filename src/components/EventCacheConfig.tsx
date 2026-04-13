@@ -367,11 +367,11 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
 
   const deleteTierMutation = useMutation({
     mutationFn: async (tierId: string) => {
-      const { error } = await supabase.from("event_cache_tiers" as any).delete().eq("id", tierId);
+      const { error } = await supabase.from("event_cache_tiers").delete().eq("id", tierId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers", configIds.join(",")] });
       queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
     },
   });
