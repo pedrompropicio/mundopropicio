@@ -1045,14 +1045,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                       );
                     })}
                   </div>
-                      const shortName = entry.event_name.includes("—") ? entry.event_name.split("—").pop()?.trim() : entry.event_name;
-                      return (
-                        <span key={entry.event_id} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
-                          {shortName} <span className="font-semibold text-foreground">{entry.percentage.toFixed(1)}%</span>
-                        </span>
-                      );
-                    })}
-                  </div>
                 </div>
               ) : (
                 <TransactionSplitConfig
