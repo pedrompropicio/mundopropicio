@@ -282,8 +282,8 @@ export default function EventImplementationDetail() {
     const instrMatch2 = instrText.match(/evento\s+(.+?)\s+já\s+criado/i);
     if (instrMatch2) candidates.push(instrMatch2[1].trim());
 
-    // Normalize for comparison
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-záàâãéèêíïóôõöúüç0-9\s]/gi, "").replace(/\s+/g, " ").trim();
+    // Normalize for comparison: remove accents + lowercase
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s]/gi, "").replace(/\s+/g, " ").trim();
 
     // Find best match among root events
     const rootEvents = existingEvents.filter(e => !e.parent_event_id);
