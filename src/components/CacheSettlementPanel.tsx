@@ -34,6 +34,10 @@ export function CacheSettlementPanel({
   const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
   const realAmount = realResult?.finalAmount ?? 0;
 
+  const withholdingApplicable = !!config.withholding_applicable;
+  const withholdingRate = Number(config.withholding_rate) || 25;
+  const withholdingAmount = withholdingApplicable ? Math.round(realAmount * (withholdingRate / 100)) : 0;
+
   const [editingAdjusted, setEditingAdjusted] = useState(false);
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
@@ -46,6 +50,8 @@ export function CacheSettlementPanel({
   if (!realResult) return null;
 
   const effectiveValue = adjustedAmount != null ? adjustedAmount : realAmount;
+  const effectiveWithholding = withholdingApplicable ? Math.round(effectiveValue * (withholdingRate / 100)) : 0;
+  const netPayable = effectiveValue - effectiveWithholding;
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
   const hasMissingDeductions = (realResult.missingDeductionCategories?.length ?? 0) > 0;
