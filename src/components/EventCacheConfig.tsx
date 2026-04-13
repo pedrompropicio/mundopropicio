@@ -259,6 +259,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         percentage: cacheType === "variable" ? (parseFloat(percentage) || 0) : 0,
         minimum_guaranteed: cacheType === "variable" ? (parseFloat(minimumGuaranteed) || 0) : 0,
         cache_revenue_basis: cacheType === "variable" ? revenueBasis : "net",
+        supplier_id: formSupplierId || null,
       } as any);
       if (error) throw error;
     },
@@ -328,6 +329,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     setFixedAmount("");
     setPercentage("");
     setMinimumGuaranteed("");
+    setFormSupplierId("");
     setRevenueBasis("net");
     setShowAddForm(false);
   };
