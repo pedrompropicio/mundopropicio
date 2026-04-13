@@ -109,6 +109,33 @@ export default function ReportForecastPayables() {
     },
   });
 
+  const { data: cacheConfigs = [] } = useQuery({
+    queryKey: ["all-cache-configs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_configs").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: cacheDeductions = [] } = useQuery({
+    queryKey: ["all-cache-deductions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_deductions").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: cacheTiers = [] } = useQuery({
+    queryKey: ["all-cache-tiers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_cache_tiers").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const selectedEvent = events.find((e: any) => e.id === selectedEventId);
   const relevantEventIds = useMemo(() => {
     if (!selectedEventId) return [];
