@@ -1375,7 +1375,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
-              onValueChange={(v) => setForm({ ...form, category_id: v })}
+              onValueChange={(v) => {
+                const switched = tryAutoSplitFromSubEvent(v, form.type);
+                if (!switched) {
+                  setForm({ ...form, category_id: v });
+                } else {
+                  setForm(prev => ({ ...prev, category_id: v }));
+                }
+              }}
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
