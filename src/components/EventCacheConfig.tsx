@@ -233,10 +233,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
       cache_deduction_basis: c.cache_deduction_basis,
       minimum_guaranteed: Number(c.minimum_guaranteed),
       is_finalized: !!c.is_finalized,
-      tiers: getTiersForConfig(c.id).map((t: any) => ({
-        occupancy_threshold: Number(t.occupancy_threshold),
-        percentage: Number(t.percentage),
-      })),
+      tiers: tiers
+        .filter((t: any) => t.cache_config_id === c.id)
+        .sort((a: any, b: any) => Number(a.occupancy_threshold) - Number(b.occupancy_threshold))
+        .map((t: any) => ({
+          occupancy_threshold: Number(t.occupancy_threshold),
+          percentage: Number(t.percentage),
+        })),
     })),
     deductions: deductions.map((d: any) => ({
       cache_config_id: d.cache_config_id,
