@@ -456,14 +456,14 @@ export function ResultsAnalysis() {
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-3 text-left font-medium" rowSpan={2}>Evento</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={4}>Projeção</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={3}>Projeção</th>
                   <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={4}>Resultado Real</th>
                 </tr>
                 <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-right font-medium">Margem 100%</th>
                   <th className="p-2 text-right font-medium">Margem 80%</th>
                   <th className="p-2 text-right font-medium">Break-Even</th>
-                  <th className="p-2 text-right font-medium hidden lg:table-cell">Empresa</th>
+                  
                   <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
                   <th className="p-2 text-right font-medium">Despesa</th>
                   <th className="p-2 text-right font-medium">Margem</th>
@@ -483,11 +483,43 @@ export function ResultsAnalysis() {
                         <SourceBadge source={e.expenseSource} />
                       </div>
                     </td>
-                    <td className={`p-3 text-right font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(e.margin100)}
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                          {formatCurrency(e.margin100)}
+                        </span>
+                        {e.totalPartnerPct > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                              Empresa {(100 - e.totalPartnerPct).toFixed(0)}%
+                            </Badge>
+                            <span className={`font-mono text-xs ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                              {formatCurrency(e.companyMargin100)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    <td className={`p-3 text-right font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(e.margin80)}
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                          {formatCurrency(e.margin80)}
+                        </span>
+                        {e.totalPartnerPct > 0 && (() => {
+                          const companyPct = 100 - e.totalPartnerPct;
+                          const companyMargin80 = e.margin80 * (companyPct / 100);
+                          return (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                Empresa {companyPct.toFixed(0)}%
+                              </Badge>
+                              <span className={`font-mono text-xs ${companyMargin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(companyMargin80)}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </td>
                     <td className="p-3 text-right">
                       <Badge
@@ -496,9 +528,6 @@ export function ResultsAnalysis() {
                       >
                         {e.breakEvenPct.toFixed(1)}%
                       </Badge>
-                    </td>
-                    <td className={`p-3 text-right font-mono hidden lg:table-cell ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                      {e.totalPartnerPct > 0 ? formatCurrency(e.companyMargin100) : "—"}
                     </td>
                     <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.actualIncome)}</td>
                     <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.actualExpense)}</td>
