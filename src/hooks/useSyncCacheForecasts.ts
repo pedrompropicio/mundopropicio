@@ -70,6 +70,7 @@ export function useSyncCacheForecasts({
         cache_deduction_basis: c.cache_deduction_basis,
         minimum_guaranteed: c.minimum_guaranteed,
         is_finalized: c.is_finalized,
+        tiers: c.tiers,
       })),
       deductions: deductions.map((d) => `${d.cache_config_id}:${d.category_id}`).sort(),
       ticketRevenueNet: Math.round(ticketRevenueNet * 100),
