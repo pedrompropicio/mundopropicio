@@ -158,11 +158,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: form.is_reimbursement,
   });
 
+  const effectiveEventId = form.event_id || splitMasterEventId;
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
-  const isActivePL = selectedEvent?.pl_mode === "active";
-  const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
+  const effectiveEvent = events.find((e: any) => e.id === effectiveEventId);
+  const isActivePL = effectiveEvent?.pl_mode === "active";
+  const hasPL = effectiveEvent?.pl_mode === "active" || effectiveEvent?.pl_mode === "passive";
   const hasPLRestriction = hasPL;
-  const isParentMultiDay = selectedEvent?.event_type === "multi_day";
+  const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
@@ -177,19 +179,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   // For parent multi_day events, fetch parent's own BP + child BPs for aggregation
   // For child (split) events, also include parent's BP lines (shared/prorated costs)
+  // For split auto-configured (Master selected), use splitMasterEventId
   const forecastEventIds = useMemo(() => {
-    if (!form.event_id) return [];
-    if (isParentMultiDay) {
-      const childIds = (subEventsByParent[form.event_id] || []).map((e: any) => e.id);
-      return [form.event_id, ...childIds];
+    const eid = effectiveEventId;
+    if (!eid) return [];
+    const ev = events.find((e: any) => e.id === eid);
+    if (ev?.event_type === "multi_day") {
+      const childIds = (subEventsByParent[eid] || []).map((e: any) => e.id);
+      return [eid, ...childIds];
     }
     // If this is a child event, include the parent's BP too
-    const parentId = selectedEvent?.parent_event_id;
+    const parentId = ev?.parent_event_id;
     if (parentId) {
-      return [form.event_id, parentId];
+      return [eid, parentId];
     }
-    return [form.event_id];
-  }, [form.event_id, isParentMultiDay, subEventsByParent, selectedEvent?.parent_event_id]);
+    return [eid];
+  }, [effectiveEventId, events, subEventsByParent]);
 
   // Build event options for SearchableSelect
   const eventOptions = useMemo(() => {
