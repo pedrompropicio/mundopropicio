@@ -86,6 +86,22 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     enabled: configIds.length > 0,
   });
 
+  // Fetch tiers for all configs
+  const { data: tiers = [] } = useQuery({
+    queryKey: ["event_cache_tiers", configIds.join(",")],
+    queryFn: async () => {
+      if (configIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_cache_tiers" as any)
+        .select("*")
+        .in("cache_config_id", configIds)
+        .order("sort_order");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: configIds.length > 0,
+  });
+
   // Fetch expense categories (for deduction selection)
   const { data: categories = [] } = useQuery({
     queryKey: ["account_categories"],
