@@ -187,6 +187,8 @@ const helpTexts: Record<string, string> = {
     "Histórico detalhado de todas as alterações desta transação. Cada modificação regista o campo alterado, o valor antigo, o novo valor e o autor.",
   linkPartnerExpense:
     "Vincular uma despesa existente a um sócio. A despesa será integrada no encontro de contas do Fecho Parceiros deste evento.",
+  reportForecastPayables:
+    "Projeção de contas a pagar por evento: cruza as previsões do Business Plan com as transações lançadas para calcular o fluxo de caixa necessário. 'Em Aberto' = lançado mas não pago; 'Saldo BP' = previsto mas ainda não lançado; 'Total a Pagar' = necessidade total de caixa.",
 };
 
 export default helpTexts;
