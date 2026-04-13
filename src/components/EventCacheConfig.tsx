@@ -839,6 +839,50 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                       </div>
                     </div>
 
+                    {/* Tiered percentages */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Faixas de Percentual por Ocupação
+                        </span>
+                        <HelpTooltip text="Define percentuais progressivos conforme a ocupação de bilhetes vendidos. Ex: 40% até 70% vendido, 45% até 85%, 50% para sold out." size={12} />
+                      </div>
+
+                      {configTiers.length > 0 && (
+                        <div className="space-y-1">
+                          {configTiers.map((tier: any) => (
+                            <div key={tier.id} className="flex items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-xs border border-border/50">
+                              <span className="text-muted-foreground">Até</span>
+                              <span className="font-mono font-semibold">{Number(tier.occupancy_threshold)}%</span>
+                              <span className="text-muted-foreground">da carga →</span>
+                              <span className="font-mono font-bold text-warning">{Number(tier.percentage)}%</span>
+                              <span className="text-muted-foreground">de cachê</span>
+                              {!isFinalized && (
+                                <button
+                                  onClick={() => deleteTierMutation.mutate(tier.id)}
+                                  className="ml-auto rounded p-1 text-destructive/50 hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {!isFinalized && (
+                        <TierAddForm
+                          onAdd={(threshold, pct) => addTierMutation.mutate({ configId: config.id, threshold, pct })}
+                        />
+                      )}
+
+                      {configTiers.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground italic">
+                          Sem faixas — será usado o percentual fixo ({Number(config.percentage) || 0}%) definido na criação.
+                        </p>
+                      )}
+                    </div>
 
                     {/* Category-based deductions */}
                     <div className="space-y-1.5">
