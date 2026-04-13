@@ -498,7 +498,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
 
     return null;
-  }, [isSplit, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
+  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
 
   // Check if any split event needs BP bypass
   const splitNeedsBypass = useMemo(() => {
