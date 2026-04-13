@@ -88,6 +88,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
   const [newReimbursementEmployeeName, setNewReimbursementEmployeeName] = useState("");
+  const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
+  const [disambiguationCategoryId, setDisambiguationCategoryId] = useState("");
+  const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -313,7 +316,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   }, [eventForecasts, isParentMultiDay, effectiveEventId]);
 
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
-  // auto-activate split mode with all sibling cities pre-filled
+  // show disambiguation dialog instead of auto-activating split
   const tryAutoSplitFromSubEvent = (categoryId: string, type: string) => {
     if (!isSubEvent || isSplit || !categoryId) return false;
     const parentId = selectedEvent?.parent_event_id;
@@ -325,11 +328,25 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     );
     if (!parentForecast) return false;
 
+    // Check if category also exists in the sub-event's own BP
+    const subEventForecast = eventForecasts.find(
+      (f: any) => f.event_id === form.event_id && f.type === type && f.category_id === categoryId
+    );
+
     // Get all sibling sub-events (children of the same parent)
     const siblings = subEventsByParent[parentId] || [];
     if (siblings.length < 2) return false;
 
-    // Activate split with all cities
+    // Show disambiguation dialog
+    setDisambiguationCategoryId(categoryId);
+    setDisambiguationForecast({ parentForecast, subEventForecast, parentId, siblings });
+    setShowSplitDisambiguation(true);
+    return true;
+  };
+
+  // Confirm split (rateio) from disambiguation
+  const confirmSplitFromDisambiguation = () => {
+    const { parentForecast, parentId, siblings } = disambiguationForecast;
     const parentEvent = events.find((e: any) => e.id === parentId);
     const pct = +(100 / siblings.length).toFixed(2);
     const entries: SplitEntry[] = siblings.map((child: any, idx: number) => {
@@ -351,13 +368,43 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     setForm(prev => ({
       ...prev,
       event_id: "",
-      category_id: categoryId,
-      description: (parentForecast as any).description || prev.description,
-      amount: String(Number((parentForecast as any).amount) || prev.amount),
-      iva_rate: ((parentForecast as any).iva_rate ?? prev.iva_rate) as IvaRate,
-      specification: (parentForecast as any).specification || prev.specification,
+      category_id: disambiguationCategoryId,
+      description: parentForecast.description || prev.description,
+      amount: String(Number(parentForecast.amount) || prev.amount),
+      iva_rate: (parentForecast.iva_rate ?? prev.iva_rate) as IvaRate,
+      specification: parentForecast.specification || prev.specification,
     }));
-    return true;
+
+    setShowSplitDisambiguation(false);
+    setDisambiguationCategoryId("");
+    setDisambiguationForecast(null);
+  };
+
+  // Confirm exclusive (this event only) from disambiguation
+  const confirmExclusiveFromDisambiguation = () => {
+    const categoryId = disambiguationCategoryId;
+    const subForecast = disambiguationForecast?.subEventForecast;
+
+    if (subForecast) {
+      // Category exists in sub-event's BP — fill from it
+      setForm(prev => ({
+        ...prev,
+        category_id: categoryId,
+        description: subForecast.description || prev.description,
+        amount: String(Number(subForecast.amount) || prev.amount),
+        iva_rate: (subForecast.iva_rate ?? prev.iva_rate) as IvaRate,
+        specification: subForecast.specification || prev.specification,
+      }));
+    } else {
+      // Not in sub-event BP — set category and activate override
+      setForm(prev => ({ ...prev, category_id: categoryId }));
+      setPlOverride(true);
+    }
+
+    setShowSplitDisambiguation(false);
+    setDisambiguationCategoryId("");
+    setDisambiguationForecast(null);
+    setPlExpanded(false);
   };
 
 
@@ -1837,6 +1884,87 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </form>
+
+        {/* Split disambiguation dialog */}
+        {showSplitDisambiguation && disambiguationForecast && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setShowSplitDisambiguation(false)}>
+            <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl space-y-4" onClick={e => e.stopPropagation()}>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <Split className="h-4 w-4 text-primary" />
+                  Rateio ou Exclusivo?
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Esta categoria existe no BP do evento Master (rateio). Como deseja lançar esta despesa?
+                </p>
+              </div>
+
+              {(() => {
+                const catInfo = categories.find((c: any) => c.id === disambiguationCategoryId);
+                const catLabel = catInfo ? `${catInfo.code} ${catInfo.name}` : "Categoria";
+                const parentEvent = events.find((e: any) => e.id === disambiguationForecast.parentId);
+                const masterAmount = Number(disambiguationForecast.parentForecast?.amount || 0);
+                const subForecast = disambiguationForecast.subEventForecast;
+                const siblingCount = disambiguationForecast.siblings?.length || 0;
+                const fmtMoney = (n: number) => n.toLocaleString("pt-PT", { minimumFractionDigits: 2 }) + "€";
+
+                return (
+                  <div className="space-y-2">
+                    <div className="rounded-lg bg-secondary/50 p-3 text-xs space-y-1">
+                      <p className="font-medium text-foreground">{catLabel}</p>
+                      <p className="text-muted-foreground">Master: {parentEvent?.name} — BP: {fmtMoney(masterAmount)}</p>
+                      {subForecast && (
+                        <p className="text-muted-foreground">Sub-evento: BP local — {fmtMoney(Number(subForecast.amount))}</p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={confirmSplitFromDisambiguation}
+                      className="w-full rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-left transition-all hover:border-primary/60 hover:bg-primary/10"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Split className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Rateio — Dividir por {siblingCount} cidades</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            O valor será dividido por todos os sub-eventos. Usa os dados do BP Master.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={confirmExclusiveFromDisambiguation}
+                      className="w-full rounded-lg border-2 border-border bg-background p-3 text-left transition-all hover:border-accent hover:bg-accent/5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base shrink-0">📌</span>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Exclusivo deste evento</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {subForecast
+                              ? "Despesa específica desta cidade. Usa os dados do BP local."
+                              : "Despesa específica desta cidade. Sem previsão no BP — será marcada como 'Fora do BP'."}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              <button
+                type="button"
+                onClick={() => setShowSplitDisambiguation(false)}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
