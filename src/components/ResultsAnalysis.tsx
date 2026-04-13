@@ -529,9 +529,6 @@ export function ResultsAnalysis() {
                         {e.breakEvenPct.toFixed(1)}%
                       </Badge>
                     </td>
-                    <td className={`p-3 text-right font-mono hidden lg:table-cell ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                      {e.totalPartnerPct > 0 ? formatCurrency(e.companyMargin100) : "—"}
-                    </td>
                     <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.actualIncome)}</td>
                     <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.actualExpense)}</td>
                     <td className="p-3 text-right">
