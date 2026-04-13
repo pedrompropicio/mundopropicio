@@ -22,6 +22,54 @@ interface Props {
   eventStatus?: string;
 }
 
+function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => void }) {
+  const [threshold, setThreshold] = useState("");
+  const [pct, setPct] = useState("");
+  const inputClass = "rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50";
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-muted-foreground">Até</span>
+      <input
+        type="number"
+        step="1"
+        min="0"
+        max="100"
+        value={threshold}
+        onChange={(e) => setThreshold(e.target.value)}
+        className={`${inputClass} w-16 text-center`}
+        placeholder="70"
+      />
+      <span className="text-[10px] text-muted-foreground">% vendido →</span>
+      <input
+        type="number"
+        step="0.1"
+        min="0"
+        max="100"
+        value={pct}
+        onChange={(e) => setPct(e.target.value)}
+        className={`${inputClass} w-16 text-center`}
+        placeholder="40"
+      />
+      <span className="text-[10px] text-muted-foreground">%</span>
+      <button
+        onClick={() => {
+          const t = parseFloat(threshold);
+          const p = parseFloat(pct);
+          if (!isNaN(t) && !isNaN(p) && t > 0 && p > 0) {
+            onAdd(t, p);
+            setThreshold("");
+            setPct("");
+          }
+        }}
+        className="rounded-lg bg-primary/10 px-2.5 py-1.5 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+      >
+        <Plus className="h-3 w-3" /> Faixa
+      </button>
+    </div>
+  );
+}
+
 export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props) {
   const { isAdmin, isManager } = useAuth();
   const queryClient = useQueryClient();
