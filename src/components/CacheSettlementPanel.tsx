@@ -4,26 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { Lock, Unlock, Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2 } from "lucide-react";
+import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
-
-interface RealCacheResult {
-  configId: string;
-  artistName: string;
-  cacheType: string;
-  realRevenueGross: number;
-  realRevenueNet: number;
-  realDeductionAmount: number;
-  fixedPctDeduction: number;
-  totalDeduction: number;
-  baseForCalc: number;
-  percentage: number;
-  calculatedAmount: number;
-  minimumGuaranteed: number;
-  finalAmount: number;
-  isUsingMinimum: boolean;
-}
+import type { RealCacheResult } from "@/hooks/useRealCacheCalculation";
 
 interface Props {
   config: any;
@@ -31,6 +15,7 @@ interface Props {
   projectedValue: number;
   eventId: string;
   canEdit: boolean;
+  eventStatus?: string;
 }
 
 export function CacheSettlementPanel({
@@ -39,6 +24,7 @@ export function CacheSettlementPanel({
   projectedValue,
   eventId,
   canEdit,
+  eventStatus,
 }: Props) {
   const { user } = useAuth();
   const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -51,20 +37,23 @@ export function CacheSettlementPanel({
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
   );
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
-  // The effective final value for settlement
+  // Only show for active/completed events
+  if (eventStatus !== "active" && eventStatus !== "completed") return null;
+  if (!realResult) return null;
+
   const effectiveValue = adjustedAmount != null ? adjustedAmount : realAmount;
   const diff = effectiveValue - projectedValue;
+  const isVariable = config.cache_type === "variable";
+  const hasMissingDeductions = (realResult.missingDeductionCategories?.length ?? 0) > 0;
 
   // Save adjusted amount
   const saveAdjustedMutation = useMutation({
     mutationFn: async (value: number | null) => {
       const { error } = await supabase
         .from("event_cache_configs" as any)
-        .update({
-          adjusted_amount: value,
-          real_amount: realAmount,
-        })
+        .update({ adjusted_amount: value, real_amount: realAmount })
         .eq("id", config.id);
       if (error) throw error;
     },
@@ -85,7 +74,6 @@ export function CacheSettlementPanel({
       if (finalize) {
         updates.finalized_at = new Date().toISOString();
         updates.finalized_by = userName || "sistema";
-        // If no adjusted amount, store the real calculated value
         if (adjustedAmount == null) {
           updates.adjusted_amount = null;
         }
@@ -113,20 +101,45 @@ export function CacheSettlementPanel({
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
-  if (!realResult) return null;
-
-  const isVariable = config.cache_type === "variable";
-
   return (
     <div className="border-t border-border bg-muted/20 p-3 space-y-3">
-      <div className="flex items-center gap-2">
-        <Calculator className="h-3.5 w-3.5 text-primary" />
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Fecho do Cachê — Valores Reais
-        </span>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calculator className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Fecho do Cachê — Valores Reais
+          </span>
+        </div>
+        {isVariable && (
+          <button
+            onClick={() => setShowBreakdown(!showBreakdown)}
+            className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+          >
+            Memória de cálculo
+            {showBreakdown ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+        )}
       </div>
 
-      {/* Comparison table */}
+      {/* Missing deductions alert */}
+      {hasMissingDeductions && !isFinalized && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-medium text-warning">Deduções sem transação lançada</p>
+            <ul className="mt-1 space-y-0.5">
+              {realResult.missingDeductionCategories.map((d) => (
+                <li key={d.categoryId} className="text-[10px] text-warning/80">
+                  • {d.categoryCode} {d.categoryName} — sem lançamento (será considerada €0,00)
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Comparison cards */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg border border-border bg-background p-2.5">
           <p className="text-[10px] text-muted-foreground mb-1">Projetado (BP)</p>
@@ -151,44 +164,123 @@ export function CacheSettlementPanel({
       </div>
 
       {/* Diff indicator */}
-      {diff !== 0 && (
+      {diff !== 0 ? (
         <div className={`flex items-center gap-1.5 text-xs ${
           diff > 0 ? "text-destructive" : "text-success"
         }`}>
-          {diff > 0 ? (
-            <TrendingUp className="h-3 w-3" />
-          ) : (
-            <TrendingDown className="h-3 w-3" />
-          )}
+          {diff > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
           <span>
             {diff > 0 ? "+" : ""}{formatCurrency(diff)} vs. projetado
             {diff > 0 ? " (acréscimo)" : " (economia)"}
           </span>
         </div>
-      )}
-      {diff === 0 && (
+      ) : (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Minus className="h-3 w-3" />
           <span>Sem diferença em relação ao projetado</span>
         </div>
       )}
 
-      {/* Variable breakdown */}
-      {isVariable && (
-        <div className="text-[10px] text-muted-foreground space-y-0.5 bg-background rounded-lg p-2 border border-border">
-          <p>
-            Receita real {config.cache_revenue_basis === "gross" ? "(Bruta)" : "(Líquida)"}: {formatCurrency(
-              config.cache_revenue_basis === "gross" ? realResult.realRevenueGross : realResult.realRevenueNet
-            )}
-          </p>
-          {realResult.totalDeduction > 0 && (
-            <p>Deduções reais: −{formatCurrency(realResult.totalDeduction)}</p>
-          )}
-          <p>Base de cálculo: {formatCurrency(realResult.baseForCalc)}</p>
-          <p>
-            {realResult.percentage}% = {formatCurrency(realResult.calculatedAmount)}
-            {realResult.isUsingMinimum && ` → Mín. Garantido: ${formatCurrency(realResult.minimumGuaranteed)}`}
-          </p>
+      {/* Detailed calculation breakdown */}
+      {isVariable && showBreakdown && (
+        <div className="rounded-lg border border-border bg-background overflow-hidden animate-fade-in">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">Etapa</th>
+                <th className="text-right px-3 py-1.5 font-medium text-muted-foreground">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/50">
+              {/* Revenue */}
+              <tr>
+                <td className="px-3 py-1.5 font-medium">
+                  Receita Real de Bilheteira ({realResult.revenueBasisLabel})
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono">
+                  {formatCurrency(realResult.revenueBasis)}
+                </td>
+              </tr>
+
+              {/* Category deductions */}
+              {realResult.deductionDetails.map((d) => (
+                <tr key={d.categoryId} className={!d.hasTransaction ? "bg-warning/5" : ""}>
+                  <td className="px-3 py-1.5 pl-6 text-muted-foreground">
+                    (−) {d.categoryCode} {d.categoryName}
+                    {!d.hasTransaction && (
+                      <span className="ml-1 text-warning text-[10px]">⚠ sem transação</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-destructive">
+                    {d.amount > 0 ? `−${formatCurrency(d.amount)}` : "€0,00"}
+                  </td>
+                </tr>
+              ))}
+
+              {/* Fixed % deduction */}
+              {realResult.fixedPctRate > 0 && (
+                <tr>
+                  <td className="px-3 py-1.5 pl-6 text-muted-foreground">
+                    (−) Dedução fixa ({realResult.fixedPctRate}%)
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-destructive">
+                    −{formatCurrency(realResult.fixedPctDeduction)}
+                  </td>
+                </tr>
+              )}
+
+              {/* Total deductions */}
+              {realResult.totalDeduction > 0 && (
+                <tr className="bg-muted/30">
+                  <td className="px-3 py-1.5 pl-6 font-medium">Total Deduções</td>
+                  <td className="px-3 py-1.5 text-right font-mono font-medium text-destructive">
+                    −{formatCurrency(realResult.totalDeduction)}
+                  </td>
+                </tr>
+              )}
+
+              {/* Base */}
+              <tr className="bg-muted/50">
+                <td className="px-3 py-1.5 font-medium">Base de Cálculo</td>
+                <td className="px-3 py-1.5 text-right font-mono font-medium">
+                  {formatCurrency(realResult.baseForCalc)}
+                </td>
+              </tr>
+
+              {/* Percentage */}
+              <tr>
+                <td className="px-3 py-1.5 text-muted-foreground">
+                  Percentagem do Artista ({realResult.percentage}%)
+                </td>
+                <td className="px-3 py-1.5 text-right font-mono">
+                  {formatCurrency(realResult.calculatedAmount)}
+                </td>
+              </tr>
+
+              {/* Minimum guaranteed */}
+              {realResult.minimumGuaranteed > 0 && (
+                <tr>
+                  <td className="px-3 py-1.5 text-muted-foreground">
+                    Mínimo Garantido
+                    {realResult.isUsingMinimum && (
+                      <span className="ml-1 text-accent-foreground text-[10px]">✓ aplicado</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono">
+                    {formatCurrency(realResult.minimumGuaranteed)}
+                  </td>
+                </tr>
+              )}
+
+              {/* Final */}
+              <tr className="bg-primary/10 border-t-2 border-primary/20">
+                <td className="px-3 py-2 font-bold">Cachê Real (arredondado)</td>
+                <td className="px-3 py-2 text-right font-mono font-bold">
+                  {formatCurrency(realResult.finalAmount)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
