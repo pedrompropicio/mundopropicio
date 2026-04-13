@@ -76,32 +76,21 @@ export function CacheTransactionModal({
     },
   });
 
-  // Fetch existing transactions for this event that could be advances for the artist
-  // Look for expense transactions with matching supplier or description containing the artist name
-  const { data: existingTransactions = [] } = useQuery({
-    queryKey: ["cache_artist_transactions", eventId, artistName],
+  // Fetch existing transactions in the cache category for this event (advances, partial payments)
+  const { data: artistTransactions = [] } = useQuery({
+    queryKey: ["cache_artist_transactions", eventId, cacheCategory?.id],
+    enabled: !!cacheCategory?.id,
     queryFn: async () => {
       const { data } = await supabase
         .from("transactions")
         .select("id, description, amount, paid_amount, status, date, due_date, specification, supplier_id, suppliers(name)")
         .eq("event_id", eventId)
         .eq("type", "expense")
+        .eq("category_id", cacheCategory!.id)
         .order("date", { ascending: true });
       return (data ?? []) as any[];
     },
   });
-
-  // Filter transactions that relate to the artist (by description match or same cache category)
-  const artistTransactions = useMemo(() => {
-    const artistLower = artistName.toLowerCase();
-    return existingTransactions.filter((tx: any) => {
-      const descMatch = tx.description?.toLowerCase().includes(artistLower) ||
-        tx.description?.toLowerCase().includes("cachê") ||
-        tx.description?.toLowerCase().includes("adiantamento") ||
-        tx.specification?.toLowerCase()?.includes(artistLower);
-      return descMatch;
-    });
-  }, [existingTransactions, artistName]);
 
   const totalAdvances = useMemo(() => {
     return artistTransactions
