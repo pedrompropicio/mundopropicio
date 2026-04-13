@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { resolvePercentageFromTiers, type CacheTier } from "@/lib/cache-pl-helper";
 
 interface CacheConfig {
   id: string;
@@ -14,6 +15,7 @@ interface CacheConfig {
   cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
+  tiers?: CacheTier[];
 }
 
 interface SyncParams {
@@ -68,6 +70,7 @@ export function useSyncCacheForecasts({
         cache_deduction_basis: c.cache_deduction_basis,
         minimum_guaranteed: c.minimum_guaranteed,
         is_finalized: c.is_finalized,
+        tiers: c.tiers,
       })),
       deductions: deductions.map((d) => `${d.cache_config_id}:${d.category_id}`).sort(),
       ticketRevenueNet: Math.round(ticketRevenueNet * 100),
@@ -327,7 +330,8 @@ function calculateCacheAmount(
   configDeductions: { cache_config_id: string; category_id: string }[],
   ticketRevenueNet: number,
   ticketRevenueGross: number,
-  expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[]
+  expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
+  occupancyPct: number = 100
 ): number {
   if (config.cache_type === "fixed") {
     return Number(config.fixed_amount);
@@ -354,7 +358,7 @@ function calculateCacheAmount(
     basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
   const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
   const baseForCalc = basis - totalDeduction;
-  const pct = Number(config.percentage) || 0;
+  const pct = resolvePercentageFromTiers(config, occupancyPct);
   const calculated = Math.max(0, baseForCalc * (pct / 100));
   const minGuaranteed = Number(config.minimum_guaranteed) || 0;
   return Math.round(Math.max(minGuaranteed, calculated));

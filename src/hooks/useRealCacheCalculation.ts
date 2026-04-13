@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolvePercentageFromTiers } from "@/lib/cache-pl-helper";
 
 export interface DeductionDetail {
   categoryId: string;
@@ -55,10 +56,10 @@ export function useRealCacheCalculation(
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
-        .select("id, event_id")
+        .select("id, event_id, total_capacity")
         .in("event_id", allEventIds);
       const zoneIds = (zones ?? []).map((z) => z.id);
-      if (zoneIds.length === 0) return { zones: [], sales: [], lots: [] };
+      if (zoneIds.length === 0) return { zones: zones ?? [], sales: [], lots: [] };
 
       const [salesRes, lotsRes] = await Promise.all([
         supabase.from("ticket_sales" as any).select("*").in("zone_id", zoneIds),
@@ -101,10 +102,13 @@ export function useRealCacheCalculation(
     return map;
   }, [categories]);
 
-  // Calculate real revenue
-  const realRevenue = useMemo(() => {
-    if (!salesData) return { gross: 0, net: 0 };
-    const { sales, lots } = salesData;
+  // Calculate real revenue and occupancy
+  const { realRevenue, occupancyPct } = useMemo(() => {
+    if (!salesData) return { realRevenue: { gross: 0, net: 0 }, occupancyPct: 0 };
+    const { sales, lots, zones } = salesData;
+
+    // Total capacity from zones
+    const totalCapacity = (zones as any[]).reduce((s: number, z: any) => s + Number(z.total_capacity || 0), 0);
 
     const lotIvaMap = new Map<string, number>();
     for (const lot of lots) {
@@ -113,14 +117,17 @@ export function useRealCacheCalculation(
 
     let gross = 0;
     let net = 0;
+    let totalSold = 0;
     for (const sale of sales) {
       const qty = Number(sale.quantity);
       const price = Number(sale.unit_price);
       const ivaRate = lotIvaMap.get(sale.lot_id) ?? 6;
       gross += qty * price;
       net += qty * (price / (1 + ivaRate / 100));
+      totalSold += qty;
     }
-    return { gross, net };
+    const occ = totalCapacity > 0 ? (totalSold / totalCapacity) * 100 : 100;
+    return { realRevenue: { gross, net }, occupancyPct: occ };
   }, [salesData]);
 
   // Calculate per-config results with detailed breakdowns
@@ -189,7 +196,7 @@ export function useRealCacheCalculation(
       const fixedPctDeduction = basis * (fixedPctRate / 100);
       const totalDeduction = realDeductionAmount + fixedPctDeduction;
       const baseForCalc = basis - totalDeduction;
-      const pct = Number(config.percentage) || 0;
+      const pct = resolvePercentageFromTiers(config, occupancyPct);
       const calculated = Math.max(0, baseForCalc * (pct / 100));
       const minGuaranteed = Number(config.minimum_guaranteed) || 0;
       const finalAmount = Math.round(Math.max(minGuaranteed, calculated));
@@ -218,12 +225,13 @@ export function useRealCacheCalculation(
         missingDeductionCategories,
       };
     });
-  }, [cacheConfigs, deductions, realRevenue, realExpenses, categoryMap]);
+  }, [cacheConfigs, deductions, realRevenue, occupancyPct, realExpenses, categoryMap]);
 
   return {
     results,
     realRevenue,
     realExpenses,
+    occupancyPct,
     isLoading: !salesData,
   };
 }

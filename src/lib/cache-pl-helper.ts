@@ -2,6 +2,11 @@
  * Shared helper to calculate cachê values for BP integration.
  */
 
+export interface CacheTier {
+  occupancy_threshold: number;
+  percentage: number;
+}
+
 export interface CacheConfig {
   id: string;
   event_id: string;
@@ -14,6 +19,32 @@ export interface CacheConfig {
   cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
+  tiers?: CacheTier[];
+}
+
+/**
+ * Resolve the applicable percentage for a variable cache.
+ * If tiers exist, uses the highest tier whose threshold is <= occupancy.
+ * Falls back to config.percentage if no tiers.
+ */
+export function resolvePercentageFromTiers(
+  config: CacheConfig,
+  occupancyPct: number
+): number {
+  const tiers = config.tiers;
+  if (!tiers || tiers.length === 0) return Number(config.percentage) || 0;
+
+  // Sort tiers by threshold ascending
+  const sorted = [...tiers].sort((a, b) => a.occupancy_threshold - b.occupancy_threshold);
+  let applicable = sorted[0]?.percentage ?? (Number(config.percentage) || 0);
+  for (const tier of sorted) {
+    if (occupancyPct >= tier.occupancy_threshold) {
+      applicable = tier.percentage;
+    } else {
+      break;
+    }
+  }
+  return applicable;
 }
 
 export interface CacheDeduction {
@@ -37,7 +68,8 @@ export function calculateCacheLinesForPL(
   deductions: CacheDeduction[],
   ticketRevenueNet: number,
   forecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
-  ticketRevenueGross?: number
+  ticketRevenueGross?: number,
+  occupancyPct?: number
 ): CachePLLine[] {
   return configs.map((config) => {
     if (config.cache_type === "fixed") {
@@ -76,7 +108,7 @@ export function calculateCacheLinesForPL(
     const fixedPctDeduction = basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
     const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
     const baseForCalc = basis - totalDeduction;
-    const pct = Number(config.percentage) || 0;
+    const pct = resolvePercentageFromTiers(config, occupancyPct ?? 100);
     const calculated = Math.max(0, baseForCalc * (pct / 100));
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
     const amount = Math.round(Math.max(minGuaranteed, calculated));

@@ -3,7 +3,7 @@ import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info, Lock, Unlock, Building2 } from "lucide-react";
+import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info, Lock, Unlock, Building2, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
@@ -20,6 +20,54 @@ interface Props {
   eventId: string;
   childEventIds?: string[];
   eventStatus?: string;
+}
+
+function TierAddForm({ onAdd }: { onAdd: (threshold: number, pct: number) => void }) {
+  const [threshold, setThreshold] = useState("");
+  const [pct, setPct] = useState("");
+  const inputClass = "rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50";
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-muted-foreground">Até</span>
+      <input
+        type="number"
+        step="1"
+        min="0"
+        max="100"
+        value={threshold}
+        onChange={(e) => setThreshold(e.target.value)}
+        className={`${inputClass} w-16 text-center`}
+        placeholder="70"
+      />
+      <span className="text-[10px] text-muted-foreground">% vendido →</span>
+      <input
+        type="number"
+        step="0.1"
+        min="0"
+        max="100"
+        value={pct}
+        onChange={(e) => setPct(e.target.value)}
+        className={`${inputClass} w-16 text-center`}
+        placeholder="40"
+      />
+      <span className="text-[10px] text-muted-foreground">%</span>
+      <button
+        onClick={() => {
+          const t = parseFloat(threshold);
+          const p = parseFloat(pct);
+          if (!isNaN(t) && !isNaN(p) && t > 0 && p > 0) {
+            onAdd(t, p);
+            setThreshold("");
+            setPct("");
+          }
+        }}
+        className="rounded-lg bg-primary/10 px-2.5 py-1.5 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+      >
+        <Plus className="h-3 w-3" /> Faixa
+      </button>
+    </div>
+  );
 }
 
 export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props) {
@@ -80,6 +128,22 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         .from("event_cache_deductions" as any)
         .select("*")
         .in("cache_config_id", configIds);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: configIds.length > 0,
+  });
+
+  // Fetch tiers for all configs
+  const { data: tiers = [] } = useQuery({
+    queryKey: ["event_cache_tiers", configIds.join(",")],
+    queryFn: async () => {
+      if (configIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_cache_tiers" as any)
+        .select("*")
+        .in("cache_config_id", configIds)
+        .order("sort_order");
       if (error) throw error;
       return data as any[];
     },
@@ -169,6 +233,10 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
       cache_deduction_basis: c.cache_deduction_basis,
       minimum_guaranteed: Number(c.minimum_guaranteed),
       is_finalized: !!c.is_finalized,
+      tiers: getTiersForConfig(c.id).map((t: any) => ({
+        occupancy_threshold: Number(t.occupancy_threshold),
+        percentage: Number(t.percentage),
+      })),
     })),
     deductions: deductions.map((d: any) => ({
       cache_config_id: d.cache_config_id,
@@ -188,14 +256,23 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     enabled: canEdit && cacheConfigs.length > 0,
   });
 
+  // Enrich configs with tiers for calculation hooks
+  const enrichedConfigs = useMemo(() => cacheConfigs.map((c: any) => ({
+    ...c,
+    tiers: getTiersForConfig(c.id).map((t: any) => ({
+      occupancy_threshold: Number(t.occupancy_threshold),
+      percentage: Number(t.percentage),
+    })),
+  })), [cacheConfigs, tiers]);
+
   // Real cache calculation (for settlement)
   const { results: realCacheResults } = useRealCacheCalculation(
     eventId,
     childEventIds || [],
-    cacheConfigs,
+    enrichedConfigs,
     deductions,
     categories,
-    cacheConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
+    enrichedConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
   );
 
   // Expense categories (level 3 only - detail accounts)
@@ -206,6 +283,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   // Get deductions for a specific config
   const getDeductionsForConfig = (configId: string) => {
     return deductions.filter((d: any) => d.cache_config_id === configId);
+  };
+
+  // Get tiers for a specific config
+  const getTiersForConfig = (configId: string) => {
+    return tiers
+      .filter((t: any) => t.cache_config_id === configId)
+      .sort((a: any, b: any) => Number(a.occupancy_threshold) - Number(b.occupancy_threshold));
   };
 
   // Calculate deduction amount for a config (categories + fixed %)
@@ -234,7 +318,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     return basis * (pct / 100);
   };
 
-  // Calculate variable cachê
+  // Calculate variable cachê (using tiers if available, defaulting to 100% occupancy for projection)
   const calculateVariableCache = (config: any) => {
     const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
     const categoryDeduction = calculateDeductionAmount(config.id, deductionBasisGross);
@@ -242,11 +326,49 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     const totalDeduction = categoryDeduction + fixedPctDeduction;
     const basis = config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
     const baseForCalc = basis - totalDeduction;
-    const pct = Number(config.percentage) || 0;
+    const configTiers = getTiersForConfig(config.id);
+    let pct: number;
+    if (configTiers.length > 0) {
+      // For projection, use highest tier (100% occupancy)
+      const sorted = [...configTiers].sort((a: any, b: any) => Number(b.occupancy_threshold) - Number(a.occupancy_threshold));
+      pct = Number(sorted[0].percentage) || 0;
+    } else {
+      pct = Number(config.percentage) || 0;
+    }
     const calculated = Math.max(0, baseForCalc * (pct / 100));
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
     return Math.max(minGuaranteed, calculated);
   };
+
+  // Tier mutations
+  const addTierMutation = useMutation({
+    mutationFn: async ({ configId, threshold, pct }: { configId: string; threshold: number; pct: number }) => {
+      const existing = getTiersForConfig(configId);
+      const { error } = await supabase.from("event_cache_tiers" as any).insert({
+        cache_config_id: configId,
+        occupancy_threshold: threshold,
+        percentage: pct,
+        sort_order: existing.length,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
+    onError: (err: any) => toast({ title: "Erro ao adicionar faixa", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteTierMutation = useMutation({
+    mutationFn: async (tierId: string) => {
+      const { error } = await supabase.from("event_cache_tiers" as any).delete().eq("id", tierId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    },
+  });
 
   // Add config
   const addMutation = useMutation({
@@ -568,6 +690,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             const isFinalized = !!config.is_finalized;
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
+            const configTiers = getTiersForConfig(config.id);
+            const hasTiers = configTiers.length > 0;
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
             const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
             const categoryDeduction = isVariable ? calculateDeductionAmount(config.id, deductionBasisGross) : 0;
@@ -599,7 +723,11 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                           ? "bg-warning/15 text-warning"
                           : "bg-primary/15 text-primary"
                       }`}>
-                        {isVariable ? `Variável · ${config.percentage}%` : "Fixo"}
+                        {isVariable
+                          ? hasTiers
+                            ? `Variável · ${configTiers.length} faixas`
+                            : `Variável · ${config.percentage}%`
+                          : "Fixo"}
                       </span>
                       {config.withholding_applicable && (
                         <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-destructive/15 text-destructive">
@@ -768,6 +896,50 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                       </div>
                     </div>
 
+                    {/* Tiered percentages */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Faixas de Percentual por Ocupação
+                        </span>
+                        <HelpTooltip text="Define percentuais progressivos conforme a ocupação de bilhetes vendidos. Ex: 40% até 70% vendido, 45% até 85%, 50% para sold out." size={12} />
+                      </div>
+
+                      {configTiers.length > 0 && (
+                        <div className="space-y-1">
+                          {configTiers.map((tier: any) => (
+                            <div key={tier.id} className="flex items-center gap-2 rounded-md bg-background px-2.5 py-1.5 text-xs border border-border/50">
+                              <span className="text-muted-foreground">Até</span>
+                              <span className="font-mono font-semibold">{Number(tier.occupancy_threshold)}%</span>
+                              <span className="text-muted-foreground">da carga →</span>
+                              <span className="font-mono font-bold text-warning">{Number(tier.percentage)}%</span>
+                              <span className="text-muted-foreground">de cachê</span>
+                              {!isFinalized && (
+                                <button
+                                  onClick={() => deleteTierMutation.mutate(tier.id)}
+                                  className="ml-auto rounded p-1 text-destructive/50 hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {!isFinalized && (
+                        <TierAddForm
+                          onAdd={(threshold, pct) => addTierMutation.mutate({ configId: config.id, threshold, pct })}
+                        />
+                      )}
+
+                      {configTiers.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground italic">
+                          Sem faixas — será usado o percentual fixo ({Number(config.percentage) || 0}%) definido na criação.
+                        </p>
+                      )}
+                    </div>
 
                     {/* Category-based deductions */}
                     <div className="space-y-1.5">

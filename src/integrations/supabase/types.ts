@@ -461,6 +461,41 @@ export type Database = {
           },
         ]
       }
+      event_cache_tiers: {
+        Row: {
+          cache_config_id: string
+          created_at: string
+          id: string
+          occupancy_threshold: number
+          percentage: number
+          sort_order: number
+        }
+        Insert: {
+          cache_config_id: string
+          created_at?: string
+          id?: string
+          occupancy_threshold?: number
+          percentage?: number
+          sort_order?: number
+        }
+        Update: {
+          cache_config_id?: string
+          created_at?: string
+          id?: string
+          occupancy_threshold?: number
+          percentage?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cache_tiers_cache_config_id_fkey"
+            columns: ["cache_config_id"]
+            isOneToOne: false
+            referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_closing_costs: {
         Row: {
           amount: number
