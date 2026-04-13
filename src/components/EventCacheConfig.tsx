@@ -350,7 +350,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const addTierMutation = useMutation({
     mutationFn: async ({ configId, threshold, pct }: { configId: string; threshold: number; pct: number }) => {
       const existing = getTiersForConfig(configId);
-      const { error } = await supabase.from("event_cache_tiers" as any).insert({
+      const { error } = await supabase.from("event_cache_tiers").insert({
         cache_config_id: configId,
         occupancy_threshold: threshold,
         percentage: pct,
@@ -359,7 +359,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["event_cache_tiers", configIds.join(",")] });
       queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
     },
     onError: (err: any) => toast({ title: "Erro ao adicionar faixa", description: err.message, variant: "destructive" }),
