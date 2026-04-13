@@ -34,6 +34,10 @@ export function CacheSettlementPanel({
   const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
   const realAmount = realResult?.finalAmount ?? 0;
 
+  const withholdingApplicable = !!config.withholding_applicable;
+  const withholdingRate = Number(config.withholding_rate) || 25;
+  const withholdingAmount = withholdingApplicable ? Math.round(realAmount * (withholdingRate / 100)) : 0;
+
   const [editingAdjusted, setEditingAdjusted] = useState(false);
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
@@ -46,6 +50,8 @@ export function CacheSettlementPanel({
   if (!realResult) return null;
 
   const effectiveValue = adjustedAmount != null ? adjustedAmount : realAmount;
+  const effectiveWithholding = withholdingApplicable ? Math.round(effectiveValue * (withholdingRate / 100)) : 0;
+  const netPayable = effectiveValue - effectiveWithholding;
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
   const hasMissingDeductions = (realResult.missingDeductionCategories?.length ?? 0) > 0;
@@ -180,6 +186,24 @@ export function CacheSettlementPanel({
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Minus className="h-3 w-3" />
           <span>Sem diferença em relação ao projetado</span>
+        </div>
+      )}
+
+      {/* Withholding summary */}
+      {withholdingApplicable && (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Cachê Bruto</span>
+            <span className="font-mono">{formatCurrency(effectiveValue)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-destructive">
+            <span>Retenção IRS ({withholdingRate}%)</span>
+            <span className="font-mono">− {formatCurrency(effectiveWithholding)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-semibold border-t border-destructive/20 pt-1">
+            <span>Líquido a Pagar</span>
+            <span className="font-mono">{formatCurrency(netPayable)}</span>
+          </div>
         </div>
       )}
 
@@ -384,7 +408,12 @@ export function CacheSettlementPanel({
           className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
         >
           <FileText className="h-4 w-4" />
-          Gerar Transação de Pagamento ({formatCurrency(effectiveValue)})
+          Gerar Transação de Pagamento ({formatCurrency(netPayable)})
+          {withholdingApplicable && (
+            <span className="text-[10px] text-muted-foreground ml-1">
+              + retenção {formatCurrency(effectiveWithholding)}
+            </span>
+          )}
         </button>
       )}
 
@@ -397,6 +426,9 @@ export function CacheSettlementPanel({
           amount={effectiveValue}
           cacheConfigId={config.id}
           configSupplierId={config.supplier_id}
+          withholdingApplicable={withholdingApplicable}
+          withholdingRate={withholdingRate}
+          withholdingAmount={effectiveWithholding}
         />
       )}
     </div>
