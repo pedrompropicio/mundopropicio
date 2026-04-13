@@ -633,15 +633,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   </div>
                   <span className="font-mono font-bold text-sm shrink-0">{formatCurrency(displayValue)}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {isVariable && (
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : config.id)}
-                        className="rounded p-1.5 hover:bg-secondary transition-colors"
-                        title="Configurar descontos"
-                      >
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : config.id)}
+                      className="rounded p-1.5 hover:bg-secondary transition-colors"
+                      title={isVariable ? "Configurar descontos e retenção" : "Configurar retenção"}
+                    >
+                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
                     {canEdit && (
                       <button
                         onClick={() => {
