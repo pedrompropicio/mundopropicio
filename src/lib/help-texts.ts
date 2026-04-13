@@ -169,11 +169,16 @@ const helpTexts: Record<string, string> = {
   excludeFromResultTransaction:
     "Transação excluída do resultado — registada apenas para efeito de histórico, sem impacto no DRE/PL.",
   splitTransaction:
-    "Rateio de transação entre múltiplos eventos. Defina as percentagens de cada evento. Alterações na transação-pai propagam-se automaticamente para as filhas.",
+    "Permite dividir uma única fatura/despesa por vários eventos com percentuais iguais ou personalizados.\n\n" +
+    "• Funciona com sub-eventos de uma turnê E com eventos totalmente independentes (ex: pacote de mídia para vários shows).\n" +
+    "• Ao ativar, selecione os eventos desejados e defina as percentagens.\n" +
+    "• O sistema cria uma transação 'Master' (consolidada) e transações 'Split' individuais por evento.\n" +
+    "• Alterações e pagamentos na transação Master propagam-se automaticamente para as filhas.\n" +
+    "• O BP de cada evento é validado individualmente.",
   splitEqual:
     "Divide o valor igualmente entre todos os eventos selecionados. As percentagens são recalculadas automaticamente ao adicionar ou remover eventos.",
   splitCustom:
-    "Permite definir manualmente a percentagem de cada evento. O total deve somar exatamente 100%.",
+    "Permite definir manualmente a percentagem de cada evento. O total deve somar exatamente 100%. Ideal para pacotes com valores desiguais por evento.",
   partnerPortal:
     "Portal de acesso dedicado para parceiros/sócios. Mostra apenas os eventos autorizados pelo administrador, com dados somente leitura (bilhetes, BP e transações).",
   eventCompleted:
