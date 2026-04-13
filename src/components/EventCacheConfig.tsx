@@ -3,13 +3,14 @@ import helpTexts from "@/lib/help-texts";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info, Lock, Unlock } from "lucide-react";
+import { Plus, Trash2, X, Music, Percent, DollarSign, ChevronDown, ChevronUp, Info, Lock, Unlock, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
 import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
@@ -35,6 +36,25 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const [fixedAmount, setFixedAmount] = useState("");
   const [percentage, setPercentage] = useState("");
   const [minimumGuaranteed, setMinimumGuaranteed] = useState("");
+  const [formSupplierId, setFormSupplierId] = useState("");
+
+  // Fetch suppliers for beneficiary selection
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers_active"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      return data ?? [];
+    },
+  });
+
+  const supplierOptions = useMemo(() =>
+    suppliers.map((s) => ({ value: s.id, label: s.name })),
+    [suppliers]
+  );
 
   // Fetch cache configs
   const { data: cacheConfigs = [], isLoading } = useQuery({
@@ -239,6 +259,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
         percentage: cacheType === "variable" ? (parseFloat(percentage) || 0) : 0,
         minimum_guaranteed: cacheType === "variable" ? (parseFloat(minimumGuaranteed) || 0) : 0,
         cache_revenue_basis: cacheType === "variable" ? revenueBasis : "net",
+        supplier_id: formSupplierId || null,
       } as any);
       if (error) throw error;
     },
@@ -308,6 +329,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     setFixedAmount("");
     setPercentage("");
     setMinimumGuaranteed("");
+    setFormSupplierId("");
     setRevenueBasis("net");
     setShowAddForm(false);
   };
@@ -395,8 +417,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             </button>
           </div>
 
-          {/* Row 1: Name + Type */}
-          <div className="grid grid-cols-[1fr,auto] gap-3 items-end">
+          {/* Row 1: Name + Supplier + Type */}
+          <div className="grid grid-cols-[1fr,1fr,auto] gap-3 items-end">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome da Atração *</label>
               <input
@@ -405,6 +427,17 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 className={inputClass}
                 placeholder="Ex: Artista Principal"
                 autoFocus
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Building2 className="h-3 w-3" /> Beneficiário / Fornecedor
+              </label>
+              <SearchableSelect
+                options={supplierOptions}
+                value={formSupplierId}
+                onValueChange={setFormSupplierId}
+                placeholder="Selecionar..."
               />
             </div>
             <div>
@@ -553,6 +586,14 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold truncate">{config.artist_name}</span>
+                      {(() => {
+                        const sup = suppliers.find((s) => s.id === config.supplier_id);
+                        return sup ? (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Building2 className="h-2.5 w-2.5" /> {sup.name}
+                          </span>
+                        ) : null;
+                      })()}
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         isVariable
                           ? "bg-warning/15 text-warning"
