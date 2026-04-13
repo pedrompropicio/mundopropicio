@@ -88,6 +88,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
   const [newReimbursementEmployeeName, setNewReimbursementEmployeeName] = useState("");
+  const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
+  const [disambiguationCategoryId, setDisambiguationCategoryId] = useState("");
+  const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
