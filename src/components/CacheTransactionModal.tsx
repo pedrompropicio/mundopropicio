@@ -31,7 +31,7 @@ export function CacheTransactionModal({
   const queryClient = useQueryClient();
 
   const [dueDate, setDueDate] = useState("");
-  const [supplierId, setSupplierId] = useState("");
+  const [supplierId, setSupplierId] = useState(configSupplierId || "");
   const [accountId, setAccountId] = useState("");
   const [specification, setSpecification] = useState("");
   const [selectedAdvanceIds, setSelectedAdvanceIds] = useState<Set<string>>(new Set());
