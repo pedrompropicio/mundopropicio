@@ -225,6 +225,23 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  const renameSubEventMutation = useMutation({
+    mutationFn: async ({ subId, newName }: { subId: string; newName: string }) => {
+      const { error } = await supabase.from("events").update({ name: newName }).eq("id", subId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sub_events", id] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["events_full"] });
+      setEditingSubName(null);
+      toast({ title: "Nome atualizado com sucesso" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao renomear", description: err.message, variant: "destructive" });
+    },
+  });
+
   const changeStatusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
       const { error } = await supabase
