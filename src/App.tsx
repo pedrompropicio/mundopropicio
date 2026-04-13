@@ -44,6 +44,7 @@ import ReportDocumentPendenciesPage from "./pages/ReportDocumentPendenciesPage";
 import ReportAccountingExportPage from "./pages/ReportAccountingExportPage";
 import ReportPartnerExpensesPage from "./pages/ReportPartnerExpensesPage";
 import ReportBPTransactionsPage from "./pages/ReportBPTransactionsPage";
+import ReportForecastPayablesPage from "./pages/ReportForecastPayablesPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
@@ -154,6 +155,7 @@ function ProtectedLayout() {
                 <Route path="exportacao-contabil" element={<ReportAccountingExportPage />} />
                 <Route path="despesas-socios" element={<ReportPartnerExpensesPage />} />
                 <Route path="bp-transacoes" element={<ReportBPTransactionsPage />} />
+                <Route path="previsao-contas-pagar" element={<ReportForecastPayablesPage />} />
               </Route>
               
               
