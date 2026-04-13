@@ -36,7 +36,7 @@ export function resolvePercentageFromTiers(
 
   // Sort tiers by threshold ascending
   const sorted = [...tiers].sort((a, b) => a.occupancy_threshold - b.occupancy_threshold);
-  let applicable = sorted[0]?.percentage ?? Number(config.percentage) || 0;
+  let applicable = sorted[0]?.percentage ?? (Number(config.percentage) || 0);
   for (const tier of sorted) {
     if (occupancyPct >= tier.occupancy_threshold) {
       applicable = tier.percentage;
