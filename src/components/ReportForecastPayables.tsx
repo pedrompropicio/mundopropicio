@@ -152,10 +152,58 @@ export default function ReportForecastPayables() {
 
     const lookup = buildCategoryLookup(categories as CategoryNode[]);
 
-    // Filter forecasts: expenses only, non-transitory
-    const eventForecasts = forecasts.filter(
-      (f: any) => relevantEventIds.includes(f.event_id) && f.type === "expense" && !f.is_transitory
+    // Filter forecasts for these events
+    const allEventForecasts = forecasts.filter(
+      (f: any) => relevantEventIds.includes(f.event_id) && !f.is_transitory
     );
+    const eventForecasts = allEventForecasts.filter((f: any) => f.type === "expense");
+
+    // --- Cache calculation: replace BP forecast for cache-linked lines ---
+    // Get cache configs for these events
+    const eventCacheConfigs = cacheConfigs.filter((c: any) => relevantEventIds.includes(c.event_id));
+    const configIds = new Set(eventCacheConfigs.map((c: any) => c.id));
+    const eventCacheDeductions = cacheDeductions.filter((d: any) => configIds.has(d.cache_config_id));
+
+    // Attach tiers to configs
+    const configsWithTiers: CacheConfig[] = eventCacheConfigs.map((c: any) => ({
+      ...c,
+      tiers: cacheTiers
+        .filter((t: any) => t.cache_config_id === c.id)
+        .map((t: any) => ({ occupancy_threshold: Number(t.occupancy_threshold), percentage: Number(t.percentage) })),
+    }));
+
+    // Calculate ticket revenue from BP revenue forecasts (for variable cache calculation)
+    const revenueForecasts = allEventForecasts.filter((f: any) => f.type === "revenue");
+    const ticketRevenueNet = revenueForecasts.reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const ticketRevenueGross = revenueForecasts.reduce((s: number, f: any) => {
+      const amt = Number(f.amount);
+      const iva = Number(f.iva_rate ?? 0);
+      return s + amt * (1 + iva / 100);
+    }, 0);
+
+    // Compute cache lines
+    const cacheLines = configsWithTiers.length > 0
+      ? calculateCacheLinesForPL(
+          configsWithTiers,
+          eventCacheDeductions as CacheDeduction[],
+          ticketRevenueNet,
+          allEventForecasts.map((f: any) => ({
+            type: f.type,
+            category_id: f.category_id,
+            amount: Number(f.amount),
+            iva_rate: Number(f.iva_rate ?? 0),
+          })),
+          ticketRevenueGross,
+          100 // BP always assumes 100% occupancy
+        )
+      : [];
+
+    // Map cache_config_id → calculated amount
+    const cacheAmountByConfigId = new Map<string, number>();
+    configsWithTiers.forEach((config, idx) => {
+      const line = cacheLines[idx];
+      if (line) cacheAmountByConfigId.set(config.id, line.amount);
+    });
 
     // Filter transactions: expenses for these events
     const eventTransactions = transactions.filter(
@@ -168,7 +216,15 @@ export default function ReportForecastPayables() {
     eventForecasts.forEach((f: any) => {
       const catId = f.category_id || "uncategorized";
       if (!catMap[catId]) catMap[catId] = { forecast: 0, transacted: 0, paid: 0, catInfo: lookup[catId] };
-      catMap[catId].forecast += Number(f.amount);
+
+      // If this forecast is linked to a cache config, use the calculated cache amount
+      if (f.cache_config_id && cacheAmountByConfigId.has(f.cache_config_id)) {
+        catMap[catId].forecast += cacheAmountByConfigId.get(f.cache_config_id)!;
+        // Remove from map so we don't double-count if multiple forecasts share config
+        cacheAmountByConfigId.delete(f.cache_config_id);
+      } else {
+        catMap[catId].forecast += Number(f.amount);
+      }
     });
 
     eventTransactions.forEach((t: any) => {
