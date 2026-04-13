@@ -1206,6 +1206,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
@@ -1213,6 +1214,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 amount: String(Number(line.amount) || prev.amount),
                 iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: line.specification || prev.specification,
+                ...(switched ? { event_id: "" } : {}),
               }));
               setPlExpanded(false);
             };
@@ -1223,10 +1225,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 handleLineClick(detail.lines[0], detail);
                 return;
               }
-              // Multiple lines — set category and collapse
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
+                ...(switched ? { event_id: "" } : {}),
               }));
               setPlExpanded(false);
             };
