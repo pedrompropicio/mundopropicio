@@ -456,14 +456,14 @@ export function ResultsAnalysis() {
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-3 text-left font-medium" rowSpan={2}>Evento</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={4}>Projeção</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={3}>Projeção</th>
                   <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={4}>Resultado Real</th>
                 </tr>
                 <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-right font-medium">Margem 100%</th>
                   <th className="p-2 text-right font-medium">Margem 80%</th>
                   <th className="p-2 text-right font-medium">Break-Even</th>
-                  <th className="p-2 text-right font-medium hidden lg:table-cell">Empresa</th>
+                  
                   <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
                   <th className="p-2 text-right font-medium">Despesa</th>
                   <th className="p-2 text-right font-medium">Margem</th>
