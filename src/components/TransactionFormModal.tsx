@@ -1551,7 +1551,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-warning">Lançamento master (rateio)</p>
                   <p className="text-xs text-muted-foreground">
-                    Este valor será rateado igualmente por {(subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e BP.
+                    Este valor será rateado igualmente por {(subEventsByParent[effectiveEventId] || subEventsByParent[form.event_id] || []).length} datas nos relatórios DRE e BP.
                     Se pretende lançar para uma cidade específica, selecione a data correspondente.
                   </p>
                 </div>
