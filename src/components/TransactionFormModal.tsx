@@ -1282,6 +1282,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
               const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
+              if (switched) return; // disambiguation dialog will handle it
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
@@ -1289,7 +1290,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 amount: String(Number(line.amount) || prev.amount),
                 iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: line.specification || prev.specification,
-                ...(switched ? { event_id: "" } : {}),
               }));
               setPlExpanded(false);
             };
@@ -1301,10 +1301,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 return;
               }
               const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
+              if (switched) return; // disambiguation dialog will handle it
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
-                ...(switched ? { event_id: "" } : {}),
               }));
               setPlExpanded(false);
             };
@@ -1457,9 +1457,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 const switched = tryAutoSplitFromSubEvent(v, form.type);
                 if (!switched) {
                   setForm({ ...form, category_id: v });
-                } else {
-                  setForm(prev => ({ ...prev, category_id: v }));
                 }
+                // If switched, disambiguation dialog handles everything
               }}
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
