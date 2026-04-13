@@ -586,6 +586,14 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-semibold truncate">{config.artist_name}</span>
+                      {(() => {
+                        const sup = suppliers.find((s) => s.id === config.supplier_id);
+                        return sup ? (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Building2 className="h-2.5 w-2.5" /> {sup.name}
+                          </span>
+                        ) : null;
+                      })()}
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         isVariable
                           ? "bg-warning/15 text-warning"
