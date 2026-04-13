@@ -102,6 +102,8 @@ export default function EventDetail() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
+  const [editingSubName, setEditingSubName] = useState<string | null>(null);
+  const [editSubNameValue, setEditSubNameValue] = useState("");
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
     queryFn: async () => {
