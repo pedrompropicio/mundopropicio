@@ -181,6 +181,7 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
           event_id: masterEvent.id,
           type: "expense",
           description: candidate.description,
+          specification: candidate.specification,
           amount: Math.round(avgAmount * 100) / 100,
           iva_rate: splitForecasts.find((f) => f.category_id === candidate.category_id)?.iva_rate || 23,
           category_id: candidate.category_id,
