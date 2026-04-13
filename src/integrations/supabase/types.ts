@@ -222,6 +222,8 @@ export type Database = {
           real_amount: number | null
           supplier_id: string | null
           updated_at: string
+          withholding_applicable: boolean
+          withholding_rate: number
         }
         Insert: {
           adjusted_amount?: number | null
@@ -242,6 +244,8 @@ export type Database = {
           real_amount?: number | null
           supplier_id?: string | null
           updated_at?: string
+          withholding_applicable?: boolean
+          withholding_rate?: number
         }
         Update: {
           adjusted_amount?: number | null
@@ -262,6 +266,8 @@ export type Database = {
           real_amount?: number | null
           supplier_id?: string | null
           updated_at?: string
+          withholding_applicable?: boolean
+          withholding_rate?: number
         }
         Relationships: [
           {
@@ -360,6 +366,97 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_cache_payments: {
+        Row: {
+          amount: number
+          cache_config_id: string
+          category_id: string | null
+          created_at: string
+          description: string
+          event_id: string
+          id: string
+          notes: string | null
+          sort_order: number
+          supplier_id: string | null
+          transaction_id: string | null
+          updated_at: string
+          withholding_transaction_id: string | null
+        }
+        Insert: {
+          amount?: number
+          cache_config_id: string
+          category_id?: string | null
+          created_at?: string
+          description?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          sort_order?: number
+          supplier_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+          withholding_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          cache_config_id?: string
+          category_id?: string | null
+          created_at?: string
+          description?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          sort_order?: number
+          supplier_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+          withholding_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cache_payments_cache_config_id_fkey"
+            columns: ["cache_config_id"]
+            isOneToOne: false
+            referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_payments_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_payments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_payments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_payments_withholding_transaction_id_fkey"
+            columns: ["withholding_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
