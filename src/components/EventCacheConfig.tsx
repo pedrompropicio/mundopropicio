@@ -168,6 +168,15 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     enabled: canEdit && cacheConfigs.length > 0,
   });
 
+  // Real cache calculation (for settlement)
+  const { results: realCacheResults } = useRealCacheCalculation(
+    eventId,
+    childEventIds || [],
+    cacheConfigs,
+    deductions,
+    cacheConfigs.length > 0,
+  );
+
   // Expense categories (level 3 only - detail accounts)
   const expenseDetailCategories = useMemo(() => {
     return categories.filter((c) => c.type === "expense" && c.parent_id !== null);
