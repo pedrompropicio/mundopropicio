@@ -800,6 +800,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   projectedValue={displayValue}
                   eventId={eventId}
                   canEdit={canEdit}
+                  eventStatus={eventStatus}
                 />
               </div>
             );
