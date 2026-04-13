@@ -376,6 +376,28 @@ export function CacheSettlementPanel({
           />
         )}
       </div>
+
+      {/* Generate transaction button — only when finalized */}
+      {isFinalized && canEdit && (
+        <button
+          onClick={() => setShowTxModal(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+        >
+          <FileText className="h-4 w-4" />
+          Gerar Transação de Pagamento ({formatCurrency(effectiveValue)})
+        </button>
+      )}
+
+      {/* Transaction generation modal */}
+      {showTxModal && (
+        <CacheTransactionModal
+          onClose={() => setShowTxModal(false)}
+          eventId={eventId}
+          artistName={config.artist_name}
+          amount={effectiveValue}
+          cacheConfigId={config.id}
+        />
+      )}
     </div>
   );
 }
