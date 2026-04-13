@@ -295,7 +295,7 @@ export default function ReportForecastPayables() {
     );
 
     return { groupedData: sorted, grandTotals };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, cacheConfigs, cacheDeductions, cacheTiers]);
 
   const toggleGroup = (code: string) => {
     setExpandedGroups((prev) => {
