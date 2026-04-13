@@ -162,6 +162,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
   const hasPLRestriction = hasPL;
   const isParentMultiDay = selectedEvent?.event_type === "multi_day";
+  const isSubEvent = !!selectedEvent?.parent_event_id;
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
   const subEventsByParent = useMemo(() => {
@@ -304,6 +305,44 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
     return eventForecasts;
   }, [eventForecasts, isParentMultiDay, form.event_id]);
+
+  // Helper: when user is in a sub-event and selects a category from the parent's BP,
+  // auto-activate split mode with all sibling cities pre-filled
+  const tryAutoSplitFromSubEvent = (categoryId: string, type: string) => {
+    if (!isSubEvent || isSplit || !categoryId) return false;
+    const parentId = selectedEvent?.parent_event_id;
+    if (!parentId) return false;
+
+    // Check if this category exists in the parent's BP
+    const categoryInParentBP = eventForecasts.some(
+      (f: any) => f.event_id === parentId && f.type === type && f.category_id === categoryId
+    );
+    if (!categoryInParentBP) return false;
+
+    // Get all sibling sub-events (children of the same parent)
+    const siblings = subEventsByParent[parentId] || [];
+    if (siblings.length < 2) return false;
+
+    // Activate split with all cities
+    const parentEvent = events.find((e: any) => e.id === parentId);
+    const pct = +(100 / siblings.length).toFixed(2);
+    const entries: SplitEntry[] = siblings.map((child: any, idx: number) => {
+      const name = parentEvent ? `${parentEvent.name} — ${child.name}` : child.name;
+      const percentage = idx === siblings.length - 1
+        ? +(100 - pct * (siblings.length - 1)).toFixed(2)
+        : pct;
+      return { event_id: child.id, event_name: name, percentage };
+    });
+
+    setIsSplit(true);
+    setSplitAutoConfigured(true);
+    setSplitExpanded(false);
+    setSplitEntries(entries);
+    setSplitMethod("equal");
+    setForm(prev => ({ ...prev, event_id: "" }));
+    return true;
+  };
+
 
   const forecastBudgetByCategory = hasPL
     ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
@@ -1167,6 +1206,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
@@ -1174,6 +1214,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 amount: String(Number(line.amount) || prev.amount),
                 iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
                 specification: line.specification || prev.specification,
+                ...(switched ? { event_id: "" } : {}),
               }));
               setPlExpanded(false);
             };
@@ -1184,10 +1225,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 handleLineClick(detail.lines[0], detail);
                 return;
               }
-              // Multiple lines — set category and collapse
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
+                ...(switched ? { event_id: "" } : {}),
               }));
               setPlExpanded(false);
             };
@@ -1336,7 +1378,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={categoryOptions}
               value={form.category_id}
-              onValueChange={(v) => setForm({ ...form, category_id: v })}
+              onValueChange={(v) => {
+                const switched = tryAutoSplitFromSubEvent(v, form.type);
+                if (!switched) {
+                  setForm({ ...form, category_id: v });
+                } else {
+                  setForm(prev => ({ ...prev, category_id: v }));
+                }
+              }}
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
