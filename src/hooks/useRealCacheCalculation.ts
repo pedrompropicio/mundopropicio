@@ -2,27 +2,26 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-interface CacheConfig {
-  id: string;
-  event_id: string;
-  artist_name: string;
-  cache_type: string;
-  fixed_amount: number;
-  percentage: number;
-  fixed_deduction_percentage: number;
-  cache_revenue_basis?: string;
-  cache_deduction_basis?: string;
-  minimum_guaranteed?: number;
+export interface DeductionDetail {
+  categoryId: string;
+  categoryCode: string;
+  categoryName: string;
+  amount: number;
+  hasTransaction: boolean;
 }
 
-interface RealCacheResult {
+export interface RealCacheResult {
   configId: string;
   artistName: string;
   cacheType: string;
   realRevenueGross: number;
   realRevenueNet: number;
+  revenueBasis: number;
+  revenueBasisLabel: string;
+  deductionDetails: DeductionDetail[];
   realDeductionAmount: number;
   fixedPctDeduction: number;
+  fixedPctRate: number;
   totalDeduction: number;
   baseForCalc: number;
   percentage: number;
@@ -30,6 +29,7 @@ interface RealCacheResult {
   minimumGuaranteed: number;
   finalAmount: number;
   isUsingMinimum: boolean;
+  missingDeductionCategories: DeductionDetail[];
 }
 
 /**
@@ -41,6 +41,7 @@ export function useRealCacheCalculation(
   childEventIds: string[],
   cacheConfigs: any[],
   deductions: any[],
+  categories: any[],
   enabled: boolean
 ) {
   const allEventIds = useMemo(
@@ -52,7 +53,6 @@ export function useRealCacheCalculation(
   const { data: salesData } = useQuery({
     queryKey: ["real-ticket-sales", allEventIds.join(",")],
     queryFn: async () => {
-      // Get zones for all events
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id, event_id")
@@ -60,7 +60,6 @@ export function useRealCacheCalculation(
       const zoneIds = (zones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return { zones: [], sales: [], lots: [] };
 
-      // Get sales and lots in parallel
       const [salesRes, lotsRes] = await Promise.all([
         supabase.from("ticket_sales" as any).select("*").in("zone_id", zoneIds),
         supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds),
@@ -86,7 +85,6 @@ export function useRealCacheCalculation(
         .eq("type", "expense")
         .eq("is_hidden", false);
       if (error) throw error;
-      // Exclude child splits (they're already counted via parent) and transitory
       return (data ?? []).filter(
         (t: any) => !t.parent_transaction_id && !t.is_transitory && !t.exclude_from_result
       );
@@ -94,12 +92,20 @@ export function useRealCacheCalculation(
     enabled: enabled && allEventIds.length > 0,
   });
 
-  // Calculate real revenue per event
+  // Category lookup map
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, { code: string; name: string }>();
+    for (const cat of categories) {
+      map.set(cat.id, { code: cat.code, name: cat.name });
+    }
+    return map;
+  }, [categories]);
+
+  // Calculate real revenue
   const realRevenue = useMemo(() => {
     if (!salesData) return { gross: 0, net: 0 };
-    const { sales, lots, zones } = salesData;
+    const { sales, lots } = salesData;
 
-    // Build lot IVA rate map
     const lotIvaMap = new Map<string, number>();
     for (const lot of lots) {
       lotIvaMap.set(lot.id, Number(lot.iva_rate ?? 6));
@@ -117,7 +123,7 @@ export function useRealCacheCalculation(
     return { gross, net };
   }, [salesData]);
 
-  // Calculate per-config results
+  // Calculate per-config results with detailed breakdowns
   const results: RealCacheResult[] = useMemo(() => {
     return cacheConfigs.map((config: any) => {
       if (config.cache_type === "fixed") {
@@ -127,8 +133,12 @@ export function useRealCacheCalculation(
           cacheType: "fixed",
           realRevenueGross: realRevenue.gross,
           realRevenueNet: realRevenue.net,
+          revenueBasis: 0,
+          revenueBasisLabel: "",
+          deductionDetails: [],
           realDeductionAmount: 0,
           fixedPctDeduction: 0,
+          fixedPctRate: 0,
           totalDeduction: 0,
           baseForCalc: 0,
           percentage: 0,
@@ -136,30 +146,27 @@ export function useRealCacheCalculation(
           minimumGuaranteed: 0,
           finalAmount: Number(config.fixed_amount),
           isUsingMinimum: false,
+          missingDeductionCategories: [],
         };
       }
 
-      // Variable: use real data
-      const basis =
-        config.cache_revenue_basis === "gross"
-          ? realRevenue.gross
-          : realRevenue.net;
+      const basisIsGross = config.cache_revenue_basis === "gross";
+      const basis = basisIsGross ? realRevenue.gross : realRevenue.net;
+      const basisLabel = basisIsGross ? "Bruta (c/ IVA)" : "Líquida (s/ IVA)";
 
       const configDeductions = deductions.filter(
         (d: any) => d.cache_config_id === config.id
       );
-      const deductionCategoryIds = new Set(
-        configDeductions.map((d: any) => d.category_id)
-      );
-      const deductionBasisGross =
-        (config.cache_deduction_basis || "net") === "gross";
+      const deductionCategoryIds = configDeductions.map((d: any) => d.category_id);
+      const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
 
-      const realDeductionAmount = realExpenses
-        .filter(
-          (t: any) =>
-            deductionCategoryIds.has(t.category_id ?? "")
-        )
-        .reduce((s: number, t: any) => {
+      // Build per-category deduction details
+      const deductionDetails: DeductionDetail[] = deductionCategoryIds.map((catId: string) => {
+        const catInfo = categoryMap.get(catId);
+        const matchingExpenses = realExpenses.filter(
+          (t: any) => t.category_id === catId
+        );
+        const amount = matchingExpenses.reduce((s: number, t: any) => {
           const base = Number(t.amount);
           if (deductionBasisGross) {
             const rate = Number(t.iva_rate ?? 0);
@@ -168,8 +175,18 @@ export function useRealCacheCalculation(
           return s + base;
         }, 0);
 
-      const fixedPctDeduction =
-        basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
+        return {
+          categoryId: catId,
+          categoryCode: catInfo?.code ?? "",
+          categoryName: catInfo?.name ?? "Categoria desconhecida",
+          amount,
+          hasTransaction: matchingExpenses.length > 0,
+        };
+      });
+
+      const realDeductionAmount = deductionDetails.reduce((s, d) => s + d.amount, 0);
+      const fixedPctRate = Number(config.fixed_deduction_percentage) || 0;
+      const fixedPctDeduction = basis * (fixedPctRate / 100);
       const totalDeduction = realDeductionAmount + fixedPctDeduction;
       const baseForCalc = basis - totalDeduction;
       const pct = Number(config.percentage) || 0;
@@ -177,14 +194,20 @@ export function useRealCacheCalculation(
       const minGuaranteed = Number(config.minimum_guaranteed) || 0;
       const finalAmount = Math.round(Math.max(minGuaranteed, calculated));
 
+      const missingDeductionCategories = deductionDetails.filter((d) => !d.hasTransaction);
+
       return {
         configId: config.id,
         artistName: config.artist_name,
         cacheType: "variable",
         realRevenueGross: realRevenue.gross,
         realRevenueNet: realRevenue.net,
+        revenueBasis: basis,
+        revenueBasisLabel: basisLabel,
+        deductionDetails,
         realDeductionAmount,
         fixedPctDeduction,
+        fixedPctRate,
         totalDeduction,
         baseForCalc,
         percentage: pct,
@@ -192,9 +215,10 @@ export function useRealCacheCalculation(
         minimumGuaranteed: minGuaranteed,
         finalAmount,
         isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed),
+        missingDeductionCategories,
       };
     });
-  }, [cacheConfigs, deductions, realRevenue, realExpenses]);
+  }, [cacheConfigs, deductions, realRevenue, realExpenses, categoryMap]);
 
   return {
     results,

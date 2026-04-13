@@ -5,7 +5,7 @@ import { moveToTrash } from "@/lib/trash";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
@@ -541,7 +541,42 @@ export default function EventDetail() {
         )}
       </div>
 
-      {/* Multi-day sub-event selector */}
+      {/* Post-event completion alert */}
+      {(isAdmin || isManager) && event.status === "active" && (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const eventDate = event.date;
+        // For tours, check the latest child date
+        const latestDate = subEvents.length > 0
+          ? subEvents.reduce((max: string, s: any) => s.date > max ? s.date : max, eventDate)
+          : eventDate;
+        if (today > latestDate) {
+          return (
+            <div className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3">
+              <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-warning">Este evento já foi realizado</p>
+                <p className="text-xs text-warning/70 mt-0.5">
+                  A data do evento ({new Date(latestDate + "T12:00:00").toLocaleDateString("pt-PT")}) já passou. Deseja concluir o evento?
+                </p>
+              </div>
+              <button
+                onClick={() => setConfirmAction({
+                  title: "Concluir Evento",
+                  description: "Concluir este evento? Todas as alterações ficarão bloqueadas. Apenas um administrador poderá reabrir o evento.",
+                  action: () => changeStatusMutation.mutate("completed"),
+                })}
+                disabled={changeStatusMutation.isPending}
+                className="shrink-0 rounded-lg bg-warning px-4 py-2 text-xs font-semibold text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 className="inline h-3.5 w-3.5 mr-1" />
+                Concluir Evento
+              </button>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {isMultiEvent && subEvents.length > 0 && (
         <div className="glass rounded-xl p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Datas da Turnê</h3>
