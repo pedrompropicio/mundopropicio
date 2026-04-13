@@ -973,16 +973,45 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           {/* Split config panel — shown when split is active */}
           {isSplit && (
             <>
-              <TransactionSplitConfig
-                events={events}
-                splitEntries={splitEntries}
-                onChange={setSplitEntries}
-                splitMethod={splitMethod}
-                onMethodChange={setSplitMethod}
-                totalAmount={parseFloat(form.amount) || 0}
-                bpInfoByEvent={splitBPInfoByEvent}
-               />
-              {/* Category block warning for split mode */}
+              {/* When auto-configured from tour, show collapsed summary */}
+              {splitAutoConfigured && !splitExpanded ? (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
+                      <Split className="h-3.5 w-3.5" />
+                      Rateio Multi-Evento ({splitEntries.length} cidades)
+                      <HelpTooltip text={helpTexts.splitTransaction} size={13} />
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSplitExpanded(true)}
+                      className="text-[10px] font-medium text-primary hover:underline"
+                    >
+                      Ajustar percentuais
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {splitEntries.map((entry) => {
+                      const shortName = entry.event_name.includes("—") ? entry.event_name.split("—").pop()?.trim() : entry.event_name;
+                      return (
+                        <span key={entry.event_id} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+                          {shortName} <span className="font-semibold text-foreground">{entry.percentage.toFixed(1)}%</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <TransactionSplitConfig
+                  events={events}
+                  splitEntries={splitEntries}
+                  onChange={setSplitEntries}
+                  splitMethod={splitMethod}
+                  onMethodChange={setSplitMethod}
+                  totalAmount={parseFloat(form.amount) || 0}
+                  bpInfoByEvent={splitBPInfoByEvent}
+                />
+              )}
               {splitCategoryBlockReason && (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
