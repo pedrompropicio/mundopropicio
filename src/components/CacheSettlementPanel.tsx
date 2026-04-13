@@ -189,6 +189,24 @@ export function CacheSettlementPanel({
         </div>
       )}
 
+      {/* Withholding summary */}
+      {withholdingApplicable && (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Cachê Bruto</span>
+            <span className="font-mono">{formatCurrency(effectiveValue)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-destructive">
+            <span>Retenção IRS ({withholdingRate}%)</span>
+            <span className="font-mono">− {formatCurrency(effectiveWithholding)}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-semibold border-t border-destructive/20 pt-1">
+            <span>Líquido a Pagar</span>
+            <span className="font-mono">{formatCurrency(netPayable)}</span>
+          </div>
+        </div>
+      )}
+
       {/* Detailed calculation breakdown */}
       {isVariable && showBreakdown && (
         <div className="rounded-lg border border-border bg-background overflow-hidden animate-fade-in">
@@ -390,7 +408,12 @@ export function CacheSettlementPanel({
           className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
         >
           <FileText className="h-4 w-4" />
-          Gerar Transação de Pagamento ({formatCurrency(effectiveValue)})
+          Gerar Transação de Pagamento ({formatCurrency(netPayable)})
+          {withholdingApplicable && (
+            <span className="text-[10px] text-muted-foreground ml-1">
+              + retenção {formatCurrency(effectiveWithholding)}
+            </span>
+          )}
         </button>
       )}
 
@@ -403,6 +426,9 @@ export function CacheSettlementPanel({
           amount={effectiveValue}
           cacheConfigId={config.id}
           configSupplierId={config.supplier_id}
+          withholdingApplicable={withholdingApplicable}
+          withholdingRate={withholdingRate}
+          withholdingAmount={effectiveWithholding}
         />
       )}
     </div>
