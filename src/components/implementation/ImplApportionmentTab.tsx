@@ -95,6 +95,7 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         groups.set(key, {
           key,
           description: f.description,
+          specification: f.specification,
           category_id: f.category_id,
           category_code: f.category_code,
           category_name: f.category_name,
@@ -104,6 +105,12 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         });
       }
       const g = groups.get(key)!;
+      // Use the most informative specification (prefer non-null, then longest)
+      if (!g.specification && f.specification) {
+        g.specification = f.specification;
+      } else if (f.specification && g.specification && f.specification.length > g.specification.length) {
+        g.specification = f.specification;
+      }
       g.occurrences.push({
         event_id: f.event_id,
         event_name: eventNameMap[f.event_id] || f.event_id,
