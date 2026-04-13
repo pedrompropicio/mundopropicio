@@ -344,6 +344,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   };
 
 
+  const forecastBudgetByCategory = hasPL
     ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
         const key = `${f.type}_${f.category_id || "none"}`;
         acc[key] = (acc[key] || 0) + Number(f.amount);
