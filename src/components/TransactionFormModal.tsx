@@ -80,6 +80,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
   const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
   const [splitAutoConfigured, setSplitAutoConfigured] = useState(false);
+  const [splitMasterEventId, setSplitMasterEventId] = useState("");
   const [splitExpanded, setSplitExpanded] = useState(false);
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
@@ -157,11 +158,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: form.is_reimbursement,
   });
 
+  const effectiveEventId = form.event_id || splitMasterEventId;
   const selectedEvent = events.find((e: any) => e.id === form.event_id);
-  const isActivePL = selectedEvent?.pl_mode === "active";
-  const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
+  const effectiveEvent = events.find((e: any) => e.id === effectiveEventId);
+  const isActivePL = effectiveEvent?.pl_mode === "active";
+  const hasPL = effectiveEvent?.pl_mode === "active" || effectiveEvent?.pl_mode === "passive";
   const hasPLRestriction = hasPL;
-  const isParentMultiDay = selectedEvent?.event_type === "multi_day";
+  const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
@@ -176,19 +179,22 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   // For parent multi_day events, fetch parent's own BP + child BPs for aggregation
   // For child (split) events, also include parent's BP lines (shared/prorated costs)
+  // For split auto-configured (Master selected), use splitMasterEventId
   const forecastEventIds = useMemo(() => {
-    if (!form.event_id) return [];
-    if (isParentMultiDay) {
-      const childIds = (subEventsByParent[form.event_id] || []).map((e: any) => e.id);
-      return [form.event_id, ...childIds];
+    const eid = effectiveEventId;
+    if (!eid) return [];
+    const ev = events.find((e: any) => e.id === eid);
+    if (ev?.event_type === "multi_day") {
+      const childIds = (subEventsByParent[eid] || []).map((e: any) => e.id);
+      return [eid, ...childIds];
     }
     // If this is a child event, include the parent's BP too
-    const parentId = selectedEvent?.parent_event_id;
+    const parentId = ev?.parent_event_id;
     if (parentId) {
-      return [form.event_id, parentId];
+      return [eid, parentId];
     }
-    return [form.event_id];
-  }, [form.event_id, isParentMultiDay, subEventsByParent, selectedEvent?.parent_event_id]);
+    return [eid];
+  }, [effectiveEventId, events, subEventsByParent]);
 
   // Build event options for SearchableSelect
   const eventOptions = useMemo(() => {
@@ -225,7 +231,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
+    enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: eventTransactions = [] } = useQuery({
@@ -238,7 +244,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
+    enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
   });
 
   // Fetch cache configs for this event (aggregate from children for parent tours)
@@ -252,7 +258,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data as CacheConfig[];
     },
-    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
+    enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: cacheDeductions = [] } = useQuery({
@@ -266,7 +272,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data as CacheDeduction[];
     },
-    enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
+    enabled: !!effectiveEventId && hasPL && cacheConfigs.length > 0,
   });
 
   // Fetch ticket lots for cachê calculation (aggregate from children for parent tours)
@@ -284,7 +290,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         .in("zone_id", zones.map(z => z.id));
       return lots || [];
     },
-    enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
+    enabled: !!effectiveEventId && hasPL && cacheConfigs.length > 0,
   });
 
   const ticketRevenueGross = useMemo(() => {
@@ -301,10 +307,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   // When selecting a parent multi_day event, only show the parent's own BP lines (for proration)
   const relevantForecasts = useMemo(() => {
     if (isParentMultiDay) {
-      return eventForecasts.filter((f: any) => f.event_id === form.event_id);
+      return eventForecasts.filter((f: any) => f.event_id === effectiveEventId);
     }
     return eventForecasts;
-  }, [eventForecasts, isParentMultiDay, form.event_id]);
+  }, [eventForecasts, isParentMultiDay, effectiveEventId]);
 
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
   // auto-activate split mode with all sibling cities pre-filled
@@ -336,6 +342,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
     setIsSplit(true);
     setSplitAutoConfigured(true);
+    setSplitMasterEventId(parentId);
     setSplitExpanded(false);
     setSplitEntries(entries);
     setSplitMethod("equal");
@@ -790,11 +797,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
     } else {
-      if (rootFlags.event_required && !form.event_id) {
+      if (rootFlags.event_required && !form.event_id && !splitMasterEventId) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
       }
-      if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -810,7 +817,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       return;
     }
     // Warning (non-blocking) when amount exceeds BP forecast
-    if (hasPL && form.event_id && form.category_id) {
+    if (hasPL && effectiveEventId && form.category_id) {
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
       const used = usedBudgetByCategory[budgetKey] || 0;
@@ -843,7 +850,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     // Only leaf categories (no children)
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
-    if (hasPLRestriction && form.event_id && !plOverride) {
+    if (hasPLRestriction && effectiveEventId && !plOverride) {
       if (isParentMultiDay) {
         return allowedCategoryIds.includes(c.id);
       }
@@ -906,7 +913,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         if (isLeaf) {
           // BP description enrichment
           let description: string | undefined;
-          if (hasPL && form.event_id && !plOverride) {
+          if (hasPL && effectiveEventId && !plOverride) {
             const bpLines = relevantForecasts.filter(f => f.category_id === node.cat.id && f.type === form.type);
             if (bpLines.length > 0) {
               description = bpLines.map(l => l.description).join(", ");
@@ -963,11 +970,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 setIsSplit(!isSplit);
                 if (!isSplit) {
                   setForm({ ...form, event_id: "" });
-                  setSplitAutoConfigured(false);
+                   setSplitAutoConfigured(false);
+                   setSplitMasterEventId("");
                   setSplitExpanded(true);
                 } else {
                   setSplitEntries([]);
-                  setSplitAutoConfigured(false);
+                   setSplitAutoConfigured(false);
+                   setSplitMasterEventId("");
                 }
               }}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
@@ -1003,6 +1012,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   if (ev?.event_type === "multi_day" && children.length > 0) {
                     setIsSplit(true);
                     setSplitAutoConfigured(true);
+                    setSplitMasterEventId(v);
                     setSplitExpanded(false);
                     setForm(prev => ({ ...prev, event_id: "" }));
                     const pct = +(100 / children.length).toFixed(2);
@@ -1095,7 +1105,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
-          {hasPL && form.event_id && plExpanded && (() => {
+          {hasPL && effectiveEventId && plExpanded && (() => {
             const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
@@ -1355,14 +1365,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             );
           })()}
 
-          {hasPL && form.event_id && !plExpanded && (
+          {hasPL && effectiveEventId && !plExpanded && (
             <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
               BP — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
             </button>
           )}
 
           {/* BP Override toggle — only when restriction is active */}
-          {hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && (
+          {hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1554,7 +1564,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Budget indicator for BP */}
-          {hasPL && form.category_id && form.event_id && (() => {
+          {hasPL && form.category_id && effectiveEventId && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
             const used = usedBudgetByCategory[budgetKey] || 0;
