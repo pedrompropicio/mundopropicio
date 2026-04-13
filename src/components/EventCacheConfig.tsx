@@ -613,9 +613,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
-                    {/* Row: Finalized + Revenue Basis + Deduction Basis */}
-                    <div className="grid grid-cols-[1fr,auto,auto] gap-3 items-start">
-                      <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
+                     {/* Row: Revenue Basis + Deduction Basis */}
+                    <div className="grid grid-cols-[auto,auto] gap-3 items-start">
                         <div className="flex items-center gap-2">
                           {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
                           <div>
