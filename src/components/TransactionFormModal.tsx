@@ -307,10 +307,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   // When selecting a parent multi_day event, only show the parent's own BP lines (for proration)
   const relevantForecasts = useMemo(() => {
     if (isParentMultiDay) {
-      return eventForecasts.filter((f: any) => f.event_id === form.event_id);
+      return eventForecasts.filter((f: any) => f.event_id === effectiveEventId);
     }
     return eventForecasts;
-  }, [eventForecasts, isParentMultiDay, form.event_id]);
+  }, [eventForecasts, isParentMultiDay, effectiveEventId]);
 
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
   // auto-activate split mode with all sibling cities pre-filled
