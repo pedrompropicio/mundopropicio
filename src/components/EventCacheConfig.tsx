@@ -36,6 +36,25 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   const [fixedAmount, setFixedAmount] = useState("");
   const [percentage, setPercentage] = useState("");
   const [minimumGuaranteed, setMinimumGuaranteed] = useState("");
+  const [formSupplierId, setFormSupplierId] = useState("");
+
+  // Fetch suppliers for beneficiary selection
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers_active"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      return data ?? [];
+    },
+  });
+
+  const supplierOptions = useMemo(() =>
+    suppliers.map((s) => ({ value: s.id, label: s.name })),
+    [suppliers]
+  );
 
   // Fetch cache configs
   const { data: cacheConfigs = [], isLoading } = useQuery({
