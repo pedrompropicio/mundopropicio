@@ -40,7 +40,8 @@ export function CacheSettlementPanel({
   eventId,
   canEdit,
 }: Props) {
-  const { userName } = useAuth();
+  const { user } = useAuth();
+  const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
   const queryClient = useQueryClient();
   const isFinalized = !!config.is_finalized;
   const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
