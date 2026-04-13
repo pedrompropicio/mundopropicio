@@ -39,6 +39,7 @@ export function CacheSettlementPanel({
     adjustedAmount != null ? String(adjustedAmount) : ""
   );
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showTxModal, setShowTxModal] = useState(false);
 
   // Only show for active/completed events
   if (eventStatus !== "active" && eventStatus !== "completed") return null;
