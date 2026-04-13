@@ -32,6 +32,7 @@ interface ForecastWithEvent {
 interface ApportionmentCandidate {
   key: string; // category_id or description-based key
   description: string;
+  specification: string | null;
   category_id: string | null;
   category_code: string;
   category_name: string;
@@ -94,6 +95,7 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         groups.set(key, {
           key,
           description: f.description,
+          specification: f.specification,
           category_id: f.category_id,
           category_code: f.category_code,
           category_name: f.category_name,
@@ -103,6 +105,12 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         });
       }
       const g = groups.get(key)!;
+      // Use the most informative specification (prefer non-null, then longest)
+      if (!g.specification && f.specification) {
+        g.specification = f.specification;
+      } else if (f.specification && g.specification && f.specification.length > g.specification.length) {
+        g.specification = f.specification;
+      }
       g.occurrences.push({
         event_id: f.event_id,
         event_name: eventNameMap[f.event_id] || f.event_id,
@@ -173,6 +181,7 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
           event_id: masterEvent.id,
           type: "expense",
           description: candidate.description,
+          specification: candidate.specification,
           amount: Math.round(avgAmount * 100) / 100,
           iva_rate: splitForecasts.find((f) => f.category_id === candidate.category_id)?.iva_rate || 23,
           category_id: candidate.category_id,
