@@ -102,6 +102,8 @@ export default function EventDetail() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
+  const [editingSubName, setEditingSubName] = useState<string | null>(null);
+  const [editSubNameValue, setEditSubNameValue] = useState("");
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
     queryFn: async () => {
@@ -221,6 +223,23 @@ export default function EventDetail() {
       return sales.reduce((sum, s) => sum + (s.quantity * Number(s.unit_price)), 0);
     },
     enabled: !!id,
+  });
+
+  const renameSubEventMutation = useMutation({
+    mutationFn: async ({ subId, newName }: { subId: string; newName: string }) => {
+      const { error } = await supabase.from("events").update({ name: newName }).eq("id", subId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sub_events", id] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["events_full"] });
+      setEditingSubName(null);
+      toast({ title: "Nome atualizado com sucesso" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao renomear", description: err.message, variant: "destructive" });
+    },
   });
 
   const changeStatusMutation = useMutation({
@@ -592,18 +611,53 @@ export default function EventDetail() {
               Visão Global
             </button>
             {subEvents.map((sub: any) => (
-              <button
-                key={sub.id}
-                onClick={() => setSelectedSubEvent(sub.id)}
-                className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                  selectedSubEvent === sub.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <span className="block">{sub.name}</span>
-                <span className="block text-[10px] opacity-70">{formatDate(sub.date)} {sub.location ? `· ${sub.location}` : ""}</span>
-              </button>
+              <div key={sub.id} className="relative group">
+                {editingSubName === sub.id ? (
+                  <form
+                    className="flex items-center gap-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (editSubNameValue.trim()) {
+                        renameSubEventMutation.mutate({ subId: sub.id, newName: editSubNameValue.trim() });
+                      }
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      className="rounded-lg px-2 py-1.5 text-xs font-medium border border-primary bg-background text-foreground w-32"
+                      value={editSubNameValue}
+                      onChange={(e) => setEditSubNameValue(e.target.value)}
+                      onBlur={() => setEditingSubName(null)}
+                      onKeyDown={(e) => { if (e.key === "Escape") setEditingSubName(null); }}
+                    />
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setSelectedSubEvent(sub.id)}
+                    className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
+                      selectedSubEvent === sub.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="block">{sub.name}</span>
+                    <span className="block text-[10px] opacity-70">{formatDate(sub.date)} {sub.location ? `· ${sub.location}` : ""}</span>
+                  </button>
+                )}
+                {(isAdmin || isManager) && editingSubName !== sub.id && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditSubNameValue(sub.name);
+                      setEditingSubName(sub.id);
+                    }}
+                    className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 bg-muted border border-border text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Renomear"
+                  >
+                    <Pencil className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
           {isGlobalView && (
