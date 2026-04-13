@@ -912,8 +912,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 setIsSplit(!isSplit);
                 if (!isSplit) {
                   setForm({ ...form, event_id: "" });
+                  setSplitAutoConfigured(false);
+                  setSplitExpanded(true);
                 } else {
                   setSplitEntries([]);
+                  setSplitAutoConfigured(false);
                 }
               }}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
