@@ -633,15 +633,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   </div>
                   <span className="font-mono font-bold text-sm shrink-0">{formatCurrency(displayValue)}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    {isVariable && (
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : config.id)}
-                        className="rounded p-1.5 hover:bg-secondary transition-colors"
-                        title="Configurar descontos"
-                      >
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : config.id)}
+                      className="rounded p-1.5 hover:bg-secondary transition-colors"
+                      title={isVariable ? "Configurar descontos e retenção" : "Configurar retenção"}
+                    >
+                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
                     {canEdit && (
                       <button
                         onClick={() => {
@@ -770,46 +768,6 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                       </div>
                     </div>
 
-                    {/* Withholding (Retenção na Fonte) */}
-                    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-foreground">Retenção na Fonte (IRS)</span>
-                        <span className="text-[10px] text-muted-foreground">Incide sobre o cachê</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {config.withholding_applicable && (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="100"
-                              value={Number(config.withholding_rate) || 25}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 25;
-                                supabase
-                                  .from("event_cache_configs" as any)
-                                  .update({ withholding_rate: val })
-                                  .eq("id", config.id)
-                                  .then(() => queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] }));
-                              }}
-                              className={`${inputClass} text-xs w-16 text-center`}
-                            />
-                            <span className="text-[10px] text-muted-foreground">%</span>
-                          </div>
-                        )}
-                        <Switch
-                          checked={!!config.withholding_applicable}
-                          onCheckedChange={(checked) => {
-                            supabase
-                              .from("event_cache_configs" as any)
-                              .update({ withholding_applicable: checked })
-                              .eq("id", config.id)
-                              .then(() => queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] }));
-                          }}
-                        />
-                      </div>
-                    </div>
 
                     {/* Category-based deductions */}
                     <div className="space-y-1.5">
@@ -870,7 +828,51 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   </div>
                 )}
 
-                {/* Extras panel (always visible) */}
+                {/* Withholding (Retenção na Fonte) — available for all cache types */}
+                {isExpanded && canEdit && (
+                  <div className="border-t border-border bg-muted/30 p-3 animate-fade-in">
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-foreground">Retenção na Fonte (IRS)</span>
+                        <span className="text-[10px] text-muted-foreground">Incide sobre o cachê</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {config.withholding_applicable && (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="100"
+                              value={Number(config.withholding_rate) || 25}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 25;
+                                supabase
+                                  .from("event_cache_configs" as any)
+                                  .update({ withholding_rate: val })
+                                  .eq("id", config.id)
+                                  .then(() => queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] }));
+                              }}
+                              className={`${inputClass} text-xs w-16 text-center`}
+                            />
+                            <span className="text-[10px] text-muted-foreground">%</span>
+                          </div>
+                        )}
+                        <Switch
+                          checked={!!config.withholding_applicable}
+                          onCheckedChange={(checked) => {
+                            supabase
+                              .from("event_cache_configs" as any)
+                              .update({ withholding_applicable: checked })
+                              .eq("id", config.id)
+                              .then(() => queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="px-3 pb-3">
                   <CacheExtrasPanel
                     cacheConfigId={config.id}
