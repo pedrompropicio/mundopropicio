@@ -804,6 +804,15 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                     canEdit={canEdit}
                   />
                 </div>
+
+                {/* Settlement panel — Real values for closing */}
+                <CacheSettlementPanel
+                  config={config}
+                  realResult={realCacheResults.find((r) => r.configId === config.id)}
+                  projectedValue={displayValue}
+                  eventId={eventId}
+                  canEdit={canEdit}
+                />
               </div>
             );
           })}
