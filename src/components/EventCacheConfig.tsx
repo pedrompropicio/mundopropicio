@@ -224,6 +224,13 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     return deductions.filter((d: any) => d.cache_config_id === configId);
   };
 
+  // Get tiers for a specific config
+  const getTiersForConfig = (configId: string) => {
+    return tiers
+      .filter((t: any) => t.cache_config_id === configId)
+      .sort((a: any, b: any) => Number(a.occupancy_threshold) - Number(b.occupancy_threshold));
+  };
+
   // Calculate deduction amount for a config (categories + fixed %)
   const calculateDeductionAmount = (configId: string, deductionBasisGross = false) => {
     const configDeductions = getDeductionsForConfig(configId);
