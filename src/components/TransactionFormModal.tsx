@@ -817,7 +817,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       return;
     }
     // Warning (non-blocking) when amount exceeds BP forecast
-    if (hasPL && form.event_id && form.category_id) {
+    if (hasPL && effectiveEventId && form.category_id) {
       const budgetKey = `${form.type}_${form.category_id}`;
       const forecast = forecastBudgetByCategory[budgetKey] || 0;
       const used = usedBudgetByCategory[budgetKey] || 0;
@@ -913,7 +913,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         if (isLeaf) {
           // BP description enrichment
           let description: string | undefined;
-          if (hasPL && form.event_id && !plOverride) {
+          if (hasPL && effectiveEventId && !plOverride) {
             const bpLines = relevantForecasts.filter(f => f.category_id === node.cat.id && f.type === form.type);
             if (bpLines.length > 0) {
               description = bpLines.map(l => l.description).join(", ");
@@ -1105,7 +1105,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* BP forecast lines — auto-expand when event selected */}
-          {hasPL && form.event_id && plExpanded && (() => {
+          {hasPL && effectiveEventId && plExpanded && (() => {
             const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
 
             // Calculate cachê lines for expense view
@@ -1365,14 +1365,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             );
           })()}
 
-          {hasPL && form.event_id && !plExpanded && (
+          {hasPL && effectiveEventId && !plExpanded && (
             <button type="button" onClick={() => setPlExpanded(true)} className="w-full rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
               BP — {form.type === "income" ? "Receitas" : "Despesas"} previstas ▼
             </button>
           )}
 
           {/* BP Override toggle — only when restriction is active */}
-          {hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && (
+          {hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
