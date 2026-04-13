@@ -87,10 +87,15 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
-          Rateio Multi-Evento
-          <HelpTooltip text={helpTexts.splitTransaction} size={13} />
-        </p>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
+            Rateio Multi-Evento
+            <HelpTooltip text={helpTexts.splitTransaction} size={13} />
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Selecione os eventos e defina como dividir o valor da fatura
+          </p>
+        </div>
         <div className="flex gap-1">
           <button
             type="button"

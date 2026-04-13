@@ -994,12 +994,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                 isSplit
                   ? "bg-primary/15 text-primary ring-1 ring-primary/30"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-dashed border-muted-foreground/30"
               }`}
             >
               <Split className="h-3.5 w-3.5" />
-              {isSplit ? "Rateio Ativo" : "Ratear por eventos"}
+              {isSplit ? "Rateio Ativo" : "💡 Dividir por vários eventos"}
             </button>
+            <HelpTooltip text={helpTexts.splitTransaction} size={14} />
           </div>
 
           {/* Event selector (single) — hidden when split */}
