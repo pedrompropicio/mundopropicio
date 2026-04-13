@@ -797,11 +797,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
     } else {
-      if (rootFlags.event_required && !form.event_id) {
+      if (rootFlags.event_required && !form.event_id && !splitMasterEventId) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
       }
-      if (hasPLRestriction && form.event_id && allowedCategoryIds.length > 0 && !plOverride) {
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -850,7 +850,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     // Only leaf categories (no children)
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
-    if (hasPLRestriction && form.event_id && !plOverride) {
+    if (hasPLRestriction && effectiveEventId && !plOverride) {
       if (isParentMultiDay) {
         return allowedCategoryIds.includes(c.id);
       }
@@ -1564,7 +1564,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Budget indicator for BP */}
-          {hasPL && form.category_id && form.event_id && (() => {
+          {hasPL && form.category_id && effectiveEventId && (() => {
             const budgetKey = `${form.type}_${form.category_id}`;
             const forecast = forecastBudgetByCategory[budgetKey] || 0;
             const used = usedBudgetByCategory[budgetKey] || 0;
