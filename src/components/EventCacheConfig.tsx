@@ -174,7 +174,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     childEventIds || [],
     cacheConfigs,
     deductions,
-    cacheConfigs.length > 0,
+    categories,
+    cacheConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
   );
 
   // Expense categories (level 3 only - detail accounts)
