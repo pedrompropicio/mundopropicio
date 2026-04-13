@@ -611,18 +611,53 @@ export default function EventDetail() {
               Visão Global
             </button>
             {subEvents.map((sub: any) => (
-              <button
-                key={sub.id}
-                onClick={() => setSelectedSubEvent(sub.id)}
-                className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                  selectedSubEvent === sub.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <span className="block">{sub.name}</span>
-                <span className="block text-[10px] opacity-70">{formatDate(sub.date)} {sub.location ? `· ${sub.location}` : ""}</span>
-              </button>
+              <div key={sub.id} className="relative group">
+                {editingSubName === sub.id ? (
+                  <form
+                    className="flex items-center gap-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (editSubNameValue.trim()) {
+                        renameSubEventMutation.mutate({ subId: sub.id, newName: editSubNameValue.trim() });
+                      }
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      className="rounded-lg px-2 py-1.5 text-xs font-medium border border-primary bg-background text-foreground w-32"
+                      value={editSubNameValue}
+                      onChange={(e) => setEditSubNameValue(e.target.value)}
+                      onBlur={() => setEditingSubName(null)}
+                      onKeyDown={(e) => { if (e.key === "Escape") setEditingSubName(null); }}
+                    />
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setSelectedSubEvent(sub.id)}
+                    className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
+                      selectedSubEvent === sub.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="block">{sub.name}</span>
+                    <span className="block text-[10px] opacity-70">{formatDate(sub.date)} {sub.location ? `· ${sub.location}` : ""}</span>
+                  </button>
+                )}
+                {(isAdmin || isManager) && editingSubName !== sub.id && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditSubNameValue(sub.name);
+                      setEditingSubName(sub.id);
+                    }}
+                    className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 bg-muted border border-border text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Renomear"
+                  >
+                    <Pencil className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
           {isGlobalView && (
