@@ -633,6 +633,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
             const isFinalized = !!config.is_finalized;
             const isExpanded = expandedId === config.id;
             const configDeductions = getDeductionsForConfig(config.id);
+            const configTiers = getTiersForConfig(config.id);
+            const hasTiers = configTiers.length > 0;
             const deductionCategoryIds = new Set(configDeductions.map((d: any) => d.category_id));
             const deductionBasisGross = (config.cache_deduction_basis || "net") === "gross";
             const categoryDeduction = isVariable ? calculateDeductionAmount(config.id, deductionBasisGross) : 0;
