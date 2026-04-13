@@ -314,10 +314,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     if (!parentId) return false;
 
     // Check if this category exists in the parent's BP
-    const categoryInParentBP = eventForecasts.some(
+    const parentForecast = eventForecasts.find(
       (f: any) => f.event_id === parentId && f.type === type && f.category_id === categoryId
     );
-    if (!categoryInParentBP) return false;
+    if (!parentForecast) return false;
 
     // Get all sibling sub-events (children of the same parent)
     const siblings = subEventsByParent[parentId] || [];
@@ -339,7 +339,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     setSplitExpanded(false);
     setSplitEntries(entries);
     setSplitMethod("equal");
-    setForm(prev => ({ ...prev, event_id: "" }));
+
+    // Fill form fields from the Master's BP forecast data
+    setForm(prev => ({
+      ...prev,
+      event_id: "",
+      category_id: categoryId,
+      description: (parentForecast as any).description || prev.description,
+      amount: String(Number((parentForecast as any).amount) || prev.amount),
+      iva_rate: ((parentForecast as any).iva_rate ?? prev.iva_rate) as IvaRate,
+      specification: (parentForecast as any).specification || prev.specification,
+    }));
     return true;
   };
 
