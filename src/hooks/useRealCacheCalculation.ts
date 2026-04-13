@@ -196,7 +196,7 @@ export function useRealCacheCalculation(
       const fixedPctDeduction = basis * (fixedPctRate / 100);
       const totalDeduction = realDeductionAmount + fixedPctDeduction;
       const baseForCalc = basis - totalDeduction;
-      const pct = Number(config.percentage) || 0;
+      const pct = resolvePercentageFromTiers(config, occupancyPct);
       const calculated = Math.max(0, baseForCalc * (pct / 100));
       const minGuaranteed = Number(config.minimum_guaranteed) || 0;
       const finalAmount = Math.round(Math.max(minGuaranteed, calculated));
