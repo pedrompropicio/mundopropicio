@@ -1034,16 +1034,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                       Rateio Multi-Evento ({splitEntries.length} cidades)
                       <HelpTooltip text={helpTexts.splitTransaction} size={13} />
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setSplitExpanded(true)}
-                      className="text-[10px] font-medium text-primary hover:underline"
-                    >
-                      Ajustar percentuais
-                    </button>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {splitEntries.map((entry) => {
+                      const shortName = entry.event_name.includes("—") ? entry.event_name.split("—").pop()?.trim() : entry.event_name;
+                      return (
+                        <span key={entry.event_id} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+                          {shortName} <span className="font-semibold text-foreground">{entry.percentage.toFixed(1)}%</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                       const shortName = entry.event_name.includes("—") ? entry.event_name.split("—").pop()?.trim() : entry.event_name;
                       return (
                         <span key={entry.event_id} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
