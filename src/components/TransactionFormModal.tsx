@@ -231,7 +231,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
+    enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: eventTransactions = [] } = useQuery({
@@ -244,7 +244,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data;
     },
-    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
+    enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
   });
 
   // Fetch cache configs for this event (aggregate from children for parent tours)
@@ -258,7 +258,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data as CacheConfig[];
     },
-    enabled: !!form.event_id && hasPL && forecastEventIds.length > 0,
+    enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
   });
 
   const { data: cacheDeductions = [] } = useQuery({
@@ -272,7 +272,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (error) throw error;
       return data as CacheDeduction[];
     },
-    enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
+    enabled: !!effectiveEventId && hasPL && cacheConfigs.length > 0,
   });
 
   // Fetch ticket lots for cachê calculation (aggregate from children for parent tours)
@@ -290,7 +290,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         .in("zone_id", zones.map(z => z.id));
       return lots || [];
     },
-    enabled: !!form.event_id && hasPL && cacheConfigs.length > 0,
+    enabled: !!effectiveEventId && hasPL && cacheConfigs.length > 0,
   });
 
   const ticketRevenueGross = useMemo(() => {
