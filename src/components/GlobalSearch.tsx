@@ -22,7 +22,7 @@ import {
   Landmark,
   FileCheck,
   Receipt,
-  Ticket,
+  Store,
   BarChart3,
   Search,
 } from "lucide-react";
