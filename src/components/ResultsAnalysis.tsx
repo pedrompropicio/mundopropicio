@@ -483,11 +483,43 @@ export function ResultsAnalysis() {
                         <SourceBadge source={e.expenseSource} />
                       </div>
                     </td>
-                    <td className={`p-3 text-right font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(e.margin100)}
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                          {formatCurrency(e.margin100)}
+                        </span>
+                        {e.totalPartnerPct > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                              Empresa {(100 - e.totalPartnerPct).toFixed(0)}%
+                            </Badge>
+                            <span className={`font-mono text-xs ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                              {formatCurrency(e.companyMargin100)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    <td className={`p-3 text-right font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(e.margin80)}
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                          {formatCurrency(e.margin80)}
+                        </span>
+                        {e.totalPartnerPct > 0 && (() => {
+                          const companyPct = 100 - e.totalPartnerPct;
+                          const companyMargin80 = e.margin80 * (companyPct / 100);
+                          return (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                Empresa {companyPct.toFixed(0)}%
+                              </Badge>
+                              <span className={`font-mono text-xs ${companyMargin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(companyMargin80)}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </td>
                     <td className="p-3 text-right">
                       <Badge
