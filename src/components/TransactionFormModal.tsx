@@ -162,6 +162,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const hasPL = selectedEvent?.pl_mode === "active" || selectedEvent?.pl_mode === "passive";
   const hasPLRestriction = hasPL;
   const isParentMultiDay = selectedEvent?.event_type === "multi_day";
+  const isSubEvent = !!selectedEvent?.parent_event_id;
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
   const subEventsByParent = useMemo(() => {
