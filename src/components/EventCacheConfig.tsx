@@ -256,14 +256,23 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     enabled: canEdit && cacheConfigs.length > 0,
   });
 
+  // Enrich configs with tiers for calculation hooks
+  const enrichedConfigs = useMemo(() => cacheConfigs.map((c: any) => ({
+    ...c,
+    tiers: getTiersForConfig(c.id).map((t: any) => ({
+      occupancy_threshold: Number(t.occupancy_threshold),
+      percentage: Number(t.percentage),
+    })),
+  })), [cacheConfigs, tiers]);
+
   // Real cache calculation (for settlement)
   const { results: realCacheResults } = useRealCacheCalculation(
     eventId,
     childEventIds || [],
-    cacheConfigs,
+    enrichedConfigs,
     deductions,
     categories,
-    cacheConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
+    enrichedConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
   );
 
   // Expense categories (level 3 only - detail accounts)
