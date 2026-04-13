@@ -204,48 +204,60 @@ export type Database = {
       }
       event_cache_configs: {
         Row: {
+          adjusted_amount: number | null
           artist_name: string
           cache_deduction_basis: string
           cache_revenue_basis: string
           cache_type: string
           created_at: string
           event_id: string
+          finalized_at: string | null
+          finalized_by: string | null
           fixed_amount: number
           fixed_deduction_percentage: number
           id: string
           is_finalized: boolean
           minimum_guaranteed: number
           percentage: number
+          real_amount: number | null
           updated_at: string
         }
         Insert: {
+          adjusted_amount?: number | null
           artist_name: string
           cache_deduction_basis?: string
           cache_revenue_basis?: string
           cache_type?: string
           created_at?: string
           event_id: string
+          finalized_at?: string | null
+          finalized_by?: string | null
           fixed_amount?: number
           fixed_deduction_percentage?: number
           id?: string
           is_finalized?: boolean
           minimum_guaranteed?: number
           percentage?: number
+          real_amount?: number | null
           updated_at?: string
         }
         Update: {
+          adjusted_amount?: number | null
           artist_name?: string
           cache_deduction_basis?: string
           cache_revenue_basis?: string
           cache_type?: string
           created_at?: string
           event_id?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
           fixed_amount?: number
           fixed_deduction_percentage?: number
           id?: string
           is_finalized?: boolean
           minimum_guaranteed?: number
           percentage?: number
+          real_amount?: number | null
           updated_at?: string
         }
         Relationships: [

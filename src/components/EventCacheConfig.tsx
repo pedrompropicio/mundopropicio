@@ -11,7 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { sortByHierarchicalCode } from "@/lib/utils";
 import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
+import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
+import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
 
 interface Props {
   eventId: string;
@@ -165,6 +167,15 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     cacheCategoryId,
     enabled: canEdit && cacheConfigs.length > 0,
   });
+
+  // Real cache calculation (for settlement)
+  const { results: realCacheResults } = useRealCacheCalculation(
+    eventId,
+    childEventIds || [],
+    cacheConfigs,
+    deductions,
+    cacheConfigs.length > 0,
+  );
 
   // Expense categories (level 3 only - detail accounts)
   const expenseDetailCategories = useMemo(() => {
@@ -602,21 +613,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                 {/* Deductions panel (variable only) */}
                 {isVariable && isExpanded && canEdit && (
                   <div className="border-t border-border bg-muted/30 p-3 space-y-3 animate-fade-in">
-                    {/* Row: Finalized + Revenue Basis + Deduction Basis */}
-                    <div className="grid grid-cols-[1fr,auto,auto] gap-3 items-start">
-                      <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
-                        <div className="flex items-center gap-2">
-                          {isFinalized ? <Lock className="h-3.5 w-3.5 text-success" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <div>
-                            <span className="text-xs font-medium">Finalizado</span>
-                            <p className="text-[10px] text-muted-foreground">Bloqueia o valor.</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={isFinalized}
-                          onCheckedChange={(checked) => toggleFinalizedMutation.mutate({ configId: config.id, value: checked })}
-                        />
-                      </div>
+                     {/* Row: Revenue Basis + Deduction Basis */}
+                    <div className="grid grid-cols-[auto,auto] gap-3 items-start">
                       <div className="space-y-1">
                         <span className="text-[10px] font-medium text-muted-foreground">Receita</span>
                         <div className="flex gap-1">
@@ -793,6 +791,15 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                     canEdit={canEdit}
                   />
                 </div>
+
+                {/* Settlement panel — Real values for closing */}
+                <CacheSettlementPanel
+                  config={config}
+                  realResult={realCacheResults.find((r) => r.configId === config.id)}
+                  projectedValue={displayValue}
+                  eventId={eventId}
+                  canEdit={canEdit}
+                />
               </div>
             );
           })}
