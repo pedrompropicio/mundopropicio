@@ -342,6 +342,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
     setIsSplit(true);
     setSplitAutoConfigured(true);
+    setSplitMasterEventId(parentId);
     setSplitExpanded(false);
     setSplitEntries(entries);
     setSplitMethod("equal");
@@ -969,11 +970,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                 setIsSplit(!isSplit);
                 if (!isSplit) {
                   setForm({ ...form, event_id: "" });
-                  setSplitAutoConfigured(false);
+                   setSplitAutoConfigured(false);
+                   setSplitMasterEventId("");
                   setSplitExpanded(true);
                 } else {
                   setSplitEntries([]);
-                  setSplitAutoConfigured(false);
+                   setSplitAutoConfigured(false);
+                   setSplitMasterEventId("");
                 }
               }}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
@@ -1009,6 +1012,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   if (ev?.event_type === "multi_day" && children.length > 0) {
                     setIsSplit(true);
                     setSplitAutoConfigured(true);
+                    setSplitMasterEventId(v);
                     setSplitExpanded(false);
                     setForm(prev => ({ ...prev, event_id: "" }));
                     const pct = +(100 / children.length).toFixed(2);
