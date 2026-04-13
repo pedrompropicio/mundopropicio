@@ -396,6 +396,7 @@ export function CacheSettlementPanel({
           artistName={config.artist_name}
           amount={effectiveValue}
           cacheConfigId={config.id}
+          configSupplierId={config.supplier_id}
         />
       )}
     </div>
