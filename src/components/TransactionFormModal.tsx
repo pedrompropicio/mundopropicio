@@ -948,6 +948,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   const children = subEventsByParent[v] || [];
                   if (ev?.event_type === "multi_day" && children.length > 0) {
                     setIsSplit(true);
+                    setSplitAutoConfigured(true);
+                    setSplitExpanded(false);
                     setForm(prev => ({ ...prev, event_id: "" }));
                     const pct = +(100 / children.length).toFixed(2);
                     const entries: SplitEntry[] = children.map((child: any, idx: number) => {
