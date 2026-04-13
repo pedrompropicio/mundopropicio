@@ -768,46 +768,6 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                       </div>
                     </div>
 
-                    {/* Withholding (Retenção na Fonte) */}
-                    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-foreground">Retenção na Fonte (IRS)</span>
-                        <span className="text-[10px] text-muted-foreground">Incide sobre o cachê</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {config.withholding_applicable && (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="100"
-                              value={Number(config.withholding_rate) || 25}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 25;
-                                supabase
-                                  .from("event_cache_configs" as any)
-                                  .update({ withholding_rate: val })
-                                  .eq("id", config.id)
-                                  .then(() => queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] }));
-                              }}
-                              className={`${inputClass} text-xs w-16 text-center`}
-                            />
-                            <span className="text-[10px] text-muted-foreground">%</span>
-                          </div>
-                        )}
-                        <Switch
-                          checked={!!config.withholding_applicable}
-                          onCheckedChange={(checked) => {
-                            supabase
-                              .from("event_cache_configs" as any)
-                              .update({ withholding_applicable: checked })
-                              .eq("id", config.id)
-                              .then(() => queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] }));
-                          }}
-                        />
-                      </div>
-                    </div>
 
                     {/* Category-based deductions */}
                     <div className="space-y-1.5">
