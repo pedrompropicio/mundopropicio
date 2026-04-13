@@ -461,6 +461,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   // Validate split category against parent/child BP rules
   const splitCategoryBlockReason = useMemo<string | null>(() => {
     if (!isSplit || !form.category_id || splitEventIds.length === 0) return null;
+    // When auto-configured from sub-event selecting a Master BP category, skip blocking
+    if (splitAutoConfigured) return null;
 
     // Rule 1: Category already exists in the parent/master event's BP → block
     if (splitParentEventIds.length > 0) {
