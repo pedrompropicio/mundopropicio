@@ -16,6 +16,7 @@ interface Props {
   artistName: string;
   amount: number;
   cacheConfigId: string;
+  configSupplierId?: string | null;
 }
 
 export function CacheTransactionModal({
@@ -24,6 +25,7 @@ export function CacheTransactionModal({
   artistName,
   amount,
   cacheConfigId,
+  configSupplierId,
 }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
