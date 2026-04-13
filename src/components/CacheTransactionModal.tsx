@@ -78,18 +78,25 @@ export function CacheTransactionModal({
     },
   });
 
-  // Fetch existing transactions in the cache category for this event (advances, partial payments)
+  // Fetch existing transactions in the cache category for this event
+  // If supplier is linked, filter by supplier too for precision
   const { data: artistTransactions = [] } = useQuery({
-    queryKey: ["cache_artist_transactions", eventId, cacheCategory?.id],
+    queryKey: ["cache_artist_transactions", eventId, cacheCategory?.id, configSupplierId],
     enabled: !!cacheCategory?.id,
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("transactions")
         .select("id, description, amount, paid_amount, status, date, due_date, specification, supplier_id, suppliers(name)")
         .eq("event_id", eventId)
         .eq("type", "expense")
-        .eq("category_id", cacheCategory!.id)
-        .order("date", { ascending: true });
+        .eq("category_id", cacheCategory!.id);
+
+      // When supplier is linked to cache config, filter by supplier for precision
+      if (configSupplierId) {
+        query = query.eq("supplier_id", configSupplierId);
+      }
+
+      const { data } = await query.order("date", { ascending: true });
       return (data ?? []) as any[];
     },
   });
