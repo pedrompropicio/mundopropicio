@@ -155,7 +155,7 @@ function ProtectedLayout() {
                 <Route path="exportacao-contabil" element={<ReportAccountingExportPage />} />
                 <Route path="despesas-socios" element={<ReportPartnerExpensesPage />} />
                 <Route path="bp-transacoes" element={<ReportBPTransactionsPage />} />
-                <Route path="previsao-contas-pagar" element={<ReportForecastPayablesPage />} />
+                <Route path="exposicao-financeira" element={<ReportForecastPayablesPage />} />
               </Route>
               
               

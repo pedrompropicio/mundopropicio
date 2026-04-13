@@ -45,7 +45,7 @@ const allReportItems = [
   { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_accounting_export", managementOnly: true },
   { to: "/relatorios/despesas-socios", icon: UserCheck, label: "Despesas Sócios", permission: "view_report_partner_expenses", managementOnly: true },
   { to: "/relatorios/bp-transacoes", icon: GitCompareArrows, label: "BP x Transações", permission: "view_report_pl" },
-  { to: "/relatorios/previsao-contas-pagar", icon: Receipt, label: "Previsão Contas a Pagar", permission: "view_report_contas_pagar" },
+  { to: "/relatorios/exposicao-financeira", icon: Receipt, label: "Exposição Financeira", permission: "view_report_contas_pagar" },
 ];
 
 export default function Reports() {

@@ -312,7 +312,7 @@ export default function ReportForecastPayables() {
     const doc = new jsPDF({ orientation: "landscape" });
     const eventName = selectedEvent?.name ?? "Evento";
     doc.setFontSize(14);
-    doc.text(`Previsão de Contas a Pagar — ${eventName}`, 14, 18);
+    doc.text(`Exposição Financeira — ${eventName}`, 14, 18);
     doc.setFontSize(9);
     doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 24);
 
@@ -359,7 +359,7 @@ export default function ReportForecastPayables() {
       headStyles: { fillColor: [60, 60, 60] },
     });
 
-    doc.save(`previsao-contas-pagar-${eventName.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+    doc.save(`exposicao-financeira-${eventName.replace(/\s+/g, "-").toLowerCase()}.pdf`);
   };
 
   const exportToExcel = () => {
@@ -402,8 +402,8 @@ export default function ReportForecastPayables() {
     const ws = utils.json_to_sheet(rows);
     applyPTNumberFormat(ws);
     const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Contas a Pagar");
-    writeFile(wb, `previsao-contas-pagar-${eventName.replace(/\s+/g, "-").toLowerCase()}.xlsx`);
+    utils.book_append_sheet(wb, ws, "Exposição Financeira");
+    writeFile(wb, `exposicao-financeira-${eventName.replace(/\s+/g, "-").toLowerCase()}.xlsx`);
   };
 
   return (
@@ -449,7 +449,7 @@ export default function ReportForecastPayables() {
       </div>
 
       {!selectedEventId && (
-        <p className="text-muted-foreground text-sm py-8 text-center">Selecione um evento para visualizar a previsão de contas a pagar.</p>
+        <p className="text-muted-foreground text-sm py-8 text-center">Selecione um evento para visualizar a exposição financeira.</p>
       )}
 
       {selectedEventId && groupedData.length === 0 && (
