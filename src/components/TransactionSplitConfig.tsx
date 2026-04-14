@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { X, Plus, Percent, Divide, AlertTriangle, DollarSign } from "lucide-react";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -36,6 +36,26 @@ interface Props {
 export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange, totalAmount = 0, bpInfoByEvent = {} }: Props) {
   const [addingEvent, setAddingEvent] = useState("");
   const [inputMode, setInputMode] = useState<SplitInputMode>("percentage");
+  // Store absolute values when totalAmount is not yet known
+  const [pendingAbsolute, setPendingAbsolute] = useState<Record<string, number>>({});
+  const prevTotalRef = useRef(totalAmount);
+
+  // When totalAmount becomes available and we have pending absolute values, convert to percentages
+  useEffect(() => {
+    const wasMissing = prevTotalRef.current <= 0;
+    prevTotalRef.current = totalAmount;
+    if (totalAmount > 0 && wasMissing && Object.keys(pendingAbsolute).length > 0) {
+      const totalAbs = Object.values(pendingAbsolute).reduce((s, v) => s + v, 0);
+      if (totalAbs > 0) {
+        const newEntries = splitEntries.map((e) => {
+          const abs = pendingAbsolute[e.event_id] ?? 0;
+          return { ...e, percentage: +((abs / totalAmount) * 100).toFixed(4) };
+        });
+        onChange(newEntries);
+        setPendingAbsolute({});
+      }
+    }
+  }, [totalAmount]);
 
   // Only show non-parent events (sub-events + simple events)
   const availableEvents = useMemo(() => {
@@ -52,6 +72,7 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   }, [events, splitEntries]);
 
   const addEvent = (eventId: string) => {
+    if (!eventId) return;
     const ev = events.find((e) => e.id === eventId);
     if (!ev) return;
     const parent = ev.parent_event_id ? events.find((p) => p.id === ev.parent_event_id) : null;
@@ -68,12 +89,21 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   };
 
   const removeEvent = (idx: number) => {
+    const removed = splitEntries[idx];
     const newEntries = splitEntries.filter((_, i) => i !== idx);
     if (splitMethod === "equal" && newEntries.length > 0) {
       const pct = +(100 / newEntries.length).toFixed(2);
       newEntries.forEach((e) => (e.percentage = pct));
       const diff = 100 - pct * newEntries.length;
       if (Math.abs(diff) > 0.001) newEntries[newEntries.length - 1].percentage += diff;
+    }
+    // Clean up pending absolute
+    if (removed) {
+      setPendingAbsolute((prev) => {
+        const next = { ...prev };
+        delete next[removed.event_id];
+        return next;
+      });
     }
     onChange(newEntries);
   };
@@ -85,18 +115,24 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   };
 
   const updateAbsoluteValue = (idx: number, absValue: number) => {
-    if (totalAmount <= 0) return;
-    const pct = +((absValue / totalAmount) * 100).toFixed(4);
-    updatePercentage(idx, pct);
+    const entry = splitEntries[idx];
+    if (totalAmount > 0) {
+      const pct = +((absValue / totalAmount) * 100).toFixed(4);
+      updatePercentage(idx, pct);
+    } else {
+      // Store pending absolute value for later conversion
+      setPendingAbsolute((prev) => ({ ...prev, [entry.event_id]: absValue }));
+    }
   };
 
   const getAbsoluteValue = (entry: SplitEntry) => {
-    return totalAmount > 0 ? +(totalAmount * entry.percentage / 100).toFixed(2) : 0;
+    if (totalAmount > 0) return +(totalAmount * entry.percentage / 100).toFixed(2);
+    return pendingAbsolute[entry.event_id] ?? 0;
   };
 
   const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
   const totalAbsolute = splitEntries.reduce((s, e) => s + getAbsoluteValue(e), 0);
-  const isValid = splitEntries.length >= 2 && Math.abs(totalPct - 100) < 0.01;
+  const isValid = splitEntries.length >= 2 && (totalAmount > 0 ? Math.abs(totalPct - 100) < 0.01 : true);
 
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
@@ -160,14 +196,20 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
           <button
             type="button"
             onClick={() => setInputMode("absolute")}
-            disabled={totalAmount <= 0}
             className={`flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
               inputMode === "absolute" ? "bg-accent text-accent-foreground" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
+            }`}
           >
             <DollarSign className="h-2.5 w-2.5" /> €
           </button>
         </div>
+      )}
+
+      {/* Hint when using absolute mode without total */}
+      {splitMethod === "custom" && inputMode === "absolute" && totalAmount <= 0 && (
+        <p className="text-[10px] text-primary/70 italic">
+          💡 Insira os valores em €. As percentagens serão calculadas automaticamente quando preencher o Valor Base.
+        </p>
       )}
 
       {/* Entries */}
@@ -204,8 +246,8 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
                         type="number"
                         step="0.01"
                         min="0"
-                        max={totalAmount}
-                        value={childAmount}
+                        max={totalAmount > 0 ? totalAmount : undefined}
+                        value={childAmount || ""}
                         onChange={(e) => updateAbsoluteValue(idx, parseFloat(e.target.value) || 0)}
                         className="w-20 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
                       />
@@ -277,12 +319,20 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
           {splitEntries.length} evento(s) selecionado(s)
         </span>
         <div className="text-right">
-          <span className={`text-xs font-mono font-semibold ${isValid ? "text-success" : "text-destructive"}`}>
-            Total: {totalPct.toFixed(2)}%
-            {totalAmount > 0 && ` (${totalAbsolute.toFixed(2)}€)`}
-            {!isValid && splitEntries.length >= 2 && " — deve ser 100%"}
-            {splitEntries.length < 2 && " (mín. 2 eventos)"}
-          </span>
+          {totalAmount > 0 || inputMode === "percentage" ? (
+            <span className={`text-xs font-mono font-semibold ${isValid && Math.abs(totalPct - 100) < 0.01 ? "text-success" : "text-destructive"}`}>
+              Total: {totalPct.toFixed(2)}%
+              {totalAmount > 0 && ` (${totalAbsolute.toFixed(2)}€)`}
+              {splitEntries.length >= 2 && Math.abs(totalPct - 100) >= 0.01 && " — deve ser 100%"}
+              {splitEntries.length < 2 && " (mín. 2 eventos)"}
+            </span>
+          ) : (
+            <span className="text-xs font-mono font-semibold text-muted-foreground">
+              Total: {totalAbsolute.toFixed(2)}€
+              {splitEntries.length < 2 && " (mín. 2 eventos)"}
+              {splitEntries.length >= 2 && <span className="text-primary/70 ml-1">· % calculada ao preencher valor</span>}
+            </span>
+          )}
         </div>
       </div>
     </div>
