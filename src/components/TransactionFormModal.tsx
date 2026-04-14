@@ -1137,6 +1137,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   onMethodChange={setSplitMethod}
                   totalAmount={parseFloat(form.amount) || 0}
                   bpInfoByEvent={splitBPInfoByEvent}
+                  inputMode={splitInputMode}
+                  onInputModeChange={setSplitInputMode}
                 />
               )}
               {splitCategoryBlockReason && (
