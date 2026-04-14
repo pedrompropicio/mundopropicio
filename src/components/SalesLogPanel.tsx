@@ -300,6 +300,27 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
             </div>
           )}
 
+          {/* View mode toggle */}
+          {salesByDay.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Vista:</span>
+              <div className="inline-flex rounded-md border border-border/50 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("totals")}
+                  className={`px-3 py-1 text-xs font-medium transition-colors ${viewMode === "totals" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-muted-foreground hover:bg-secondary/50"}`}
+                >
+                  Totais
+                </button>
+                <button
+                  onClick={() => setViewMode("detail")}
+                  className={`px-3 py-1 text-xs font-medium transition-colors ${viewMode === "detail" ? "bg-primary text-primary-foreground" : "bg-secondary/30 text-muted-foreground hover:bg-secondary/50"}`}
+                >
+                  Zona / Lote
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Daily sales table with weekly/monthly subtotals */}
           {salesByDay.length > 0 && (() => {
             // Build rows with week/month subtotal rows interleaved
@@ -326,9 +347,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
               const wk = getWeekKey(day.date);
               const mo = getMonthKey(day.date);
 
-              // Month break
               if (currentMonthKey && mo !== currentMonthKey) {
-                // Flush week first
                 if (currentWeekKey) {
                   rows.push({ type: "week", label: getWeekLabel(salesByDay[i - 1].date), qty: weekQty, rev: weekRev });
                   weekQty = 0; weekRev = 0;
@@ -336,7 +355,6 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                 rows.push({ type: "month", label: getMonthLabel(currentMonthKey), qty: monthQty, rev: monthRev });
                 monthQty = 0; monthRev = 0;
               } else if (currentWeekKey && wk !== currentWeekKey) {
-                // Week break (same month)
                 rows.push({ type: "week", label: getWeekLabel(salesByDay[i - 1].date), qty: weekQty, rev: weekRev });
                 weekQty = 0; weekRev = 0;
               }
@@ -347,13 +365,15 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
               monthQty += day.quantity; monthRev += day.revenue;
               rows.push({ type: "day", data: day });
             }
-            // Flush remaining
             if (currentWeekKey && salesByDay.length > 0) {
               rows.push({ type: "week", label: getWeekLabel(salesByDay[salesByDay.length - 1].date), qty: weekQty, rev: weekRev });
             }
             if (currentMonthKey && salesByDay.length > 0) {
               rows.push({ type: "month", label: getMonthLabel(currentMonthKey), qty: monthQty, rev: monthRev });
             }
+
+            const colSpanTotal = viewMode === "detail" ? 4 : 2;
+            const colCount = viewMode === "detail" ? 7 : 5;
 
             return (
               <div className="glass rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
@@ -362,6 +382,12 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                     <tr className="border-b border-border/50 text-xs text-muted-foreground">
                       <th className="px-3 py-2 text-left font-medium">Data</th>
                       <th className="px-3 py-2 text-left font-medium">Dia</th>
+                      {viewMode === "detail" && (
+                        <>
+                          <th className="px-3 py-2 text-left font-medium">Zona</th>
+                          <th className="px-3 py-2 text-left font-medium">Lote</th>
+                        </>
+                      )}
                       <th className="px-3 py-2 text-right font-medium">Bilhetes</th>
                       <th className="px-3 py-2 text-right font-medium">Receita</th>
                       <th className="px-3 py-2 text-center font-medium">Origem</th>
@@ -372,7 +398,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                       if (row.type === "week") {
                         return (
                           <tr key={`wk-${idx}`} className="bg-primary/5 border-y border-primary/10">
-                            <td className="px-3 py-1.5 text-xs font-semibold text-primary" colSpan={2}>
+                            <td className="px-3 py-1.5 text-xs font-semibold text-primary" colSpan={colSpanTotal}>
                               📅 {row.label}
                             </td>
                             <td className="px-3 py-1.5 text-right font-mono text-xs font-semibold text-primary">{row.qty.toLocaleString("pt-PT")}</td>
@@ -384,7 +410,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                       if (row.type === "month") {
                         return (
                           <tr key={`mo-${idx}`} className="bg-accent/10 border-y-2 border-accent/20">
-                            <td className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-accent-foreground" colSpan={2}>
+                            <td className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-accent-foreground" colSpan={colSpanTotal}>
                               📊 {row.label}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-xs font-bold text-accent-foreground">{row.qty.toLocaleString("pt-PT")}</td>
@@ -394,6 +420,51 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                         );
                       }
                       const day = row.data;
+
+                      if (viewMode === "detail") {
+                        // Render one row per zone/lot detail
+                        return day.details.map((det, detIdx) => (
+                          <tr key={`${day.date}-${detIdx}`} className="border-b border-border/20 hover:bg-secondary/10">
+                            {detIdx === 0 ? (
+                              <>
+                                <td className="px-3 py-1.5 font-mono text-xs" rowSpan={day.details.length}>
+                                  {day.isPeriod && day.dateTo ? (
+                                    <span className="flex items-center gap-1">
+                                      {formatDatePT(day.date)} — {formatDatePT(day.dateTo)}
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 border-primary/30 text-primary ml-1">Período</Badge>
+                                    </span>
+                                  ) : formatDatePT(day.date)}
+                                </td>
+                                <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize" rowSpan={day.details.length}>
+                                  {day.isPeriod ? "—" : formatDayOfWeek(day.date)}
+                                </td>
+                              </>
+                            ) : null}
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground truncate max-w-[120px]" title={det.zone}>{det.zone}</td>
+                            <td className="px-3 py-1.5 text-xs text-muted-foreground truncate max-w-[120px]" title={det.lot}>{det.lot}</td>
+                            <td className="px-3 py-1.5 text-right font-mono text-xs">{det.quantity.toLocaleString("pt-PT")}</td>
+                            <td className="px-3 py-1.5 text-right font-mono text-xs text-success">{formatCurrency(det.revenue)}</td>
+                            <td className="px-3 py-1.5 text-center">
+                              {detIdx === 0 && (
+                                <div className="flex items-center justify-center gap-1">
+                                  {day.hasImport && (
+                                    <span title="Importação" className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                      <Upload className="h-2.5 w-2.5" /> Imp
+                                    </span>
+                                  )}
+                                  {day.hasManual && (
+                                    <span title="Digitação manual" className="inline-flex items-center gap-0.5 rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                      <Keyboard className="h-2.5 w-2.5" /> Man
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ));
+                      }
+
+                      // Totals view
                       return (
                         <tr key={day.isPeriod ? `${day.date}_${day.dateTo}` : day.date} className="border-b border-border/20 hover:bg-secondary/10">
                           <td className="px-3 py-1.5 font-mono text-xs">
@@ -429,7 +500,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-border/50 bg-secondary/10 font-semibold text-xs">
-                      <td className="px-3 py-2" colSpan={2}>Total Geral</td>
+                      <td className="px-3 py-2" colSpan={colSpanTotal}>Total Geral</td>
                       <td className="px-3 py-2 text-right font-mono">{totalQuantity.toLocaleString("pt-PT")}</td>
                       <td className="px-3 py-2 text-right font-mono text-success">{formatCurrency(totalRevenue)}</td>
                       <td />
