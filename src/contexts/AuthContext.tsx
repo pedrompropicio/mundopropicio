@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
     const { data: roleData } = await supabase
