@@ -124,8 +124,9 @@ export function parseTicketlineXlsx(data: ArrayBuffer): TicketlineParseResult {
 
   // --- Section 2: Detail by date/zone (find start after "Operações por dia") ---
   // Find the detail header row (contains "ZONA" in D column)
+  // Search the entire sheet — summary sections with many days can push this far down
   let detailStart = 0;
-  for (let r = 48; r < 100; r++) {
+  for (let r = 10; r <= maxRow; r++) {
     if (ws[`D${r}`]?.v === "ZONA") {
       detailStart = r + 3; // skip header rows
       break;
