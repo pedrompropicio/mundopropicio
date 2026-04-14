@@ -124,6 +124,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
+        invoice_ref: form.invoice_ref.trim() || null,
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -137,6 +138,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         due_date: form.due_date || null,
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
+        invoice_ref: form.invoice_ref.trim() || null,
       };
 
       const { data, error } = await supabase.functions.invoke("update-transaction", {
