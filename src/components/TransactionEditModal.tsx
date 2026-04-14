@@ -190,8 +190,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ...paymentFields,
       };
 
+      // Send child adjustments if amount changed on a parent split
+      const childUpdatesPayload = (amountChanged && hasChildren)
+        ? Object.entries(childAdjustments).map(([id, amt]) => ({ id, amount: amt }))
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke("update-transaction", {
-        body: { transaction_id: transaction.id, updates, changes },
+        body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
