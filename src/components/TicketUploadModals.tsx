@@ -247,86 +247,163 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setZoneMappings([]);
     setExtracting(true);
 
+    const isExcel = /\.(xlsx|xls)$/i.test(f.name);
+
     try {
-      const base64 = await fileToBase64(f);
-      const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
-        body: { pdf_base64: base64 },
-      });
+      let filtered: ExtractedRow[] = [];
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      // Store header info
-      setPdfHeader(data);
-
-      // Extract period
-      if (data.period_from) { setPdfPeriodFrom(data.period_from); }
-      if (data.period_to) { setPdfPeriodTo(data.period_to); }
-
-      // Auto-detect ticket office
-      if (data.ticket_office_name && ticketOffices.length > 0) {
-        const pdfName = normalize(data.ticket_office_name);
-        const match = ticketOffices.find((to: any) => normalize(to.name).includes(pdfName) || pdfName.includes(normalize(to.name)));
-        if (match && !ticketOfficeId) {
-          setTicketOfficeId((match as any).id);
-          toast({ title: `Bilheteira detectada: ${(match as any).name}` });
+      if (isExcel) {
+        // --- XLSX path: parse locally ---
+        const buf = await f.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        if (!isTicketlineFormat(wb)) {
+          toast({ title: "Formato não reconhecido", description: "O ficheiro não é um 'Resumo de Operações' da Ticketline.", variant: "destructive" });
+          setExtracting(false);
+          return;
         }
-      }
+        const result = parseTicketlineXlsx(buf);
 
-      // Validate header against selected event/session
-      const warnings: string[] = [];
-      if (data.event_name && selectedEvent) {
-        if (!fuzzyMatch(data.event_name, selectedEvent.name)) {
-          warnings.push(`Nome no PDF: "${data.event_name}" ≠ Evento: "${selectedEvent.name}"`);
+        setPdfHeader({
+          event_name: result.header.event_name,
+          period_from: result.header.period_from,
+          period_to: result.header.period_to,
+          session_date: result.header.event_date,
+          session_time: result.header.event_time,
+          total_quantity_sold: result.totalSoldQty,
+          total_revenue: result.totalSoldValue,
+        });
+        if (result.header.period_from) setPdfPeriodFrom(result.header.period_from);
+        if (result.header.period_to) setPdfPeriodTo(result.header.period_to);
+
+        // Auto-detect ticket office name "Ticketline"
+        if (ticketOffices.length > 0 && !ticketOfficeId) {
+          const match = ticketOffices.find((to: any) => normalize(to.name).includes("ticketline"));
+          if (match) {
+            setTicketOfficeId((match as any).id);
+            toast({ title: `Bilheteira detectada: ${(match as any).name}` });
+          }
         }
-      }
-      if (data.session_date && selectedSession) {
-        if (data.session_date !== selectedSession.date) {
-          warnings.push(`Data no PDF: ${data.session_date} ≠ Sessão: ${selectedSession.date}`);
+
+        // Aggregate sales by zone (summing across all dates for the import view)
+        const zoneMap = new Map<string, ExtractedRow>();
+        for (const s of result.sales) {
+          const key = `${s.zone}||${s.lot}`;
+          const existing = zoneMap.get(key);
+          if (existing) {
+            existing.quantidade_vendida += s.quantity;
+            existing.valor_vendido += s.total_value;
+          } else {
+            zoneMap.set(key, {
+              zona: s.zone,
+              tipo_bilhete: s.lot || "Regular",
+              preco_unitario: s.unit_price,
+              quantidade_total: 0,
+              quantidade_vendida: s.quantity,
+              valor_vendido: s.total_value,
+              iva_rate: 6,
+            });
+          }
         }
-      }
-      if (data.session_time && selectedSession?.start_time) {
-        const pdfTime = data.session_time.slice(0, 5);
-        const sessionTime = selectedSession.start_time.slice(0, 5);
-        if (pdfTime !== sessionTime) {
-          warnings.push(`Hora no PDF: ${data.session_time} ≠ Sessão: ${sessionTime}`);
-        }
-      }
-      setHeaderWarnings(warnings);
+        filtered = Array.from(zoneMap.values()).filter(r => r.preco_unitario >= 1.00);
 
-      // Parse rows
-      const rows: ExtractedRow[] = (data.rows || []).map((r: any) => ({
-        zona: String(r.zona || "Geral"),
-        tipo_bilhete: String(r.tipo_bilhete || "Normal"),
-        preco_unitario: parseFloat(r.preco_unitario) || 0,
-        quantidade_total: parseInt(r.quantidade_total) || 0,
-        quantidade_vendida: parseInt(r.quantidade_vendida) || 0,
-        valor_vendido: parseFloat(r.valor_vendido) || 0,
-        iva_rate: parseInt(r.iva_rate) || 6,
-      }));
-      const filtered = rows.filter(r => r.preco_unitario >= 1.00);
-
-      // Validate totals
-      const tw: string[] = [];
-      const pdfTotalSold = data.total_quantity_sold != null ? Number(data.total_quantity_sold) : null;
-      const pdfTotalRevenue = data.total_revenue != null ? Number(data.total_revenue) : null;
-
-      if (pdfTotalSold !== null) {
+        // Validate totals
+        const tw: string[] = [];
         const extractedSold = filtered.reduce((s, r) => s + r.quantidade_vendida, 0);
-        if (Math.abs(extractedSold - pdfTotalSold) > 1) {
-          tw.push(`Vendidos extraídos: ${extractedSold.toLocaleString("pt-PT")} ≠ TOTAL PDF: ${pdfTotalSold.toLocaleString("pt-PT")}`);
+        if (Math.abs(extractedSold - result.totalSoldQty) > 1) {
+          tw.push(`Vendidos extraídos: ${extractedSold.toLocaleString("pt-PT")} ≠ TOTAL XLSX: ${result.totalSoldQty.toLocaleString("pt-PT")}`);
         }
-      }
-      if (pdfTotalRevenue !== null) {
         const extractedRev = filtered.reduce((s, r) => s + r.valor_vendido, 0);
-        if (Math.abs(extractedRev - pdfTotalRevenue) > 1) {
-          tw.push(`Receita extraída: ${extractedRev.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€ ≠ TOTAL PDF: ${pdfTotalRevenue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
+        if (Math.abs(extractedRev - result.totalSoldValue) > 1) {
+          tw.push(`Receita extraída: ${extractedRev.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€ ≠ TOTAL XLSX: ${result.totalSoldValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
         }
+        setTotalWarnings(tw);
+
+        // Validate header against selected event
+        const warnings: string[] = [];
+        if (result.header.event_name && selectedEvent) {
+          if (!fuzzyMatch(result.header.event_name, selectedEvent.name)) {
+            warnings.push(`Nome no XLSX: "${result.header.event_name}" ≠ Evento: "${selectedEvent.name}"`);
+          }
+        }
+        setHeaderWarnings(warnings);
+
+      } else {
+        // --- PDF path: call edge function ---
+        const base64 = await fileToBase64(f);
+        const { data, error } = await supabase.functions.invoke("extract-ticket-pdf", {
+          body: { pdf_base64: base64 },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        setPdfHeader(data);
+        if (data.period_from) setPdfPeriodFrom(data.period_from);
+        if (data.period_to) setPdfPeriodTo(data.period_to);
+
+        // Auto-detect ticket office
+        if (data.ticket_office_name && ticketOffices.length > 0) {
+          const pdfName = normalize(data.ticket_office_name);
+          const match = ticketOffices.find((to: any) => normalize(to.name).includes(pdfName) || pdfName.includes(normalize(to.name)));
+          if (match && !ticketOfficeId) {
+            setTicketOfficeId((match as any).id);
+            toast({ title: `Bilheteira detectada: ${(match as any).name}` });
+          }
+        }
+
+        // Validate header
+        const warnings: string[] = [];
+        if (data.event_name && selectedEvent) {
+          if (!fuzzyMatch(data.event_name, selectedEvent.name)) {
+            warnings.push(`Nome no PDF: "${data.event_name}" ≠ Evento: "${selectedEvent.name}"`);
+          }
+        }
+        if (data.session_date && selectedSession) {
+          if (data.session_date !== selectedSession.date) {
+            warnings.push(`Data no PDF: ${data.session_date} ≠ Sessão: ${selectedSession.date}`);
+          }
+        }
+        if (data.session_time && selectedSession?.start_time) {
+          const pdfTime = data.session_time.slice(0, 5);
+          const sessionTime = selectedSession.start_time.slice(0, 5);
+          if (pdfTime !== sessionTime) {
+            warnings.push(`Hora no PDF: ${data.session_time} ≠ Sessão: ${sessionTime}`);
+          }
+        }
+        setHeaderWarnings(warnings);
+
+        const rows: ExtractedRow[] = (data.rows || []).map((r: any) => ({
+          zona: String(r.zona || "Geral"),
+          tipo_bilhete: String(r.tipo_bilhete || "Normal"),
+          preco_unitario: parseFloat(r.preco_unitario) || 0,
+          quantidade_total: parseInt(r.quantidade_total) || 0,
+          quantidade_vendida: parseInt(r.quantidade_vendida) || 0,
+          valor_vendido: parseFloat(r.valor_vendido) || 0,
+          iva_rate: parseInt(r.iva_rate) || 6,
+        }));
+        filtered = rows.filter(r => r.preco_unitario >= 1.00);
+
+        // Validate totals
+        const tw: string[] = [];
+        const pdfTotalSold = data.total_quantity_sold != null ? Number(data.total_quantity_sold) : null;
+        const pdfTotalRevenue = data.total_revenue != null ? Number(data.total_revenue) : null;
+        if (pdfTotalSold !== null) {
+          const extractedSold = filtered.reduce((s, r) => s + r.quantidade_vendida, 0);
+          if (Math.abs(extractedSold - pdfTotalSold) > 1) {
+            tw.push(`Vendidos extraídos: ${extractedSold.toLocaleString("pt-PT")} ≠ TOTAL PDF: ${pdfTotalSold.toLocaleString("pt-PT")}`);
+          }
+        }
+        if (pdfTotalRevenue !== null) {
+          const extractedRev = filtered.reduce((s, r) => s + r.valor_vendido, 0);
+          if (Math.abs(extractedRev - pdfTotalRevenue) > 1) {
+            tw.push(`Receita extraída: ${extractedRev.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€ ≠ TOTAL PDF: ${pdfTotalRevenue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
+          }
+        }
+        setTotalWarnings(tw);
       }
-      setTotalWarnings(tw);
 
       if (filtered.length === 0) {
-        toast({ title: "Nenhum dado encontrado no PDF", variant: "destructive" });
+        toast({ title: "Nenhum dado encontrado no ficheiro", variant: "destructive" });
       } else {
         setExtractedRows(filtered);
         const mappings = buildZoneMappings(filtered, existingZones);
@@ -336,7 +413,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         toast({ title: `${filtered.length} linhas em ${mappings.length} zonas (${matched} mapeadas, ${unmatched} novas)` });
       }
     } catch (err: any) {
-      toast({ title: "Erro ao extrair dados do PDF", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao extrair dados do ficheiro", description: err.message, variant: "destructive" });
     } finally {
       setExtracting(false);
     }
