@@ -17,6 +17,8 @@ import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitIn
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
+type PaymentMethod = "transfer" | "service_payment" | "state_payment";
+
 interface TransactionForm {
   description: string;
   type: "income" | "expense";
@@ -34,6 +36,9 @@ interface TransactionForm {
   reimbursement_to: string;
   reimbursement_note_id: string;
   invoice_ref: string;
+  payment_method: PaymentMethod;
+  payment_entity: string;
+  payment_reference: string;
 }
 
 const emptyForm: TransactionForm = {
