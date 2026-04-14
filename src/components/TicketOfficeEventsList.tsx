@@ -226,8 +226,9 @@ export function TicketOfficeEventsList({ officeId }: Props) {
         </TableHeader>
         <TableBody>
           {events.map((ev: any) => {
-            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0 };
+            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null };
             const ivaBalance = s.ivaRevenue - s.ivaExpenses;
+            const fmtD = (d: string | null) => d ? format(new Date(d), "dd/MM/yyyy") : "—";
             return (
               <TableRow
                 key={ev.id}
@@ -236,10 +237,22 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               >
                 <TableCell>
                   <div>
-                    <p className="font-medium text-sm truncate max-w-[180px]">{ev.name}</p>
+                    <p className="font-medium text-sm truncate max-w-[220px]">{ev.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(ev.date), "dd/MM/yyyy")} · {s.qty} bilhetes
                     </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {s.firstSaleDate && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Vendas: {fmtD(s.firstSaleDate)} — {fmtD(s.lastSaleDate)}
+                        </span>
+                      )}
+                      {s.lastImportDate && (
+                        <span className="text-[10px] text-primary">
+                          Últ. importação: {format(new Date(s.lastImportDate), "dd/MM/yyyy HH:mm")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
