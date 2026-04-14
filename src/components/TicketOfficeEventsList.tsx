@@ -67,15 +67,30 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     return map;
   }, [zones]);
 
-  // Get sales
+  // Get sales (include sale_date for period info)
   const { data: sales = [] } = useQuery({
     queryKey: ["to_event_sales", zoneIds],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id")
+        .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
         .in("zone_id", zoneIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Get import logs for all events
+  const { data: importLogs = [] } = useQuery({
+    queryKey: ["to_import_logs", eventIds],
+    enabled: eventIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_import_logs")
+        .select("event_id, created_at, period_from, period_to")
+        .in("event_id", eventIds)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -124,10 +139,10 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     return map;
   }, [lots]);
 
-  // Aggregate per event
+  // Aggregate per event (include sales period from sales data)
   const eventSummaries = useMemo(() => {
-    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number }> = {};
-    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0 }; });
+    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
+    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null }; });
 
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
@@ -136,6 +151,11 @@ export function TicketOfficeEventsList({ officeId }: Props) {
       const lineTotal = s.quantity * Number(s.unit_price);
       map[eventId].revenue += lineTotal;
       map[eventId].qty += s.quantity;
+      // Track sale date range
+      if (s.sale_date) {
+        if (!map[eventId].firstSaleDate || s.sale_date < map[eventId].firstSaleDate!) map[eventId].firstSaleDate = s.sale_date;
+        if (!map[eventId].lastSaleDate || s.sale_date > map[eventId].lastSaleDate!) map[eventId].lastSaleDate = s.sale_date;
+      }
       const zoneIva = lotIvaMap[s.zone_id];
       if (zoneIva) {
         const rate = zoneIva[Number(s.unit_price)] ?? 0;
@@ -143,6 +163,17 @@ export function TicketOfficeEventsList({ officeId }: Props) {
           map[eventId].ivaRevenue += lineTotal - lineTotal / (1 + rate / 100);
         }
       }
+    });
+
+    // Attach import log info
+    importLogs.forEach((log: any) => {
+      if (!log.event_id || !map[log.event_id]) return;
+      const entry = map[log.event_id];
+      // Last import date = most recent created_at (already sorted desc)
+      if (!entry.lastImportDate) entry.lastImportDate = log.created_at;
+      // Broadest import period
+      if (log.period_from && (!entry.importPeriodFrom || log.period_from < entry.importPeriodFrom)) entry.importPeriodFrom = log.period_from;
+      if (log.period_to && (!entry.importPeriodTo || log.period_to > entry.importPeriodTo)) entry.importPeriodTo = log.period_to;
     });
 
     txns.forEach((t: any) => {
@@ -158,7 +189,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     });
 
     return map;
-  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId]);
+  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs]);
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
@@ -195,8 +226,9 @@ export function TicketOfficeEventsList({ officeId }: Props) {
         </TableHeader>
         <TableBody>
           {events.map((ev: any) => {
-            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0 };
+            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null };
             const ivaBalance = s.ivaRevenue - s.ivaExpenses;
+            const fmtD = (d: string | null) => d ? format(new Date(d), "dd/MM/yyyy") : "—";
             return (
               <TableRow
                 key={ev.id}
@@ -205,10 +237,22 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               >
                 <TableCell>
                   <div>
-                    <p className="font-medium text-sm truncate max-w-[180px]">{ev.name}</p>
+                    <p className="font-medium text-sm truncate max-w-[220px]">{ev.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(ev.date), "dd/MM/yyyy")} · {s.qty} bilhetes
                     </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {s.firstSaleDate && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Vendas: {fmtD(s.firstSaleDate)} — {fmtD(s.lastSaleDate)}
+                        </span>
+                      )}
+                      {s.lastImportDate && (
+                        <span className="text-[10px] text-primary">
+                          Últ. importação: {format(new Date(s.lastImportDate), "dd/MM/yyyy HH:mm")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">

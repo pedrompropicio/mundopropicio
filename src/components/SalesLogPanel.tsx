@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { CalendarDays, AlertTriangle, FileText, Upload, Keyboard, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { format, eachDayOfInterval, parseISO, isValid } from "date-fns";
+import { format, eachDayOfInterval, parseISO, isValid, getISOWeek, getYear, startOfWeek, endOfWeek } from "date-fns";
 import { pt } from "date-fns/locale";
 
 interface Props {
@@ -298,63 +298,145 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
             </div>
           )}
 
-          {/* Daily sales table */}
-          {salesByDay.length > 0 && (
-            <div className="glass rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                    <th className="px-3 py-2 text-left font-medium">Data</th>
-                    <th className="px-3 py-2 text-left font-medium">Dia</th>
-                    <th className="px-3 py-2 text-right font-medium">Bilhetes</th>
-                    <th className="px-3 py-2 text-right font-medium">Receita</th>
-                    <th className="px-3 py-2 text-center font-medium">Origem</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {salesByDay.map((day) => (
-                    <tr key={day.isPeriod ? `${day.date}_${day.dateTo}` : day.date} className="border-b border-border/20 hover:bg-secondary/10">
-                      <td className="px-3 py-1.5 font-mono text-xs">
-                        {day.isPeriod && day.dateTo ? (
-                          <span className="flex items-center gap-1">
-                            {formatDatePT(day.date)} — {formatDatePT(day.dateTo)}
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 border-primary/30 text-primary ml-1">Período</Badge>
-                          </span>
-                        ) : formatDatePT(day.date)}
-                      </td>
-                      <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize">
-                        {day.isPeriod ? "—" : formatDayOfWeek(day.date)}
-                      </td>
-                      <td className="px-3 py-1.5 text-right font-mono text-xs">{day.quantity.toLocaleString("pt-PT")}</td>
-                      <td className="px-3 py-1.5 text-right font-mono text-xs text-success">{formatCurrency(day.revenue)}</td>
-                      <td className="px-3 py-1.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {day.hasImport && (
-                            <span title="Importação" className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                              <Upload className="h-2.5 w-2.5" /> Imp
-                            </span>
-                          )}
-                          {day.hasManual && (
-                            <span title="Digitação manual" className="inline-flex items-center gap-0.5 rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                              <Keyboard className="h-2.5 w-2.5" /> Man
-                            </span>
-                          )}
-                        </div>
-                      </td>
+          {/* Daily sales table with weekly/monthly subtotals */}
+          {salesByDay.length > 0 && (() => {
+            // Build rows with week/month subtotal rows interleaved
+            type RowItem = { type: "day"; data: DaySummary } | { type: "week"; label: string; qty: number; rev: number } | { type: "month"; label: string; qty: number; rev: number };
+            const rows: RowItem[] = [];
+            let currentWeekKey = "";
+            let currentMonthKey = "";
+            let weekQty = 0, weekRev = 0;
+            let monthQty = 0, monthRev = 0;
+
+            const getWeekKey = (d: string) => { const p = parseISO(d); return isValid(p) ? `${getYear(p)}-W${String(getISOWeek(p)).padStart(2, "0")}` : ""; };
+            const getMonthKey = (d: string) => d.substring(0, 7);
+            const getMonthLabel = (d: string) => { const p = parseISO(d + "-01"); return isValid(p) ? format(p, "MMMM yyyy", { locale: pt }) : d; };
+            const getWeekLabel = (d: string) => {
+              const p = parseISO(d);
+              if (!isValid(p)) return d;
+              const ws = startOfWeek(p, { weekStartsOn: 1 });
+              const we = endOfWeek(p, { weekStartsOn: 1 });
+              return `Sem ${getISOWeek(p)} (${format(ws, "dd/MM")} — ${format(we, "dd/MM")})`;
+            };
+
+            for (let i = 0; i < salesByDay.length; i++) {
+              const day = salesByDay[i];
+              const wk = getWeekKey(day.date);
+              const mo = getMonthKey(day.date);
+
+              // Month break
+              if (currentMonthKey && mo !== currentMonthKey) {
+                // Flush week first
+                if (currentWeekKey) {
+                  rows.push({ type: "week", label: getWeekLabel(salesByDay[i - 1].date), qty: weekQty, rev: weekRev });
+                  weekQty = 0; weekRev = 0;
+                }
+                rows.push({ type: "month", label: getMonthLabel(currentMonthKey), qty: monthQty, rev: monthRev });
+                monthQty = 0; monthRev = 0;
+              } else if (currentWeekKey && wk !== currentWeekKey) {
+                // Week break (same month)
+                rows.push({ type: "week", label: getWeekLabel(salesByDay[i - 1].date), qty: weekQty, rev: weekRev });
+                weekQty = 0; weekRev = 0;
+              }
+
+              currentWeekKey = wk;
+              currentMonthKey = mo;
+              weekQty += day.quantity; weekRev += day.revenue;
+              monthQty += day.quantity; monthRev += day.revenue;
+              rows.push({ type: "day", data: day });
+            }
+            // Flush remaining
+            if (currentWeekKey && salesByDay.length > 0) {
+              rows.push({ type: "week", label: getWeekLabel(salesByDay[salesByDay.length - 1].date), qty: weekQty, rev: weekRev });
+            }
+            if (currentMonthKey && salesByDay.length > 0) {
+              rows.push({ type: "month", label: getMonthLabel(currentMonthKey), qty: monthQty, rev: monthRev });
+            }
+
+            return (
+              <div className="glass rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background z-10">
+                    <tr className="border-b border-border/50 text-xs text-muted-foreground">
+                      <th className="px-3 py-2 text-left font-medium">Data</th>
+                      <th className="px-3 py-2 text-left font-medium">Dia</th>
+                      <th className="px-3 py-2 text-right font-medium">Bilhetes</th>
+                      <th className="px-3 py-2 text-right font-medium">Receita</th>
+                      <th className="px-3 py-2 text-center font-medium">Origem</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-border/50 bg-secondary/10 font-semibold text-xs">
-                    <td className="px-3 py-2" colSpan={2}>Total</td>
-                    <td className="px-3 py-2 text-right font-mono">{totalQuantity.toLocaleString("pt-PT")}</td>
-                    <td className="px-3 py-2 text-right font-mono text-success">{formatCurrency(totalRevenue)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {rows.map((row, idx) => {
+                      if (row.type === "week") {
+                        return (
+                          <tr key={`wk-${idx}`} className="bg-primary/5 border-y border-primary/10">
+                            <td className="px-3 py-1.5 text-xs font-semibold text-primary" colSpan={2}>
+                              📅 {row.label}
+                            </td>
+                            <td className="px-3 py-1.5 text-right font-mono text-xs font-semibold text-primary">{row.qty.toLocaleString("pt-PT")}</td>
+                            <td className="px-3 py-1.5 text-right font-mono text-xs font-semibold text-primary">{formatCurrency(row.rev)}</td>
+                            <td />
+                          </tr>
+                        );
+                      }
+                      if (row.type === "month") {
+                        return (
+                          <tr key={`mo-${idx}`} className="bg-accent/10 border-y-2 border-accent/20">
+                            <td className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-accent-foreground" colSpan={2}>
+                              📊 {row.label}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-xs font-bold text-accent-foreground">{row.qty.toLocaleString("pt-PT")}</td>
+                            <td className="px-3 py-2 text-right font-mono text-xs font-bold text-accent-foreground">{formatCurrency(row.rev)}</td>
+                            <td />
+                          </tr>
+                        );
+                      }
+                      const day = row.data;
+                      return (
+                        <tr key={day.isPeriod ? `${day.date}_${day.dateTo}` : day.date} className="border-b border-border/20 hover:bg-secondary/10">
+                          <td className="px-3 py-1.5 font-mono text-xs">
+                            {day.isPeriod && day.dateTo ? (
+                              <span className="flex items-center gap-1">
+                                {formatDatePT(day.date)} — {formatDatePT(day.dateTo)}
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 border-primary/30 text-primary ml-1">Período</Badge>
+                              </span>
+                            ) : formatDatePT(day.date)}
+                          </td>
+                          <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize">
+                            {day.isPeriod ? "—" : formatDayOfWeek(day.date)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-mono text-xs">{day.quantity.toLocaleString("pt-PT")}</td>
+                          <td className="px-3 py-1.5 text-right font-mono text-xs text-success">{formatCurrency(day.revenue)}</td>
+                          <td className="px-3 py-1.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {day.hasImport && (
+                                <span title="Importação" className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                  <Upload className="h-2.5 w-2.5" /> Imp
+                                </span>
+                              )}
+                              {day.hasManual && (
+                                <span title="Digitação manual" className="inline-flex items-center gap-0.5 rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  <Keyboard className="h-2.5 w-2.5" /> Man
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border/50 bg-secondary/10 font-semibold text-xs">
+                      <td className="px-3 py-2" colSpan={2}>Total Geral</td>
+                      <td className="px-3 py-2 text-right font-mono">{totalQuantity.toLocaleString("pt-PT")}</td>
+                      <td className="px-3 py-2 text-right font-mono text-success">{formatCurrency(totalRevenue)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            );
+          })()}
 
           {/* Import logs */}
           {importLogs.length > 0 && (
