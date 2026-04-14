@@ -242,6 +242,19 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
       };
+      if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
+      if (paymentMethod !== "transfer") {
+        const methodLabel = paymentMethod === "service_payment" ? "Pag. Serviços" : "Pag. Estado";
+        const refInfo = paymentMethod === "service_payment"
+          ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
+          : `Ref: ${paymentReference.trim()}`;
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Método de pagamento",
+          old_value: null,
+          new_value: `${methodLabel} — ${refInfo}`,
+        });
       const { error } = await supabase
         .from("transactions")
         .update(updateData)
