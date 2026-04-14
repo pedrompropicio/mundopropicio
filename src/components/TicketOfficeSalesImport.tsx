@@ -406,7 +406,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
 
       if (toInsert.length === 0) throw new Error("Nenhuma venda para importar");
 
-      const { error } = await supabase.from("ticket_sales").insert(toInsert);
+      const { error } = await supabase.from("ticket_sales").insert(toInsert as any);
       if (error) throw error;
 
       // Step 3: Log import
