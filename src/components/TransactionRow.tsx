@@ -311,6 +311,31 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {invoiceRef && invoiceGroupCount > 1 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
+                        📄 {invoiceRef} ({invoiceGroupCount}) — {formatCurrency(invoiceGroupTotal)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-sm text-xs space-y-1">
+                      <p className="font-medium">Fatura agrupada: {invoiceRef}</p>
+                      <p>{invoiceGroupCount} transações — Total: {formatCurrency(invoiceGroupTotal)}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {invoiceSiblings?.map((s) => (
+                          <p key={s.id} className={`${s.id === t.id ? "font-semibold" : "text-muted-foreground"}`}>
+                            {s.description}: {formatCurrency(Number(s.amount) * (1 + (s.iva_rate ?? 23) / 100))}
+                          </p>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {invoiceRef && invoiceGroupCount <= 1 && (
+                  <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    📄 {invoiceRef}
+                  </span>
+                )}
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
