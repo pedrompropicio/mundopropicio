@@ -54,18 +54,49 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { user, isManager } = useAuth();
 
   // Check if this is a parent split transaction (has children)
+  const isAbsoluteMode = (transaction.split_mode ?? "percentage") === "absolute";
   const { data: childTransactions = [] } = useQuery({
-    queryKey: ["child-transactions", transaction.id],
+    queryKey: ["child-transactions-full", transaction.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id")
+        .select("id, split_percentage, split_amount, amount, event_id, events(name)")
         .eq("parent_transaction_id", transaction.id);
       if (error) throw error;
-      return data;
+      return (data ?? []).map((c: any) => ({
+        id: c.id,
+        split_percentage: c.split_percentage,
+        split_amount: c.split_amount,
+        amount: Number(c.amount),
+        event_id: c.event_id,
+        event_name: c.events?.name ?? "—",
+      }));
     },
   });
   const hasChildren = childTransactions.length > 0;
+
+  // Editable child amounts for absolute mode adjustment
+  const [childAdjustments, setChildAdjustments] = useState<Record<string, number>>({});
+
+  // Initialize child adjustments when children load
+  useEffect(() => {
+    if (hasChildren && Object.keys(childAdjustments).length === 0) {
+      const initial: Record<string, number> = {};
+      childTransactions.forEach((c: any) => {
+        initial[c.id] = c.amount;
+      });
+      setChildAdjustments(initial);
+    }
+  }, [hasChildren, childTransactions.length]);
+
+  const newParentAmount = parseFloat(form.amount) || 0;
+  const amountChanged = hasChildren && newParentAmount !== Number(transaction.amount);
+  
+  const childAdjustmentTotal = useMemo(() => {
+    return Object.values(childAdjustments).reduce((s, v) => s + v, 0);
+  }, [childAdjustments]);
+  
+  const childMismatch = hasChildren && amountChanged && Math.abs(childAdjustmentTotal - newParentAmount) > 0.01;
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
