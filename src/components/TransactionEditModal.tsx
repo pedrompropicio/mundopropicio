@@ -255,6 +255,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
       return;
     }
+    if (childMismatch) {
+      toast({ title: "A soma dos splits deve igualar o valor total", variant: "destructive" });
+      return;
+    }
     editMutation.mutate();
   };
 
