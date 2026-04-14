@@ -22,31 +22,46 @@ interface DaySummary {
   hasImport: boolean;
   hasManual: boolean;
   isPeriod: boolean;
+  details: DayDetail[];
 }
+
+interface DayDetail {
+  zone: string;
+  lot: string;
+  quantity: number;
+  unitPrice: number;
+  revenue: number;
+  source: string;
+}
+
+type ViewMode = "totals" | "detail";
 
 export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("totals");
 
-  // Fetch ticket_sales grouped by sale_date
+  // Fetch ticket_sales with zone/lot info
   const { data: salesByDay = [] } = useQuery({
     queryKey: ["sales-log-daily", eventId],
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
-        .select("id")
+        .select("id, name")
         .eq("event_id", eventId);
       if (!zones || zones.length === 0) return [];
 
       const zoneIds = zones.map((z) => z.id);
+      const zoneMap = new Map(zones.map((z) => [z.id, z.name]));
 
       const { data: lots } = await supabase
         .from("event_ticket_lots")
-        .select("id, price, zone_id")
+        .select("id, price, zone_id, name, lot_type")
         .in("zone_id", zoneIds);
       if (!lots || lots.length === 0) return [];
 
       const lotIds = lots.map((l) => l.id);
+      const lotMap = new Map(lots.map((l) => [l.id, l]));
 
       const { data: sales } = await supabase
         .from("ticket_sales")
@@ -55,63 +70,50 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
         .order("sale_date", { ascending: true });
       if (!sales) return [];
 
-      // Group by day, treating period entries separately
-      const entries: DaySummary[] = [];
+      // Group by day
       const dayMap = new Map<string, DaySummary>();
 
       for (const s of sales) {
         const saleDateTo = (s as any).sale_date_to as string | null;
         const isPeriod = !!saleDateTo && saleDateTo !== s.sale_date;
+        const key = isPeriod ? `${s.sale_date}_${saleDateTo}` : s.sale_date;
 
-        if (isPeriod) {
-          // Period entry — keep as separate line
-          const periodKey = `${s.sale_date}_${saleDateTo}`;
-          const existing = dayMap.get(periodKey);
-          if (existing) {
-            existing.quantity += s.quantity;
-            existing.revenue += s.quantity * Number(s.unit_price);
-            if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
-            if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
-          } else {
-            const entry: DaySummary = {
-              date: s.sale_date,
-              dateTo: saleDateTo,
-              quantity: s.quantity,
-              revenue: s.quantity * Number(s.unit_price),
-              sources: [],
-              hasImport: false,
-              hasManual: false,
-              isPeriod: true,
-            };
-            if (s.source === "import") { entry.hasImport = true; entry.sources.push("Importação"); }
-            if (s.source === "manual") { entry.hasManual = true; entry.sources.push("Manual"); }
-            dayMap.set(periodKey, entry);
-          }
+        const lot = lotMap.get(s.lot_id);
+        const zoneName = lot ? (zoneMap.get(lot.zone_id) || "—") : "—";
+        const lotName = lot ? `${lot.name} (${lot.lot_type})` : "—";
+
+        const detail: DayDetail = {
+          zone: zoneName,
+          lot: lotName,
+          quantity: s.quantity,
+          unitPrice: Number(s.unit_price),
+          revenue: s.quantity * Number(s.unit_price),
+          source: s.source,
+        };
+
+        const existing = dayMap.get(key);
+        if (existing) {
+          existing.quantity += s.quantity;
+          existing.revenue += s.quantity * Number(s.unit_price);
+          existing.details.push(detail);
+          if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
+          if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
         } else {
-          // Single day entry
-          const key = s.sale_date;
-          const existing = dayMap.get(key);
-          if (existing) {
-            existing.quantity += s.quantity;
-            existing.revenue += s.quantity * Number(s.unit_price);
-            if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
-            if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
-          } else {
-            const entry: DaySummary = {
-              date: key,
-              dateTo: null,
-              quantity: s.quantity,
-              revenue: s.quantity * Number(s.unit_price),
-              sources: [],
-              hasImport: false,
-              hasManual: false,
-              isPeriod: false,
-            };
-            if (s.source === "import") { entry.hasImport = true; entry.sources.push("Importação"); }
-            if (s.source === "manual") { entry.hasManual = true; entry.sources.push("Manual"); }
-            if (s.source !== "import" && s.source !== "manual") entry.sources.push(s.source);
-            dayMap.set(key, entry);
-          }
+          const entry: DaySummary = {
+            date: s.sale_date,
+            dateTo: isPeriod ? saleDateTo : null,
+            quantity: s.quantity,
+            revenue: s.quantity * Number(s.unit_price),
+            sources: [],
+            hasImport: false,
+            hasManual: false,
+            isPeriod,
+            details: [detail],
+          };
+          if (s.source === "import") { entry.hasImport = true; entry.sources.push("Importação"); }
+          if (s.source === "manual") { entry.hasManual = true; entry.sources.push("Manual"); }
+          if (s.source !== "import" && s.source !== "manual") entry.sources.push(s.source);
+          dayMap.set(key, entry);
         }
       }
 
