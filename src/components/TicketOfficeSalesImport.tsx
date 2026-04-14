@@ -303,10 +303,10 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const newLotRows = parsedRows.filter((r) => r.status === "new_lot");
   const unmatchedRows = parsedRows.filter((r) => r.status !== "matched" && r.status !== "new_lot");
 
-  const importableRows = [...matchedRows, ...newLotRows];
+  const allImportableRows = [...matchedRows, ...newLotRows];
 
-  const matchedDates = useMemo(() => [...new Set(importableRows.map(r => r.date))], [importableRows]);
-  const matchedZoneIds = useMemo(() => [...new Set(importableRows.map(r => r.matched_zone_id).filter(Boolean))], [importableRows]);
+  const matchedDates = useMemo(() => [...new Set(allImportableRows.map(r => r.date))], [allImportableRows]);
+  const matchedZoneIds = useMemo(() => [...new Set(allImportableRows.map(r => r.matched_zone_id).filter(Boolean))], [allImportableRows]);
 
   const { data: existingSalesForDates = [] } = useQuery({
     queryKey: ["existing-sales-check", matchedDates, matchedZoneIds],
@@ -323,24 +323,30 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     enabled: step === "review" && matchedDates.length > 0,
   });
 
-  const duplicateDateWarnings = useMemo(() => {
-    if (existingSalesForDates.length === 0) return [];
-    const warnings: { date: string; zone: string; existingQty: number }[] = [];
-    const seen = new Set<string>();
-    for (const row of importableRows) {
-      const key = `${row.date}_${row.matched_zone_id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const existing = existingSalesForDates.filter(
-        (s: any) => s.sale_date === row.date && s.zone_id === row.matched_zone_id
-      );
-      if (existing.length > 0) {
-        const totalQty = existing.reduce((sum: number, s: any) => sum + Number(s.quantity), 0);
-        warnings.push({ date: row.date, zone: row.zone, existingQty: totalQty });
+  // Build a set of existing date+zone+lot combos
+  const existingKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const s of existingSalesForDates) {
+      keys.add(`${s.sale_date}_${s.zone_id}_${s.lot_id || ""}`);
+    }
+    return keys;
+  }, [existingSalesForDates]);
+
+  // Filter out rows that already exist (same date+zone+lot)
+  const { importableRows, skippedRows } = useMemo(() => {
+    const importable: ParsedSale[] = [];
+    const skipped: ParsedSale[] = [];
+    for (const row of allImportableRows) {
+      const lotId = row.matched_lot_id || "";
+      const key = `${row.date}_${row.matched_zone_id}_${lotId}`;
+      if (existingKeys.has(key)) {
+        skipped.push(row);
+      } else {
+        importable.push(row);
       }
     }
-    return warnings;
-  }, [importableRows, existingSalesForDates]);
+    return { importableRows: importable, skippedRows: skipped };
+  }, [allImportableRows, existingKeys]);
 
   const importMutation = useMutation({
     mutationFn: async () => {
