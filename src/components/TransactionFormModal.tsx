@@ -58,6 +58,9 @@ const emptyForm: TransactionForm = {
   reimbursement_to: "",
   reimbursement_note_id: "",
   invoice_ref: "",
+  payment_method: "transfer",
+  payment_entity: "",
+  payment_reference: "",
 };
 
 const formatDueDateInput = (value: string) => {
