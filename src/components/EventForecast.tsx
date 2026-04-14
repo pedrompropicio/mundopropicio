@@ -617,7 +617,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           category_id: f.category_id || null,
           date: eventDate,
           due_date: eventDate,
-          status: "pending",
+          status: "approved",
         });
         if (error) throw error;
         created++;
