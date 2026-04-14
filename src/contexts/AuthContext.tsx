@@ -155,9 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === "TOKEN_REFRESHED") {
           if (updatedSession) {
             setSession(updatedSession);
-            // Only update user ref if it actually changed (shouldn't on refresh)
-            if (updatedSession.user.id !== user?.id) {
+            if (updatedSession.user.id !== userIdRef.current) {
               setUser(updatedSession.user);
+              userIdRef.current = updatedSession.user.id;
             }
           }
           return;
@@ -165,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setSession(updatedSession);
         setUser(updatedSession?.user ?? null);
+        userIdRef.current = updatedSession?.user?.id ?? null;
 
         if (updatedSession?.user) {
           // Fire-and-forget to avoid blocking auth event processing
