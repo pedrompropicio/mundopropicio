@@ -646,6 +646,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory,
             exclude_from_result: isExcludeFromResult,
+            payment_method: data.payment_method || "transfer",
+            payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+            payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
           };
         });
 
