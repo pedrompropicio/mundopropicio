@@ -99,6 +99,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [totalWarnings, setTotalWarnings] = useState<string[]>([]);
   const [zoneMappings, setZoneMappings] = useState<ZoneMapping[]>([]);
   const [pdfHeader, setPdfHeader] = useState<any>(null);
+  const [ticketlineDailySales, setTicketlineDailySales] = useState<TicketlineDailySale[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
