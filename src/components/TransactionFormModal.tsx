@@ -419,6 +419,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     setPlExpanded(false);
   };
 
+  // Reset payment_method when category changes away from state categories
+  useEffect(() => {
+    if (form.payment_method === "state_payment" && form.category_id) {
+      const selectedCat = categories.find((c: any) => c.id === form.category_id);
+      const isState = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
+      if (!isState) {
+        setForm(prev => ({ ...prev, payment_method: "transfer", payment_entity: "", payment_reference: "" }));
+      }
+    }
+  }, [form.category_id, categories]);
+
 
   const forecastBudgetByCategory = hasPL
     ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
