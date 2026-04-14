@@ -353,6 +353,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <input value={form.invoice_ref} onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
+              placeholder="Ex: FT 002/5944"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
+          </div>
+
           {!isPaid && !isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
