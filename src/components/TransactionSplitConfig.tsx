@@ -31,11 +31,19 @@ interface Props {
   totalAmount?: number;
   /** BP budget info per event for the selected category */
   bpInfoByEvent?: Record<string, SplitBPInfo>;
+  /** Controlled input mode */
+  inputMode?: SplitInputMode;
+  onInputModeChange?: (mode: SplitInputMode) => void;
 }
 
-export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange, totalAmount = 0, bpInfoByEvent = {} }: Props) {
+export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange, totalAmount = 0, bpInfoByEvent = {}, inputMode: controlledMode, onInputModeChange }: Props) {
   const [addingEvent, setAddingEvent] = useState("");
-  const [inputMode, setInputMode] = useState<SplitInputMode>("percentage");
+  const [localMode, setLocalMode] = useState<SplitInputMode>("percentage");
+  const inputMode = controlledMode ?? localMode;
+  const setInputMode = (mode: SplitInputMode) => {
+    if (onInputModeChange) onInputModeChange(mode);
+    else setLocalMode(mode);
+  };
   // Store absolute values when totalAmount is not yet known
   const [pendingAbsolute, setPendingAbsolute] = useState<Record<string, number>>({});
   const prevTotalRef = useRef(totalAmount);
