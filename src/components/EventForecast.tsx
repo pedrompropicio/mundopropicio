@@ -1382,23 +1382,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
                     {canApprove && expenseForecasts.some((f) => f.status === "draft") && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-2 py-1">
                         <Checkbox
                           checked={expenseForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
                           onCheckedChange={() => toggleSelectAllDrafts("expense")}
-                          className="h-3.5 w-3.5"
+                          className="h-3.5 w-3.5 border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning"
                         />
-                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                        <span className="text-xs text-warning font-medium">Rascunhos p/ aprovar</span>
                       </div>
                     )}
                     {isAdmin && expenseForecasts.some((f) => f.status === "approved" && !f.cache_config_id) && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-2 py-1">
                         <Checkbox
                           checked={expenseForecasts.filter((f) => f.status === "approved" && !f.cache_config_id).every((f) => selectedIds.has(f.id))}
                           onCheckedChange={() => toggleSelectAllApproved("expense")}
-                          className="h-3.5 w-3.5"
+                          className="h-3.5 w-3.5 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
-                        <span className="text-xs text-muted-foreground">Selecionar aprovadas</span>
+                        <span className="text-xs text-primary font-medium">Aprovadas p/ gerar TX</span>
                       </div>
                     )}
                   </div>
