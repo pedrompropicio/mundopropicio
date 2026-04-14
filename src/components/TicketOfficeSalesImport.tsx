@@ -51,10 +51,12 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedSale[]>([]);
   const [fileName, setFileName] = useState("");
   const [step, setStep] = useState<"upload" | "review">("upload");
   const [extracting, setExtracting] = useState(false);
+  const [ticketlineData, setTicketlineData] = useState<TicketlineParseResult | null>(null);
 
   const { data: ticketOffices = [] } = useQuery({
     queryKey: ["ticket_offices_active"],
