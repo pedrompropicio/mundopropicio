@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Building, FileText, Landmark } from "lucide-react";
+import { X, Building, FileText, Landmark, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -54,18 +54,49 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { user, isManager } = useAuth();
 
   // Check if this is a parent split transaction (has children)
+  const isAbsoluteMode = (transaction.split_mode ?? "percentage") === "absolute";
   const { data: childTransactions = [] } = useQuery({
-    queryKey: ["child-transactions", transaction.id],
+    queryKey: ["child-transactions-full", transaction.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id")
+        .select("id, split_percentage, split_amount, amount, event_id, events(name)")
         .eq("parent_transaction_id", transaction.id);
       if (error) throw error;
-      return data;
+      return (data ?? []).map((c: any) => ({
+        id: c.id,
+        split_percentage: c.split_percentage,
+        split_amount: c.split_amount,
+        amount: Number(c.amount),
+        event_id: c.event_id,
+        event_name: c.events?.name ?? "—",
+      }));
     },
   });
   const hasChildren = childTransactions.length > 0;
+
+  // Editable child amounts for absolute mode adjustment
+  const [childAdjustments, setChildAdjustments] = useState<Record<string, number>>({});
+
+  // Initialize child adjustments when children load
+  useEffect(() => {
+    if (hasChildren && Object.keys(childAdjustments).length === 0) {
+      const initial: Record<string, number> = {};
+      childTransactions.forEach((c: any) => {
+        initial[c.id] = c.amount;
+      });
+      setChildAdjustments(initial);
+    }
+  }, [hasChildren, childTransactions.length]);
+
+  const newParentAmount = parseFloat(form.amount) || 0;
+  const amountChanged = hasChildren && newParentAmount !== Number(transaction.amount);
+  
+  const childAdjustmentTotal = useMemo(() => {
+    return Object.values(childAdjustments).reduce((s, v) => s + v, 0);
+  }, [childAdjustments]);
+  
+  const childMismatch = hasChildren && amountChanged && Math.abs(childAdjustmentTotal - newParentAmount) > 0.01;
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
@@ -159,8 +190,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ...paymentFields,
       };
 
+      // Send child adjustments if amount changed on a parent split
+      const childUpdatesPayload = (amountChanged && hasChildren)
+        ? Object.entries(childAdjustments).map(([id, amt]) => ({ id, amount: amt }))
+        : undefined;
+
       const { data, error } = await supabase.functions.invoke("update-transaction", {
-        body: { transaction_id: transaction.id, updates, changes },
+        body: { transaction_id: transaction.id, updates, changes, child_adjustments: childUpdatesPayload },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -222,6 +258,10 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     }
     if (!isExpense && !form.account_id) {
       toast({ title: "Selecione a conta destino para receitas", variant: "destructive" });
+      return;
+    }
+    if (childMismatch) {
+      toast({ title: "A soma dos splits deve igualar o valor total", variant: "destructive" });
       return;
     }
     editMutation.mutate();
@@ -322,6 +362,71 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               );
             })()}
           </div>
+          )}
+
+          {/* Split adjustment panel when parent amount changes */}
+          {hasChildren && !isPaid && (
+            <div className={`rounded-lg border p-3 space-y-2 ${amountChanged ? "border-warning/50 bg-warning/5" : "border-border/50 bg-secondary/20"}`}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  {amountChanged && <AlertTriangle className="h-3 w-3 text-warning" />}
+                  Distribuição pelos Splits ({childTransactions.length})
+                </p>
+                {amountChanged && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pct = +(100 / childTransactions.length).toFixed(2);
+                      const adj: Record<string, number> = {};
+                      childTransactions.forEach((c: any, i: number) => {
+                        const isLast = i === childTransactions.length - 1;
+                        const val = isLast
+                          ? +(newParentAmount - Object.values(adj).reduce((s, v) => s + v, 0)).toFixed(2)
+                          : +(newParentAmount * pct / 100).toFixed(2);
+                        adj[c.id] = val;
+                      });
+                      setChildAdjustments(adj);
+                    }}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Dividir igualmente
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {childTransactions.map((child: any) => {
+                  const adjVal = childAdjustments[child.id] ?? child.amount;
+                  const pctOfNew = newParentAmount > 0 ? (adjVal / newParentAmount * 100).toFixed(1) : "—";
+                  return (
+                    <div key={child.id} className="flex items-center gap-2">
+                      <span className="flex-1 truncate text-xs">{child.event_name}</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={adjVal || ""}
+                        onChange={(e) => setChildAdjustments(prev => ({
+                          ...prev,
+                          [child.id]: parseFloat(e.target.value) || 0,
+                        }))}
+                        disabled={!amountChanged}
+                        className="w-20 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
+                      />
+                      <span className="text-[10px] text-muted-foreground w-10 text-right">{pctOfNew}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {amountChanged && (
+                <div className="flex items-center justify-between border-t border-border/30 pt-1.5">
+                  <span className="text-[10px] text-muted-foreground">Total splits</span>
+                  <span className={`text-xs font-mono font-semibold ${childMismatch ? "text-destructive" : "text-success"}`}>
+                    {childAdjustmentTotal.toFixed(2)}€
+                    {childMismatch && ` (esperado: ${newParentAmount.toFixed(2)}€)`}
+                  </span>
+                </div>
+              )}
+            </div>
           )}
 
           {!isPaid && (
