@@ -338,6 +338,63 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             )}
           </div>
 
+          {/* Método de Pagamento */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { value: "transfer" as const, label: "Transferência", icon: Building },
+                { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+                { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+              ]).map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(m.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
+                    paymentMethod === m.value
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  <m.icon className="h-4 w-4" />
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Campos condicionais: Entidade + Referência */}
+          {paymentMethod === "service_payment" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade *</label>
+                <input type="text" value={paymentEntity}
+                  onChange={(e) => setPaymentEntity(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Ex: 10611" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência *</label>
+                <input type="text" value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Referência MB" />
+              </div>
+            </div>
+          )}
+
+          {paymentMethod === "state_payment" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento *</label>
+              <input type="text" value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Referência AT / SS" />
+            </div>
+          )}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>
             <Popover open={paymentDateOpen} onOpenChange={setPaymentDateOpen}>
