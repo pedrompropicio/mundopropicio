@@ -5,7 +5,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -593,6 +593,59 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // Fetch sub-event names for distribute feature (only on master)
+  const { data: subEventNames = [] } = useQuery({
+    queryKey: ["sub_event_names_for_distribute", childEventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date, city_id, cities:city_id(name)")
+        .in("id", childEventIds!)
+        .order("date");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!childEventIds && childEventIds.length > 0,
+  });
+
+  const [distributeTarget, setDistributeTarget] = useState<any>(null);
+
+  const distributeToSplitsMutation = useMutation({
+    mutationFn: async (forecast: any) => {
+      if (!childEventIds || childEventIds.length === 0) throw new Error("Sem sub-eventos");
+      const splitCount = childEventIds.length;
+      const amount = Number(forecast.amount);
+      const splitAmount = Math.round((amount / splitCount) * 100) / 100;
+      const totalDistributed = splitAmount * (splitCount - 1);
+      const lastAmount = Math.round((amount - totalDistributed) * 100) / 100;
+
+      const inserts = childEventIds.map((eid, idx) => ({
+        event_id: eid,
+        type: forecast.type as "expense" | "income",
+        description: forecast.description,
+        specification: forecast.specification || null,
+        amount: idx === splitCount - 1 ? lastAmount : splitAmount,
+        iva_rate: Number(forecast.iva_rate),
+        category_id: forecast.category_id || null,
+        status: "draft" as const,
+      }));
+
+      const { error: insertErr } = await supabase.from("event_forecasts").insert(inserts);
+      if (insertErr) throw insertErr;
+
+      const { error: deleteErr } = await supabase.from("event_forecasts").delete().eq("id", forecast.id);
+      if (deleteErr) throw deleteErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      setDistributeTarget(null);
+      toast({ title: "Despesa distribuída para os sub-eventos" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao distribuir", description: err.message, variant: "destructive" });
     },
   });
 
@@ -1331,7 +1384,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -1515,7 +1568,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               ) : f.cache_config_id ? (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -1575,13 +1628,53 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           onClose={() => setShowCopyModal(false)}
         />
       )}
+
+      {/* Distribute to splits confirmation dialog */}
+      {distributeTarget && childEventIds && childEventIds.length > 0 && (
+        <AlertDialog open={!!distributeTarget} onOpenChange={(open) => { if (!open) setDistributeTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reverter para sub-eventos</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Distribuir <strong>"{distributeTarget.description}"</strong> ({formatCurrency(Number(distributeTarget.amount))} s/ IVA) igualmente por {childEventIds.length} sub-evento(s):
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {subEventNames.map((se: any) => {
+                      const perSplit = Number(distributeTarget.amount) / childEventIds.length;
+                      const cityName = (se.cities as any)?.name;
+                      return (
+                        <div key={se.id} className="rounded border border-border bg-muted/30 px-3 py-1.5 text-xs flex justify-between">
+                          <span className="truncate">{se.name}{cityName ? ` (${cityName})` : ""}</span>
+                          <span className="font-mono font-semibold shrink-0 ml-2">{formatCurrency(Math.round(perSplit * 100) / 100)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">A linha será removida do Master e criada como rascunho em cada sub-evento.</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => distributeToSplitsMutation.mutate(distributeTarget)}
+                disabled={distributeToSplitsMutation.isPending}
+              >
+                {distributeToSplitsMutation.isPending ? "A distribuir…" : "Distribuir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [] }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -1591,6 +1684,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
   canDeleteAlways?: boolean; allForecasts?: any[];
+  onDistributeToSplits?: (item: any) => void;
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
@@ -1821,6 +1915,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     </div>
                   </PopoverContent>
                 </Popover>
+              )}
+              {onDistributeToSplits && !item.cache_config_id && !hasMatchingTx && (
+                <button
+                  onClick={() => onDistributeToSplits(item)}
+                  className="rounded p-1 hover:bg-blue-500/20"
+                  title="Reverter para sub-eventos"
+                >
+                  <ArrowDownRight className="h-3.5 w-3.5 text-blue-400" />
+                </button>
               )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
