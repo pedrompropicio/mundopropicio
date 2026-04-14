@@ -2266,6 +2266,8 @@ export type Database = {
           pl_override_note: string | null
           reimbursement_to: string | null
           specification: string | null
+          split_amount: number | null
+          split_mode: string | null
           split_percentage: number | null
           status: string
           supplier_id: string | null
@@ -2297,6 +2299,8 @@ export type Database = {
           pl_override_note?: string | null
           reimbursement_to?: string | null
           specification?: string | null
+          split_amount?: number | null
+          split_mode?: string | null
           split_percentage?: number | null
           status?: string
           supplier_id?: string | null
@@ -2328,6 +2332,8 @@ export type Database = {
           pl_override_note?: string | null
           reimbursement_to?: string | null
           specification?: string | null
+          split_amount?: number | null
+          split_mode?: string | null
           split_percentage?: number | null
           status?: string
           supplier_id?: string | null
