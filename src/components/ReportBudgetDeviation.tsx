@@ -72,22 +72,20 @@ export default function ReportBudgetDeviation() {
 
     for (const f of forecasts) {
       if (!f.category_id) continue;
-      const cat = lookup.get(f.category_id);
-      const parentId = cat?.parent_id ?? f.category_id;
-      const parent = lookup.get(parentId);
-      const key = parentId;
-      const existing = catMap.get(key) ?? { name: parent?.name ?? "Outros", code: parent?.code ?? "99", forecast: 0, actual: 0 };
+      const cat = lookup[f.category_id];
+      if (!cat) continue;
+      const key = cat.groupCode;
+      const existing = catMap.get(key) ?? { name: cat.groupName, code: cat.groupCode, forecast: 0, actual: 0 };
       existing.forecast += Number(f.amount);
       catMap.set(key, existing);
     }
 
     for (const t of transactions) {
       if (t.is_transitory || t.exclude_from_result || !t.category_id) continue;
-      const cat = lookup.get(t.category_id);
-      const parentId = cat?.parent_id ?? t.category_id;
-      const parent = lookup.get(parentId);
-      const key = parentId;
-      const existing = catMap.get(key) ?? { name: parent?.name ?? "Outros", code: parent?.code ?? "99", forecast: 0, actual: 0 };
+      const cat = lookup[t.category_id];
+      if (!cat) continue;
+      const key = cat.groupCode;
+      const existing = catMap.get(key) ?? { name: cat.groupName, code: cat.groupCode, forecast: 0, actual: 0 };
       existing.actual += Number(t.amount);
       catMap.set(key, existing);
     }

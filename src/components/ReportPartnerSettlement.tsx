@@ -50,7 +50,20 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const settlementData = useMemo(() => {
+  interface SettlementRow {
+    partnerId: string;
+    partnerName: string;
+    eventName: string;
+    eventStatus: string;
+    percentage: number;
+    result: number;
+    partnerShare: number;
+    extras: number;
+    paidExpenses: number;
+    settlement: number;
+  }
+
+  const settlementData: SettlementRow[] = useMemo(() => {
     return partners.map((p) => {
       const ev = p.events as any;
       if (!ev) return null;
@@ -80,8 +93,8 @@ export default function ReportPartnerSettlement() {
         extras: partnerExtras,
         paidExpenses: partnerPaid,
         settlement,
-      };
-    }).filter(Boolean) as NonNullable<ReturnType<typeof Array.prototype.map>[number]>[];
+      } as SettlementRow;
+    }).filter(Boolean) as SettlementRow[];
   }, [partners, transactions, extras, paidExpenses]);
 
   const totals = settlementData.reduce(
