@@ -312,12 +312,20 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
           {splitEntries.length} evento(s) selecionado(s)
         </span>
         <div className="text-right">
-          <span className={`text-xs font-mono font-semibold ${isValid ? "text-success" : "text-destructive"}`}>
-            Total: {totalPct.toFixed(2)}%
-            {totalAmount > 0 && ` (${totalAbsolute.toFixed(2)}€)`}
-            {!isValid && splitEntries.length >= 2 && " — deve ser 100%"}
-            {splitEntries.length < 2 && " (mín. 2 eventos)"}
-          </span>
+          {totalAmount > 0 || inputMode === "percentage" ? (
+            <span className={`text-xs font-mono font-semibold ${isValid && Math.abs(totalPct - 100) < 0.01 ? "text-success" : "text-destructive"}`}>
+              Total: {totalPct.toFixed(2)}%
+              {totalAmount > 0 && ` (${totalAbsolute.toFixed(2)}€)`}
+              {splitEntries.length >= 2 && Math.abs(totalPct - 100) >= 0.01 && " — deve ser 100%"}
+              {splitEntries.length < 2 && " (mín. 2 eventos)"}
+            </span>
+          ) : (
+            <span className="text-xs font-mono font-semibold text-muted-foreground">
+              Total: {totalAbsolute.toFixed(2)}€
+              {splitEntries.length < 2 && " (mín. 2 eventos)"}
+              {splitEntries.length >= 2 && <span className="text-primary/70 ml-1">· % calculada ao preencher valor</span>}
+            </span>
+          )}
         </div>
       </div>
     </div>
