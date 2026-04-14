@@ -135,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initializedRef.current = true;
         setSession(restored);
         setUser(restored?.user ?? null);
+        userIdRef.current = restored?.user?.id ?? null;
         if (restored?.user) {
           await fetchRoleAndPermissions(restored.user.id);
         }
