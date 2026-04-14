@@ -77,7 +77,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, split_percentage, amount, iva_rate, paid_amount, status")
+        .select("id, split_percentage, split_amount, amount, iva_rate, paid_amount, status")
         .eq("parent_transaction_id", transaction.id);
       if (error) throw error;
       return data;
@@ -285,8 +285,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       // Propagate payment to child transactions (split/rateio)
       if (hasChildren) {
         for (const child of childTransactions) {
+          const childSplitAmt = child.split_amount != null ? Number(child.split_amount) : null;
           const childPct = Number(child.split_percentage ?? 0);
-          const childPayment = +(addAmount * childPct / 100).toFixed(2);
+          const childPayment = childSplitAmt != null
+            ? +(addAmount * childSplitAmt / Number(transaction.amount)).toFixed(2)
+            : +(addAmount * childPct / 100).toFixed(2);
           const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 0));
           const childCurrentPaid = Number(child.paid_amount ?? 0);
           const childNewPaid = Math.min(Math.round((childCurrentPaid + childPayment) * 100) / 100, childTotal);

@@ -12,7 +12,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
-import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo } from "@/components/TransactionSplitConfig";
+import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
@@ -81,6 +81,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [isSplit, setIsSplit] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
   const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
+  const [splitInputMode, setSplitInputMode] = useState<SplitInputMode>("percentage");
   const [splitAutoConfigured, setSplitAutoConfigured] = useState(false);
   const [splitMasterEventId, setSplitMasterEventId] = useState("");
   const [splitExpanded, setSplitExpanded] = useState(false);
@@ -590,10 +591,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (isSplit && splitEntries.length >= 2) {
         // --- SPLIT TRANSACTION ---
         const totalAmount = parseFloat(data.amount);
+        const isAbsoluteMode = splitInputMode === "absolute";
 
         // 1. Build child inserts first to determine parent status
         const childInserts = splitEntries.map((entry) => {
-          const childAmount = +(totalAmount * entry.percentage / 100).toFixed(2);
+          const childAmount = isAbsoluteMode
+            ? +(totalAmount * entry.percentage / 100).toFixed(2) // percentage was already computed from absolute
+            : +(totalAmount * entry.percentage / 100).toFixed(2);
           const bp = splitBPInfoByEvent[entry.event_id];
           const hasBP = bp && bp.hasAnyForecasts;
           const hasForecastMatch = bp?.hasForecastMatch ?? false;
@@ -629,6 +633,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             status: childStatus,
             paid_amount: 0,
             split_percentage: entry.percentage,
+            split_amount: isAbsoluteMode ? childAmount : null,
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory,
             exclude_from_result: isExcludeFromResult,
@@ -655,9 +660,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           due_date: parseDueDateForDb(data.due_date),
           status: parentStatus,
           paid_amount: 0,
-          split_percentage: null,
-          parent_transaction_id: null,
-          is_transitory: isTransitory,
+           split_percentage: null,
+           parent_transaction_id: null,
+           split_mode: isAbsoluteMode ? "absolute" : "percentage",
+           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
         } as any).select("id").single();
@@ -1131,6 +1137,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   onMethodChange={setSplitMethod}
                   totalAmount={parseFloat(form.amount) || 0}
                   bpInfoByEvent={splitBPInfoByEvent}
+                  inputMode={splitInputMode}
+                  onInputModeChange={setSplitInputMode}
                 />
               )}
               {splitCategoryBlockReason && (
