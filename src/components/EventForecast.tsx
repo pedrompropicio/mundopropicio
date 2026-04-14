@@ -1876,6 +1876,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   </PopoverContent>
                 </Popover>
               )}
+              {onDistributeToSplits && !item.cache_config_id && !hasMatchingTx && (
+                <button
+                  onClick={() => onDistributeToSplits(item)}
+                  className="rounded p-1 hover:bg-blue-500/20"
+                  title="Reverter para sub-eventos"
+                >
+                  <ArrowDownRight className="h-3.5 w-3.5 text-blue-400" />
+                </button>
+              )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
                   onClick={() => onEditApproved(item)}
