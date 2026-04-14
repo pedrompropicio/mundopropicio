@@ -659,6 +659,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           parent_transaction_id: null,
           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
+          invoice_ref: data.invoice_ref.trim() || null,
         } as any).select("id").single();
         if (parentError) throw parentError;
         const parentId = parentRow.id;
@@ -695,6 +696,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
+          invoice_ref: data.invoice_ref.trim() || null,
         } as any).select("id").single();
         if (error) throw error;
 
