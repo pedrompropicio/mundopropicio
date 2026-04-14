@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X } from "lucide-react";
+import { X, Building, FileText, Landmark } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -11,7 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
-import { sortByHierarchicalCode } from "@/lib/utils";
+import { sortByHierarchicalCode, cn } from "@/lib/utils";
+
+type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
 interface Props {
   transaction: any;
@@ -44,6 +46,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     is_transitory: transaction.is_transitory ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
     invoice_ref: transaction.invoice_ref ?? "",
+    payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
+    payment_entity: transaction.payment_entity ?? "",
+    payment_reference: transaction.payment_reference ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -108,8 +113,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: "Transitória",
         exclude_from_result: "Fora do Resultado",
         invoice_ref: "Nº Fatura",
+        payment_method: "Método Pagamento",
+        payment_entity: "Entidade Pagamento",
+        payment_reference: "Referência Pagamento",
       };
-      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref"] : Object.keys(fieldLabels);
+      const allowedFields = isPaid
+        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
+        : Object.keys(fieldLabels);
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
@@ -119,12 +129,19 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
 
+      const paymentFields = {
+        payment_method: form.payment_method,
+        payment_entity: form.payment_method === "service_payment" ? (form.payment_entity.trim() || null) : null,
+        payment_reference: form.payment_method !== "transfer" ? (form.payment_reference.trim() || null) : null,
+      };
+
       const updates = isPaid ? {
         supplier_id: form.supplier_id || null,
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ...paymentFields,
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -139,6 +156,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ...paymentFields,
       };
 
       const { data, error } = await supabase.functions.invoke("update-transaction", {
@@ -237,7 +255,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
         {isPaid && (
           <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-xs text-success">
-            Transação liquidada — apenas Especificação e Fornecedor podem ser alterados.
+            Transação liquidada — Especificação, Fornecedor, Nº Fatura e Método de Pagamento podem ser alterados.
           </div>
         )}
 
@@ -360,6 +378,62 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
           </div>
+
+          {/* Método de Pagamento — editável a qualquer tempo */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { value: "transfer" as const, label: "Transferência", icon: Building },
+                { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+                { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+              ]).map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, payment_method: m.value, ...(m.value === "transfer" ? { payment_entity: "", payment_reference: "" } : m.value === "state_payment" ? { payment_entity: "" } : {}) })}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
+                    form.payment_method === m.value
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  <m.icon className="h-4 w-4" />
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {form.payment_method === "service_payment" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
+                <input type="text" value={form.payment_entity}
+                  onChange={(e) => setForm({ ...form, payment_entity: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Ex: 10611" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência</label>
+                <input type="text" value={form.payment_reference}
+                  onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Referência MB" />
+              </div>
+            </div>
+          )}
+
+          {form.payment_method === "state_payment" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento</label>
+              <input type="text" value={form.payment_reference}
+                onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Referência AT / SS" />
+            </div>
+          )}
 
           {!isPaid && !isExpense && (
             <div>
