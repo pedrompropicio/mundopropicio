@@ -180,7 +180,7 @@ function ProtectedLayout() {
                 <Route path="mix-receitas" element={<ReportRevenueMixPage />} />
                 <Route path="acerto-socios" element={<ReportPartnerSettlementPage />} />
                 <Route path="indice-pendencias" element={<ReportPendencyIndexPage />} />
-              
+              </Route>
               
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="/admin/utilizadores" element={<UserManagement />} />
