@@ -94,12 +94,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("event_id, events(name), split_percentage")
+        .select("event_id, events(name), split_percentage, split_amount")
         .eq("parent_transaction_id", t.id);
       if (error) throw error;
       return (data ?? []).map((c: any) => ({
         name: c.events?.name ?? "—",
         pct: c.split_percentage != null ? Number(c.split_percentage) : null,
+        absAmount: c.split_amount != null ? Number(c.split_amount) : null,
       }));
     },
     enabled: mightBeParentSplit,
