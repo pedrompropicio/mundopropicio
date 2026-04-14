@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { parseTicketlineXlsx, isTicketlineFormat } from "@/lib/parse-ticketline-xlsx";
+import { parseTicketlineXlsx, isTicketlineFormat, type TicketlineDailySale } from "@/lib/parse-ticketline-xlsx";
 import * as XLSX from "xlsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
