@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Plus } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Plus, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import * as XLSX from "xlsx";
+import { isTicketlineFormat, parseTicketlineXlsx, type TicketlineParseResult } from "@/lib/parse-ticketline-xlsx";
 
 interface Props {
   open: boolean;
@@ -50,10 +51,12 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedSale[]>([]);
   const [fileName, setFileName] = useState("");
   const [step, setStep] = useState<"upload" | "review">("upload");
   const [extracting, setExtracting] = useState(false);
+  const [ticketlineData, setTicketlineData] = useState<TicketlineParseResult | null>(null);
 
   const { data: ticketOffices = [] } = useQuery({
     queryKey: ["ticket_offices_active"],
@@ -93,6 +96,51 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     },
   });
 
+  const matchRowsForEvent = (rawRows: { date: string; zone: string; lot: string; quantity: number; unit_price: number }[], eventId: string): ParsedSale[] => {
+    const eventZones = zonesAndLots.filter((z: any) => z.event_id === eventId);
+
+    return rawRows.map((row) => {
+      let matchedZone: any = null;
+      let matchedLot: any = null;
+      let status: ParsedSale["status"] = "partial";
+      let suggestedLotType: "promo" | "special" | undefined;
+
+      // Normalize zone name for matching
+      const rowZoneNorm = row.zone.toLowerCase().trim();
+      matchedZone = eventZones.find((z: any) => z.name.toLowerCase().trim() === rowZoneNorm);
+
+      if (matchedZone) {
+        const lots = (matchedZone as any).event_ticket_lots || [];
+
+        // 1) Match by lot name + price
+        matchedLot = lots.find((l: any) =>
+          l.name.toLowerCase().trim() === row.lot.toLowerCase().trim() &&
+          Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
+        );
+
+        // 2) Match by price only
+        if (!matchedLot) {
+          matchedLot = lots.find((l: any) =>
+            Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
+          );
+        }
+
+        status = matchedLot ? "matched" : "new_lot";
+        if (!matchedLot) suggestedLotType = "promo";
+      }
+
+      return {
+        ...row,
+        event_name: "",
+        matched_event_id: eventId,
+        matched_zone_id: matchedZone?.id,
+        matched_lot_id: matchedLot?.id,
+        status,
+        suggested_lot_type: suggestedLotType,
+      };
+    }).filter((r) => r.quantity > 0 && r.unit_price >= 1);
+  };
+
   const matchRows = (rawRows: { date: string; event_name: string; zone: string; lot: string; quantity: number; unit_price: number }[]): ParsedSale[] => {
     return rawRows.map((row) => {
       const matchedEvent = events.find(
@@ -110,28 +158,17 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
 
         if (matchedZone) {
           const lots = (matchedZone as any).event_ticket_lots || [];
-
-          // 1) Primeiro: tentar match por nome E preço
           matchedLot = lots.find((l: any) =>
             l.name.toLowerCase().trim() === row.lot.toLowerCase().trim() &&
             Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
           );
-
-          // 2) Se não encontrou por nome+preço, tentar match apenas por preço
           if (!matchedLot) {
             matchedLot = lots.find((l: any) =>
               Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
             );
           }
-
-          // 3) Se encontrou lote com preço compatível → matched
-          if (matchedLot) {
-            status = "matched";
-          } else {
-            // 4) Zona existe mas nenhum lote com este preço → sugerir criação de lote promo
-            status = "new_lot";
-            suggestedLotType = "promo";
-          }
+          status = matchedLot ? "matched" : "new_lot";
+          if (!matchedLot) suggestedLotType = "promo";
         } else {
           status = "partial";
         }
@@ -199,6 +236,31 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         try {
           const data = new Uint8Array(ev.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
+
+          // Check if this is a Ticketline format
+          if (isTicketlineFormat(workbook)) {
+            const result = parseTicketlineXlsx(ev.target?.result as ArrayBuffer);
+            setTicketlineData(result);
+
+            if (result.sales.length === 0) {
+              toast.error("Nenhuma venda encontrada no ficheiro Ticketline");
+              return;
+            }
+
+            // If an event is already selected, match immediately
+            if (selectedEventId) {
+              const matched = matchRowsForEvent(result.sales, selectedEventId);
+              setParsedRows(matched);
+              setStep("review");
+            } else {
+              // Go to review step — user needs to select event first
+              setStep("review");
+            }
+            toast.success(`Formato Ticketline detectado: ${result.sales.length} vendas em ${result.summary.length} dias`);
+            return;
+          }
+
+          // Generic XLSX/CSV format
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const json = XLSX.utils.sheet_to_json<any>(sheet);
 
@@ -358,8 +420,18 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     setFileName("");
     setStep("upload");
     setSelectedOfficeId("");
+    setSelectedEventId("");
     setExtracting(false);
+    setTicketlineData(null);
     onClose();
+  };
+
+  const handleEventSelectForTicketline = (eventId: string) => {
+    setSelectedEventId(eventId);
+    if (ticketlineData) {
+      const matched = matchRowsForEvent(ticketlineData.sales, eventId);
+      setParsedRows(matched);
+    }
   };
 
   return (
@@ -395,9 +467,15 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
+                  <div>
+                    <span className="font-medium text-foreground">Excel Ticketline (Resumo de Operações)</span> — Detecção automática do formato com vendas diárias por zona/lote
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                   <div>
-                    <span className="font-medium text-foreground">CSV / Excel</span> — Colunas: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong> (+ opcional: <strong>Lote</strong>)
+                    <span className="font-medium text-foreground">CSV / Excel genérico</span> — Colunas: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong> (+ opcional: <strong>Lote</strong>)
                   </div>
                 </div>
               </div>
@@ -431,6 +509,39 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
 
         {step === "review" && (
           <div className="space-y-4 py-2">
+            {/* Ticketline header info */}
+            {ticketlineData && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Info className="h-4 w-4 text-primary" />
+                  <span>Ficheiro Ticketline detectado</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>Evento: <strong className="text-foreground">{ticketlineData.header.event_name}</strong></span>
+                  <span>Data do evento: <strong className="text-foreground">{ticketlineData.header.event_date || "—"}</strong></span>
+                  <span>Período: <strong className="text-foreground">{ticketlineData.header.period_from} a {ticketlineData.header.period_to}</strong></span>
+                  <span>Total vendido: <strong className="text-foreground">{ticketlineData.totalSoldQty.toLocaleString("pt-PT")} bilhetes — {formatCurrency(ticketlineData.totalSoldValue)}</strong></span>
+                </div>
+
+                {/* Event selector */}
+                <div className="pt-1">
+                  <Label className="text-xs">Associar ao evento *</Label>
+                  <Select value={selectedEventId} onValueChange={handleEventSelectForTicketline}>
+                    <SelectTrigger className="mt-1 h-8 text-xs">
+                      <SelectValue placeholder="Selecione o evento no sistema" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* Match stats (only show after matching) */}
+            {(parsedRows.length > 0) && (
             <div className="flex items-center gap-4 text-sm flex-wrap">
               <span className="flex items-center gap-1.5 text-emerald-500">
                 <CheckCircle2 className="h-4 w-4" /> {matchedRows.length} correspondidas
@@ -446,6 +557,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                 </span>
               )}
             </div>
+            )}
 
             {newLotRows.length > 0 && (
               <div className="flex items-start gap-2 rounded-lg border border-blue-500/50 bg-blue-500/10 px-3 py-2">
@@ -551,12 +663,12 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         <DialogFooter>
           {step === "review" && (
             <>
-              <Button variant="outline" onClick={() => { setStep("upload"); setParsedRows([]); setFileName(""); }}>
+              <Button variant="outline" onClick={() => { setStep("upload"); setParsedRows([]); setFileName(""); setTicketlineData(null); setSelectedEventId(""); }}>
                 Voltar
               </Button>
               <Button
                 onClick={() => importMutation.mutate()}
-                disabled={importableRows.length === 0 || importMutation.isPending}
+                disabled={importableRows.length === 0 || importMutation.isPending || (!!ticketlineData && !selectedEventId)}
               >
                 {importMutation.isPending ? "A importar…" : `Importar ${importableRows.length} vendas`}
               </Button>
