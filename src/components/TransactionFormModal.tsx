@@ -3,7 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
@@ -15,6 +16,8 @@ import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+
+type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
 interface TransactionForm {
   description: string;
@@ -33,6 +36,9 @@ interface TransactionForm {
   reimbursement_to: string;
   reimbursement_note_id: string;
   invoice_ref: string;
+  payment_method: PaymentMethod;
+  payment_entity: string;
+  payment_reference: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -52,6 +58,9 @@ const emptyForm: TransactionForm = {
   reimbursement_to: "",
   reimbursement_note_id: "",
   invoice_ref: "",
+  payment_method: "transfer",
+  payment_entity: "",
+  payment_reference: "",
 };
 
 const formatDueDateInput = (value: string) => {
@@ -637,6 +646,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             parent_transaction_id: "", // placeholder, set after parent insert
             is_transitory: isTransitory,
             exclude_from_result: isExcludeFromResult,
+            payment_method: data.payment_method || "transfer",
+            payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+            payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
           };
         });
 
@@ -666,6 +678,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
            is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
+          payment_method: data.payment_method || "transfer",
+          payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+          payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
         } as any).select("id").single();
         if (parentError) throw parentError;
         const parentId = parentRow.id;
@@ -703,6 +718,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
+          payment_method: data.payment_method || "transfer",
+          payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+          payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
         } as any).select("id").single();
         if (error) throw error;
 
@@ -1876,6 +1894,66 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             />
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
           </div>
+
+          {/* Método de Pagamento */}
+          {form.type === "expense" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { value: "transfer" as const, label: "Transferência", icon: Building },
+                  { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+                  { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+                ]).map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, payment_method: m.value, ...(m.value === "transfer" ? { payment_entity: "", payment_reference: "" } : m.value === "state_payment" ? { payment_entity: "" } : {}) })}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
+                      form.payment_method === m.value
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                    )}
+                  >
+                    <m.icon className="h-4 w-4" />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Define como esta despesa deverá ser paga</p>
+            </div>
+          )}
+
+          {form.type === "expense" && form.payment_method === "service_payment" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
+                <input type="text" value={form.payment_entity}
+                  onChange={(e) => setForm({ ...form, payment_entity: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Ex: 10611" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência</label>
+                <input type="text" value={form.payment_reference}
+                  onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Referência MB" />
+              </div>
+            </div>
+          )}
+
+          {form.type === "expense" && form.payment_method === "state_payment" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento</label>
+              <input type="text" value={form.payment_reference}
+                onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Referência AT / SS" />
+            </div>
+          )}
+
 
           <div className="grid grid-cols-2 gap-3">
             <div>
