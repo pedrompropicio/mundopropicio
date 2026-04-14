@@ -40,6 +40,18 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const { data: categoryCode } = useQuery({
+    queryKey: ["category-code", transaction.category_id],
+    queryFn: async () => {
+      if (!transaction.category_id) return null;
+      const { data } = await supabase.from("account_categories").select("code").eq("id", transaction.category_id).single();
+      return data?.code ?? null;
+    },
+    enabled: !!transaction.category_id,
+  });
+
+  const isStateCategory = categoryCode?.startsWith("10.4") || categoryCode?.startsWith("10.5");
+
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
