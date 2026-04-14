@@ -511,6 +511,15 @@ export default function Transactions() {
     pendingInView.some((t) => t.id === id)
   ).length;
 
+  // Approved (payable) transactions in current filtered view
+  const approvedInView = filtered.filter((t) => t.status === "approved" || t.status === "overdue" || (t.due_date && t.due_date < new Date().toISOString().slice(0, 10) && t.status !== "paid" && t.status !== "pending"));
+  const selectedApprovedCount = [...selectedIds].filter((id) =>
+    approvedInView.some((t) => t.id === id)
+  ).length;
+
+  const selectableInView = [...pendingInView, ...approvedInView];
+  const hasSelectableItems = isAdmin && selectableInView.length > 0;
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -543,6 +552,21 @@ export default function Transactions() {
     if (ids.length === 0) return;
     bulkApproveMutation.mutate(ids);
   };
+
+  const handleBatchPayment = () => {
+    const ids = [...selectedIds].filter((id) =>
+      approvedInView.some((t) => t.id === id)
+    );
+    if (ids.length === 0) {
+      toast({ title: "Selecione transações aprovadas para liquidar", variant: "destructive" });
+      return;
+    }
+    setShowBatchPayment(true);
+  };
+
+  const batchPaymentTransactions = transactions.filter((t: any) =>
+    [...selectedIds].some((id) => id === t.id && approvedInView.some((a) => a.id === id))
+  );
 
   const toggleHiddenMutation = useMutation({
     mutationFn: async ({ id, currentlyHidden }: { id: string; currentlyHidden: boolean }) => {
