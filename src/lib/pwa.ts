@@ -12,7 +12,19 @@ export function registerPWA() {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      void updateSW(true);
+      // Only auto-apply the update when the tab is hidden (user not actively working).
+      // If active, postpone until the next visibility-hidden transition.
+      if (document.visibilityState === "hidden") {
+        void updateSW(true);
+      } else {
+        const applyWhenHidden = () => {
+          if (document.visibilityState === "hidden") {
+            document.removeEventListener("visibilitychange", applyWhenHidden);
+            void updateSW(true);
+          }
+        };
+        document.addEventListener("visibilitychange", applyWhenHidden);
+      }
     },
     onRegisteredSW(_swUrl, registration) {
       if (!registration) {

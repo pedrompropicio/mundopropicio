@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
     const { data: roleData } = await supabase
@@ -134,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initializedRef.current = true;
         setSession(restored);
         setUser(restored?.user ?? null);
+        userIdRef.current = restored?.user?.id ?? null;
         if (restored?.user) {
           await fetchRoleAndPermissions(restored.user.id);
         }
@@ -147,18 +149,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Skip the INITIAL_SESSION event — we handle it via getSession above
         if (event === "INITIAL_SESSION") return;
 
-        // For token refreshes, only update if the user actually changed
-        // This prevents unnecessary re-renders that close open modals/dialogs
+        // For token refreshes, update session silently but don't re-fetch
+        // role/permissions (they don't change). This keeps the session object
+        // current without the heavier re-render cascade that closes modals.
         if (event === "TOKEN_REFRESHED") {
-          // Skip React state updates on token refresh for the same user.
-          // The supabase client internally stores the refreshed tokens,
-          // so API calls will use them. Updating React state here would
-          // cause re-renders that close open modals/dialogs.
+          if (updatedSession) {
+            setSession(updatedSession);
+            if (updatedSession.user.id !== userIdRef.current) {
+              setUser(updatedSession.user);
+              userIdRef.current = updatedSession.user.id;
+            }
+          }
           return;
         }
 
         setSession(updatedSession);
         setUser(updatedSession?.user ?? null);
+        userIdRef.current = updatedSession?.user?.id ?? null;
 
         if (updatedSession?.user) {
           // Fire-and-forget to avoid blocking auth event processing
