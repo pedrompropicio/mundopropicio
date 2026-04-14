@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { parseTicketlineXlsx, isTicketlineFormat } from "@/lib/parse-ticketline-xlsx";
+import { parseTicketlineXlsx, isTicketlineFormat, type TicketlineDailySale } from "@/lib/parse-ticketline-xlsx";
 import * as XLSX from "xlsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,6 +99,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const [totalWarnings, setTotalWarnings] = useState<string[]>([]);
   const [zoneMappings, setZoneMappings] = useState<ZoneMapping[]>([]);
   const [pdfHeader, setPdfHeader] = useState<any>(null);
+  const [ticketlineDailySales, setTicketlineDailySales] = useState<TicketlineDailySale[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -213,6 +214,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setHeaderWarnings([]);
     setTotalWarnings([]);
     setZoneMappings([]);
+    setTicketlineDailySales([]);
     setPdfHeader(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -284,7 +286,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           }
         }
 
-        // Aggregate sales by zone (summing across all dates for the import view)
+        // Store raw daily sales for day-by-day import
+        setTicketlineDailySales(result.sales);
+
+        // Aggregate sales by zone (summing across all dates for the import REVIEW view only)
         const zoneMap = new Map<string, ExtractedRow>();
         for (const s of result.sales) {
           const key = `${s.zone}||${s.lot}`;
@@ -526,19 +531,48 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
           // Register sales if there are any
           if (row.quantidade_vendida > 0 && (importType === "sales" || loadType === "realizado")) {
-            const { error } = await supabase.from("ticket_sales").insert({
-              lot_id: matchedLot.id,
-              zone_id: zoneId,
-              sale_date: effectiveFrom,
-              sale_date_to: effectiveTo !== effectiveFrom ? effectiveTo : null,
-              quantity: row.quantidade_vendida,
-              unit_price: row.preco_unitario,
-              financial_account_id: ticketOfficeId || null,
-              notes: notesText,
-              source: "import",
-            } as any);
-            if (error) throw error;
-            imported++;
+            // If we have Ticketline daily granularity, insert one record per date
+            const isTicketline = ticketlineDailySales.length > 0;
+            if (isTicketline) {
+              // Find daily sales matching this zone+lot combination
+              const dailyForThisLot = ticketlineDailySales.filter(s => {
+                const sZone = s.zone;
+                const sLot = s.lot || "Regular";
+                return normalize(sZone) === normalize(mapping.pdfZone)
+                  && normalize(sLot) === normalize(row.tipo_bilhete)
+                  && Math.abs(s.unit_price - row.preco_unitario) < 0.02;
+              });
+              for (const dailySale of dailyForThisLot) {
+                if (dailySale.quantity <= 0) continue;
+                const { error } = await supabase.from("ticket_sales").insert({
+                  lot_id: matchedLot.id,
+                  zone_id: zoneId,
+                  sale_date: dailySale.date,
+                  sale_date_to: null,
+                  quantity: dailySale.quantity,
+                  unit_price: dailySale.unit_price,
+                  financial_account_id: ticketOfficeId || null,
+                  notes: `Importação dia ${dailySale.date}`,
+                  source: "import",
+                } as any);
+                if (error) throw error;
+                imported++;
+              }
+            } else {
+              const { error } = await supabase.from("ticket_sales").insert({
+                lot_id: matchedLot.id,
+                zone_id: zoneId,
+                sale_date: effectiveFrom,
+                sale_date_to: effectiveTo !== effectiveFrom ? effectiveTo : null,
+                quantity: row.quantidade_vendida,
+                unit_price: row.preco_unitario,
+                financial_account_id: ticketOfficeId || null,
+                notes: notesText,
+                source: "import",
+              } as any);
+              if (error) throw error;
+              imported++;
+            }
           }
         }
       }
