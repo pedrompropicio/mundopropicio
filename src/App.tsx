@@ -168,7 +168,18 @@ function ProtectedLayout() {
                 <Route path="despesas-socios" element={<ReportPartnerExpensesPage />} />
                 <Route path="bp-transacoes" element={<ReportBPTransactionsPage />} />
                 <Route path="exposicao-financeira" element={<ReportForecastPayablesPage />} />
-              </Route>
+                <Route path="rentabilidade" element={<ReportProfitabilityPage />} />
+                <Route path="evolucao-mensal" element={<ReportMonthlyEvolutionPage />} />
+                <Route path="desvio-orcamental" element={<ReportBudgetDeviationPage />} />
+                <Route path="aging" element={<ReportAgingPage />} />
+                <Route path="concentracao-fornecedores" element={<ReportSupplierConcentrationPage />} />
+                <Route path="projecao-tesouraria" element={<ReportTreasuryProjectionPage />} />
+                <Route path="taxa-ocupacao" element={<ReportOccupancyRatePage />} />
+                <Route path="curva-vendas" element={<ReportSalesCurvePage />} />
+                <Route path="comparativo-vendas" element={<ReportSalesComparisonPage />} />
+                <Route path="mix-receitas" element={<ReportRevenueMixPage />} />
+                <Route path="acerto-socios" element={<ReportPartnerSettlementPage />} />
+                <Route path="indice-pendencias" element={<ReportPendencyIndexPage />} />
               
               
               <Route path="/admin" element={<AdminPanel />} />
