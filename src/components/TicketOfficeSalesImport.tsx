@@ -96,6 +96,51 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     },
   });
 
+  const matchRowsForEvent = (rawRows: { date: string; zone: string; lot: string; quantity: number; unit_price: number }[], eventId: string): ParsedSale[] => {
+    const eventZones = zonesAndLots.filter((z: any) => z.event_id === eventId);
+
+    return rawRows.map((row) => {
+      let matchedZone: any = null;
+      let matchedLot: any = null;
+      let status: ParsedSale["status"] = "partial";
+      let suggestedLotType: "promo" | "special" | undefined;
+
+      // Normalize zone name for matching
+      const rowZoneNorm = row.zone.toLowerCase().trim();
+      matchedZone = eventZones.find((z: any) => z.name.toLowerCase().trim() === rowZoneNorm);
+
+      if (matchedZone) {
+        const lots = (matchedZone as any).event_ticket_lots || [];
+
+        // 1) Match by lot name + price
+        matchedLot = lots.find((l: any) =>
+          l.name.toLowerCase().trim() === row.lot.toLowerCase().trim() &&
+          Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
+        );
+
+        // 2) Match by price only
+        if (!matchedLot) {
+          matchedLot = lots.find((l: any) =>
+            Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
+          );
+        }
+
+        status = matchedLot ? "matched" : "new_lot";
+        if (!matchedLot) suggestedLotType = "promo";
+      }
+
+      return {
+        ...row,
+        event_name: "",
+        matched_event_id: eventId,
+        matched_zone_id: matchedZone?.id,
+        matched_lot_id: matchedLot?.id,
+        status,
+        suggested_lot_type: suggestedLotType,
+      };
+    }).filter((r) => r.quantity > 0 && r.unit_price >= 1);
+  };
+
   const matchRows = (rawRows: { date: string; event_name: string; zone: string; lot: string; quantity: number; unit_price: number }[]): ParsedSale[] => {
     return rawRows.map((row) => {
       const matchedEvent = events.find(
@@ -113,28 +158,17 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
 
         if (matchedZone) {
           const lots = (matchedZone as any).event_ticket_lots || [];
-
-          // 1) Primeiro: tentar match por nome E preço
           matchedLot = lots.find((l: any) =>
             l.name.toLowerCase().trim() === row.lot.toLowerCase().trim() &&
             Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
           );
-
-          // 2) Se não encontrou por nome+preço, tentar match apenas por preço
           if (!matchedLot) {
             matchedLot = lots.find((l: any) =>
               Math.abs(Number(l.price) - row.unit_price) <= PRICE_TOLERANCE
             );
           }
-
-          // 3) Se encontrou lote com preço compatível → matched
-          if (matchedLot) {
-            status = "matched";
-          } else {
-            // 4) Zona existe mas nenhum lote com este preço → sugerir criação de lote promo
-            status = "new_lot";
-            suggestedLotType = "promo";
-          }
+          status = matchedLot ? "matched" : "new_lot";
+          if (!matchedLot) suggestedLotType = "promo";
         } else {
           status = "partial";
         }
