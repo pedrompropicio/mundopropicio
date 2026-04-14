@@ -255,6 +255,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           old_value: null,
           new_value: `${methodLabel} — ${refInfo}`,
         });
+      }
       const { error } = await supabase
         .from("transactions")
         .update(updateData)
