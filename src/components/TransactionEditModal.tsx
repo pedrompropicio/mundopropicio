@@ -364,6 +364,71 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
+          {/* Split adjustment panel when parent amount changes */}
+          {hasChildren && !isPaid && (
+            <div className={`rounded-lg border p-3 space-y-2 ${amountChanged ? "border-warning/50 bg-warning/5" : "border-border/50 bg-secondary/20"}`}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  {amountChanged && <AlertTriangle className="h-3 w-3 text-warning" />}
+                  Distribuição pelos Splits ({childTransactions.length})
+                </p>
+                {amountChanged && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pct = +(100 / childTransactions.length).toFixed(2);
+                      const adj: Record<string, number> = {};
+                      childTransactions.forEach((c: any, i: number) => {
+                        const isLast = i === childTransactions.length - 1;
+                        const val = isLast
+                          ? +(newParentAmount - Object.values(adj).reduce((s, v) => s + v, 0)).toFixed(2)
+                          : +(newParentAmount * pct / 100).toFixed(2);
+                        adj[c.id] = val;
+                      });
+                      setChildAdjustments(adj);
+                    }}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Dividir igualmente
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {childTransactions.map((child: any) => {
+                  const adjVal = childAdjustments[child.id] ?? child.amount;
+                  const pctOfNew = newParentAmount > 0 ? (adjVal / newParentAmount * 100).toFixed(1) : "—";
+                  return (
+                    <div key={child.id} className="flex items-center gap-2">
+                      <span className="flex-1 truncate text-xs">{child.event_name}</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={adjVal || ""}
+                        onChange={(e) => setChildAdjustments(prev => ({
+                          ...prev,
+                          [child.id]: parseFloat(e.target.value) || 0,
+                        }))}
+                        disabled={!amountChanged}
+                        className="w-20 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
+                      />
+                      <span className="text-[10px] text-muted-foreground w-10 text-right">{pctOfNew}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {amountChanged && (
+                <div className="flex items-center justify-between border-t border-border/30 pt-1.5">
+                  <span className="text-[10px] text-muted-foreground">Total splits</span>
+                  <span className={`text-xs font-mono font-semibold ${childMismatch ? "text-destructive" : "text-success"}`}>
+                    {childAdjustmentTotal.toFixed(2)}€
+                    {childMismatch && ` (esperado: ${newParentAmount.toFixed(2)}€)`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {!isPaid && (
           <div className="grid grid-cols-2 gap-3">
             <div>
