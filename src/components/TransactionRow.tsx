@@ -108,6 +108,22 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     staleTime: 60_000,
   });
 
+  // Fetch full child transactions for expandable sub-rows
+  const { data: childTransactions = [] } = useQuery({
+    queryKey: ["split-children-full", t.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*, events(name, status), account_categories(code, name), suppliers(name), financial_accounts(name)")
+        .eq("parent_transaction_id", t.id)
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: mightBeParentSplit && childrenExpanded,
+    staleTime: 60_000,
+  });
+
   // Only mark as parent split if it actually has child transactions
   const isParentSplit = mightBeParentSplit && childEventNames.length > 0;
 
