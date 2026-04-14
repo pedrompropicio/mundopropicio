@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransferFormModal } from "@/components/TransferFormModal";
+import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export default function Transactions() {
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showBatchPayment, setShowBatchPayment] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
@@ -509,6 +511,15 @@ export default function Transactions() {
     pendingInView.some((t) => t.id === id)
   ).length;
 
+  // Approved (payable) transactions in current filtered view
+  const approvedInView = filtered.filter((t) => t.status === "approved" || t.status === "overdue" || (t.due_date && t.due_date < new Date().toISOString().slice(0, 10) && t.status !== "paid" && t.status !== "pending"));
+  const selectedApprovedCount = [...selectedIds].filter((id) =>
+    approvedInView.some((t) => t.id === id)
+  ).length;
+
+  const selectableInView = [...pendingInView, ...approvedInView];
+  const hasSelectableItems = isAdmin && selectableInView.length > 0;
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -541,6 +552,21 @@ export default function Transactions() {
     if (ids.length === 0) return;
     bulkApproveMutation.mutate(ids);
   };
+
+  const handleBatchPayment = () => {
+    const ids = [...selectedIds].filter((id) =>
+      approvedInView.some((t) => t.id === id)
+    );
+    if (ids.length === 0) {
+      toast({ title: "Selecione transações aprovadas para liquidar", variant: "destructive" });
+      return;
+    }
+    setShowBatchPayment(true);
+  };
+
+  const batchPaymentTransactions = transactions.filter((t: any) =>
+    [...selectedIds].some((id) => id === t.id && approvedInView.some((a) => a.id === id))
+  );
 
   const toggleHiddenMutation = useMutation({
     mutationFn: async ({ id, currentlyHidden }: { id: string; currentlyHidden: boolean }) => {
@@ -624,6 +650,13 @@ export default function Transactions() {
 
       {showTransfer && (
         <TransferFormModal onClose={() => setShowTransfer(false)} />
+      )}
+
+      {showBatchPayment && batchPaymentTransactions.length > 0 && (
+        <BatchPaymentModal
+          transactions={batchPaymentTransactions}
+          onClose={() => { setShowBatchPayment(false); setSelectedIds(new Set()); }}
+        />
       )}
 
       {showForm && (
@@ -959,6 +992,16 @@ export default function Transactions() {
           </button>
         )}
 
+        {isAdmin && selectedApprovedCount > 0 && (
+          <button
+            onClick={handleBatchPayment}
+            className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-medium text-success-foreground transition-all hover:bg-success/90"
+          >
+            <FileText className="h-4 w-4" />
+            Liquidar {selectedApprovedCount} como Fatura
+          </button>
+        )}
+
       </div>
 
       {/* Table */}
@@ -1013,10 +1056,10 @@ export default function Transactions() {
                       key={t.id}
                       transaction={t}
                       isAdmin={isAdmin}
-                      selectable={isAdmin && t.status === "pending"}
+                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      showSelectColumn={hasSelectableItems}
                       eventCompleted={(t.events as any)?.status === "completed"}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
@@ -1046,10 +1089,10 @@ export default function Transactions() {
                       key={t.id}
                       transaction={t}
                       isAdmin={isAdmin}
-                      selectable={isAdmin && t.status === "pending"}
+                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      showSelectColumn={hasSelectableItems}
                       eventCompleted={(t.events as any)?.status === "completed"}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
@@ -1079,10 +1122,10 @@ export default function Transactions() {
                       key={t.id}
                       transaction={t}
                       isAdmin={isAdmin}
-                      selectable={isAdmin && t.status === "pending"}
+                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      showSelectColumn={hasSelectableItems}
                       eventCompleted={(t.events as any)?.status === "completed"}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
