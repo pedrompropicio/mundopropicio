@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Calendar, ChevronRight, Upload } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
+import { SalesLogPanel } from "@/components/SalesLogPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 
 interface Props {
@@ -14,6 +16,7 @@ interface Props {
 export function TicketOfficeEventsList({ officeId }: Props) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showSalesLog, setShowSalesLog] = useState(false);
 
   // Get all ticket office assignments (optionally filtered by office)
   const { data: assignments = [] } = useQuery({
@@ -233,7 +236,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
               <TableRow
                 key={ev.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => { setSelectedEventId(ev.id); setShowImport(true); }}
+                onClick={() => { setSelectedEventId(ev.id); setShowSalesLog(true); }}
               >
                 <TableCell>
                   <div>
@@ -299,6 +302,30 @@ export function TicketOfficeEventsList({ officeId }: Props) {
           </TableRow>
         </TableBody>
       </Table>
+
+      {/* Sales Log Dialog */}
+      <Dialog open={showSalesLog} onOpenChange={(open) => { if (!open) { setShowSalesLog(false); setSelectedEventId(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Log de Vendas — {events.find(e => e.id === selectedEventId)?.name}</span>
+              <button
+                onClick={() => { setShowSalesLog(false); setShowImport(true); }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Upload className="h-3.5 w-3.5" /> Importar Vendas
+              </button>
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEventId && (
+            <SalesLogPanel
+              eventId={selectedEventId}
+              lastSalesDate={null}
+              isEditable={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <TicketImportModal
         open={showImport}
