@@ -352,14 +352,16 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     mutationFn: async () => {
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
 
-      // Step 1: Create new lots for "new_lot" rows
-      const createdLots = new Map<string, string>(); // key: "zoneId_price" → lot_id
-      for (const row of newLotRows) {
+      const batchId = crypto.randomUUID();
+
+      // Step 1: Create new lots for "new_lot" rows (only non-skipped)
+      const newLotRowsToImport = importableRows.filter(r => r.status === "new_lot");
+      const createdLots = new Map<string, string>();
+      for (const row of newLotRowsToImport) {
         if (!row.matched_zone_id) continue;
         const key = `${row.matched_zone_id}_${row.unit_price}`;
         if (createdLots.has(key)) continue;
 
-        // Find next lot_number for this zone
         const zone = zonesAndLots.find((z: any) => z.id === row.matched_zone_id);
         const existingLots = (zone as any)?.event_ticket_lots || [];
         const maxLotNumber = existingLots.reduce((max: number, l: any) => Math.max(max, l.lot_number || 0), 0);
@@ -382,7 +384,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         createdLots.set(key, newLot.id);
       }
 
-      // Step 2: Build insert rows
+      // Step 2: Build insert rows with batch ID
       const toInsert = importableRows.map((r) => {
         let lotId = r.matched_lot_id || null;
         if (r.status === "new_lot" && r.matched_zone_id) {
@@ -398,6 +400,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
           financial_account_id: selectedOfficeId,
           notes: `Importação ${fileName}`,
           source: "import" as const,
+          import_batch_id: batchId,
         };
       });
 
@@ -406,14 +409,34 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
       const { error } = await supabase.from("ticket_sales").insert(toInsert);
       if (error) throw error;
 
-      return { salesCount: toInsert.length, lotsCreated: createdLots.size };
+      // Step 3: Log import
+      const periodFrom = ticketlineData?.header.period_from || (toInsert.length > 0 ? toInsert[0].sale_date : "");
+      const periodTo = ticketlineData?.header.period_to || (toInsert.length > 0 ? toInsert[toInsert.length - 1].sale_date : "");
+
+      await supabase.from("ticket_import_logs").insert({
+        event_id: selectedEventId || null,
+        financial_account_id: selectedOfficeId,
+        file_name: fileName,
+        import_type: ticketlineData ? "ticketline_xlsx" : "generic",
+        rows_imported: toInsert.length,
+        rows_skipped: skippedRows.length,
+        lots_created: createdLots.size,
+        zones_created: 0,
+        period_from: periodFrom,
+        period_to: periodTo,
+      });
+
+      return { salesCount: toInsert.length, lotsCreated: createdLots.size, skipped: skippedRows.length, batchId };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ticket_sales"] });
       queryClient.invalidateQueries({ queryKey: ["zones_lots_for_matching"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
-      const lotMsg = result.lotsCreated > 0 ? ` (${result.lotsCreated} lotes promo criados)` : "";
-      toast.success(`${result.salesCount} vendas importadas com sucesso${lotMsg}`);
+      const lotMsg = result.lotsCreated > 0 ? ` | ${result.lotsCreated} lotes promo criados` : "";
+      const skipMsg = result.skipped > 0 ? ` | ${result.skipped} duplicadas ignoradas` : "";
+      toast.success(`${result.salesCount} vendas importadas com sucesso${lotMsg}${skipMsg}`, {
+        description: `Batch ID: ${result.batchId.slice(0, 8)}…`,
+      });
       handleClose();
     },
     onError: (err: any) => {
