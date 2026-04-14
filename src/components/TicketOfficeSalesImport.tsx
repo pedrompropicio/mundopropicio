@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Plus } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Plus, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import * as XLSX from "xlsx";
+import { isTicketlineFormat, parseTicketlineXlsx, type TicketlineParseResult } from "@/lib/parse-ticketline-xlsx";
 
 interface Props {
   open: boolean;
