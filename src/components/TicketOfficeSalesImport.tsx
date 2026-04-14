@@ -236,6 +236,31 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         try {
           const data = new Uint8Array(ev.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
+
+          // Check if this is a Ticketline format
+          if (isTicketlineFormat(workbook)) {
+            const result = parseTicketlineXlsx(ev.target?.result as ArrayBuffer);
+            setTicketlineData(result);
+
+            if (result.sales.length === 0) {
+              toast.error("Nenhuma venda encontrada no ficheiro Ticketline");
+              return;
+            }
+
+            // If an event is already selected, match immediately
+            if (selectedEventId) {
+              const matched = matchRowsForEvent(result.sales, selectedEventId);
+              setParsedRows(matched);
+              setStep("review");
+            } else {
+              // Go to review step — user needs to select event first
+              setStep("review");
+            }
+            toast.success(`Formato Ticketline detectado: ${result.sales.length} vendas em ${result.summary.length} dias`);
+            return;
+          }
+
+          // Generic XLSX/CSV format
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const json = XLSX.utils.sheet_to_json<any>(sheet);
 
