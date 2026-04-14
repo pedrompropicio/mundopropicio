@@ -681,6 +681,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
       if (existingLogs && existingLogs.length > 0) {
         setDuplicateWarnings(existingLogs);
+        // Show warning inline but don't block — let user decide
         setShowDuplicateConfirm(true);
         return;
       }
@@ -932,18 +933,18 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         </DialogContent>
       </Dialog>
 
-      {/* Duplicate confirmation */}
+      {/* Duplicate warning — non-blocking, allows proceeding */}
       <AlertDialog open={showDuplicateConfirm} onOpenChange={setShowDuplicateConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-500">
               <AlertTriangle className="h-5 w-5" />
-              Importação possivelmente duplicada
+              Período com importações anteriores
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p className="font-medium text-foreground">Já existem importações para este evento com período sobreponível:</p>
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+                <p className="font-medium text-foreground">Existem importações anteriores para este período. Cancelamentos e ajustes da bilheteira podem justificar uma nova importação.</p>
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                   {duplicateWarnings.map((w: any, i: number) => (
                     <div key={i} className="text-xs">
                       <span className="font-medium">{w.period_from} — {w.period_to}</span>
@@ -952,17 +953,17 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                     </div>
                   ))}
                 </div>
-                <p className="text-sm text-destructive font-medium">Continuar poderá resultar em vendas duplicadas.</p>
+                <p className="text-sm text-muted-foreground">Os dados existentes serão mantidos. Apenas novos registos serão adicionados.</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => { setShowDuplicateConfirm(false); importMutation.mutate(); }}
             >
-              Importar mesmo assim
+              Continuar importação
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
