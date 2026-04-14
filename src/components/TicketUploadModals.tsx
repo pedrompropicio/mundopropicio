@@ -285,7 +285,10 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           }
         }
 
-        // Aggregate sales by zone (summing across all dates for the import view)
+        // Store raw daily sales for day-by-day import
+        setTicketlineDailySales(result.sales);
+
+        // Aggregate sales by zone (summing across all dates for the import REVIEW view only)
         const zoneMap = new Map<string, ExtractedRow>();
         for (const s of result.sales) {
           const key = `${s.zone}||${s.lot}`;
