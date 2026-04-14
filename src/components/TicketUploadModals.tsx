@@ -686,13 +686,13 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
             {/* File upload */}
             <div>
-              <Label>Ficheiro PDF</Label>
+              <Label>Ficheiro (PDF ou Excel)</Label>
               <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-5 mt-1 transition-colors hover:border-primary/50 hover:bg-primary/5 ${extracting ? "opacity-50 pointer-events-none" : ""}`}>
                 {extracting ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
                 <span className="text-sm text-muted-foreground">
-                  {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar PDF"}
+                  {extracting ? "A extrair dados com IA…" : file ? file.name : "Clique para selecionar ficheiro (PDF ou Excel)"}
                 </span>
-                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf" disabled={extracting} />
+                <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf,.xlsx,.xls" disabled={extracting} />
               </label>
             </div>
 
