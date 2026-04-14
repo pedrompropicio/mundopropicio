@@ -617,7 +617,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           category_id: f.category_id || null,
           date: eventDate,
           due_date: eventDate,
-          status: "approved",
+          status: "pending",
         });
         if (error) throw error;
         created++;
@@ -628,7 +628,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedIds(new Set());
-      toast({ title: `${count} transação(ões) "A Pagar" criada(s)!` });
+      toast({ title: `${count} transação(ões) "A Pagar" criada(s) (pendentes de aprovação)!` });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
