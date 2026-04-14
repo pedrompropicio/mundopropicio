@@ -129,12 +129,19 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       }
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
 
+      const paymentFields = {
+        payment_method: form.payment_method,
+        payment_entity: form.payment_method === "service_payment" ? (form.payment_entity.trim() || null) : null,
+        payment_reference: form.payment_method !== "transfer" ? (form.payment_reference.trim() || null) : null,
+      };
+
       const updates = isPaid ? {
         supplier_id: form.supplier_id || null,
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ...paymentFields,
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -149,6 +156,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
+        ...paymentFields,
       };
 
       const { data, error } = await supabase.functions.invoke("update-transaction", {
