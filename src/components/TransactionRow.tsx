@@ -146,6 +146,29 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     staleTime: 60_000,
   });
 
+  // Invoice grouping: count sibling transactions with same invoice_ref
+  const invoiceRef = t.invoice_ref;
+  const { data: invoiceSiblings } = useQuery({
+    queryKey: ["invoice-group", invoiceRef],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description, amount, iva_rate, type")
+        .eq("invoice_ref", invoiceRef!)
+        .order("description");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!invoiceRef,
+    staleTime: 60_000,
+  });
+  const invoiceGroupCount = invoiceSiblings?.length ?? 0;
+  const invoiceGroupTotal = invoiceSiblings?.reduce((sum, s) => {
+    const base = Number(s.amount);
+    const iva = base * ((s.iva_rate ?? 23) / 100);
+    return sum + base + iva;
+  }, 0) ?? 0;
+
   const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
@@ -287,6 +310,31 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       <p>Despesa registada para histórico — não impacta o resultado financeiro (DRE/PL).</p>
                     </TooltipContent>
                   </Tooltip>
+                )}
+                {invoiceRef && invoiceGroupCount > 1 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
+                        📄 {invoiceRef} ({invoiceGroupCount}) — {formatCurrency(invoiceGroupTotal)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-sm text-xs space-y-1">
+                      <p className="font-medium">Fatura agrupada: {invoiceRef}</p>
+                      <p>{invoiceGroupCount} transações — Total: {formatCurrency(invoiceGroupTotal)}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {invoiceSiblings?.map((s) => (
+                          <p key={s.id} className={`${s.id === t.id ? "font-semibold" : "text-muted-foreground"}`}>
+                            {s.description}: {formatCurrency(Number(s.amount) * (1 + (s.iva_rate ?? 23) / 100))}
+                          </p>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {invoiceRef && invoiceGroupCount <= 1 && (
+                  <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    📄 {invoiceRef}
+                  </span>
                 )}
               </div>
               {t.specification && (

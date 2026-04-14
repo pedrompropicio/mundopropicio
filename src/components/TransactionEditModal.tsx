@@ -43,6 +43,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
+    invoice_ref: transaction.invoice_ref ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -106,8 +107,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
         is_transitory: "Transitória",
         exclude_from_result: "Fora do Resultado",
+        invoice_ref: "Nº Fatura",
       };
-      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result"] : Object.keys(fieldLabels);
+      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref"] : Object.keys(fieldLabels);
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
@@ -122,6 +124,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
+        invoice_ref: form.invoice_ref.trim() || null,
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -135,6 +138,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         due_date: form.due_date || null,
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
+        invoice_ref: form.invoice_ref.trim() || null,
       };
 
       const { data, error } = await supabase.functions.invoke("update-transaction", {
@@ -348,6 +352,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               />
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <input value={form.invoice_ref} onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
+              placeholder="Ex: FT 002/5944"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
+          </div>
 
           {!isPaid && !isExpense && (
             <div>

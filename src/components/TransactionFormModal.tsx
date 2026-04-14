@@ -32,6 +32,7 @@ interface TransactionForm {
   is_reimbursement: boolean;
   reimbursement_to: string;
   reimbursement_note_id: string;
+  invoice_ref: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -50,6 +51,7 @@ const emptyForm: TransactionForm = {
   is_reimbursement: false,
   reimbursement_to: "",
   reimbursement_note_id: "",
+  invoice_ref: "",
 };
 
 const formatDueDateInput = (value: string) => {
@@ -657,6 +659,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           parent_transaction_id: null,
           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
+          invoice_ref: data.invoice_ref.trim() || null,
         } as any).select("id").single();
         if (parentError) throw parentError;
         const parentId = parentRow.id;
@@ -693,6 +696,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
+          invoice_ref: data.invoice_ref.trim() || null,
         } as any).select("id").single();
         if (error) throw error;
 
@@ -1852,6 +1856,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               )}
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <input
+              type="text"
+              value={form.invoice_ref}
+              onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
+              placeholder="Ex: FT 002/5944"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
