@@ -1212,23 +1212,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
                     {canApprove && incomeForecasts.some((f) => f.status === "draft") && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-2 py-1">
                         <Checkbox
                           checked={incomeForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
                           onCheckedChange={() => toggleSelectAllDrafts("income")}
-                          className="h-3.5 w-3.5"
+                          className="h-3.5 w-3.5 border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning"
                         />
-                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                        <span className="text-xs text-warning font-medium">Rascunhos p/ aprovar</span>
                       </div>
                     )}
                     {isAdmin && incomeForecasts.some((f) => f.status === "approved") && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-2 py-1">
                         <Checkbox
                           checked={incomeForecasts.filter((f) => f.status === "approved").every((f) => selectedIds.has(f.id))}
                           onCheckedChange={() => toggleSelectAllApproved("income")}
-                          className="h-3.5 w-3.5"
+                          className="h-3.5 w-3.5 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
-                        <span className="text-xs text-muted-foreground">Selecionar aprovadas</span>
+                        <span className="text-xs text-primary font-medium">Aprovadas p/ gerar TX</span>
                       </div>
                     )}
                   </div>
@@ -1382,23 +1382,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
                     {canApprove && expenseForecasts.some((f) => f.status === "draft") && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-2 py-1">
                         <Checkbox
                           checked={expenseForecasts.filter((f) => f.status === "draft").every((f) => selectedIds.has(f.id))}
                           onCheckedChange={() => toggleSelectAllDrafts("expense")}
-                          className="h-3.5 w-3.5"
+                          className="h-3.5 w-3.5 border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning"
                         />
-                        <span className="text-xs text-muted-foreground">Selecionar rascunhos</span>
+                        <span className="text-xs text-warning font-medium">Rascunhos p/ aprovar</span>
                       </div>
                     )}
                     {isAdmin && expenseForecasts.some((f) => f.status === "approved" && !f.cache_config_id) && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-2 py-1">
                         <Checkbox
                           checked={expenseForecasts.filter((f) => f.status === "approved" && !f.cache_config_id).every((f) => selectedIds.has(f.id))}
                           onCheckedChange={() => toggleSelectAllApproved("expense")}
-                          className="h-3.5 w-3.5"
+                          className="h-3.5 w-3.5 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
-                        <span className="text-xs text-muted-foreground">Selecionar aprovadas</span>
+                        <span className="text-xs text-primary font-medium">Aprovadas p/ gerar TX</span>
                       </div>
                     )}
                   </div>
@@ -1686,21 +1686,27 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     <>
       <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "group opacity-60 hover:opacity-100 hover:bg-muted/30 transition-all" : "group hover:bg-muted/30 transition-colors"}>
         <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
-          <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2">
             {readOnly ? (
               <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
             ) : isDraft && isAdmin && onToggleSelect ? (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => onToggleSelect(item.id)}
-                className="h-3.5 w-3.5 shrink-0"
-              />
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(item.id)}
+                  className="h-3.5 w-3.5 shrink-0 border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning"
+                />
+                <span className="inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">Rascunho</span>
+              </div>
             ) : isApproved && isAdmin && onToggleSelect ? (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => onToggleSelect(item.id)}
-                className="h-3.5 w-3.5 shrink-0"
-              />
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(item.id)}
+                  className="h-3.5 w-3.5 shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <span className="inline-flex items-center rounded-full bg-success/15 text-success px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">Aprovada</span>
+              </div>
             ) : isApproved ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
             ) : (
