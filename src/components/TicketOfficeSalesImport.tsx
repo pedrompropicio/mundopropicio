@@ -303,10 +303,10 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
   const newLotRows = parsedRows.filter((r) => r.status === "new_lot");
   const unmatchedRows = parsedRows.filter((r) => r.status !== "matched" && r.status !== "new_lot");
 
-  const importableRows = [...matchedRows, ...newLotRows];
+  const allImportableRows = [...matchedRows, ...newLotRows];
 
-  const matchedDates = useMemo(() => [...new Set(importableRows.map(r => r.date))], [importableRows]);
-  const matchedZoneIds = useMemo(() => [...new Set(importableRows.map(r => r.matched_zone_id).filter(Boolean))], [importableRows]);
+  const matchedDates = useMemo(() => [...new Set(allImportableRows.map(r => r.date))], [allImportableRows]);
+  const matchedZoneIds = useMemo(() => [...new Set(allImportableRows.map(r => r.matched_zone_id).filter(Boolean))], [allImportableRows]);
 
   const { data: existingSalesForDates = [] } = useQuery({
     queryKey: ["existing-sales-check", matchedDates, matchedZoneIds],
@@ -323,37 +323,45 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     enabled: step === "review" && matchedDates.length > 0,
   });
 
-  const duplicateDateWarnings = useMemo(() => {
-    if (existingSalesForDates.length === 0) return [];
-    const warnings: { date: string; zone: string; existingQty: number }[] = [];
-    const seen = new Set<string>();
-    for (const row of importableRows) {
-      const key = `${row.date}_${row.matched_zone_id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const existing = existingSalesForDates.filter(
-        (s: any) => s.sale_date === row.date && s.zone_id === row.matched_zone_id
-      );
-      if (existing.length > 0) {
-        const totalQty = existing.reduce((sum: number, s: any) => sum + Number(s.quantity), 0);
-        warnings.push({ date: row.date, zone: row.zone, existingQty: totalQty });
+  // Build a set of existing date+zone+lot combos
+  const existingKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const s of existingSalesForDates) {
+      keys.add(`${s.sale_date}_${s.zone_id}_${s.lot_id || ""}`);
+    }
+    return keys;
+  }, [existingSalesForDates]);
+
+  // Filter out rows that already exist (same date+zone+lot)
+  const { importableRows, skippedRows } = useMemo(() => {
+    const importable: ParsedSale[] = [];
+    const skipped: ParsedSale[] = [];
+    for (const row of allImportableRows) {
+      const lotId = row.matched_lot_id || "";
+      const key = `${row.date}_${row.matched_zone_id}_${lotId}`;
+      if (existingKeys.has(key)) {
+        skipped.push(row);
+      } else {
+        importable.push(row);
       }
     }
-    return warnings;
-  }, [importableRows, existingSalesForDates]);
+    return { importableRows: importable, skippedRows: skipped };
+  }, [allImportableRows, existingKeys]);
 
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!selectedOfficeId) throw new Error("Selecione uma bilheteira");
 
-      // Step 1: Create new lots for "new_lot" rows
-      const createdLots = new Map<string, string>(); // key: "zoneId_price" → lot_id
-      for (const row of newLotRows) {
+      const batchId = crypto.randomUUID();
+
+      // Step 1: Create new lots for "new_lot" rows (only non-skipped)
+      const newLotRowsToImport = importableRows.filter(r => r.status === "new_lot");
+      const createdLots = new Map<string, string>();
+      for (const row of newLotRowsToImport) {
         if (!row.matched_zone_id) continue;
         const key = `${row.matched_zone_id}_${row.unit_price}`;
         if (createdLots.has(key)) continue;
 
-        // Find next lot_number for this zone
         const zone = zonesAndLots.find((z: any) => z.id === row.matched_zone_id);
         const existingLots = (zone as any)?.event_ticket_lots || [];
         const maxLotNumber = existingLots.reduce((max: number, l: any) => Math.max(max, l.lot_number || 0), 0);
@@ -376,7 +384,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         createdLots.set(key, newLot.id);
       }
 
-      // Step 2: Build insert rows
+      // Step 2: Build insert rows with batch ID
       const toInsert = importableRows.map((r) => {
         let lotId = r.matched_lot_id || null;
         if (r.status === "new_lot" && r.matched_zone_id) {
@@ -392,22 +400,43 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
           financial_account_id: selectedOfficeId,
           notes: `Importação ${fileName}`,
           source: "import" as const,
+          import_batch_id: batchId,
         };
       });
 
       if (toInsert.length === 0) throw new Error("Nenhuma venda para importar");
 
-      const { error } = await supabase.from("ticket_sales").insert(toInsert);
+      const { error } = await supabase.from("ticket_sales").insert(toInsert as any);
       if (error) throw error;
 
-      return { salesCount: toInsert.length, lotsCreated: createdLots.size };
+      // Step 3: Log import
+      const periodFrom = ticketlineData?.header.period_from || (toInsert.length > 0 ? toInsert[0].sale_date : "");
+      const periodTo = ticketlineData?.header.period_to || (toInsert.length > 0 ? toInsert[toInsert.length - 1].sale_date : "");
+
+      await supabase.from("ticket_import_logs").insert({
+        event_id: selectedEventId || null,
+        financial_account_id: selectedOfficeId,
+        file_name: fileName,
+        import_type: ticketlineData ? "ticketline_xlsx" : "generic",
+        rows_imported: toInsert.length,
+        rows_skipped: skippedRows.length,
+        lots_created: createdLots.size,
+        zones_created: 0,
+        period_from: periodFrom,
+        period_to: periodTo,
+      });
+
+      return { salesCount: toInsert.length, lotsCreated: createdLots.size, skipped: skippedRows.length, batchId };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ticket_sales"] });
       queryClient.invalidateQueries({ queryKey: ["zones_lots_for_matching"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
-      const lotMsg = result.lotsCreated > 0 ? ` (${result.lotsCreated} lotes promo criados)` : "";
-      toast.success(`${result.salesCount} vendas importadas com sucesso${lotMsg}`);
+      const lotMsg = result.lotsCreated > 0 ? ` | ${result.lotsCreated} lotes promo criados` : "";
+      const skipMsg = result.skipped > 0 ? ` | ${result.skipped} duplicadas ignoradas` : "";
+      toast.success(`${result.salesCount} vendas importadas com sucesso${lotMsg}${skipMsg}`, {
+        description: `Batch ID: ${result.batchId.slice(0, 8)}…`,
+      });
       handleClose();
     },
     onError: (err: any) => {
@@ -571,17 +600,14 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
               </div>
             )}
 
-            {duplicateDateWarnings.length > 0 && (
+            {skippedRows.length > 0 && (
               <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
                 <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                 <div className="text-xs space-y-1">
-                  <p className="font-medium text-warning">Datas com vendas já registadas</p>
-                  {duplicateDateWarnings.map((w, i) => (
-                    <p key={i} className="text-muted-foreground">
-                      {new Date(w.date).toLocaleDateString("pt-PT")} — {w.zone}: {w.existingQty.toLocaleString()} bilhetes existentes
-                    </p>
-                  ))}
-                  <p className="text-muted-foreground italic">A importação não será bloqueada mas poderá resultar em duplicações.</p>
+                  <p className="font-medium text-warning">Datas já importadas (serão ignoradas)</p>
+                  <p className="text-muted-foreground">
+                    {skippedRows.length} registo(s) ignorado(s) porque já existem vendas para as mesmas datas/zonas/lotes.
+                  </p>
                 </div>
               </div>
             )}

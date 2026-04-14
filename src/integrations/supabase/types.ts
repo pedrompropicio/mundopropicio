@@ -2097,6 +2097,7 @@ export type Database = {
           created_by: string
           financial_account_id: string | null
           id: string
+          import_batch_id: string | null
           lot_id: string | null
           notes: string | null
           quantity: number
@@ -2111,6 +2112,7 @@ export type Database = {
           created_by?: string
           financial_account_id?: string | null
           id?: string
+          import_batch_id?: string | null
           lot_id?: string | null
           notes?: string | null
           quantity?: number
@@ -2125,6 +2127,7 @@ export type Database = {
           created_by?: string
           financial_account_id?: string | null
           id?: string
+          import_batch_id?: string | null
           lot_id?: string | null
           notes?: string | null
           quantity?: number
