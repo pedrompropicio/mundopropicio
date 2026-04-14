@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { X, Plus, Percent, Divide, AlertTriangle, DollarSign } from "lucide-react";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -36,6 +36,26 @@ interface Props {
 export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange, totalAmount = 0, bpInfoByEvent = {} }: Props) {
   const [addingEvent, setAddingEvent] = useState("");
   const [inputMode, setInputMode] = useState<SplitInputMode>("percentage");
+  // Store absolute values when totalAmount is not yet known
+  const [pendingAbsolute, setPendingAbsolute] = useState<Record<string, number>>({});
+  const prevTotalRef = useRef(totalAmount);
+
+  // When totalAmount becomes available and we have pending absolute values, convert to percentages
+  useEffect(() => {
+    const wasMissing = prevTotalRef.current <= 0;
+    prevTotalRef.current = totalAmount;
+    if (totalAmount > 0 && wasMissing && Object.keys(pendingAbsolute).length > 0) {
+      const totalAbs = Object.values(pendingAbsolute).reduce((s, v) => s + v, 0);
+      if (totalAbs > 0) {
+        const newEntries = splitEntries.map((e) => {
+          const abs = pendingAbsolute[e.event_id] ?? 0;
+          return { ...e, percentage: +((abs / totalAmount) * 100).toFixed(4) };
+        });
+        onChange(newEntries);
+        setPendingAbsolute({});
+      }
+    }
+  }, [totalAmount]);
 
   // Only show non-parent events (sub-events + simple events)
   const availableEvents = useMemo(() => {
@@ -52,6 +72,7 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   }, [events, splitEntries]);
 
   const addEvent = (eventId: string) => {
+    if (!eventId) return;
     const ev = events.find((e) => e.id === eventId);
     if (!ev) return;
     const parent = ev.parent_event_id ? events.find((p) => p.id === ev.parent_event_id) : null;
@@ -68,12 +89,21 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   };
 
   const removeEvent = (idx: number) => {
+    const removed = splitEntries[idx];
     const newEntries = splitEntries.filter((_, i) => i !== idx);
     if (splitMethod === "equal" && newEntries.length > 0) {
       const pct = +(100 / newEntries.length).toFixed(2);
       newEntries.forEach((e) => (e.percentage = pct));
       const diff = 100 - pct * newEntries.length;
       if (Math.abs(diff) > 0.001) newEntries[newEntries.length - 1].percentage += diff;
+    }
+    // Clean up pending absolute
+    if (removed) {
+      setPendingAbsolute((prev) => {
+        const next = { ...prev };
+        delete next[removed.event_id];
+        return next;
+      });
     }
     onChange(newEntries);
   };
@@ -85,18 +115,24 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
   };
 
   const updateAbsoluteValue = (idx: number, absValue: number) => {
-    if (totalAmount <= 0) return;
-    const pct = +((absValue / totalAmount) * 100).toFixed(4);
-    updatePercentage(idx, pct);
+    const entry = splitEntries[idx];
+    if (totalAmount > 0) {
+      const pct = +((absValue / totalAmount) * 100).toFixed(4);
+      updatePercentage(idx, pct);
+    } else {
+      // Store pending absolute value for later conversion
+      setPendingAbsolute((prev) => ({ ...prev, [entry.event_id]: absValue }));
+    }
   };
 
   const getAbsoluteValue = (entry: SplitEntry) => {
-    return totalAmount > 0 ? +(totalAmount * entry.percentage / 100).toFixed(2) : 0;
+    if (totalAmount > 0) return +(totalAmount * entry.percentage / 100).toFixed(2);
+    return pendingAbsolute[entry.event_id] ?? 0;
   };
 
   const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
   const totalAbsolute = splitEntries.reduce((s, e) => s + getAbsoluteValue(e), 0);
-  const isValid = splitEntries.length >= 2 && Math.abs(totalPct - 100) < 0.01;
+  const isValid = splitEntries.length >= 2 && (totalAmount > 0 ? Math.abs(totalPct - 100) < 0.01 : true);
 
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
