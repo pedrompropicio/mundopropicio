@@ -113,8 +113,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: "Transitória",
         exclude_from_result: "Fora do Resultado",
         invoice_ref: "Nº Fatura",
+        payment_method: "Método Pagamento",
+        payment_entity: "Entidade Pagamento",
+        payment_reference: "Referência Pagamento",
       };
-      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref"] : Object.keys(fieldLabels);
+      const allowedFields = isPaid
+        ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
+        : Object.keys(fieldLabels);
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
