@@ -240,11 +240,11 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         <td className="py-3 pr-4">
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => isParentSplit ? setChildrenExpanded(!childrenExpanded) : setExpanded(!expanded)}
               className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-              title="Ver movimentos"
+              title={isParentSplit ? "Ver subeventos" : "Ver movimentos"}
             >
-              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              {(isParentSplit ? childrenExpanded : expanded) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </button>
             <div>
               <div className="flex items-center gap-1.5">
