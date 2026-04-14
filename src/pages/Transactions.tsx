@@ -1049,10 +1049,10 @@ export default function Transactions() {
                       key={t.id}
                       transaction={t}
                       isAdmin={isAdmin}
-                      selectable={isAdmin && t.status === "pending"}
+                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      showSelectColumn={hasSelectableItems}
                       eventCompleted={(t.events as any)?.status === "completed"}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
@@ -1082,10 +1082,10 @@ export default function Transactions() {
                       key={t.id}
                       transaction={t}
                       isAdmin={isAdmin}
-                      selectable={isAdmin && t.status === "pending"}
+                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      showSelectColumn={hasSelectableItems}
                       eventCompleted={(t.events as any)?.status === "completed"}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
@@ -1115,10 +1115,10 @@ export default function Transactions() {
                       key={t.id}
                       transaction={t}
                       isAdmin={isAdmin}
-                      selectable={isAdmin && t.status === "pending"}
+                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={isAdmin && pendingInView.length > 0}
+                      showSelectColumn={hasSelectableItems}
                       eventCompleted={(t.events as any)?.status === "completed"}
                       onEdit={(id) => setEditingId(id)}
                       onApprove={(id) => approveMutation.mutate(id)}
