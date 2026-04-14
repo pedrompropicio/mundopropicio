@@ -657,12 +657,12 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         <DialogFooter>
           {step === "review" && (
             <>
-              <Button variant="outline" onClick={() => { setStep("upload"); setParsedRows([]); setFileName(""); }}>
+              <Button variant="outline" onClick={() => { setStep("upload"); setParsedRows([]); setFileName(""); setTicketlineData(null); setSelectedEventId(""); }}>
                 Voltar
               </Button>
               <Button
                 onClick={() => importMutation.mutate()}
-                disabled={importableRows.length === 0 || importMutation.isPending}
+                disabled={importableRows.length === 0 || importMutation.isPending || (!!ticketlineData && !selectedEventId)}
               >
                 {importMutation.isPending ? "A importar…" : `Importar ${importableRows.length} vendas`}
               </Button>
