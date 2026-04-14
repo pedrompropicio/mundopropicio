@@ -467,9 +467,15 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
+                  <div>
+                    <span className="font-medium text-foreground">Excel Ticketline (Resumo de Operações)</span> — Detecção automática do formato com vendas diárias por zona/lote
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                   <div>
-                    <span className="font-medium text-foreground">CSV / Excel</span> — Colunas: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong> (+ opcional: <strong>Lote</strong>)
+                    <span className="font-medium text-foreground">CSV / Excel genérico</span> — Colunas: <strong>Data</strong>, <strong>Evento</strong>, <strong>Zona</strong>, <strong>Quantidade</strong>, <strong>Preço Unitário</strong> (+ opcional: <strong>Lote</strong>)
                   </div>
                 </div>
               </div>
