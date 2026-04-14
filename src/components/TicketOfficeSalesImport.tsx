@@ -833,7 +833,6 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     </Dialog>
   );
 }
-  const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [selectedOfficeId, setSelectedOfficeId] = useState("");
   const [selectedEventId, setSelectedEventId] = useState("");
