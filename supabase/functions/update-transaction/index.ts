@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const isAdmin = callerRole === "admin";
 
     const body = await req.json();
-    const { transaction_id, updates, changes } = body;
+    const { transaction_id, updates, changes, child_adjustments } = body;
 
     if (!transaction_id || !updates) {
       return new Response(
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     const allowedFields = [
       "description", "amount", "iva_rate", "event_id", "category_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
-      "payment_date", "is_transitory", "exclude_from_result",
+      "payment_date", "is_transitory", "exclude_from_result", "split_mode",
     ];
     const sanitizedUpdates: Record<string, any> = {};
     for (const field of allowedFields) {
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
     // Propagate changes to child split transactions
     const { data: children } = await adminClient
       .from("transactions")
-      .select("id, split_percentage")
+      .select("id, split_percentage, split_amount")
       .eq("parent_transaction_id", transaction_id);
 
     if (children && children.length > 0) {
@@ -165,14 +165,38 @@ Deno.serve(async (req) => {
       const ivaChanged = "iva_rate" in sanitizedUpdates && Number(sanitizedUpdates.iva_rate) !== Number(transaction.iva_rate);
       const sharedFields = ["description", "category_id", "supplier_id", "account_id", "due_date", "specification", "date"];
 
+      // If explicit child adjustments were sent (from edit modal), use those
+      const hasExplicitAdjustments = child_adjustments && Array.isArray(child_adjustments) && child_adjustments.length > 0;
+      const adjustmentMap = hasExplicitAdjustments
+        ? Object.fromEntries(child_adjustments.map((ca: any) => [ca.id, Number(ca.amount)]))
+        : null;
+
       for (const child of children) {
         const childUpdates: Record<string, any> = {};
 
-        // Propagate amount proportionally
+        // Propagate amount
         if (amountChanged) {
-          const pct = child.split_percentage ?? 0;
-          const newAmount = Number(sanitizedUpdates.amount);
-          childUpdates.amount = +(newAmount * pct / 100).toFixed(2);
+          if (adjustmentMap && adjustmentMap[child.id] != null) {
+            // Use explicit adjustment from user
+            childUpdates.amount = adjustmentMap[child.id];
+            // Update split_percentage to reflect new ratio
+            const newTotal = Number(sanitizedUpdates.amount);
+            if (newTotal > 0) {
+              childUpdates.split_percentage = +((adjustmentMap[child.id] / newTotal) * 100).toFixed(4);
+            }
+            // Update split_amount if in absolute mode
+            if (child.split_amount != null) {
+              childUpdates.split_amount = adjustmentMap[child.id];
+            }
+          } else {
+            // Auto-propagate proportionally via percentage
+            const pct = child.split_percentage ?? 0;
+            const newAmount = Number(sanitizedUpdates.amount);
+            childUpdates.amount = +(newAmount * pct / 100).toFixed(2);
+            if (child.split_amount != null) {
+              childUpdates.split_amount = childUpdates.amount;
+            }
+          }
         }
         // Propagate IVA rate directly
         if (ivaChanged) {
