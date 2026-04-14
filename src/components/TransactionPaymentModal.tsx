@@ -150,7 +150,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
       if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
-      const withholding = parseFloat(withholdingAmount) || 0;
+      if (paymentMethod === "service_payment" && (!paymentEntity.trim() || !paymentReference.trim())) throw new Error("Preencha Entidade e Referência");
+      if (paymentMethod === "state_payment" && !paymentReference.trim()) throw new Error("Preencha a Referência de Pagamento");
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
       const newPaid = Math.round((currentPaid + addAmount) * 100) / 100;
