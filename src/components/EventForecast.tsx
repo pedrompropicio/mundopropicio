@@ -1628,6 +1628,46 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           onClose={() => setShowCopyModal(false)}
         />
       )}
+
+      {/* Distribute to splits confirmation dialog */}
+      {distributeTarget && childEventIds && childEventIds.length > 0 && (
+        <AlertDialog open={!!distributeTarget} onOpenChange={(open) => { if (!open) setDistributeTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reverter para sub-eventos</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Distribuir <strong>"{distributeTarget.description}"</strong> ({formatCurrency(Number(distributeTarget.amount))} s/ IVA) igualmente por {childEventIds.length} sub-evento(s):
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {subEventNames.map((se: any) => {
+                      const perSplit = Number(distributeTarget.amount) / childEventIds.length;
+                      const cityName = (se.cities as any)?.name;
+                      return (
+                        <div key={se.id} className="rounded border border-border bg-muted/30 px-3 py-1.5 text-xs flex justify-between">
+                          <span className="truncate">{se.name}{cityName ? ` (${cityName})` : ""}</span>
+                          <span className="font-mono font-semibold shrink-0 ml-2">{formatCurrency(Math.round(perSplit * 100) / 100)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">A linha será removida do Master e criada como rascunho em cada sub-evento.</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => distributeToSplitsMutation.mutate(distributeTarget)}
+                disabled={distributeToSplitsMutation.isPending}
+              >
+                {distributeToSplitsMutation.isPending ? "A distribuir…" : "Distribuir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
