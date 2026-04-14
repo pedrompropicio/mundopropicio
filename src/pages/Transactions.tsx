@@ -985,6 +985,16 @@ export default function Transactions() {
           </button>
         )}
 
+        {isAdmin && selectedApprovedCount > 0 && (
+          <button
+            onClick={handleBatchPayment}
+            className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-medium text-success-foreground transition-all hover:bg-success/90"
+          >
+            <FileText className="h-4 w-4" />
+            Liquidar {selectedApprovedCount} como Fatura
+          </button>
+        )}
+
       </div>
 
       {/* Table */}
