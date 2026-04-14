@@ -57,6 +57,7 @@ import ReportSalesComparisonPage from "./pages/ReportSalesComparisonPage";
 import ReportRevenueMixPage from "./pages/ReportRevenueMixPage";
 import ReportPartnerSettlementPage from "./pages/ReportPartnerSettlementPage";
 import ReportPendencyIndexPage from "./pages/ReportPendencyIndexPage";
+import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import AdminPanel from "./pages/AdminPanel";
