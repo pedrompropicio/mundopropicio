@@ -239,8 +239,8 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
                         type="number"
                         step="0.01"
                         min="0"
-                        max={totalAmount}
-                        value={childAmount}
+                        max={totalAmount > 0 ? totalAmount : undefined}
+                        value={childAmount || ""}
                         onChange={(e) => updateAbsoluteValue(idx, parseFloat(e.target.value) || 0)}
                         className="w-20 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
                       />
