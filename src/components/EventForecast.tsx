@@ -596,6 +596,59 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
+  // Fetch sub-event names for distribute feature (only on master)
+  const { data: subEventNames = [] } = useQuery({
+    queryKey: ["sub_event_names_for_distribute", childEventIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date, city_id, cities:city_id(name)")
+        .in("id", childEventIds!)
+        .order("date");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!childEventIds && childEventIds.length > 0,
+  });
+
+  const [distributeTarget, setDistributeTarget] = useState<any>(null);
+
+  const distributeToSplitsMutation = useMutation({
+    mutationFn: async (forecast: any) => {
+      if (!childEventIds || childEventIds.length === 0) throw new Error("Sem sub-eventos");
+      const splitCount = childEventIds.length;
+      const amount = Number(forecast.amount);
+      const splitAmount = Math.round((amount / splitCount) * 100) / 100;
+      const totalDistributed = splitAmount * (splitCount - 1);
+      const lastAmount = Math.round((amount - totalDistributed) * 100) / 100;
+
+      const inserts = childEventIds.map((eid, idx) => ({
+        event_id: eid,
+        type: forecast.type as "expense" | "income",
+        description: forecast.description,
+        specification: forecast.specification || null,
+        amount: idx === splitCount - 1 ? lastAmount : splitAmount,
+        iva_rate: Number(forecast.iva_rate),
+        category_id: forecast.category_id || null,
+        status: "draft" as const,
+      }));
+
+      const { error: insertErr } = await supabase.from("event_forecasts").insert(inserts);
+      if (insertErr) throw insertErr;
+
+      const { error: deleteErr } = await supabase.from("event_forecasts").delete().eq("id", forecast.id);
+      if (deleteErr) throw deleteErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      setDistributeTarget(null);
+      toast({ title: "Despesa distribuída para os sub-eventos" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao distribuir", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleBulkApprove = () => {
     const items = forecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft");
     if (items.length === 0) return;
