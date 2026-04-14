@@ -67,15 +67,30 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     return map;
   }, [zones]);
 
-  // Get sales
+  // Get sales (include sale_date for period info)
   const { data: sales = [] } = useQuery({
     queryKey: ["to_event_sales", zoneIds],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id")
+        .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
         .in("zone_id", zoneIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Get import logs for all events
+  const { data: importLogs = [] } = useQuery({
+    queryKey: ["to_import_logs", eventIds],
+    enabled: eventIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_import_logs")
+        .select("event_id, created_at, period_from, period_to")
+        .in("event_id", eventIds)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
