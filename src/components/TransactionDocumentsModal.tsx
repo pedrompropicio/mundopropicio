@@ -65,12 +65,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       if (!deleted || deleted.length === 0) {
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
-      const storagePromise = storagePath
-        ? supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
-            console.warn("Storage cleanup failed (non-blocking):", err);
-          })
-        : Promise.resolve();
-      await Promise.all([dbPromise, storagePromise]);
+      if (storagePath) {
+        await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
+          console.warn("Storage cleanup failed (non-blocking):", err);
+        });
+      }
       await logAudit({
         entity_type: "transaction_document",
         entity_id: doc.id,
