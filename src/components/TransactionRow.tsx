@@ -146,6 +146,29 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     staleTime: 60_000,
   });
 
+  // Invoice grouping: count sibling transactions with same invoice_ref
+  const invoiceRef = t.invoice_ref;
+  const { data: invoiceSiblings } = useQuery({
+    queryKey: ["invoice-group", invoiceRef],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, description, amount, iva_rate, type")
+        .eq("invoice_ref", invoiceRef!)
+        .order("description");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!invoiceRef,
+    staleTime: 60_000,
+  });
+  const invoiceGroupCount = invoiceSiblings?.length ?? 0;
+  const invoiceGroupTotal = invoiceSiblings?.reduce((sum, s) => {
+    const base = Number(s.amount);
+    const iva = base * ((s.iva_rate ?? 23) / 100);
+    return sum + base + iva;
+  }, 0) ?? 0;
+
   const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
