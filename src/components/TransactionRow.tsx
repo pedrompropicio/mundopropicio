@@ -666,6 +666,100 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           </td>
         </tr>
       )}
+      {/* Child split sub-rows for parent split transactions */}
+      {isParentSplit && childrenExpanded && (
+        <tr>
+          <td colSpan={showSelectColumn ? 10 : 9} className="px-2 pb-3 pt-1">
+            <div className="ml-6 space-y-0.5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Subeventos ({childTransactions.length})</span>
+                <div className="flex-1 border-t border-border/30" />
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {expanded ? "▾ Ocultar movimentos" : "▸ Ver movimentos"}
+                </button>
+              </div>
+              {childTransactions.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-1">A carregar subeventos…</p>
+              ) : (
+                <div className="rounded-lg border border-border/40 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-border/20">
+                      {childTransactions.map((child: any) => {
+                        const childEvent = (child.events as any)?.name ?? "—";
+                        const childAmount = Number(child.amount);
+                        const childIva = (child.iva_rate ?? 23) as IvaRate;
+                        const childTotal = calcWithIva(childAmount, childIva);
+                        const childPaid = Number(child.paid_amount ?? 0);
+                        const childSplitPct = child.split_percentage != null ? Number(child.split_percentage) : null;
+                        const childSplitAmt = child.split_amount != null ? Number(child.split_amount) : null;
+                        const childIsExpense = child.type === "expense";
+                        return (
+                          <tr key={child.id} className="hover:bg-secondary/10 text-xs">
+                            <td className="py-2 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-0.5 rounded border border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  Split {childSplitAmt != null ? `${childSplitAmt.toFixed(2)}€` : childSplitPct != null ? `${childSplitPct}%` : ""}
+                                </span>
+                                <span className="font-medium text-foreground">{childEvent}</span>
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                              {formatCurrency(childPaid)}
+                            </td>
+                            <td className={`py-2 px-3 text-right font-mono font-semibold whitespace-nowrap ${childIsExpense ? "text-warning" : "text-success"}`}>
+                              {childIsExpense ? "-" : "+"}{formatCurrency(childTotal)}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <DocsBadgeButton transactionId={child.id} onClick={() => onDocs(child.id)} />
+                                <button onClick={() => onAudit(child.id)} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Histórico">
+                                  <History className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+      {/* Audit movements (for parent splits, nested inside children expand) */}
+      {expanded && isParentSplit && childrenExpanded && (
+        <tr>
+          <td colSpan={showSelectColumn ? 10 : 9} className="px-4 pb-3 pt-0">
+            <div className="ml-6 rounded-lg border border-border/40 bg-secondary/30 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Movimentos</p>
+              {movements.length === 0 && paidAmount === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem movimentos registados para este lançamento.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="whitespace-nowrap font-mono text-muted-foreground">
+                      {new Date(t.created_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {" "}
+                      {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-secondary text-muted-foreground">
+                      Criação
+                    </span>
+                    <span className="text-muted-foreground">
+                      Lançamento criado — {formatCurrency(totalWithIva)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 }
