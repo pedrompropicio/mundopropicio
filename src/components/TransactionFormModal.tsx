@@ -1886,7 +1886,66 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Método de Pagamento */}
+          {form.type === "expense" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { value: "transfer" as const, label: "Transferência", icon: Building },
+                  { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+                  { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+                ]).map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setForm({ ...form, payment_method: m.value, ...(m.value === "transfer" ? { payment_entity: "", payment_reference: "" } : m.value === "state_payment" ? { payment_entity: "" } : {}) })}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
+                      form.payment_method === m.value
+                        ? "border-primary bg-primary/10 text-primary font-semibold"
+                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                    )}
+                  >
+                    <m.icon className="h-4 w-4" />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Define como esta despesa deverá ser paga</p>
+            </div>
+          )}
+
+          {form.type === "expense" && form.payment_method === "service_payment" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
+                <input type="text" value={form.payment_entity}
+                  onChange={(e) => setForm({ ...form, payment_entity: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Ex: 10611" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência</label>
+                <input type="text" value={form.payment_reference}
+                  onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Referência MB" />
+              </div>
+            </div>
+          )}
+
+          {form.type === "expense" && form.payment_method === "state_payment" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento</label>
+              <input type="text" value={form.payment_reference}
+                onChange={(e) => setForm({ ...form, payment_reference: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Referência AT / SS" />
+            </div>
+          )}
+
+
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Lançamento</label>
               <DatePicker value={form.date} onChange={(d) => setForm({ ...form, date: d })} placeholder="Data…" />
