@@ -778,7 +778,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
             {/* PDF Header info */}
             {pdfHeader && (
               <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs space-y-1">
-                <p className="font-medium text-muted-foreground">Dados do cabeçalho do PDF</p>
+                <p className="font-medium text-muted-foreground">Dados do cabeçalho do ficheiro</p>
                 {pdfHeader.event_name && <p>Evento: <span className="font-medium text-foreground">{pdfHeader.event_name}</span></p>}
                 {pdfHeader.venue_name && <p>Local: <span className="font-medium text-foreground">{pdfHeader.venue_name}</span></p>}
                 {pdfHeader.session_date && <p>Sessão: <span className="font-medium text-foreground">{pdfHeader.session_date} {pdfHeader.session_time || ""}</span></p>}
