@@ -196,10 +196,9 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
           <button
             type="button"
             onClick={() => setInputMode("absolute")}
-            disabled={totalAmount <= 0}
             className={`flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
               inputMode === "absolute" ? "bg-accent text-accent-foreground" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
+            }`}
           >
             <DollarSign className="h-2.5 w-2.5" /> €
           </button>
