@@ -139,10 +139,10 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     return map;
   }, [lots]);
 
-  // Aggregate per event
+  // Aggregate per event (include sales period from sales data)
   const eventSummaries = useMemo(() => {
-    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number }> = {};
-    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0 }; });
+    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
+    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null }; });
 
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
@@ -151,6 +151,11 @@ export function TicketOfficeEventsList({ officeId }: Props) {
       const lineTotal = s.quantity * Number(s.unit_price);
       map[eventId].revenue += lineTotal;
       map[eventId].qty += s.quantity;
+      // Track sale date range
+      if (s.sale_date) {
+        if (!map[eventId].firstSaleDate || s.sale_date < map[eventId].firstSaleDate!) map[eventId].firstSaleDate = s.sale_date;
+        if (!map[eventId].lastSaleDate || s.sale_date > map[eventId].lastSaleDate!) map[eventId].lastSaleDate = s.sale_date;
+      }
       const zoneIva = lotIvaMap[s.zone_id];
       if (zoneIva) {
         const rate = zoneIva[Number(s.unit_price)] ?? 0;
@@ -158,6 +163,17 @@ export function TicketOfficeEventsList({ officeId }: Props) {
           map[eventId].ivaRevenue += lineTotal - lineTotal / (1 + rate / 100);
         }
       }
+    });
+
+    // Attach import log info
+    importLogs.forEach((log: any) => {
+      if (!log.event_id || !map[log.event_id]) return;
+      const entry = map[log.event_id];
+      // Last import date = most recent created_at (already sorted desc)
+      if (!entry.lastImportDate) entry.lastImportDate = log.created_at;
+      // Broadest import period
+      if (log.period_from && (!entry.importPeriodFrom || log.period_from < entry.importPeriodFrom)) entry.importPeriodFrom = log.period_from;
+      if (log.period_to && (!entry.importPeriodTo || log.period_to > entry.importPeriodTo)) entry.importPeriodTo = log.period_to;
     });
 
     txns.forEach((t: any) => {
@@ -173,7 +189,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     });
 
     return map;
-  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId]);
+  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs]);
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
