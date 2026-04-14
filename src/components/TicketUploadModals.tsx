@@ -571,8 +571,9 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               } as any);
               if (error) throw error;
               imported++;
-            }
           }
+        }
+      }
 
       return { imported, zonesCreated, lotsCreated };
     },
