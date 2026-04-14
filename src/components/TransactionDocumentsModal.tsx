@@ -55,10 +55,16 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const deleteMutation = useMutation({
     mutationFn: async (doc: { id: string; file_url: string; name: string }) => {
       const storagePath = extractStoragePath(doc.file_url);
-      // Delete from DB first (faster) then storage in parallel
-      const dbPromise = supabase.from("transaction_documents").delete().eq("id", doc.id).then(({ error }) => {
-        if (error) throw error;
-      });
+      // Use .select() so we can detect when RLS silently blocks the delete (0 rows returned)
+      const { data: deleted, error: dbError } = await supabase
+        .from("transaction_documents")
+        .delete()
+        .eq("id", doc.id)
+        .select("id");
+      if (dbError) throw dbError;
+      if (!deleted || deleted.length === 0) {
+        throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
+      }
       const storagePromise = storagePath
         ? supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
             console.warn("Storage cleanup failed (non-blocking):", err);
