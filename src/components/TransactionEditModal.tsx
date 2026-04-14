@@ -255,7 +255,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
         {isPaid && (
           <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-xs text-success">
-            Transação liquidada — apenas Especificação e Fornecedor podem ser alterados.
+            Transação liquidada — Especificação, Fornecedor, Nº Fatura e Método de Pagamento podem ser alterados.
           </div>
         )}
 
