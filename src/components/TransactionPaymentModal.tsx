@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { X, CalendarIcon, Paperclip, CreditCard } from "lucide-react";
+import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -13,6 +13,8 @@ import { pt } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
+
+type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
 interface Props {
   transaction: any;
@@ -32,6 +34,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
+  const [paymentEntity, setPaymentEntity] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -145,6 +150,8 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
       if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
+      if (paymentMethod === "service_payment" && (!paymentEntity.trim() || !paymentReference.trim())) throw new Error("Preencha Entidade e Referência");
+      if (paymentMethod === "state_payment" && !paymentReference.trim()) throw new Error("Preencha a Referência de Pagamento");
       const withholding = parseFloat(withholdingAmount) || 0;
       if (withholding < 0) throw new Error("O valor de retenção não pode ser negativo");
       if (withholding >= addAmount) throw new Error("A retenção deve ser inferior ao valor total");
@@ -227,8 +234,28 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
       const newStatus = isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
       const finalPaid = newStatus === "paid" ? Math.max(newPaid, amount) : newPaid;
-      const updateData: any = { paid_amount: finalPaid, status: newStatus, payment_date: format(paymentDate, "yyyy-MM-dd"), account_id: accountId || null };
+      const updateData: any = {
+        paid_amount: finalPaid, status: newStatus,
+        payment_date: format(paymentDate, "yyyy-MM-dd"),
+        account_id: accountId || null,
+        payment_method: paymentMethod,
+        payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
+        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
+      };
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
+      if (paymentMethod !== "transfer") {
+        const methodLabel = paymentMethod === "service_payment" ? "Pag. Serviços" : "Pag. Estado";
+        const refInfo = paymentMethod === "service_payment"
+          ? `Ent: ${paymentEntity.trim()} / Ref: ${paymentReference.trim()}`
+          : `Ref: ${paymentReference.trim()}`;
+        auditEntries.push({
+          transaction_id: transaction.id,
+          changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+          field_name: "Método de pagamento",
+          old_value: null,
+          new_value: `${methodLabel} — ${refInfo}`,
+        });
+      }
       const { error } = await supabase
         .from("transactions")
         .update(updateData)
@@ -332,6 +359,63 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
               </p>
             )}
           </div>
+
+          {/* Método de Pagamento */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { value: "transfer" as const, label: "Transferência", icon: Building },
+                { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+                { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+              ]).map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(m.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
+                    paymentMethod === m.value
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  <m.icon className="h-4 w-4" />
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Campos condicionais: Entidade + Referência */}
+          {paymentMethod === "service_payment" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade *</label>
+                <input type="text" value={paymentEntity}
+                  onChange={(e) => setPaymentEntity(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Ex: 10611" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência *</label>
+                <input type="text" value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Referência MB" />
+              </div>
+            </div>
+          )}
+
+          {paymentMethod === "state_payment" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento *</label>
+              <input type="text" value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Referência AT / SS" />
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento *</label>

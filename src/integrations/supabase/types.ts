@@ -2260,6 +2260,9 @@ export type Database = {
           paid_amount: number
           parent_transaction_id: string | null
           payment_date: string | null
+          payment_entity: string | null
+          payment_method: string
+          payment_reference: string | null
           pl_override_note: string | null
           reimbursement_to: string | null
           specification: string | null
@@ -2288,6 +2291,9 @@ export type Database = {
           paid_amount?: number
           parent_transaction_id?: string | null
           payment_date?: string | null
+          payment_entity?: string | null
+          payment_method?: string
+          payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
           specification?: string | null
@@ -2316,6 +2322,9 @@ export type Database = {
           paid_amount?: number
           parent_transaction_id?: string | null
           payment_date?: string | null
+          payment_entity?: string | null
+          payment_method?: string
+          payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
           specification?: string | null
