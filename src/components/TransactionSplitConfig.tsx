@@ -205,6 +205,13 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
         </div>
       )}
 
+      {/* Hint when using absolute mode without total */}
+      {splitMethod === "custom" && inputMode === "absolute" && totalAmount <= 0 && (
+        <p className="text-[10px] text-primary/70 italic">
+          💡 Insira os valores em €. As percentagens serão calculadas automaticamente quando preencher o Valor Base.
+        </p>
+      )}
+
       {/* Entries */}
       <div className="space-y-2">
         {splitEntries.map((entry, idx) => {
