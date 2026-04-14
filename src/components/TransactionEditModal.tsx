@@ -46,6 +46,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     is_transitory: transaction.is_transitory ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
     invoice_ref: transaction.invoice_ref ?? "",
+    payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
+    payment_entity: transaction.payment_entity ?? "",
+    payment_reference: transaction.payment_reference ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
