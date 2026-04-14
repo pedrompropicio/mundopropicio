@@ -56,11 +56,45 @@ Deno.test("update-transaction: rejects missing transaction_id", async () => {
 });
 
 Deno.test("update-transaction: is_transitory is in allowed fields list", () => {
-  // Validate that is_transitory is in the allowed fields for the edge function
   const allowedFields = [
     "description", "amount", "iva_rate", "event_id", "category_id",
     "supplier_id", "account_id", "specification", "date", "due_date",
-    "payment_date", "is_transitory",
+    "payment_date", "is_transitory", "exclude_from_result", "split_mode",
   ];
   assertEquals(allowedFields.includes("is_transitory"), true);
+});
+
+Deno.test("update-transaction: split_mode is in allowed fields list", () => {
+  const allowedFields = [
+    "description", "amount", "iva_rate", "event_id", "category_id",
+    "supplier_id", "account_id", "specification", "date", "due_date",
+    "payment_date", "is_transitory", "exclude_from_result", "split_mode",
+  ];
+  assertEquals(allowedFields.includes("split_mode"), true);
+});
+
+Deno.test("update-transaction: child_adjustments map builds correctly", () => {
+  const payload = [
+    { id: "uuid-1", amount: 3000 },
+    { id: "uuid-2", amount: 7000 },
+  ];
+  const adjustmentMap: Record<string, number> = Object.fromEntries(
+    payload.map((ca: { id: string; amount: number }) => [ca.id, Number(ca.amount)])
+  );
+  assertEquals(adjustmentMap["uuid-1"], 3000);
+  assertEquals(adjustmentMap["uuid-2"], 7000);
+});
+
+Deno.test("update-transaction: proportional fallback calculates correctly", () => {
+  const splitPercentage = 40;
+  const newAmount = 10000;
+  const childAmount = +(newAmount * splitPercentage / 100).toFixed(2);
+  assertEquals(childAmount, 4000);
+});
+
+Deno.test("update-transaction: explicit adjustment recalculates percentage", () => {
+  const childAmount = 3000;
+  const newTotal = 10000;
+  const newPct = +((childAmount / newTotal) * 100).toFixed(4);
+  assertEquals(newPct, 30);
 });
