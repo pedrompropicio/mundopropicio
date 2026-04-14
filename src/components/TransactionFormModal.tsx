@@ -369,10 +369,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       ...prev,
       event_id: "",
       category_id: disambiguationCategoryId,
-      description: parentForecast.description || prev.description,
-      amount: String(Number(parentForecast.amount) || prev.amount),
-      iva_rate: (parentForecast.iva_rate ?? prev.iva_rate) as IvaRate,
-      specification: parentForecast.specification || prev.specification,
+      description: parentForecast.description || "",
+      amount: String(Number(parentForecast.amount) || ""),
+      iva_rate: (parentForecast.iva_rate ?? 23) as IvaRate,
+      specification: parentForecast.specification || "",
     }));
 
     setShowSplitDisambiguation(false);
@@ -390,10 +390,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       setForm(prev => ({
         ...prev,
         category_id: categoryId,
-        description: subForecast.description || prev.description,
-        amount: String(Number(subForecast.amount) || prev.amount),
-        iva_rate: (subForecast.iva_rate ?? prev.iva_rate) as IvaRate,
-        specification: subForecast.specification || prev.specification,
+        description: subForecast.description || "",
+        amount: String(Number(subForecast.amount) || ""),
+        iva_rate: (subForecast.iva_rate ?? 23) as IvaRate,
+        specification: subForecast.specification || "",
       }));
     } else {
       // Not in sub-event BP — set category and activate override
@@ -1286,10 +1286,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
               setForm(prev => ({
                 ...prev,
                 category_id: detail.catId,
-                description: line.description || prev.description,
-                amount: String(Number(line.amount) || prev.amount),
-                iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
-                specification: line.specification || prev.specification,
+                description: line.description || "",
+                amount: String(Number(line.amount) || ""),
+                iva_rate: (line.iva_rate ?? 23) as IvaRate,
+                specification: line.specification || "",
               }));
               setPlExpanded(false);
             };
