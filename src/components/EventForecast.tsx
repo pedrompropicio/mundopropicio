@@ -1916,14 +1916,30 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   </PopoverContent>
                 </Popover>
               )}
-              {onDistributeToSplits && !item.cache_config_id && !hasMatchingTx && (
-                <button
-                  onClick={() => onDistributeToSplits(item)}
-                  className="rounded p-1 hover:bg-blue-500/20"
-                  title="Reverter para sub-eventos"
-                >
-                  <ArrowDownRight className="h-3.5 w-3.5 text-blue-400" />
-                </button>
+              {onDistributeToSplits && !item.cache_config_id && (
+                hasMatchingTx ? (
+                  <button
+                    onClick={() => {
+                      toast({
+                        title: "Não é possível reverter",
+                        description: "Esta linha possui transações associadas. Remova ou desvincule as transações antes de reverter para os sub-eventos.",
+                        variant: "destructive",
+                      });
+                    }}
+                    className="rounded p-1 hover:bg-destructive/20"
+                    title="Reverter para sub-eventos (bloqueado — transações associadas)"
+                  >
+                    <ArrowDownRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onDistributeToSplits(item)}
+                    className="rounded p-1 hover:bg-blue-500/20"
+                    title="Reverter para sub-eventos"
+                  >
+                    <ArrowDownRight className="h-3.5 w-3.5 text-blue-400" />
+                  </button>
+                )
               )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
