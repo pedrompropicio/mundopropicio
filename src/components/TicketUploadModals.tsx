@@ -214,6 +214,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     setHeaderWarnings([]);
     setTotalWarnings([]);
     setZoneMappings([]);
+    setTicketlineDailySales([]);
     setPdfHeader(null);
     if (fileRef.current) fileRef.current.value = "";
   };
