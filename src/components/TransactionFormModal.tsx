@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -418,6 +418,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     setDisambiguationForecast(null);
     setPlExpanded(false);
   };
+
+  // Reset payment_method when category changes away from state categories
+  useEffect(() => {
+    if (form.payment_method === "state_payment" && form.category_id) {
+      const selectedCat = categories.find((c: any) => c.id === form.category_id);
+      const isState = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
+      if (!isState) {
+        setForm(prev => ({ ...prev, payment_method: "transfer", payment_entity: "", payment_reference: "" }));
+      }
+    }
+  }, [form.category_id, categories]);
 
 
   const forecastBudgetByCategory = hasPL
@@ -1896,34 +1907,39 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Método de Pagamento */}
-          {form.type === "expense" && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {([
-                  { value: "transfer" as const, label: "Transferência", icon: Building },
-                  { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-                  { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
-                ]).map((m) => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => setForm({ ...form, payment_method: m.value, ...(m.value === "transfer" ? { payment_entity: "", payment_reference: "" } : m.value === "state_payment" ? { payment_entity: "" } : {}) })}
-                    className={cn(
-                      "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
-                      form.payment_method === m.value
-                        ? "border-primary bg-primary/10 text-primary font-semibold"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
-                    )}
-                  >
-                    <m.icon className="h-4 w-4" />
-                    {m.label}
-                  </button>
-                ))}
+          {form.type === "expense" && (() => {
+            const selectedCat = categories.find((c: any) => c.id === form.category_id);
+            const isStateCategory = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
+            const methods = [
+              { value: "transfer" as const, label: "Transferência", icon: Building },
+              { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
+              ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
+            ];
+            return (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
+                <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
+                  {methods.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, payment_method: m.value, ...(m.value === "transfer" ? { payment_entity: "", payment_reference: "" } : m.value === "state_payment" ? { payment_entity: "" } : {}) })}
+                      className={cn(
+                        "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-all",
+                        form.payment_method === m.value
+                          ? "border-primary bg-primary/10 text-primary font-semibold"
+                          : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      <m.icon className="h-4 w-4" />
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">Define como esta despesa deverá ser paga</p>
               </div>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">Define como esta despesa deverá ser paga</p>
-            </div>
-          )}
+            );
+          })()}
 
           {form.type === "expense" && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">

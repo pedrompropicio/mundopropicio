@@ -40,6 +40,18 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const { data: categoryCode } = useQuery({
+    queryKey: ["category-code", transaction.category_id],
+    queryFn: async () => {
+      if (!transaction.category_id) return null;
+      const { data } = await supabase.from("account_categories").select("code").eq("id", transaction.category_id).single();
+      return data?.code ?? null;
+    },
+    enabled: !!transaction.category_id,
+  });
+
+  const isStateCategory = categoryCode?.startsWith("10.4") || categoryCode?.startsWith("10.5");
+
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
@@ -366,11 +378,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           {/* Método de Pagamento */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
               {([
                 { value: "transfer" as const, label: "Transferência", icon: Building },
                 { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-                { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+                ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
               ]).map((m) => (
                 <button
                   key={m.value}
