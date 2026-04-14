@@ -329,9 +329,9 @@ export function parseTicketlineXlsx(data: ArrayBuffer): TicketlineParseResult {
       const soldQty = Number(cell(ws, detailSoldQtyCol, r)) || 0;
       const soldValue = Number(cell(ws, detailSoldValueCol, r)) || 0;
 
-      if (soldQty <= 0) continue;
+      if (soldQty === 0 && soldValue === 0) continue;
 
-      const unitPrice = soldQty > 0 ? Math.round((soldValue / soldQty) * 100) / 100 : 0;
+      const unitPrice = soldQty !== 0 ? Math.round((soldValue / soldQty) * 100) / 100 : 0;
 
       sales.push({ date: currentDate, zone, lot, quantity: soldQty, unit_price: unitPrice, total_value: soldValue });
     }
