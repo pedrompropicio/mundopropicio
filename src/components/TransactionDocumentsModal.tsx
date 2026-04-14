@@ -100,6 +100,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
+      queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
     },
   });
 
@@ -134,6 +135,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       if (dbError) throw dbError;
 
       queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
+      queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
       toast({ title: "Documento anexado com sucesso!" });
     } catch (err: any) {
       toast({ title: "Erro ao enviar ficheiro", description: err.message, variant: "destructive" });
