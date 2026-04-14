@@ -530,22 +530,49 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
           // Register sales if there are any
           if (row.quantidade_vendida > 0 && (importType === "sales" || loadType === "realizado")) {
-            const { error } = await supabase.from("ticket_sales").insert({
-              lot_id: matchedLot.id,
-              zone_id: zoneId,
-              sale_date: effectiveFrom,
-              sale_date_to: effectiveTo !== effectiveFrom ? effectiveTo : null,
-              quantity: row.quantidade_vendida,
-              unit_price: row.preco_unitario,
-              financial_account_id: ticketOfficeId || null,
-              notes: notesText,
-              source: "import",
-            } as any);
-            if (error) throw error;
-            imported++;
+            // If we have Ticketline daily granularity, insert one record per date
+            const isTicketline = ticketlineDailySales.length > 0;
+            if (isTicketline) {
+              // Find daily sales matching this zone+lot combination
+              const dailyForThisLot = ticketlineDailySales.filter(s => {
+                const sZone = s.zone;
+                const sLot = s.lot || "Regular";
+                return normalize(sZone) === normalize(mapping.pdfZone)
+                  && normalize(sLot) === normalize(row.tipo_bilhete)
+                  && Math.abs(s.unit_price - row.preco_unitario) < 0.02;
+              });
+              for (const dailySale of dailyForThisLot) {
+                if (dailySale.quantity <= 0) continue;
+                const { error } = await supabase.from("ticket_sales").insert({
+                  lot_id: matchedLot.id,
+                  zone_id: zoneId,
+                  sale_date: dailySale.date,
+                  sale_date_to: null,
+                  quantity: dailySale.quantity,
+                  unit_price: dailySale.unit_price,
+                  financial_account_id: ticketOfficeId || null,
+                  notes: `Importação dia ${dailySale.date}`,
+                  source: "import",
+                } as any);
+                if (error) throw error;
+                imported++;
+              }
+            } else {
+              const { error } = await supabase.from("ticket_sales").insert({
+                lot_id: matchedLot.id,
+                zone_id: zoneId,
+                sale_date: effectiveFrom,
+                sale_date_to: effectiveTo !== effectiveFrom ? effectiveTo : null,
+                quantity: row.quantidade_vendida,
+                unit_price: row.preco_unitario,
+                financial_account_id: ticketOfficeId || null,
+                notes: notesText,
+                source: "import",
+              } as any);
+              if (error) throw error;
+              imported++;
+            }
           }
-        }
-      }
 
       return { imported, zonesCreated, lotsCreated };
     },
