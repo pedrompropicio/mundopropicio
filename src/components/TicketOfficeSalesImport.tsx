@@ -600,17 +600,14 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
               </div>
             )}
 
-            {duplicateDateWarnings.length > 0 && (
+            {skippedRows.length > 0 && (
               <div className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
                 <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                 <div className="text-xs space-y-1">
-                  <p className="font-medium text-warning">Datas com vendas já registadas</p>
-                  {duplicateDateWarnings.map((w, i) => (
-                    <p key={i} className="text-muted-foreground">
-                      {new Date(w.date).toLocaleDateString("pt-PT")} — {w.zone}: {w.existingQty.toLocaleString()} bilhetes existentes
-                    </p>
-                  ))}
-                  <p className="text-muted-foreground italic">A importação não será bloqueada mas poderá resultar em duplicações.</p>
+                  <p className="font-medium text-warning">Datas já importadas (serão ignoradas)</p>
+                  <p className="text-muted-foreground">
+                    {skippedRows.length} registo(s) ignorado(s) porque já existem vendas para as mesmas datas/zonas/lotes.
+                  </p>
                 </div>
               </div>
             )}
