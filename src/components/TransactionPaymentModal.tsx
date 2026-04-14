@@ -34,6 +34,9 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
+  const [paymentEntity, setPaymentEntity] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
