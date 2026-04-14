@@ -82,6 +82,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
   const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
   const [splitInputMode, setSplitInputMode] = useState<SplitInputMode>("percentage");
+  const [splitAutoConfigured, setSplitAutoConfigured] = useState(false);
   const [splitMasterEventId, setSplitMasterEventId] = useState("");
   const [splitExpanded, setSplitExpanded] = useState(false);
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
