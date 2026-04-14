@@ -45,6 +45,18 @@ import ReportAccountingExportPage from "./pages/ReportAccountingExportPage";
 import ReportPartnerExpensesPage from "./pages/ReportPartnerExpensesPage";
 import ReportBPTransactionsPage from "./pages/ReportBPTransactionsPage";
 import ReportForecastPayablesPage from "./pages/ReportForecastPayablesPage";
+import ReportProfitabilityPage from "./pages/ReportProfitabilityPage";
+import ReportMonthlyEvolutionPage from "./pages/ReportMonthlyEvolutionPage";
+import ReportBudgetDeviationPage from "./pages/ReportBudgetDeviationPage";
+import ReportAgingPage from "./pages/ReportAgingPage";
+import ReportSupplierConcentrationPage from "./pages/ReportSupplierConcentrationPage";
+import ReportTreasuryProjectionPage from "./pages/ReportTreasuryProjectionPage";
+import ReportOccupancyRatePage from "./pages/ReportOccupancyRatePage";
+import ReportSalesCurvePage from "./pages/ReportSalesCurvePage";
+import ReportSalesComparisonPage from "./pages/ReportSalesComparisonPage";
+import ReportRevenueMixPage from "./pages/ReportRevenueMixPage";
+import ReportPartnerSettlementPage from "./pages/ReportPartnerSettlementPage";
+import ReportPendencyIndexPage from "./pages/ReportPendencyIndexPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
@@ -156,8 +168,19 @@ function ProtectedLayout() {
                 <Route path="despesas-socios" element={<ReportPartnerExpensesPage />} />
                 <Route path="bp-transacoes" element={<ReportBPTransactionsPage />} />
                 <Route path="exposicao-financeira" element={<ReportForecastPayablesPage />} />
+                <Route path="rentabilidade" element={<ReportProfitabilityPage />} />
+                <Route path="evolucao-mensal" element={<ReportMonthlyEvolutionPage />} />
+                <Route path="desvio-orcamental" element={<ReportBudgetDeviationPage />} />
+                <Route path="aging" element={<ReportAgingPage />} />
+                <Route path="concentracao-fornecedores" element={<ReportSupplierConcentrationPage />} />
+                <Route path="projecao-tesouraria" element={<ReportTreasuryProjectionPage />} />
+                <Route path="taxa-ocupacao" element={<ReportOccupancyRatePage />} />
+                <Route path="curva-vendas" element={<ReportSalesCurvePage />} />
+                <Route path="comparativo-vendas" element={<ReportSalesComparisonPage />} />
+                <Route path="mix-receitas" element={<ReportRevenueMixPage />} />
+                <Route path="acerto-socios" element={<ReportPartnerSettlementPage />} />
+                <Route path="indice-pendencias" element={<ReportPendencyIndexPage />} />
               </Route>
-              
               
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="/admin/utilizadores" element={<UserManagement />} />
