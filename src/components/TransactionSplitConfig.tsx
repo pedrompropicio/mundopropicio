@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { X, Plus, Percent, Divide, AlertTriangle } from "lucide-react";
+import { X, Plus, Percent, Divide, AlertTriangle, DollarSign } from "lucide-react";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
@@ -19,6 +19,8 @@ export interface SplitBPInfo {
   hasAnyForecasts: boolean;
 }
 
+export type SplitInputMode = "percentage" | "absolute";
+
 interface Props {
   events: { id: string; name: string; pl_mode?: string; event_type?: string; parent_event_id?: string | null }[];
   splitEntries: SplitEntry[];
@@ -33,6 +35,7 @@ interface Props {
 
 export function TransactionSplitConfig({ events, splitEntries, onChange, splitMethod, onMethodChange, totalAmount = 0, bpInfoByEvent = {} }: Props) {
   const [addingEvent, setAddingEvent] = useState("");
+  const [inputMode, setInputMode] = useState<SplitInputMode>("percentage");
 
   // Only show non-parent events (sub-events + simple events)
   const availableEvents = useMemo(() => {
@@ -81,7 +84,18 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
     onChange(newEntries);
   };
 
+  const updateAbsoluteValue = (idx: number, absValue: number) => {
+    if (totalAmount <= 0) return;
+    const pct = +((absValue / totalAmount) * 100).toFixed(4);
+    updatePercentage(idx, pct);
+  };
+
+  const getAbsoluteValue = (entry: SplitEntry) => {
+    return totalAmount > 0 ? +(totalAmount * entry.percentage / 100).toFixed(2) : 0;
+  };
+
   const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
+  const totalAbsolute = splitEntries.reduce((s, e) => s + getAbsoluteValue(e), 0);
   const isValid = splitEntries.length >= 2 && Math.abs(totalPct - 100) < 0.01;
 
   return (
@@ -101,6 +115,7 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
             type="button"
             onClick={() => {
               onMethodChange("equal");
+              setInputMode("percentage");
               if (splitEntries.length > 0) {
                 const pct = +(100 / splitEntries.length).toFixed(2);
                 const entries = splitEntries.map((e) => ({ ...e, percentage: pct }));
@@ -129,32 +144,74 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
         </div>
       </div>
 
+      {/* Input mode toggle (only in custom mode) */}
+      {splitMethod === "custom" && (
+        <div className="flex items-center gap-1 justify-end">
+          <span className="text-[10px] text-muted-foreground mr-1">Inserir por:</span>
+          <button
+            type="button"
+            onClick={() => setInputMode("percentage")}
+            className={`flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+              inputMode === "percentage" ? "bg-accent text-accent-foreground" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Percent className="h-2.5 w-2.5" /> %
+          </button>
+          <button
+            type="button"
+            onClick={() => setInputMode("absolute")}
+            disabled={totalAmount <= 0}
+            className={`flex items-center gap-0.5 rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+              inputMode === "absolute" ? "bg-accent text-accent-foreground" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            <DollarSign className="h-2.5 w-2.5" /> €
+          </button>
+        </div>
+      )}
+
       {/* Entries */}
       <div className="space-y-2">
         {splitEntries.map((entry, idx) => {
-          const childAmount = totalAmount > 0 ? +(totalAmount * entry.percentage / 100).toFixed(2) : 0;
+          const childAmount = getAbsoluteValue(entry);
           const bp = bpInfoByEvent[entry.event_id];
           const hasBP = bp && bp.hasAnyForecasts;
           const remaining = hasBP ? bp.forecast - bp.used : 0;
           const exceeds = hasBP && bp.hasForecastMatch && childAmount > remaining && bp.forecast > 0;
-          const noMatch = hasBP && !bp.hasForecastMatch;
 
           return (
             <div key={entry.event_id} className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="flex-1 truncate text-sm">{entry.event_name}</div>
                 <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={entry.percentage}
-                    onChange={(e) => updatePercentage(idx, parseFloat(e.target.value) || 0)}
-                    disabled={splitMethod === "equal"}
-                    className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
-                  />
-                  <span className="text-xs text-muted-foreground">%</span>
+                  {inputMode === "percentage" || splitMethod === "equal" ? (
+                    <>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={entry.percentage}
+                        onChange={(e) => updatePercentage(idx, parseFloat(e.target.value) || 0)}
+                        disabled={splitMethod === "equal"}
+                        className="w-16 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={totalAmount}
+                        value={childAmount}
+                        onChange={(e) => updateAbsoluteValue(idx, parseFloat(e.target.value) || 0)}
+                        className="w-20 rounded border border-border bg-background px-2 py-1 text-xs text-right font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      />
+                      <span className="text-xs text-muted-foreground">€</span>
+                    </>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -164,13 +221,19 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
+              {/* Secondary info: show the complementary value */}
+              {splitMethod === "custom" && totalAmount > 0 && (
+                <div className="ml-1 text-[10px] font-mono text-muted-foreground">
+                  {inputMode === "percentage"
+                    ? `= ${childAmount.toFixed(2)}€`
+                    : `= ${entry.percentage.toFixed(2)}%`}
+                </div>
+              )}
               {/* BP info line */}
               {hasBP && totalAmount > 0 && (
                 <div className="ml-1 flex items-center gap-2 text-[10px] font-mono">
                   {bp.hasForecastMatch ? (
                     <>
-                      <span className="text-muted-foreground">Rateio: {childAmount.toFixed(2)}€</span>
-                      <span className="text-muted-foreground">|</span>
                       <span className="text-muted-foreground">BP: {bp.forecast.toFixed(2)}€</span>
                       <span className="text-muted-foreground">|</span>
                       <span className={remaining <= 0 ? "text-destructive" : "text-success"}>
@@ -213,11 +276,14 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
         <span className="text-xs text-muted-foreground">
           {splitEntries.length} evento(s) selecionado(s)
         </span>
-        <span className={`text-xs font-mono font-semibold ${isValid ? "text-success" : "text-destructive"}`}>
-          Total: {totalPct.toFixed(2)}%
-          {!isValid && splitEntries.length >= 2 && " (deve ser 100%)"}
-          {splitEntries.length < 2 && " (mín. 2 eventos)"}
-        </span>
+        <div className="text-right">
+          <span className={`text-xs font-mono font-semibold ${isValid ? "text-success" : "text-destructive"}`}>
+            Total: {totalPct.toFixed(2)}%
+            {totalAmount > 0 && ` (${totalAbsolute.toFixed(2)}€)`}
+            {!isValid && splitEntries.length >= 2 && " — deve ser 100%"}
+            {splitEntries.length < 2 && " (mín. 2 eventos)"}
+          </span>
+        </div>
       </div>
     </div>
   );
