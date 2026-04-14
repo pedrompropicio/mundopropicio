@@ -1857,6 +1857,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nº Fatura</label>
+            <input
+              type="text"
+              value={form.invoice_ref}
+              onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
+              placeholder="Ex: FT 002/5944"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data Lançamento</label>
