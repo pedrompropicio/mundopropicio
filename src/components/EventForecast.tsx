@@ -1686,21 +1686,27 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     <>
       <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "group opacity-60 hover:opacity-100 hover:bg-muted/30 transition-all" : "group hover:bg-muted/30 transition-colors"}>
         <td className={`py-2.5 pr-3 ${indented ? "pl-4" : ""}`}>
-          <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2">
             {readOnly ? (
               <Layers className="h-3.5 w-3.5 text-primary shrink-0" />
             ) : isDraft && isAdmin && onToggleSelect ? (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => onToggleSelect(item.id)}
-                className="h-3.5 w-3.5 shrink-0"
-              />
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(item.id)}
+                  className="h-3.5 w-3.5 shrink-0 border-warning data-[state=checked]:bg-warning data-[state=checked]:border-warning"
+                />
+                <span className="inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">Rascunho</span>
+              </div>
             ) : isApproved && isAdmin && onToggleSelect ? (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => onToggleSelect(item.id)}
-                className="h-3.5 w-3.5 shrink-0"
-              />
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(item.id)}
+                  className="h-3.5 w-3.5 shrink-0 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <span className="inline-flex items-center rounded-full bg-success/15 text-success px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">Aprovada</span>
+              </div>
             ) : isApproved ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
             ) : (
