@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X } from "lucide-react";
+import { X, Building, FileText, Landmark } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -11,7 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
-import { sortByHierarchicalCode } from "@/lib/utils";
+import { sortByHierarchicalCode, cn } from "@/lib/utils";
+
+type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
 interface Props {
   transaction: any;
