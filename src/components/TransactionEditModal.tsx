@@ -43,6 +43,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
+    invoice_ref: transaction.invoice_ref ?? "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -106,8 +107,9 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
         is_transitory: "Transitória",
         exclude_from_result: "Fora do Resultado",
+        invoice_ref: "Nº Fatura",
       };
-      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result"] : Object.keys(fieldLabels);
+      const allowedFields = isPaid ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref"] : Object.keys(fieldLabels);
       for (const key of allowedFields) {
         const oldVal = String(transaction[key] ?? "");
         const newVal = String((form as any)[key] ?? "");
