@@ -420,8 +420,18 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
     setFileName("");
     setStep("upload");
     setSelectedOfficeId("");
+    setSelectedEventId("");
     setExtracting(false);
+    setTicketlineData(null);
     onClose();
+  };
+
+  const handleEventSelectForTicketline = (eventId: string) => {
+    setSelectedEventId(eventId);
+    if (ticketlineData) {
+      const matched = matchRowsForEvent(ticketlineData.sales, eventId);
+      setParsedRows(matched);
+    }
   };
 
   return (
