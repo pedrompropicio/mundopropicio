@@ -32,6 +32,7 @@ interface TransactionForm {
   is_reimbursement: boolean;
   reimbursement_to: string;
   reimbursement_note_id: string;
+  invoice_ref: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -50,6 +51,7 @@ const emptyForm: TransactionForm = {
   is_reimbursement: false,
   reimbursement_to: "",
   reimbursement_note_id: "",
+  invoice_ref: "",
 };
 
 const formatDueDateInput = (value: string) => {
