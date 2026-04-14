@@ -182,6 +182,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   const isExpense = t.type === "expense";
   const isChildSplit = !!t.parent_transaction_id;
   const splitPct = t.split_percentage != null ? Number(t.split_percentage) : null;
+  const splitAmt = (t as any).split_amount != null ? Number((t as any).split_amount) : null;
 
   // Compute effective status
   const computedStatus = (() => {
@@ -253,7 +254,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="inline-flex items-center gap-0.5 rounded border border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground cursor-help">
-                        Split {splitPct != null ? `${splitPct}%` : ""}
+                        Split {splitAmt != null ? `${splitAmt.toFixed(2)}€` : splitPct != null ? `${splitPct}%` : ""}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
