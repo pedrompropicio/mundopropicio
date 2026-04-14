@@ -597,6 +597,11 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       queryClient.invalidateQueries({ queryKey: ["event_ticket_zones"] });
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots"] });
       queryClient.invalidateQueries({ queryKey: ["ticket_import_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["to_event_sales"] });
+      queryClient.invalidateQueries({ queryKey: ["to_event_zones"] });
+      queryClient.invalidateQueries({ queryKey: ["to_event_lots"] });
+      queryClient.invalidateQueries({ queryKey: ["to_import_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["to_event_txns"] });
       const parts: string[] = [];
       if (result?.imported) parts.push(`${result.imported} vendas importadas`);
       if (result?.zonesCreated) parts.push(`${result.zonesCreated} novas zonas`);
