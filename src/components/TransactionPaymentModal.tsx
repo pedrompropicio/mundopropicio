@@ -378,11 +378,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
           {/* Método de Pagamento */}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Método de Pagamento</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className={cn("grid gap-1.5", isStateCategory ? "grid-cols-3" : "grid-cols-2")}>
               {([
                 { value: "transfer" as const, label: "Transferência", icon: Building },
                 { value: "service_payment" as const, label: "Pag. Serviços", icon: FileText },
-                { value: "state_payment" as const, label: "Pag. Estado", icon: Landmark },
+                ...(isStateCategory ? [{ value: "state_payment" as const, label: "Pag. Estado", icon: Landmark }] : []),
               ]).map((m) => (
                 <button
                   key={m.value}
