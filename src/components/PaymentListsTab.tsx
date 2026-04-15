@@ -349,6 +349,16 @@ export default function PaymentListsTab() {
                               <Send className="h-4 w-4" />
                             </button>
                           )}
+                          {(list.status === "pending_approval" || list.status === "approved" || list.status === "partially_approved") && (
+                            <button
+                              onClick={() => handleSendEmailToAdmin(list)}
+                              disabled={sendingEmailId === list.id}
+                              className="rounded p-1.5 text-primary hover:bg-primary/10 disabled:opacity-50"
+                              title="Enviar email para administradores"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </button>
+                          )}
                           {((list.status === "draft" || list.status === "rejected" || list.status === "revision") || ((isAdmin || isManager) && (list.status === "approved" || list.status === "settled"))) && (
                             <button
                               onClick={() => { if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id); }}
