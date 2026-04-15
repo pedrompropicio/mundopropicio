@@ -661,7 +661,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     mutationFn: async (forecastItems: any[]) => {
       let created = 0;
       for (const f of forecastItems) {
-        const { error } = await supabase.from("transactions").insert({
+        const { data: insertedTx, error } = await supabase.from("transactions").insert({
           event_id: eventId,
           type: f.type,
           description: f.description,
@@ -672,8 +672,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           date: eventDate,
           due_date: eventDate,
           status: "pending",
-        });
+        }).select("id").single();
         if (error) throw error;
+
+        // Audit: log creation from BP
+        if (insertedTx?.id) {
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: insertedTx.id,
+            changed_by: callerName,
+            field_name: "Criação",
+            old_value: null,
+            new_value: `Gerado do BP — ${f.description} — ${Number(f.amount).toFixed(2)} €`,
+          });
+        }
         created++;
       }
       return created;

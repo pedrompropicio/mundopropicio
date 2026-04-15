@@ -79,7 +79,7 @@ const parseDueDateForDb = (value: string) => {
 };
 
 export function TransactionFormModal({ onClose }: { onClose: () => void }) {
-  const { isAdmin: authIsAdmin, isManager: authIsManager } = useAuth();
+  const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
   const [form, setForm] = useState<TransactionForm>(emptyForm);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
@@ -696,6 +696,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         if (parentError) throw parentError;
         const parentId = parentRow.id;
 
+        // Audit: log creation of parent split
+        {
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: parentId,
+            changed_by: callerName,
+            field_name: "Criação",
+            old_value: null,
+            new_value: `Rateio Master — ${data.description} — ${totalAmount.toFixed(2)} €`,
+          });
+        }
+
         // 3. Set parent ID on children and insert
         const childInsertsWithParent = childInserts.map(c => ({ ...c, parent_transaction_id: parentId }));
         const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
@@ -734,6 +746,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
         } as any).select("id").single();
         if (error) throw error;
+
+        // Audit: log creation
+        if (insertedTx?.id) {
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: insertedTx.id,
+            changed_by: callerName,
+            field_name: "Criação",
+            old_value: null,
+            new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${parseFloat(data.amount).toFixed(2)} €`,
+          });
+        }
 
         // Auto-link to partner if paid by partner
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
