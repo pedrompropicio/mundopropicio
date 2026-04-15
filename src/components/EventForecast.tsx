@@ -2134,6 +2134,12 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           isAdmin={isAdmin}
         />
       )}
+      {auditTransactionId && (
+        <TransactionAuditModal
+          transactionId={auditTransactionId}
+          onClose={() => setAuditTransactionId(null)}
+        />
+      )}
     </>
   );
 }
