@@ -17,6 +17,8 @@ import * as XLSX from "xlsx";
 import { ImplBPTab } from "@/components/implementation/ImplBPTab";
 import { ImplTicketsTab } from "@/components/implementation/ImplTicketsTab";
 import { ImplApportionmentTab } from "@/components/implementation/ImplApportionmentTab";
+import { isTicketlineFormat } from "@/lib/parse-ticketline-xlsx";
+import { isTicketlineZoneFormat, parseTicketlineZoneXlsx } from "@/lib/parse-ticketline-zone-xlsx";
 
 /** Try to find a date-like value in the first rows of a sheet */
 function extractDateFromSheet(sheet: XLSX.WorkSheet): string | null {
