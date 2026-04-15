@@ -16,6 +16,9 @@ interface PaymentItem {
   paid_amount: number;
   due_date: string | null;
   date: string;
+  payment_method?: string;
+  payment_entity?: string | null;
+  payment_reference?: string | null;
 }
 
 interface PaymentListExport {
