@@ -13,6 +13,7 @@ import { Upload, FileText, AlertCircle, CheckCircle2, AlertTriangle, Loader2, Pl
 import { formatCurrency } from "@/lib/mock-data";
 import * as XLSX from "xlsx";
 import { isTicketlineFormat, parseTicketlineXlsx, type TicketlineParseResult } from "@/lib/parse-ticketline-xlsx";
+import { isTicketlineZoneFormat, parseTicketlineZoneXlsx } from "@/lib/parse-ticketline-zone-xlsx";
 
 interface Props {
   open: boolean;
@@ -240,6 +241,31 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
         try {
           const data = new Uint8Array(ev.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
+
+          if (isTicketlineZoneFormat(workbook)) {
+            // --- "Relatório por Zona / Tipo de Bilhete" format ---
+            const result = parseTicketlineZoneXlsx(ev.target?.result as ArrayBuffer);
+
+            // Convert zone rows to parsedRows format for the review step
+            const matched = result.rows
+              .filter(r => r.preco_unitario >= 1.00 && r.quantidade_vendida > 0)
+              .map(r => ({
+                date: result.header.session_date || new Date().toISOString().slice(0, 10),
+                event_name: result.header.event_name,
+                zone: r.zona,
+                lot: r.tipo_bilhete,
+                quantity: r.quantidade_vendida,
+                unit_price: r.preco_unitario,
+                total_value: r.valor_vendido,
+                matched_event_id: selectedEventId || "",
+                matched_zone_id: "",
+              }));
+
+            setParsedRows(matched);
+            setStep("review");
+            toast.success(`Formato Ticketline (Zona/Tipo) detectado: ${matched.length} linhas, ${result.totalQuantitySold} vendidos, ${result.totalRevenue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
+            return;
+          }
 
           if (isTicketlineFormat(workbook)) {
             const result = parseTicketlineXlsx(ev.target?.result as ArrayBuffer);
