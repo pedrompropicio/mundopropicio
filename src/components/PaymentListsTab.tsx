@@ -124,14 +124,20 @@ export default function PaymentListsTab() {
         .in("id", adminIds);
 
       const appUrl = `${window.location.origin}/relatorios/listas-pagamento`;
+      const sendAttemptId = crypto.randomUUID();
+      const recipientProfiles = (profiles ?? []).filter((profile: any) => !!profile.email);
 
-      for (const profile of (profiles ?? [])) {
-        if (!profile.email) continue;
-        await supabase.functions.invoke("send-transactional-email", {
+      if (recipientProfiles.length === 0) {
+        toast({ title: "Nenhum email de administrador encontrado", variant: "destructive" });
+        return;
+      }
+
+      for (const profile of recipientProfiles) {
+        const { error } = await supabase.functions.invoke("send-transactional-email", {
           body: {
             templateName: "payment-list-notification",
             recipientEmail: profile.email,
-            idempotencyKey: `payment-list-${list.id}-${profile.id}`,
+            idempotencyKey: `payment-list-${list.id}-${profile.id}-${sendAttemptId}`,
             templateData: {
               listTitle: list.title,
               paymentDate: formatDate(list.payment_date),
@@ -142,6 +148,8 @@ export default function PaymentListsTab() {
             },
           },
         });
+
+        if (error) throw error;
       }
 
       toast({ title: "Email enviado aos administradores!" });
@@ -315,6 +323,14 @@ export default function PaymentListsTab() {
                           <button onClick={() => setViewListId(list.id)} className="rounded p-1.5 hover:bg-muted" title="Ver detalhes">
                             <Eye className="h-4 w-4" />
                           </button>
+                          <button
+                            onClick={() => handleSendEmailToAdmin(list)}
+                            disabled={sendingEmailId === list.id}
+                            className="rounded p-1.5 text-primary hover:bg-primary/10 disabled:opacity-50"
+                            title="Enviar email para administradores"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </button>
                           {isAdmin && list.status === "pending_approval" && (
                             <>
                               <button
@@ -347,16 +363,6 @@ export default function PaymentListsTab() {
                               title="Reenviar para aprovação"
                             >
                               <Send className="h-4 w-4" />
-                            </button>
-                          )}
-                          {(list.status === "pending_approval" || list.status === "approved" || list.status === "partially_approved") && (
-                            <button
-                              onClick={() => handleSendEmailToAdmin(list)}
-                              disabled={sendingEmailId === list.id}
-                              className="rounded p-1.5 text-primary hover:bg-primary/10 disabled:opacity-50"
-                              title="Enviar email para administradores"
-                            >
-                              <Mail className="h-4 w-4" />
                             </button>
                           )}
                           {((list.status === "draft" || list.status === "rejected" || list.status === "revision") || ((isAdmin || isManager) && (list.status === "approved" || list.status === "settled"))) && (
