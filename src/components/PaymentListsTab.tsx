@@ -91,6 +91,66 @@ export default function PaymentListsTab() {
   const [viewListId, setViewListId] = useState<string | null>(null);
   const [revisionListId, setRevisionListId] = useState<string | null>(null);
   const [approveListId, setApproveListId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+
+  const handleSendEmailToAdmin = async (list: any) => {
+    setSendingEmailId(list.id);
+    try {
+      // Fetch items to compute total
+      const { data: itemsData } = await supabase
+        .from("payment_list_items")
+        .select("*, transactions(amount, iva_rate)")
+        .eq("payment_list_id", list.id);
+      const itemCount = itemsData?.length ?? 0;
+      const totalAmount = (itemsData ?? []).reduce((sum: number, item: any) => {
+        const tx = item.transactions;
+        if (!tx) return sum;
+        return sum + calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
+      }, 0);
+
+      // Fetch admin emails
+      const { data: adminRoles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "admin");
+      const adminIds = (adminRoles ?? []).map((r: any) => r.user_id);
+      if (adminIds.length === 0) {
+        toast({ title: "Nenhum administrador encontrado", variant: "destructive" });
+        return;
+      }
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .in("id", adminIds);
+
+      const appUrl = `${window.location.origin}/relatorios/listas-pagamento`;
+
+      for (const profile of (profiles ?? [])) {
+        if (!profile.email) continue;
+        await supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "payment-list-notification",
+            recipientEmail: profile.email,
+            idempotencyKey: `payment-list-${list.id}-${profile.id}`,
+            templateData: {
+              listTitle: list.title,
+              paymentDate: formatDate(list.payment_date),
+              itemCount,
+              totalAmount: formatCurrency(totalAmount),
+              createdBy: list.created_by ?? "sistema",
+              appUrl,
+            },
+          },
+        });
+      }
+
+      toast({ title: "Email enviado aos administradores!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao enviar email", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
   const { data: lists = [], isLoading: listsLoading } = useQuery({
     queryKey: ["payment-lists"],
     queryFn: async () => {
