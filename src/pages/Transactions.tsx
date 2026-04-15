@@ -715,6 +715,14 @@ export default function Transactions() {
         />
       )}
 
+      {showPaymentsListId && (
+        <TransactionPaymentsListModal
+          transaction={transactions.find((t) => t.id === showPaymentsListId) ?? { id: showPaymentsListId }}
+          isAdmin={canApprove}
+          onClose={() => setShowPaymentsListId(null)}
+        />
+      )}
+
       {/* Search + Filters + Bulk Actions */}
       <div className="flex flex-wrap items-center gap-2">
         {(["all", "income", "expense"] as const).map((f) => (
