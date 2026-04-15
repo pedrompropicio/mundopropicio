@@ -1110,6 +1110,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
@@ -1143,6 +1144,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
@@ -1176,6 +1178,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
@@ -1225,6 +1228,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
