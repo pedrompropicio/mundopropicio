@@ -565,28 +565,28 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
 
-    // Rule 2: Category exists in ALL child events but NOT in the parent → block & guide
-    if (splitParentEventIds.length > 0 && splitEventIds.length >= 2) {
-      const categoryInParent = parentForecasts.some(
-        f => f.type === form.type && f.category_id === form.category_id
-      );
-      if (!categoryInParent) {
-        const allChildrenHaveCategory = splitEventIds.every(eventId => {
-          return splitForecasts.some(
-            f => f.event_id === eventId && f.type === form.type && f.category_id === form.category_id
-          );
-        });
-        if (allChildrenHaveCategory) {
-          const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
-          const parentName = parentEvent?.name ?? "evento master";
-          const selectedCat = categories.find((c: any) => c.id === form.category_id);
-          const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
-          return `A categoria "${catLabel}" existe individualmente no BP de cada sub-evento, mas não no evento master (${parentName}). Para criar uma transação com rateio, primeiro adicione esta linha ao BP do evento master. O sistema fará a projeção automática para os sub-eventos.`;
-        }
-      }
-    }
+    // Rule 2: removed — now handled as warning only (splitCategoryWarning)
 
     return null;
+  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
+
+  // Warning (non-blocking): category in all children but not in master
+  const splitCategoryWarning = useMemo<string | null>(() => {
+    if (!isSplit || !form.category_id || splitEventIds.length < 2 || splitAutoConfigured) return null;
+    if (splitParentEventIds.length === 0) return null;
+    const categoryInParent = parentForecasts.some(
+      f => f.type === form.type && f.category_id === form.category_id
+    );
+    if (categoryInParent) return null;
+    const allChildrenHaveCategory = splitEventIds.every(eventId =>
+      splitForecasts.some(f => f.event_id === eventId && f.type === form.type && f.category_id === form.category_id)
+    );
+    if (!allChildrenHaveCategory) return null;
+    const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
+    const parentName = parentEvent?.name ?? "evento master";
+    const selectedCat = categories.find((c: any) => c.id === form.category_id);
+    const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
+    return `A categoria "${catLabel}" existe no BP dos sub-eventos mas não no master (${parentName}). A transação será criada normalmente.`;
   }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
 
   // Check if any split event needs BP bypass
@@ -1177,6 +1177,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                     Categoria bloqueada para rateio
                   </div>
                   <p className="text-xs text-destructive/90 leading-relaxed">{splitCategoryBlockReason}</p>
+                </div>
+              )}
+              {splitCategoryWarning && !splitCategoryBlockReason && (
+                <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-warning">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Aviso
+                  </div>
+                  <p className="text-xs text-warning/90 leading-relaxed">{splitCategoryWarning}</p>
                 </div>
               )}
               {/* BP Override toggle for split mode */}
