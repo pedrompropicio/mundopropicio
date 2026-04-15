@@ -10,6 +10,7 @@ interface PaymentItem {
   category?: string;
   event_name: string;
   supplier_name: string;
+  supplier_id?: string | null;
   iban: string;
   amount: number;
   iva_rate: number;
@@ -19,6 +20,59 @@ interface PaymentItem {
   payment_method?: string;
   payment_entity?: string | null;
   payment_reference?: string | null;
+  invoice_ref?: string | null;
+}
+
+interface PaymentGroup {
+  supplier_name: string;
+  supplier_id: string | null;
+  invoice_ref: string;
+  iban: string;
+  payment_method?: string;
+  payment_entity?: string | null;
+  payment_reference?: string | null;
+  items: PaymentItem[];
+  totalWithIva: number;
+}
+
+function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[]; ungrouped: PaymentItem[] } {
+  const groups: PaymentGroup[] = [];
+  const ungrouped: PaymentItem[] = [];
+  const map = new Map<string, PaymentItem[]>();
+
+  for (const item of items) {
+    const ref = item.invoice_ref?.trim();
+    const sid = item.supplier_id ?? "";
+    if (ref && sid) {
+      const key = `${sid}::${ref}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    } else {
+      ungrouped.push(item);
+    }
+  }
+
+  for (const [, groupItems] of map) {
+    if (groupItems.length > 1) {
+      const first = groupItems[0];
+      const totalWithIva = groupItems.reduce((s, i) => s + calcWithIva(i.amount, i.iva_rate), 0);
+      groups.push({
+        supplier_name: first.supplier_name,
+        supplier_id: first.supplier_id ?? null,
+        invoice_ref: first.invoice_ref!,
+        iban: first.iban,
+        payment_method: first.payment_method,
+        payment_entity: first.payment_entity,
+        payment_reference: first.payment_reference,
+        items: groupItems,
+        totalWithIva,
+      });
+    } else {
+      ungrouped.push(...groupItems);
+    }
+  }
+
+  return { groups, ungrouped };
 }
 
 interface PaymentListExport {
