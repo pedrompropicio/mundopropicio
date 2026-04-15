@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { X, Plus, Percent, Divide, AlertTriangle, DollarSign } from "lucide-react";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -44,24 +44,20 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
     if (onInputModeChange) onInputModeChange(mode);
     else setLocalMode(mode);
   };
-  // Store absolute values when totalAmount is not yet known
+  // Store absolute values entered by the user in absolute mode
   const [pendingAbsolute, setPendingAbsolute] = useState<Record<string, number>>({});
-  const prevTotalRef = useRef(totalAmount);
 
-  // When totalAmount becomes available and we have pending absolute values, convert to percentages
+  // Keep percentages in sync with absolute values whenever totalAmount changes
   useEffect(() => {
-    const wasMissing = prevTotalRef.current <= 0;
-    prevTotalRef.current = totalAmount;
-    if (totalAmount > 0 && wasMissing && Object.keys(pendingAbsolute).length > 0) {
-      const totalAbs = Object.values(pendingAbsolute).reduce((s, v) => s + v, 0);
-      if (totalAbs > 0) {
-        const newEntries = splitEntries.map((e) => {
-          const abs = pendingAbsolute[e.event_id] ?? 0;
+    if (totalAmount > 0 && Object.keys(pendingAbsolute).length > 0) {
+      const newEntries = splitEntries.map((e) => {
+        const abs = pendingAbsolute[e.event_id];
+        if (abs !== undefined) {
           return { ...e, percentage: +((abs / totalAmount) * 100).toFixed(4) };
-        });
-        onChange(newEntries);
-        setPendingAbsolute({});
-      }
+        }
+        return e;
+      });
+      onChange(newEntries);
     }
   }, [totalAmount]);
 
@@ -124,18 +120,22 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
 
   const updateAbsoluteValue = (idx: number, absValue: number) => {
     const entry = splitEntries[idx];
+    // Always store the user-entered absolute value as source of truth
+    setPendingAbsolute((prev) => ({ ...prev, [entry.event_id]: absValue }));
+    // If totalAmount is known, also update the percentage immediately
     if (totalAmount > 0) {
       const pct = +((absValue / totalAmount) * 100).toFixed(4);
       updatePercentage(idx, pct);
-    } else {
-      // Store pending absolute value for later conversion
-      setPendingAbsolute((prev) => ({ ...prev, [entry.event_id]: absValue }));
     }
   };
 
   const getAbsoluteValue = (entry: SplitEntry) => {
+    // Prefer user-entered absolute values over computed ones
+    if (pendingAbsolute[entry.event_id] !== undefined) {
+      return pendingAbsolute[entry.event_id];
+    }
     if (totalAmount > 0) return +(totalAmount * entry.percentage / 100).toFixed(2);
-    return pendingAbsolute[entry.event_id] ?? 0;
+    return 0;
   };
 
   const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
