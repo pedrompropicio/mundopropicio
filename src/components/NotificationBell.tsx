@@ -86,6 +86,20 @@ export function NotificationBell() {
     refetchInterval: 120_000,
   });
 
+  const { data: pendingPaymentLists = [] } = useQuery({
+    queryKey: ["notif-payment-lists"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payment_lists")
+        .select("id, title, payment_date, created_by, status")
+        .eq("status", "pending_approval")
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   const alerts = useMemo(() => {
     const result: Alert[] = [];
     const today = new Date();
@@ -156,7 +170,19 @@ export function NotificationBell() {
       });
     }
 
-    // 5. Budget exceeded
+    // 5. Pending payment lists
+    if (pendingPaymentLists.length > 0) {
+      result.push({
+        id: "pending-payment-lists",
+        type: "pending_approval",
+        severity: "warning",
+        title: "Listas de pagamento pendentes",
+        description: `${pendingPaymentLists.length} lista(s) aguardando aprovação`,
+        path: "/relatorios/listas-pagamento",
+      });
+    }
+
+    // 6. Budget exceeded
     events.forEach((evt) => {
       if (!evt.budget || evt.budget <= 0) return;
       const evtExpenses = allTransactions
@@ -185,7 +211,7 @@ export function NotificationBell() {
     });
 
     return result;
-  }, [transactions, events, allTransactions, pendingForecasts]);
+  }, [transactions, events, allTransactions, pendingForecasts, pendingPaymentLists]);
 
   const visibleAlerts = alerts.filter((a) => !dismissed.has(a.id));
   const errorCount = visibleAlerts.filter((a) => a.severity === "error").length;
