@@ -84,7 +84,7 @@ const statusMap: Record<ListStatus, { label: string; variant: "default" | "secon
 };
 
 export default function PaymentListsTab() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [viewListId, setViewListId] = useState<string | null>(null);
