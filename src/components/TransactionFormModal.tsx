@@ -565,26 +565,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
 
-    // Rule 2: Category exists in ALL child events but NOT in the parent → block & guide
-    if (splitParentEventIds.length > 0 && splitEventIds.length >= 2) {
-      const categoryInParent = parentForecasts.some(
-        f => f.type === form.type && f.category_id === form.category_id
-      );
-      if (!categoryInParent) {
-        const allChildrenHaveCategory = splitEventIds.every(eventId => {
-          return splitForecasts.some(
-            f => f.event_id === eventId && f.type === form.type && f.category_id === form.category_id
-          );
-        });
-        if (allChildrenHaveCategory) {
-          const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
-          const parentName = parentEvent?.name ?? "evento master";
-          const selectedCat = categories.find((c: any) => c.id === form.category_id);
-          const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
-          return `A categoria "${catLabel}" existe individualmente no BP de cada sub-evento, mas não no evento master (${parentName}). Para criar uma transação com rateio, primeiro adicione esta linha ao BP do evento master. O sistema fará a projeção automática para os sub-eventos.`;
-        }
-      }
-    }
+    // Rule 2: removed — now handled as warning only (splitCategoryWarning)
 
     return null;
   }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
