@@ -7,69 +7,92 @@ const corsHeaders = {
 };
 
 function buildPrompt(): string {
-  return `Analisa este PDF de bilheteira no formato "Relatório por Zona / Tipo de Bilhete" da Ticketline.
+  return `Analisa este PDF de bilheteira. Detecta automaticamente o formato (Ticketline ou BOL) e extrai os dados.
 
-ESTRUTURA DO RELATÓRIO:
-- O relatório está organizado por ZONAS reais do recinto (ex: "1ª Plateia", "Cadeiras de Orquestra", "Tribuna 1 Impar", "Galeria sem marcação").
-- Dentro de cada zona, existem sub-linhas por TIPO DE BILHETE (ex: "Normal", "Black Friday - 20%", "Promocode | Luiza", "Campanha Dia dos Namorados").
+=== FORMATO 1: TICKETLINE — "Relatório por Zona / Tipo de Bilhete" ===
+
+ESTRUTURA:
+- Organizado por ZONAS reais do recinto (ex: "1ª Plateia", "Cadeiras de Orquestra").
+- Dentro de cada zona, sub-linhas por TIPO DE BILHETE (ex: "Normal", "Black Friday - 20%").
 - Cada sub-linha tem: Preço Unitário (P. UN.), e múltiplas colunas de Qt./Valor.
 - 1ª Qt. = bilhetes CARREGADOS/CONFIGURADOS (total).
 - 2ª Qt. = bilhetes EFECTIVAMENTE VENDIDOS (pagos).
-- Linhas "SOMA" agrupam os subtotais de uma zona — NÃO extrair linhas SOMA.
+- Linhas "SOMA" agrupam subtotais — NÃO extrair.
 - Linha "TOTAL" no final — extrair para validação.
 
-IMPORTANTE: O PDF pode ter DUAS SECÇÕES:
-- "Total Geral" (sem filtro de data) — páginas iniciais
-- Uma secção com "Data do Evento" específica — páginas seguintes
-- Se houver duas secções, extrair APENAS a secção "Total Geral" (primeira secção, que tem TODOS os dados acumulados).
-- Se houver apenas uma secção, extrair essa.
+IMPORTANTE: Se houver duas secções ("Total Geral" e secção com "Data do Evento"), extrair APENAS "Total Geral".
 
-EXTRACÇÃO DO CABEÇALHO (OBRIGATÓRIA):
-- Nome do espetáculo/evento (ex: "Illusion Show Com Henry & Klauss") → "event_name"
-- Período de operações (ex: "Operações de 23-10-2025 a 05-04-2026") → "period_from" e "period_to" (formato YYYY-MM-DD)
-- Data e hora da sessão (ex: "Sessão: 05-04-2026 16:00") → "session_date" (YYYY-MM-DD) e "session_time" (HH:MM)
-- Local/Sala (ex: "COLISEU PORTO AGEAS") → "venue_name"
-- Nome da bilheteira (ex: "Ticketline") → "ticket_office_name"
+=== FORMATO 2: BOL — "Listagem de Sessão por Sector" ===
+
+ESTRUTURA:
+- Tabela com sectores/zonas na primeira coluna (ex: "Cadeiras Orquestra", "1ª Plateia", "Balcão Central Imp").
+- Colunas agrupadas: Disponíveis (Qt./Valor), Vendas Inteiras (Qt./Valor), Vendas Desconto (Qt./Valor), Convites (Qt.), Permutas (Qt.), Cartões (Qt./Valor).
+- Linha "TOTAL" no final com somas.
+- Rodapé indica "Bilhetes" (total) e "Receita" (total €).
+
+REGRAS ESPECÍFICAS BOL:
+- "zona" = nome do sector (ex: "1ª Plateia", "Balcão Central Imp").
+- Para cada sector, criar UMA ÚNICA linha com tipo_bilhete = "Inteira" para vendas inteiras e UMA linha com tipo_bilhete = "Desconto" para vendas com desconto (se quantidade > 0).
+- "preco_unitario" para Inteiras = Valor Inteiras / Qt. Inteiras. Para Descontos = Valor Descontos / Qt. Descontos.
+- "quantidade_total" = Qt. Disponíveis + Qt. Vendas Inteiras + Qt. Vendas Desconto + Qt. Convites + Qt. Permutas + Qt. Cartões (todos os bilhetes configurados para o sector).
+- "quantidade_vendida" = Qt. da respectiva categoria (Inteiras ou Desconto).
+- "valor_vendido" = Valor da respectiva categoria.
+- NÃO incluir Convites, Permutas ou Cartões como linhas separadas — são contados no quantidade_total mas não geram receita vendida.
+- O total de bilhetes (rodapé "Bilhetes") inclui TUDO: Disponíveis + Vendas + Convites + Permutas + Cartões.
+- O total de receita (rodapé "Receita") inclui Vendas Inteiras + Vendas Desconto + Cartões.
+
+=== EXTRACÇÃO DO CABEÇALHO (OBRIGATÓRIA — ambos formatos) ===
+- Nome do espetáculo/evento → "event_name"
+- Período de operações → "period_from" e "period_to" (YYYY-MM-DD)
+- Data e hora da sessão → "session_date" (YYYY-MM-DD) e "session_time" (HH:MM)
+- Local/Sala → "venue_name"
+- Nome da bilheteira (ex: "Ticketline", "BOL") → "ticket_office_name"
 - Se algum campo não existir, usar null.
+
+=== FORMATO DE SAÍDA (IGUAL para ambos) ===
 
 Devolve APENAS um JSON válido:
 {
+  "source": "ticketline" | "bol",
   "event_name": "Illusion Show Com Henry & Klauss",
-  "session_date": "2026-04-05",
-  "session_time": "16:00",
-  "venue_name": "COLISEU PORTO AGEAS",
-  "ticket_office_name": "Ticketline",
-  "period_from": "2025-10-23",
-  "period_to": "2026-04-05",
-  "total_quantity_all": 1982,
-  "total_quantity_sold": 1755,
-  "total_revenue": 59015.50,
+  "session_date": "2026-04-10",
+  "session_time": "21:00",
+  "venue_name": "Coliseu de Lisboa",
+  "ticket_office_name": "BOL",
+  "period_from": null,
+  "period_to": null,
+  "total_quantity_all": 2204,
+  "total_quantity_sold": 1980,
+  "total_revenue": 65869.30,
   "rows": [
     {
       "zona": "1ª Plateia",
-      "tipo_bilhete": "Normal",
+      "tipo_bilhete": "Inteira",
       "preco_unitario": 38.00,
-      "quantidade_total": 345,
-      "quantidade_vendida": 317,
-      "valor_vendido": 12046.00,
+      "quantidade_total": 468,
+      "quantidade_vendida": 320,
+      "valor_vendido": 12160.00,
+      "iva_rate": 6
+    },
+    {
+      "zona": "1ª Plateia",
+      "tipo_bilhete": "Desconto",
+      "preco_unitario": 32.25,
+      "quantidade_total": 468,
+      "quantidade_vendida": 82,
+      "valor_vendido": 2644.80,
       "iva_rate": 6
     }
   ]
 }
 
-REGRAS:
-- Cada linha de dados (NÃO "SOMA", NÃO "TOTAL") é uma row a extrair.
-- "zona" = nome da zona real do recinto (ex: "1ª Plateia", "Camarote 1ª Impar", "Tribuna 2 Par").
-- "tipo_bilhete" = tipo/campanha do bilhete (ex: "Normal", "Black Friday - 20%", "Promocode | Luiza").
-- "preco_unitario" = P. UN. da linha.
-- "quantidade_total" = 1ª coluna Qt. (total carregado).
-- "quantidade_vendida" = 2ª coluna Qt. (vendidos efectivos).
-- "valor_vendido" = 2º Valor (receita das vendas).
-- "iva_rate" = taxa IVA (se não disponível, usar 6).
+=== REGRAS GERAIS ===
+- "iva_rate": se não disponível, usar 6.
 - Extrair TODAS as linhas, mesmo com quantidade_vendida = 0.
 - DESCARTA linhas com preço unitário inferior a 1,00€.
-- Para a linha TOTAL: extrair total_quantity_all (1ª Qt), total_quantity_sold (2ª Qt), total_revenue (2º Valor).
-- VALIDAÇÃO: quantidade_vendida DEVE ser <= quantidade_total. Se não for, as colunas estão invertidas — corrigir.`;
+- Para a linha TOTAL: total_quantity_all, total_quantity_sold (vendidos efectivos), total_revenue.
+- VALIDAÇÃO: quantidade_vendida DEVE ser <= quantidade_total. Se não for, corrigir.
+- total_quantity_sold = soma de TODAS as vendas (inteiras + desconto + cartões com valor).`;
 }
 
 serve(async (req) => {
