@@ -6,6 +6,8 @@ import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface PaymentItem {
   description: string;
+  specification?: string;
+  category?: string;
   event_name: string;
   supplier_name: string;
   iban: string;
@@ -36,7 +38,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Descrição", "Fornecedor", "IBAN", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "IBAN", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
 
   let totalWithIva = 0;
@@ -50,7 +52,9 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     rows.push([
       i + 1,
       item.event_name,
+      item.category || "-",
       item.description,
+      item.specification || "-",
       item.supplier_name,
       item.iban,
       item.amount,
@@ -63,7 +67,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   });
 
   rows.push([]);
-  rows.push(["", "", "TOTAL", "", "", "", "", totalWithIva, totalPaid, totalWithIva - totalPaid, ""]);
+  rows.push(["", "", "", "TOTAL", "", "", "", totalWithIva, "", "", totalPaid, totalWithIva - totalPaid, ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
