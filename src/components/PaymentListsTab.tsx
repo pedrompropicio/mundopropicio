@@ -285,7 +285,7 @@ export default function PaymentListsTab() {
                               <Send className="h-4 w-4" />
                             </button>
                           )}
-                          {(list.status === "draft" || list.status === "rejected" || list.status === "revision") && (
+                          {((list.status === "draft" || list.status === "rejected" || list.status === "revision") || ((isAdmin || isManager) && (list.status === "approved" || list.status === "settled"))) && (
                             <button
                               onClick={() => { if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id); }}
                               className="rounded p-1.5 text-destructive hover:bg-destructive/10"
