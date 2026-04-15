@@ -175,6 +175,13 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   const effectiveSessionId = selectedSessionId ?? (manualSessionId || (eventSessions.length === 1 ? eventSessions[0].id : null));
   const selectedSession = eventSessions.find((s: any) => s.id === effectiveSessionId) ?? null;
   const requiresSessionSelection = eventSessions.length > 1 && !effectiveSessionId;
+  const effectiveImportPeriod = useMemo(() => {
+    const fallbackDate = selectedSession?.date || pdfHeader?.session_date || new Date().toISOString().slice(0, 10);
+    return {
+      from: pdfPeriodFrom || fallbackDate,
+      to: pdfPeriodTo || pdfPeriodFrom || fallbackDate,
+    };
+  }, [pdfHeader?.session_date, pdfPeriodFrom, pdfPeriodTo, selectedSession?.date]);
 
   // Fetch existing zones for reconciliation
   const { data: existingZones = [] } = useQuery({
@@ -445,8 +452,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       if (!eventId || extractedRows.length === 0) throw new Error("Selecione evento e ficheiro");
       if (requiresSessionSelection) throw new Error("Selecione a sessão correta antes de importar.");
 
-      const effectiveFrom = pdfPeriodFrom || new Date().toISOString().slice(0, 10);
-      const effectiveTo = pdfPeriodTo || effectiveFrom;
+      const { from: effectiveFrom, to: effectiveTo } = effectiveImportPeriod;
       const notesText = `Upload vendas período ${effectiveFrom} a ${effectiveTo}`;
 
       let imported = 0;
@@ -584,8 +590,8 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         event_id: eventId,
         financial_account_id: ticketOfficeId || null,
         import_type: importType,
-        period_from: pdfPeriodFrom || new Date().toISOString().slice(0, 10),
-        period_to: pdfPeriodTo || pdfPeriodFrom || new Date().toISOString().slice(0, 10),
+        period_from: effectiveImportPeriod.from,
+        period_to: effectiveImportPeriod.to,
         file_name: file?.name || null,
         rows_imported: result?.imported || 0,
         zones_created: result?.zonesCreated || 0,
@@ -670,8 +676,51 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     if (requiresSessionSelection) { toast({ title: "Selecione a sessão", variant: "destructive" }); return; }
 
     try {
-      const effectiveFrom = pdfPeriodFrom || new Date().toISOString().slice(0, 10);
-      const effectiveTo = pdfPeriodTo || effectiveFrom;
+      if (importType === "sales" && effectiveSessionId) {
+        const { data: sessionZones, error: zonesError } = await supabase
+          .from("event_ticket_zones")
+          .select("id")
+          .eq("event_id", eventId)
+          .eq("session_id", effectiveSessionId);
+
+        if (zonesError) throw zonesError;
+
+        const zoneIds = (sessionZones || []).map((zone: any) => zone.id).filter(Boolean);
+
+        if (zoneIds.length > 0) {
+          let salesQuery = supabase
+            .from("ticket_sales")
+            .select("id")
+            .in("zone_id", zoneIds)
+            .eq("source", "import");
+
+          if (ticketOfficeId) {
+            salesQuery = salesQuery.eq("financial_account_id", ticketOfficeId);
+          }
+
+          const { data: existingSales, error: salesError } = await salesQuery;
+          if (salesError) throw salesError;
+
+          if (existingSales && existingSales.length > 0) {
+            setDuplicateWarnings([
+              {
+                period_from: selectedSession?.date || effectiveImportPeriod.from,
+                period_to: selectedSession?.date || effectiveImportPeriod.to,
+                rows_imported: existingSales.length,
+                file_name: null,
+                session_label: selectedSession?.label || null,
+              },
+            ]);
+            setShowDuplicateConfirm(true);
+            return;
+          }
+        }
+
+        importMutation.mutate();
+        return;
+      }
+
+      const { from: effectiveFrom, to: effectiveTo } = effectiveImportPeriod;
       let logQuery = supabase
         .from("ticket_import_logs")
         .select("*")
@@ -942,16 +991,21 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-amber-500">
               <AlertTriangle className="h-5 w-5" />
-              Período com importações anteriores
+              {effectiveSessionId ? "Sessão com importações anteriores" : "Período com importações anteriores"}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p className="font-medium text-foreground">Existem importações anteriores para este período. Cancelamentos e ajustes da bilheteira podem justificar uma nova importação.</p>
+                <p className="font-medium text-foreground">
+                  {effectiveSessionId
+                    ? "Já existem vendas importadas para a sessão selecionada. Cancelamentos e ajustes podem justificar uma nova importação."
+                    : "Existem importações anteriores para este período. Cancelamentos e ajustes da bilheteira podem justificar uma nova importação."}
+                </p>
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                   {duplicateWarnings.map((w: any, i: number) => (
                     <div key={i} className="text-xs">
                       <span className="font-medium">{w.period_from} — {w.period_to}</span>
                       {w.file_name && <span className="text-muted-foreground ml-2">({w.file_name})</span>}
+                      {!w.file_name && w.session_label && <span className="text-muted-foreground ml-2">({w.session_label})</span>}
                       <span className="text-muted-foreground ml-2">• {w.rows_imported} linhas</span>
                     </div>
                   ))}
