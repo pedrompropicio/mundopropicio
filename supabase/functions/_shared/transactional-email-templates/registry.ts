@@ -10,7 +10,9 @@ export interface TemplateEntry {
 }
 
 import { template as securityAlert } from './security-alert.tsx'
+import { template as paymentListNotification } from './payment-list-notification.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'security-alert': securityAlert,
+  'payment-list-notification': paymentListNotification,
 }
