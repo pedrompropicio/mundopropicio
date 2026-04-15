@@ -706,6 +706,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           paid_amount: Number(item.transactions?.paid_amount ?? 0),
           due_date: item.transactions?.due_date,
           date: item.transactions?.date ?? "",
+          payment_method: item.transactions?.payment_method ?? "transfer",
+          payment_entity: item.transactions?.payment_entity,
+          payment_reference: item.transactions?.payment_reference,
         })),
       };
       if (format === "pdf") await exportPaymentListToPDF(exportData);
@@ -737,12 +740,18 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const event = tx?.events?.name ?? "-";
       const desc = tx?.description ?? "-";
       const shortDesc = desc.length > 27 ? desc.substring(0, 24) + "..." : desc;
+      const isRefPayment = tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment";
 
       lines.push(`${status} *${idx + 1}.*`);
       lines.push(`Evento: ${event}`);
       if (tx?.account_categories) lines.push(`Categoria: ${tx.account_categories.code} ${tx.account_categories.name}`);
-      lines.push(`IBAN: ${iban}`);
-      lines.push(`Entidade: ${supplier}`);
+      if (isRefPayment) {
+        lines.push(`Entidade: ${tx?.payment_entity ?? "-"}`);
+        lines.push(`Referência: ${tx?.payment_reference ?? "-"}`);
+      } else {
+        lines.push(`IBAN: ${iban}`);
+      }
+      lines.push(`Fornecedor: ${supplier}`);
       lines.push(`Descrição: ${desc}`);
       if (tx?.specification) lines.push(`Especificação: ${tx.specification}`);
       lines.push(`Resumo: ${shortDesc}`);
@@ -873,7 +882,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     )}
                     <div className="flex-1 space-y-1">
                       <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
-                      <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                      {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
+                        <>
+                          <CopyLine label="Entidade Pgto" value={tx?.payment_entity ?? "-"} mono />
+                          <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
+                        </>
+                      ) : (
+                        <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                      )}
                       <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
                       {tx?.account_categories && (
                         <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
