@@ -211,7 +211,7 @@ export function NotificationBell() {
     });
 
     return result;
-  }, [transactions, events, allTransactions, pendingForecasts]);
+  }, [transactions, events, allTransactions, pendingForecasts, pendingPaymentLists]);
 
   const visibleAlerts = alerts.filter((a) => !dismissed.has(a.id));
   const errorCount = visibleAlerts.filter((a) => a.severity === "error").length;
