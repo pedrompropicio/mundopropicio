@@ -4,12 +4,13 @@ import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrencyDecimal, formatDate } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 
-interface PaymentItem {
+export interface PaymentItem {
   description: string;
   specification?: string;
   category?: string;
   event_name: string;
   supplier_name: string;
+  supplier_id?: string | null;
   iban: string;
   amount: number;
   iva_rate: number;
@@ -19,6 +20,7 @@ interface PaymentItem {
   payment_method?: string;
   payment_entity?: string | null;
   payment_reference?: string | null;
+  invoice_ref?: string | null;
 }
 
 interface PaymentListExport {
@@ -33,21 +35,129 @@ function calcWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
+export interface PaymentGroup {
+  supplier_name: string;
+  supplier_id: string | null;
+  invoice_ref: string;
+  iban: string;
+  payment_method?: string;
+  payment_entity?: string | null;
+  payment_reference?: string | null;
+  items: PaymentItem[];
+  totalWithIva: number;
+}
+
+/** Groups items that share the same supplier + invoice_ref (>1 item). Others remain ungrouped. */
+export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[]; ungrouped: PaymentItem[] } {
+  const groups: PaymentGroup[] = [];
+  const ungrouped: PaymentItem[] = [];
+  const map = new Map<string, PaymentItem[]>();
+
+  for (const item of items) {
+    const ref = item.invoice_ref?.trim();
+    const sid = item.supplier_id ?? "";
+    if (ref && sid) {
+      const key = `${sid}::${ref}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    } else {
+      ungrouped.push(item);
+    }
+  }
+
+  for (const [, groupItems] of map) {
+    if (groupItems.length > 1) {
+      const first = groupItems[0];
+      const totalWithIva = groupItems.reduce((s, i) => s + calcWithIva(i.amount, i.iva_rate), 0);
+      groups.push({
+        supplier_name: first.supplier_name,
+        supplier_id: first.supplier_id ?? null,
+        invoice_ref: first.invoice_ref!,
+        iban: first.iban,
+        payment_method: first.payment_method,
+        payment_entity: first.payment_entity,
+        payment_reference: first.payment_reference,
+        items: groupItems,
+        totalWithIva,
+      });
+    } else {
+      ungrouped.push(...groupItems);
+    }
+  }
+
+  return { groups, ungrouped };
+}
+
 export function exportPaymentListToExcel(data: PaymentListExport) {
   const wb = XLSX.utils.book_new();
+  const { groups, ungrouped } = groupPaymentItems(data.items);
 
   const rows: any[][] = [
     [`CONTAS A PAGAR DO DIA - ${data.title}`],
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
 
   let totalWithIva = 0;
   let totalPaid = 0;
+  let idx = 1;
 
-  data.items.forEach((item, i) => {
+  // Render grouped items first
+  for (const group of groups) {
+    const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
+    const paymentInfo = isRefPayment
+      ? `Ent: ${group.payment_entity ?? "-"} / Ref: ${group.payment_reference ?? "-"}`
+      : group.iban;
+
+    // Group header row
+    rows.push([
+      `${idx}`,
+      "",
+      "",
+      `AGRUPADO — Fatura: ${group.invoice_ref}`,
+      "",
+      group.supplier_name,
+      group.invoice_ref,
+      paymentInfo,
+      "",
+      "",
+      group.totalWithIva,
+      "",
+      "",
+      "",
+    ]);
+    totalWithIva += group.totalWithIva;
+
+    // Sub-items
+    for (const item of group.items) {
+      const withIva = calcWithIva(item.amount, item.iva_rate);
+      const balance = withIva - item.paid_amount;
+      totalPaid += item.paid_amount;
+
+      rows.push([
+        "",
+        item.event_name,
+        item.category || "-",
+        `  ↳ ${item.description}`,
+        item.specification || "-",
+        "",
+        "",
+        "",
+        item.amount,
+        `${item.iva_rate}%`,
+        withIva,
+        item.paid_amount,
+        balance,
+        item.due_date ? formatDate(item.due_date) : "-",
+      ]);
+    }
+    idx++;
+  }
+
+  // Render ungrouped items
+  for (const item of ungrouped) {
     const withIva = calcWithIva(item.amount, item.iva_rate);
     const balance = withIva - item.paid_amount;
     totalWithIva += withIva;
@@ -59,12 +169,13 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       : item.iban;
 
     rows.push([
-      i + 1,
+      idx,
       item.event_name,
       item.category || "-",
       item.description,
       item.specification || "-",
       item.supplier_name,
+      item.invoice_ref || "-",
       paymentInfo,
       item.amount,
       `${item.iva_rate}%`,
@@ -73,10 +184,11 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       balance,
       item.due_date ? formatDate(item.due_date) : "-",
     ]);
-  });
+    idx++;
+  }
 
   rows.push([]);
-  rows.push(["", "", "", "TOTAL", "", "", "", totalWithIva, "", "", totalPaid, totalWithIva - totalPaid, ""]);
+  rows.push(["", "", "", "", "TOTAL", "", "", "", totalWithIva, "", "", totalPaid, totalWithIva - totalPaid, ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
@@ -86,6 +198,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     { wch: 30 },
     { wch: 20 },
     { wch: 20 },
+    { wch: 16 },
     { wch: 28 },
     { wch: 14 },
     { wch: 8 },
@@ -129,29 +242,111 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
 
   y += 4;
   let totalValue = 0;
+  let itemIdx = 0;
 
-  data.items.forEach((item, i) => {
-    const withIva = calcWithIva(item.amount, item.iva_rate);
-    totalValue += withIva;
+  const { groups, ungrouped } = groupPaymentItems(data.items);
 
-    if (y + lineHeight * 6 > doc.internal.pageSize.getHeight() - 20) {
+  const labelX = marginLeft + 8;
+  const valueX = marginLeft + 38;
+
+  const checkPage = (linesNeeded: number) => {
+    if (y + lineHeight * linesNeeded > doc.internal.pageSize.getHeight() - 20) {
       doc.addPage();
       y = 18;
     }
+  };
 
-    if (i > 0) {
+  const renderSeparator = () => {
+    if (itemIdx > 0) {
       doc.setDrawColor(200, 200, 200);
       doc.line(marginLeft, y - 2, pageWidth - marginLeft, y - 2);
       y += 2;
     }
+  };
+
+  // Render grouped items
+  for (const group of groups) {
+    checkPage(6 + group.items.length * 4);
+    renderSeparator();
 
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(`${i + 1}.`, marginLeft, y);
+    doc.text(`${itemIdx + 1}.`, marginLeft, y);
     doc.setFont("helvetica", "normal");
 
-    const labelX = marginLeft + 8;
-    const valueX = marginLeft + 38;
+    // Supplier + invoice header
+    doc.setTextColor(120, 120, 120);
+    doc.text("Fornecedor:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(group.supplier_name, valueX, y);
+    y += lineHeight;
+
+    doc.setTextColor(120, 120, 120);
+    doc.text("Fatura:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text(group.invoice_ref, valueX, y);
+    doc.setFont("helvetica", "normal");
+    y += lineHeight;
+
+    const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
+    if (isRefPayment) {
+      doc.setTextColor(120, 120, 120);
+      doc.text("Entidade:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(group.payment_entity ?? "-", valueX, y);
+      y += lineHeight;
+
+      doc.setTextColor(120, 120, 120);
+      doc.text("Referência:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(group.payment_reference ?? "-", valueX, y);
+      y += lineHeight;
+    } else {
+      doc.setTextColor(120, 120, 120);
+      doc.text("IBAN:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(group.iban || "-", valueX, y);
+      y += lineHeight;
+    }
+
+    // Sub-items
+    for (const item of group.items) {
+      checkPage(3);
+      const withIva = calcWithIva(item.amount, item.iva_rate);
+      doc.setTextColor(120, 120, 120);
+      doc.text("  ↳", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      const descLine = `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)}`;
+      doc.text(descLine, labelX + 10, y);
+      y += lineHeight;
+    }
+
+    // Group total
+    doc.setTextColor(120, 120, 120);
+    doc.text("Total Fatura:", labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text(formatCurrencyDecimal(group.totalWithIva), valueX, y);
+    doc.setFont("helvetica", "normal");
+    y += lineHeight + 4;
+
+    totalValue += group.totalWithIva;
+    itemIdx++;
+  }
+
+  // Render ungrouped items
+  for (const item of ungrouped) {
+    const withIva = calcWithIva(item.amount, item.iva_rate);
+    totalValue += withIva;
+
+    checkPage(6);
+    renderSeparator();
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${itemIdx + 1}.`, marginLeft, y);
+    doc.setFont("helvetica", "normal");
 
     doc.setTextColor(120, 120, 120);
     doc.text("Evento:", labelX, y);
@@ -217,7 +412,9 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.text(formatCurrencyDecimal(withIva), valueX, y);
     doc.setFont("helvetica", "normal");
     y += lineHeight + 4;
-  });
+
+    itemIdx++;
+  }
 
   doc.setDrawColor(100, 100, 100);
   doc.line(marginLeft, y - 2, pageWidth - marginLeft, y - 2);

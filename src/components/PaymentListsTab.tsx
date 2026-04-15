@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { exportPaymentListToExcel, exportPaymentListToPDF } from "@/lib/export-payment-list";
+import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems } from "@/lib/export-payment-list";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote,
@@ -703,6 +703,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           category: item.transactions?.account_categories ? `${item.transactions.account_categories.code} ${item.transactions.account_categories.name}` : "",
           event_name: item.transactions?.events?.name ?? "-",
           supplier_name: item.transactions?.suppliers?.name ?? "-",
+          supplier_id: item.transactions?.supplier_id ?? null,
           iban: item.transactions?.suppliers?.iban ?? "-",
           amount: Number(item.transactions?.amount ?? 0),
           iva_rate: Number(item.transactions?.iva_rate ?? 23),
@@ -712,6 +713,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           payment_method: item.transactions?.payment_method ?? "transfer",
           payment_entity: item.transactions?.payment_entity,
           payment_reference: item.transactions?.payment_reference,
+          invoice_ref: item.transactions?.invoice_ref ?? null,
         })),
       };
       if (format === "pdf") await exportPaymentListToPDF(exportData);
@@ -724,52 +726,88 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
   const handleCopyWhatsApp = () => {
     if (!list || items.length === 0) return;
+
+    const exportItems = items.map((item: any) => {
+      const tx = item.transactions;
+      return {
+        description: tx?.description ?? "-",
+        specification: tx?.specification ?? "",
+        category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
+        event_name: tx?.events?.name ?? "-",
+        supplier_name: tx?.suppliers?.name ?? "-",
+        supplier_id: tx?.supplier_id ?? null,
+        iban: tx?.suppliers?.iban ?? "-",
+        amount: Number(tx?.amount ?? 0),
+        iva_rate: Number(tx?.iva_rate ?? 23),
+        paid_amount: Number(tx?.paid_amount ?? 0),
+        due_date: tx?.due_date,
+        date: tx?.date ?? "",
+        payment_method: tx?.payment_method ?? "transfer",
+        payment_entity: tx?.payment_entity,
+        payment_reference: tx?.payment_reference,
+        invoice_ref: tx?.invoice_ref ?? null,
+      };
+    });
+
+    const { groups, ungrouped } = groupPaymentItems(exportItems);
     const lines: string[] = [];
     lines.push(`📋 *${list.title}*`);
     lines.push(`📅 Data: ${formatDate(list.payment_date)}`);
     if (list.approved_by) lines.push(`✅ Aprovada por: ${list.approved_by}`);
     lines.push("");
 
-    items.forEach((item: any, idx: number) => {
-      const tx = item.transactions;
-      const amount = Number(tx?.amount ?? 0);
-      const ivaRate = Number(tx?.iva_rate ?? 23);
-      const withIva = amount * (1 + ivaRate / 100);
-      const paid = Number(tx?.paid_amount ?? 0);
-      const isPaid = paid >= amount || tx?.status === "paid";
-      const status = isPaid ? "✅" : "⬜";
-      const supplier = tx?.suppliers?.name ?? "-";
-      const iban = tx?.suppliers?.iban ?? "-";
-      const event = tx?.events?.name ?? "-";
-      const desc = tx?.description ?? "-";
-      const shortDesc = desc.length > 27 ? desc.substring(0, 24) + "..." : desc;
-      const isRefPayment = tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment";
+    let idx = 1;
 
-      lines.push(`${status} *${idx + 1}.*`);
-      lines.push(`Evento: ${event}`);
-      if (tx?.account_categories) lines.push(`Categoria: ${tx.account_categories.code} ${tx.account_categories.name}`);
+    // Grouped items
+    for (const group of groups) {
+      const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
+      lines.push(`⬜ *${idx}.* 📎 Fatura Agrupada: ${group.invoice_ref}`);
+      lines.push(`Fornecedor: ${group.supplier_name}`);
       if (isRefPayment) {
-        lines.push(`Entidade: ${tx?.payment_entity ?? "-"}`);
-        lines.push(`Referência: ${tx?.payment_reference ?? "-"}`);
+        lines.push(`Entidade: ${group.payment_entity ?? "-"}`);
+        lines.push(`Referência: ${group.payment_reference ?? "-"}`);
       } else {
-        lines.push(`IBAN: ${iban}`);
+        lines.push(`IBAN: ${group.iban}`);
       }
-      lines.push(`Fornecedor: ${supplier}`);
-      lines.push(`Descrição: ${desc}`);
-      if (tx?.specification) lines.push(`Especificação: ${tx.specification}`);
-      lines.push(`Resumo: ${shortDesc}`);
+      for (const item of group.items) {
+        const withIva = item.amount * (1 + item.iva_rate / 100);
+        lines.push(`  ↳ ${item.description} (${item.event_name}) — ${formatCurrency(withIva)}`);
+      }
+      lines.push(`*Total: ${formatCurrency(group.totalWithIva)}*`);
+      lines.push("───────────────");
+      idx++;
+    }
+
+    // Ungrouped items
+    for (const item of ungrouped) {
+      const withIva = item.amount * (1 + item.iva_rate / 100);
+      const paid = item.paid_amount;
+      const isPaid = paid >= item.amount;
+      const status = isPaid ? "✅" : "⬜";
+      const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
+
+      lines.push(`${status} *${idx}.*`);
+      lines.push(`Evento: ${item.event_name}`);
+      if (item.category) lines.push(`Categoria: ${item.category}`);
+      if (isRefPayment) {
+        lines.push(`Entidade: ${item.payment_entity ?? "-"}`);
+        lines.push(`Referência: ${item.payment_reference ?? "-"}`);
+      } else {
+        lines.push(`IBAN: ${item.iban}`);
+      }
+      lines.push(`Fornecedor: ${item.supplier_name}`);
+      lines.push(`Descrição: ${item.description}`);
+      if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
       if (paid > 0 && !isPaid) {
-        lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + ivaRate / 100))}`);
+        lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + item.iva_rate / 100))}`);
       }
       lines.push("───────────────");
-    });
+      idx++;
+    }
 
-    const total = items.reduce((sum: number, item: any) => {
-      const tx = item.transactions;
-      const amount = Number(tx?.amount ?? 0);
-      const ivaRate = Number(tx?.iva_rate ?? 23);
-      return sum + amount * (1 + ivaRate / 100);
+    const total = exportItems.reduce((sum, item) => {
+      return sum + item.amount * (1 + item.iva_rate / 100);
     }, 0);
     lines.push(`💰 *Total: ${formatCurrency(total)}*`);
 
@@ -843,100 +881,165 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           <p className="py-4 text-center text-muted-foreground">A carregar itens…</p>
         ) : items.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">Sem itens nesta lista.</p>
-        ) : (
-          <div className="space-y-3">
-             {items.map((item: any) => {
-              const tx = item.transactions;
-              const amount = Number(tx?.amount ?? 0);
-              const ivaRate = Number(tx?.iva_rate ?? 23);
-              const withIva = amount * (1 + ivaRate / 100);
-              const paid = Number(tx?.paid_amount ?? 0);
-              const isPaid = paid >= amount || tx?.status === "paid";
-              const isSelectable = isApproved && !isPaid && tx;
-              const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
-              const manuallyMarked = !!item.manually_marked_paid;
+        ) : (() => {
+          // Build grouped view
+          const exportItems = items.map((item: any) => {
+            const tx = item.transactions;
+            return {
+              _item: item,
+              description: tx?.description ?? "-",
+              specification: tx?.specification ?? "",
+              category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
+              event_name: tx?.events?.name ?? "-",
+              supplier_name: tx?.suppliers?.name ?? "-",
+              supplier_id: tx?.supplier_id ?? null,
+              iban: tx?.suppliers?.iban ?? "-",
+              amount: Number(tx?.amount ?? 0),
+              iva_rate: Number(tx?.iva_rate ?? 23),
+              paid_amount: Number(tx?.paid_amount ?? 0),
+              due_date: tx?.due_date,
+              date: tx?.date ?? "",
+              payment_method: tx?.payment_method ?? "transfer",
+              payment_entity: tx?.payment_entity,
+              payment_reference: tx?.payment_reference,
+              invoice_ref: tx?.invoice_ref ?? null,
+            };
+          });
+          const { groups, ungrouped } = groupPaymentItems(exportItems as any);
 
-              return (
-                <div
-                  key={item.id}
-                  className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
-                    isPaid
-                      ? "border-success/30 bg-success/5 opacity-70"
-                      : manuallyMarked
-                      ? "border-emerald-500/30 bg-emerald-500/5"
-                      : selectedTxIds.has(tx?.id)
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border/50 bg-muted/20"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {isApproved && unpaidItems.length > 0 && (
-                      <div className="pt-0.5">
-                        {isSelectable ? (
-                          <Checkbox
-                            checked={selectedTxIds.has(tx.id)}
-                            onCheckedChange={() => toggleTx(tx.id)}
-                            className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
-                          />
-                        ) : (
-                          <span className="inline-flex h-4 w-4 items-center justify-center text-success">✓</span>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-1">
-                      <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
-                      {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
-                        <>
-                          <CopyLine label="Entidade Pgto" value={tx?.payment_entity ?? "-"} mono />
-                          <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
-                        </>
+          const renderItem = (item: any) => {
+            const tx = item.transactions;
+            const amount = Number(tx?.amount ?? 0);
+            const ivaRate = Number(tx?.iva_rate ?? 23);
+            const withIva = amount * (1 + ivaRate / 100);
+            const paid = Number(tx?.paid_amount ?? 0);
+            const isPaid = paid >= amount || tx?.status === "paid";
+            const isSelectable = isApproved && !isPaid && tx;
+            const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
+            const manuallyMarked = !!item.manually_marked_paid;
+
+            return (
+              <div
+                key={item.id}
+                className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
+                  isPaid
+                    ? "border-success/30 bg-success/5 opacity-70"
+                    : manuallyMarked
+                    ? "border-emerald-500/30 bg-emerald-500/5"
+                    : selectedTxIds.has(tx?.id)
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-border/50 bg-muted/20"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {isApproved && unpaidItems.length > 0 && (
+                    <div className="pt-0.5">
+                      {isSelectable ? (
+                        <Checkbox
+                          checked={selectedTxIds.has(tx.id)}
+                          onCheckedChange={() => toggleTx(tx.id)}
+                          className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
+                        />
                       ) : (
-                        <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                        <span className="inline-flex h-4 w-4 items-center justify-center text-success">✓</span>
                       )}
-                      <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
-                      {tx?.account_categories && (
-                        <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1">
+                    <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
+                    {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
+                      <>
+                        <CopyLine label="Entidade Pgto" value={tx?.payment_entity ?? "-"} mono />
+                        <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
+                      </>
+                    ) : (
+                      <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                    )}
+                    <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                    {tx?.account_categories && (
+                      <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
+                    )}
+                    <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
+                    {tx?.specification && (
+                      <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
+                    )}
+                    <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
+                    {bpCheck.exceeds && (
+                      <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                    )}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {paid > 0 && !isPaid && (
+                        <>
+                          <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
+                          <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
+                        </>
                       )}
-                      <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
-                      {tx?.specification && (
-                        <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
+                      {isPaid && (
+                        <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
                       )}
-                      <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
-                      {bpCheck.exceeds && (
-                        <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                      {!isPaid && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
+                          className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
+                            manuallyMarked
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                              : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
+                          }`}
+                          title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
+                        >
+                          <Banknote className="h-3.5 w-3.5" />
+                          {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
+                        </button>
                       )}
-                      <div className="flex items-center gap-4 flex-wrap">
-                        {paid > 0 && !isPaid && (
-                          <>
-                            <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
-                            <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
-                          </>
-                        )}
-                        {isPaid && (
-                          <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
-                        )}
-                        {!isPaid && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
-                            className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
-                              manuallyMarked
-                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                                : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
-                            }`}
-                            title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
-                          >
-                            <Banknote className="h-3.5 w-3.5" />
-                            {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          };
+
+          return (
+            <div className="space-y-3">
+              {/* Grouped items */}
+              {groups.map((group) => {
+                const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
+                const groupItems = group.items.map((gi: any) => gi._item).filter(Boolean);
+                return (
+                  <div key={`group-${group.supplier_id}-${group.invoice_ref}`} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">📎 Fatura Agrupada</Badge>
+                      <span className="font-semibold">{group.supplier_name}</span>
+                      <span className="text-muted-foreground">—</span>
+                      <span className="font-mono text-xs">{group.invoice_ref}</span>
+                    </div>
+                    <div className="pl-2 space-y-1 text-xs text-muted-foreground">
+                      {isRefPayment ? (
+                        <>
+                          <CopyLine label="Entidade" value={group.payment_entity ?? "-"} mono />
+                          <CopyLine label="Referência" value={group.payment_reference ?? "-"} mono />
+                        </>
+                      ) : (
+                        <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
+                      )}
+                      <p className="font-semibold text-sm text-foreground">
+                        Total a transferir: <span className="font-mono">{formatCurrency(group.totalWithIva)}</span>
+                      </p>
+                    </div>
+                    <div className="space-y-2 pl-2 border-l-2 border-primary/20 ml-1">
+                      {groupItems.map((gi: any) => renderItem(gi))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Ungrouped items */}
+              {ungrouped.map((ui: any) => renderItem(ui._item ?? items.find((i: any) => {
+                const tx = i.transactions;
+                return tx?.description === ui.description && tx?.supplier_id === ui.supplier_id;
+              }) ?? ui))}
+            </div>
+          );
+        })()}
 
         <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
