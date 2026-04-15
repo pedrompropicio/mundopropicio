@@ -259,6 +259,7 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
                 total_value: r.valor_vendido,
                 matched_event_id: selectedEventId || "",
                 matched_zone_id: "",
+                status: "unmatched" as const,
               }));
 
             setParsedRows(matched);
