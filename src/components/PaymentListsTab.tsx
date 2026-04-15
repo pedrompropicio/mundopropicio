@@ -831,7 +831,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           <p className="py-4 text-center text-muted-foreground">Sem itens nesta lista.</p>
         ) : (
           <div className="space-y-3">
-            {items.map((item: any) => {
+             {items.map((item: any) => {
               const tx = item.transactions;
               const amount = Number(tx?.amount ?? 0);
               const ivaRate = Number(tx?.iva_rate ?? 23);
@@ -840,6 +840,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               const isPaid = paid >= amount || tx?.status === "paid";
               const isSelectable = isApproved && !isPaid && tx;
               const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
+              const manuallyMarked = !!item.manually_marked_paid;
 
               return (
                 <div
@@ -847,6 +848,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
                     isPaid
                       ? "border-success/30 bg-success/5 opacity-70"
+                      : manuallyMarked
+                      ? "border-amber-500/30 bg-amber-500/5 opacity-80"
                       : selectedTxIds.has(tx?.id)
                       ? "border-primary/50 bg-primary/5"
                       : "border-border/50 bg-muted/20"
@@ -889,6 +892,19 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         )}
                         {isPaid && (
                           <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
+                        )}
+                        {!isPaid && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
+                            className={`flex items-center gap-1.5 text-xs rounded-md px-2 py-1 transition-colors ${
+                              manuallyMarked
+                                ? "bg-amber-500/15 text-amber-500 hover:bg-amber-500/25"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {manuallyMarked ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                            {manuallyMarked ? "Marcado como pago" : "Marcar como pago"}
+                          </button>
                         )}
                       </div>
                     </div>
