@@ -1691,6 +1691,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
+  const [auditTransactionId, setAuditTransactionId] = useState<string | null>(null);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
 
@@ -2038,35 +2039,49 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   const todayStr = new Date().toISOString().slice(0, 10);
                   const isOverdue = !isPaid && tx.due_date && tx.due_date.slice(0, 10) < todayStr;
                   return (
-                    <button
+                    <div
                       key={tx.id}
-                      type="button"
-                      onClick={() => setViewingTransaction(tx)}
-                      className="block w-full text-left rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors cursor-pointer"
+                      className="rounded-lg border border-border/30 bg-background/50 px-3 py-2 hover:bg-primary/5 hover:border-primary/30 transition-colors"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{tx.description}</p>
-                          {tx.specification && <p className="text-[10px] text-muted-foreground truncate">{tx.specification}</p>}
+                      <button
+                        type="button"
+                        onClick={() => setViewingTransaction(tx)}
+                        className="block w-full text-left cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{tx.description}</p>
+                            {tx.specification && <p className="text-[10px] text-muted-foreground truncate">{tx.specification}</p>}
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              isPaid ? "bg-success/15 text-success" :
+                              isOverdue ? "bg-destructive/15 text-destructive" :
+                              "bg-blue-500/15 text-blue-400"
+                            }`}>
+                              {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
+                            </span>
+                            <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                            isPaid ? "bg-success/15 text-success" :
-                            isOverdue ? "bg-destructive/15 text-destructive" :
-                            "bg-blue-500/15 text-blue-400"
-                          }`}>
-                            {isPaid ? "Pago" : isOverdue ? "Atrasado" : "A Pagar"}
-                          </span>
-                          <span className="font-mono text-xs font-semibold">{formatCurrency(txTotal)}</span>
+                        <div className="flex items-center gap-4 mt-1 text-[10px] text-muted-foreground">
+                          {tx.due_date && <span>Vcto: {format(new Date(tx.due_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
+                          <span>Pago: {formatCurrency(txPaid)}</span>
+                          {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
+                          {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
                         </div>
+                      </button>
+                      <div className="flex justify-end mt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setAuditTransactionId(tx.id); }}
+                          className="rounded p-1 hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                          title="Histórico de alterações"
+                        >
+                          <History className="h-3 w-3" />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-4 mt-1 text-[10px] text-muted-foreground">
-                        {tx.due_date && <span>Vcto: {format(new Date(tx.due_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
-                        <span>Pago: {formatCurrency(txPaid)}</span>
-                        {txBalance > 0.01 && <span className="text-warning">Aberto: {formatCurrency(txBalance)}</span>}
-                        {tx.payment_date && <span>Pago em: {format(new Date(tx.payment_date + "T12:00:00"), "dd/MM/yyyy")}</span>}
-                      </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
