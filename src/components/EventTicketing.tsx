@@ -5,13 +5,15 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock } from "lucide-react";
+import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { TicketForecastImportModal } from "@/components/TicketForecastImportModal";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -57,6 +59,7 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 }
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
+  const [forecastImportOpen, setForecastImportOpen] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -572,15 +575,23 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       <div className="glass rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
-          {canEditTickets && (
-            <button
-              onClick={() => { setAddingZone(true); setEditingZoneId(null); setZoneForm(emptyZone); }}
-              disabled={addingZone}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
-            >
-              <Plus className="h-3.5 w-3.5" /> Nova Zona
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canEditTickets && (
+              <Button variant="outline" size="sm" onClick={() => setForecastImportOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" /> Importar Previsão
+              </Button>
+            )}
+            {canEditTickets && (
+              <button
+                onClick={() => { setAddingZone(true); setEditingZoneId(null); setZoneForm(emptyZone); }}
+                disabled={addingZone}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <Plus className="h-3.5 w-3.5" /> Nova Zona
+              </button>
+            )}
+          </div>
+          <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
         </div>
 
         {isLoading ? (

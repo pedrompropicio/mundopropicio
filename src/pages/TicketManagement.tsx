@@ -17,7 +17,7 @@ import {
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload, AlertTriangle,
 } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
-import { TicketForecastImportModal } from "@/components/TicketForecastImportModal";
+
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 
@@ -48,7 +48,7 @@ export default function TicketManagement() {
   const [saleForm, setSaleForm] = useState<SaleForm>(emptySale);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
-  const [forecastImportOpen, setForecastImportOpen] = useState(false);
+  
   const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
 
   // Admin lot editing
@@ -390,10 +390,6 @@ export default function TicketManagement() {
             </Select>
           </div>
           <TicketImportModal events={events} selectedEventId={selectedEventId} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
-          <Button variant="outline" size="sm" onClick={() => setForecastImportOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" /> Previsão de Receitas
-          </Button>
-          <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
         </div>
       </div>
 
