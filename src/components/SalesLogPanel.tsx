@@ -372,8 +372,8 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
               rows.push({ type: "month", label: getMonthLabel(currentMonthKey), qty: monthQty, rev: monthRev });
             }
 
-            const colSpanTotal = viewMode === "detail" ? 4 : 2;
-            const colCount = viewMode === "detail" ? 7 : 5;
+            const colSpanTotal = viewMode === "detail" ? 5 : 2;
+            const colCount = viewMode === "detail" ? 8 : 5;
 
             return (
               <div className="glass rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
@@ -386,6 +386,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                         <>
                           <th className="px-3 py-2 text-left font-medium">Zona</th>
                           <th className="px-3 py-2 text-left font-medium">Lote</th>
+                          <th className="px-3 py-2 text-right font-medium">P. Unit.</th>
                         </>
                       )}
                       <th className="px-3 py-2 text-right font-medium">Bilhetes</th>
@@ -442,6 +443,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                             ) : null}
                             <td className="px-3 py-1.5 text-xs text-muted-foreground truncate max-w-[120px]" title={det.zone}>{det.zone}</td>
                             <td className="px-3 py-1.5 text-xs text-muted-foreground truncate max-w-[120px]" title={det.lot}>{det.lot}</td>
+                            <td className="px-3 py-1.5 text-right font-mono text-xs">{formatCurrency(det.unitPrice)}</td>
                             <td className="px-3 py-1.5 text-right font-mono text-xs">{det.quantity.toLocaleString("pt-PT")}</td>
                             <td className="px-3 py-1.5 text-right font-mono text-xs text-success">{formatCurrency(det.revenue)}</td>
                             <td className="px-3 py-1.5 text-center">
