@@ -1371,18 +1371,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          manually_marked_paid: boolean
           payment_list_id: string
           transaction_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          manually_marked_paid?: boolean
           payment_list_id: string
           transaction_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          manually_marked_paid?: boolean
           payment_list_id?: string
           transaction_id?: string
         }

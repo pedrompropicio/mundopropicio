@@ -1,0 +1,1 @@
+ALTER TABLE public.payment_list_items ADD COLUMN manually_marked_paid boolean NOT NULL DEFAULT false;
