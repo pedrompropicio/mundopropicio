@@ -386,6 +386,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
                         <>
                           <th className="px-3 py-2 text-left font-medium">Zona</th>
                           <th className="px-3 py-2 text-left font-medium">Lote</th>
+                          <th className="px-3 py-2 text-right font-medium">P. Unit.</th>
                         </>
                       )}
                       <th className="px-3 py-2 text-right font-medium">Bilhetes</th>
