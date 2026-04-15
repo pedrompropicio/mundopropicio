@@ -577,22 +577,21 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
           <div className="flex items-center gap-2">
             {canEditTickets && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setForecastImportOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" /> Importar Previsão
-                </Button>
-                <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
-              </>
+              <Button variant="outline" size="sm" onClick={() => setForecastImportOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" /> Importar Previsão
+              </Button>
             )}
-          {canEditTickets && (
-            <button
-              onClick={() => { setAddingZone(true); setEditingZoneId(null); setZoneForm(emptyZone); }}
-              disabled={addingZone}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
-            >
-              <Plus className="h-3.5 w-3.5" /> Nova Zona
-            </button>
-          )}
+            {canEditTickets && (
+              <button
+                onClick={() => { setAddingZone(true); setEditingZoneId(null); setZoneForm(emptyZone); }}
+                disabled={addingZone}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <Plus className="h-3.5 w-3.5" /> Nova Zona
+              </button>
+            )}
+          </div>
+          <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
         </div>
 
         {isLoading ? (
