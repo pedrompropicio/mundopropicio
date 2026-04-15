@@ -155,6 +155,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   // If remaining balance is within rounding tolerance, treat as fully paid
   const balance = Math.abs(rawBalance) <= 0.05 ? 0 : rawBalance;
 
+  // Pre-fill payment amount with remaining balance
+  useEffect(() => {
+    if (balance > 0 && !paymentAmount) {
+      setPaymentAmount(String(balance));
+    }
+  }, [balance]);
+
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   // isExpense already declared above
