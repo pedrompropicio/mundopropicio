@@ -111,6 +111,9 @@ export default function PaymentListsTab() {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
       toast({ title: "Lista eliminada!" });
     },
+    onError: () => {
+      toast({ title: "Sem permissão para eliminar esta lista", variant: "destructive" });
+    },
   });
 
   const rejectMutation = useMutation({
