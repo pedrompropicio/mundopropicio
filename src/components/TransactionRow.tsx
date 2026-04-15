@@ -372,6 +372,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   {childEventNames.map((c) => c.name).join(", ")}
                 </p>
               )}
+              {(t.account_categories as any)?.name && (
+                <p className="text-xs text-muted-foreground lg:hidden">
+                  <span className="text-muted-foreground/70">{(t.account_categories as any)?.code}</span>{" "}
+                  {(t.account_categories as any)?.name}
+                </p>
+              )}
             </div>
           </div>
         </td>
