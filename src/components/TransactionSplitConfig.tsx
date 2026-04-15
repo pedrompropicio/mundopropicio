@@ -120,18 +120,22 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
 
   const updateAbsoluteValue = (idx: number, absValue: number) => {
     const entry = splitEntries[idx];
+    // Always store the user-entered absolute value as source of truth
+    setPendingAbsolute((prev) => ({ ...prev, [entry.event_id]: absValue }));
+    // If totalAmount is known, also update the percentage immediately
     if (totalAmount > 0) {
       const pct = +((absValue / totalAmount) * 100).toFixed(4);
       updatePercentage(idx, pct);
-    } else {
-      // Store pending absolute value for later conversion
-      setPendingAbsolute((prev) => ({ ...prev, [entry.event_id]: absValue }));
     }
   };
 
   const getAbsoluteValue = (entry: SplitEntry) => {
+    // Prefer user-entered absolute values over computed ones
+    if (pendingAbsolute[entry.event_id] !== undefined) {
+      return pendingAbsolute[entry.event_id];
+    }
     if (totalAmount > 0) return +(totalAmount * entry.percentage / 100).toFixed(2);
-    return pendingAbsolute[entry.event_id] ?? 0;
+    return 0;
   };
 
   const totalPct = splitEntries.reduce((s, e) => s + e.percentage, 0);
