@@ -74,6 +74,7 @@ type ExtractedInfo = {
   isTour: boolean;
   detectedCities: string[];
   cityDetails: CityInfo[];
+  fileType: "bp" | "ticket_sales";
 };
 
 export default function EventImplementationDetail() {
