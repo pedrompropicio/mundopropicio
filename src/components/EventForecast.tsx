@@ -1721,16 +1721,22 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       if (direct.length > 0) return direct;
     }
     
+    // Scope transactions to the same event as the forecast (or null for master splits)
+    // This prevents sub-event transactions from appearing under master forecasts
+    const scopedTransactions = eventTransactions.filter(
+      (t: any) => t.event_id === item.event_id || t.event_id === null
+    );
+    
     // Otherwise match by category + description similarity
     if (!item.category_id) return [];
-    const sameCat = eventTransactions.filter(
+    const sameCat = scopedTransactions.filter(
       (t: any) => t.category_id === item.category_id && t.type === item.type
     );
     
     // If only one forecast uses this category, show all transactions for it
     // Otherwise, try to match by description
     const forecastsWithSameCat = allForecasts?.filter(
-      (f: any) => f.category_id === item.category_id && f.type === item.type
+      (f: any) => f.category_id === item.category_id && f.type === item.type && f.event_id === item.event_id
     ) ?? [];
     
     if (forecastsWithSameCat.length <= 1) return sameCat;
@@ -1743,7 +1749,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     });
     
     return matched.length > 0 ? matched : [];
-  }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, allForecasts]);
+  }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, item.event_id, allForecasts]);
 
   const hasMatchingTx = matchingTransactions.length > 0;
 
