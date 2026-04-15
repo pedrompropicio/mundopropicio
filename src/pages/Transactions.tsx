@@ -15,6 +15,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransferFormModal } from "@/components/TransferFormModal";
 import { BatchPaymentModal } from "@/components/BatchPaymentModal";
@@ -55,6 +56,7 @@ export default function Transactions() {
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
+  const [showPaymentsListId, setShowPaymentsListId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [showBatchPayment, setShowBatchPayment] = useState(false);
@@ -713,6 +715,14 @@ export default function Transactions() {
         />
       )}
 
+      {showPaymentsListId && (
+        <TransactionPaymentsListModal
+          transaction={transactions.find((t) => t.id === showPaymentsListId) ?? { id: showPaymentsListId }}
+          isAdmin={canApprove}
+          onClose={() => setShowPaymentsListId(null)}
+        />
+      )}
+
       {/* Search + Filters + Bulk Actions */}
       <div className="flex flex-wrap items-center gap-2">
         {(["all", "income", "expense"] as const).map((f) => (
@@ -1100,6 +1110,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
@@ -1133,6 +1144,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
@@ -1166,6 +1178,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}
@@ -1215,6 +1228,7 @@ export default function Transactions() {
                       onAudit={(id) => setShowAuditId(id)}
                       onDelete={(id) => handleDeleteRequest(id)}
                       onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+                      onViewPayments={(id) => setShowPaymentsListId(id)}
                       highlightId={highlightId}
                     />
                   ))}

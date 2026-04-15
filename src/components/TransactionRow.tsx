@@ -23,6 +23,7 @@ interface Props {
   onAudit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (id: string, currentlyHidden: boolean) => void;
+  onViewPayments?: (id: string) => void;
   highlightId?: string | null;
 }
 
@@ -59,7 +60,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, highlightId }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
   const isHidden = !!t.is_hidden;
@@ -505,6 +506,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && (
                   <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                     <CreditCard className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {/* View Payments History: when there's any paid amount */}
+                {onViewPayments && paidAmount > 0 && (
+                  <button onClick={() => onViewPayments(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Ver pagamentos">
+                    <History className="h-3.5 w-3.5" />
                   </button>
                 )}
                 {/* Reimbursement transactions: show info that payment is via note */}

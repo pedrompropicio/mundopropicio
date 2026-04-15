@@ -287,6 +287,23 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         .eq("id", transaction.id);
       if (error) throw error;
 
+      // Insert individual payment record
+      const paymentRecord: any = {
+        transaction_id: transaction.id,
+        amount: addAmount,
+        payment_date: format(paymentDate, "yyyy-MM-dd"),
+        account_id: accountId || null,
+        payment_method: paymentMethod,
+        payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
+        payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
+        invoice_ref: invoiceRef.trim() || null,
+        withholding_amount: withholding,
+        credit_amount: totalCreditApplied,
+        notes: notes.trim() || null,
+        created_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
+      };
+      await (supabase as any).from("transaction_payments").insert(paymentRecord);
+
       // Record credit usages
       const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
       for (const [creditId, valStr] of Object.entries(creditAllocations)) {
