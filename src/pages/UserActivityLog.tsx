@@ -62,12 +62,18 @@ export default function UserActivityLog() {
 
   // Calculate per-user usage time (each log entry = ~30s of activity)
   const INTERVAL_SECONDS = 30;
-  const userTimeMap = new Map<string, number>(); // user_id -> total seconds
+  const userTimeMap = new Map<string, number>(); // user_id -> total seconds (7d)
+  const userTodayMap = new Map<string, number>(); // user_id -> total seconds (today)
   const pageTimeMap = new Map<string, number>(); // page -> total seconds
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   for (const act of activities) {
     userTimeMap.set(act.user_id, (userTimeMap.get(act.user_id) ?? 0) + INTERVAL_SECONDS);
     pageTimeMap.set(act.page, (pageTimeMap.get(act.page) ?? 0) + INTERVAL_SECONDS);
+    if (act.created_at.slice(0, 10) === todayStr) {
+      userTodayMap.set(act.user_id, (userTodayMap.get(act.user_id) ?? 0) + INTERVAL_SECONDS);
+    }
   }
 
   // Sort users by usage time desc
@@ -77,6 +83,7 @@ export default function UserActivityLog() {
       name: profileMap.get(userId)?.full_name || profileMap.get(userId)?.email || userId.slice(0, 8),
       email: profileMap.get(userId)?.email ?? "",
       totalMinutes: totalSec / 60,
+      todayMinutes: (userTodayMap.get(userId) ?? 0) / 60,
     }))
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
