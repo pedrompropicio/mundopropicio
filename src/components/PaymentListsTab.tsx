@@ -614,9 +614,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const unpaidItems = items.filter((item: any) => {
     const tx = item.transactions;
     if (!tx) return false;
-    const amount = Number(tx.amount);
+    const totalWithIva = calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
     const paid = Number(tx.paid_amount ?? 0);
-    return paid < amount && tx.status !== "paid";
+    return paid < totalWithIva - 0.05 && tx.status !== "paid";
   });
 
   const toggleTx = (txId: string) => {
