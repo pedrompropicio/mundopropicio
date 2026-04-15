@@ -573,6 +573,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
 
+  const toggleManualMark = async (itemId: string, current: boolean) => {
+    await supabase
+      .from("payment_list_items")
+      .update({ manually_marked_paid: !current } as any)
+      .eq("id", itemId);
+    queryClient.invalidateQueries({ queryKey: ["payment-list-items", listId] });
+  };
+
   const { data: list } = useQuery({
     queryKey: ["payment-list", listId],
     queryFn: async () => {
