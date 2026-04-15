@@ -4,7 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 
 // Configuration baked in at scaffold time
-const SITE_NAME = "mundopropicio"
+const SITE_NAME = "MP Gestão Eventos"
 const SENDER_DOMAIN = "notify.mpgestaoeventos.com"
 const FROM_DOMAIN = "mpgestaoeventos.com"
 
