@@ -1039,8 +1039,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               }) ?? ui))}
             </div>
           );
-        })()
-        )}
+        })()}
 
         <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
