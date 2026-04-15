@@ -857,7 +857,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                       <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
                       <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                      {tx?.account_categories && (
+                        <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
+                      )}
                       <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
+                      {tx?.specification && (
+                        <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
+                      )}
                       <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
                       {bpCheck.exceeds && (
                         <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
