@@ -7,7 +7,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF } from "@/lib/export-payment-list";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -849,7 +849,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     isPaid
                       ? "border-success/30 bg-success/5 opacity-70"
                       : manuallyMarked
-                      ? "border-amber-500/30 bg-amber-500/5 opacity-80"
+                      ? "border-emerald-500/30 bg-emerald-500/5"
                       : selectedTxIds.has(tx?.id)
                       ? "border-primary/50 bg-primary/5"
                       : "border-border/50 bg-muted/20"
@@ -896,14 +896,15 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         {!isPaid && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
-                            className={`flex items-center gap-1.5 text-xs rounded-md px-2 py-1 transition-colors ${
+                            className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
                               manuallyMarked
-                                ? "bg-amber-500/15 text-amber-500 hover:bg-amber-500/25"
-                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
                             }`}
+                            title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
                           >
-                            {manuallyMarked ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
-                            {manuallyMarked ? "Marcado como pago" : "Marcar como pago"}
+                            <Banknote className="h-3.5 w-3.5" />
+                            {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
                           </button>
                         )}
                       </div>
