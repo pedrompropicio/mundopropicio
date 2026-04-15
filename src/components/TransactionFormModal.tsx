@@ -570,6 +570,25 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return null;
   }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
 
+  // Warning (non-blocking): category in all children but not in master
+  const splitCategoryWarning = useMemo<string | null>(() => {
+    if (!isSplit || !form.category_id || splitEventIds.length < 2 || splitAutoConfigured) return null;
+    if (splitParentEventIds.length === 0) return null;
+    const categoryInParent = parentForecasts.some(
+      f => f.type === form.type && f.category_id === form.category_id
+    );
+    if (categoryInParent) return null;
+    const allChildrenHaveCategory = splitEventIds.every(eventId =>
+      splitForecasts.some(f => f.event_id === eventId && f.type === form.type && f.category_id === form.category_id)
+    );
+    if (!allChildrenHaveCategory) return null;
+    const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
+    const parentName = parentEvent?.name ?? "evento master";
+    const selectedCat = categories.find((c: any) => c.id === form.category_id);
+    const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
+    return `A categoria "${catLabel}" existe no BP dos sub-eventos mas não no master (${parentName}). A transação será criada normalmente.`;
+  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
+
   // Check if any split event needs BP bypass
   const splitNeedsBypass = useMemo(() => {
     if (!isSplit || !form.category_id || splitCategoryBlockReason) return false;
