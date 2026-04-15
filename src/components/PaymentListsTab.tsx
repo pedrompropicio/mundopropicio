@@ -590,7 +590,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         .select("*, transactions(*, events(name), suppliers(name, iban))")
         .eq("payment_list_id", listId);
       if (error) throw error;
-      return data;
+      return (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
     },
   });
 
@@ -965,7 +965,7 @@ function ApproveModal({
         .select("*, transactions(*, events(name), suppliers(name))")
         .eq("payment_list_id", listId);
       if (error) throw error;
-      return data;
+      return (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
     },
   });
 
