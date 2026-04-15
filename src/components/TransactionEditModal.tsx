@@ -23,6 +23,8 @@ interface Props {
 
 export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isPaid = transaction.status === "paid";
+  // Admins can fully edit paid transactions (audit adjustment)
+  const paidLocked = isPaid && !isAdmin;
 
   // Lock body scroll while modal is open to preserve scroll position
   useEffect(() => {
@@ -148,7 +150,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         payment_entity: "Entidade Pagamento",
         payment_reference: "Referência Pagamento",
       };
-      const allowedFields = isPaid
+      const allowedFields = paidLocked
         ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
         : Object.keys(fieldLabels);
       for (const key of allowedFields) {
@@ -166,7 +168,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         payment_reference: form.payment_method !== "transfer" ? (form.payment_reference.trim() || null) : null,
       };
 
-      const updates = isPaid ? {
+      const updates = paidLocked ? {
         supplier_id: form.supplier_id || null,
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         is_transitory: form.is_transitory,
@@ -229,7 +231,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   const isExpense = transaction.type === "expense";
   const isApproved = transaction.status === "approved";
-  const valueLocked = isPaid;
+  const valueLocked = paidLocked;
   const isParentSplit = !transaction.parent_transaction_id && transaction.split_percentage === null;
 
   const getRootFlags = (categoryId: string) => {
@@ -283,7 +285,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{isPaid ? "Editar (Liquidada)" : "Editar Transação"}</h2>
+          <h2 className="text-lg font-bold">{isPaid ? (isAdmin ? "Editar (Ajuste Admin)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
@@ -293,9 +295,15 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           {isExpense ? "Despesa" : "Receita"}
         </div>
 
-        {isPaid && (
+        {isPaid && !isAdmin && (
           <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-xs text-success">
             Transação liquidada — Especificação, Fornecedor, Nº Fatura e Método de Pagamento podem ser alterados.
+          </div>
+        )}
+        {isPaid && isAdmin && (
+          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Ajuste administrativo — todos os campos podem ser alterados. Alterações serão registadas no audit log.
           </div>
         )}
 
@@ -303,7 +311,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
             <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-              disabled={isPaid}
+              disabled={paidLocked}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
           </div>
 
@@ -315,18 +323,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!isPaid && valueLocked && (
+          {!paidLocked && valueLocked && (
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-400">
               Transação aprovada — valor e IVA não podem ser alterados.
             </div>
           )}
-          {!isPaid && isApproved && !isAdmin && isBpLinked && (
+          {!paidLocked && isApproved && !isAdmin && isBpLinked && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
               Transação vinculada ao BP — valor editável até à liquidação.
             </div>
           )}
 
-          {!isPaid && (
+          {!paidLocked && (
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -365,7 +373,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           )}
 
           {/* Split adjustment panel when parent amount changes */}
-          {hasChildren && !isPaid && (
+          {hasChildren && !paidLocked && (
             <div className={`rounded-lg border p-3 space-y-2 ${amountChanged ? "border-warning/50 bg-warning/5" : "border-border/50 bg-secondary/20"}`}>
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -429,7 +437,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!isPaid && (
+          {!paidLocked && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Categoria</label>
@@ -547,7 +555,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!isPaid && !isExpense && (
+          {!paidLocked && !isExpense && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
               <SearchableSelect
@@ -560,7 +568,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!isPaid && (
+          {!paidLocked && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data</label>
