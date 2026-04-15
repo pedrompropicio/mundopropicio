@@ -62,7 +62,8 @@ export default function Transactions() {
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const queryClient = useQueryClient();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
+  const canApprove = isAdmin || isManager;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
