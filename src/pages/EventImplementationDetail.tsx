@@ -474,6 +474,10 @@ export default function EventImplementationDetail() {
       queryClient.invalidateQueries({ queryKey: ["event-implementation", id] });
       queryClient.invalidateQueries({ queryKey: ["event-for-impl"] });
       toast.success("Evento associado com sucesso");
+      // Auto-switch to tickets tab when file is a ticket sales file
+      if (extracted?.fileType === "ticket_sales") {
+        setActiveTab("tickets");
+      }
     },
     onError: (err: any) => toast.error(err.message),
   });
