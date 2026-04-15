@@ -475,7 +475,7 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
                   <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 </div>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[80]" align="start">
+              <PopoverContent className="w-auto p-0 z-[100]" align="start">
                 <Calendar
                   mode="single"
                   selected={paymentDate}
