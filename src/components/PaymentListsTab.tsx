@@ -916,7 +916,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const ivaRate = Number(tx?.iva_rate ?? 23);
             const withIva = amount * (1 + ivaRate / 100);
             const paid = Number(tx?.paid_amount ?? 0);
-            const isPaid = paid >= amount || tx?.status === "paid";
+            const isPaid = paid >= withIva - 0.05 || tx?.status === "paid";
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
