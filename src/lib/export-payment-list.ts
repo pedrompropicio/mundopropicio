@@ -16,6 +16,9 @@ interface PaymentItem {
   paid_amount: number;
   due_date: string | null;
   date: string;
+  payment_method?: string;
+  payment_entity?: string | null;
+  payment_reference?: string | null;
 }
 
 interface PaymentListExport {
@@ -38,7 +41,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "IBAN", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
 
   let totalWithIva = 0;
@@ -49,6 +52,12 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     const balance = withIva - item.paid_amount;
     totalWithIva += withIva;
     totalPaid += item.paid_amount;
+
+    const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
+    const paymentInfo = isRefPayment
+      ? `Ent: ${item.payment_entity ?? "-"} / Ref: ${item.payment_reference ?? "-"}`
+      : item.iban;
+
     rows.push([
       i + 1,
       item.event_name,
@@ -56,7 +65,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       item.description,
       item.specification || "-",
       item.supplier_name,
-      item.iban,
+      paymentInfo,
       item.amount,
       `${item.iva_rate}%`,
       withIva,
@@ -158,11 +167,26 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
       y += lineHeight;
     }
 
-    doc.setTextColor(120, 120, 120);
-    doc.text("IBAN:", labelX, y);
-    doc.setTextColor(0, 0, 0);
-    doc.text(item.iban || "-", valueX, y);
-    y += lineHeight;
+    const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
+    if (isRefPayment) {
+      doc.setTextColor(120, 120, 120);
+      doc.text("Entidade:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.payment_entity ?? "-", valueX, y);
+      y += lineHeight;
+
+      doc.setTextColor(120, 120, 120);
+      doc.text("Referência:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.payment_reference ?? "-", valueX, y);
+      y += lineHeight;
+    } else {
+      doc.setTextColor(120, 120, 120);
+      doc.text("IBAN:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.iban || "-", valueX, y);
+      y += lineHeight;
+    }
 
     doc.setTextColor(120, 120, 120);
     doc.text("Fornecedor:", labelX, y);
