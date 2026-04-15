@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   transactionId: string;
@@ -22,12 +23,11 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-md rounded-xl p-6 space-y-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Histórico de Alterações</h2>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
-        </div>
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Histórico de Alterações</DialogTitle>
+        </DialogHeader>
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">A carregar…</p>
@@ -78,7 +78,7 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
             })}
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
