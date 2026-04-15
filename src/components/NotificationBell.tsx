@@ -170,7 +170,19 @@ export function NotificationBell() {
       });
     }
 
-    // 5. Budget exceeded
+    // 5. Pending payment lists
+    if (pendingPaymentLists.length > 0) {
+      result.push({
+        id: "pending-payment-lists",
+        type: "pending_approval",
+        severity: "warning",
+        title: "Listas de pagamento pendentes",
+        description: `${pendingPaymentLists.length} lista(s) aguardando aprovação`,
+        path: "/relatorios/listas-pagamento",
+      });
+    }
+
+    // 6. Budget exceeded
     events.forEach((evt) => {
       if (!evt.budget || evt.budget <= 0) return;
       const evtExpenses = allTransactions
