@@ -732,9 +732,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
       lines.push(`${status} *${idx + 1}.*`);
       lines.push(`Evento: ${event}`);
+      if (tx?.account_categories) lines.push(`Categoria: ${tx.account_categories.code} ${tx.account_categories.name}`);
       lines.push(`IBAN: ${iban}`);
       lines.push(`Entidade: ${supplier}`);
       lines.push(`Descrição: ${desc}`);
+      if (tx?.specification) lines.push(`Especificação: ${tx.specification}`);
       lines.push(`Resumo: ${shortDesc}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
       if (paid > 0 && !isPaid) {
