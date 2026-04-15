@@ -1172,7 +1172,7 @@ export default function Transactions() {
                     <TransactionRow
                       key={t.id}
                       transaction={t}
-                      isAdmin={isAdmin}
+                      isAdmin={canApprove}
                       selectable={false}
                       selected={false}
                       onToggleSelect={() => {}}
