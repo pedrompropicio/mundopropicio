@@ -232,7 +232,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 type="checkbox"
                 checked={!!selected}
                 onChange={onToggleSelect}
-                className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                className={`h-3.5 w-3.5 rounded cursor-pointer ${
+                  computedStatus === "pending"
+                    ? "accent-emerald-500 border-emerald-500"
+                    : "accent-sky-500 border-sky-500"
+                }`}
+                title={computedStatus === "pending" ? "Selecionar para aprovar" : "Selecionar para liquidar"}
               />
             ) : null}
           </td>
