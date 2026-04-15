@@ -73,7 +73,9 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   ws["!cols"] = [
     { wch: 4 },
     { wch: 22 },
+    { wch: 20 },
     { wch: 30 },
+    { wch: 20 },
     { wch: 20 },
     { wch: 28 },
     { wch: 14 },
