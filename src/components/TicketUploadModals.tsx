@@ -672,12 +672,15 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
     try {
       const effectiveFrom = pdfPeriodFrom || new Date().toISOString().slice(0, 10);
       const effectiveTo = pdfPeriodTo || effectiveFrom;
-      const { data: existingLogs } = await supabase
+      let logQuery = supabase
         .from("ticket_import_logs")
         .select("*")
         .eq("event_id", eventId)
         .lte("period_from", effectiveTo)
         .gte("period_to", effectiveFrom);
+      // If a ticket office is selected, only warn about imports for the same ticket office
+      if (ticketOfficeId) logQuery = logQuery.eq("financial_account_id", ticketOfficeId);
+      const { data: existingLogs } = await logQuery;
 
       if (existingLogs && existingLogs.length > 0) {
         setDuplicateWarnings(existingLogs);
