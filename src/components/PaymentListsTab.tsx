@@ -330,6 +330,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         .select("*, events(name), suppliers(name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
+        .is("parent_transaction_id", null)
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
