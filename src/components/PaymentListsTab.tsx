@@ -136,7 +136,7 @@ export default function PaymentListsTab() {
         .select("id, email")
         .in("id", adminIds);
 
-      const appUrl = `${window.location.origin}/relatorios/listas-pagamento`;
+      const appUrl = `${window.location.origin}/relatorios/listas-pagamento?listId=${list.id}`;
       const sendAttemptId = crypto.randomUUID();
       const recipientProfiles = (profiles ?? []).filter((profile: any) => !!profile.email);
 
