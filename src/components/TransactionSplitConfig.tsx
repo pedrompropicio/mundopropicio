@@ -44,24 +44,20 @@ export function TransactionSplitConfig({ events, splitEntries, onChange, splitMe
     if (onInputModeChange) onInputModeChange(mode);
     else setLocalMode(mode);
   };
-  // Store absolute values when totalAmount is not yet known
+  // Store absolute values entered by the user in absolute mode
   const [pendingAbsolute, setPendingAbsolute] = useState<Record<string, number>>({});
-  const prevTotalRef = useRef(totalAmount);
 
-  // When totalAmount becomes available and we have pending absolute values, convert to percentages
+  // Keep percentages in sync with absolute values whenever totalAmount changes
   useEffect(() => {
-    const wasMissing = prevTotalRef.current <= 0;
-    prevTotalRef.current = totalAmount;
-    if (totalAmount > 0 && wasMissing && Object.keys(pendingAbsolute).length > 0) {
-      const totalAbs = Object.values(pendingAbsolute).reduce((s, v) => s + v, 0);
-      if (totalAbs > 0) {
-        const newEntries = splitEntries.map((e) => {
-          const abs = pendingAbsolute[e.event_id] ?? 0;
+    if (totalAmount > 0 && Object.keys(pendingAbsolute).length > 0) {
+      const newEntries = splitEntries.map((e) => {
+        const abs = pendingAbsolute[e.event_id];
+        if (abs !== undefined) {
           return { ...e, percentage: +((abs / totalAmount) * 100).toFixed(4) };
-        });
-        onChange(newEntries);
-        setPendingAbsolute({});
-      }
+        }
+        return e;
+      });
+      onChange(newEntries);
     }
   }, [totalAmount]);
 
