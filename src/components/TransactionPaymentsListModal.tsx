@@ -129,15 +129,50 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
         .eq("id", transaction.id);
       if (txError) throw txError;
 
-      // Audit log
+      // Granular audit log — one entry per changed field
       const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
-      await supabase.from("transaction_audit_log").insert({
-        transaction_id: transaction.id,
-        changed_by: callerName,
-        field_name: "Edição de pagamento",
-        old_value: `Parcela #${payments.findIndex((p: any) => p.id === paymentId) + 1}`,
-        new_value: `${formatCurrency(newAmount)} — ${format(editForm.payment_date, "dd/MM/yyyy")}`,
-      });
+      const originalPayment = payments.find((p: any) => p.id === paymentId);
+      const parcela = `Parcela #${payments.findIndex((p: any) => p.id === paymentId) + 1}`;
+      const auditEntries: any[] = [];
+
+      if (originalPayment) {
+        if (Number(originalPayment.amount) !== newAmount) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Valor`, old_value: formatCurrency(Number(originalPayment.amount)), new_value: formatCurrency(newAmount) });
+        }
+        const oldDate = originalPayment.payment_date;
+        const newDate = format(editForm.payment_date, "yyyy-MM-dd");
+        if (oldDate !== newDate) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Data pgto`, old_value: oldDate, new_value: newDate });
+        }
+        const oldAccId = originalPayment.account_id ?? "";
+        const newAccId = editForm.account_id || "";
+        if (oldAccId !== newAccId) {
+          const oldAccName = financialAccounts.find((a: any) => a.id === oldAccId)?.name ?? "—";
+          const newAccName = financialAccounts.find((a: any) => a.id === newAccId)?.name ?? "—";
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Conta`, old_value: oldAccName, new_value: newAccName });
+        }
+        if ((originalPayment.payment_method ?? "transfer") !== editForm.payment_method) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Método`, old_value: methodLabels[originalPayment.payment_method] ?? originalPayment.payment_method, new_value: methodLabels[editForm.payment_method] ?? editForm.payment_method });
+        }
+        if ((originalPayment.payment_entity ?? "") !== (editForm.payment_entity?.trim() ?? "")) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Entidade`, old_value: originalPayment.payment_entity ?? "—", new_value: editForm.payment_entity?.trim() || "—" });
+        }
+        if ((originalPayment.payment_reference ?? "") !== (editForm.payment_reference?.trim() ?? "")) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Referência`, old_value: originalPayment.payment_reference ?? "—", new_value: editForm.payment_reference?.trim() || "—" });
+        }
+        if ((originalPayment.invoice_ref ?? "") !== (editForm.invoice_ref?.trim() ?? "")) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Nº Fatura`, old_value: originalPayment.invoice_ref ?? "—", new_value: editForm.invoice_ref?.trim() || "—" });
+        }
+        if ((originalPayment.notes ?? "") !== (editForm.notes?.trim() ?? "")) {
+          auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: `${parcela} — Nota`, old_value: originalPayment.notes ?? "—", new_value: editForm.notes?.trim() || "—" });
+        }
+      }
+
+      if (auditEntries.length === 0) {
+        auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Edição de pagamento", old_value: parcela, new_value: `${formatCurrency(newAmount)} — ${format(editForm.payment_date, "dd/MM/yyyy")}` });
+      }
+
+      await supabase.from("transaction_audit_log").insert(auditEntries);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transaction_payments", transaction.id] });
