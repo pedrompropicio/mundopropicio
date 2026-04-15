@@ -23,6 +23,7 @@ interface Props {
   onAudit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (id: string, currentlyHidden: boolean) => void;
+  onViewPayments?: (id: string) => void;
   highlightId?: string | null;
 }
 
