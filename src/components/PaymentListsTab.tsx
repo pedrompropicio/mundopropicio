@@ -587,7 +587,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, iban))")
+        .select("*, transactions(*, events(name), suppliers(name, iban), account_categories(code, name))")
         .eq("payment_list_id", listId);
       if (error) throw error;
       return (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
@@ -688,6 +688,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         approved_at: list.approved_at,
         items: items.map((item: any) => ({
           description: item.transactions?.description ?? "",
+          specification: item.transactions?.specification ?? "",
+          category: item.transactions?.account_categories ? `${item.transactions.account_categories.code} ${item.transactions.account_categories.name}` : "",
           event_name: item.transactions?.events?.name ?? "-",
           supplier_name: item.transactions?.suppliers?.name ?? "-",
           iban: item.transactions?.suppliers?.iban ?? "-",
@@ -730,9 +732,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
       lines.push(`${status} *${idx + 1}.*`);
       lines.push(`Evento: ${event}`);
+      if (tx?.account_categories) lines.push(`Categoria: ${tx.account_categories.code} ${tx.account_categories.name}`);
       lines.push(`IBAN: ${iban}`);
       lines.push(`Entidade: ${supplier}`);
       lines.push(`Descrição: ${desc}`);
+      if (tx?.specification) lines.push(`Especificação: ${tx.specification}`);
       lines.push(`Resumo: ${shortDesc}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
       if (paid > 0 && !isPaid) {
@@ -857,7 +861,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
                       <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
                       <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                      {tx?.account_categories && (
+                        <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
+                      )}
                       <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
+                      {tx?.specification && (
+                        <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
+                      )}
                       <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
                       {bpCheck.exceeds && (
                         <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
@@ -962,7 +972,7 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name))")
+        .select("*, transactions(*, events(name), suppliers(name), account_categories(code, name))")
         .eq("payment_list_id", listId);
       if (error) throw error;
       return (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
@@ -1058,11 +1068,12 @@ function ApproveModal({
                   <th className="p-2 text-center w-8">
                     <Checkbox checked={selectedIds.size === items.length && items.length > 0} onCheckedChange={toggleAll} />
                   </th>
-                  <th className="p-2 text-left font-medium">Descrição</th>
-                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
-                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
-                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
-                  <th className="p-2 text-right font-medium">Saldo</th>
+                   <th className="p-2 text-left font-medium">Descrição</th>
+                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
+                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                   <th className="p-2 text-right font-medium">Saldo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -1081,16 +1092,18 @@ function ApproveModal({
                       <td className="p-2 text-center">
                         <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} />
                       </td>
-                      <td className="p-2">
-                        <span className="font-medium">{tx?.description}</span>
-                        {bpCheck.exceeds && (
-                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
+                       <td className="p-2">
+                         <span className="font-medium">{tx?.description}</span>
+                         {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
+                         {bpCheck.exceeds && (
+                           <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                         )}
+                       </td>
+                       <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
+                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
+                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
+                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
                     </tr>
                   );
                 })}
