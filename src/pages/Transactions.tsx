@@ -987,7 +987,7 @@ export default function Transactions() {
           <button
             onClick={handleBulkApprove}
             disabled={bulkApproveMutation.isPending}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" />
             Aprovar {selectedPendingCount} selecionada{selectedPendingCount > 1 ? "s" : ""}
@@ -997,7 +997,7 @@ export default function Transactions() {
         {isAdmin && selectedApprovedCount > 0 && (
           <button
             onClick={handleBatchPayment}
-            className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-medium text-success-foreground transition-all hover:bg-success/90"
+            className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-sky-700"
           >
             <FileText className="h-4 w-4" />
             Liquidar {selectedApprovedCount} como Fatura
