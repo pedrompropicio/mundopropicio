@@ -46,6 +46,7 @@ export default function Transactions() {
   const [paidRangeToOpen, setPaidRangeToOpen] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [onlyNoDueDate, setOnlyNoDueDate] = useState(false);
+  const [onlyGrouped, setOnlyGrouped] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
@@ -358,7 +359,8 @@ export default function Transactions() {
       const amount = Number(t.amount);
       return paidAmount < amount - 0.01;
     })
-    .filter((t) => !onlyPending || t.status === "pending");
+    .filter((t) => !onlyPending || t.status === "pending")
+    .filter((t: any) => !onlyGrouped || (t.invoice_ref && t.invoice_ref.trim() !== ""));
 
   // Group transactions: overdue, period, no-date
   const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
@@ -462,7 +464,8 @@ export default function Transactions() {
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
         return paidAmount >= amount - 0.01 || t.status === "paid";
-      });
+      })
+      .filter((t: any) => !onlyGrouped || (t.invoice_ref && t.invoice_ref.trim() !== ""));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -922,6 +925,17 @@ export default function Transactions() {
             Aprovação
           </Button>
         )}
+
+        {/* Filtro Agrupadas por Fatura */}
+        <Button
+          variant={onlyGrouped ? "default" : "outline"}
+          size="sm"
+          className="text-[13px] font-normal h-8 px-3"
+          onClick={() => setOnlyGrouped(!onlyGrouped)}
+        >
+          <FileText className="mr-1.5 h-3.5 w-3.5" />
+          Agrupadas
+        </Button>
 
         {/* Period filter for paid view */}
         {viewMode === "paid" && (
