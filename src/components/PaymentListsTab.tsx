@@ -1064,11 +1064,12 @@ function ApproveModal({
                   <th className="p-2 text-center w-8">
                     <Checkbox checked={selectedIds.size === items.length && items.length > 0} onCheckedChange={toggleAll} />
                   </th>
-                  <th className="p-2 text-left font-medium">Descrição</th>
-                  <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
-                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
-                  <th className="p-2 text-right font-medium">Valor c/IVA</th>
-                  <th className="p-2 text-right font-medium">Saldo</th>
+                   <th className="p-2 text-left font-medium">Descrição</th>
+                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
+                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
+                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
+                   <th className="p-2 text-right font-medium">Saldo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -1087,16 +1088,18 @@ function ApproveModal({
                       <td className="p-2 text-center">
                         <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} />
                       </td>
-                      <td className="p-2">
-                        <span className="font-medium">{tx?.description}</span>
-                        {bpCheck.exceeds && (
-                          <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
-                      <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
-                      <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
+                       <td className="p-2">
+                         <span className="font-medium">{tx?.description}</span>
+                         {tx?.specification && <p className="text-[11px] text-muted-foreground">{tx.specification}</p>}
+                         {bpCheck.exceeds && (
+                           <div className="mt-0.5"><BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={txAmount} /></div>
+                         )}
+                       </td>
+                       <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
+                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
+                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
+                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
+                       <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
                     </tr>
                   );
                 })}
