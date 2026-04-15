@@ -111,6 +111,9 @@ export default function PaymentListsTab() {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
       toast({ title: "Lista eliminada!" });
     },
+    onError: () => {
+      toast({ title: "Sem permissão para eliminar esta lista", variant: "destructive" });
+    },
   });
 
   const rejectMutation = useMutation({
@@ -285,7 +288,7 @@ export default function PaymentListsTab() {
                               <Send className="h-4 w-4" />
                             </button>
                           )}
-                          {((list.status === "draft" || list.status === "rejected" || list.status === "revision") || ((isAdmin || isManager) && (list.status === "approved" || list.status === "settled"))) && (
+                          {((isAdmin || isManager) && (list.status === "draft" || list.status === "rejected" || list.status === "revision" || list.status === "approved" || list.status === "settled")) && (
                             <button
                               onClick={() => { if (confirm("Eliminar esta lista?")) deleteMutation.mutate(list.id); }}
                               className="rounded p-1.5 text-destructive hover:bg-destructive/10"
