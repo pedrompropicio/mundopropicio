@@ -19,6 +19,7 @@ import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
 import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
+import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 
 interface InlineForm {
