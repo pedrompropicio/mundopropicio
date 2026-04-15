@@ -390,10 +390,6 @@ export default function TicketManagement() {
             </Select>
           </div>
           <TicketImportModal events={events} selectedEventId={selectedEventId} selectedSessionId={selectedSessionId === "all" ? null : selectedSessionId} open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
-          <Button variant="outline" size="sm" onClick={() => setForecastImportOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" /> Previsão de Receitas
-          </Button>
-          <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
         </div>
       </div>
 
