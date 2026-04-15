@@ -688,6 +688,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         approved_at: list.approved_at,
         items: items.map((item: any) => ({
           description: item.transactions?.description ?? "",
+          specification: item.transactions?.specification ?? "",
+          category: item.transactions?.account_categories ? `${item.transactions.account_categories.code} ${item.transactions.account_categories.name}` : "",
           event_name: item.transactions?.events?.name ?? "-",
           supplier_name: item.transactions?.suppliers?.name ?? "-",
           iban: item.transactions?.suppliers?.iban ?? "-",
