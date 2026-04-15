@@ -726,52 +726,88 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
   const handleCopyWhatsApp = () => {
     if (!list || items.length === 0) return;
+
+    const exportItems = items.map((item: any) => {
+      const tx = item.transactions;
+      return {
+        description: tx?.description ?? "-",
+        specification: tx?.specification ?? "",
+        category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
+        event_name: tx?.events?.name ?? "-",
+        supplier_name: tx?.suppliers?.name ?? "-",
+        supplier_id: tx?.supplier_id ?? null,
+        iban: tx?.suppliers?.iban ?? "-",
+        amount: Number(tx?.amount ?? 0),
+        iva_rate: Number(tx?.iva_rate ?? 23),
+        paid_amount: Number(tx?.paid_amount ?? 0),
+        due_date: tx?.due_date,
+        date: tx?.date ?? "",
+        payment_method: tx?.payment_method ?? "transfer",
+        payment_entity: tx?.payment_entity,
+        payment_reference: tx?.payment_reference,
+        invoice_ref: tx?.invoice_ref ?? null,
+      };
+    });
+
+    const { groups, ungrouped } = groupPaymentItems(exportItems);
     const lines: string[] = [];
     lines.push(`📋 *${list.title}*`);
     lines.push(`📅 Data: ${formatDate(list.payment_date)}`);
     if (list.approved_by) lines.push(`✅ Aprovada por: ${list.approved_by}`);
     lines.push("");
 
-    items.forEach((item: any, idx: number) => {
-      const tx = item.transactions;
-      const amount = Number(tx?.amount ?? 0);
-      const ivaRate = Number(tx?.iva_rate ?? 23);
-      const withIva = amount * (1 + ivaRate / 100);
-      const paid = Number(tx?.paid_amount ?? 0);
-      const isPaid = paid >= amount || tx?.status === "paid";
-      const status = isPaid ? "✅" : "⬜";
-      const supplier = tx?.suppliers?.name ?? "-";
-      const iban = tx?.suppliers?.iban ?? "-";
-      const event = tx?.events?.name ?? "-";
-      const desc = tx?.description ?? "-";
-      const shortDesc = desc.length > 27 ? desc.substring(0, 24) + "..." : desc;
-      const isRefPayment = tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment";
+    let idx = 1;
 
-      lines.push(`${status} *${idx + 1}.*`);
-      lines.push(`Evento: ${event}`);
-      if (tx?.account_categories) lines.push(`Categoria: ${tx.account_categories.code} ${tx.account_categories.name}`);
+    // Grouped items
+    for (const group of groups) {
+      const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
+      lines.push(`⬜ *${idx}.* 📎 Fatura Agrupada: ${group.invoice_ref}`);
+      lines.push(`Fornecedor: ${group.supplier_name}`);
       if (isRefPayment) {
-        lines.push(`Entidade: ${tx?.payment_entity ?? "-"}`);
-        lines.push(`Referência: ${tx?.payment_reference ?? "-"}`);
+        lines.push(`Entidade: ${group.payment_entity ?? "-"}`);
+        lines.push(`Referência: ${group.payment_reference ?? "-"}`);
       } else {
-        lines.push(`IBAN: ${iban}`);
+        lines.push(`IBAN: ${group.iban}`);
       }
-      lines.push(`Fornecedor: ${supplier}`);
-      lines.push(`Descrição: ${desc}`);
-      if (tx?.specification) lines.push(`Especificação: ${tx.specification}`);
-      lines.push(`Resumo: ${shortDesc}`);
+      for (const item of group.items) {
+        const withIva = item.amount * (1 + item.iva_rate / 100);
+        lines.push(`  ↳ ${item.description} (${item.event_name}) — ${formatCurrency(withIva)}`);
+      }
+      lines.push(`*Total: ${formatCurrency(group.totalWithIva)}*`);
+      lines.push("───────────────");
+      idx++;
+    }
+
+    // Ungrouped items
+    for (const item of ungrouped) {
+      const withIva = item.amount * (1 + item.iva_rate / 100);
+      const paid = item.paid_amount;
+      const isPaid = paid >= item.amount;
+      const status = isPaid ? "✅" : "⬜";
+      const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
+
+      lines.push(`${status} *${idx}.*`);
+      lines.push(`Evento: ${item.event_name}`);
+      if (item.category) lines.push(`Categoria: ${item.category}`);
+      if (isRefPayment) {
+        lines.push(`Entidade: ${item.payment_entity ?? "-"}`);
+        lines.push(`Referência: ${item.payment_reference ?? "-"}`);
+      } else {
+        lines.push(`IBAN: ${item.iban}`);
+      }
+      lines.push(`Fornecedor: ${item.supplier_name}`);
+      lines.push(`Descrição: ${item.description}`);
+      if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
       if (paid > 0 && !isPaid) {
-        lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + ivaRate / 100))}`);
+        lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + item.iva_rate / 100))}`);
       }
       lines.push("───────────────");
-    });
+      idx++;
+    }
 
-    const total = items.reduce((sum: number, item: any) => {
-      const tx = item.transactions;
-      const amount = Number(tx?.amount ?? 0);
-      const ivaRate = Number(tx?.iva_rate ?? 23);
-      return sum + amount * (1 + ivaRate / 100);
+    const total = exportItems.reduce((sum, item) => {
+      return sum + item.amount * (1 + item.iva_rate / 100);
     }, 0);
     lines.push(`💰 *Total: ${formatCurrency(total)}*`);
 
