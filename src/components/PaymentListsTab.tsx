@@ -881,99 +881,165 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           <p className="py-4 text-center text-muted-foreground">A carregar itens…</p>
         ) : items.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground">Sem itens nesta lista.</p>
-        ) : (
-          <div className="space-y-3">
-             {items.map((item: any) => {
-              const tx = item.transactions;
-              const amount = Number(tx?.amount ?? 0);
-              const ivaRate = Number(tx?.iva_rate ?? 23);
-              const withIva = amount * (1 + ivaRate / 100);
-              const paid = Number(tx?.paid_amount ?? 0);
-              const isPaid = paid >= amount || tx?.status === "paid";
-              const isSelectable = isApproved && !isPaid && tx;
-              const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
-              const manuallyMarked = !!item.manually_marked_paid;
+        ) : (() => {
+          // Build grouped view
+          const exportItems = items.map((item: any) => {
+            const tx = item.transactions;
+            return {
+              _item: item,
+              description: tx?.description ?? "-",
+              specification: tx?.specification ?? "",
+              category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
+              event_name: tx?.events?.name ?? "-",
+              supplier_name: tx?.suppliers?.name ?? "-",
+              supplier_id: tx?.supplier_id ?? null,
+              iban: tx?.suppliers?.iban ?? "-",
+              amount: Number(tx?.amount ?? 0),
+              iva_rate: Number(tx?.iva_rate ?? 23),
+              paid_amount: Number(tx?.paid_amount ?? 0),
+              due_date: tx?.due_date,
+              date: tx?.date ?? "",
+              payment_method: tx?.payment_method ?? "transfer",
+              payment_entity: tx?.payment_entity,
+              payment_reference: tx?.payment_reference,
+              invoice_ref: tx?.invoice_ref ?? null,
+            };
+          });
+          const { groups, ungrouped } = groupPaymentItems(exportItems as any);
 
-              return (
-                <div
-                  key={item.id}
-                  className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
-                    isPaid
-                      ? "border-success/30 bg-success/5 opacity-70"
-                      : manuallyMarked
-                      ? "border-emerald-500/30 bg-emerald-500/5"
-                      : selectedTxIds.has(tx?.id)
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border/50 bg-muted/20"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {isApproved && unpaidItems.length > 0 && (
-                      <div className="pt-0.5">
-                        {isSelectable ? (
-                          <Checkbox
-                            checked={selectedTxIds.has(tx.id)}
-                            onCheckedChange={() => toggleTx(tx.id)}
-                            className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
-                          />
-                        ) : (
-                          <span className="inline-flex h-4 w-4 items-center justify-center text-success">✓</span>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-1">
-                      <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
-                      {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
-                        <>
-                          <CopyLine label="Entidade Pgto" value={tx?.payment_entity ?? "-"} mono />
-                          <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
-                        </>
+          const renderItem = (item: any) => {
+            const tx = item.transactions;
+            const amount = Number(tx?.amount ?? 0);
+            const ivaRate = Number(tx?.iva_rate ?? 23);
+            const withIva = amount * (1 + ivaRate / 100);
+            const paid = Number(tx?.paid_amount ?? 0);
+            const isPaid = paid >= amount || tx?.status === "paid";
+            const isSelectable = isApproved && !isPaid && tx;
+            const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
+            const manuallyMarked = !!item.manually_marked_paid;
+
+            return (
+              <div
+                key={item.id}
+                className={`rounded-lg border px-4 py-3 space-y-1 text-sm transition-colors ${
+                  isPaid
+                    ? "border-success/30 bg-success/5 opacity-70"
+                    : manuallyMarked
+                    ? "border-emerald-500/30 bg-emerald-500/5"
+                    : selectedTxIds.has(tx?.id)
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-border/50 bg-muted/20"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {isApproved && unpaidItems.length > 0 && (
+                    <div className="pt-0.5">
+                      {isSelectable ? (
+                        <Checkbox
+                          checked={selectedTxIds.has(tx.id)}
+                          onCheckedChange={() => toggleTx(tx.id)}
+                          className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
+                        />
                       ) : (
-                        <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                        <span className="inline-flex h-4 w-4 items-center justify-center text-success">✓</span>
                       )}
-                      <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
-                      {tx?.account_categories && (
-                        <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1">
+                    <CopyLine label="Evento" value={tx?.events?.name ?? "-"} />
+                    {(tx?.payment_method === "service_payment" || tx?.payment_method === "state_payment") ? (
+                      <>
+                        <CopyLine label="Entidade Pgto" value={tx?.payment_entity ?? "-"} mono />
+                        <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
+                      </>
+                    ) : (
+                      <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                    )}
+                    <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                    {tx?.account_categories && (
+                      <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
+                    )}
+                    <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
+                    {tx?.specification && (
+                      <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
+                    )}
+                    <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
+                    {bpCheck.exceeds && (
+                      <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                    )}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {paid > 0 && !isPaid && (
+                        <>
+                          <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
+                          <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
+                        </>
                       )}
-                      <CopyLine label="Descrição" value={tx?.description ?? "-"} bold />
-                      {tx?.specification && (
-                        <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
+                      {isPaid && (
+                        <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
                       )}
-                      <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
-                      {bpCheck.exceeds && (
-                        <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
+                      {!isPaid && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
+                          className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
+                            manuallyMarked
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                              : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
+                          }`}
+                          title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
+                        >
+                          <Banknote className="h-3.5 w-3.5" />
+                          {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
+                        </button>
                       )}
-                      <div className="flex items-center gap-4 flex-wrap">
-                        {paid > 0 && !isPaid && (
-                          <>
-                            <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
-                            <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
-                          </>
-                        )}
-                        {isPaid && (
-                          <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
-                        )}
-                        {!isPaid && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleManualMark(item.id, manuallyMarked); }}
-                            className={`flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border transition-colors ${
-                              manuallyMarked
-                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                                : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
-                            }`}
-                            title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
-                          >
-                            <Banknote className="h-3.5 w-3.5" />
-                            {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          };
+
+          return (
+            <div className="space-y-3">
+              {/* Grouped items */}
+              {groups.map((group) => {
+                const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
+                const groupItems = group.items.map((gi: any) => gi._item).filter(Boolean);
+                return (
+                  <div key={`group-${group.supplier_id}-${group.invoice_ref}`} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">📎 Fatura Agrupada</Badge>
+                      <span className="font-semibold">{group.supplier_name}</span>
+                      <span className="text-muted-foreground">—</span>
+                      <span className="font-mono text-xs">{group.invoice_ref}</span>
+                    </div>
+                    <div className="pl-2 space-y-1 text-xs text-muted-foreground">
+                      {isRefPayment ? (
+                        <>
+                          <CopyLine label="Entidade" value={group.payment_entity ?? "-"} mono />
+                          <CopyLine label="Referência" value={group.payment_reference ?? "-"} mono />
+                        </>
+                      ) : (
+                        <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
+                      )}
+                      <p className="font-semibold text-sm text-foreground">
+                        Total a transferir: <span className="font-mono">{formatCurrency(group.totalWithIva)}</span>
+                      </p>
+                    </div>
+                    <div className="space-y-2 pl-2 border-l-2 border-primary/20 ml-1">
+                      {groupItems.map((gi: any) => renderItem(gi))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Ungrouped items */}
+              {ungrouped.map((ui: any) => renderItem(ui._item ?? items.find((i: any) => {
+                const tx = i.transactions;
+                return tx?.description === ui.description && tx?.supplier_id === ui.supplier_id;
+              }) ?? ui))}
+            </div>
+          );
+        })()
         )}
 
         <div className="flex justify-end mt-4 pt-4 border-t border-border/50">
