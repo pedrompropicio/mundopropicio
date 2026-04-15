@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems } from "@/lib/export-payment-list";
+import { calcWithIva } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote,
@@ -613,9 +614,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const unpaidItems = items.filter((item: any) => {
     const tx = item.transactions;
     if (!tx) return false;
-    const amount = Number(tx.amount);
+    const totalWithIva = calcWithIva(Number(tx.amount), Number(tx.iva_rate ?? 23));
     const paid = Number(tx.paid_amount ?? 0);
-    return paid < amount && tx.status !== "paid";
+    return paid < totalWithIva - 0.05 && tx.status !== "paid";
   });
 
   const toggleTx = (txId: string) => {
@@ -645,20 +646,22 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         const item = items.find((i: any) => i.transactions?.id === txId);
         const tx = item?.transactions;
         if (!tx) continue;
-        const amount = Number(tx.amount);
+        const baseAmount = Number(tx.amount);
+        const ivaRate = Number(tx.iva_rate ?? 23);
+        const totalWithIva = calcWithIva(baseAmount, ivaRate);
 
         await supabase.from("transaction_audit_log").insert({
           transaction_id: txId,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
           field_name: "Pagamento parcial",
           old_value: String(tx.paid_amount ?? 0),
-          new_value: String(amount),
+          new_value: String(totalWithIva),
         });
 
         const pDate = list?.payment_date ?? new Date().toISOString().slice(0, 10);
         await supabase
           .from("transactions")
-          .update({ paid_amount: amount, status: "paid", payment_date: pDate })
+          .update({ paid_amount: totalWithIva, status: "paid", payment_date: pDate })
           .eq("id", txId);
 
         // Propagate payment to child split transactions
@@ -669,10 +672,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
         if (children && children.length > 0) {
           for (const child of children) {
-            const childAmount = Number(child.amount);
+            const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 23));
             await supabase
               .from("transactions")
-              .update({ paid_amount: childAmount, status: "paid", payment_date: pDate })
+              .update({ paid_amount: childTotal, status: "paid", payment_date: pDate })
               .eq("id", child.id);
           }
         }
@@ -913,7 +916,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const ivaRate = Number(tx?.iva_rate ?? 23);
             const withIva = amount * (1 + ivaRate / 100);
             const paid = Number(tx?.paid_amount ?? 0);
-            const isPaid = paid >= amount || tx?.status === "paid";
+            const isPaid = paid >= withIva - 0.05 || tx?.status === "paid";
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
