@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { X, Plus, Percent, Divide, AlertTriangle, DollarSign } from "lucide-react";
 import HelpTooltip from "@/components/HelpTooltip";
