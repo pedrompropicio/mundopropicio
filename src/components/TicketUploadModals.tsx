@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { parseTicketlineXlsx, isTicketlineFormat, type TicketlineDailySale } from "@/lib/parse-ticketline-xlsx";
+import { isTicketlineZoneFormat, parseTicketlineZoneXlsx } from "@/lib/parse-ticketline-zone-xlsx";
 import * as XLSX from "xlsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -265,79 +266,136 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
         // --- XLSX path: parse locally ---
         const buf = await f.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array" });
-        if (!isTicketlineFormat(wb)) {
-          toast({ title: "Formato não reconhecido", description: "O ficheiro não é um 'Resumo de Operações' da Ticketline.", variant: "destructive" });
+
+        if (isTicketlineZoneFormat(wb)) {
+          // --- "Relatório por Zona / Tipo de Bilhete" format ---
+          const result = parseTicketlineZoneXlsx(buf);
+
+          setPdfHeader({
+            event_name: result.header.event_name,
+            venue_name: result.header.venue_name,
+            period_from: result.header.period_from,
+            period_to: result.header.period_to,
+            session_date: result.header.session_date,
+            session_time: result.header.session_time,
+            total_quantity_all: result.totalQuantityAll,
+            total_quantity_sold: result.totalQuantitySold,
+            total_revenue: result.totalRevenue,
+          });
+          if (result.header.period_from) setPdfPeriodFrom(result.header.period_from);
+          if (result.header.period_to) setPdfPeriodTo(result.header.period_to);
+
+          // Auto-detect ticket office name "Ticketline"
+          if (ticketOffices.length > 0 && !ticketOfficeId) {
+            const match = ticketOffices.find((to: any) => normalize(to.name).includes("ticketline"));
+            if (match) {
+              setTicketOfficeId((match as any).id);
+              toast({ title: `Bilheteira detectada: ${(match as any).name}` });
+            }
+          }
+
+          // No daily sales for this format — clear them
+          setTicketlineDailySales([]);
+
+          filtered = result.rows.filter(r => r.preco_unitario >= 1.00);
+
+          // Validate totals
+          const tw: string[] = [];
+          const extractedSold = filtered.reduce((s, r) => s + r.quantidade_vendida, 0);
+          if (Math.abs(extractedSold - result.totalQuantitySold) > 1) {
+            tw.push(`Vendidos extraídos: ${extractedSold.toLocaleString("pt-PT")} ≠ TOTAL XLSX: ${result.totalQuantitySold.toLocaleString("pt-PT")}`);
+          }
+          const extractedRev = filtered.reduce((s, r) => s + r.valor_vendido, 0);
+          if (Math.abs(extractedRev - result.totalRevenue) > 1) {
+            tw.push(`Receita extraída: ${extractedRev.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€ ≠ TOTAL XLSX: ${result.totalRevenue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
+          }
+          setTotalWarnings(tw);
+
+          // Validate header against selected event
+          const warnings: string[] = [];
+          if (result.header.event_name && selectedEvent) {
+            if (!fuzzyMatch(result.header.event_name, selectedEvent.name)) {
+              warnings.push(`Nome no XLSX: "${result.header.event_name}" ≠ Evento: "${selectedEvent.name}"`);
+            }
+          }
+          setHeaderWarnings(warnings);
+
+        } else if (isTicketlineFormat(wb)) {
+          // --- "Resumo de Operações" format ---
+          const result = parseTicketlineXlsx(buf);
+
+          setPdfHeader({
+            event_name: result.header.event_name,
+            period_from: result.header.period_from,
+            period_to: result.header.period_to,
+            session_date: result.header.event_date,
+            session_time: result.header.event_time,
+            total_quantity_sold: result.totalSoldQty,
+            total_revenue: result.totalSoldValue,
+          });
+          if (result.header.period_from) setPdfPeriodFrom(result.header.period_from);
+          if (result.header.period_to) setPdfPeriodTo(result.header.period_to);
+
+          // Auto-detect ticket office name "Ticketline"
+          if (ticketOffices.length > 0 && !ticketOfficeId) {
+            const match = ticketOffices.find((to: any) => normalize(to.name).includes("ticketline"));
+            if (match) {
+              setTicketOfficeId((match as any).id);
+              toast({ title: `Bilheteira detectada: ${(match as any).name}` });
+            }
+          }
+
+          // Store raw daily sales for day-by-day import
+          setTicketlineDailySales(result.sales);
+
+          // Aggregate sales by zone
+          const zoneMap = new Map<string, ExtractedRow>();
+          for (const s of result.sales) {
+            const key = `${s.zone}||${s.lot}`;
+            const existing = zoneMap.get(key);
+            if (existing) {
+              existing.quantidade_vendida += s.quantity;
+              existing.valor_vendido += s.total_value;
+            } else {
+              zoneMap.set(key, {
+                zona: s.zone,
+                tipo_bilhete: s.lot || "Regular",
+                preco_unitario: s.unit_price,
+                quantidade_total: 0,
+                quantidade_vendida: s.quantity,
+                valor_vendido: s.total_value,
+                iva_rate: 6,
+              });
+            }
+          }
+          filtered = Array.from(zoneMap.values()).filter(r => r.preco_unitario >= 1.00);
+
+          // Validate totals
+          const tw: string[] = [];
+          const extractedSold = filtered.reduce((s, r) => s + r.quantidade_vendida, 0);
+          if (Math.abs(extractedSold - result.totalSoldQty) > 1) {
+            tw.push(`Vendidos extraídos: ${extractedSold.toLocaleString("pt-PT")} ≠ TOTAL XLSX: ${result.totalSoldQty.toLocaleString("pt-PT")}`);
+          }
+          const extractedRev = filtered.reduce((s, r) => s + r.valor_vendido, 0);
+          if (Math.abs(extractedRev - result.totalSoldValue) > 1) {
+            tw.push(`Receita extraída: ${extractedRev.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€ ≠ TOTAL XLSX: ${result.totalSoldValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
+          }
+          setTotalWarnings(tw);
+
+          // Validate header against selected event
+          const warnings: string[] = [];
+          if (result.header.event_name && selectedEvent) {
+            if (!fuzzyMatch(result.header.event_name, selectedEvent.name)) {
+              warnings.push(`Nome no XLSX: "${result.header.event_name}" ≠ Evento: "${selectedEvent.name}"`);
+            }
+          }
+          setHeaderWarnings(warnings);
+
+        } else {
+          toast({ title: "Formato não reconhecido", description: "O ficheiro XLSX não é um formato Ticketline reconhecido ('Resumo de Operações' ou 'Relatório por Zona').", variant: "destructive" });
           setExtracting(false);
           return;
         }
-        const result = parseTicketlineXlsx(buf);
-
-        setPdfHeader({
-          event_name: result.header.event_name,
-          period_from: result.header.period_from,
-          period_to: result.header.period_to,
-          session_date: result.header.event_date,
-          session_time: result.header.event_time,
-          total_quantity_sold: result.totalSoldQty,
-          total_revenue: result.totalSoldValue,
-        });
-        if (result.header.period_from) setPdfPeriodFrom(result.header.period_from);
-        if (result.header.period_to) setPdfPeriodTo(result.header.period_to);
-
-        // Auto-detect ticket office name "Ticketline"
-        if (ticketOffices.length > 0 && !ticketOfficeId) {
-          const match = ticketOffices.find((to: any) => normalize(to.name).includes("ticketline"));
-          if (match) {
-            setTicketOfficeId((match as any).id);
-            toast({ title: `Bilheteira detectada: ${(match as any).name}` });
-          }
-        }
-
-        // Store raw daily sales for day-by-day import
-        setTicketlineDailySales(result.sales);
-
-        // Aggregate sales by zone (summing across all dates for the import REVIEW view only)
-        const zoneMap = new Map<string, ExtractedRow>();
-        for (const s of result.sales) {
-          const key = `${s.zone}||${s.lot}`;
-          const existing = zoneMap.get(key);
-          if (existing) {
-            existing.quantidade_vendida += s.quantity;
-            existing.valor_vendido += s.total_value;
-          } else {
-            zoneMap.set(key, {
-              zona: s.zone,
-              tipo_bilhete: s.lot || "Regular",
-              preco_unitario: s.unit_price,
-              quantidade_total: 0,
-              quantidade_vendida: s.quantity,
-              valor_vendido: s.total_value,
-              iva_rate: 6,
-            });
-          }
-        }
-        filtered = Array.from(zoneMap.values()).filter(r => r.preco_unitario >= 1.00);
-
-        // Validate totals
-        const tw: string[] = [];
-        const extractedSold = filtered.reduce((s, r) => s + r.quantidade_vendida, 0);
-        if (Math.abs(extractedSold - result.totalSoldQty) > 1) {
-          tw.push(`Vendidos extraídos: ${extractedSold.toLocaleString("pt-PT")} ≠ TOTAL XLSX: ${result.totalSoldQty.toLocaleString("pt-PT")}`);
-        }
-        const extractedRev = filtered.reduce((s, r) => s + r.valor_vendido, 0);
-        if (Math.abs(extractedRev - result.totalSoldValue) > 1) {
-          tw.push(`Receita extraída: ${extractedRev.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€ ≠ TOTAL XLSX: ${result.totalSoldValue.toLocaleString("pt-PT", { minimumFractionDigits: 2 })}€`);
-        }
-        setTotalWarnings(tw);
-
-        // Validate header against selected event
-        const warnings: string[] = [];
-        if (result.header.event_name && selectedEvent) {
-          if (!fuzzyMatch(result.header.event_name, selectedEvent.name)) {
-            warnings.push(`Nome no XLSX: "${result.header.event_name}" ≠ Evento: "${selectedEvent.name}"`);
-          }
-        }
-        setHeaderWarnings(warnings);
 
       } else {
         // --- PDF path: call edge function ---
