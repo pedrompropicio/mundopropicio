@@ -715,7 +715,41 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         .select("*, transactions(*, events(name), suppliers(name, iban), account_categories(code, name, parent_id))")
         .eq("payment_list_id", listId);
       if (error) throw error;
-      return (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
+      const filtered = (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
+
+      // For master apportionment transactions (event_id is null), resolve event names from children
+      const masterIds = filtered
+        .filter((item: any) => item.transactions && !item.transactions.event_id && item.transactions.split_mode)
+        .map((item: any) => item.transactions.id);
+
+      let childEventMap: Record<string, string> = {};
+      if (masterIds.length > 0) {
+        const { data: children } = await supabase
+          .from("transactions")
+          .select("parent_transaction_id, events(name)")
+          .in("parent_transaction_id", masterIds)
+          .not("event_id", "is", null);
+        if (children) {
+          for (const child of children) {
+            const pid = child.parent_transaction_id as string;
+            const eName = (child as any).events?.name;
+            if (eName && pid) {
+              if (!childEventMap[pid]) childEventMap[pid] = eName;
+              else if (!childEventMap[pid].includes(eName)) childEventMap[pid] += ` / ${eName}`;
+            }
+          }
+        }
+      }
+
+      // Inject resolved event names into master transactions
+      for (const item of filtered) {
+        const tx = item.transactions;
+        if (tx && !tx.event_id && tx.split_mode && childEventMap[tx.id]) {
+          (tx as any).events = { name: `Rateio: ${childEventMap[tx.id]}` };
+        }
+      }
+
+      return filtered;
     },
   });
 
