@@ -677,7 +677,15 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
 
     try {
       if (importType === "sales" && effectiveSessionId) {
-        const zoneIds = existingZones.map((zone: any) => zone.id).filter(Boolean);
+        const { data: sessionZones, error: zonesError } = await supabase
+          .from("event_ticket_zones")
+          .select("id")
+          .eq("event_id", eventId)
+          .eq("session_id", effectiveSessionId);
+
+        if (zonesError) throw zonesError;
+
+        const zoneIds = (sessionZones || []).map((zone: any) => zone.id).filter(Boolean);
 
         if (zoneIds.length > 0) {
           let salesQuery = supabase
@@ -707,6 +715,9 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
             return;
           }
         }
+
+        importMutation.mutate();
+        return;
       }
 
       const { from: effectiveFrom, to: effectiveTo } = effectiveImportPeriod;
