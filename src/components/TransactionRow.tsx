@@ -239,7 +239,6 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 }`}
                 title={computedStatus === "pending" ? "Selecionar para aprovar" : "Selecionar para liquidar"}
               />
-              />
             ) : null}
           </td>
         )}
