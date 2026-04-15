@@ -86,6 +86,20 @@ export function NotificationBell() {
     refetchInterval: 120_000,
   });
 
+  const { data: pendingPaymentLists = [] } = useQuery({
+    queryKey: ["notif-payment-lists"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("payment_lists")
+        .select("id, title, payment_date, created_by, status")
+        .eq("status", "pending_approval")
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   const alerts = useMemo(() => {
     const result: Alert[] = [];
     const today = new Date();
