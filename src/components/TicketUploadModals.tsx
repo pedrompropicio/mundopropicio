@@ -705,7 +705,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
               </button>
             </PopoverTrigger>
             <PopoverContent side="bottom" className="text-xs max-w-[240px]">
-              Importa dados de PDFs Ticketline. Pode usar para configuração inicial (zonas/lotes) ou para registar vendas reais.
+              Importa dados de PDFs (Ticketline, BOL) ou XLSX Ticketline. Pode usar para configuração inicial (zonas/lotes) ou para registar vendas reais.
             </PopoverContent>
           </Popover>
         </div>
@@ -716,7 +716,7 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Importar PDF Ticketline
+              Importar Bilheteira
             </DialogTitle>
           </DialogHeader>
 
