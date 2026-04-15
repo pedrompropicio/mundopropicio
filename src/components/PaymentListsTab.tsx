@@ -93,6 +93,19 @@ export default function PaymentListsTab() {
   const [approveListId, setApproveListId] = useState<string | null>(null);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
 
+  // Auto-open list from URL query param (e.g., from email link)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const listParam = params.get("listId");
+    if (listParam) {
+      setViewListId(listParam);
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("listId");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, []);
+
   const handleSendEmailToAdmin = async (list: any) => {
     setSendingEmailId(list.id);
     try {
@@ -123,7 +136,7 @@ export default function PaymentListsTab() {
         .select("id, email")
         .in("id", adminIds);
 
-      const appUrl = `${window.location.origin}/relatorios/listas-pagamento`;
+      const appUrl = `${window.location.origin}/relatorios/listas-pagamento?listId=${list.id}`;
       const sendAttemptId = crypto.randomUUID();
       const recipientProfiles = (profiles ?? []).filter((profile: any) => !!profile.email);
 
