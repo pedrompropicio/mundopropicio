@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     // RULE: Paid transactions — only specification and supplier_id can be edited
     const isPaid = transaction.status === "paid";
     if (isPaid) {
-      const paidAllowedFields = ["specification", "supplier_id"];
+      const paidAllowedFields = ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"];
       const blockedFields = Object.keys(updates).filter((f) => !paidAllowedFields.includes(f));
       if (blockedFields.length > 0) {
         return new Response(
