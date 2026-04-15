@@ -52,51 +52,120 @@ interface DbTransaction {
   status: string;
 }
 
-function computeQuarterlyIva(txns: DbTransaction[]): QuarterIva[] {
+interface TicketSaleRow {
+  sale_date: string;
+  quantity: number;
+  unit_price: number;
+  iva_rate: number;
+  event_id: string;
+}
+
+/** Extract IVA from a gross (IVA-inclusive) amount */
+function ivaFromGross(grossAmount: number, ivaRate: number): number {
+  if (ivaRate === 0) return 0;
+  return Math.round(grossAmount * ivaRate / (100 + ivaRate) * 100) / 100;
+}
+
+/** Extract base from a gross (IVA-inclusive) amount */
+function baseFromGross(grossAmount: number, ivaRate: number): number {
+  if (ivaRate === 0) return grossAmount;
+  return Math.round(grossAmount * 100 / (100 + ivaRate) * 100) / 100;
+}
+
+function computeQuarterlyIva(txns: DbTransaction[], sales: TicketSaleRow[]): QuarterIva[] {
   const map = new Map<string, QuarterIva>();
-  txns.forEach((t) => {
-    const d = new Date(t.date);
+
+  const ensureEntry = (dateStr: string) => {
+    const d = new Date(dateStr);
     const year = d.getFullYear();
-    const q = getQuarter(t.date);
+    const q = getQuarter(dateStr);
     const key = `${year}-Q${q}`;
     if (!map.has(key)) {
       map.set(key, { label: getQuarterLabel(q, year), year, quarter: q, ivaLiquidado: 0, ivaDedutivel: 0, saldo: 0 });
     }
-    const entry = map.get(key)!;
-    const iva = calcIvaAmount(t.amount, t.iva_rate as IvaRate);
-    if (t.type === "income") entry.ivaLiquidado += iva;
-    else entry.ivaDedutivel += iva;
+    return map.get(key)!;
+  };
+
+  // Expense transactions (IVA Dedutível)
+  txns.forEach((t) => {
+    if (t.type !== "expense") return;
+    const entry = ensureEntry(t.date);
+    entry.ivaDedutivel += calcIvaAmount(t.amount, t.iva_rate as IvaRate);
+  });
+
+  // Income transactions (IVA Liquidado) — non-ticket revenue
+  txns.forEach((t) => {
+    if (t.type !== "income") return;
+    const entry = ensureEntry(t.date);
+    entry.ivaLiquidado += calcIvaAmount(t.amount, t.iva_rate as IvaRate);
+  });
+
+  // Ticket sales (IVA Liquidado) — prices are gross (with IVA)
+  sales.forEach((s) => {
+    const entry = ensureEntry(s.sale_date);
+    const gross = s.quantity * s.unit_price;
+    entry.ivaLiquidado += ivaFromGross(gross, s.iva_rate);
+  });
+
+  map.forEach((entry) => {
     entry.saldo = entry.ivaLiquidado - entry.ivaDedutivel;
   });
+
   return Array.from(map.values()).sort((a, b) => a.year - b.year || a.quarter - b.quarter);
 }
 
-function computeEventIva(txns: DbTransaction[], eventsMap: Map<string, string>): EventIva[] {
+function computeEventIva(txns: DbTransaction[], sales: TicketSaleRow[], eventsMap: Map<string, string>): EventIva[] {
   const map = new Map<string, EventIva>();
+
+  const ensureEntry = (eventId: string) => {
+    if (!map.has(eventId)) {
+      map.set(eventId, { eventId, eventName: eventsMap.get(eventId) || "Sem evento", ivaLiquidado: 0, ivaDedutivel: 0, saldo: 0 });
+    }
+    return map.get(eventId)!;
+  };
+
   txns.forEach((t) => {
     if (!t.event_id) return;
-    if (!map.has(t.event_id)) {
-      map.set(t.event_id, { eventId: t.event_id, eventName: eventsMap.get(t.event_id) || "Sem evento", ivaLiquidado: 0, ivaDedutivel: 0, saldo: 0 });
-    }
-    const entry = map.get(t.event_id)!;
+    const entry = ensureEntry(t.event_id);
     const iva = calcIvaAmount(t.amount, t.iva_rate as IvaRate);
     if (t.type === "income") entry.ivaLiquidado += iva;
     else entry.ivaDedutivel += iva;
+  });
+
+  sales.forEach((s) => {
+    const entry = ensureEntry(s.event_id);
+    const gross = s.quantity * s.unit_price;
+    entry.ivaLiquidado += ivaFromGross(gross, s.iva_rate);
+  });
+
+  map.forEach((entry) => {
     entry.saldo = entry.ivaLiquidado - entry.ivaDedutivel;
   });
+
   return Array.from(map.values());
 }
 
-function computeRateBreakdown(txns: DbTransaction[]): RateBreakdown[] {
+function computeRateBreakdown(txns: DbTransaction[], sales: TicketSaleRow[]): RateBreakdown[] {
   const rates: IvaRate[] = [23, 13, 6, 0];
   return rates.map((rate) => {
-    const rateTxns = txns.filter((t) => t.iva_rate === rate);
-    const incTxns = rateTxns.filter((t) => t.type === "income");
-    const expTxns = rateTxns.filter((t) => t.type === "expense");
+    // Expense transactions
+    const expTxns = txns.filter((t) => t.type === "expense" && t.iva_rate === rate);
+    // Income transactions (non-ticket)
+    const incTxns = txns.filter((t) => t.type === "income" && t.iva_rate === rate);
+    // Ticket sales
+    const rateSales = sales.filter((s) => s.iva_rate === rate);
+
+    const baseIncomeFromTxns = incTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.iva_rate as IvaRate), 0);
+    const ivaIncomeFromTxns = incTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0);
+
+    const grossSales = rateSales.reduce((s, t) => s + t.quantity * t.unit_price, 0);
+    const baseIncomeFromSales = baseFromGross(grossSales, rate);
+    const ivaIncomeFromSales = ivaFromGross(grossSales, rate);
+
     return {
       rate,
-      baseIncome: incTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.iva_rate as IvaRate), 0),
-      ivaIncome: incTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0),
+      baseIncome: baseIncomeFromTxns + baseIncomeFromSales,
+      ivaIncome: ivaIncomeFromTxns + ivaIncomeFromSales,
       baseExpense: expTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.iva_rate as IvaRate), 0),
       ivaExpense: expTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0),
     };
@@ -120,6 +189,40 @@ export default function IvaManagement() {
     },
   });
 
+  const { data: ticketSales = [] } = useQuery({
+    queryKey: ["iva-ticket-sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("sale_date, quantity, unit_price, lot_id")
+        .order("sale_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["iva-ticket-lots"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_lots")
+        .select("id, iva_rate, zone_id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: ticketZones = [] } = useQuery({
+    queryKey: ["iva-ticket-zones"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_zones")
+        .select("id, event_id");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data: events = [] } = useQuery({
     queryKey: ["iva-events"],
     queryFn: async () => {
@@ -129,16 +232,42 @@ export default function IvaManagement() {
     },
   });
 
+  // Build lookup maps
   const eventsMap = useMemo(() => {
     const m = new Map<string, string>();
     events.forEach((e) => m.set(e.id, e.name));
     return m;
   }, [events]);
 
+  const enrichedSales: TicketSaleRow[] = useMemo(() => {
+    const lotMap = new Map<string, { iva_rate: number; zone_id: string }>();
+    ticketLots.forEach((l) => lotMap.set(l.id, { iva_rate: l.iva_rate, zone_id: l.zone_id }));
+    const zoneMap = new Map<string, string>();
+    ticketZones.forEach((z) => zoneMap.set(z.id, z.event_id));
+
+    return ticketSales
+      .map((s: any) => {
+        const lot = lotMap.get(s.lot_id);
+        if (!lot) return null;
+        const eventId = zoneMap.get(lot.zone_id);
+        if (!eventId) return null;
+        return {
+          sale_date: s.sale_date,
+          quantity: s.quantity,
+          unit_price: s.unit_price,
+          iva_rate: lot.iva_rate,
+          event_id: eventId,
+        } as TicketSaleRow;
+      })
+      .filter(Boolean) as TicketSaleRow[];
+  }, [ticketSales, ticketLots, ticketZones]);
+
   const yearTxns = useMemo(() => transactions.filter((t) => new Date(t.date).getFullYear() === selectedYear), [transactions, selectedYear]);
-  const quarterly = useMemo(() => computeQuarterlyIva(yearTxns), [yearTxns]);
-  const eventIva = useMemo(() => computeEventIva(yearTxns, eventsMap), [yearTxns, eventsMap]);
-  const rateBreakdown = useMemo(() => computeRateBreakdown(yearTxns), [yearTxns]);
+  const yearSales = useMemo(() => enrichedSales.filter((s) => new Date(s.sale_date).getFullYear() === selectedYear), [enrichedSales, selectedYear]);
+
+  const quarterly = useMemo(() => computeQuarterlyIva(yearTxns, yearSales), [yearTxns, yearSales]);
+  const eventIva = useMemo(() => computeEventIva(yearTxns, yearSales, eventsMap), [yearTxns, yearSales, eventsMap]);
+  const rateBreakdown = useMemo(() => computeRateBreakdown(yearTxns, yearSales), [yearTxns, yearSales]);
 
   const totalLiquidado = quarterly.reduce((s, q) => s + q.ivaLiquidado, 0);
   const totalDedutivel = quarterly.reduce((s, q) => s + q.ivaDedutivel, 0);
