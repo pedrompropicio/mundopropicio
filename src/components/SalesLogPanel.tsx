@@ -372,8 +372,8 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
               rows.push({ type: "month", label: getMonthLabel(currentMonthKey), qty: monthQty, rev: monthRev });
             }
 
-            const colSpanTotal = viewMode === "detail" ? 4 : 2;
-            const colCount = viewMode === "detail" ? 7 : 5;
+            const colSpanTotal = viewMode === "detail" ? 5 : 2;
+            const colCount = viewMode === "detail" ? 8 : 5;
 
             return (
               <div className="glass rounded-xl overflow-hidden max-h-[500px] overflow-y-auto">
