@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 function buildPrompt(): string {
-  return `Analisa este PDF de bilheteira. Detecta automaticamente o formato (Ticketline ou BOL) e extrai os dados.
+  return `Analisa este PDF de bilheteira. Detecta automaticamente o formato (Ticketline, BOL, ou Previsão de Receitas) e extrai os dados.
 
 === FORMATO 1: TICKETLINE — "Relatório por Zona / Tipo de Bilhete" ===
 
@@ -41,7 +41,57 @@ REGRAS ESPECÍFICAS BOL:
 - O total de bilhetes (rodapé "Bilhetes") inclui TUDO: Disponíveis + Vendas + Convites + Permutas + Cartões.
 - O total de receita (rodapé "Receita") inclui Vendas Inteiras + Vendas Desconto + Cartões.
 
-=== EXTRACÇÃO DO CABEÇALHO (OBRIGATÓRIA — ambos formatos) ===
+=== FORMATO 3: PREVISÃO DE RECEITAS (Planeamento de Bilheteira) ===
+
+ESTRUTURA:
+- Documento de planeamento/simulação de receitas para um ou mais eventos.
+- Pode ter MÚLTIPLAS PÁGINAS, cada uma correspondendo a uma cidade/evento/venue diferente.
+- Cabeçalho por página: "PREVISÃO DE RECEITAS", LOCAL (venue), DATA, HORÁRIO.
+- Organizado por ZONAS (ex: "Golden Circle", "Bancadas", "Galerias", "Plateia", "Balcão 1", "Balcão 2").
+- Cada zona tem uma capacidade total indicada ao lado do nome.
+- Dentro de cada zona, LOTES com: nome (ex: "Lote Promocional", "2 Lote", "3 Lote"), quantidade, convites, preço unitário (bruto c/ IVA), receita.
+- Linhas especiais como "PMC", "PMR", "PLUS DE ..." são lotes adicionais.
+- Resumo no final: Total, Total sem IVA (6%), Comissão bilhe (2%), Total líquido, Ticket médio.
+- Pode haver uma tabela inicial de capacidades (LOCAL, CAPACIDADE, CATIVOS SALA, CONVITES) — extrair para referência.
+
+REGRAS ESPECÍFICAS PREVISÃO DE RECEITAS:
+- source = "previsao_receitas"
+- Extrair CADA PÁGINA como um elemento separado no array "pages".
+- Para cada página: venue_name, event_date (texto original), event_time, total_quantity, total_revenue (bruto), total_revenue_net (sem IVA), iva_rate (normalmente 6), commission_rate (normalmente 2).
+- Para cada zona: name, capacity (capacidade total da zona).
+- Para cada lote dentro da zona: name, quantity (bilhetes do lote), convites (se indicados, senão 0), price (preço unitário BRUTO c/ IVA), revenue (receita total do lote).
+- lot_type: "promo" se contém "PROMOCIONAL" ou "PROMO", senão "regular". Para PMC/PMR/PLUS usar "special".
+- Preços são BRUTOS (incluem IVA). Manter como estão.
+
+SAÍDA FORMATO 3:
+{
+  "source": "previsao_receitas",
+  "pages": [
+    {
+      "venue_name": "CAMPO PEQUENO",
+      "event_date": "06 de fev",
+      "event_time": "21h00",
+      "total_quantity": 6229,
+      "total_revenue": 427685.00,
+      "total_revenue_net": 403476.42,
+      "iva_rate": 6,
+      "commission_rate": 2,
+      "ticket_medio": 68.66,
+      "zones": [
+        {
+          "name": "Golden Circle",
+          "capacity": 2403,
+          "lots": [
+            { "name": "Lote Promocional", "quantity": 603, "convites": 20, "price": 75.00, "revenue": 43725.00, "lot_type": "promo" },
+            { "name": "2 Lote", "quantity": 900, "convites": 0, "price": 85.00, "revenue": 72250.00, "lot_type": "regular" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+=== EXTRACÇÃO DO CABEÇALHO (OBRIGATÓRIA — formatos 1 e 2) ===
 - Nome do espetáculo/evento → "event_name"
 - Período de operações → "period_from" e "period_to" (YYYY-MM-DD)
 - Data e hora da sessão → "session_date" (YYYY-MM-DD) e "session_time" (HH:MM)
@@ -49,7 +99,7 @@ REGRAS ESPECÍFICAS BOL:
 - Nome da bilheteira (ex: "Ticketline", "BOL") → "ticket_office_name"
 - Se algum campo não existir, usar null.
 
-=== FORMATO DE SAÍDA (IGUAL para ambos) ===
+=== FORMATO DE SAÍDA (formatos 1 e 2) ===
 
 Devolve APENAS um JSON válido:
 {
@@ -92,7 +142,8 @@ Devolve APENAS um JSON válido:
 - DESCARTA linhas com preço unitário inferior a 1,00€.
 - Para a linha TOTAL: total_quantity_all, total_quantity_sold (vendidos efectivos), total_revenue.
 - VALIDAÇÃO: quantidade_vendida DEVE ser <= quantidade_total. Se não for, corrigir.
-- total_quantity_sold = soma de TODAS as vendas (inteiras + desconto + cartões com valor).`;
+- total_quantity_sold = soma de TODAS as vendas (inteiras + desconto + cartões com valor).
+- Para formato 3 (Previsão de Receitas): NÃO devolver "rows", devolver "pages" com "zones" e "lots".`;
 }
 
 serve(async (req) => {
