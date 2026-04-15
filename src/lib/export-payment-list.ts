@@ -150,6 +150,14 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.text(item.event_name, valueX, y);
     y += lineHeight;
 
+    if (item.category) {
+      doc.setTextColor(120, 120, 120);
+      doc.text("Categoria:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.category, valueX, y);
+      y += lineHeight;
+    }
+
     doc.setTextColor(120, 120, 120);
     doc.text("IBAN:", labelX, y);
     doc.setTextColor(0, 0, 0);
@@ -169,6 +177,14 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.text(item.description, valueX, y);
     doc.setFont("helvetica", "normal");
     y += lineHeight;
+
+    if (item.specification) {
+      doc.setTextColor(120, 120, 120);
+      doc.text("Especificação:", labelX, y);
+      doc.setTextColor(0, 0, 0);
+      doc.text(item.specification, valueX, y);
+      y += lineHeight;
+    }
 
     doc.setTextColor(120, 120, 120);
     doc.text("Valor:", labelX, y);
