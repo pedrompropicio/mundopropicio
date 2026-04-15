@@ -165,6 +165,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .in("event_id", allRelevantEventIds);
       if (error) throw error;
 
+      // For sub-events (parentEventId is set), don't fetch master transactions —
+      // they belong to the parent event's BP, not the sub-event's.
+      // Only fetch parent master transactions when viewing the master event itself.
+      if (parentEventId) return directTx ?? [];
+
       // Also fetch multi-event parent transactions (event_id IS NULL)
       // that have child splits in our relevant events
       const childTxIds = (directTx ?? [])
