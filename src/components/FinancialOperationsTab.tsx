@@ -215,7 +215,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
         return { count: transactions.length, recurring: true };
       } else {
         // Single transaction
-        const { error } = await supabase.from("transactions").insert({
+        const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: form.description,
           type: transactionType,
           amount,
@@ -225,8 +225,20 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
           status: "approved",
           iva_rate: 0,
           paid_amount: 0,
-        });
+        }).select("id").single();
         if (error) throw error;
+
+        // Audit: log creation
+        if (insertedTx?.id) {
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: insertedTx.id,
+            changed_by: callerName,
+            field_name: "Criação",
+            old_value: null,
+            new_value: `Op. Financeira — ${form.description} — ${amount.toFixed(2)} €`,
+          });
+        }
 
         return { count: 1, recurring: false };
       }

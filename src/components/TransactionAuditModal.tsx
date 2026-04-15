@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
@@ -37,6 +37,7 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
           <div className="space-y-3">
             {logs.map((log) => {
               const isCreation = log.field_name === "Criação";
+              const isDeletion = log.field_name === "Eliminação";
 
               if (isCreation) {
                 return (
@@ -51,6 +52,25 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
                       </span>
                     </div>
                     <p className="text-xs text-foreground">{log.new_value}</p>
+                    <p className="text-xs text-muted-foreground">Por: {log.changed_by}</p>
+                  </div>
+                );
+              }
+
+              if (isDeletion) {
+                return (
+                  <div key={log.id} className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-medium text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Eliminação
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.changed_at).toLocaleString("pt-PT")}
+                      </span>
+                    </div>
+                    {log.old_value && <p className="text-xs text-foreground">{log.old_value}</p>}
+                    {log.new_value && <p className="text-xs text-muted-foreground">{log.new_value}</p>}
                     <p className="text-xs text-muted-foreground">Por: {log.changed_by}</p>
                   </div>
                 );
