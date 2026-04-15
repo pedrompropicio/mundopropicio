@@ -62,12 +62,18 @@ export default function UserActivityLog() {
 
   // Calculate per-user usage time (each log entry = ~30s of activity)
   const INTERVAL_SECONDS = 30;
-  const userTimeMap = new Map<string, number>(); // user_id -> total seconds
+  const userTimeMap = new Map<string, number>(); // user_id -> total seconds (7d)
+  const userTodayMap = new Map<string, number>(); // user_id -> total seconds (today)
   const pageTimeMap = new Map<string, number>(); // page -> total seconds
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   for (const act of activities) {
     userTimeMap.set(act.user_id, (userTimeMap.get(act.user_id) ?? 0) + INTERVAL_SECONDS);
     pageTimeMap.set(act.page, (pageTimeMap.get(act.page) ?? 0) + INTERVAL_SECONDS);
+    if (act.created_at.slice(0, 10) === todayStr) {
+      userTodayMap.set(act.user_id, (userTodayMap.get(act.user_id) ?? 0) + INTERVAL_SECONDS);
+    }
   }
 
   // Sort users by usage time desc
@@ -77,6 +83,7 @@ export default function UserActivityLog() {
       name: profileMap.get(userId)?.full_name || profileMap.get(userId)?.email || userId.slice(0, 8),
       email: profileMap.get(userId)?.email ?? "",
       totalMinutes: totalSec / 60,
+      todayMinutes: (userTodayMap.get(userId) ?? 0) / 60,
     }))
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
@@ -154,7 +161,8 @@ export default function UserActivityLog() {
               <TableRow>
                 <TableHead>Utilizador</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead className="text-right">Tempo Total</TableHead>
+                <TableHead className="text-right">Hoje</TableHead>
+                <TableHead className="text-right">7 Dias</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -162,6 +170,12 @@ export default function UserActivityLog() {
                 <TableRow key={u.userId}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-mono text-sm">{u.todayMinutes > 0 ? formatDuration(u.todayMinutes) : "—"}</span>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
