@@ -1179,6 +1179,15 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   <p className="text-xs text-destructive/90 leading-relaxed">{splitCategoryBlockReason}</p>
                 </div>
               )}
+              {splitCategoryWarning && !splitCategoryBlockReason && (
+                <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-warning">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Aviso
+                  </div>
+                  <p className="text-xs text-warning/90 leading-relaxed">{splitCategoryWarning}</p>
+                </div>
+              )}
               {/* BP Override toggle for split mode */}
               {splitNeedsBypass && !splitCategoryBlockReason && (
                 <div className="flex items-center gap-2">
