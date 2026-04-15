@@ -562,11 +562,22 @@ export default function EventImplementationDetail() {
               </CardTitle>
               {extracted && (
                 <p className="text-sm text-muted-foreground">
-                  Dados extraídos do ficheiro ({extracted.sheetNames.length} abas detetadas).
-                  {extracted.detectedCities.length > 0 && (
-                    <> Cidades nas instruções: <span className="font-medium text-primary">{extracted.detectedCities.join(", ")}</span>.</>
+                  {extracted.fileType === "ticket_sales" ? (
+                    <>
+                      <Badge variant="outline" className="mr-1 text-xs border-green-500/50 text-green-600">Vendas de Bilhetes</Badge>
+                      Ficheiro Ticketline detetado — evento: <span className="font-medium text-primary">{extracted.eventName}</span>.
+                      {extracted.date && <> Data: <span className="font-medium text-primary">{format(new Date(extracted.date), "dd/MM/yyyy")}</span>.</>}
+                      {" "}Vincule o evento para importar as vendas.
+                    </>
+                  ) : (
+                    <>
+                      Dados extraídos do ficheiro ({extracted.sheetNames.length} abas detetadas).
+                      {extracted.detectedCities.length > 0 && (
+                        <> Cidades nas instruções: <span className="font-medium text-primary">{extracted.detectedCities.join(", ")}</span>.</>
+                      )}
+                      {" "}Confirme os dados abaixo e ajuste se necessário.
+                    </>
                   )}
-                  {" "}Confirme os dados abaixo e ajuste se necessário.
                 </p>
               )}
             </CardHeader>
