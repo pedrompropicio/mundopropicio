@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,19 +24,25 @@ interface Props {
 export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(() => {
+    if (transaction.payment_date) {
+      const [y, m, d] = transaction.payment_date.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0);
+    }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
   });
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
-  const [invoiceRef, setInvoiceRef] = useState("");
+  const [invoiceRef, setInvoiceRef] = useState(transaction.invoice_ref ?? "");
   const [withholdingAmount, setWithholdingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
-  const [paymentEntity, setPaymentEntity] = useState("");
-  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    (transaction.payment_method as PaymentMethod) || "transfer"
+  );
+  const [paymentEntity, setPaymentEntity] = useState(transaction.payment_entity ?? "");
+  const [paymentReference, setPaymentReference] = useState(transaction.payment_reference ?? "");
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -148,6 +154,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const rawBalance = Math.round((amount - currentPaid) * 100) / 100;
   // If remaining balance is within rounding tolerance, treat as fully paid
   const balance = Math.abs(rawBalance) <= 0.05 ? 0 : rawBalance;
+
+  // Pre-fill payment amount with remaining balance
+  useEffect(() => {
+    if (balance > 0 && !paymentAmount) {
+      setPaymentAmount(String(balance));
+    }
+  }, [balance]);
 
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
