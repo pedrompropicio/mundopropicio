@@ -334,6 +334,20 @@ export default function Transactions() {
     });
   };
 
+  // Compute invoice_refs that appear on 2+ transactions (real groups)
+  const groupedInvoiceRefs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of transactions) {
+      const ref = (t as any).invoice_ref?.trim();
+      if (ref) counts.set(ref, (counts.get(ref) ?? 0) + 1);
+    }
+    const set = new Set<string>();
+    for (const [ref, cnt] of counts) {
+      if (cnt >= 2) set.add(ref);
+    }
+    return set;
+  }, [transactions]);
+
   // Search helper
   const matchesSearch = (t: any) => {
     if (!searchTerm.trim()) return true;
