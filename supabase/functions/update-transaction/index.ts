@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
       "description", "amount", "iva_rate", "event_id", "category_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
       "payment_date", "is_transitory", "exclude_from_result", "split_mode",
+      "invoice_ref", "payment_method", "payment_entity", "payment_reference",
     ];
     const sanitizedUpdates: Record<string, any> = {};
     for (const field of allowedFields) {
