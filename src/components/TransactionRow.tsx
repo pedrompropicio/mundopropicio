@@ -395,6 +395,16 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           )}
         </td>
         <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{supplierName}</td>
+        <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">
+          {(t.account_categories as any)?.name ? (
+            <span className="text-xs">
+              <span className="text-muted-foreground/70">{(t.account_categories as any)?.code}</span>{" "}
+              {(t.account_categories as any)?.name}
+            </span>
+          ) : (
+            <span className="text-muted-foreground/50 italic text-xs">—</span>
+          )}
+        </td>
         <td className="py-3 pr-4">
           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
             {statusLabel}
