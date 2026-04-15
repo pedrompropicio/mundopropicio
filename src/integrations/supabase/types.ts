@@ -2243,6 +2243,75 @@ export type Database = {
           },
         ]
       }
+      transaction_payments: {
+        Row: {
+          account_id: string | null
+          amount: number
+          created_at: string
+          created_by: string
+          credit_amount: number
+          id: string
+          invoice_ref: string | null
+          notes: string | null
+          payment_date: string
+          payment_entity: string | null
+          payment_method: string
+          payment_reference: string | null
+          transaction_id: string
+          updated_at: string
+          withholding_amount: number
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          created_at?: string
+          created_by?: string
+          credit_amount?: number
+          id?: string
+          invoice_ref?: string | null
+          notes?: string | null
+          payment_date: string
+          payment_entity?: string | null
+          payment_method?: string
+          payment_reference?: string | null
+          transaction_id: string
+          updated_at?: string
+          withholding_amount?: number
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          created_at?: string
+          created_by?: string
+          credit_amount?: number
+          id?: string
+          invoice_ref?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_entity?: string | null
+          payment_method?: string
+          payment_reference?: string | null
+          transaction_id?: string
+          updated_at?: string
+          withholding_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string | null
