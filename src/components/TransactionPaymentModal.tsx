@@ -24,19 +24,25 @@ interface Props {
 export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(() => {
+    if (transaction.payment_date) {
+      const [y, m, d] = transaction.payment_date.split("-").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0);
+    }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
   });
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
-  const [invoiceRef, setInvoiceRef] = useState("");
+  const [invoiceRef, setInvoiceRef] = useState(transaction.invoice_ref ?? "");
   const [withholdingAmount, setWithholdingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
-  const [paymentEntity, setPaymentEntity] = useState("");
-  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    (transaction.payment_method as PaymentMethod) || "transfer"
+  );
+  const [paymentEntity, setPaymentEntity] = useState(transaction.payment_entity ?? "");
+  const [paymentReference, setPaymentReference] = useState(transaction.payment_reference ?? "");
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
