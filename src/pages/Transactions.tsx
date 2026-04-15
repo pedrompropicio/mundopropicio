@@ -15,6 +15,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransferFormModal } from "@/components/TransferFormModal";
 import { BatchPaymentModal } from "@/components/BatchPaymentModal";
