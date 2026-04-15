@@ -444,7 +444,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <SearchableSelect
                 options={categoryOptions}
                 value={form.category_id}
-                onValueChange={(v) => setForm({ ...form, category_id: v, event_id: "", supplier_id: "" })}
+                onValueChange={(v) => setForm({ ...form, category_id: v })}
                 placeholder="Sem categoria"
                 searchPlaceholder="Pesquisar categoria…"
               />
