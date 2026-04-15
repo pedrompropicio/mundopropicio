@@ -334,6 +334,20 @@ export default function Transactions() {
     });
   };
 
+  // Compute invoice_refs that appear on 2+ transactions (real groups)
+  const groupedInvoiceRefs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of transactions) {
+      const ref = (t as any).invoice_ref?.trim();
+      if (ref) counts.set(ref, (counts.get(ref) ?? 0) + 1);
+    }
+    const set = new Set<string>();
+    for (const [ref, cnt] of counts) {
+      if (cnt >= 2) set.add(ref);
+    }
+    return set;
+  }, [transactions]);
+
   // Search helper
   const matchesSearch = (t: any) => {
     if (!searchTerm.trim()) return true;
@@ -360,7 +374,7 @@ export default function Transactions() {
       return paidAmount < amount - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending")
-    .filter((t: any) => !onlyGrouped || (t.invoice_ref && t.invoice_ref.trim() !== ""));
+    .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
   // Group transactions: overdue, period, no-date
   const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
@@ -465,7 +479,7 @@ export default function Transactions() {
         const amount = Number(t.amount);
         return paidAmount >= amount - 0.01 || t.status === "paid";
       })
-      .filter((t: any) => !onlyGrouped || (t.invoice_ref && t.invoice_ref.trim() !== ""));
+      .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
