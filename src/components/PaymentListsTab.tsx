@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems } from "@/lib/export-payment-list";
+import { calcWithIva } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote,
