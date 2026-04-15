@@ -646,20 +646,22 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         const item = items.find((i: any) => i.transactions?.id === txId);
         const tx = item?.transactions;
         if (!tx) continue;
-        const amount = Number(tx.amount);
+        const baseAmount = Number(tx.amount);
+        const ivaRate = Number(tx.iva_rate ?? 23);
+        const totalWithIva = calcWithIva(baseAmount, ivaRate);
 
         await supabase.from("transaction_audit_log").insert({
           transaction_id: txId,
           changed_by: user?.user_metadata?.full_name ?? user?.email ?? "sistema",
           field_name: "Pagamento parcial",
           old_value: String(tx.paid_amount ?? 0),
-          new_value: String(amount),
+          new_value: String(totalWithIva),
         });
 
         const pDate = list?.payment_date ?? new Date().toISOString().slice(0, 10);
         await supabase
           .from("transactions")
-          .update({ paid_amount: amount, status: "paid", payment_date: pDate })
+          .update({ paid_amount: totalWithIva, status: "paid", payment_date: pDate })
           .eq("id", txId);
 
         // Propagate payment to child split transactions
@@ -670,10 +672,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
         if (children && children.length > 0) {
           for (const child of children) {
-            const childAmount = Number(child.amount);
+            const childTotal = calcWithIva(Number(child.amount), Number(child.iva_rate ?? 23));
             await supabase
               .from("transactions")
-              .update({ paid_amount: childAmount, status: "paid", payment_date: pDate })
+              .update({ paid_amount: childTotal, status: "paid", payment_date: pDate })
               .eq("id", child.id);
           }
         }
