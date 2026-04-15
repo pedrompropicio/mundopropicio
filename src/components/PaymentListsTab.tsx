@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -652,6 +652,30 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const { user } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    dragging.current = true;
+    startPos.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+    e.preventDefault();
+  }, [position]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      setPosition({ x: e.clientX - startPos.current.x, y: e.clientY - startPos.current.y });
+    };
+    const handleMouseUp = () => { dragging.current = false; };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   const toggleManualMark = async (itemId: string, current: boolean) => {
     await supabase
@@ -898,9 +922,16 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 z-50 bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 absolute"
+        style={{ left: `calc(50% - 28rem + ${position.x}px)`, top: `calc(5vh + ${position.y}px)`, margin: "0 auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing select-none"
+          onMouseDown={handleMouseDown}
+        >
           <div>
             <h2 className="text-xl font-bold">{list?.title ?? "Lista de Pagamentos"}</h2>
             <p className="text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
