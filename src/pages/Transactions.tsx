@@ -56,6 +56,7 @@ export default function Transactions() {
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
   const [showAuditId, setShowAuditId] = useState<string | null>(null);
   const [showDocsId, setShowDocsId] = useState<string | null>(null);
+  const [showPaymentsListId, setShowPaymentsListId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [showBatchPayment, setShowBatchPayment] = useState(false);
