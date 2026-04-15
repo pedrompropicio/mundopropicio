@@ -62,7 +62,8 @@ export default function Transactions() {
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const queryClient = useQueryClient();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
+  const canApprove = isAdmin || isManager;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
@@ -520,7 +521,7 @@ export default function Transactions() {
   ).length;
 
   const selectableInView = [...pendingInView, ...approvedInView];
-  const hasSelectableItems = isAdmin && selectableInView.length > 0;
+  const hasSelectableItems = canApprove && selectableInView.length > 0;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -669,7 +670,7 @@ export default function Transactions() {
         <TransactionEditModal
           transaction={editingTransaction}
           onClose={() => setEditingId(null)}
-          isAdmin={isAdmin}
+          isAdmin={canApprove}
         />
       )}
 
@@ -983,7 +984,7 @@ export default function Transactions() {
 
 
 
-        {isAdmin && selectedPendingCount > 0 && (
+        {canApprove && selectedPendingCount > 0 && (
           <button
             onClick={handleBulkApprove}
             disabled={bulkApproveMutation.isPending}
@@ -994,7 +995,7 @@ export default function Transactions() {
           </button>
         )}
 
-        {isAdmin && selectedApprovedCount > 0 && (
+        {canApprove && selectedApprovedCount > 0 && (
           <button
             onClick={handleBatchPayment}
             className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-sky-700"
@@ -1019,7 +1020,7 @@ export default function Transactions() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                    {isAdmin && pendingInView.length > 0 && (
+                    {canApprove && pendingInView.length > 0 && (
                       <th className="pb-3 pr-2 text-center font-medium w-8">
                         <input
                           type="checkbox"
@@ -1057,8 +1058,8 @@ export default function Transactions() {
                     <TransactionRow
                       key={t.id}
                       transaction={t}
-                      isAdmin={isAdmin}
-                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
+                      isAdmin={canApprove}
+                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
                       showSelectColumn={hasSelectableItems}
@@ -1090,8 +1091,8 @@ export default function Transactions() {
                     <TransactionRow
                       key={t.id}
                       transaction={t}
-                      isAdmin={isAdmin}
-                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
+                      isAdmin={canApprove}
+                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
                       showSelectColumn={hasSelectableItems}
@@ -1123,8 +1124,8 @@ export default function Transactions() {
                     <TransactionRow
                       key={t.id}
                       transaction={t}
-                      isAdmin={isAdmin}
-                      selectable={isAdmin && (t.status === "pending" || t.status === "approved")}
+                      isAdmin={canApprove}
+                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
                       selected={selectedIds.has(t.id)}
                       onToggleSelect={() => toggleSelect(t.id)}
                       showSelectColumn={hasSelectableItems}
@@ -1171,7 +1172,7 @@ export default function Transactions() {
                     <TransactionRow
                       key={t.id}
                       transaction={t}
-                      isAdmin={isAdmin}
+                      isAdmin={canApprove}
                       selectable={false}
                       selected={false}
                       onToggleSelect={() => {}}
