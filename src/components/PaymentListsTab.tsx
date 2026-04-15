@@ -703,6 +703,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           category: item.transactions?.account_categories ? `${item.transactions.account_categories.code} ${item.transactions.account_categories.name}` : "",
           event_name: item.transactions?.events?.name ?? "-",
           supplier_name: item.transactions?.suppliers?.name ?? "-",
+          supplier_id: item.transactions?.supplier_id ?? null,
           iban: item.transactions?.suppliers?.iban ?? "-",
           amount: Number(item.transactions?.amount ?? 0),
           iva_rate: Number(item.transactions?.iva_rate ?? 23),
@@ -712,6 +713,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           payment_method: item.transactions?.payment_method ?? "transfer",
           payment_entity: item.transactions?.payment_entity,
           payment_reference: item.transactions?.payment_reference,
+          invoice_ref: item.transactions?.invoice_ref ?? null,
         })),
       };
       if (format === "pdf") await exportPaymentListToPDF(exportData);
