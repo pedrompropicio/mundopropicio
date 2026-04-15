@@ -894,6 +894,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         eventId={eventId}
         lastSalesDate={(eventData as any)?.last_sales_date ?? null}
         isEditable={canEditTickets}
+        sessionId={sessionId}
       />
 
       <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>

@@ -11,6 +11,7 @@ interface Props {
   eventId: string;
   lastSalesDate: string | null;
   isEditable: boolean;
+  sessionId?: string | null;
 }
 
 interface DaySummary {
@@ -36,19 +37,21 @@ interface DayDetail {
 
 type ViewMode = "totals" | "detail";
 
-export function SalesLogPanel({ eventId, lastSalesDate, isEditable }: Props) {
+export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("totals");
 
   // Fetch ticket_sales with zone/lot info
   const { data: salesByDay = [] } = useQuery({
-    queryKey: ["sales-log-daily", eventId],
+    queryKey: ["sales-log-daily", eventId, sessionId],
     queryFn: async () => {
-      const { data: zones } = await supabase
+      let zonesQuery = supabase
         .from("event_ticket_zones")
-        .select("id, name")
+        .select("id, name, session_id")
         .eq("event_id", eventId);
+      if (sessionId) zonesQuery = zonesQuery.eq("session_id", sessionId);
+      const { data: zones } = await zonesQuery;
       if (!zones || zones.length === 0) return [];
 
       const zoneIds = zones.map((z) => z.id);
