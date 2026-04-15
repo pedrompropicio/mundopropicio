@@ -800,26 +800,28 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
 
         {/* Bulk payment bar */}
         {isApproved && unpaidItems.length > 0 && (
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 px-4 py-2.5 mb-3">
+          <div className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-2.5 mb-3">
             <div className="flex items-center gap-3">
               <Checkbox
                 checked={selectedTxIds.size === unpaidItems.length && unpaidItems.length > 0}
                 onCheckedChange={toggleAll}
+                className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <Banknote className="h-4 w-4 text-sky-500" />
                 {selectedTxIds.size > 0
-                  ? `${selectedTxIds.size} de ${unpaidItems.length} selecionado(s)`
-                  : `${unpaidItems.length} pagamento(s) pendente(s)`}
+                  ? `${selectedTxIds.size} de ${unpaidItems.length} para liquidar`
+                  : `${unpaidItems.length} pagamento(s) pendente(s) de liquidação`}
               </span>
             </div>
             {selectedTxIds.size > 0 && (
               <button
                 onClick={handleBulkPayment}
                 disabled={paying}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-sky-700 disabled:opacity-50"
               >
-                <CheckSquare className="h-4 w-4" />
-                {paying ? "A processar…" : `Dar baixa (${selectedTxIds.size})`}
+                <Banknote className="h-4 w-4" />
+                {paying ? "A processar…" : `Liquidar (${selectedTxIds.size})`}
               </button>
             )}
           </div>
@@ -862,6 +864,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                           <Checkbox
                             checked={selectedTxIds.has(tx.id)}
                             onCheckedChange={() => toggleTx(tx.id)}
+                            className="border-sky-500 data-[state=checked]:bg-sky-600 data-[state=checked]:border-sky-600"
                           />
                         ) : (
                           <span className="inline-flex h-4 w-4 items-center justify-center text-success">✓</span>
@@ -1091,7 +1094,7 @@ function ApproveModal({
               <thead className="sticky top-0 bg-muted">
                 <tr className="text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-center w-8">
-                    <Checkbox checked={selectedIds.size === items.length && items.length > 0} onCheckedChange={toggleAll} />
+                    <Checkbox checked={selectedIds.size === items.length && items.length > 0} onCheckedChange={toggleAll} className="border-emerald-500 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" />
                   </th>
                    <th className="p-2 text-left font-medium">Descrição</th>
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
@@ -1115,7 +1118,7 @@ function ApproveModal({
                       onClick={() => toggleId(item.id)}
                     >
                       <td className="p-2 text-center">
-                        <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} />
+                        <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleId(item.id)} className="border-emerald-500 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" />
                       </td>
                        <td className="p-2">
                          <span className="font-medium">{tx?.description}</span>
