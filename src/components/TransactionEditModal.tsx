@@ -23,6 +23,8 @@ interface Props {
 
 export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const isPaid = transaction.status === "paid";
+  // Admins can fully edit paid transactions (audit adjustment)
+  const paidLocked = isPaid && !isAdmin;
 
   // Lock body scroll while modal is open to preserve scroll position
   useEffect(() => {
