@@ -200,6 +200,13 @@ export default function EventImplementationDetail() {
       const buf = await resp.arrayBuffer();
       const wb = XLSX.read(buf, { type: "array" });
 
+      // --- Detect Ticketline sales file formats ---
+      const isZoneFormat = isTicketlineZoneFormat(wb);
+      const isOpsFormat = !isZoneFormat && isTicketlineFormat(wb);
+      const isTicketSalesFile = isZoneFormat || isOpsFormat;
+
+      let fileType: "bp" | "ticket_sales" = isTicketSalesFile ? "ticket_sales" : "bp";
+
       const sheetNames = wb.SheetNames.filter(
         (n) => !/^(resumo|total|geral|master|consolidado|template)/i.test(n)
       );
@@ -219,11 +226,43 @@ export default function EventImplementationDetail() {
       const savedType = (impl.event_structure as any)?.event_type;
       const isTour = savedType === "new_master" || parsedCityDetails.length > 1 || detectedCities.length > 1;
 
-      // Event name priority: 1) notes field, 2) cleaned Excel name, 3) file name
+      // Event name extraction — Ticketline files have structured headers
       const firstSheet = wb.Sheets[wb.SheetNames[0]];
-      let eventName = notesData.eventName
-        || extractEventName(firstSheet)
-        || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+      let eventName = notesData.eventName || "";
+      let dateStr = "";
+
+      if (isZoneFormat && !eventName) {
+        const zoneResult = parseTicketlineZoneXlsx(buf);
+        eventName = zoneResult.header.event_name || "";
+        dateStr = zoneResult.header.session_date || "";
+      } else if (isOpsFormat && !eventName) {
+        // Use the same header extraction logic from parse-ticketline-xlsx
+        // Scan first 20 rows for event code pattern
+        const ws = firstSheet;
+        const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+        const maxCol = Math.min(range.e.c, 25);
+        for (let r = 1; r <= Math.min(20, range.e.r + 1); r++) {
+          for (let c = 0; c <= maxCol; c++) {
+            const cellRef = `${XLSX.utils.encode_col(c)}${r}`;
+            const v = ws[cellRef]?.v;
+            if (typeof v === "string" && v.match(/^\d+\/\d+\s*-\s*/)) {
+              let name = v;
+              const dashIdx = name.indexOf(" - ");
+              if (dashIdx >= 0) name = name.slice(dashIdx + 3);
+              const pipeIdx = name.indexOf(" | ");
+              if (pipeIdx >= 0) name = name.slice(0, pipeIdx);
+              eventName = name.trim();
+              break;
+            }
+          }
+          if (eventName) break;
+        }
+      }
+
+      if (!eventName) {
+        eventName = extractEventName(firstSheet)
+          || impl.reference_file_name.replace(/\.xlsx?$/i, "");
+      }
 
       // If it's a tour and name came from Excel, clean city suffixes
       if (isTour && !notesData.eventName) {
@@ -235,11 +274,13 @@ export default function EventImplementationDetail() {
       }
 
       // Extract date from first sheet (fallback if no per-city dates)
-      const dateStr = extractDateFromSheet(firstSheet)
-        || (parsedCityDetails.length > 0 ? parsedCityDetails[0].date : "")
-        || "";
+      if (!dateStr) {
+        dateStr = extractDateFromSheet(firstSheet)
+          || (parsedCityDetails.length > 0 ? parsedCityDetails[0].date : "")
+          || "";
+      }
 
-      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities, cityDetails: parsedCityDetails };
+      const info: ExtractedInfo = { eventName, date: dateStr, sheetNames, isTour, detectedCities, cityDetails: parsedCityDetails, fileType };
       setExtracted(info);
       setSelectedSheets(sheetNames);
       setCityDetails(parsedCityDetails);
@@ -254,6 +295,10 @@ export default function EventImplementationDetail() {
         setSetupMode("create_simple");
       }
       setSheetSelectionDone(true);
+
+      if (isTicketSalesFile) {
+        toast.info("Ficheiro de vendas de bilhetes detetado (Ticketline). Vincule o evento para importar as vendas no separador 'Vendas / Bilhetes'.");
+      }
     } catch (err: any) {
       console.error("Extraction error:", err);
     } finally {
