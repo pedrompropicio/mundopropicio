@@ -374,7 +374,7 @@ export default function Transactions() {
       return paidAmount < amount - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending")
-    .filter((t: any) => !onlyGrouped || (t.invoice_ref && t.invoice_ref.trim() !== ""));
+    .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
   // Group transactions: overdue, period, no-date
   const { overdueGroup, periodGroup, noDateGroup } = useMemo(() => {
@@ -479,7 +479,7 @@ export default function Transactions() {
         const amount = Number(t.amount);
         return paidAmount >= amount - 0.01 || t.status === "paid";
       })
-      .filter((t: any) => !onlyGrouped || (t.invoice_ref && t.invoice_ref.trim() !== ""));
+      .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
