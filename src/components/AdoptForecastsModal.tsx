@@ -162,6 +162,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       specification: f.specification,
       category_id: f.category_id,
       account_categories: f.account_categories,
+      invoice_ref: null,
+      account_name: null,
     }));
     const tx: Item[] = (orphanTransactions ?? []).map((t: any) => ({
       kind: "transaction" as const,
@@ -173,6 +175,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       status: t.status,
       category_id: t.category_id,
       account_categories: t.account_categories,
+      invoice_ref: t.invoice_ref ?? null,
+      account_name: t.financial_accounts?.name ?? null,
     }));
     const all = [...fc, ...tx];
     if (search) {
@@ -181,11 +185,47 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         i.description?.toLowerCase().includes(s) ||
         i.account_categories?.name?.toLowerCase().includes(s) ||
         i.account_categories?.code?.toLowerCase().includes(s) ||
-        eventNameMap[i.event_id]?.toLowerCase().includes(s)
+        eventNameMap[i.event_id]?.toLowerCase().includes(s) ||
+        i.invoice_ref?.toLowerCase().includes(s) ||
+        i.account_name?.toLowerCase().includes(s)
       );
     }
     return all;
   }, [filteredForecasts, orphanTransactions, search, eventNameMap]);
+
+  const keyOf = (i: Item) => `${i.kind}:${i.id}`;
+
+  // Agrupar transações pela mesma fatura (invoice_ref) — para selecionar fatura completa e detetar seleções parciais
+  const invoiceGroups = useMemo(() => {
+    const map = new Map<string, Item[]>();
+    items.forEach((i) => {
+      if (i.kind === "transaction" && i.invoice_ref) {
+        const key = `${i.event_id}::${i.invoice_ref}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(i);
+      }
+    });
+    // Apenas grupos com 2+ transações são "agrupados"
+    return new Map([...map.entries()].filter(([, arr]) => arr.length > 1));
+  }, [items]);
+
+  const getInvoiceGroupKey = (i: Item): string | null => {
+    if (i.kind !== "transaction" || !i.invoice_ref) return null;
+    const key = `${i.event_id}::${i.invoice_ref}`;
+    return invoiceGroups.has(key) ? key : null;
+  };
+
+  const partialInvoiceWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    invoiceGroups.forEach((group, key) => {
+      const selectedCount = group.filter((i) => selectedKeys.has(keyOf(i))).length;
+      if (selectedCount > 0 && selectedCount < group.length) {
+        const ref = key.split("::")[1];
+        warnings.push(`Fatura ${ref}: ${selectedCount}/${group.length} lançamentos selecionados`);
+      }
+    });
+    return warnings;
+  }, [invoiceGroups, selectedKeys]);
 
   const keyOf = (i: Item) => `${i.kind}:${i.id}`;
 
