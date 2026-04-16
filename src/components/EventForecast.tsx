@@ -1636,7 +1636,48 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               ) : f.cache_config_id ? (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
+                                <React.Fragment key={f.id}>
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} />
+                                  {/* Adopted sub-event children */}
+                                  {(adoptedByMaster[f.id] ?? []).map((af: any) => (
+                                    <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
+                                      <td className="py-2 pl-8 pr-3">
+                                        <div className="flex items-center gap-2">
+                                          <Layers className="h-3 w-3 text-primary/60 shrink-0" />
+                                          <div>
+                                            <p className="text-xs font-medium">
+                                              {af.account_categories?.code && <span className="text-muted-foreground mr-1">{af.account_categories.code}</span>}
+                                              {af.description}
+                                            </p>
+                                            <p className="text-[10px] text-primary/60">{(af as any).events?.name || "Sub-evento"}</p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-2 pr-3 text-muted-foreground text-xs">{af.specification || "—"}</td>
+                                      <td className="hidden py-2 pr-3 text-muted-foreground sm:table-cell text-xs">{af.account_categories ? `${af.account_categories.code} ${af.account_categories.name}` : "—"}</td>
+                                      <td className="py-2 text-right text-muted-foreground text-xs">{af.iva_rate}%</td>
+                                      <td className="py-2 text-right font-mono text-xs text-warning/60">{formatCurrency(Number(af.amount))}</td>
+                                      <td className="py-2 text-right font-mono text-[10px] text-muted-foreground">{formatCurrency(Number(af.amount) * Number(af.iva_rate) / 100)}</td>
+                                      <td className="py-2 text-right font-mono text-xs text-warning/60">{formatCurrency(Number(af.amount) * (1 + Number(af.iva_rate) / 100))}</td>
+                                      <td className="py-2 text-right">
+                                        {canEditBP && (
+                                          <button
+                                            onClick={async () => {
+                                              await (supabase.from("event_forecasts").update({ master_forecast_id: null } as any) as any).eq("id", af.id);
+                                              queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
+                                              queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+                                              toast({ title: "Linha desvinculada do Master" });
+                                            }}
+                                            className="rounded p-1 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                                            title="Desvincular do Master"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </React.Fragment>
                               )
                             ))}
                           </React.Fragment>
