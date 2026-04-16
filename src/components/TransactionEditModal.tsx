@@ -44,6 +44,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     account_id: transaction.account_id ?? "",
     date: transaction.date,
     due_date: transaction.due_date ?? "",
+    payment_date: transaction.payment_date ?? "",
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
