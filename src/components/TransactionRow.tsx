@@ -117,7 +117,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name, status), account_categories(code, name), suppliers(name), financial_accounts(name)")
+        .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers(name), financial_accounts(name)")
         .eq("parent_transaction_id", t.id)
         .order("created_at");
       if (error) throw error;
