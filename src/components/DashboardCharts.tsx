@@ -107,22 +107,31 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
       despesas: 0,
     }));
 
+    // Events with ticket sales — exclude their income transactions to avoid double-counting
+    const eventsWithTicketSales = new Set(Object.keys(ticketRevenueByEvent));
+
     transactions.forEach((t: any) => {
       const d = new Date(t.date);
       if (d.getFullYear() === currentYear) {
         const m = d.getMonth();
-        if (t.type === "income") monthly[m].receitas += Number(t.amount);
-        else monthly[m].despesas += Number(t.amount);
+        if (t.type === "income") {
+          // Skip income transactions for events that have ticket sales
+          if (eventsWithTicketSales.has(t.event_id)) return;
+          monthly[m].receitas += Number(t.amount);
+        } else {
+          monthly[m].despesas += Number(t.amount);
+        }
       }
     });
 
-    // Add ticket sales to cumulative chart
+    // Add ticket sales revenue to cumulative chart
     ticketSales.forEach((ts: any) => {
       const d = new Date(ts.sale_date);
       if (d.getFullYear() === currentYear) {
         const m = d.getMonth();
         monthly[m].receitas += Number(ts.quantity) * Number(ts.unit_price);
       }
+    });
     });
 
     let cumInc = 0;
