@@ -94,12 +94,20 @@ Deno.serve(async (req) => {
       results.event_ticket_lots.inserted = inserted;
     }
 
-    // Insert sales
+    // Insert sales — strip columns that no longer exist
+    const VALID_SALES_COLS = ["id","lot_id","sale_date","quantity","unit_price","notes","created_by","created_at","zone_id","source","sale_date_to","financial_account_id","import_batch_id"];
     if (backupSales.length > 0) {
+      const cleanSales = backupSales.map((s: any) => {
+        const clean: any = {};
+        for (const col of VALID_SALES_COLS) {
+          if (s[col] !== undefined) clean[col] = s[col];
+        }
+        return clean;
+      });
       const batchSize = 200;
       let inserted = 0;
-      for (let i = 0; i < backupSales.length; i += batchSize) {
-        const batch = backupSales.slice(i, i + batchSize);
+      for (let i = 0; i < cleanSales.length; i += batchSize) {
+        const batch = cleanSales.slice(i, i + batchSize);
         const { error } = await adminClient.from("ticket_sales").upsert(batch, { onConflict: "id" });
         if (error) {
           results.ticket_sales.error = error.message;
