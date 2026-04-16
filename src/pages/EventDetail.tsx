@@ -175,13 +175,6 @@ export default function EventDetail() {
       ? [selectedSubEvent]
       : [id!];
 
-  // In global tour view, ticket revenue should come from sub-events only.
-  // Including the master event can double-count revenue when the parent also holds ticketing metadata.
-  const ticketRevenueEventIds = selectedSubEvent
-    ? [selectedSubEvent]
-    : isMultiEvent
-      ? (subEvents.length > 0 ? subEvents.map((s: any) => s.id) : [id!])
-      : [id!];
 
   const { data: eventTransactions = [] } = useQuery({
     queryKey: ["event_transactions", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
