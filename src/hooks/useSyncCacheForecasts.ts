@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { resolvePercentageFromTiers, type CacheTier } from "@/lib/cache-pl-helper";
 
 interface CacheConfig {
@@ -53,6 +53,35 @@ export function useSyncCacheForecasts({
   const syncingRef = useRef(false);
   const lastSyncHash = useRef("");
 
+  // Fetch a lightweight sales fingerprint so hash changes when sales change
+  const allRelevantIds = useMemo(
+    () => childEventIds && childEventIds.length > 0 ? childEventIds : [eventId],
+    [eventId, childEventIds]
+  );
+  const { data: salesFingerprint } = useQuery({
+    queryKey: ["cache-sync-sales-fingerprint", ...allRelevantIds],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .in("event_id", allRelevantIds);
+      const zoneIds = (zones ?? []).map((z) => z.id);
+      if (zoneIds.length === 0) return "no-zones";
+      const { count } = await supabase
+        .from("ticket_sales")
+        .select("*", { count: "exact", head: true })
+        .in("zone_id", zoneIds);
+      // Also get a rough sum to detect price changes
+      const { data: agg } = await supabase
+        .from("ticket_sales")
+        .select("quantity, unit_price")
+        .in("zone_id", zoneIds);
+      const total = (agg ?? []).reduce((s: number, r: any) => s + Number(r.quantity) * Number(r.unit_price), 0);
+      return `${count}:${Math.round(total * 100)}`;
+    },
+    enabled: enabled && cacheConfigs.length > 0,
+  });
+
   useEffect(() => {
     if (!enabled || !cacheCategoryId || cacheConfigs.length === 0 || syncingRef.current) return;
 
@@ -76,6 +105,7 @@ export function useSyncCacheForecasts({
       ticketRevenueNet: Math.round(ticketRevenueNet * 100),
       ticketRevenueGross: Math.round(ticketRevenueGross * 100),
       childEventIds: childEventIds?.sort(),
+      salesFingerprint,
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
         .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}:${f.iva_rate}`)
@@ -117,7 +147,7 @@ export function useSyncCacheForecasts({
     };
 
     doSync();
-  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient]);
+  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint]);
 }
 
 /**
@@ -138,24 +168,56 @@ async function syncTourCacheForecasts(
     .select("id, event_id")
     .in("event_id", childEventIds);
   const zoneIds = (zones ?? []).map((z) => z.id);
-  const { data: lots } = zoneIds.length > 0
-    ? await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds)
-    : { data: [] };
 
-  // Build per-child revenue map
-  const zoneToEvent = new Map((zones ?? []).map((z) => [z.id, z.event_id]));
-  const revenueByChild: Record<string, { gross: number; net: number }> = {};
-  for (const cid of childEventIds) {
-    revenueByChild[cid] = { gross: 0, net: 0 };
+  const [lotsRes, salesRes] = zoneIds.length > 0
+    ? await Promise.all([
+        supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds),
+        supabase.from("ticket_sales").select("zone_id, lot_id, quantity, unit_price").in("zone_id", zoneIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const lots = lotsRes.data ?? [];
+  const sales = salesRes.data ?? [];
+
+  // Build IVA rate map from lots
+  const lotIvaMap = new Map<string, number>();
+  for (const l of lots) {
+    lotIvaMap.set(l.id, Number((l as any).iva_rate ?? 6));
   }
-  for (const l of (lots ?? [])) {
+
+  // Build per-child revenue map from LOTS (planned)
+  const zoneToEvent = new Map((zones ?? []).map((z) => [z.id, z.event_id]));
+  const plannedRevenueByChild: Record<string, { gross: number; net: number }> = {};
+  const actualRevenueByChild: Record<string, { gross: number; net: number }> = {};
+  for (const cid of childEventIds) {
+    plannedRevenueByChild[cid] = { gross: 0, net: 0 };
+    actualRevenueByChild[cid] = { gross: 0, net: 0 };
+  }
+  for (const l of lots) {
     const eid = zoneToEvent.get(l.zone_id);
-    if (!eid || !revenueByChild[eid]) continue;
+    if (!eid || !plannedRevenueByChild[eid]) continue;
     const price = Number(l.price);
     const qty = Number(l.quantity);
     const ivaRate = Number((l as any).iva_rate ?? 6);
-    revenueByChild[eid].gross += qty * price;
-    revenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+    plannedRevenueByChild[eid].gross += qty * price;
+    plannedRevenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+  }
+
+  // Build per-child revenue from ACTUAL SALES
+  for (const s of sales) {
+    const eid = zoneToEvent.get(s.zone_id);
+    if (!eid || !actualRevenueByChild[eid]) continue;
+    const qty = Number(s.quantity);
+    const price = Number(s.unit_price);
+    const ivaRate = lotIvaMap.get(s.lot_id) ?? 6;
+    actualRevenueByChild[eid].gross += qty * price;
+    actualRevenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+  }
+
+  // Use actual sales when available, fall back to planned
+  const revenueByChild: Record<string, { gross: number; net: number }> = {};
+  for (const cid of childEventIds) {
+    const actual = actualRevenueByChild[cid];
+    revenueByChild[cid] = (actual.gross > 0 || actual.net > 0) ? actual : plannedRevenueByChild[cid];
   }
 
   // 2. Fetch expense forecasts per child (for deduction calculation)
@@ -248,17 +310,55 @@ async function syncTourCacheForecasts(
 
 /**
  * For simple (non-tour) events: create forecasts directly on the event.
+ * Fetches actual ticket_sales and uses them when available instead of planned revenue.
  */
 async function syncSimpleCacheForecasts(
   eventId: string,
   cacheConfigs: CacheConfig[],
   deductions: { cache_config_id: string; category_id: string }[],
-  forecasts: { id: string; type: string; category_id: string | null; amount: number; cache_config_id?: string | null }[],
+  forecasts: { id: string; type: string; category_id: string | null; amount: number; iva_rate: number; cache_config_id?: string | null }[],
   ticketRevenueNet: number,
   ticketRevenueGross: number,
   cacheCategoryId: string,
   queryClient: ReturnType<typeof useQueryClient>,
 ) {
+  // Fetch actual ticket sales to prefer over planned revenue
+  const { data: zones } = await supabase
+    .from("event_ticket_zones")
+    .select("id")
+    .eq("event_id", eventId);
+  const zoneIds = (zones ?? []).map((z) => z.id);
+
+  let effectiveNet = ticketRevenueNet;
+  let effectiveGross = ticketRevenueGross;
+
+  if (zoneIds.length > 0) {
+    const [salesRes, lotsRes] = await Promise.all([
+      supabase.from("ticket_sales").select("lot_id, zone_id, quantity, unit_price").in("zone_id", zoneIds),
+      supabase.from("event_ticket_lots").select("id, iva_rate").in("zone_id", zoneIds),
+    ]);
+    const sales = salesRes.data ?? [];
+    const lots = lotsRes.data ?? [];
+
+    if (sales.length > 0) {
+      const lotIvaMap = new Map<string, number>();
+      for (const l of lots) {
+        lotIvaMap.set(l.id, Number((l as any).iva_rate ?? 6));
+      }
+      let actualGross = 0;
+      let actualNet = 0;
+      for (const s of sales) {
+        const qty = Number(s.quantity);
+        const price = Number(s.unit_price);
+        const ivaRate = lotIvaMap.get(s.lot_id) ?? 6;
+        actualGross += qty * price;
+        actualNet += qty * (price / (1 + ivaRate / 100));
+      }
+      effectiveNet = actualNet;
+      effectiveGross = actualGross;
+    }
+  }
+
   const { data: existingForecasts } = await supabase
     .from("event_forecasts")
     .select("id, cache_config_id, amount")
@@ -280,8 +380,8 @@ async function syncSimpleCacheForecasts(
     const amount = calculateCacheAmount(
       config,
       deductions.filter((d) => d.cache_config_id === config.id),
-      ticketRevenueNet,
-      ticketRevenueGross,
+      effectiveNet,
+      effectiveGross,
       nonCacheExpenses
     );
 
