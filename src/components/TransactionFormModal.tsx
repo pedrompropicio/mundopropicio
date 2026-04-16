@@ -974,10 +974,11 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      // BP-Active enforcement — skipped when user explicitly chose "Reforço Local"
-      // (category exists in Master BP; expense is local-only to the sub-event)
-      const isLocalReinforcement = reinforcementChoice === "local";
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !isLocalReinforcement) {
+      // BP-Active enforcement — skipped when user explicitly chose either reinforcement option:
+      // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
+      // • "master" → expense consumes Master BP rateio (sub-event BP not required)
+      const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
