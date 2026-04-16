@@ -1655,7 +1655,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                               {af.account_categories?.code && <span className="text-muted-foreground mr-1">{af.account_categories.code}</span>}
                                               {af.description}
                                             </p>
-                                            <p className="text-[10px] text-primary/60">{(af as any).events?.name || "Sub-evento"}</p>
+                                            <p className="text-[10px] text-primary/60">{subEventNameMap[af.event_id] || "Sub-evento"}</p>
                                           </div>
                                         </div>
                                       </td>
