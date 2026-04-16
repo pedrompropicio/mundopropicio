@@ -208,6 +208,42 @@ export default function DatabaseBackups() {
         </button>
       </div>
 
+      {/* Surgical Restore for Maiara e Maraisa */}
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Restauração Cirúrgica — Tour Maiara e Maraisa
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Repõe apenas os lotes de bilhetes e registos de vendas dos eventos Lisboa e Porto a partir do backup de 06/Abril, sem afetar outros dados.
+            </p>
+          </div>
+          <button
+            onClick={handleSurgicalRestore}
+            disabled={surgicalLoading}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {surgicalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            {surgicalLoading ? "A restaurar…" : "Repor Dados"}
+          </button>
+        </div>
+        {surgicalResult && (
+          <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-xs space-y-1">
+            {Object.entries(surgicalResult.results || {}).map(([table, info]: [string, any]) => (
+              <div key={table} className="flex justify-between">
+                <span className="font-mono">{table}</span>
+                <span>
+                  {info.found} encontrados → {info.inserted} inseridos
+                  {info.error && <span className="text-destructive ml-2">⚠ {info.error}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Backup List */}
       <div className="glass rounded-xl p-4">
         {isLoading ? (
