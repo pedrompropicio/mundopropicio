@@ -558,9 +558,9 @@ export default function Transactions() {
       return paymentDate >= periodStart && paymentDate <= periodEnd;
     });
     return [...result].sort((a: any, b: any) => {
-      // 1) Data de Pagamento (mais recente primeiro)
-      const aDate = a.payment_date ?? a.date;
-      const bDate = b.payment_date ?? b.date;
+      // 1) Data de Pagamento (mais recente primeiro) — normalizar para YYYY-MM-DD
+      const aDate = (a.payment_date ?? a.date ?? "").slice(0, 10);
+      const bDate = (b.payment_date ?? b.date ?? "").slice(0, 10);
       if (aDate !== bDate) return bDate.localeCompare(aDate);
       // 2) Evento (alfabético)
       const aEvent = a.events?.name ?? "";
