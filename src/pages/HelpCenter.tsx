@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, BookOpen, Sparkles, Loader2, ArrowRight } from "lucide-react";
 import * as Icons from "lucide-react";
@@ -71,18 +71,19 @@ export default function HelpCenter() {
       .filter((s) => s.topics.length > 0);
   }, [search]);
 
-  const aiOpenSections = useMemo(
-    () => Array.from(new Set((aiResult?.hits || []).map((h) => h.sectionId))),
-    [aiResult],
-  );
+  const [openSections, setOpenSections] = useState<string[]>(() => {
+    if (sectionFromUrl) return [sectionFromUrl];
+    return [];
+  });
 
-  const defaultOpen = sectionFromUrl
-    ? [sectionFromUrl]
-    : aiOpenSections.length > 0
-    ? aiOpenSections
-    : filtered.length === 1
-    ? [filtered[0].id]
-    : [];
+  // Quando muda a pesquisa textual e fica só uma secção, abre-a
+  useEffect(() => {
+    if (search.trim() && filtered.length === 1) {
+      setOpenSections((prev) =>
+        prev.includes(filtered[0].id) ? prev : [...prev, filtered[0].id],
+      );
+    }
+  }, [search, filtered]);
 
   async function handleAiSearch() {
     const q = aiQuestion.trim();
@@ -141,6 +142,13 @@ export default function HelpCenter() {
 
   function scrollToTopic(hit: AiTopicHit) {
     const key = `${hit.sectionId}::${hit.topicIndex}`;
+    // Garantir que a secção está aberta
+    setOpenSections((prev) =>
+      prev.includes(hit.sectionId) ? prev : [...prev, hit.sectionId],
+    );
+    // Limpar pesquisa textual para não esconder a secção
+    if (search.trim()) setSearch("");
+    // Aguardar render do conteúdo do accordion antes de fazer scroll
     setTimeout(() => {
       const el = topicRefs.current[key];
       if (el) {
@@ -148,7 +156,7 @@ export default function HelpCenter() {
         el.classList.add("ring-2", "ring-primary");
         setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 2000);
       }
-    }, 150);
+    }, 350);
   }
 
   return (
@@ -281,7 +289,12 @@ export default function HelpCenter() {
           Nenhum resultado encontrado para "{search}".
         </p>
       ) : (
-        <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
+        <Accordion
+          type="multiple"
+          value={openSections}
+          onValueChange={setOpenSections}
+          className="space-y-2"
+        >
           {filtered.map((section) => (
             <AccordionItem
               key={section.id}
