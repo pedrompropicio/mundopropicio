@@ -1706,6 +1706,29 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Adopt forecasts modals */}
+      {adoptTarget && childEventIds && (
+        <AdoptForecastsModal
+          open={!!adoptTarget}
+          onOpenChange={(open) => { if (!open) setAdoptTarget(null); }}
+          masterEventId={eventId}
+          childEventIds={childEventIds}
+          masterForecast={adoptTarget}
+          mode="adopt"
+          categories={categories}
+        />
+      )}
+      {showAdoptCreate && childEventIds && (
+        <AdoptForecastsModal
+          open={showAdoptCreate}
+          onOpenChange={setShowAdoptCreate}
+          masterEventId={eventId}
+          childEventIds={childEventIds}
+          mode="create"
+          categories={categories}
+        />
+      )}
     </div>
   );
 }
