@@ -144,9 +144,9 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
 
       // Update selected sub-event forecasts to point to master
       const ids = Array.from(selectedIds);
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase
         .from("event_forecasts")
-        .update({ master_forecast_id: masterForecastId } as any)
+        .update({ master_forecast_id: masterForecastId }) as any)
         .in("id", ids);
 
       if (updateError) throw updateError;
