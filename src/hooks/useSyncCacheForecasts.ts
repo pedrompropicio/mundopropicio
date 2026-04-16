@@ -280,17 +280,55 @@ async function syncTourCacheForecasts(
 
 /**
  * For simple (non-tour) events: create forecasts directly on the event.
+ * Fetches actual ticket_sales and uses them when available instead of planned revenue.
  */
 async function syncSimpleCacheForecasts(
   eventId: string,
   cacheConfigs: CacheConfig[],
   deductions: { cache_config_id: string; category_id: string }[],
-  forecasts: { id: string; type: string; category_id: string | null; amount: number; cache_config_id?: string | null }[],
+  forecasts: { id: string; type: string; category_id: string | null; amount: number; iva_rate: number; cache_config_id?: string | null }[],
   ticketRevenueNet: number,
   ticketRevenueGross: number,
   cacheCategoryId: string,
   queryClient: ReturnType<typeof useQueryClient>,
 ) {
+  // Fetch actual ticket sales to prefer over planned revenue
+  const { data: zones } = await supabase
+    .from("event_ticket_zones")
+    .select("id")
+    .eq("event_id", eventId);
+  const zoneIds = (zones ?? []).map((z) => z.id);
+
+  let effectiveNet = ticketRevenueNet;
+  let effectiveGross = ticketRevenueGross;
+
+  if (zoneIds.length > 0) {
+    const [salesRes, lotsRes] = await Promise.all([
+      supabase.from("ticket_sales").select("lot_id, zone_id, quantity, unit_price").in("zone_id", zoneIds),
+      supabase.from("event_ticket_lots").select("id, iva_rate").in("zone_id", zoneIds),
+    ]);
+    const sales = salesRes.data ?? [];
+    const lots = lotsRes.data ?? [];
+
+    if (sales.length > 0) {
+      const lotIvaMap = new Map<string, number>();
+      for (const l of lots) {
+        lotIvaMap.set(l.id, Number((l as any).iva_rate ?? 6));
+      }
+      let actualGross = 0;
+      let actualNet = 0;
+      for (const s of sales) {
+        const qty = Number(s.quantity);
+        const price = Number(s.unit_price);
+        const ivaRate = lotIvaMap.get(s.lot_id) ?? 6;
+        actualGross += qty * price;
+        actualNet += qty * (price / (1 + ivaRate / 100));
+      }
+      effectiveNet = actualNet;
+      effectiveGross = actualGross;
+    }
+  }
+
   const { data: existingForecasts } = await supabase
     .from("event_forecasts")
     .select("id, cache_config_id, amount")
