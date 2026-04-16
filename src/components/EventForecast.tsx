@@ -1515,6 +1515,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <Plus className="h-3.5 w-3.5" /> Adicionar
                       </button>
                     )}
+                    {canEditBP && childEventIds && childEventIds.length > 0 && (
+                      <button
+                        onClick={() => setShowAdoptCreate(true)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                      >
+                        <ArrowUpRight className="h-3.5 w-3.5" /> Consolidar
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
