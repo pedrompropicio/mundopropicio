@@ -111,7 +111,7 @@ export function DatePicker({
             <CalendarIcon className="h-4 w-4 opacity-60" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 z-[100]" align="start">
           <Calendar
             mode="single"
             selected={dateObj}
