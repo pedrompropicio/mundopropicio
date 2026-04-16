@@ -355,7 +355,7 @@ function buildPL(
       }));
       group.details.forEach((d) => {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }), d.name));
