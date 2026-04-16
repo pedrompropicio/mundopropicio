@@ -27,6 +27,7 @@ export type PLMode = "forecast" | "comparison";
 
 interface PLLine {
   label: string;
+  categoryCode?: string;
   forecast: number;
   forecastIva: number;
   forecastTotal: number;
@@ -57,7 +58,7 @@ function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva'
   };
 }
 
-function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { groupName: string; groupCode: string; fBase: number; fIva: number; tBase: number; tIva: number; details: { name: string; fBase: number; fIva: number; tBase: number; tIva: number }[] }[] {
+function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { groupName: string; groupCode: string; fBase: number; fIva: number; tBase: number; tIva: number; details: { name: string; code: string; fBase: number; fIva: number; tBase: number; tIva: number }[] }[] {
   const allGroupNames = [...new Set([...fGroups.map(g => g.groupName), ...tGroups.map(g => g.groupName)])];
   const fMap = Object.fromEntries(fGroups.map(g => [g.groupName, g]));
   const tMap = Object.fromEntries(tGroups.map(g => [g.groupName, g]));
@@ -72,11 +73,12 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
 
     const details = allDetailNames.map(dn => ({
       name: dn,
+      code: fDetailMap[dn]?.code ?? tDetailMap[dn]?.code ?? "",
       fBase: fDetailMap[dn]?.base ?? 0,
       fIva: fDetailMap[dn]?.iva ?? 0,
       tBase: tDetailMap[dn]?.base ?? 0,
       tIva: tDetailMap[dn]?.iva ?? 0,
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    })).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
     return {
       groupName: name, groupCode: code,
