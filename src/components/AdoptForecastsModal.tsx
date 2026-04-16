@@ -505,6 +505,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
               {items.map((i) => {
                 const k = keyOf(i);
                 const isTx = i.kind === "transaction";
+                const groupKey = getInvoiceGroupKey(i);
+                const group = groupKey ? invoiceGroups.get(groupKey) : null;
                 return (
                   <button
                     key={k}
@@ -527,10 +529,33 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
                         )}
                         <span className="truncate">{i.description}</span>
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {eventNameMap[i.event_id] || "Sub-evento"}
-                        {i.kind === "forecast" && i.specification && ` · ${i.specification}`}
-                        {isTx && ` · Transação ${i.status}`}
+                      <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                        <span className="truncate">{eventNameMap[i.event_id] || "Sub-evento"}</span>
+                        {i.kind === "forecast" && i.specification && <span>· {i.specification}</span>}
+                        {isTx && <span>· {i.status}</span>}
+                        {i.invoice_ref && (
+                          <span className="inline-flex items-center gap-0.5 rounded bg-muted/60 px-1 py-px text-[10px] font-mono">
+                            <Hash className="h-2.5 w-2.5" />
+                            {i.invoice_ref}
+                          </span>
+                        )}
+                        {i.account_name && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px]">
+                            <Wallet className="h-2.5 w-2.5" />
+                            {i.account_name}
+                          </span>
+                        )}
+                        {group && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => selectInvoiceGroup(groupKey!, e as any)}
+                            onKeyDown={(e) => { if (e.key === "Enter") selectInvoiceGroup(groupKey!, e as any); }}
+                            className="inline-flex items-center gap-0.5 rounded bg-primary/15 text-primary px-1.5 py-px text-[10px] font-medium hover:bg-primary/25 cursor-pointer"
+                          >
+                            Fatura · {group.length} lançamentos
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
