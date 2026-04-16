@@ -7,6 +7,8 @@ import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, Fil
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { useMasterCategoryDetection } from "@/hooks/useMasterCategoryDetection";
+import { LocalReinforcementDialog } from "@/components/LocalReinforcementDialog";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
