@@ -5,7 +5,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -21,6 +21,7 @@ import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
+import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 
 interface InlineForm {
   type: string;
@@ -63,6 +64,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [bpSearch, setBpSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
   const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
+  const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
+  const [showAdoptCreate, setShowAdoptCreate] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -146,7 +149,37 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: forecasts.length > 0,
   });
 
-  // Fetch transactions for this event AND child events (for parent BP view)
+  // Fetch adopted sub-event forecasts (linked via master_forecast_id)
+  const { data: adoptedForecasts = [] } = useQuery({
+    queryKey: ["adopted_forecasts", eventId, childEventIds],
+    queryFn: async () => {
+      if (!childEventIds || childEventIds.length === 0) return [] as any[];
+      const masterForecastIds = forecasts.map((f) => f.id);
+      if (masterForecastIds.length === 0) return [] as any[];
+      // master_forecast_id is a new column not yet in types, use filter
+      const { data, error } = await (supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name)") as any)
+        .in("master_forecast_id", masterForecastIds);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!childEventIds && childEventIds.length > 0 && forecasts.length > 0,
+  });
+
+  // Group adopted forecasts by master_forecast_id
+  const adoptedByMaster = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    adoptedForecasts.forEach((f: any) => {
+      const mid = (f as any).master_forecast_id;
+      if (mid) {
+        if (!map[mid]) map[mid] = [];
+        map[mid].push(f);
+      }
+    });
+    return map;
+  }, [adoptedForecasts]);
+
   const allRelevantEventIds = useMemo(() => {
     const ids = [eventId];
     if (childEventIds && childEventIds.length > 0) {
@@ -625,6 +658,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
     enabled: !!childEventIds && childEventIds.length > 0,
   });
+
+  const subEventNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    subEventNames.forEach((e: any) => { map[e.id] = e.name; });
+    return map;
+  }, [subEventNames]);
 
   const [distributeTarget, setDistributeTarget] = useState<any>(null);
 
@@ -1512,6 +1551,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <Plus className="h-3.5 w-3.5" /> Adicionar
                       </button>
                     )}
+                    {canEditBP && childEventIds && childEventIds.length > 0 && (
+                      <button
+                        onClick={() => setShowAdoptCreate(true)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                      >
+                        <ArrowUpRight className="h-3.5 w-3.5" /> Consolidar
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -1595,7 +1642,48 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               ) : f.cache_config_id ? (
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
+                                <React.Fragment key={f.id}>
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} />
+                                  {/* Adopted sub-event children */}
+                                  {(adoptedByMaster[f.id] ?? []).map((af: any) => (
+                                    <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
+                                      <td className="py-2 pl-8 pr-3">
+                                        <div className="flex items-center gap-2">
+                                          <Layers className="h-3 w-3 text-primary/60 shrink-0" />
+                                          <div>
+                                            <p className="text-xs font-medium">
+                                              {af.account_categories?.code && <span className="text-muted-foreground mr-1">{af.account_categories.code}</span>}
+                                              {af.description}
+                                            </p>
+                                            <p className="text-[10px] text-primary/60">{subEventNameMap[af.event_id] || "Sub-evento"}</p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-2 pr-3 text-muted-foreground text-xs">{af.specification || "—"}</td>
+                                      <td className="hidden py-2 pr-3 text-muted-foreground sm:table-cell text-xs">{af.account_categories ? `${af.account_categories.code} ${af.account_categories.name}` : "—"}</td>
+                                      <td className="py-2 text-right text-muted-foreground text-xs">{af.iva_rate}%</td>
+                                      <td className="py-2 text-right font-mono text-xs text-warning/60">{formatCurrency(Number(af.amount))}</td>
+                                      <td className="py-2 text-right font-mono text-[10px] text-muted-foreground">{formatCurrency(Number(af.amount) * Number(af.iva_rate) / 100)}</td>
+                                      <td className="py-2 text-right font-mono text-xs text-warning/60">{formatCurrency(Number(af.amount) * (1 + Number(af.iva_rate) / 100))}</td>
+                                      <td className="py-2 text-right">
+                                        {canEditBP && (
+                                          <button
+                                            onClick={async () => {
+                                              await (supabase.from("event_forecasts").update({ master_forecast_id: null } as any) as any).eq("id", af.id);
+                                              queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
+                                              queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+                                              toast({ title: "Linha desvinculada do Master" });
+                                            }}
+                                            className="rounded p-1 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                                            title="Desvincular do Master"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </React.Fragment>
                               )
                             ))}
                           </React.Fragment>
@@ -1695,13 +1783,36 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Adopt forecasts modals */}
+      {adoptTarget && childEventIds && (
+        <AdoptForecastsModal
+          open={!!adoptTarget}
+          onOpenChange={(open) => { if (!open) setAdoptTarget(null); }}
+          masterEventId={eventId}
+          childEventIds={childEventIds}
+          masterForecast={adoptTarget}
+          mode="adopt"
+          categories={categories}
+        />
+      )}
+      {showAdoptCreate && childEventIds && (
+        <AdoptForecastsModal
+          open={showAdoptCreate}
+          onOpenChange={setShowAdoptCreate}
+          masterEventId={eventId}
+          childEventIds={childEventIds}
+          mode="create"
+          categories={categories}
+        />
+      )}
     </div>
   );
 }
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [] }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -1712,6 +1823,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   canManagePartners?: boolean; queryClient?: any; eventId?: string;
   canDeleteAlways?: boolean; allForecasts?: any[];
   onDistributeToSplits?: (item: any) => void;
+  onAdoptFromSplits?: (item: any) => void;
+  adoptedChildren?: any[];
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
@@ -1974,6 +2087,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     <ArrowDownRight className="h-3.5 w-3.5 text-blue-400" />
                   </button>
                 )
+              )}
+              {onAdoptFromSplits && !item.cache_config_id && (
+                <button
+                  onClick={() => onAdoptFromSplits(item)}
+                  className="rounded p-1 hover:bg-primary/20"
+                  title="Adotar linhas dos sub-eventos"
+                >
+                  <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
+                </button>
               )}
               {isApproved && isAdmin && onEditApproved && (
                 <button

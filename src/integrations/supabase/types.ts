@@ -628,6 +628,7 @@ export type Database = {
           id: string
           is_transitory: boolean
           iva_rate: number
+          master_forecast_id: string | null
           notes: string | null
           specification: string | null
           status: string
@@ -650,6 +651,7 @@ export type Database = {
           id?: string
           is_transitory?: boolean
           iva_rate?: number
+          master_forecast_id?: string | null
           notes?: string | null
           specification?: string | null
           status?: string
@@ -672,6 +674,7 @@ export type Database = {
           id?: string
           is_transitory?: boolean
           iva_rate?: number
+          master_forecast_id?: string | null
           notes?: string | null
           specification?: string | null
           status?: string
@@ -699,6 +702,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_master_forecast_id_fkey"
+            columns: ["master_forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
             referencedColumns: ["id"]
           },
           {
