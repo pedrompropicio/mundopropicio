@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
+import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -77,8 +78,11 @@ export function AppSidebar() {
       </nav>
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
-        <div className="hidden lg:block mb-2 px-3 truncate text-xs text-muted-foreground">
-          {user?.email}
+        <div className="hidden lg:flex items-center justify-between mb-2 px-3">
+          <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
+        </div>
+        <div className="flex justify-center lg:justify-start px-1">
+          <PushNotificationToggle />
         </div>
         <button
           onClick={() => setShowChangePassword(true)}
