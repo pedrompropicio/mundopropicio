@@ -996,17 +996,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
 
     // Reinforcement dialog: show for sub-event expenses with category in Master BP
-    console.log("[ReinforcementCheck]", {
-      isSplit,
-      reinforcementChoice,
-      categoryId: form.category_id,
-      type: form.type,
-      eventId: form.event_id,
-      isTourChild: masterDetection.isTourChild,
-      parentEventId: masterDetection.parentEventId,
-      masterCategoryIds: masterDetection.masterCategoryIds,
-      shouldShow: masterDetection.shouldShowReinforcementDialog(form.category_id, form.type),
-    });
     if (!isSplit && !reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
       setShowReinforcementDialog(true);
       return;
