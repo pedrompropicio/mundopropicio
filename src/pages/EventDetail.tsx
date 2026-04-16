@@ -181,11 +181,32 @@ export default function EventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, account_categories(code, name)")
-        .in("event_id", transactionEventIds)
-        .order("date", { ascending: false });
+        .select("*, account_categories(code, name), suppliers(name)")
+        .in("event_id", transactionEventIds);
       if (error) throw error;
-      return data;
+      const rows = data ?? [];
+      const dateKey = (v?: string | null) => (v ? String(v).slice(0, 10) : "");
+      return [...rows].sort((a: any, b: any) => {
+        const aCat = a.account_categories?.code ?? "";
+        const bCat = b.account_categories?.code ?? "";
+        if (aCat !== bCat) return aCat.localeCompare(bCat, "pt", { numeric: true, sensitivity: "base" });
+
+        const aSup = a.suppliers?.name ?? "";
+        const bSup = b.suppliers?.name ?? "";
+        if (aSup !== bSup) return aSup.localeCompare(bSup, "pt", { sensitivity: "base" });
+
+        const aDate = dateKey(a.date);
+        const bDate = dateKey(b.date);
+        if (aDate !== bDate) return bDate.localeCompare(aDate);
+
+        const aDue = dateKey(a.due_date);
+        const bDue = dateKey(b.due_date);
+        if (aDue !== bDue) return bDue.localeCompare(aDue);
+
+        const aPay = dateKey(a.payment_date);
+        const bPay = dateKey(b.payment_date);
+        return bPay.localeCompare(aPay);
+      });
     },
     enabled: !!id,
   });
