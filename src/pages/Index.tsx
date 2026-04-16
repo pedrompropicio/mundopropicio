@@ -57,8 +57,7 @@ function enrichEvent(
   const ticketRevenue = salesMap[e.id]?.revenue ?? 0;
   const txnIncome = txnMap[e.id]?.income ?? 0;
   const txnExpense = txnMap[e.id]?.expense ?? 0;
-  // If ticket sales exist, use them as revenue; otherwise fall back to transactions (avoid double-counting)
-  const totalIncome = ticketRevenue > 0 ? ticketRevenue : txnIncome;
+  const totalIncome = ticketRevenue + txnIncome;
   return {
     ...e,
     capacity,
