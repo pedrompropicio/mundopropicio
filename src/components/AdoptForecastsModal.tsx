@@ -38,11 +38,12 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
   const { data: subForecasts = [], isLoading } = useQuery({
     queryKey: ["sub_event_forecasts_for_adopt", childEventIds, masterForecast?.category_id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // master_forecast_id is a new column, cast to any to avoid type errors
+      const { data, error } = await (supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name), events!event_forecasts_event_id_fkey(name)")
+        .select("*, account_categories(code, name)") as any)
         .in("event_id", childEventIds)
-        .is("master_forecast_id" as any, null)
+        .is("master_forecast_id", null)
         .eq("type", "expense");
       if (error) throw error;
       return (data ?? []) as any[];
