@@ -169,10 +169,18 @@ export default function EventDetail() {
   });
 
   // Determine which event IDs to use for transactions
-  const allEventIds = isMultiEvent && !selectedSubEvent
+  const transactionEventIds = isMultiEvent && !selectedSubEvent
     ? [id!, ...subEvents.map((s: any) => s.id)]
     : selectedSubEvent
       ? [selectedSubEvent]
+      : [id!];
+
+  // In global tour view, ticket revenue should come from sub-events only.
+  // Including the master event can double-count revenue when the parent also holds ticketing metadata.
+  const ticketRevenueEventIds = selectedSubEvent
+    ? [selectedSubEvent]
+    : isMultiEvent
+      ? (subEvents.length > 0 ? subEvents.map((s: any) => s.id) : [id!])
       : [id!];
 
   const { data: eventTransactions = [] } = useQuery({
@@ -181,7 +189,7 @@ export default function EventDetail() {
       const { data, error } = await supabase
         .from("transactions")
         .select("*, account_categories(code, name)")
-        .in("event_id", allEventIds)
+        .in("event_id", transactionEventIds)
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
@@ -191,33 +199,31 @@ export default function EventDetail() {
 
   // Fetch ticket sales revenue for the event(s)
   const { data: ticketSalesRevenue = 0 } = useQuery({
-    queryKey: ["event_ticket_revenue", id, selectedSubEvent, subEvents.map((s: any) => s.id).join(",")],
+    queryKey: ["event_ticket_revenue", id, selectedSubEvent, ticketRevenueEventIds.join(",")],
     queryFn: async () => {
       // Get zones for all relevant event IDs
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
-        .in("event_id", allEventIds);
+        .in("event_id", ticketRevenueEventIds);
       if (!zones || zones.length === 0) return 0;
 
       const zoneIds = zones.map(z => z.id);
-      // Get lots for those zones to know IVA rates
+      // Get lots for those zones
       const { data: lots } = await supabase
         .from("event_ticket_lots")
-        .select("id, iva_rate")
+        .select("id")
         .in("zone_id", zoneIds);
+
+      if (!lots || lots.length === 0) return 0;
 
       // Get all ticket sales
       const { data: sales } = await supabase
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price")
-        .in("lot_id", lots?.map(l => l.id) || []);
+        .in("lot_id", lots.map(l => l.id));
 
       if (!sales || sales.length === 0) return 0;
-
-      // Build lot IVA map
-      const lotIvaMap = new Map<string, number>();
-      lots?.forEach(l => lotIvaMap.set(l.id, l.iva_rate || 6));
 
       // Calculate gross revenue from ticket sales
       return sales.reduce((sum, s) => sum + (s.quantity * Number(s.unit_price)), 0);
