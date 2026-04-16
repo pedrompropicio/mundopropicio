@@ -517,6 +517,103 @@ const helpManual: HelpSection[] = [
       },
     ],
   },
+  {
+    id: "exceptions-approvals",
+    title: "Exceções e Aprovações (Reforço Local, Master, Fora do BP)",
+    icon: "ShieldAlert",
+    topics: [
+      {
+        title: "📘 Introdução — quando aparece uma exceção?",
+        content:
+          "Sempre que tenta registar uma despesa num evento cuja categoria NÃO está prevista no Business Plan (BP) desse evento, o sistema deteta uma exceção e abre um diálogo de classificação. Isto serve para garantir que nenhum custo é lançado sem controlo orçamental e sem rastreabilidade.\n\nExistem três cenários possíveis, todos descritos em detalhe abaixo:\n1. Reforço Local — a categoria existe no BP Master da turnê (ou em outro evento), mas não no BP local deste evento/cidade.\n2. Vincular ao Master — quer agregar este custo a uma linha existente do BP Master (ex: voo da turnê inteira).\n3. Fora do BP — categoria não existe em nenhum BP relacionado; é uma despesa imprevista que requer justificação formal.",
+      },
+      {
+        title: "═══════ PARTE 1 — UTILIZADOR FINAL ═══════",
+        content:
+          "Esta secção destina-se a Editores, Viewers e qualquer utilizador que registe transações no dia-a-dia. Aprenderá passo-a-passo como reagir quando o sistema sinaliza uma exceção e quais as opções disponíveis.",
+      },
+      {
+        title: "1.1 — Cenário: Reforço Local",
+        content:
+          "Quando aparece: está a registar uma despesa num evento Split (sub-evento de uma turnê) e a categoria escolhida existe no BP Master da turnê, mas não no BP local desta cidade.\n\nExemplo prático: A turnê 'Diogo Piçarra 2025' tem no BP Master a categoria '2.2.03 Transporte'. Em Lisboa, o BP local não previu transporte adicional, mas surgiu uma despesa de táxi de 80 €.\n\nComo proceder:\n1. Abra o formulário de Nova Transação no evento de Lisboa.\n2. Escolha a categoria '2.2.03 Transporte' (verá categorias do Master no dropdown).\n3. Ao gravar, o sistema abre o diálogo 'Classificação da Despesa'.\n4. Selecione 'Reforço Local'.\n5. Confirme — a despesa fica vinculada à mesma categoria do Master, mas dentro deste sub-evento.\n\nResultado: A despesa aparece no BP Master quando expandido (mostra contribuição de cada cidade) e fica registada no sub-evento de Lisboa. Não precisa de justificação textual ('Fora do BP'), mas FICA SUJEITA A APROVAÇÃO de gerente/admin antes de poder ser paga.",
+      },
+      {
+        title: "1.2 — Cenário: Vincular ao Master",
+        content:
+          "Quando aparece: a despesa é um custo da turnê inteira (ex: voos do artista para todas as cidades) que está orçamentado uma única vez no BP Master, mas o pagamento real é feito a partir de um sub-evento.\n\nComo proceder:\n1. No evento Split, crie a transação com a categoria correspondente do Master.\n2. No diálogo, escolha 'Vincular ao Master'.\n3. O sistema cria/atualiza automaticamente a linha Master no BP da turnê e amarra esta transação a essa linha.\n4. A transação fica em estado 'Pendente de Aprovação'.\n\nResultado: O BP Master mostra o real consumido (somando todas as transações vinculadas) vs. o orçamentado. Útil para custos partilhados como cachê, equipamento, transporte de longa distância.",
+      },
+      {
+        title: "1.3 — Cenário: Fora do BP (despesa imprevista)",
+        content:
+          "Quando aparece: a categoria não existe em NENHUM BP (nem local, nem Master). É uma despesa totalmente nova e imprevista.\n\nComo proceder:\n1. Ao gravar, o sistema bloqueia e mostra o diálogo 'Categoria não prevista no BP'.\n2. Clique em 'Forçar (Fora do BP)'.\n3. Preencha OBRIGATORIAMENTE a justificação no campo 'Motivo da exceção' (ex: 'Reparação urgente de equipamento de som — pedido pelo técnico no dia do evento').\n4. Confirme.\n\nResultado: A transação é gravada com marcador 'Fora do BP' (badge laranja na lista) e entra no estado 'Aguardando' para revisão posterior por gerente/admin. A justificação fica registada no histórico de auditoria.",
+      },
+      {
+        title: "1.4 — O que é o estado 'Pendente de Aprovação'?",
+        content:
+          "Toda a transação criada via Reforço Local ou Vincular ao Master fica automaticamente em estado 'Pendente de Aprovação' (badge laranja ⏳ na lista de transações).\n\nO que pode fazer enquanto pendente:\n• Editar a descrição, valor, data ou anexar documentos.\n• Cancelar/eliminar (se ainda não foi aprovada).\n\nO que NÃO pode fazer:\n• Registar pagamentos.\n• Incluir em listas de pagamento.\n• Marcar como liquidada.\n\nA transação só desbloqueia para pagamento depois de um gerente ou administrador a aprovar formalmente.",
+      },
+      {
+        title: "1.5 — Como saber o estado das minhas transações pendentes?",
+        content:
+          "1. Lista de Transações: use o filtro 'Estado de Aprovação' no topo da página e selecione 'Pendentes', 'Aprovadas' ou 'Rejeitadas'.\n2. Badges visuais:\n   • ⏳ Pendente (laranja) — aguarda decisão.\n   • ✅ Aprovado (verde) — pode prosseguir para pagamento.\n   • ❌ Rejeitado (vermelho) — leia a observação do aprovador e corrija/elimine.\n3. Notificações: receberá notificação no sino (🔔) quando a sua transação for aprovada ou rejeitada.\n\nSe uma transação for rejeitada, abra-a para ver o motivo da rejeição registado pelo aprovador. Pode editar e voltar a submeter, ou eliminar.",
+      },
+      {
+        title: "1.6 — Boas práticas para o utilizador",
+        content:
+          "✓ Antes de criar uma despesa, consulte o BP do evento para confirmar se a categoria já existe — evita exceções desnecessárias.\n✓ Em turnês, lembre-se que despesas partilhadas (voos, transporte, cachê) costumam estar no BP Master, não no Split.\n✓ Anexe sempre o documento de suporte (fatura, recibo) no momento da criação — facilita a aprovação.\n✓ Justificações 'Fora do BP' devem ser claras e objetivas. Evite frases como 'urgente' sem contexto.\n✓ Não pressione gerentes/admins para aprovações — o fluxo existe para garantir governação.",
+      },
+      {
+        title: "═══════ PARTE 2 — GERENTES E ADMINISTRADORES ═══════",
+        content:
+          "Esta secção destina-se a perfis com poder de aprovação (Manager, Admin). Cobre o fluxo de revisão, critérios de decisão e impactos no Business Plan.",
+      },
+      {
+        title: "2.1 — Onde encontrar transações pendentes",
+        content:
+          "Existem três pontos de acesso:\n\n1. Tela dedicada '/aprovacoes-pendentes' — lista todas as pendências com filtros por evento, autor, motivo (Reforço Local / Master / Fora do BP) e período. Permite aprovação em lote.\n\n2. Lista de Transações — aplique o filtro 'Estado de Aprovação > Pendentes' para ver apenas as que aguardam decisão.\n\n3. Notificações push/sino — sempre que um utilizador cria uma transação pendente, gerentes e admins recebem notificação (se a opção estiver ativa nas Definições).",
+      },
+      {
+        title: "2.2 — Como aprovar ou rejeitar",
+        content:
+          "Na tela de Aprovações Pendentes ou abrindo a transação:\n\n1. Reveja: descrição, valor, fornecedor, evento, categoria, motivo da exceção e documentos anexos.\n2. Compare com o BP: o sistema mostra o impacto orçamental (quanto resta no Master ou no Split).\n3. Decida:\n   • Aprovar — clique em ✅ Aprovar. Opcionalmente adicione uma nota interna.\n   • Rejeitar — clique em ❌ Rejeitar e PREENCHA OBRIGATORIAMENTE o motivo (ex: 'Categoria errada — usar 2.4.01 em vez de 2.2.03').\n\nApós aprovar, a transação desbloqueia para pagamento. Após rejeitar, o autor recebe notificação para corrigir.",
+      },
+      {
+        title: "2.3 — Critérios de decisão recomendados",
+        content:
+          "Aprove quando:\n✓ A categoria escolhida é semanticamente correta para a despesa.\n✓ Existe documento de suporte (fatura/recibo) anexo.\n✓ O valor está dentro do razoável face ao mercado e ao orçamento Master.\n✓ A justificação (no caso de Fora do BP) é plausível e operacionalmente necessária.\n\nRejeite quando:\n✗ A categoria é claramente errada (ex: lançar combustível em 'Catering').\n✗ Falta documentação obrigatória.\n✗ O valor é incompatível com o BP Master (ex: 5.000 € de táxi quando o Master tem 500 € para Transporte da turnê inteira).\n✗ A justificação 'Fora do BP' é vaga ou desadequada.\n✗ Existe duplicação com transação já registada.",
+      },
+      {
+        title: "2.4 — Impacto no Business Plan",
+        content:
+          "Reforço Local: a despesa aparece dentro do sub-evento (Split) na linha da categoria correspondente. Quando expande a categoria no BP Master, vê a contribuição de cada cidade. Não cria nova linha no Master.\n\nVincular ao Master: o sistema cria automaticamente uma linha 'Master' no BP da turnê (se não existir) e amarra a transação a essa linha. Útil para custos verdadeiramente partilhados.\n\nFora do BP: a transação fica marcada com badge especial e aparece no relatório 'BP Overrides' (Relatórios > Desvios do BP) para auditoria. Não cria linha automática no BP — se o custo se repetir, considere atualizar o BP formalmente.",
+      },
+      {
+        title: "2.5 — Auditoria e rastreabilidade",
+        content:
+          "Todas as decisões (aprovação/rejeição) ficam registadas no log de auditoria com:\n• Quem decidiu (utilizador).\n• Quando (data/hora).\n• Motivo (notas do aprovador, justificação do autor).\n• Estado anterior e novo.\n\nConsulte o histórico:\n• Página da transação → separador 'Histórico'.\n• Relatório 'Log de Atividade' (Admin > Atividade) para visão consolidada.\n• Relatório 'BP Overrides' para análise de exceções por período/evento.",
+      },
+      {
+        title: "2.6 — Aprovação em lote",
+        content:
+          "Na tela '/aprovacoes-pendentes':\n1. Use os filtros para isolar transações semelhantes (ex: todas do mesmo fornecedor, mesma categoria, mesmo evento).\n2. Selecione múltiplas linhas com as checkboxes.\n3. Clique em 'Aprovar Selecionadas' ou 'Rejeitar Selecionadas'.\n4. Para rejeição em lote, o motivo será aplicado a todas as transações selecionadas.\n\nUse com critério: a revisão individual continua a ser a prática recomendada para valores elevados ou despesas atípicas.",
+      },
+      {
+        title: "2.7 — Casos especiais e exceções à exceção",
+        content:
+          "• Eventos Concluídos: transações pendentes em eventos já fechados precisam de reabertura prévia (operação de Admin) antes de poderem ser aprovadas.\n• BP Passivo: em eventos com BP em modo Passivo, o fluxo de exceções não se aplica — todas as transações entram diretamente sem necessidade de aprovação.\n• Admins criam pendentes: mesmo Admins criam transações em estado pendente quando usam Reforço Local ou Vincular ao Master. Podem auto-aprovar imediatamente, mas o registo da decisão fica logado.\n• Transações de Rateio (Master Split): obedecem às mesmas regras — aprovação propaga-se às transações filhas automaticamente.",
+      },
+      {
+        title: "2.8 — Boas práticas para gerentes/admins",
+        content:
+          "✓ Reveja as pendências pelo menos 1x/dia para não bloquear pagamentos.\n✓ Use as notas de aprovação para deixar contexto útil ao histórico.\n✓ Se rejeitar, seja específico no motivo — ajuda o autor a corrigir.\n✓ Monitorize o relatório 'BP Overrides' mensalmente — exceções recorrentes indicam falhas no planeamento do BP.\n✓ Atualize o BP formalmente quando uma exceção 'Fora do BP' se tornar recorrente.\n✓ Defina internamente um SLA (ex: aprovações em <24h) e comunique à equipa.",
+      },
+      {
+        title: "📋 Resumo rápido — fluxo completo",
+        content:
+          "1. Utilizador cria transação → categoria não existe no BP local.\n2. Sistema abre diálogo de classificação → utilizador escolhe Reforço Local / Vincular ao Master / Fora do BP.\n3. Transação fica em estado ⏳ Pendente de Aprovação (bloqueada para pagamento).\n4. Gerente/admin recebe notificação e revê na tela de Aprovações Pendentes.\n5. Aprova (✅ desbloqueia para pagamento) ou Rejeita (❌ devolve ao autor com motivo).\n6. Toda a decisão fica auditada e visível no histórico da transação.",
+      },
+    ],
+  },
 ];
 
 export default helpManual;
