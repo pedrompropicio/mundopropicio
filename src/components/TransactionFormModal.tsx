@@ -864,6 +864,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     createMutation.mutate(form);
   };
 
+  // Reinforcement dialog handler
+  const handleReinforcementConfirm = (choice: "local" | "master") => {
+    setReinforcementChoice(choice);
+    setShowReinforcementDialog(false);
+    // Re-trigger submit flow (choice is now set, dialog won't re-appear)
+    setTimeout(() => checkDuplicatesAndSubmit(), 0);
+  };
+
+  // Reset reinforcement choice when event/category changes
+  const resetReinforcementOnChange = () => {
+    if (reinforcementChoice) setReinforcementChoice(null);
+  };
+
   const checkDuplicatesAndSubmit = async () => {
     // Check for existing transactions with same description + event + similar amount
     try {
