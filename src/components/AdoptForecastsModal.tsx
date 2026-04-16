@@ -241,6 +241,19 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     else setSelectedKeys(new Set(items.map(keyOf)));
   };
 
+  const selectInvoiceGroup = (groupKey: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const group = invoiceGroups.get(groupKey);
+    if (!group) return;
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      const allSelected = group.every((i) => next.has(keyOf(i)));
+      if (allSelected) group.forEach((i) => next.delete(keyOf(i)));
+      else group.forEach((i) => next.add(keyOf(i)));
+      return next;
+    });
+  };
+
   const totalSelected = items.filter((i) => selectedKeys.has(keyOf(i))).reduce((s, i) => s + i.amount, 0);
   const selectedForecasts = items.filter((i) => i.kind === "forecast" && selectedKeys.has(keyOf(i)));
   const selectedTxs = items.filter((i) => i.kind === "transaction" && selectedKeys.has(keyOf(i)));
