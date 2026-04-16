@@ -37,26 +37,31 @@ interface DashboardChartsProps {
 export function DashboardCharts({ transactions, events, categories, ticketSales = [] }: DashboardChartsProps) {
   const { marginData, categoryData, cumulativeData } = useMemo(() => {
     // 1. Margin per event (top 10 by volume)
-    const eventTotals: Record<string, { name: string; income: number; expense: number }> = {};
+    const eventTotals: Record<string, { name: string; income: number; expense: number; hasTicketSales: boolean }> = {};
     transactions.forEach((t) => {
       if (!t.event_id) return;
       if (!eventTotals[t.event_id]) {
         const evt = events.find((e) => e.id === t.event_id);
-        eventTotals[t.event_id] = { name: evt?.name ?? "Sem evento", income: 0, expense: 0 };
+        eventTotals[t.event_id] = { name: evt?.name ?? "Sem evento", income: 0, expense: 0, hasTicketSales: false };
       }
       if (t.type === "income") eventTotals[t.event_id].income += Number(t.amount);
       else eventTotals[t.event_id].expense += Number(t.amount);
     });
 
-    // Add ticket sales as real revenue per event
+    // Replace transaction income with ticket sales revenue where available (avoid double-counting)
+    const ticketRevenueByEvent: Record<string, number> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
+      ticketRevenueByEvent[eventId] = (ticketRevenueByEvent[eventId] || 0) + Number(ts.quantity) * Number(ts.unit_price);
+    });
+    Object.entries(ticketRevenueByEvent).forEach(([eventId, revenue]) => {
       if (!eventTotals[eventId]) {
         const evt = events.find((e: any) => e.id === eventId);
-        eventTotals[eventId] = { name: evt?.name ?? "Sem evento", income: 0, expense: 0 };
+        eventTotals[eventId] = { name: evt?.name ?? "Sem evento", income: 0, expense: 0, hasTicketSales: true };
       }
-      eventTotals[eventId].income += Number(ts.quantity) * Number(ts.unit_price);
+      eventTotals[eventId].income = revenue; // Replace, don't add
+      eventTotals[eventId].hasTicketSales = true;
     });
 
     const marginData = Object.values(eventTotals)
