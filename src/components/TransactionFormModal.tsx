@@ -1027,11 +1027,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
     if (hasPLRestriction && effectiveEventId && !plOverride) {
+      // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
+      const isInSubEventBP = allowedCategoryIds.includes(c.id);
+      const isInMasterBP = masterDetection.masterCategoryIds.includes(c.id);
       if (isParentMultiDay) {
-        return allowedCategoryIds.includes(c.id);
+        return isInSubEventBP || isInMasterBP;
       }
       if (allowedCategoryIds.length > 0) {
-        return allowedCategoryIds.includes(c.id);
+        return isInSubEventBP || isInMasterBP;
       }
     }
     return true;
