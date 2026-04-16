@@ -965,7 +965,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
       }
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride) {
+
+      // Reinforcement dialog: show FIRST for sub-event expenses with category in Master BP.
+      // Must precede the BP-Active block, since "Reforço Local" legitimately bypasses the
+      // requirement that the category exists in the sub-event's own BP.
+      if (!reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
+        setShowReinforcementDialog(true);
+        return;
+      }
+
+      // BP-Active enforcement — skipped when user explicitly chose "Reforço Local"
+      // (category exists in Master BP; expense is local-only to the sub-event)
+      const isLocalReinforcement = reinforcementChoice === "local";
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !isLocalReinforcement) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -993,12 +1005,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           description: `Previsto: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€ | Lançando: ${newAmount.toFixed(2)}€`,
         });
       }
-    }
-
-    // Reinforcement dialog: show for sub-event expenses with category in Master BP
-    if (!isSplit && !reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
-      setShowReinforcementDialog(true);
-      return;
     }
 
     // Skip duplicate check if already confirmed
