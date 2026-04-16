@@ -53,6 +53,35 @@ export function useSyncCacheForecasts({
   const syncingRef = useRef(false);
   const lastSyncHash = useRef("");
 
+  // Fetch a lightweight sales fingerprint so hash changes when sales change
+  const allRelevantIds = useMemo(
+    () => childEventIds && childEventIds.length > 0 ? childEventIds : [eventId],
+    [eventId, childEventIds]
+  );
+  const { data: salesFingerprint } = useQuery({
+    queryKey: ["cache-sync-sales-fingerprint", ...allRelevantIds],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .in("event_id", allRelevantIds);
+      const zoneIds = (zones ?? []).map((z) => z.id);
+      if (zoneIds.length === 0) return "no-zones";
+      const { count } = await supabase
+        .from("ticket_sales")
+        .select("*", { count: "exact", head: true })
+        .in("zone_id", zoneIds);
+      // Also get a rough sum to detect price changes
+      const { data: agg } = await supabase
+        .from("ticket_sales")
+        .select("quantity, unit_price")
+        .in("zone_id", zoneIds);
+      const total = (agg ?? []).reduce((s: number, r: any) => s + Number(r.quantity) * Number(r.unit_price), 0);
+      return `${count}:${Math.round(total * 100)}`;
+    },
+    enabled: enabled && cacheConfigs.length > 0,
+  });
+
   useEffect(() => {
     if (!enabled || !cacheCategoryId || cacheConfigs.length === 0 || syncingRef.current) return;
 
