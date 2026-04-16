@@ -21,9 +21,8 @@ export function useMasterCategoryDetection(
   const selectedEvent = events.find((e) => e.id === eventId);
   const parentEventId = selectedEvent?.parent_event_id ?? null;
 
-  // Check if parent is a tour
-  const parentEvent = parentEventId ? events.find((e) => e.id === parentEventId) : null;
-  const isTourChild = !!parentEvent && parentEvent.event_type === "tour";
+  // Any sub-event (with a parent) qualifies — Master can be tour/master/multi_day/festival
+  const isTourChild = !!parentEventId;
 
   // Fetch Master BP expense categories
   const { data: masterExpenseForecasts = [] } = useQuery({
