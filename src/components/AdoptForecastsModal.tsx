@@ -390,9 +390,9 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate flex items-center gap-1.5">
                         {isTx ? (
-                          <Receipt className="h-3 w-3 text-amber-500 shrink-0" />
+                          <Receipt className="h-3 w-3 text-warning shrink-0" />
                         ) : (
-                          <FileText className="h-3 w-3 text-blue-500 shrink-0" />
+                          <FileText className="h-3 w-3 text-primary shrink-0" />
                         )}
                         {i.account_categories?.code && (
                           <span className="text-xs text-muted-foreground">{i.account_categories.code}</span>
