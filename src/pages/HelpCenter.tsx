@@ -1,10 +1,29 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, BookOpen } from "lucide-react";
+import { Search, BookOpen, Sparkles, Loader2, ArrowRight } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import helpManual from "@/lib/help-manual";
+
+interface AiTopicHit {
+  sectionId: string;
+  topicIndex: number;
+  sectionTitle: string;
+  topicTitle: string;
+}
+
+interface AiResult {
+  answer: string;
+  hits: AiTopicHit[];
+  confidence: "alta" | "media" | "baixa";
+}
 
 import imgEventLifecycle from "@/assets/help/event-lifecycle.jpg";
 import imgTransactionLifecycle from "@/assets/help/transaction-lifecycle.jpg";
