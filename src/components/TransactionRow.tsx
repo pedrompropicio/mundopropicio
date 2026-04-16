@@ -219,6 +219,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   });
   const isLocalReinforcement = localReinforcementInfo?.isLocal ?? false;
 
+  const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
