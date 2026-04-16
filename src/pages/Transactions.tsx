@@ -542,10 +542,27 @@ export default function Transactions() {
       if (!paymentDate) return paidPeriod === "all";
       return paymentDate >= periodStart && paymentDate <= periodEnd;
     });
-    return [...result].sort((a, b) => {
+    return [...result].sort((a: any, b: any) => {
+      // 1) Data de Pagamento (mais recente primeiro)
       const aDate = a.payment_date ?? a.date;
       const bDate = b.payment_date ?? b.date;
-      return bDate.localeCompare(aDate); // mais recente primeiro
+      if (aDate !== bDate) return bDate.localeCompare(aDate);
+      // 2) Evento (alfabético)
+      const aEvent = a.events?.name ?? "";
+      const bEvent = b.events?.name ?? "";
+      if (aEvent !== bEvent) return aEvent.localeCompare(bEvent, "pt", { sensitivity: "base" });
+      // 3) Categoria (por código hierárquico)
+      const aCatCode = a.account_categories?.code ?? "";
+      const bCatCode = b.account_categories?.code ?? "";
+      if (aCatCode !== bCatCode) return aCatCode.localeCompare(bCatCode, undefined, { numeric: true });
+      // 4) Fornecedor (alfabético)
+      const aSupp = a.suppliers?.name ?? "";
+      const bSupp = b.suppliers?.name ?? "";
+      if (aSupp !== bSupp) return aSupp.localeCompare(bSupp, "pt", { sensitivity: "base" });
+      // 5) Nº Fatura
+      const aInv = a.invoice_ref ?? "";
+      const bInv = b.invoice_ref ?? "";
+      return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
   }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden]);
 
