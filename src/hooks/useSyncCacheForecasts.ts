@@ -138,24 +138,56 @@ async function syncTourCacheForecasts(
     .select("id, event_id")
     .in("event_id", childEventIds);
   const zoneIds = (zones ?? []).map((z) => z.id);
-  const { data: lots } = zoneIds.length > 0
-    ? await supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds)
-    : { data: [] };
 
-  // Build per-child revenue map
-  const zoneToEvent = new Map((zones ?? []).map((z) => [z.id, z.event_id]));
-  const revenueByChild: Record<string, { gross: number; net: number }> = {};
-  for (const cid of childEventIds) {
-    revenueByChild[cid] = { gross: 0, net: 0 };
+  const [lotsRes, salesRes] = zoneIds.length > 0
+    ? await Promise.all([
+        supabase.from("event_ticket_lots").select("*").in("zone_id", zoneIds),
+        supabase.from("ticket_sales").select("zone_id, lot_id, quantity, unit_price").in("zone_id", zoneIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const lots = lotsRes.data ?? [];
+  const sales = salesRes.data ?? [];
+
+  // Build IVA rate map from lots
+  const lotIvaMap = new Map<string, number>();
+  for (const l of lots) {
+    lotIvaMap.set(l.id, Number((l as any).iva_rate ?? 6));
   }
-  for (const l of (lots ?? [])) {
+
+  // Build per-child revenue map from LOTS (planned)
+  const zoneToEvent = new Map((zones ?? []).map((z) => [z.id, z.event_id]));
+  const plannedRevenueByChild: Record<string, { gross: number; net: number }> = {};
+  const actualRevenueByChild: Record<string, { gross: number; net: number }> = {};
+  for (const cid of childEventIds) {
+    plannedRevenueByChild[cid] = { gross: 0, net: 0 };
+    actualRevenueByChild[cid] = { gross: 0, net: 0 };
+  }
+  for (const l of lots) {
     const eid = zoneToEvent.get(l.zone_id);
-    if (!eid || !revenueByChild[eid]) continue;
+    if (!eid || !plannedRevenueByChild[eid]) continue;
     const price = Number(l.price);
     const qty = Number(l.quantity);
     const ivaRate = Number((l as any).iva_rate ?? 6);
-    revenueByChild[eid].gross += qty * price;
-    revenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+    plannedRevenueByChild[eid].gross += qty * price;
+    plannedRevenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+  }
+
+  // Build per-child revenue from ACTUAL SALES
+  for (const s of sales) {
+    const eid = zoneToEvent.get(s.zone_id);
+    if (!eid || !actualRevenueByChild[eid]) continue;
+    const qty = Number(s.quantity);
+    const price = Number(s.unit_price);
+    const ivaRate = lotIvaMap.get(s.lot_id) ?? 6;
+    actualRevenueByChild[eid].gross += qty * price;
+    actualRevenueByChild[eid].net += qty * (price / (1 + ivaRate / 100));
+  }
+
+  // Use actual sales when available, fall back to planned
+  const revenueByChild: Record<string, { gross: number; net: number }> = {};
+  for (const cid of childEventIds) {
+    const actual = actualRevenueByChild[cid];
+    revenueByChild[cid] = (actual.gross > 0 || actual.net > 0) ? actual : plannedRevenueByChild[cid];
   }
 
   // 2. Fetch expense forecasts per child (for deduction calculation)
