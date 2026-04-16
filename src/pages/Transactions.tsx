@@ -349,12 +349,27 @@ export default function Transactions() {
   });
 
   const sortByDueDate = <T extends { due_date: string | null; date: string; created_at: string }>(items: T[]) => {
-    return [...items].sort((a, b) => {
+    return [...items].sort((a: any, b: any) => {
+      // 1) Data de Vencimento (mais próxima primeiro)
       const aPrimary = a.due_date ?? a.date;
       const bPrimary = b.due_date ?? b.date;
       if (aPrimary !== bPrimary) return aPrimary.localeCompare(bPrimary);
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.created_at.localeCompare(b.created_at);
+      // 2) Evento (alfabético)
+      const aEvent = a.events?.name ?? "";
+      const bEvent = b.events?.name ?? "";
+      if (aEvent !== bEvent) return aEvent.localeCompare(bEvent, "pt", { sensitivity: "base" });
+      // 3) Categoria (por código hierárquico)
+      const aCatCode = a.account_categories?.code ?? "";
+      const bCatCode = b.account_categories?.code ?? "";
+      if (aCatCode !== bCatCode) return aCatCode.localeCompare(bCatCode, undefined, { numeric: true });
+      // 4) Fornecedor (alfabético)
+      const aSupp = a.suppliers?.name ?? "";
+      const bSupp = b.suppliers?.name ?? "";
+      if (aSupp !== bSupp) return aSupp.localeCompare(bSupp, "pt", { sensitivity: "base" });
+      // 5) Nº Fatura
+      const aInv = a.invoice_ref ?? "";
+      const bInv = b.invoice_ref ?? "";
+      return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
   };
 
