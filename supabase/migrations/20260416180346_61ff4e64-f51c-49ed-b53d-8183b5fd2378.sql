@@ -1,0 +1,1 @@
+DELETE FROM event_forecasts WHERE event_id='c684bf61-a414-5375-91b7-48f1b98b7e5d' AND description='Transporte local Lisboa (placeholder teste)';
