@@ -467,9 +467,21 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-            placeholder="Pesquisar por descrição, categoria ou evento…"
+            placeholder="Pesquisar por descrição, categoria, evento, fatura ou conta…"
           />
         </div>
+
+        {partialInvoiceWarnings.length > 0 && (
+          <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 space-y-0.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Seleção parcial de fatura
+            </div>
+            {partialInvoiceWarnings.map((w, idx) => (
+              <p key={idx} className="text-[11px] text-warning/90 pl-5">{w}</p>
+            ))}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto min-h-0 space-y-1">
           {isLoading ? (
