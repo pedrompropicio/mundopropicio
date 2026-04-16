@@ -153,6 +153,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
       queryClient.invalidateQueries({ queryKey: ["sub_event_forecasts_for_adopt"] });
+      queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
       toast({ title: `${ids.length} linha(s) vinculada(s) à conta Master` });
       onOpenChange(false);
       setSelectedIds(new Set());
