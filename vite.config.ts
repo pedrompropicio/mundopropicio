@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/~oauth/],
         globPatterns: ["**/*.{js,css,ico,png,svg}"],
+        importScripts: ["/sw-push.js"],
       },
     }),
   ].filter(Boolean),
