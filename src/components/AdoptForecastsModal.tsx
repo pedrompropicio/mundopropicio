@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { Layers, Search, Receipt, FileText } from "lucide-react";
+import { Layers, Search, Receipt, FileText, AlertTriangle, Wallet, Hash } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -30,6 +30,8 @@ type Item =
       specification: string | null;
       category_id: string | null;
       account_categories?: { code?: string; name?: string } | null;
+      invoice_ref?: string | null;
+      account_name?: string | null;
     }
   | {
       kind: "transaction";
@@ -41,6 +43,8 @@ type Item =
       status: string;
       category_id: string | null;
       account_categories?: { code?: string; name?: string } | null;
+      invoice_ref?: string | null;
+      account_name?: string | null;
     };
 
 export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEventIds, masterForecast, mode, categories = [] }: Props) {
@@ -98,7 +102,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       if (targetCategoryIds.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, description, amount, iva_rate, status, category_id, account_categories(code, name)")
+        .select("id, event_id, description, amount, iva_rate, status, category_id, invoice_ref, account_id, account_categories(code, name), financial_accounts(name)")
         .in("event_id", childEventIds)
         .in("category_id", targetCategoryIds)
         .eq("type", "expense")
@@ -158,6 +162,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       specification: f.specification,
       category_id: f.category_id,
       account_categories: f.account_categories,
+      invoice_ref: null,
+      account_name: null,
     }));
     const tx: Item[] = (orphanTransactions ?? []).map((t: any) => ({
       kind: "transaction" as const,
@@ -169,6 +175,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       status: t.status,
       category_id: t.category_id,
       account_categories: t.account_categories,
+      invoice_ref: t.invoice_ref ?? null,
+      account_name: t.financial_accounts?.name ?? null,
     }));
     const all = [...fc, ...tx];
     if (search) {
@@ -177,13 +185,47 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         i.description?.toLowerCase().includes(s) ||
         i.account_categories?.name?.toLowerCase().includes(s) ||
         i.account_categories?.code?.toLowerCase().includes(s) ||
-        eventNameMap[i.event_id]?.toLowerCase().includes(s)
+        eventNameMap[i.event_id]?.toLowerCase().includes(s) ||
+        i.invoice_ref?.toLowerCase().includes(s) ||
+        i.account_name?.toLowerCase().includes(s)
       );
     }
     return all;
   }, [filteredForecasts, orphanTransactions, search, eventNameMap]);
 
   const keyOf = (i: Item) => `${i.kind}:${i.id}`;
+
+  // Agrupar transações pela mesma fatura (invoice_ref) — para selecionar fatura completa e detetar seleções parciais
+  const invoiceGroups = useMemo(() => {
+    const map = new Map<string, Item[]>();
+    items.forEach((i) => {
+      if (i.kind === "transaction" && i.invoice_ref) {
+        const key = `${i.event_id}::${i.invoice_ref}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(i);
+      }
+    });
+    // Apenas grupos com 2+ transações são "agrupados"
+    return new Map([...map.entries()].filter(([, arr]) => arr.length > 1));
+  }, [items]);
+
+  const getInvoiceGroupKey = (i: Item): string | null => {
+    if (i.kind !== "transaction" || !i.invoice_ref) return null;
+    const key = `${i.event_id}::${i.invoice_ref}`;
+    return invoiceGroups.has(key) ? key : null;
+  };
+
+  const partialInvoiceWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    invoiceGroups.forEach((group, key) => {
+      const selectedCount = group.filter((i) => selectedKeys.has(keyOf(i))).length;
+      if (selectedCount > 0 && selectedCount < group.length) {
+        const ref = key.split("::")[1];
+        warnings.push(`Fatura ${ref}: ${selectedCount}/${group.length} lançamentos selecionados`);
+      }
+    });
+    return warnings;
+  }, [invoiceGroups, selectedKeys]);
 
   const toggleSelect = (key: string) => {
     setSelectedKeys((prev) => {
@@ -197,6 +239,19 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
   const toggleAll = () => {
     if (selectedKeys.size === items.length) setSelectedKeys(new Set());
     else setSelectedKeys(new Set(items.map(keyOf)));
+  };
+
+  const selectInvoiceGroup = (groupKey: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const group = invoiceGroups.get(groupKey);
+    if (!group) return;
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      const allSelected = group.every((i) => next.has(keyOf(i)));
+      if (allSelected) group.forEach((i) => next.delete(keyOf(i)));
+      else group.forEach((i) => next.add(keyOf(i)));
+      return next;
+    });
   };
 
   const totalSelected = items.filter((i) => selectedKeys.has(keyOf(i))).reduce((s, i) => s + i.amount, 0);
@@ -412,9 +467,21 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-            placeholder="Pesquisar por descrição, categoria ou evento…"
+            placeholder="Pesquisar por descrição, categoria, evento, fatura ou conta…"
           />
         </div>
+
+        {partialInvoiceWarnings.length > 0 && (
+          <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 space-y-0.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Seleção parcial de fatura
+            </div>
+            {partialInvoiceWarnings.map((w, idx) => (
+              <p key={idx} className="text-[11px] text-warning/90 pl-5">{w}</p>
+            ))}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto min-h-0 space-y-1">
           {isLoading ? (
@@ -438,6 +505,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
               {items.map((i) => {
                 const k = keyOf(i);
                 const isTx = i.kind === "transaction";
+                const groupKey = getInvoiceGroupKey(i);
+                const group = groupKey ? invoiceGroups.get(groupKey) : null;
                 return (
                   <button
                     key={k}
@@ -460,10 +529,33 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
                         )}
                         <span className="truncate">{i.description}</span>
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {eventNameMap[i.event_id] || "Sub-evento"}
-                        {i.kind === "forecast" && i.specification && ` · ${i.specification}`}
-                        {isTx && ` · Transação ${i.status}`}
+                      <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                        <span className="truncate">{eventNameMap[i.event_id] || "Sub-evento"}</span>
+                        {i.kind === "forecast" && i.specification && <span>· {i.specification}</span>}
+                        {isTx && <span>· {i.status}</span>}
+                        {i.invoice_ref && (
+                          <span className="inline-flex items-center gap-0.5 rounded bg-muted/60 px-1 py-px text-[10px] font-mono">
+                            <Hash className="h-2.5 w-2.5" />
+                            {i.invoice_ref}
+                          </span>
+                        )}
+                        {i.account_name && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px]">
+                            <Wallet className="h-2.5 w-2.5" />
+                            {i.account_name}
+                          </span>
+                        )}
+                        {group && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => selectInvoiceGroup(groupKey!, e as any)}
+                            onKeyDown={(e) => { if (e.key === "Enter") selectInvoiceGroup(groupKey!, e as any); }}
+                            className="inline-flex items-center gap-0.5 rounded bg-primary/15 text-primary px-1.5 py-px text-[10px] font-medium hover:bg-primary/25 cursor-pointer"
+                          >
+                            Fatura · {group.length} lançamentos
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
