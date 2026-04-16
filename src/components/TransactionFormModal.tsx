@@ -186,6 +186,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
 
+  // Detect if this sub-event's category has a Master BP line (for reinforcement dialog)
+  const masterDetection = useMasterCategoryDetection(form.event_id, events as any);
+
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
   const subEventsByParent = useMemo(() => {
     const map: Record<string, any[]> = {};
