@@ -153,13 +153,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const { data: adoptedForecasts = [] } = useQuery({
     queryKey: ["adopted_forecasts", eventId, childEventIds],
     queryFn: async () => {
-      if (!childEventIds || childEventIds.length === 0) return [];
+      if (!childEventIds || childEventIds.length === 0) return [] as any[];
       const masterForecastIds = forecasts.map((f) => f.id);
-      if (masterForecastIds.length === 0) return [];
-      const { data, error } = await supabase
+      if (masterForecastIds.length === 0) return [] as any[];
+      // master_forecast_id is a new column not yet in types, use filter
+      const { data, error } = await (supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name), events!event_forecasts_event_id_fkey(name)")
-        .in("master_forecast_id" as any, masterForecastIds);
+        .select("*, account_categories(code, name)") as any)
+        .in("master_forecast_id", masterForecastIds);
       if (error) throw error;
       return (data ?? []) as any[];
     },
