@@ -7,6 +7,8 @@ import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, Fil
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { useMasterCategoryDetection } from "@/hooks/useMasterCategoryDetection";
+import { LocalReinforcementDialog } from "@/components/LocalReinforcementDialog";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -103,6 +105,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
   const [disambiguationCategoryId, setDisambiguationCategoryId] = useState("");
   const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
+  const [showReinforcementDialog, setShowReinforcementDialog] = useState(false);
+  const [reinforcementChoice, setReinforcementChoice] = useState<"local" | "master" | null>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -181,6 +185,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const hasPLRestriction = hasPL;
   const isParentMultiDay = effectiveEvent?.event_type === "multi_day";
   const isSubEvent = !!selectedEvent?.parent_event_id;
+
+  // Detect if this sub-event's category has a Master BP line (for reinforcement dialog)
+  const masterDetection = useMasterCategoryDetection(form.event_id, events as any);
 
   const parentEvents = useMemo(() => events.filter((e: any) => !e.parent_event_id), [events]);
   const subEventsByParent = useMemo(() => {
@@ -430,6 +437,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
   }, [form.category_id, categories]);
 
+  // Reset reinforcement choice when event or category changes
+  useEffect(() => {
+    setReinforcementChoice(null);
+  }, [form.event_id, form.category_id]);
 
   const forecastBudgetByCategory = hasPL
     ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
@@ -759,6 +770,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           });
         }
 
+        // Link to Master forecast if user chose "master" in reinforcement dialog
+        if (reinforcementChoice === "master" && insertedTx?.id && data.event_id && data.category_id) {
+          const masterForecast = masterDetection.getMasterForecastForCategory(data.category_id);
+          if (masterForecast) {
+            await supabase.from("event_forecasts").insert({
+              event_id: data.event_id,
+              type: "expense",
+              description: data.description || "(sem descrição)",
+              category_id: data.category_id,
+              amount: parseFloat(data.amount),
+              iva_rate: data.iva_rate,
+              status: "approved",
+              transaction_id: insertedTx.id,
+              master_forecast_id: masterForecast.id,
+            } as any);
+          }
+        }
+
         // Auto-link to partner if paid by partner
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
           await supabase.from("partner_paid_expenses").insert({
@@ -837,6 +866,19 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
     createMutation.mutate(form);
+  };
+
+  // Reinforcement dialog handler
+  const handleReinforcementConfirm = (choice: "local" | "master") => {
+    setReinforcementChoice(choice);
+    setShowReinforcementDialog(false);
+    // Re-trigger submit flow (choice is now set, dialog won't re-appear)
+    setTimeout(() => checkDuplicatesAndSubmit(), 0);
+  };
+
+  // Reset reinforcement choice when event/category changes
+  const resetReinforcementOnChange = () => {
+    if (reinforcementChoice) setReinforcementChoice(null);
   };
 
   const checkDuplicatesAndSubmit = async () => {
@@ -951,6 +993,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           description: `Previsto: ${forecast.toFixed(2)}€ | Utilizado: ${used.toFixed(2)}€ | Disponível: ${remaining.toFixed(2)}€ | Lançando: ${newAmount.toFixed(2)}€`,
         });
       }
+    }
+
+    // Reinforcement dialog: show for sub-event expenses with category in Master BP
+    if (!isSplit && !reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
+      setShowReinforcementDialog(true);
+      return;
     }
 
     // Skip duplicate check if already confirmed
@@ -2116,6 +2164,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
+
+      <LocalReinforcementDialog
+        open={showReinforcementDialog}
+        onOpenChange={setShowReinforcementDialog}
+        categoryName={categories.find((c: any) => c.id === form.category_id)?.name ?? ""}
+        masterDescription={masterDetection.getMasterForecastForCategory(form.category_id)?.description ?? ""}
+        onConfirm={handleReinforcementConfirm}
+      />
     </div>
   );
 }

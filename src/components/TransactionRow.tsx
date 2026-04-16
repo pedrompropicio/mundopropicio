@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { calcWithIva, isFullyPaid } from "@/lib/utils";
-import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye } from "lucide-react";
+import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
+import { toast } from "@/hooks/use-toast";
 
 interface Props {
   transaction: any;
@@ -61,6 +63,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
 }
 
 export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId }: Props) {
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
   const isHidden = !!t.is_hidden;
@@ -115,7 +118,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name, status), account_categories(code, name), suppliers(name), financial_accounts(name)")
+        .select("*, events(name, status, parent_event_id, event_type), account_categories(code, name), suppliers(name), financial_accounts(name)")
         .eq("parent_transaction_id", t.id)
         .order("created_at");
       if (error) throw error;
@@ -187,6 +190,35 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     const iva = base * ((s.iva_rate ?? 23) / 100);
     return sum + base + iva;
   }, 0) ?? 0;
+
+  // Local reinforcement detection: expense in tour sub-event with category in Master BP but not linked
+  const isTourSubEvent = !!t.event_id && !!(t.events as any)?.parent_event_id;
+  const parentTourEventId = isTourSubEvent ? (t.events as any)?.parent_event_id : null;
+  const { data: localReinforcementInfo } = useQuery({
+    queryKey: ["local-reinforcement-check", t.id, parentTourEventId, t.category_id],
+    queryFn: async () => {
+      // Check if category exists in Master BP
+      const { data: masterFc } = await supabase
+        .from("event_forecasts")
+        .select("id")
+        .eq("event_id", parentTourEventId!)
+        .eq("type", "expense")
+        .eq("category_id", t.category_id!)
+        .limit(1);
+      if (!masterFc?.length) return { isLocal: false };
+      // Check if this transaction is linked to a master forecast
+      const { data: linkedFc } = await supabase
+        .from("event_forecasts")
+        .select("master_forecast_id")
+        .eq("transaction_id", t.id)
+        .not("master_forecast_id", "is", null)
+        .limit(1);
+      return { isLocal: !linkedFc?.length };
+    },
+    enabled: isTourSubEvent && t.type === "expense" && !!t.category_id,
+    staleTime: 60_000,
+  });
+  const isLocalReinforcement = localReinforcementInfo?.isLocal ?? false;
 
   const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
   const supplierName = (t.suppliers as any)?.name ?? "—";
@@ -361,6 +393,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     📄 {invoiceRef}
                   </span>
                 )}
+                {isLocalReinforcement && <LocalReinforcementBadge />}
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
@@ -547,6 +580,68 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
                       {isHidden ? "Tornar visível" : "Ocultar transação"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {/* Reclassify: toggle local reinforcement vs Master rateio */}
+                {isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo) && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (isLocalReinforcement) {
+                              // Currently local → link to Master
+                              const { data: masterFc } = await supabase
+                                .from("event_forecasts")
+                                .select("id")
+                                .eq("event_id", parentTourEventId!)
+                                .eq("type", "expense")
+                                .eq("category_id", t.category_id!)
+                                .limit(1);
+                              if (!masterFc?.length) {
+                                toast({ title: "Linha Master não encontrada para esta categoria", variant: "destructive" });
+                                return;
+                              }
+                              await supabase.from("event_forecasts").insert({
+                                event_id: t.event_id,
+                                type: "expense",
+                                description: t.description || "(sem descrição)",
+                                category_id: t.category_id,
+                                amount: Number(t.amount),
+                                iva_rate: t.iva_rate ?? 23,
+                                status: "approved",
+                                transaction_id: t.id,
+                                master_forecast_id: masterFc[0].id,
+                              } as any);
+                              toast({ title: "Reclassificado como Rateio Master" });
+                            } else {
+                              // Currently linked to Master → remove the forecast link
+                              const { data: linkedFc } = await supabase
+                                .from("event_forecasts")
+                                .select("id")
+                                .eq("transaction_id", t.id)
+                                .not("master_forecast_id", "is", null);
+                              if (linkedFc?.length) {
+                                await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
+                              }
+                              toast({ title: "Reclassificado como Reforço local" });
+                            }
+                            queryClient.invalidateQueries({ queryKey: ["local-reinforcement-check", t.id] });
+                            queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+                            queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
+                          } catch (err: any) {
+                            toast({ title: "Erro ao reclassificar", description: err.message, variant: "destructive" });
+                          }
+                        }}
+                        className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                        title={isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Reforço local"}
+                      >
+                        <Layers className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Reforço local"}
                     </TooltipContent>
                   </Tooltip>
                 )}
