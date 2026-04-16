@@ -411,7 +411,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
                     </div>
                     <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
                       isTx
-                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        ? "bg-warning/15 text-warning"
                         : i.status === "approved"
                           ? "bg-success/15 text-success"
                           : "bg-warning/15 text-warning"
