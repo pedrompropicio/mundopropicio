@@ -766,6 +766,24 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           });
         }
 
+        // Link to Master forecast if user chose "master" in reinforcement dialog
+        if (reinforcementChoice === "master" && insertedTx?.id && data.event_id && data.category_id) {
+          const masterForecast = masterDetection.getMasterForecastForCategory(data.category_id);
+          if (masterForecast) {
+            await supabase.from("event_forecasts").insert({
+              event_id: data.event_id,
+              type: "expense",
+              description: data.description || "(sem descrição)",
+              category_id: data.category_id,
+              amount: parseFloat(data.amount),
+              iva_rate: data.iva_rate,
+              status: "approved",
+              transaction_id: insertedTx.id,
+              master_forecast_id: masterForecast.id,
+            } as any);
+          }
+        }
+
         // Auto-link to partner if paid by partner
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
           await supabase.from("partner_paid_expenses").insert({
