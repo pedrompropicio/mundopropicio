@@ -882,6 +882,11 @@ export default function ReportPL() {
                               <TableRow className={rowClass}>
                                 <TableCell className={labelClass}>
                                   <span className="inline-flex items-center gap-1.5">
+                                    {line.categoryCode && line.indent && !line.subIndent && (
+                                      <code className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono text-muted-foreground">
+                                        {line.categoryCode}
+                                      </code>
+                                    )}
                                     {line.label}
                                     {hasOverride && (
                                       <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
