@@ -965,7 +965,20 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
       }
-      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride) {
+
+      // Reinforcement dialog: show FIRST for sub-event expenses with category in Master BP.
+      // Must precede the BP-Active block, since "Reforço Local" legitimately bypasses the
+      // requirement that the category exists in the sub-event's own BP.
+      if (!reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
+        setShowReinforcementDialog(true);
+        return;
+      }
+
+      // BP-Active enforcement — skipped when user explicitly chose either reinforcement option:
+      // • "local"  → expense is local-only, category lives in Master BP only (legitimate bypass)
+      // • "master" → expense consumes Master BP rateio (sub-event BP not required)
+      const reinforcementBypass = reinforcementChoice === "local" || reinforcementChoice === "master";
+      if (hasPLRestriction && effectiveEventId && allowedCategoryIds.length > 0 && !plOverride && !reinforcementBypass) {
         if (!form.category_id) {
           toast({ title: "Evento com BP: selecione uma categoria existente no BP", variant: "destructive" });
           return;
@@ -995,12 +1008,6 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
 
-    // Reinforcement dialog: show for sub-event expenses with category in Master BP
-    if (!isSplit && !reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
-      setShowReinforcementDialog(true);
-      return;
-    }
-
     // Skip duplicate check if already confirmed
     if (showDuplicateConfirm) {
       if (isParentMultiDay && !showProrationConfirm) {
@@ -1021,11 +1028,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
     if (hasPLRestriction && effectiveEventId && !plOverride) {
+      // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
+      const isInSubEventBP = allowedCategoryIds.includes(c.id);
+      const isInMasterBP = masterDetection.masterCategoryIds.includes(c.id);
       if (isParentMultiDay) {
-        return allowedCategoryIds.includes(c.id);
+        return isInSubEventBP || isInMasterBP;
       }
       if (allowedCategoryIds.length > 0) {
-        return allowedCategoryIds.includes(c.id);
+        return isInSubEventBP || isInMasterBP;
       }
     }
     return true;
