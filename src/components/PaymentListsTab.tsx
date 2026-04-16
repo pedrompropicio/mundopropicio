@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
+import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail,
@@ -488,6 +489,14 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
       const items = [...selectedIds].map((txId) => ({ payment_list_id: list.id, transaction_id: txId }));
       const { error: itemsErr } = await supabase.from("payment_list_items").insert(items);
       if (itemsErr) throw itemsErr;
+
+      if (!asDraft) {
+        sendPushToAdminsAndManagers(
+          "Nova lista de pagamento",
+          `"${title}" enviada para aprovação`,
+          "/relatorios/listas-pagamento"
+        );
+      }
 
       toast({ title: asDraft ? "Lista guardada como rascunho." : "Lista enviada para aprovação!" });
       onCreated();
