@@ -960,6 +960,12 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       }
     }
 
+    // Reinforcement dialog: show for sub-event expenses with category in Master BP
+    if (!isSplit && !reinforcementChoice && masterDetection.shouldShowReinforcementDialog(form.category_id, form.type)) {
+      setShowReinforcementDialog(true);
+      return;
+    }
+
     // Skip duplicate check if already confirmed
     if (showDuplicateConfirm) {
       if (isParentMultiDay && !showProrationConfirm) {
