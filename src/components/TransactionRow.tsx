@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { calcWithIva, isFullyPaid } from "@/lib/utils";
+import { calcWithIva, isFullyPaid, formatDatePT } from "@/lib/utils";
 import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
@@ -457,13 +457,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           <div className="flex items-center gap-1.5">
             {showPaymentDate ? (
               t.payment_date ? (
-                <span>{new Date(t.payment_date).toLocaleDateString("pt-PT")}</span>
+                <span>{formatDatePT(t.payment_date)}</span>
               ) : (
                 <span className="text-muted-foreground/50 italic text-xs">—</span>
               )
             ) : t.due_date ? (
               <>
-                <span>{new Date(t.due_date).toLocaleDateString("pt-PT")}</span>
+                <span>{formatDatePT(t.due_date)}</span>
                 {computedStatus !== "paid" && t.due_date.slice(0, 10) < new Date().toISOString().slice(0, 10) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -697,7 +697,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       )}
                       {t.payment_date && (
                         <span className="text-muted-foreground/70">
-                          Dt. pgto: {new Date(t.payment_date).toLocaleDateString("pt-PT")}
+                          Dt. pgto: {formatDatePT(t.payment_date)}
                         </span>
                       )}
                       {t.invoice_ref && (
@@ -771,7 +771,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                       )}
                       {isPaymentEntry && t.payment_date && (
                         <span className="text-muted-foreground/70">
-                          Dt. pgto: {new Date(t.payment_date).toLocaleDateString("pt-PT")}
+                          Dt. pgto: {formatDatePT(t.payment_date)}
                         </span>
                       )}
                       {isPaymentEntry && t.invoice_ref && (

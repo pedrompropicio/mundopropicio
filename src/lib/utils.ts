@@ -66,3 +66,23 @@ export function isFullyPaid(paidAmount: number, baseAmount: number, ivaRate: num
   const total = calcWithIva(baseAmount, ivaRate);
   return paidAmount >= total - 0.05;
 }
+
+/**
+ * Formata uma data armazenada como YYYY-MM-DD (ou ISO com timestamp) no
+ * formato pt-PT (DD/MM/YYYY) sem aplicar conversão de fuso horário.
+ *
+ * `new Date("2026-04-09").toLocaleDateString("pt-PT")` interpreta a string
+ * como UTC midnight, o que provoca um desvio de 1 dia em fusos horários
+ * negativos. Esta função extrai os componentes diretamente da string para
+ * preservar a data civil original.
+ */
+export function formatDatePT(value?: string | null): string {
+  if (!value) return "";
+  const datePart = String(value).slice(0, 10);
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("pt-PT");
+  }
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
