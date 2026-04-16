@@ -216,15 +216,16 @@ export default function DatabaseBackups() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handlePreview(file.name)}
-                    className="rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title="Pré-visualizar restauração"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                    title="Restaurar este backup"
                   >
-                    <Eye className="h-4 w-4" />
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Restaurar</span>
                   </button>
                   <button
                     onClick={() => handleDownload(file.name)}
                     className="rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title="Descarregar"
+                    title="Descarregar ficheiro"
                   >
                     <Download className="h-4 w-4" />
                   </button>
