@@ -308,7 +308,13 @@ export default function HelpCenter() {
                     />
                   )}
                   {section.topics.map((topic, idx) => (
-                    <div key={idx} className="space-y-2">
+                    <div
+                      key={idx}
+                      ref={(el) => {
+                        topicRefs.current[`${section.id}::${idx}`] = el;
+                      }}
+                      className="space-y-2 rounded-md transition-all p-2 -m-2"
+                    >
                       <h3 className="text-sm font-semibold text-foreground">{topic.title}</h3>
                       {topic.image && sectionImages[topic.image] && (
                         <img
