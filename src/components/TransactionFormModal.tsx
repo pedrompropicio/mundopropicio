@@ -105,6 +105,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
   const [disambiguationCategoryId, setDisambiguationCategoryId] = useState("");
   const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
+  const [showReinforcementDialog, setShowReinforcementDialog] = useState(false);
+  const [reinforcementChoice, setReinforcementChoice] = useState<"local" | "master" | null>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
