@@ -350,8 +350,8 @@ async function syncSimpleCacheForecasts(
     const amount = calculateCacheAmount(
       config,
       deductions.filter((d) => d.cache_config_id === config.id),
-      ticketRevenueNet,
-      ticketRevenueGross,
+      effectiveNet,
+      effectiveGross,
       nonCacheExpenses
     );
 
