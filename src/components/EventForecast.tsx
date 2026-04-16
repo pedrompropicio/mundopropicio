@@ -149,7 +149,36 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: forecasts.length > 0,
   });
 
-  // Fetch transactions for this event AND child events (for parent BP view)
+  // Fetch adopted sub-event forecasts (linked via master_forecast_id)
+  const { data: adoptedForecasts = [] } = useQuery({
+    queryKey: ["adopted_forecasts", eventId, childEventIds],
+    queryFn: async () => {
+      if (!childEventIds || childEventIds.length === 0) return [];
+      const masterForecastIds = forecasts.map((f) => f.id);
+      if (masterForecastIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name), events!event_forecasts_event_id_fkey(name)")
+        .in("master_forecast_id" as any, masterForecastIds);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!childEventIds && childEventIds.length > 0 && forecasts.length > 0,
+  });
+
+  // Group adopted forecasts by master_forecast_id
+  const adoptedByMaster = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    adoptedForecasts.forEach((f: any) => {
+      const mid = (f as any).master_forecast_id;
+      if (mid) {
+        if (!map[mid]) map[mid] = [];
+        map[mid].push(f);
+      }
+    });
+    return map;
+  }, [adoptedForecasts]);
+
   const allRelevantEventIds = useMemo(() => {
     const ids = [eventId];
     if (childEventIds && childEventIds.length > 0) {
