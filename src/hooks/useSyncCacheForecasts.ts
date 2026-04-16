@@ -105,6 +105,7 @@ export function useSyncCacheForecasts({
       ticketRevenueNet: Math.round(ticketRevenueNet * 100),
       ticketRevenueGross: Math.round(ticketRevenueGross * 100),
       childEventIds: childEventIds?.sort(),
+      salesFingerprint,
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
         .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}:${f.iva_rate}`)
