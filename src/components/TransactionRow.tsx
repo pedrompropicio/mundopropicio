@@ -190,7 +190,35 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     return sum + base + iva;
   }, 0) ?? 0;
 
-  const eventName = isParentSplit ? "" : ((t.events as any)?.name ?? "—");
+  // Local reinforcement detection: expense in tour sub-event with category in Master BP but not linked
+  const isTourSubEvent = !!t.event_id && !!(t.events as any)?.parent_event_id;
+  const parentTourEventId = isTourSubEvent ? (t.events as any)?.parent_event_id : null;
+  const { data: localReinforcementInfo } = useQuery({
+    queryKey: ["local-reinforcement-check", t.id, parentTourEventId, t.category_id],
+    queryFn: async () => {
+      // Check if category exists in Master BP
+      const { data: masterFc } = await supabase
+        .from("event_forecasts")
+        .select("id")
+        .eq("event_id", parentTourEventId!)
+        .eq("type", "expense")
+        .eq("category_id", t.category_id!)
+        .limit(1);
+      if (!masterFc?.length) return { isLocal: false };
+      // Check if this transaction is linked to a master forecast
+      const { data: linkedFc } = await supabase
+        .from("event_forecasts")
+        .select("master_forecast_id")
+        .eq("transaction_id", t.id)
+        .not("master_forecast_id", "is", null)
+        .limit(1);
+      return { isLocal: !linkedFc?.length };
+    },
+    enabled: isTourSubEvent && t.type === "expense" && !!t.category_id,
+    staleTime: 60_000,
+  });
+  const isLocalReinforcement = localReinforcementInfo?.isLocal ?? false;
+
   const supplierName = (t.suppliers as any)?.name ?? "—";
   const accountName = (t.financial_accounts as any)?.name ?? null;
   const ivaRate = (t.iva_rate ?? 23) as IvaRate;
