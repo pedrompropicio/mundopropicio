@@ -132,7 +132,6 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
         monthly[m].receitas += Number(ts.quantity) * Number(ts.unit_price);
       }
     });
-    });
 
     let cumInc = 0;
     let cumExp = 0;
