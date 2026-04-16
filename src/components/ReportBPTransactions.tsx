@@ -240,7 +240,7 @@ export default function ReportBPTransactions() {
       const catInfo = lookup[catId];
       const groupName = catInfo?.groupName ?? "Sem categoria";
       const groupCode = catInfo?.groupCode ?? "Z";
-      const catName = catInfo ? `${catInfo.code} ${catInfo.name}` : "Sem categoria";
+      const catName = catInfo?.name ?? "Sem categoria";
       const catCode = catInfo?.code ?? "Z.Z";
       const forecast = forecastByCategory[catId] ?? 0;
       const catTrans = transByCategory[catId] ?? [];
@@ -292,7 +292,7 @@ export default function ReportBPTransactions() {
       groupMap["Sem categoria"].categories.push({
         categoryId: "_none",
         categoryName: "Sem categoria",
-        categoryCode: "Z.Z",
+        categoryCode: "—",
         forecastAmount: 0,
         actualAmount: actual,
         transactions: noCatTrans,
@@ -508,15 +508,20 @@ export default function ReportBPTransactions() {
                               className="cursor-pointer hover:bg-muted/30"
                               onClick={() => toggleCategory(cat.categoryId)}
                             >
-                              <TableCell className="pl-8 flex items-center gap-1 font-medium text-sm">
+                              <TableCell className="pl-8 flex items-center gap-2 font-medium text-sm">
                                 {cat.transactions.length > 0 ? (
                                   isCatExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
                                 ) : (
                                   <span className="w-3.5" />
                                 )}
-                                {cat.categoryName}
+                                <span className="inline-flex items-center gap-2">
+                                  <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono text-muted-foreground">
+                                    {cat.categoryCode}
+                                  </code>
+                                  <span>{cat.categoryName}</span>
+                                </span>
                                 {cat.transactions.length > 0 && (
-                                  <span className="text-xs text-muted-foreground ml-1">({cat.transactions.length})</span>
+                                  <span className="text-xs text-muted-foreground">({cat.transactions.length})</span>
                                 )}
                               </TableCell>
                               <TableCell />
