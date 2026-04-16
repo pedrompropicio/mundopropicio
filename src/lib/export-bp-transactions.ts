@@ -192,11 +192,14 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
     group.categories.forEach((cat) => {
       if (checkPage(8)) drawTableHeader();
 
-      // Category row
+      // Category row - show code and name separately
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      const catLabel = `  ${cat.categoryName}` + (cat.transactions.length > 0 ? ` (${cat.transactions.length})` : "");
-      doc.text(catLabel.substring(0, 55), colX[0] + 4, cursor.y + 4);
+      const codeText = cat.categoryCode ? `[${cat.categoryCode}]` : "";
+      const nameText = cat.categoryName || "Sem categoria";
+      const countText = cat.transactions.length > 0 ? ` (${cat.transactions.length})` : "";
+      const catLabel = `  ${codeText} ${nameText}${countText}`;
+      doc.text(catLabel.substring(0, 60), colX[0] + 4, cursor.y + 4);
       doc.setFont("helvetica", "normal");
       doc.text(fmtVal(cat.forecastAmount), colX[3] + colW[3] - 2, cursor.y + 4, { align: "right" });
       doc.text(fmtVal(cat.actualAmount), colX[4] + colW[4] - 2, cursor.y + 4, { align: "right" });
