@@ -392,6 +392,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     📄 {invoiceRef}
                   </span>
                 )}
+                {isLocalReinforcement && <LocalReinforcementBadge />}
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>
