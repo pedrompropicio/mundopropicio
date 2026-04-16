@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { calcWithIva, isFullyPaid } from "@/lib/utils";
+import { calcWithIva, isFullyPaid, formatDatePT } from "@/lib/utils";
 import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
