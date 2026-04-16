@@ -227,8 +227,6 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     return warnings;
   }, [invoiceGroups, selectedKeys]);
 
-  const keyOf = (i: Item) => `${i.kind}:${i.id}`;
-
   const toggleSelect = (key: string) => {
     setSelectedKeys((prev) => {
       const next = new Set(prev);
