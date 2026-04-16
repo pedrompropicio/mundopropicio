@@ -192,13 +192,13 @@ export default function EventDetail() {
 
   // Fetch ticket sales revenue for the event(s)
   const { data: ticketSalesRevenue = 0 } = useQuery({
-    queryKey: ["event_ticket_revenue", id, selectedSubEvent, ticketRevenueEventIds.join(",")],
+    queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
     queryFn: async () => {
       // Get zones for all relevant event IDs
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
-        .in("event_id", ticketRevenueEventIds);
+        .in("event_id", transactionEventIds);
       if (!zones || zones.length === 0) return 0;
 
       const zoneIds = zones.map(z => z.id);
