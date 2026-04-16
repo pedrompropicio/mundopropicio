@@ -249,21 +249,82 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         if (updateError) throw updateError;
       }
 
-      // 2) For orphan transactions: create a forecast row in the sub-event referencing the tx and the master
+      // 2) For orphan transactions: vincular SEMPRE via split (linha BP) do sub-evento
+      // Para cada tx órfã: procurar split BP existente (mesmo sub-evento + master_forecast_id + sem transaction_id)
+      // Se existir, ligar a tx a esse split; senão, criar um novo split e ligar.
       if (selectedTxs.length > 0) {
-        const rows = selectedTxs.map((t) => ({
-          event_id: t.event_id,
-          type: "expense",
-          description: t.description || "(sem descrição)",
-          category_id: t.category_id ?? masterCategoryId,
-          amount: t.amount,
-          iva_rate: t.iva_rate ?? 23,
-          status: "approved",
-          transaction_id: t.id,
-          master_forecast_id: masterForecastId,
-        }));
-        const { error: insErr } = await (supabase.from("event_forecasts") as any).insert(rows);
-        if (insErr) throw insErr;
+        // Buscar splits existentes (linhas no sub-evento já vinculadas ao master, sem tx ainda)
+        const subEventIds = [...new Set(selectedTxs.map((t) => t.event_id))];
+        const { data: existingSplits, error: splitErr } = await (supabase
+          .from("event_forecasts")
+          .select("id, event_id, transaction_id") as any)
+          .eq("master_forecast_id", masterForecastId)
+          .in("event_id", subEventIds);
+        if (splitErr) throw splitErr;
+
+        // Mapa de splits livres (sem transaction_id) por sub-evento
+        const freeSplitsByEvent: Record<string, string[]> = {};
+        (existingSplits ?? []).forEach((s: any) => {
+          if (!s.transaction_id) {
+            if (!freeSplitsByEvent[s.event_id]) freeSplitsByEvent[s.event_id] = [];
+            freeSplitsByEvent[s.event_id].push(s.id);
+          }
+        });
+
+        const splitsToCreate: any[] = [];
+        const txToSplitMap: { txId: string; splitId?: string; createIndex?: number }[] = [];
+
+        for (const t of selectedTxs) {
+          const free = freeSplitsByEvent[t.event_id];
+          if (free && free.length > 0) {
+            // Reaproveita split existente
+            const splitId = free.shift()!;
+            txToSplitMap.push({ txId: t.id, splitId });
+          } else {
+            // Cria novo split no sub-evento, vinculado ao Master
+            const idx = splitsToCreate.length;
+            splitsToCreate.push({
+              event_id: t.event_id,
+              type: "expense",
+              description: t.description || "(sem descrição)",
+              category_id: t.category_id ?? masterCategoryId,
+              amount: t.amount,
+              iva_rate: t.iva_rate ?? 23,
+              status: "approved",
+              master_forecast_id: masterForecastId,
+            });
+            txToSplitMap.push({ txId: t.id, createIndex: idx });
+          }
+        }
+
+        // Inserir novos splits e capturar IDs
+        let createdIds: string[] = [];
+        if (splitsToCreate.length > 0) {
+          const { data: created, error: insErr } = await (supabase
+            .from("event_forecasts") as any)
+            .insert(splitsToCreate)
+            .select("id");
+          if (insErr) throw insErr;
+          createdIds = (created ?? []).map((r: any) => r.id);
+        }
+
+        // Atualizar cada split (existente ou recém-criado) para apontar à transação órfã
+        for (const m of txToSplitMap) {
+          const splitId = m.splitId ?? createdIds[m.createIndex!];
+          if (!splitId) continue;
+          const tx = selectedTxs.find((x) => x.id === m.txId)!;
+          const { error: updErr } = await (supabase
+            .from("event_forecasts") as any)
+            .update({
+              transaction_id: tx.id,
+              amount: tx.amount,
+              iva_rate: tx.iva_rate ?? 23,
+              description: tx.description || "(sem descrição)",
+              category_id: tx.category_id ?? masterCategoryId,
+            })
+            .eq("id", splitId);
+          if (updErr) throw updErr;
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
