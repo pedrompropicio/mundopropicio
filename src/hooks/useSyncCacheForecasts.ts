@@ -80,6 +80,7 @@ export function useSyncCacheForecasts({
       return `${count}:${Math.round(total * 100)}`;
     },
     enabled: enabled && cacheConfigs.length > 0,
+    refetchInterval: 15000,
   });
 
   useEffect(() => {
@@ -300,6 +301,19 @@ async function syncTourCacheForecasts(
     changed = true;
   }
 
+  // 5. Clean up orphan cache forecasts (formula_type='cache_module' but cache_config_id IS NULL)
+  const { data: orphanCacheForecasts } = await supabase
+    .from("event_forecasts")
+    .select("id")
+    .in("event_id", [...childEventIds, masterEventId])
+    .eq("type", "expense")
+    .eq("formula_type", "cache_module")
+    .is("cache_config_id", null);
+  for (const orphan of (orphanCacheForecasts ?? [])) {
+    await supabase.from("event_forecasts").delete().eq("id", orphan.id);
+    changed = true;
+  }
+
   if (changed) {
     // Invalidate all affected events
     for (const eid of allTargetIds) {
@@ -417,6 +431,19 @@ async function syncSimpleCacheForecasts(
 
   for (const [, orphan] of existingMap) {
     await supabase.from("event_forecasts").delete().eq("id", (orphan as any).id);
+    changed = true;
+  }
+
+  // Clean up orphan cache forecasts (formula_type='cache_module' but cache_config_id IS NULL)
+  const { data: simpleOrphanForecasts } = await supabase
+    .from("event_forecasts")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("type", "expense")
+    .eq("formula_type", "cache_module")
+    .is("cache_config_id", null);
+  for (const orphan of (simpleOrphanForecasts ?? [])) {
+    await supabase.from("event_forecasts").delete().eq("id", orphan.id);
     changed = true;
   }
 

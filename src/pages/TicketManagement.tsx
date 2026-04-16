@@ -177,6 +177,9 @@ export default function TicketManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket-sales", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["cache-sync-sales-fingerprint"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-log-daily"] });
+      queryClient.invalidateQueries({ queryKey: ["real-ticket-sales"] });
       toast({ title: editingSaleId ? "Venda atualizada!" : "Venda registada!" });
       setSaleModalOpen(false);
       setSaleForm(emptySale);
@@ -192,6 +195,9 @@ export default function TicketManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket-sales", selectedEventId] });
+      queryClient.invalidateQueries({ queryKey: ["cache-sync-sales-fingerprint"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-log-daily"] });
+      queryClient.invalidateQueries({ queryKey: ["real-ticket-sales"] });
       toast({ title: "Venda eliminada" });
     },
   });

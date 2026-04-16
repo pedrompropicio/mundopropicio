@@ -666,6 +666,9 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
       queryClient.invalidateQueries({ queryKey: ["to_event_lots"] });
       queryClient.invalidateQueries({ queryKey: ["to_import_logs"] });
       queryClient.invalidateQueries({ queryKey: ["to_event_txns"] });
+      queryClient.invalidateQueries({ queryKey: ["cache-sync-sales-fingerprint"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-log-daily"] });
+      queryClient.invalidateQueries({ queryKey: ["real-ticket-sales"] });
       const parts: string[] = [];
       if (result?.imported) parts.push(`${result.imported} vendas importadas`);
       if (result?.zonesCreated) parts.push(`${result.zonesCreated} novas zonas`);
