@@ -2164,6 +2164,14 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
+
+      <LocalReinforcementDialog
+        open={showReinforcementDialog}
+        onOpenChange={setShowReinforcementDialog}
+        categoryName={categories.find((c: any) => c.id === form.category_id)?.name ?? ""}
+        masterDescription={masterDetection.getMasterForecastForCategory(form.category_id)?.description ?? ""}
+        onConfirm={handleReinforcementConfirm}
+      />
     </div>
   );
 }
