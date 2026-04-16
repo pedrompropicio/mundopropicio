@@ -33,6 +33,38 @@ export default function DatabaseBackups() {
   const [restoring, setRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [surgicalLoading, setSurgicalLoading] = useState(false);
+  const [surgicalResult, setSurgicalResult] = useState<any>(null);
+
+  const handleSurgicalRestore = async () => {
+    if (!confirm("Restaurar lotes e vendas da Tour Maiara e Maraisa do backup de 06/Abril? Apenas esses dados serão repostos.")) return;
+    setSurgicalLoading(true);
+    setSurgicalResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("surgical-restore", {
+        body: {
+          backup_file: "backup-2026-04-06T23-03-51.json",
+          event_ids: [
+            "f2b628bf-1c1f-4507-8efa-d5aa9328cd2a", // Lisboa
+            "b9aa07cf-2459-4c27-93f3-71f8036defb7",  // Porto
+          ],
+          mode: "restore",
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setSurgicalResult(data);
+      toast({
+        title: data.success ? "Dados restaurados" : "Restauração parcial",
+        description: `Lotes: ${data.results?.event_ticket_lots?.inserted ?? 0}, Vendas: ${data.results?.ticket_sales?.inserted ?? 0}`,
+        variant: data.success ? "default" : "destructive",
+      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSurgicalLoading(false);
+    }
+  };
 
   const { data: backups = [], isLoading } = useQuery({
     queryKey: ["database-backups"],
@@ -174,6 +206,42 @@ export default function DatabaseBackups() {
           {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
           {creating ? "A criar backup…" : "Criar Backup"}
         </button>
+      </div>
+
+      {/* Surgical Restore for Maiara e Maraisa */}
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Restauração Cirúrgica — Tour Maiara e Maraisa
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Repõe apenas os lotes de bilhetes e registos de vendas dos eventos Lisboa e Porto a partir do backup de 06/Abril, sem afetar outros dados.
+            </p>
+          </div>
+          <button
+            onClick={handleSurgicalRestore}
+            disabled={surgicalLoading}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {surgicalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            {surgicalLoading ? "A restaurar…" : "Repor Dados"}
+          </button>
+        </div>
+        {surgicalResult && (
+          <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-xs space-y-1">
+            {Object.entries(surgicalResult.results || {}).map(([table, info]: [string, any]) => (
+              <div key={table} className="flex justify-between">
+                <span className="font-mono">{table}</span>
+                <span>
+                  {info.found} encontrados → {info.inserted} inseridos
+                  {info.error && <span className="text-destructive ml-2">⚠ {info.error}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Backup List */}
