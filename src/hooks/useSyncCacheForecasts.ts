@@ -147,7 +147,7 @@ export function useSyncCacheForecasts({
     };
 
     doSync();
-  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient]);
+  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint]);
 }
 
 /**
