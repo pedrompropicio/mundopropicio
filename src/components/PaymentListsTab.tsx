@@ -1393,6 +1393,14 @@ function ApproveModal({
         .eq("id", listId);
       if (error) throw error;
 
+      sendPushToAdminsAndManagers(
+        isPartial ? "Lista parcialmente aprovada" : "Lista de pagamento aprovada",
+        isPartial
+          ? `${selectedIds.size} de ${items.length} contas aprovadas`
+          : "Uma lista de pagamento foi totalmente aprovada",
+        "/relatorios/listas-pagamento"
+      );
+
       toast({
         title: isPartial
           ? `Lista parcialmente aprovada (${selectedIds.size} de ${items.length} contas).`
