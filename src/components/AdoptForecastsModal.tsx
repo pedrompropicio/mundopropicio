@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { Layers, Search, Receipt, FileText } from "lucide-react";
+import { Layers, Search, Receipt, FileText, AlertTriangle, Wallet, Hash } from "lucide-react";
 
 interface Props {
   open: boolean;
