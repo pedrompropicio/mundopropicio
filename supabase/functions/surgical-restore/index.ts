@@ -14,17 +14,24 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    console.log("URL:", supabaseUrl, "Key length:", serviceRoleKey?.length);
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const body = await req.json();
     const { backup_file, event_ids } = body;
+    console.log("Downloading:", backup_file, "Events:", event_ids);
+
+    // List files first to verify
+    const { data: listData } = await adminClient.storage.from("database-backups").list();
+    console.log("Files in bucket:", listData?.map((f: any) => f.name));
 
     // Download backup
     const { data: fileData, error: downloadErr } = await adminClient.storage
       .from("database-backups")
       .download(backup_file);
+    console.log("Download result:", downloadErr ? `ERROR: ${downloadErr.message}` : `OK, size=${fileData?.size}`);
     if (downloadErr || !fileData) {
-      return new Response(JSON.stringify({ error: `Download: ${downloadErr?.message}` }), {
+      return new Response(JSON.stringify({ error: `Download: ${downloadErr?.message}`, files: listData?.map((f: any) => f.name) }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
