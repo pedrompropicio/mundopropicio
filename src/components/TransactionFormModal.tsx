@@ -437,6 +437,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     }
   }, [form.category_id, categories]);
 
+  // Reset reinforcement choice when event or category changes
+  useEffect(() => {
+    setReinforcementChoice(null);
+  }, [form.event_id, form.category_id]);
 
   const forecastBudgetByCategory = hasPL
     ? relevantForecasts.reduce<Record<string, number>>((acc, f) => {
