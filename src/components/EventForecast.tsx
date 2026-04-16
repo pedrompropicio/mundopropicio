@@ -2011,6 +2011,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   </button>
                 )
               )}
+              {onAdoptFromSplits && !item.cache_config_id && (
+                <button
+                  onClick={() => onAdoptFromSplits(item)}
+                  className="rounded p-1 hover:bg-primary/20"
+                  title="Adotar linhas dos sub-eventos"
+                >
+                  <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
+                </button>
+              )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
                   onClick={() => onEditApproved(item)}
