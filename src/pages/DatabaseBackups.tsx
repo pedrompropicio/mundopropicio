@@ -33,6 +33,38 @@ export default function DatabaseBackups() {
   const [restoring, setRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [surgicalLoading, setSurgicalLoading] = useState(false);
+  const [surgicalResult, setSurgicalResult] = useState<any>(null);
+
+  const handleSurgicalRestore = async () => {
+    if (!confirm("Restaurar lotes e vendas da Tour Maiara e Maraisa do backup de 06/Abril? Apenas esses dados serão repostos.")) return;
+    setSurgicalLoading(true);
+    setSurgicalResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("surgical-restore", {
+        body: {
+          backup_file: "backup-2026-04-06T23-03-51.json",
+          event_ids: [
+            "f2b628bf-1c1f-4507-8efa-d5aa9328cd2a", // Lisboa
+            "b9aa07cf-2459-4c27-93f3-71f8036defb7",  // Porto
+          ],
+          mode: "restore",
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setSurgicalResult(data);
+      toast({
+        title: data.success ? "Dados restaurados" : "Restauração parcial",
+        description: `Lotes: ${data.results?.event_ticket_lots?.inserted ?? 0}, Vendas: ${data.results?.ticket_sales?.inserted ?? 0}`,
+        variant: data.success ? "default" : "destructive",
+      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSurgicalLoading(false);
+    }
+  };
 
   const { data: backups = [], isLoading } = useQuery({
     queryKey: ["database-backups"],
