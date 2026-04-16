@@ -659,6 +659,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: !!childEventIds && childEventIds.length > 0,
   });
 
+  const subEventNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    subEventNames.forEach((e: any) => { map[e.id] = e.name; });
+    return map;
+  }, [subEventNames]);
+
   const [distributeTarget, setDistributeTarget] = useState<any>(null);
 
   const distributeToSplitsMutation = useMutation({
