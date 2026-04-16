@@ -27,6 +27,7 @@ export type PLMode = "forecast" | "comparison";
 
 interface PLLine {
   label: string;
+  categoryCode?: string;
   forecast: number;
   forecastIva: number;
   forecastTotal: number;
@@ -57,7 +58,7 @@ function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva'
   };
 }
 
-function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { groupName: string; groupCode: string; fBase: number; fIva: number; tBase: number; tIva: number; details: { name: string; fBase: number; fIva: number; tBase: number; tIva: number }[] }[] {
+function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { groupName: string; groupCode: string; fBase: number; fIva: number; tBase: number; tIva: number; details: { name: string; code: string; fBase: number; fIva: number; tBase: number; tIva: number }[] }[] {
   const allGroupNames = [...new Set([...fGroups.map(g => g.groupName), ...tGroups.map(g => g.groupName)])];
   const fMap = Object.fromEntries(fGroups.map(g => [g.groupName, g]));
   const tMap = Object.fromEntries(tGroups.map(g => [g.groupName, g]));
@@ -72,11 +73,12 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
 
     const details = allDetailNames.map(dn => ({
       name: dn,
+      code: fDetailMap[dn]?.code ?? tDetailMap[dn]?.code ?? "",
       fBase: fDetailMap[dn]?.base ?? 0,
       fIva: fDetailMap[dn]?.iva ?? 0,
       tBase: tDetailMap[dn]?.base ?? 0,
       tIva: tDetailMap[dn]?.iva ?? 0,
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    })).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
 
     return {
       groupName: name, groupCode: code,
@@ -311,7 +313,7 @@ function buildPL(
       }));
       group.details.forEach((d) => {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }), d.name));
@@ -353,7 +355,7 @@ function buildPL(
       }));
       group.details.forEach((d) => {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
           forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
           actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
         }), d.name));
@@ -880,6 +882,11 @@ export default function ReportPL() {
                               <TableRow className={rowClass}>
                                 <TableCell className={labelClass}>
                                   <span className="inline-flex items-center gap-1.5">
+                                    {line.categoryCode && line.indent && !line.subIndent && (
+                                      <code className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono text-muted-foreground">
+                                        {line.categoryCode}
+                                      </code>
+                                    )}
                                     {line.label}
                                     {hasOverride && (
                                       <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
