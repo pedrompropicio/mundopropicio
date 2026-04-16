@@ -44,6 +44,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     account_id: transaction.account_id ?? "",
     date: transaction.date,
     due_date: transaction.due_date ?? "",
+    payment_date: transaction.payment_date ?? "",
     specification: transaction.specification ?? "",
     is_transitory: transaction.is_transitory ?? false,
     exclude_from_result: transaction.exclude_from_result ?? false,
@@ -142,7 +143,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const fieldLabels: Record<string, string> = {
         description: "Descrição", amount: "Valor", iva_rate: "Taxa IVA",
         event_id: "Evento", category_id: "Categoria", supplier_id: "Fornecedor",
-        account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento",
+        account_id: "Conta", specification: "Especificação", date: "Data", due_date: "Data Vencimento", payment_date: "Data Pagamento",
         is_transitory: "Transitória",
         exclude_from_result: "Fora do Resultado",
         invoice_ref: "Nº Fatura",
@@ -186,6 +187,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         date: form.date,
         due_date: form.due_date || null,
+        ...(isAdmin && isPaid ? { payment_date: form.payment_date || null } : {}),
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
@@ -581,6 +583,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               </div>
             )}
           </div>
+          )}
+
+          {isAdmin && isPaid && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento</label>
+              <DatePicker value={form.payment_date} onChange={(d) => setForm({ ...form, payment_date: d })} />
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Ajuste administrativo da data efetiva de pagamento</p>
+            </div>
           )}
 
           {/* Transitory toggle — only admin/manager can change */}
