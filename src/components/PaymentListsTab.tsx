@@ -230,9 +230,15 @@ export default function PaymentListsTab() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
       setRevisionListId(null);
+      // Notify creator that list was returned for revision
+      sendPushToAdminsAndManagers(
+        "Lista devolvida para revisão",
+        `Uma lista de pagamento foi devolvida com observações`,
+        "/relatorios/listas-pagamento"
+      );
       toast({ title: "Lista enviada para revisão." });
     },
   });
@@ -247,6 +253,11 @@ export default function PaymentListsTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      sendPushToAdminsAndManagers(
+        "Lista reenviada para aprovação",
+        `Uma lista de pagamento foi reenviada para aprovação`,
+        "/relatorios/listas-pagamento"
+      );
       toast({ title: "Lista reenviada para aprovação!" });
     },
   });
