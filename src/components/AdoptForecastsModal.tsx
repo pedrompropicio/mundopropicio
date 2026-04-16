@@ -30,6 +30,8 @@ type Item =
       specification: string | null;
       category_id: string | null;
       account_categories?: { code?: string; name?: string } | null;
+      invoice_ref?: string | null;
+      account_name?: string | null;
     }
   | {
       kind: "transaction";
@@ -41,6 +43,8 @@ type Item =
       status: string;
       category_id: string | null;
       account_categories?: { code?: string; name?: string } | null;
+      invoice_ref?: string | null;
+      account_name?: string | null;
     };
 
 export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEventIds, masterForecast, mode, categories = [] }: Props) {
