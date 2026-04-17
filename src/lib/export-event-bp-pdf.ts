@@ -492,14 +492,19 @@ function drawForecastTable(
 
     const body: any[] = [];
     g.rows.forEach((r) => {
+      // Compute matched transactions early to derive aggregated status
+      const matched = matchTransactionsForForecast(r, allForecasts, transactions);
+      const agg = aggregatedForecastStatus(r, matched);
+      const statusCell = agg.progress ? `${agg.label} (${agg.progress})` : agg.label;
+
       // Main forecast row
       body.push([
         r.account_categories?.code ?? "—",
         r.description ?? "",
         r.specification ?? "",
         partnersForForecast(r.id, forecastPartners, partners),
-        statusLabel(r.status),
-        r.transaction_id ? "Vinc." : "—",
+        statusCell,
+        r.transaction_id || matched.length > 0 ? "Vinc." : "—",
         fmt(Number(r.amount)),
         `${r.iva_rate}%`,
         fmt(Number(r.amount) * (1 + Number(r.iva_rate) / 100)),
