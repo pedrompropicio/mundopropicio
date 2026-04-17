@@ -467,7 +467,7 @@ function drawForecastTable(
       const note = (r.notes ?? "").trim();
       if (note.length > 0) {
         body.push([{
-          content: `📝 Observação: ${note}`,
+          content: `Observação: ${note}`,
           colSpan: 9,
           styles: {
             fillColor: [253, 252, 240] as [number, number, number],
@@ -483,7 +483,7 @@ function drawForecastTable(
       const matched = matchTransactionsForForecast(r, allForecasts, transactions);
       if (matched.length > 0) {
         body.push([{
-          content: `🔗 Transações (${matched.length})`,
+          content: `Transações (${matched.length})`,
           colSpan: 9,
           styles: {
             fillColor: [238, 244, 252] as [number, number, number],
@@ -521,7 +521,7 @@ function drawForecastTable(
       const audits = auditByFc.get(r.id) ?? [];
       if (audits.length > 0) {
         body.push([{
-          content: `📜 Histórico de alterações (${audits.length})`,
+          content: `Histórico de alterações (${audits.length})`,
           colSpan: 9,
           styles: {
             fillColor: [245, 240, 250] as [number, number, number],
