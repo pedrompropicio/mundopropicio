@@ -731,6 +731,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         const parentStatus = allChildrenApproved ? "approved" : "pending";
 
         // 2. Create parent transaction (no event)
+        const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
         const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
           description: data.description,
           type: data.type,
@@ -739,7 +740,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           event_id: null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          account_id: data.account_id || null,
+          account_id: parentAccountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
@@ -775,6 +776,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         const childInsertsWithParent = childInserts.map(c => ({ ...c, parent_transaction_id: parentId }));
         const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
         if (childError) throw childError;
+
+        // 4. If paid by partner, link parent transaction to partner_paid_expenses
+        //    using the tour Master event (splitMasterEventId) where partners exist
+        if (isPaidByPartner && paidByPartnerId && splitMasterEventId) {
+          await supabase.from("partner_paid_expenses").insert({
+            event_id: splitMasterEventId,
+            partner_id: paidByPartnerId,
+            transaction_id: parentId,
+          });
+        }
       } else {
         // --- SINGLE TRANSACTION ---
         const hasForecastMatch = relevantForecasts.length > 0 && relevantForecasts.some(
