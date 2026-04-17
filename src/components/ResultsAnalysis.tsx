@@ -2,12 +2,14 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { Download, TrendingUp, TrendingDown, Target, BarChart3, Users, Ticket, FileText } from "lucide-react";
+import { Download, TrendingUp, Target, BarChart3, Users, Ticket, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+const PESSIMISTIC_FACTOR = 0.8;
 
 interface CompletedResult {
   id: string;
@@ -28,18 +30,24 @@ interface ActiveProjection {
   id: string;
   name: string;
   date: string;
+  // Planned 100%
   bpIncome100: number;
   bpExpense: number;
   margin100: number;
-  margin80: number;
   breakEvenPct: number;
-  actualIncome: number;
-  actualExpense: number;
-  actualMargin: number;
-  actualMarginPct: number;
+  // Real Atual (current sales + BP-or-real expenses merged)
+  realIncome: number;
+  realExpense: number;
+  realMargin: number;
+  realMarginPct: number;
+  // Real Pessimista (current sales × 0.8 + same expenses)
+  pessimisticIncome: number;
+  pessimisticMargin: number;
+  // Partners
   totalPartnerPct: number;
   companyMargin100: number;
-  companyActualMargin: number;
+  companyRealMargin: number;
+  companyPessimisticMargin: number;
   incomeSource: "lot_projection" | "ticket_sales";
   expenseSource: "forecasts" | "transactions";
 }
@@ -77,22 +85,22 @@ export function ResultsAnalysis() {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["ra_transactions"],
+    queryKey: ["ra_transactions_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status");
+        .select("id, event_id, type, amount, status, category_id");
       if (error) throw error;
       return data;
     },
   });
 
   const { data: forecasts = [] } = useQuery({
-    queryKey: ["ra_forecasts"],
+    queryKey: ["ra_forecasts_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount");
+        .select("id, event_id, type, amount, category_id");
       if (error) throw error;
       return data;
     },
@@ -160,15 +168,6 @@ export function ResultsAnalysis() {
       lotRevenueMap[eventId] = (lotRevenueMap[eventId] || 0) + Number(lot.quantity) * Number(lot.price);
     });
 
-    // ── Real transactions per event (no PL flag filtering, all statuses) ──
-    const txnMap: Record<string, { income: number; expense: number }> = {};
-    transactions.forEach((t: any) => {
-      if (!t.event_id) return;
-      if (!txnMap[t.event_id]) txnMap[t.event_id] = { income: 0, expense: 0 };
-      if (t.type === "income") txnMap[t.event_id].income += Number(t.amount);
-      else txnMap[t.event_id].expense += Number(t.amount);
-    });
-
     // ── Real ticket sales per event ──
     const salesByEvent: Record<string, number> = {};
     ticketSales.forEach((ts: any) => {
@@ -177,12 +176,36 @@ export function ResultsAnalysis() {
       salesByEvent[eventId] = (salesByEvent[eventId] || 0) + Number(ts.quantity) * Number(ts.unit_price);
     });
 
-    // ── BP forecasts per event (no PL flag filtering) ──
-    const forecastMap: Record<string, { income: number; expense: number }> = {};
+    // ── Per-event BP expense map by category_id ──
+    // bpExpenseByEventCat[eventId] = Map<categoryId|"__none__", amount>
+    const bpExpenseByEventCat: Record<string, Map<string, number>> = {};
+    const bpIncomeMap: Record<string, number> = {};
     forecasts.forEach((f: any) => {
-      if (!forecastMap[f.event_id]) forecastMap[f.event_id] = { income: 0, expense: 0 };
-      if (f.type === "income") forecastMap[f.event_id].income += Number(f.amount);
-      else forecastMap[f.event_id].expense += Number(f.amount);
+      const eid = f.event_id;
+      if (!eid) return;
+      if (f.type === "income") {
+        bpIncomeMap[eid] = (bpIncomeMap[eid] ?? 0) + Number(f.amount);
+        return;
+      }
+      // expense
+      if (!bpExpenseByEventCat[eid]) bpExpenseByEventCat[eid] = new Map();
+      const key = f.category_id ?? "__none__";
+      bpExpenseByEventCat[eid].set(key, (bpExpenseByEventCat[eid].get(key) ?? 0) + Number(f.amount));
+    });
+
+    // ── Per-event real (transactions) expense map by category_id ──
+    const txnExpenseByEventCat: Record<string, Map<string, number>> = {};
+    const txnIncomeMap: Record<string, number> = {};
+    transactions.forEach((t: any) => {
+      const eid = t.event_id;
+      if (!eid) return;
+      if (t.type === "income") {
+        txnIncomeMap[eid] = (txnIncomeMap[eid] ?? 0) + Number(t.amount);
+        return;
+      }
+      if (!txnExpenseByEventCat[eid]) txnExpenseByEventCat[eid] = new Map();
+      const key = t.category_id ?? "__none__";
+      txnExpenseByEventCat[eid].set(key, (txnExpenseByEventCat[eid].get(key) ?? 0) + Number(t.amount));
     });
 
     // ── Closing costs per event ──
@@ -198,25 +221,53 @@ export function ResultsAnalysis() {
       partnerMap[p.event_id].items.push(p);
     });
 
-    // ── Helper: get prorated Master share for a sub-event ──
-    // For sub-event X with Master M (containing N sub-events):
-    //   masterBpExpenseShare    = forecastMap[M].expense / N
-    //   masterRealExpenseShare  = txnMap[M].expense / N
-    //   masterClosingShare      = closingMap[M] / N
+    /**
+     * Merge BP and real expenses for one event applying rule C:
+     *   For each category that has BP:        amount = real > 0 ? real : bp
+     *   For categories with real but no BP:   amount = real (extra cost)
+     *   "__none__" key handled the same way (uncategorised).
+     */
+    const mergeExpenseForEvent = (eventId: string): number => {
+      const bp = bpExpenseByEventCat[eventId];
+      const real = txnExpenseByEventCat[eventId];
+      if (!bp && !real) return 0;
+      const allKeys = new Set<string>();
+      bp?.forEach((_, k) => allKeys.add(k));
+      real?.forEach((_, k) => allKeys.add(k));
+      let total = 0;
+      allKeys.forEach((key) => {
+        const bpAmt = bp?.get(key) ?? 0;
+        const realAmt = real?.get(key) ?? 0;
+        // Rule C: real where exists, BP where it doesn't
+        total += realAmt > 0 ? realAmt : bpAmt;
+      });
+      return total;
+    };
+
+    // BP-only expense (for "Planeado 100%" column)
+    const bpExpenseTotalForEvent = (eventId: string): number => {
+      const bp = bpExpenseByEventCat[eventId];
+      if (!bp) return 0;
+      let s = 0;
+      bp.forEach((v) => { s += v; });
+      return s;
+    };
+
+    // ── Helper: prorated Master shares (BP and merged) for a sub-event ──
     const getMasterShare = (subEventId: string) => {
       const sub = events.find((e: any) => e.id === subEventId);
       const masterId = sub?.parent_event_id;
-      if (!masterId) return { bpExpense: 0, realExpense: 0, closing: 0 };
+      if (!masterId) return { bpExpense: 0, mergedExpense: 0, closing: 0 };
       const siblings = childrenByMaster[masterId] || [];
       const n = siblings.length || 1;
       return {
-        bpExpense: (forecastMap[masterId]?.expense ?? 0) / n,
-        realExpense: (txnMap[masterId]?.expense ?? 0) / n,
+        bpExpense: bpExpenseTotalForEvent(masterId) / n,
+        mergedExpense: mergeExpenseForEvent(masterId) / n,
         closing: (closingMap[masterId] ?? 0) / n,
       };
     };
 
-    // ── Filter year events, exclude Master (multi_day) — only sub-events and standalones are listed ──
+    // ── Filter year events, exclude Master (multi_day) ──
     const yearEvents = events.filter(
       (e: any) => new Date(e.date).getFullYear() === currentYear && e.event_type !== "multi_day"
     );
@@ -226,24 +277,19 @@ export function ResultsAnalysis() {
 
     yearEvents.forEach((e: any) => {
       const masterShare = getMasterShare(e.id);
-
-      // ── REAL ──
       const ownTicketSales = salesByEvent[e.id] ?? 0;
-      const ownTxnIncome = txnMap[e.id]?.income ?? 0;
-      const ownTxnExpense = txnMap[e.id]?.expense ?? 0;
+      const ownTxnIncome = txnIncomeMap[e.id] ?? 0;
       const ownClosing = closingMap[e.id] ?? 0;
-
-      // Real revenue = ticket_sales + transactions(income) — no filtering, may double-count if user logs both
-      const income = ownTicketSales + ownTxnIncome;
-      // Real expense = own transactions + Master share + closing costs (own + Master share)
-      const expense = ownTxnExpense + masterShare.realExpense + ownClosing + masterShare.closing;
-      const margin = income - expense;
-
       const totalPartnerPct = partnerMap[e.id]?.totalPct ?? 0;
       const companyPct = 100 - totalPartnerPct;
       const hasSales = ownTicketSales > 0;
 
       if (e.status === "completed") {
+        // Completed: real expenses (transactions only, merged still applies for consistency)
+        const ownExpense = mergeExpenseForEvent(e.id);
+        const expense = ownExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
+        const income = ownTicketSales + ownTxnIncome;
+        const margin = income - expense;
         completed.push({
           id: e.id,
           name: e.name,
@@ -259,21 +305,29 @@ export function ResultsAnalysis() {
           expenseSource: "transactions",
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        // ── PLANNED ──
-        // Planned revenue: ticket lots + non-ticket BP income (we keep all forecast income; user accepted no filter)
+        // ── PLANEADO 100% ──
         const lotRevenue = lotRevenueMap[e.id] ?? 0;
-        const bpOtherIncome = forecastMap[e.id]?.income ?? 0;
+        const bpOtherIncome = bpIncomeMap[e.id] ?? 0;
         const bpIncome100 = lotRevenue + bpOtherIncome;
-        // 80% scenario: only ticket revenue is reduced; other BP income stays at 100%
-        const bpIncome80 = lotRevenue * 0.8 + bpOtherIncome;
-
-        // Planned expense: own BP + Master BP share + own closing + Master closing share
-        const ownBpExpense = forecastMap[e.id]?.expense ?? 0;
+        const ownBpExpense = bpExpenseTotalForEvent(e.id);
         const bpExpense = ownBpExpense + masterShare.bpExpense + ownClosing + masterShare.closing;
-
         const margin100 = bpIncome100 - bpExpense;
-        const margin80 = bpIncome80 - bpExpense;
         const breakEvenPct = bpIncome100 > 0 ? (bpExpense / bpIncome100) * 100 : 0;
+
+        // ── REAL ATUAL ──
+        // Receita = bilheteira VENDIDA + outras receitas BP (assume que outras receitas concretizam)
+        // Despesas = merge linha-a-linha (real onde existe, BP onde não) + Master prorrateado + fecho real
+        const ticketRevenueSold = ownTicketSales;
+        const realIncome = ticketRevenueSold + bpOtherIncome;
+        const ownMergedExpense = mergeExpenseForEvent(e.id);
+        const realExpense =
+          ownMergedExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
+        const realMargin = realIncome - realExpense;
+
+        // ── REAL PESSIMISTA ──
+        // Bilheteira × 0,8 + outras receitas BP; mesmas despesas
+        const pessimisticIncome = ticketRevenueSold * PESSIMISTIC_FACTOR + bpOtherIncome;
+        const pessimisticMargin = pessimisticIncome - realExpense;
 
         active.push({
           id: e.id,
@@ -282,16 +336,18 @@ export function ResultsAnalysis() {
           bpIncome100,
           bpExpense,
           margin100,
-          margin80,
           breakEvenPct: Math.min(breakEvenPct, 999),
-          actualIncome: income,
-          actualExpense: expense,
-          actualMargin: margin,
-          actualMarginPct: income > 0 ? (margin / income) * 100 : 0,
+          realIncome,
+          realExpense,
+          realMargin,
+          realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
+          pessimisticIncome,
+          pessimisticMargin,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
-          companyActualMargin: margin * (companyPct / 100),
-          incomeSource: "lot_projection",
+          companyRealMargin: realMargin * (companyPct / 100),
+          companyPessimisticMargin: pessimisticMargin * (companyPct / 100),
+          incomeSource: hasSales ? "ticket_sales" : "lot_projection",
           expenseSource: "forecasts",
         });
       }
@@ -312,7 +368,6 @@ export function ResultsAnalysis() {
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    const pageWidth = doc.internal.pageSize.getWidth();
 
     doc.setFontSize(16);
     doc.text(`Análise de Resultados ${currentYear}`, 14, 18);
@@ -321,7 +376,6 @@ export function ResultsAnalysis() {
 
     let y = 30;
 
-    // --- Completed events ---
     if (completed.length > 0) {
       doc.setFontSize(12);
       doc.text("Eventos Concluídos", 14, y);
@@ -362,7 +416,6 @@ export function ResultsAnalysis() {
       y = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // --- Active events ---
     if (active.length > 0) {
       if (y > 160) {
         doc.addPage();
@@ -374,20 +427,26 @@ export function ResultsAnalysis() {
 
       autoTable(doc, {
         startY: y,
-        head: [["Evento", "Data", "BP Receita", "BP Despesa", "Margem 100%", "Margem 80%", "Break-Even", "Receita Real", "Despesa Real", "Margem Real"]],
+        head: [[
+          "Evento", "Data",
+          "Planeado Receita", "Planeado Despesa", "Planeado Margem", "Break-Even",
+          "Real Receita", "Real Despesa", "Real Margem",
+          "Pess. Receita", "Pess. Margem",
+        ]],
         body: active.map((e) => [
           e.name,
           formatDate(e.date),
           formatCurrency(e.bpIncome100),
           formatCurrency(e.bpExpense),
           formatCurrency(e.margin100),
-          formatCurrency(e.margin80),
           `${e.breakEvenPct.toFixed(1)}%`,
-          formatCurrency(e.actualIncome),
-          formatCurrency(e.actualExpense),
-          formatCurrency(e.actualMargin),
+          formatCurrency(e.realIncome),
+          formatCurrency(e.realExpense),
+          formatCurrency(e.realMargin),
+          formatCurrency(e.pessimisticIncome),
+          formatCurrency(e.pessimisticMargin),
         ]),
-        styles: { fontSize: 8 },
+        styles: { fontSize: 7 },
         headStyles: { fillColor: [59, 130, 246] },
         margin: { left: 14, right: 14 },
       });
@@ -510,108 +569,122 @@ export function ResultsAnalysis() {
             <Target className="h-3.5 w-3.5 text-primary" />
             Eventos Ativos — Projeções
           </h3>
+          <p className="text-[11px] text-muted-foreground mb-2">
+            <strong>Planeado</strong>: BP completo · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP, despesas reais onde existem (senão BP) · <strong>Pessimista</strong>: bilheteira vendida × 0,80
+          </p>
           <div className="overflow-x-auto glass rounded-xl">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-3 text-left font-medium" rowSpan={2}>Evento</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={3}>Projeção</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={4}>Resultado Real</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30" colSpan={3}>Planeado 100%</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={4}>Real Atual</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={2}>Pessimista (×0,8)</th>
                 </tr>
                 <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <th className="p-2 text-right font-medium">Margem 100%</th>
-                  <th className="p-2 text-right font-medium">Margem 80%</th>
+                  <th className="p-2 text-right font-medium">Receita</th>
+                  <th className="p-2 text-right font-medium">Margem</th>
                   <th className="p-2 text-right font-medium">Break-Even</th>
-                  
+
                   <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
                   <th className="p-2 text-right font-medium">Despesa</th>
                   <th className="p-2 text-right font-medium">Margem</th>
                   <th className="p-2 text-right font-medium">%</th>
+
+                  <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
+                  <th className="p-2 text-right font-medium">Margem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {active.map((e) => (
-                  <tr key={e.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-3">
-                      <a href={`/eventos/${e.id}`} className="font-medium hover:text-primary transition-colors">
-                        {e.name}
-                      </a>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">{formatDate(e.date)}</span>
-                        <SourceBadge source={e.incomeSource} />
-                        <SourceBadge source={e.expenseSource} />
-                      </div>
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className={`font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                          {formatCurrency(e.margin100)}
-                        </span>
-                        {e.totalPartnerPct > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                              Empresa {(100 - e.totalPartnerPct).toFixed(0)}%
-                            </Badge>
-                            <span className={`font-mono text-xs ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                              {formatCurrency(e.companyMargin100)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className={`font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
-                          {formatCurrency(e.margin80)}
-                        </span>
-                        {e.totalPartnerPct > 0 && (() => {
-                          const companyPct = 100 - e.totalPartnerPct;
-                          const companyMargin80 = e.margin80 * (companyPct / 100);
-                          return (
+                {active.map((e) => {
+                  const companyPct = 100 - e.totalPartnerPct;
+                  return (
+                    <tr key={e.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-3">
+                        <a href={`/eventos/${e.id}`} className="font-medium hover:text-primary transition-colors">
+                          {e.name}
+                        </a>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">{formatDate(e.date)}</span>
+                          <SourceBadge source={e.incomeSource} />
+                          <SourceBadge source={e.expenseSource} />
+                        </div>
+                      </td>
+
+                      {/* Planeado 100% */}
+                      <td className="p-3 text-right font-mono text-muted-foreground">{formatCurrency(e.bpIncome100)}</td>
+                      <td className="p-3 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className={`font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                            {formatCurrency(e.margin100)}
+                          </span>
+                          {e.totalPartnerPct > 0 && (
                             <div className="flex items-center gap-1">
                               <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
                                 Empresa {companyPct.toFixed(0)}%
                               </Badge>
-                              <span className={`font-mono text-xs ${companyMargin80 >= 0 ? "text-success" : "text-destructive"}`}>
-                                {formatCurrency(companyMargin80)}
+                              <span className={`font-mono text-xs ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.companyMargin100)}
                               </span>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    </td>
-                    <td className="p-3 text-right">
-                      <Badge
-                        variant={e.breakEvenPct <= 70 ? "default" : e.breakEvenPct <= 90 ? "secondary" : "destructive"}
-                        className="font-mono text-xs"
-                      >
-                        {e.breakEvenPct.toFixed(1)}%
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.actualIncome)}</td>
-                    <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.actualExpense)}</td>
-                    <td className="p-3 text-right">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className={`font-mono font-semibold ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                          {formatCurrency(e.actualMargin)}
-                        </span>
-                        {e.totalPartnerPct > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                              Empresa {(100 - e.totalPartnerPct).toFixed(0)}%
-                            </Badge>
-                            <span className={`font-mono text-xs ${e.companyActualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                              {formatCurrency(e.companyActualMargin)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className={`p-3 text-right font-mono text-xs ${e.actualMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                      {e.actualMarginPct.toFixed(1)}%
-                    </td>
-                  </tr>
-                ))}
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 text-right">
+                        <Badge
+                          variant={e.breakEvenPct <= 70 ? "default" : e.breakEvenPct <= 90 ? "secondary" : "destructive"}
+                          className="font-mono text-xs"
+                        >
+                          {e.breakEvenPct.toFixed(1)}%
+                        </Badge>
+                      </td>
+
+                      {/* Real Atual */}
+                      <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.realIncome)}</td>
+                      <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.realExpense)}</td>
+                      <td className="p-3 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className={`font-mono font-semibold ${e.realMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                            {formatCurrency(e.realMargin)}
+                          </span>
+                          {e.totalPartnerPct > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                Empresa {companyPct.toFixed(0)}%
+                              </Badge>
+                              <span className={`font-mono text-xs ${e.companyRealMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.companyRealMargin)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className={`p-3 text-right font-mono text-xs ${e.realMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                        {e.realMarginPct.toFixed(1)}%
+                      </td>
+
+                      {/* Pessimista */}
+                      <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.pessimisticIncome)}</td>
+                      <td className="p-3 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className={`font-mono ${e.pessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                            {formatCurrency(e.pessimisticMargin)}
+                          </span>
+                          {e.totalPartnerPct > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                Empresa {companyPct.toFixed(0)}%
+                              </Badge>
+                              <span className={`font-mono text-xs ${e.companyPessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.companyPessimisticMargin)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
