@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
+import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -543,24 +544,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, cascadeTransactionIds }: { id: string; cascadeTransactionIds?: string[] }) => {
-      // Delete linked transactions first if cascading
+      // Delete linked transactions first if cascading — uses centralized cascade
       if (cascadeTransactionIds && cascadeTransactionIds.length > 0) {
-        const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
         for (const txId of cascadeTransactionIds) {
-          // Fetch transaction data for trash
-          const { data: txData } = await supabase.from("transactions").select("*").eq("id", txId).single();
-          if (txData) {
-            await moveToTrash({ entity_type: "transaction", entity_id: txId, entity_data: txData, deleted_by: user?.email || "sistema" });
-            // Audit log: record deletion
-            await supabase.from("transaction_audit_log").insert({
-              transaction_id: txId,
-              changed_by: callerName,
-              field_name: "Eliminação",
-              old_value: `${txData.description ?? "—"} — ${txData.amount ?? 0} €`,
-              new_value: "Eliminada via BP",
-            });
-          }
-          await supabase.from("transactions").delete().eq("id", txId);
+          await deleteTransactionCascade({
+            transactionId: txId,
+            user,
+            auditReason: "Eliminada via BP",
+          });
         }
       }
       // Fetch full data before deleting
