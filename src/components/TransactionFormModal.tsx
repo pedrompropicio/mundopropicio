@@ -148,16 +148,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   });
 
   // Event partners for "paid by partner" feature
-  // Inherits partners from Master event when the sub-event has none of its own
+  // - Single transaction: read partners from the selected event, inheriting from Master if empty
+  // - Split (multi-event): read partners from the Master event of the tour (splitMasterEventId)
+  const partnersLookupEventId = form.event_id || splitMasterEventId;
   const { data: eventPartners = [] } = useQuery({
-    queryKey: ["event-partners-for-tx", form.event_id],
+    queryKey: ["event-partners-for-tx", partnersLookupEventId],
     queryFn: async () => {
-      if (!form.event_id) return [];
+      if (!partnersLookupEventId) return [];
       // 1) Try the event itself
       const { data: own, error: ownErr } = await supabase
         .from("event_partners")
         .select("id, percentage, suppliers(name)")
-        .eq("event_id", form.event_id)
+        .eq("event_id", partnersLookupEventId)
         .order("created_at");
       if (ownErr) throw ownErr;
       if (own && own.length > 0) return own;
@@ -166,7 +168,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       const { data: ev, error: evErr } = await supabase
         .from("events")
         .select("parent_event_id")
-        .eq("id", form.event_id)
+        .eq("id", partnersLookupEventId)
         .maybeSingle();
       if (evErr) throw evErr;
       if (!ev?.parent_event_id) return [];
@@ -179,7 +181,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (inhErr) throw inhErr;
       return inherited || [];
     },
-    enabled: !!form.event_id,
+    enabled: !!partnersLookupEventId,
   });
 
   const { data: reimbursementNotes = [] } = useQuery({
