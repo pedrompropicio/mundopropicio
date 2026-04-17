@@ -90,7 +90,8 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, category_id, iva_rate");
+        .select("id, event_id, type, amount, status, category_id, iva_rate")
+        .eq("is_hidden", false);
       if (error) throw error;
       return data;
     },
