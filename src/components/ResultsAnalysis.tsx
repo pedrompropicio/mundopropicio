@@ -40,9 +40,10 @@ interface ActiveProjection {
   realExpense: number;
   realMargin: number;
   realMarginPct: number;
-  // Real Pessimista (current sales × 0.8 + same expenses)
+  // Real Pessimista (current sales × 0.8 + same expenses) — só para eventos futuros
   pessimisticIncome: number;
   pessimisticMargin: number;
+  isPastEvent: boolean;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
