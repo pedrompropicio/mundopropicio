@@ -148,16 +148,18 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   });
 
   // Event partners for "paid by partner" feature
-  // Inherits partners from Master event when the sub-event has none of its own
+  // - Single transaction: read partners from the selected event, inheriting from Master if empty
+  // - Split (multi-event): read partners from the Master event of the tour (splitMasterEventId)
+  const partnersLookupEventId = form.event_id || splitMasterEventId;
   const { data: eventPartners = [] } = useQuery({
-    queryKey: ["event-partners-for-tx", form.event_id],
+    queryKey: ["event-partners-for-tx", partnersLookupEventId],
     queryFn: async () => {
-      if (!form.event_id) return [];
+      if (!partnersLookupEventId) return [];
       // 1) Try the event itself
       const { data: own, error: ownErr } = await supabase
         .from("event_partners")
         .select("id, percentage, suppliers(name)")
-        .eq("event_id", form.event_id)
+        .eq("event_id", partnersLookupEventId)
         .order("created_at");
       if (ownErr) throw ownErr;
       if (own && own.length > 0) return own;
@@ -166,7 +168,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       const { data: ev, error: evErr } = await supabase
         .from("events")
         .select("parent_event_id")
-        .eq("id", form.event_id)
+        .eq("id", partnersLookupEventId)
         .maybeSingle();
       if (evErr) throw evErr;
       if (!ev?.parent_event_id) return [];
@@ -179,7 +181,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (inhErr) throw inhErr;
       return inherited || [];
     },
-    enabled: !!form.event_id,
+    enabled: !!partnersLookupEventId,
   });
 
   const { data: reimbursementNotes = [] } = useQuery({
@@ -729,6 +731,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         const parentStatus = allChildrenApproved ? "approved" : "pending";
 
         // 2. Create parent transaction (no event)
+        const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
         const { data: parentRow, error: parentError } = await supabase.from("transactions").insert({
           description: data.description,
           type: data.type,
@@ -737,7 +740,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           event_id: null,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          account_id: data.account_id || null,
+          account_id: parentAccountId,
           specification: data.type === "expense" ? (data.specification || null) : null,
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
@@ -773,6 +776,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         const childInsertsWithParent = childInserts.map(c => ({ ...c, parent_transaction_id: parentId }));
         const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
         if (childError) throw childError;
+
+        // 4. If paid by partner, link parent transaction to partner_paid_expenses
+        //    using the tour Master event (splitMasterEventId) where partners exist
+        if (isPaidByPartner && paidByPartnerId && splitMasterEventId) {
+          await supabase.from("partner_paid_expenses").insert({
+            event_id: splitMasterEventId,
+            partner_id: paidByPartnerId,
+            transaction_id: parentId,
+          });
+        }
       } else {
         // --- SINGLE TRANSACTION ---
         const hasForecastMatch = relevantForecasts.length > 0 && relevantForecasts.some(
@@ -1909,8 +1922,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   <HelpTooltip text={helpTexts.reimbursementToggle} size={12} />
                 </button>
 
-                {/* Paid by partner toggle — only when event has partners */}
-                {form.event_id && eventPartners.length > 0 && !form.is_reimbursement && (
+                {/* Paid by partner toggle — when event (or split Master) has partners */}
+                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && (
                   <button
                     type="button"
                     onClick={() => {
