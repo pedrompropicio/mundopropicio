@@ -85,11 +85,11 @@ export function ResultsAnalysis() {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["ra_transactions_v2"],
+    queryKey: ["ra_transactions_v3"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, category_id");
+        .select("id, event_id, type, amount, status, category_id, iva_rate");
       if (error) throw error;
       return data;
     },
@@ -107,11 +107,11 @@ export function ResultsAnalysis() {
   });
 
   const { data: ticketSales = [] } = useQuery({
-    queryKey: ["ra_ticket_sales"],
+    queryKey: ["ra_ticket_sales_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("*, event_ticket_zones(event_id)");
+        .select("id, quantity, unit_price, lot_id, event_ticket_zones(event_id)");
       if (error) throw error;
       return data;
     },
@@ -129,11 +129,11 @@ export function ResultsAnalysis() {
   });
 
   const { data: ticketLots = [] } = useQuery({
-    queryKey: ["ra_ticket_lots"],
+    queryKey: ["ra_ticket_lots_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_lots")
-        .select("id, quantity, price, zone_id, event_ticket_zones(event_id)");
+        .select("id, quantity, price, iva_rate, zone_id, event_ticket_zones(event_id)");
       if (error) throw error;
       return data;
     },
@@ -160,24 +160,34 @@ export function ResultsAnalysis() {
       }
     });
 
-    // ── Projected revenue from ticket lots (capacity × price) ──
+    // ── Projected revenue from ticket lots (capacity × price) — NET (sem IVA) ──
+    // Ticket prices include IVA ("por dentro"); extract net using each lot's iva_rate (default 6%)
     const lotRevenueMap: Record<string, number> = {};
     ticketLots.forEach((lot: any) => {
       const eventId = lot.event_ticket_zones?.event_id;
       if (!eventId) return;
-      lotRevenueMap[eventId] = (lotRevenueMap[eventId] || 0) + Number(lot.quantity) * Number(lot.price);
+      const rate = Number(lot.iva_rate ?? 6);
+      const netPrice = Number(lot.price) / (1 + rate / 100);
+      lotRevenueMap[eventId] = (lotRevenueMap[eventId] || 0) + Number(lot.quantity) * netPrice;
     });
 
-    // ── Real ticket sales per event ──
+    // Lookup helper: lot id → iva_rate (for sales extraction)
+    const lotIvaRate: Record<string, number> = {};
+    ticketLots.forEach((lot: any) => {
+      lotIvaRate[lot.id] = Number(lot.iva_rate ?? 6);
+    });
+
+    // ── Real ticket sales per event — NET (sem IVA) ──
     const salesByEvent: Record<string, number> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
-      salesByEvent[eventId] = (salesByEvent[eventId] || 0) + Number(ts.quantity) * Number(ts.unit_price);
+      const rate = lotIvaRate[ts.lot_id] ?? 6;
+      const netUnit = Number(ts.unit_price) / (1 + rate / 100);
+      salesByEvent[eventId] = (salesByEvent[eventId] || 0) + Number(ts.quantity) * netUnit;
     });
 
-    // ── Per-event BP expense map by category_id ──
-    // bpExpenseByEventCat[eventId] = Map<categoryId|"__none__", amount>
+    // ── Per-event BP expense map by category_id (event_forecasts.amount já é base sem IVA) ──
     const bpExpenseByEventCat: Record<string, Map<string, number>> = {};
     const bpIncomeMap: Record<string, number> = {};
     forecasts.forEach((f: any) => {
@@ -187,25 +197,27 @@ export function ResultsAnalysis() {
         bpIncomeMap[eid] = (bpIncomeMap[eid] ?? 0) + Number(f.amount);
         return;
       }
-      // expense
       if (!bpExpenseByEventCat[eid]) bpExpenseByEventCat[eid] = new Map();
       const key = f.category_id ?? "__none__";
       bpExpenseByEventCat[eid].set(key, (bpExpenseByEventCat[eid].get(key) ?? 0) + Number(f.amount));
     });
 
-    // ── Per-event real (transactions) expense map by category_id ──
+    // ── Per-event real (transactions) expense map by category_id — NET (sem IVA) ──
+    // transactions.amount inclui IVA; extrair base usando iva_rate da transação
     const txnExpenseByEventCat: Record<string, Map<string, number>> = {};
     const txnIncomeMap: Record<string, number> = {};
     transactions.forEach((t: any) => {
       const eid = t.event_id;
       if (!eid) return;
+      const rate = Number(t.iva_rate ?? 0);
+      const net = Number(t.amount) / (1 + rate / 100);
       if (t.type === "income") {
-        txnIncomeMap[eid] = (txnIncomeMap[eid] ?? 0) + Number(t.amount);
+        txnIncomeMap[eid] = (txnIncomeMap[eid] ?? 0) + net;
         return;
       }
       if (!txnExpenseByEventCat[eid]) txnExpenseByEventCat[eid] = new Map();
       const key = t.category_id ?? "__none__";
-      txnExpenseByEventCat[eid].set(key, (txnExpenseByEventCat[eid].get(key) ?? 0) + Number(t.amount));
+      txnExpenseByEventCat[eid].set(key, (txnExpenseByEventCat[eid].get(key) ?? 0) + net);
     });
 
     // ── Closing costs per event ──
