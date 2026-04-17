@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Routes, Route, Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sun, Moon, LogOut } from "lucide-react";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
@@ -13,6 +14,7 @@ export function PartnerLayout() {
   const { theme, toggleTheme } = useTheme();
 
   useInactivityTimeout(!loading && !!user);
+  useActivityTracker();
 
   // If recovery is in progress and user somehow landed here, force sign out
   useEffect(() => {
