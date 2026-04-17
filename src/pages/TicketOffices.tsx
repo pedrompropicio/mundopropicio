@@ -227,12 +227,14 @@ export default function TicketOffices() {
         </div>
 
         <Tabs defaultValue="dados" className="w-full">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="dados">Dados</TabsTrigger>
-            <TabsTrigger value="liquidez">Liquidez</TabsTrigger>
-            <TabsTrigger value="vendas">Vendas / Bilhetes</TabsTrigger>
-            <TabsTrigger value="fechos">Fechos</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="justify-start w-max min-w-full">
+              <TabsTrigger value="dados">Dados</TabsTrigger>
+              <TabsTrigger value="liquidez">Liquidez</TabsTrigger>
+              <TabsTrigger value="vendas">Vendas / Bilhetes</TabsTrigger>
+              <TabsTrigger value="fechos">Fechos</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="dados">
             <div className="glass rounded-xl p-6 space-y-4">
