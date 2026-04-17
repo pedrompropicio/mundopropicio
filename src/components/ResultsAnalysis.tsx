@@ -40,9 +40,10 @@ interface ActiveProjection {
   realExpense: number;
   realMargin: number;
   realMarginPct: number;
-  // Real Pessimista (current sales × 0.8 + same expenses)
+  // Real Pessimista (current sales × 0.8 + same expenses) — só para eventos futuros
   pessimisticIncome: number;
   pessimisticMargin: number;
+  isPastEvent: boolean;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
@@ -337,9 +338,14 @@ export function ResultsAnalysis() {
         const realMargin = realIncome - realExpense;
 
         // ── REAL PESSIMISTA ──
-        // Bilheteira × 0,8 + outras receitas BP; mesmas despesas
-        const pessimisticIncome = ticketRevenueSold * PESSIMISTIC_FACTOR + bpOtherIncome;
-        const pessimisticMargin = pessimisticIncome - realExpense;
+        // Apenas para eventos cuja data ainda não passou. Para eventos passados,
+        // as vendas finais já estão registadas → não faz sentido simular pessimismo.
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const isPastEvent = String(e.date) < todayStr;
+        const pessimisticIncome = isPastEvent
+          ? realIncome
+          : ticketRevenueSold * PESSIMISTIC_FACTOR + bpOtherIncome;
+        const pessimisticMargin = isPastEvent ? realMargin : pessimisticIncome - realExpense;
 
         active.push({
           id: e.id,
@@ -355,6 +361,7 @@ export function ResultsAnalysis() {
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
           pessimisticIncome,
           pessimisticMargin,
+          isPastEvent,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyRealMargin: realMargin * (companyPct / 100),
@@ -677,25 +684,35 @@ export function ResultsAnalysis() {
                         {e.realMarginPct.toFixed(1)}%
                       </td>
 
-                      {/* Pessimista */}
-                      <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.pessimisticIncome)}</td>
-                      <td className="p-3 text-right">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className={`font-mono ${e.pessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                            {formatCurrency(e.pessimisticMargin)}
-                          </span>
-                          {e.totalPartnerPct > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                                Empresa {companyPct.toFixed(0)}%
-                              </Badge>
-                              <span className={`font-mono text-xs ${e.companyPessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                                {formatCurrency(e.companyPessimisticMargin)}
+                      {/* Pessimista — N/A para eventos passados (usar vendas reais) */}
+                      {e.isPastEvent ? (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border" colSpan={2}>
+                            <span className="text-[10px] italic">evento realizado · ver Real Atual</span>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.pessimisticIncome)}</td>
+                          <td className="p-3 text-right">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`font-mono ${e.pessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.pessimisticMargin)}
                               </span>
+                              {e.totalPartnerPct > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                    Empresa {companyPct.toFixed(0)}%
+                                  </Badge>
+                                  <span className={`font-mono text-xs ${e.companyPessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                                    {formatCurrency(e.companyPessimisticMargin)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
