@@ -17,14 +17,17 @@ interface Props {
 /**
  * Lista órfãs dos sub-eventos e identifica candidatos válidos a RATEIO MASTER.
  *
- * REGRA DE RATEIO (clássico):
+ * REGRA DE RATEIO MASTER (estrita — apenas casos verdadeiramente simétricos):
  *   1) A categoria NÃO existe ainda no BP do Master
- *   2) A despesa aparece em TODOS os sub-eventos
- *   3) Os valores por sub-evento são ~iguais (tolerância 1%)
+ *   2) Existe EXATAMENTE 1 transação por sub-evento (sem duplicados na mesma cidade)
+ *   3) A despesa cobre TODOS os sub-eventos
+ *   4) Todas as transações têm o MESMO fornecedor
+ *   5) Os valores individuais são ~iguais (tolerância 1%)
  *
- * Apenas grupos que cumpram a regra podem ser "adotados como rateio Master" (cria linha
- * Master + splits por sub-evento). Para os restantes, mostra-se um aviso explicando que
- * devem ser tratados via botão "Adotar" de uma linha Master existente, ou ignorados.
+ * Casos assimétricos (valores diferentes, múltiplos fornecedores, múltiplos lançamentos
+ * por sub-evento) NÃO são candidatos a rateio Master no BP — devem ser tratados via
+ * rateio desproporcional ao nível das Transações, ou adotados individualmente numa
+ * linha Master existente (botão ↗).
  */
 export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, childEventIds }: Props) {
   const queryClient = useQueryClient();
