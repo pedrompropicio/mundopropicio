@@ -8,6 +8,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import { formatDatePT } from "@/lib/utils";
 
 interface Props {
   transactionId: string;
@@ -260,7 +261,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    {doc.uploaded_by} · {new Date(doc.uploaded_at).toLocaleDateString("pt-PT")}
+                    {doc.uploaded_by} · {formatDatePT(doc.uploaded_at)}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">

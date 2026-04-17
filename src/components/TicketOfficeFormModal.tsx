@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { Calendar, Search } from "lucide-react";
 import {
+import { formatDatePT } from "@/lib/utils";
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
@@ -214,7 +215,7 @@ export function TicketOfficeFormModal({ office, onClose }: Props) {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{event.name}</p>
                           <p className="text-[10px] text-muted-foreground">
-                            {new Date(event.date).toLocaleDateString("pt-PT")}
+                            {formatDatePT(event.date)}
                           </p>
                         </div>
                       </label>

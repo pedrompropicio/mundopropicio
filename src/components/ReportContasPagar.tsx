@@ -486,7 +486,7 @@ export default function ReportContasPagar() {
                               </span>
                             </td>
                             <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
-                              {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}
+                              {t.due_date ? formatDatePT(t.due_date) : "—"}
                             </td>
                             <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(paid)}</td>
                             <td className="py-3 text-right font-mono font-semibold text-warning whitespace-nowrap">{formatCurrency(withIva)}</td>

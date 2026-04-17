@@ -325,7 +325,7 @@ export default function ReportBankStatement() {
                   {lines.map((line: any, i: number) => (
                     <TableRow key={line.id}>
                       <TableCell className="text-sm whitespace-nowrap">
-                        {new Date(line.date).toLocaleDateString("pt-PT")}
+                        {formatDatePT(line.date)}
                       </TableCell>
                       <TableCell>
                         <p className="text-sm font-medium">{line.description}</p>

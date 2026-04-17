@@ -3,9 +3,10 @@ import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import { formatDatePT } from "@/lib/utils";
 
 function fmtDate(d: string) {
-  return new Date(d + "T00:00:00").toLocaleDateString("pt-PT");
+  return formatDatePT(d + "T00:00:00");
 }
 
 function fmtVal(v: number): string {

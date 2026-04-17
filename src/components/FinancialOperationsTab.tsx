@@ -546,7 +546,7 @@ export default function FinancialOperationsTab({ accounts, isAdmin }: FinancialO
               {recentOps.map((op: any) => (
                 <TableRow key={op.id}>
                   <TableCell className="text-sm whitespace-nowrap">
-                    {new Date(op.date).toLocaleDateString("pt-PT")}
+                    {formatDatePT(op.date)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

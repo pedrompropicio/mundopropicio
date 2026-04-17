@@ -113,7 +113,7 @@ export default function ReportDocumentPendencies() {
 
   function handleExportExcel() {
     const rows = filtered.map((l) => ({
-      Data: new Date(l.date).toLocaleDateString("pt-PT"),
+      Data: formatDatePT(l.date),
       Descrição: l.description,
       Evento: l.events?.name ?? "—",
       Fornecedor: l.suppliers?.name ?? "—",
@@ -275,7 +275,7 @@ export default function ReportDocumentPendencies() {
                   {filtered.map((line: any) => (
                     <TableRow key={line.id}>
                       <TableCell className="text-sm whitespace-nowrap">
-                        {new Date(line.date).toLocaleDateString("pt-PT")}
+                        {formatDatePT(line.date)}
                       </TableCell>
                       <TableCell>
                         <p className="text-sm font-medium">{line.description}</p>

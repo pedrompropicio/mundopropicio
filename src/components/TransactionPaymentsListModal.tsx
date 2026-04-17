@@ -372,7 +372,7 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
                       <span className="text-xs font-semibold text-primary">Parcela #{idx + 1}</span>
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-muted-foreground">
-                          {new Date(p.payment_date + "T12:00:00").toLocaleDateString("pt-PT")}
+                          {formatDatePT(p.payment_date)}
                         </span>
                         {isAdmin && (
                           <>

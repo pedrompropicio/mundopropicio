@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
 import {
+import { formatDatePT } from "@/lib/utils";
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload, AlertTriangle,
 } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
@@ -692,7 +693,7 @@ export default function TicketManagement() {
                               .slice(0, 10)
                               .map((sale: any) => (
                                 <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
-                                  <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
+                                  <span className="text-xs text-muted-foreground w-20">{formatDatePT(sale.sale_date)}</span>
                                   <span className="flex-1 truncate">{sale.lotName ? `${sale.lotNumber}º ${sale.lotName}` : "Venda directa"}</span>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sale.source === "import" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
                                     {sale.source === "import" ? "Importado" : "Manual"}
@@ -808,7 +809,7 @@ export default function TicketManagement() {
                   <div className="text-xs">
                     <p className="font-medium text-warning">Já existem vendas nesta data</p>
                     <p className="text-muted-foreground">
-                      {existingSales.length} registo{existingSales.length > 1 ? "s" : ""} com {totalQty.toLocaleString()} bilhetes em {new Date(saleForm.sale_date).toLocaleDateString("pt-PT")}
+                      {existingSales.length} registo{existingSales.length > 1 ? "s" : ""} com {totalQty.toLocaleString()} bilhetes em {formatDatePT(saleForm.sale_date)}
                     </p>
                   </div>
                 </div>

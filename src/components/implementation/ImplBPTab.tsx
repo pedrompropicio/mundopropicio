@@ -16,6 +16,7 @@ import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
 import CategoryFormModal from "@/components/CategoryFormModal";
 import { useAuth } from "@/contexts/AuthContext";
 import * as XLSX from "xlsx";
+import { formatDatePT } from "@/lib/utils";
 
 interface Props {
   implementation: any;
@@ -73,7 +74,7 @@ function autoMatchSheet(sheetName: string, events: any[], dates: any[]): { type:
   }
   // Try matching dates
   for (const d of dates) {
-    const dateStr = new Date(d.date).toLocaleDateString("pt-PT");
+    const dateStr = formatDatePT(d.date);
     const dateShort = dateStr.replace(/\//g, "-");
     if (sn.includes(dateStr) || sn.includes(dateShort) || sn.includes(d.date)) return { type: "date", id: d.id };
     if (d.label && norm(d.label).length > 2 && sn.includes(norm(d.label))) return { type: "date", id: d.id };
@@ -1431,7 +1432,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   <SelectItem value="all">Todas as datas</SelectItem>
                   {datesForEvent.map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
+                      {formatDatePT(d.date)} {d.label ? `— ${d.label}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1447,7 +1448,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   <SelectItem value="all">Todas as datas</SelectItem>
                   {datesForEvent.map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
+                      {formatDatePT(d.date)} {d.label ? `— ${d.label}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1538,7 +1539,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                   return (
                     <TableRow key={batch.batchId} className={isRollbacked ? "opacity-50" : ""}>
                       <TableCell className="text-xs">
-                        {new Date(batch.date).toLocaleDateString("pt-PT")} {new Date(batch.date).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                        {formatDatePT(batch.date)} {new Date(batch.date).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                       </TableCell>
                       <TableCell className="text-xs">{batch.changedBy}</TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground">{batch.batchId.substring(9)}</TableCell>
@@ -1690,7 +1691,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
                           const ev = allEvents.find(e => e.id === d.event_id);
                           return (
                             <SelectItem key={`date:${d.id}`} value={`date:${d.id}`}>
-                              📅 {new Date(d.date).toLocaleDateString("pt-PT")} {d.label || ""} {ev ? `(${ev.name})` : ""}
+                              📅 {formatDatePT(d.date)} {d.label || ""} {ev ? `(${ev.name})` : ""}
                             </SelectItem>
                           );
                         })}

@@ -18,6 +18,7 @@ import { EventSessionsManager } from "@/components/EventSessionsManager";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
+import { formatDatePT } from "@/lib/utils";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -611,7 +612,7 @@ export default function EventDetail() {
               <div className="flex-1">
                 <p className="text-sm font-medium text-warning">Este evento já foi realizado</p>
                 <p className="text-xs text-warning/70 mt-0.5">
-                  A data do evento ({new Date(latestDate + "T12:00:00").toLocaleDateString("pt-PT")}) já passou. Deseja concluir o evento?
+                  A data do evento ({formatDatePT(latestDate)}) já passou. Deseja concluir o evento?
                 </p>
               </div>
               <button
