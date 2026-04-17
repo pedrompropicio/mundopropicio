@@ -338,9 +338,14 @@ export function ResultsAnalysis() {
         const realMargin = realIncome - realExpense;
 
         // ── REAL PESSIMISTA ──
-        // Bilheteira × 0,8 + outras receitas BP; mesmas despesas
-        const pessimisticIncome = ticketRevenueSold * PESSIMISTIC_FACTOR + bpOtherIncome;
-        const pessimisticMargin = pessimisticIncome - realExpense;
+        // Apenas para eventos cuja data ainda não passou. Para eventos passados,
+        // as vendas finais já estão registadas → não faz sentido simular pessimismo.
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const isPastEvent = String(e.date) < todayStr;
+        const pessimisticIncome = isPastEvent
+          ? realIncome
+          : ticketRevenueSold * PESSIMISTIC_FACTOR + bpOtherIncome;
+        const pessimisticMargin = isPastEvent ? realMargin : pessimisticIncome - realExpense;
 
         active.push({
           id: e.id,
@@ -356,6 +361,7 @@ export function ResultsAnalysis() {
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
           pessimisticIncome,
           pessimisticMargin,
+          isPastEvent,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyRealMargin: realMargin * (companyPct / 100),
