@@ -184,7 +184,23 @@ export default function EventDetail() {
         .select("*, account_categories(code, name), suppliers(name)")
         .in("event_id", transactionEventIds);
       if (error) throw error;
-      const rows = data ?? [];
+      let rows = data ?? [];
+
+      // On the Master/tour cover (no sub-event selected), replace split children
+      // with their Master transaction so we show only one consolidated line per rateio.
+      if (isMultiEvent && !selectedSubEvent) {
+        const childRows = rows.filter((r: any) => r.parent_transaction_id);
+        const masterIds = [...new Set(childRows.map((r: any) => r.parent_transaction_id))];
+        if (masterIds.length > 0) {
+          const { data: masters } = await supabase
+            .from("transactions")
+            .select("*, account_categories(code, name), suppliers(name)")
+            .in("id", masterIds);
+          const nonChildren = rows.filter((r: any) => !r.parent_transaction_id);
+          rows = [...nonChildren, ...(masters ?? [])];
+        }
+      }
+
       const dateKey = (v?: string | null) => (v ? String(v).slice(0, 10) : "");
       return [...rows].sort((a: any, b: any) => {
         const aCat = a.account_categories?.code ?? "";
