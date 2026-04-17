@@ -17,14 +17,17 @@ interface Props {
 /**
  * Lista órfãs dos sub-eventos e identifica candidatos válidos a RATEIO MASTER.
  *
- * REGRA DE RATEIO (clássico):
+ * REGRA DE RATEIO MASTER (estrita — apenas casos verdadeiramente simétricos):
  *   1) A categoria NÃO existe ainda no BP do Master
- *   2) A despesa aparece em TODOS os sub-eventos
- *   3) Os valores por sub-evento são ~iguais (tolerância 1%)
+ *   2) Existe EXATAMENTE 1 transação por sub-evento (sem duplicados na mesma cidade)
+ *   3) A despesa cobre TODOS os sub-eventos
+ *   4) Todas as transações têm o MESMO fornecedor
+ *   5) Os valores individuais são ~iguais (tolerância 1%)
  *
- * Apenas grupos que cumpram a regra podem ser "adotados como rateio Master" (cria linha
- * Master + splits por sub-evento). Para os restantes, mostra-se um aviso explicando que
- * devem ser tratados via botão "Adotar" de uma linha Master existente, ou ignorados.
+ * Casos assimétricos (valores diferentes, múltiplos fornecedores, múltiplos lançamentos
+ * por sub-evento) NÃO são candidatos a rateio Master no BP — devem ser tratados via
+ * rateio desproporcional ao nível das Transações, ou adotados individualmente numa
+ * linha Master existente (botão ↗).
  */
 export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, childEventIds }: Props) {
   const queryClient = useQueryClient();
@@ -47,7 +50,7 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
       if (childEventIds.length === 0) return [];
       const { data: txs, error } = await supabase
         .from("transactions")
-        .select("id, event_id, description, amount, iva_rate, status, category_id, invoice_ref, account_id, account_categories(code, name), financial_accounts(name)")
+        .select("id, event_id, description, amount, iva_rate, status, category_id, supplier_id, invoice_ref, account_id, account_categories(code, name), suppliers(name), financial_accounts(name)")
         .in("event_id", childEventIds)
         .eq("type", "expense")
         .is("parent_transaction_id", null)
@@ -131,8 +134,13 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
     return Array.from(map.entries())
       .map(([id, v]) => {
         const totalsByEvent: Record<string, number> = {};
+        const countsByEvent: Record<string, number> = {};
+        const supplierIds = new Set<string>();
         v.items.forEach((t: any) => {
           totalsByEvent[t.event_id] = (totalsByEvent[t.event_id] || 0) + Number(t.amount);
+          countsByEvent[t.event_id] = (countsByEvent[t.event_id] || 0) + 1;
+          if (t.supplier_id) supplierIds.add(t.supplier_id);
+          else supplierIds.add("__none__");
         });
         const eventsCovered = Object.keys(totalsByEvent).length;
         const totalAmount = v.items.reduce((s, t: any) => s + Number(t.amount), 0);
@@ -145,19 +153,25 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
         } else if (masterCategoryIds.has(id)) {
           reason = "Categoria já existe no BP Master — usar botão Adotar (↗) na linha Master";
         } else if (eventsCovered < totalSubEvents) {
-          reason = `Só aparece em ${eventsCovered}/${totalSubEvents} sub-eventos — não é um rateio`;
+          reason = `Só aparece em ${eventsCovered}/${totalSubEvents} sub-eventos — não é rateio Master`;
+        } else if (Object.values(countsByEvent).some((c) => c > 1)) {
+          const dups = Object.entries(countsByEvent).filter(([, c]) => c > 1).length;
+          reason = `Múltiplos lançamentos no mesmo sub-evento (${dups} caso(s)) — assimetria deve ser tratada via rateio nas Transações`;
+        } else if (supplierIds.size > 1) {
+          reason = `Fornecedores diferentes entre sub-eventos (${supplierIds.size}) — não é rateio simétrico`;
         } else {
-          // Verificar se valores são ~iguais
-          const values = Object.values(totalsByEvent);
-          const avg = values.reduce((s, v) => s + v, 0) / values.length;
-          const maxDeviation = Math.max(...values.map((v) => Math.abs(v - avg) / avg));
+          // Verificar se valores individuais são ~iguais
+          const values = v.items.map((t: any) => Number(t.amount));
+          const avg = values.reduce((s: number, x: number) => s + x, 0) / values.length;
+          const maxDeviation = avg > 0 ? Math.max(...values.map((x: number) => Math.abs(x - avg) / avg)) : 0;
           if (maxDeviation > TOLERANCE) {
             const minV = Math.min(...values);
             const maxV = Math.max(...values);
-            reason = `Valores divergem entre sub-eventos (${formatCurrency(minV)} – ${formatCurrency(maxV)}) — não é um rateio clássico`;
+            reason = `Valores divergem entre sub-eventos (${formatCurrency(minV)} – ${formatCurrency(maxV)}) — rateio desproporcional pertence às Transações`;
           } else {
             isValidRateio = true;
-            reason = `Despesa partilhada: ${formatCurrency(avg)} em cada um dos ${totalSubEvents} sub-eventos`;
+            const supplierName = (v.items[0] as any).suppliers?.name;
+            reason = `Rateio simétrico: ${formatCurrency(avg)} × ${totalSubEvents} sub-eventos${supplierName ? ` · ${supplierName}` : ""}`;
           }
         }
 
@@ -274,7 +288,7 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
             Transações Órfãs dos Sub-Eventos
           </DialogTitle>
           <DialogDescription>
-            Apenas categorias que aparecem em <strong>todos</strong> os sub-eventos com <strong>valores idênticos</strong> e que <strong>ainda não existem no BP Master</strong> são candidatas a rateio. As restantes devem ser adotadas individualmente em linhas Master existentes (botão ↗) ou ignoradas.
+            Apenas categorias com <strong>1 transação por sub-evento</strong>, <strong>mesmo fornecedor</strong> e <strong>valores idênticos</strong> são candidatas a rateio Master no BP. Casos assimétricos (valores ou fornecedores diferentes) devem ser tratados via <strong>rateio desproporcional nas Transações</strong>, ou adotados individualmente numa linha Master existente (botão ↗).
           </DialogDescription>
         </DialogHeader>
 
