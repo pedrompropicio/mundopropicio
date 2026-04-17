@@ -582,7 +582,7 @@ export function ResultsAnalysis() {
             Eventos Ativos — Projeções
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
-            <strong>Planeado</strong>: BP completo · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP, despesas reais onde existem (senão BP) · <strong>Pessimista</strong>: bilheteira vendida × 0,80
+            <strong>Planeado</strong>: BP completo · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP, despesas reais onde existem (senão BP) · <strong>Pessimista</strong>: bilheteira vendida × 0,80 · <em>Todos os valores SEM IVA</em>
           </p>
           <div className="overflow-x-auto glass rounded-xl">
             <table className="w-full text-sm">
