@@ -204,9 +204,13 @@ export function ResultsAnalysis() {
       bpExpenseByEventCat[eid].set(key, (bpExpenseByEventCat[eid].get(key) ?? 0) + Number(f.amount));
     });
 
-    // ── Per-event real (transactions) expense map by category_id — NET (sem IVA) ──
+    // ── Per-event real (transactions) expense maps by category_id — NET (sem IVA) ──
+    // Separamos PAID vs PENDING para a regra de fusão correta:
+    //   • PAID    → substitui o BP integralmente (gasto consolidado)
+    //   • PENDING → soma com o gap do BP (mantém a previsão original como teto)
     // transactions.amount inclui IVA; extrair base usando iva_rate da transação
-    const txnExpenseByEventCat: Record<string, Map<string, number>> = {};
+    const txnExpensePaidByCat: Record<string, Map<string, number>> = {};
+    const txnExpensePendingByCat: Record<string, Map<string, number>> = {};
     const txnIncomeMap: Record<string, number> = {};
     transactions.forEach((t: any) => {
       const eid = t.event_id;
@@ -217,9 +221,10 @@ export function ResultsAnalysis() {
         txnIncomeMap[eid] = (txnIncomeMap[eid] ?? 0) + net;
         return;
       }
-      if (!txnExpenseByEventCat[eid]) txnExpenseByEventCat[eid] = new Map();
+      const target = t.status === "paid" ? txnExpensePaidByCat : txnExpensePendingByCat;
+      if (!target[eid]) target[eid] = new Map();
       const key = t.category_id ?? "__none__";
-      txnExpenseByEventCat[eid].set(key, (txnExpenseByEventCat[eid].get(key) ?? 0) + net);
+      target[eid].set(key, (target[eid].get(key) ?? 0) + net);
     });
 
     // ── Closing costs per event ──
@@ -236,24 +241,31 @@ export function ResultsAnalysis() {
     });
 
     /**
-     * Merge BP and real expenses for one event applying rule C:
-     *   For each category that has BP:        amount = real > 0 ? real : bp
-     *   For categories with real but no BP:   amount = real (extra cost)
-     *   "__none__" key handled the same way (uncategorised).
+     * Merge BP and real expenses for one event by transaction status:
+     *   • PAID transactions: substitute BP for that category (consolidated)
+     *   • PENDING transactions: count the larger of (pending real, BP − paid)
+     *     This preserves the BP ceiling when only partial payments exist
+     *   • Categories with only real (no BP): count as extra
+     *   • Categories with only BP (no real yet): count BP entirely
      */
     const mergeExpenseForEvent = (eventId: string): number => {
       const bp = bpExpenseByEventCat[eventId];
-      const real = txnExpenseByEventCat[eventId];
-      if (!bp && !real) return 0;
+      const paid = txnExpensePaidByCat[eventId];
+      const pending = txnExpensePendingByCat[eventId];
+      if (!bp && !paid && !pending) return 0;
       const allKeys = new Set<string>();
       bp?.forEach((_, k) => allKeys.add(k));
-      real?.forEach((_, k) => allKeys.add(k));
+      paid?.forEach((_, k) => allKeys.add(k));
+      pending?.forEach((_, k) => allKeys.add(k));
       let total = 0;
       allKeys.forEach((key) => {
         const bpAmt = bp?.get(key) ?? 0;
-        const realAmt = real?.get(key) ?? 0;
-        // Rule C: real where exists, BP where it doesn't
-        total += realAmt > 0 ? realAmt : bpAmt;
+        const paidAmt = paid?.get(key) ?? 0;
+        const pendingAmt = pending?.get(key) ?? 0;
+        // Paid is consolidated. For the remaining BP budget after paid,
+        // we count whichever is bigger: still-pending real, or the gap to BP.
+        const remainingBp = Math.max(0, bpAmt - paidAmt);
+        total += paidAmt + Math.max(pendingAmt, remainingBp);
       });
       return total;
     };
