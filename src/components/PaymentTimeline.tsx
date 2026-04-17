@@ -243,7 +243,7 @@ export function PaymentTimeline({ transaction }: Props) {
             {partnerPaid.map((pp) => (
               <li key={pp.id} className="flex items-center justify-between py-1.5 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-500">🤝 Sócio</span>
+                  <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">🤝 Sócio</span>
                   <span className="truncate">
                     {pp.event_partners?.suppliers?.name ?? "Sócio"}
                   </span>

@@ -12,6 +12,8 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
 import { sortByHierarchicalCode, cn } from "@/lib/utils";
+import { PaymentTimeline } from "@/components/PaymentTimeline";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
