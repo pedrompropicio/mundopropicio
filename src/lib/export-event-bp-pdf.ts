@@ -527,7 +527,6 @@ function drawForecastTable(
       }
 
       // Sub-rows: Transações vinculadas / correspondentes (desdobramento)
-      const matched = matchTransactionsForForecast(r, allForecasts, transactions);
       if (matched.length > 0) {
         body.push([{
           content: `Transações (${matched.length})`,
@@ -649,9 +648,25 @@ function drawForecastTable(
       },
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 4) {
-          const v = String(data.cell.raw ?? "");
-          if (v === "Aprovado" || v === "Pago") data.cell.styles.textColor = [30, 130, 50];
-          if (v === "Rascunho" || v === "Pendente") data.cell.styles.textColor = [180, 130, 30];
+          const raw = String(data.cell.raw ?? "");
+          // Match label without optional progress suffix " (x/y)"
+          const label = raw.replace(/\s*\(\d+\/\d+\)\s*$/, "");
+          const palette: Record<string, { bg: [number, number, number]; fg: [number, number, number] }> = {
+            "Pago":      { bg: [220, 245, 225], fg: [25, 110, 45] },
+            "A Pagar":   { bg: [220, 232, 250], fg: [30, 70, 150] },
+            "Aprovado":  { bg: [220, 232, 250], fg: [30, 70, 150] },
+            "Parcial":   { bg: [255, 235, 210], fg: [170, 95, 20] },
+            "Atrasado":  { bg: [250, 220, 220], fg: [170, 30, 30] },
+            "Pendente":  { bg: [253, 245, 210], fg: [150, 110, 20] },
+            "Rascunho":  { bg: [235, 235, 240], fg: [90, 90, 110] },
+          };
+          const cfg = palette[label];
+          if (cfg) {
+            data.cell.styles.fillColor = cfg.bg;
+            data.cell.styles.textColor = cfg.fg;
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.halign = "center";
+          }
         }
       },
     });
