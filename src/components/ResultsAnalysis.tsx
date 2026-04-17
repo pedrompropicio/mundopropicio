@@ -684,25 +684,35 @@ export function ResultsAnalysis() {
                         {e.realMarginPct.toFixed(1)}%
                       </td>
 
-                      {/* Pessimista */}
-                      <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.pessimisticIncome)}</td>
-                      <td className="p-3 text-right">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className={`font-mono ${e.pessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                            {formatCurrency(e.pessimisticMargin)}
-                          </span>
-                          {e.totalPartnerPct > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                                Empresa {companyPct.toFixed(0)}%
-                              </Badge>
-                              <span className={`font-mono text-xs ${e.companyPessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                                {formatCurrency(e.companyPessimisticMargin)}
+                      {/* Pessimista — N/A para eventos passados (usar vendas reais) */}
+                      {e.isPastEvent ? (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border" colSpan={2}>
+                            <span className="text-[10px] italic">evento realizado · ver Real Atual</span>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.pessimisticIncome)}</td>
+                          <td className="p-3 text-right">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`font-mono ${e.pessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.pessimisticMargin)}
                               </span>
+                              {e.totalPartnerPct > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                    Empresa {companyPct.toFixed(0)}%
+                                  </Badge>
+                                  <span className={`font-mono text-xs ${e.companyPessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
+                                    {formatCurrency(e.companyPessimisticMargin)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
