@@ -170,10 +170,20 @@ function matchTransactionsForForecast(
     if (!f && !t) return 0;
     if (f === t) return 1000;
     if (!f || !t) return 0;
-    const isSubstring = t.includes(f) || f.includes(t);
-    if (!isSubstring) return 0;
-    const overlap = Math.min(f.length, t.length);
-    return overlap + (f.length / 1000);
+    const tokenize = (s: string) =>
+      s
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 3);
+    const fTokens = new Set(tokenize(f));
+    const tTokens = new Set(tokenize(t));
+    if (fTokens.size === 0 || tTokens.size === 0) return 0;
+    let shared = 0;
+    for (const tok of tTokens) if (fTokens.has(tok)) shared += 1;
+    if (shared === 0) return 0;
+    const coverage = shared / fTokens.size;
+    const lengthPenalty = Math.abs(f.length - t.length) / 10000;
+    return shared * 100 + coverage * 10 - lengthPenalty;
   };
 
   const matched = sameCat.filter((t) => {

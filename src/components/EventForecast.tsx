@@ -1931,13 +1931,26 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       if (!f && !t) return 0;
       if (f === t) return 1000; // exact match wins
       if (!f || !t) return 0;
-      // Substring overlap — score by length of the shorter string
-      // (longer overlap = stronger match). Tie-breaker: forecast desc length
-      // so the most specific BP line wins ("Camarim compras cartão mp" beats "Camarim").
-      const isSubstring = t.includes(f) || f.includes(t);
-      if (!isSubstring) return 0;
-      const overlap = Math.min(f.length, t.length);
-      return overlap + (f.length / 1000);
+      // Token-based scoring: count significant tokens (≥3 chars) shared
+      // between forecast and transaction descriptions. This avoids the
+      // false-positive substring trap where "Camarim" matches both
+      // "Camarim - Catering" and "Camarim compras cartão mp" equally.
+      const tokenize = (s: string) =>
+        s
+          .replace(/[^\p{L}\p{N}\s]/gu, " ")
+          .split(/\s+/)
+          .filter((w) => w.length >= 3);
+      const fTokens = new Set(tokenize(f));
+      const tTokens = new Set(tokenize(t));
+      if (fTokens.size === 0 || tTokens.size === 0) return 0;
+      let shared = 0;
+      for (const tok of tTokens) if (fTokens.has(tok)) shared += 1;
+      if (shared === 0) return 0;
+      // Score = shared tokens, with bonus for higher coverage of forecast
+      // tokens (more specific match wins). Tie-breaker: closer length match.
+      const coverage = shared / fTokens.size;
+      const lengthPenalty = Math.abs(f.length - t.length) / 10000;
+      return shared * 100 + coverage * 10 - lengthPenalty;
     };
 
     const matched = sameCat.filter((t: any) => {
