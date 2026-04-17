@@ -121,43 +121,51 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  // Eligible transactions: pending, event_id matches OR master (no event_id) with split for event, not yet linked
+  // Eligible transactions: not-yet-paid expenses for the event (direct or via Master split),
+  // already linked to this settlement, or unlinked. Excludes already 'paid' (liquidated elsewhere).
   const { data: eligibleTxns = [] } = useQuery({
     queryKey: ["settlement_eligible_txns", officeId, eventId, existingSettlement?.id],
     enabled: !!eventId,
     queryFn: async () => {
-      // Direct event expenses pending
+      const settlementFilter = `settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`;
+      const cols = "id, description, amount, paid_amount, status, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers(name), account_categories(name, code)";
+
+      // 1) Direct expenses for this event (Splits also live here with parent_transaction_id set)
       const { data: direct } = await (supabase as any)
         .from("transactions")
-        .select("id, description, amount, paid_amount, status, supplier_id, category_id, event_id, settlement_id, suppliers(name), account_categories(name, code)")
+        .select(cols)
         .eq("event_id", eventId)
         .eq("type", "expense")
-        .or(`settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`);
+        .or(settlementFilter);
 
-      // Master splits referencing this event
+      // 2) Master transactions whose Splits reference this event (Master has event_id NULL)
       const { data: splits } = await (supabase as any)
-        .from("transaction_splits")
-        .select("transaction_id, event_id")
-        .eq("event_id", eventId);
-      const masterIds = (splits || []).map((s: any) => s.transaction_id);
+        .from("transactions")
+        .select("parent_transaction_id")
+        .eq("event_id", eventId)
+        .eq("type", "expense")
+        .not("parent_transaction_id", "is", null);
+      const masterIds = Array.from(new Set((splits || []).map((s: any) => s.parent_transaction_id).filter(Boolean)));
       let masterTxns: any[] = [];
       if (masterIds.length > 0) {
         const { data } = await (supabase as any)
           .from("transactions")
-          .select("id, description, amount, paid_amount, status, supplier_id, category_id, event_id, settlement_id, suppliers(name), account_categories(name, code)")
+          .select(cols)
           .in("id", masterIds)
           .eq("type", "expense")
-          .or(`settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`);
+          .or(settlementFilter);
         masterTxns = data || [];
       }
+
       const all = [...(direct || []), ...masterTxns];
-      // Dedupe and filter: only pending OR linked to this settlement
       const seen = new Set<string>();
       return all.filter((t) => {
         if (seen.has(t.id)) return false;
         seen.add(t.id);
+        // Always keep transactions already linked to this settlement (when editing)
         if (existingSettlement && t.settlement_id === existingSettlement.id) return true;
-        return t.status === "pending";
+        // Eligible: not yet liquidated (pending or approved). Exclude 'paid' and 'cancelled'.
+        return t.status === "pending" || t.status === "approved";
       });
     },
   });
