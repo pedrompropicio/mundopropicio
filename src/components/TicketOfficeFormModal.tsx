@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatDatePT } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,7 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { Calendar, Search } from "lucide-react";
 import {
-import { formatDatePT } from "@/lib/utils";
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 

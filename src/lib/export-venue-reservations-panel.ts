@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
+import { formatDatePTOptions } from "@/lib/utils";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
-import { formatDatePTOptions } from "@/lib/utils";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",

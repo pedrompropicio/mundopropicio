@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatDatePT } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
 import {
-import { formatDatePT } from "@/lib/utils";
   Ticket, Plus, Layers, TrendingUp, ShoppingCart, ChevronDown, ChevronRight, Trash2, Pencil, Upload, AlertTriangle,
 } from "lucide-react";
 import { TicketImportModal } from "@/components/TicketUploadModals";
