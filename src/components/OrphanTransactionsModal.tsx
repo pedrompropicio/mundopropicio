@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { AlertTriangle, Search, Receipt, Layers, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
+import { AlertTriangle, Search, Receipt, Layers, Loader2, CheckCircle2, XCircle, Info, ChevronDown, ChevronRight } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -29,8 +29,16 @@ interface Props {
 export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, childEventIds }: Props) {
   const queryClient = useQueryClient();
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = new Set(expandedGroups);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setExpandedGroups(next);
+  };
 
   // 1) Sub-event expense transactions sem split-pai
   const { data: orphans = [], isLoading } = useQuery({
@@ -310,36 +318,90 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
                   </div>
                   {validGroups.map((g) => {
                     const isSel = selectedGroups.has(g.id);
+                    const isExpanded = expandedGroups.has(g.id);
                     return (
-                      <button
+                      <div
                         key={g.id}
-                        type="button"
-                        onClick={() => toggleGroup(g.id)}
-                        className={`w-full flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
-                          isSel ? "border-success bg-success/5" : "border-success/30 hover:bg-success/5"
+                        className={`rounded-lg border transition-colors ${
+                          isSel ? "border-success bg-success/5" : "border-success/30"
                         }`}
                       >
-                        <Checkbox checked={isSel} className="mt-0.5 pointer-events-none" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Layers className="h-4 w-4 text-success shrink-0" />
-                            <span className="font-mono text-sm text-success font-semibold">{g.catCode}</span>
-                            <span className="font-medium text-sm">{g.catName}</span>
-                            <span className="text-[10px] rounded-full bg-success/15 text-success px-2 py-0.5">Rateio válido</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(g.id)}
+                          className="w-full flex items-start gap-2 p-3 text-left hover:bg-success/5 rounded-lg"
+                        >
+                          <Checkbox checked={isSel} className="mt-0.5 pointer-events-none" />
+                          <button
+                            type="button"
+                            onClick={(e) => toggleExpand(g.id, e)}
+                            className="mt-0.5 shrink-0 rounded p-0.5 hover:bg-success/10"
+                            aria-label={isExpanded ? "Recolher" : "Expandir"}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-success" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-success" />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Layers className="h-4 w-4 text-success shrink-0" />
+                              <span className="font-mono text-sm text-success font-semibold">{g.catCode}</span>
+                              <span className="font-medium text-sm">{g.catName}</span>
+                              <span className="text-[10px] rounded-full bg-success/15 text-success px-2 py-0.5">Rateio válido</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Info className="h-3 w-3" />
+                              {g.reason}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-1">
+                              {g.items.length} transação(ões) em {Object.keys(g.totalsByEvent).length} sub-eventos
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Info className="h-3 w-3" />
-                            {g.reason}
+                          <div className="text-right shrink-0">
+                            <div className="font-mono text-sm font-semibold">{formatCurrency(g.totalAmount)}</div>
+                            <div className="text-[10px] text-muted-foreground">total</div>
                           </div>
-                          <div className="text-[11px] text-muted-foreground mt-1">
-                            {g.items.length} transação(ões) em {Object.keys(g.totalsByEvent).length} sub-eventos
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-success/20 bg-background/40 px-3 py-2 space-y-1">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                              Transações vinculadas ({g.items.length})
+                            </div>
+                            {g.items.map((t: any) => (
+                              <div
+                                key={t.id}
+                                className="flex items-start gap-2 rounded border border-border/40 bg-background/60 p-2 text-xs"
+                              >
+                                <Receipt className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium truncate">{t.description || "(sem descrição)"}</span>
+                                    <span className="text-[10px] rounded-full bg-secondary px-1.5 py-0.5 text-muted-foreground">
+                                      {eventNameMap[t.event_id] || "—"}
+                                    </span>
+                                    {t.invoice_ref && (
+                                      <span className="text-[10px] text-muted-foreground font-mono">
+                                        Fat. {t.invoice_ref}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {t.financial_accounts?.name && (
+                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                      Conta: {t.financial_accounts.name}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="font-mono font-semibold">{formatCurrency(Number(t.amount))}</div>
+                                  <div className="text-[9px] text-muted-foreground uppercase">{t.status}</div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-mono text-sm font-semibold">{formatCurrency(g.totalAmount)}</div>
-                          <div className="text-[10px] text-muted-foreground">total</div>
-                        </div>
-                      </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
