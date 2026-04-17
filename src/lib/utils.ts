@@ -76,8 +76,12 @@ export function isFullyPaid(paidAmount: number, baseAmount: number, ivaRate: num
  * negativos. Esta função extrai os componentes diretamente da string para
  * preservar a data civil original.
  */
-export function formatDatePT(value?: string | null): string {
+export function formatDatePT(value?: string | Date | null): string {
   if (!value) return "";
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) return "";
+    return value.toLocaleDateString("pt-PT");
+  }
   const datePart = String(value).slice(0, 10);
   const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) {
@@ -85,4 +89,28 @@ export function formatDatePT(value?: string | null): string {
     return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("pt-PT");
   }
   return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/**
+ * Versão flexível de formatDatePT que aceita opções de formatação. Constrói a
+ * data ao meio-dia local para evitar drift de fuso quando a entrada é apenas
+ * YYYY-MM-DD.
+ */
+export function formatDatePTOptions(
+  value?: string | Date | null,
+  options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" },
+): string {
+  if (!value) return "";
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) return "";
+    return value.toLocaleDateString("pt-PT", options);
+  }
+  const datePart = String(value).slice(0, 10);
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const local = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+    return local.toLocaleDateString("pt-PT", options);
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("pt-PT", options);
 }

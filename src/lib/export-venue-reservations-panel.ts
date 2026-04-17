@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { formatDatePTOptions } from "@/lib/utils";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 
@@ -16,7 +17,7 @@ interface ReservationItem {
 }
 
 function formatDatePT(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("pt-PT", {
+  return formatDatePTOptions(dateStr, {
     day: "2-digit",
     month: "short",
     year: "numeric",

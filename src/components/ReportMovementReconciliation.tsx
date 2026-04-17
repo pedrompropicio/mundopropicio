@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { exportMovementReconciliationToExcel, exportMovementReconciliationToPDF } from "@/lib/export-movement-reconciliation";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -210,7 +210,7 @@ export default function ReportMovementReconciliation() {
     setGenerated(false);
   }
 
-  const periodLabel = fullPeriod ? "Período Completo" : `${dateFrom ? new Date(dateFrom).toLocaleDateString("pt-PT") : "—"} a ${dateTo ? new Date(dateTo).toLocaleDateString("pt-PT") : "—"}`;
+  const periodLabel = fullPeriod ? "Período Completo" : `${dateFrom ? formatDatePT(dateFrom) : "—"} a ${dateTo ? formatDatePT(dateTo) : "—"}`;
   const accountsLabel = selectedAccountIds.length > 0 ? selectedAccountIds.map((id) => accountNameMap[id]).join(", ") : "Todas";
   const eventLabel = selectedEventIds.length > 0 ? events.find((e: any) => e.id === selectedEventIds[0])?.name ?? "—" : "Todos";
 
@@ -383,7 +383,7 @@ export default function ReportMovementReconciliation() {
                             {colHeaders}
                             {group.items.map((m) => (
                               <tr key={m.id} className={`hover:bg-secondary/20 transition-colors border-b border-border/30 ${m.status === "Liquidado" ? "opacity-70" : ""}`}>
-                                <td className="py-1.5 px-2 whitespace-nowrap">{new Date(m.date).toLocaleDateString("pt-PT")}</td>
+                                <td className="py-1.5 px-2 whitespace-nowrap">{formatDatePT(m.date)}</td>
                                 <td className="py-1.5 px-2">
                                   <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${m.isExpense ? "bg-warning/15 text-warning print-type-expense" : "bg-success/15 text-success print-type-income"}`}>
                                     {m.type}
@@ -412,8 +412,8 @@ export default function ReportMovementReconciliation() {
                                 <td className={`py-1.5 px-1 text-right font-mono ${m.balance > 0 ? "text-destructive font-semibold print-open" : "text-muted-foreground"}`}>
                                   {formatCurrency(m.balance)}
                                 </td>
-                                <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.dueDate ? new Date(m.dueDate).toLocaleDateString("pt-PT") : "—"}</td>
-                                <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.paymentDate ? new Date(m.paymentDate).toLocaleDateString("pt-PT") : "—"}</td>
+                                <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.dueDate ? formatDatePT(m.dueDate) : "—"}</td>
+                                <td className="py-1.5 px-1 whitespace-nowrap text-muted-foreground">{m.paymentDate ? formatDatePT(m.paymentDate) : "—"}</td>
                                 <td className="py-1.5 px-1 text-muted-foreground">{m.invoiceRef || "—"}</td>
                                 <td className="py-1.5 px-1 text-center">
                                   {(docCounts as Record<string, number>)[m.id] ? (

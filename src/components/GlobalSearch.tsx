@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { formatDatePT } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,7 +160,7 @@ export function GlobalSearch() {
                     <div className="flex flex-1 items-center justify-between gap-2 min-w-0">
                       <span className="truncate">{evt.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {new Date(evt.date).toLocaleDateString("pt-PT")}
+                        {formatDatePT(evt.date)}
                       </span>
                     </div>
                   </CommandItem>

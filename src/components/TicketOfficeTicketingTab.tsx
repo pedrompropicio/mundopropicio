@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatDatePT } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -562,7 +563,7 @@ export function TicketOfficeTicketingTab({ officeId, officeName }: Props) {
                                   .slice(0, 10)
                                   .map((sale: any) => (
                                     <div key={sale.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 text-sm">
-                                      <span className="text-xs text-muted-foreground w-20">{new Date(sale.sale_date).toLocaleDateString("pt-PT")}</span>
+                                      <span className="text-xs text-muted-foreground w-20">{formatDatePT(sale.sale_date)}</span>
                                       <span className="flex-1 truncate">{sale.lotName ? `${sale.lotNumber}º ${sale.lotName}` : "Venda directa"}</span>
                                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sale.source === "import" ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
                                         {sale.source === "import" ? "Importado" : "Manual"}

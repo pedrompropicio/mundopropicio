@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Building2, ChevronRight, MapPin, FileText, MoreHorizontal, Pencil, Trash2, ArrowRightCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePTOptions } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -124,7 +124,7 @@ export function VenueReservationsPanel({
                   </h4>
                   <div className="space-y-1">
                     {items.map((r) => {
-                      const dateFormatted = new Date(r.date + "T12:00:00").toLocaleDateString("pt-PT", {
+                      const dateFormatted = formatDatePTOptions(r.date, {
                         day: "2-digit",
                         month: "short",
                       });

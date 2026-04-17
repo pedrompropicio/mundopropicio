@@ -18,6 +18,7 @@ import { EventSessionsManager } from "@/components/EventSessionsManager";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
+import { formatDatePT } from "@/lib/utils";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -199,53 +200,6 @@ export default function EventDetail() {
           const nonChildren = rows.filter((r: any) => !r.parent_transaction_id);
           rows = [...nonChildren, ...(masters ?? [])];
         }
-
-        // Group native sub-event repeated expenses by similarity:
-        // supplier_id + category_id + normalized description + amount
-        const norm = (s?: string | null) => (s ?? "").toLowerCase().trim().replace(/\s+/g, " ");
-        const groups = new Map<string, any[]>();
-        const ungrouped: any[] = [];
-        for (const r of rows) {
-          // Skip Master rateio rows (already consolidated above)
-          if (!r.event_id || r.event_id === id) {
-            ungrouped.push(r);
-            continue;
-          }
-          const key = [
-            r.supplier_id ?? "",
-            r.category_id ?? "",
-            norm(r.description),
-            Number(r.amount).toFixed(2),
-            r.type,
-          ].join("|");
-          if (!groups.has(key)) groups.set(key, []);
-          groups.get(key)!.push(r);
-        }
-        const consolidated: any[] = [...ungrouped];
-        for (const [, list] of groups) {
-          if (list.length <= 1) {
-            consolidated.push(...list);
-            continue;
-          }
-          // Build aggregated virtual row
-          const totalAmount = list.reduce((s, r) => s + Number(r.amount), 0);
-          const allPaid = list.every((r) => r.status === "paid");
-          const anyPending = list.some((r) => r.status === "pending");
-          const aggStatus = allPaid ? "paid" : anyPending ? "pending" : list[0].status;
-          const earliestDate = list.map((r) => r.date).filter(Boolean).sort()[0];
-          consolidated.push({
-            ...list[0],
-            id: `group:${list[0].id}`,
-            __grouped: true,
-            __groupCount: list.length,
-            __groupIds: list.map((r) => r.id),
-            __groupEventIds: list.map((r) => r.event_id),
-            amount: totalAmount,
-            date: earliestDate,
-            status: aggStatus,
-          });
-        }
-        rows = consolidated;
       }
 
       const dateKey = (v?: string | null) => (v ? String(v).slice(0, 10) : "");
@@ -658,7 +612,7 @@ export default function EventDetail() {
               <div className="flex-1">
                 <p className="text-sm font-medium text-warning">Este evento já foi realizado</p>
                 <p className="text-xs text-warning/70 mt-0.5">
-                  A data do evento ({new Date(latestDate + "T12:00:00").toLocaleDateString("pt-PT")}) já passou. Deseja concluir o evento?
+                  A data do evento ({formatDatePT(latestDate)}) já passou. Deseja concluir o evento?
                 </p>
               </div>
               <button
@@ -869,7 +823,7 @@ export default function EventDetail() {
                             : subEvents.find((s: any) => s.id === t.event_id)?.name || "—"
                           : null;
                         return (
-                          <tr key={t.id} className={isSharedCost || (t as any).__grouped ? "bg-amber-500/5" : ""}>
+                          <tr key={t.id} className={isSharedCost ? "bg-amber-500/5" : ""}>
                             <td className="py-3 pr-4">
                               <p className="font-medium">{t.description}</p>
                               <p className="text-xs text-muted-foreground">{formatDate(t.date)}</p>
@@ -878,18 +832,13 @@ export default function EventDetail() {
                                   Custo partilhado ({subEventCount} datas)
                                 </span>
                               )}
-                              {(t as any).__grouped && (
-                                <span className="inline-flex items-center rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium mt-0.5">
-                                  Repetido em {(t as any).__groupCount} sub-eventos
-                                </span>
-                              )}
                             </td>
                             <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">
                               {t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "—"}
                             </td>
                             {isGlobalView && (
                               <td className="hidden py-3 pr-4 text-xs text-muted-foreground md:table-cell">
-                                {(t as any).__grouped ? `${(t as any).__groupCount} sub-eventos` : subName}
+                                {subName}
                               </td>
                             )}
                             <td className="py-3 pr-4">

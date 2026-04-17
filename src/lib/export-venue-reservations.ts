@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
+import { formatDatePTOptions } from "@/lib/utils";
 
 interface VenueReservationItem {
   name: string;
@@ -18,7 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function formatDatePT(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("pt-PT", {
+  return formatDatePTOptions(dateStr, {
     day: "2-digit",
     month: "short",
     year: "numeric",

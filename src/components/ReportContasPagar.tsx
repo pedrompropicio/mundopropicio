@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 
@@ -486,7 +486,7 @@ export default function ReportContasPagar() {
                               </span>
                             </td>
                             <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
-                              {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-PT") : "—"}
+                              {t.due_date ? formatDatePT(t.due_date) : "—"}
                             </td>
                             <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(paid)}</td>
                             <td className="py-3 text-right font-mono font-semibold text-warning whitespace-nowrap">{formatCurrency(withIva)}</td>

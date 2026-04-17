@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ChevronRight, MapPin, Music, CalendarDays, Plus, CalendarClock, FileText, ArrowRightCircle, Trash2, LayoutGrid, List, Calendar, Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePTOptions } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
@@ -563,7 +563,7 @@ export default function EventCalendar() {
         ) : (
           <div className="space-y-2">
             {monthReservations.reservations.map((r) => {
-              const dateFormatted = new Date(r.date + "T12:00:00").toLocaleDateString("pt-PT", {
+              const dateFormatted = formatDatePTOptions(r.date, {
                 day: "2-digit",
                 month: "short",
               });
@@ -629,7 +629,7 @@ export default function EventCalendar() {
           <div className="space-y-2">
             {monthReservations.eventsWithVenues.map((ev, i) => {
               const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
-              const dateFormatted = new Date(ev.date + "T12:00:00").toLocaleDateString("pt-PT", {
+              const dateFormatted = formatDatePTOptions(ev.date, {
                 day: "2-digit",
                 month: "short",
               });

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Pencil, Save, X } from "lucide-react";
+import { formatDatePT } from "@/lib/utils";
 
 interface Props {
   implementation: any;
@@ -146,7 +147,7 @@ export function ImplTicketsTab({ implementation, event, allEvents, eventDates = 
                 <SelectItem value="all">Todas as datas</SelectItem>
                 {datesForEvent.map((d: any) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {new Date(d.date).toLocaleDateString("pt-PT")} {d.label ? `— ${d.label}` : ""}
+                    {formatDatePT(d.date)} {d.label ? `— ${d.label}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

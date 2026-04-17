@@ -12,7 +12,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -284,7 +284,7 @@ export default function ReportAccountingExport() {
                   {withDocs.map((line: any) => (
                     <TableRow key={line.id}>
                       <TableCell className="text-sm whitespace-nowrap">
-                        {new Date(line.date).toLocaleDateString("pt-PT")}
+                        {formatDatePT(line.date)}
                       </TableCell>
                       <TableCell>
                         <p className="text-sm font-medium">{line.description}</p>
@@ -334,10 +334,10 @@ export default function ReportAccountingExport() {
               {exportHistory.map((exp: any) => (
                 <TableRow key={exp.id}>
                   <TableCell className="text-sm whitespace-nowrap">
-                    {new Date(exp.created_at).toLocaleDateString("pt-PT")}
+                    {formatDatePT(exp.created_at)}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {new Date(exp.period_from).toLocaleDateString("pt-PT")} — {new Date(exp.period_to).toLocaleDateString("pt-PT")}
+                    {formatDatePT(exp.period_from)} — {formatDatePT(exp.period_to)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{exp.exported_by}</TableCell>
                   <TableCell className="text-center text-sm">{exp.transaction_count}</TableCell>

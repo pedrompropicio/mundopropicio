@@ -4,10 +4,11 @@ import autoTable from "jspdf-autotable";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import { formatDatePT } from "@/lib/utils";
 
 function fmtDate(d: string) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("pt-PT");
+  return formatDatePT(d);
 }
 
 function fmtVal(v: number): number {

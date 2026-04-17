@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { CalendarClock, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePTOptions } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -64,7 +64,7 @@ export function ScheduledEventsPanel({ open, onOpenChange, events }: ScheduledEv
         <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
           {upcomingEvents.map((ev) => {
             const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
-            const dateFormatted = new Date(ev.date + "T12:00:00").toLocaleDateString("pt-PT", {
+            const dateFormatted = formatDatePTOptions(ev.date, {
               day: "2-digit",
               month: "short",
               year: "numeric",
