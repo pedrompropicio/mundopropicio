@@ -35,20 +35,19 @@ interface ActiveProjection {
   bpExpense: number;
   margin100: number;
   breakEvenPct: number;
+  // Planned 80% (cenário pessimista sobre receita planeada)
+  bpIncome80: number;
+  margin80: number;
   // Real Atual (current sales + BP-or-real expenses merged)
   realIncome: number;
   realExpense: number;
   realMargin: number;
   realMarginPct: number;
-  // Real Pessimista (current sales × 0.8 + same expenses) — só para eventos futuros
-  pessimisticIncome: number;
-  pessimisticMargin: number;
-  isPastEvent: boolean;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
+  companyMargin80: number;
   companyRealMargin: number;
-  companyPessimisticMargin: number;
   incomeSource: "lot_projection" | "ticket_sales";
   expenseSource: "forecasts" | "transactions";
 }
@@ -350,15 +349,10 @@ export function ResultsAnalysis() {
           ownMergedExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
         const realMargin = realIncome - realExpense;
 
-        // ── REAL PESSIMISTA ──
-        // Apenas para eventos cuja data ainda não passou. Para eventos passados,
-        // as vendas finais já estão registadas → não faz sentido simular pessimismo.
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const isPastEvent = String(e.date) < todayStr;
-        const pessimisticIncome = isPastEvent
-          ? realIncome
-          : ticketRevenueSold * PESSIMISTIC_FACTOR + bpOtherIncome;
-        const pessimisticMargin = isPastEvent ? realMargin : pessimisticIncome - realExpense;
+        // ── PLANEADO 80% (cenário pessimista sobre receita planeada) ──
+        // Aplica 0,80 sobre a receita PLANEADA (lotes + outras receitas BP), com despesas BP completas
+        const bpIncome80 = bpIncome100 * PESSIMISTIC_FACTOR;
+        const margin80 = bpIncome80 - bpExpense;
 
         active.push({
           id: e.id,
@@ -368,17 +362,16 @@ export function ResultsAnalysis() {
           bpExpense,
           margin100,
           breakEvenPct: Math.min(breakEvenPct, 999),
+          bpIncome80,
+          margin80,
           realIncome,
           realExpense,
           realMargin,
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
-          pessimisticIncome,
-          pessimisticMargin,
-          isPastEvent,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
+          companyMargin80: margin80 * (companyPct / 100),
           companyRealMargin: realMargin * (companyPct / 100),
-          companyPessimisticMargin: pessimisticMargin * (companyPct / 100),
           incomeSource: hasSales ? "ticket_sales" : "lot_projection",
           expenseSource: "forecasts",
         });
