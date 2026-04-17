@@ -117,7 +117,7 @@ export default function ReportTicketOfficeAudit() {
         const batch = zoneIds.slice(i, i + batchSize);
         const { data, error } = await supabase
           .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, financial_account_id, sale_date, notes")
+          .select("zone_id, quantity, unit_price, total_value, financial_account_id, sale_date, notes")
           .in("zone_id", batch);
         if (error) throw error;
         allData = allData.concat(data || []);

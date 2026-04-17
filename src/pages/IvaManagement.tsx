@@ -194,7 +194,7 @@ export default function IvaManagement() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("sale_date, quantity, unit_price, lot_id")
+        .select("sale_date, quantity, unit_price, total_value, lot_id")
         .order("sale_date", { ascending: false });
       if (error) throw error;
       return data ?? [];

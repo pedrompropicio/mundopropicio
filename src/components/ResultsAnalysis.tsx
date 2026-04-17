@@ -112,7 +112,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("id, quantity, unit_price, lot_id, event_ticket_zones(event_id)");
+        .select("id, quantity, unit_price, total_value, lot_id, event_ticket_zones(event_id)");
       if (error) throw error;
       return data;
     },
