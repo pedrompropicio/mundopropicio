@@ -56,6 +56,7 @@ interface TicketSaleRow {
   sale_date: string;
   quantity: number;
   unit_price: number;
+  total_value?: number | null;
   iva_rate: number;
   event_id: string;
 }
