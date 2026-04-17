@@ -1421,7 +1421,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
-              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
               if (switched) return; // disambiguation dialog will handle it
               setForm(prev => ({
                 ...prev,
