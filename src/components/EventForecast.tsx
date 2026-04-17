@@ -2050,7 +2050,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                           <button
                             key={p.id}
                             type="button"
-                            onClick={() => togglePartner(p.id)}
+                            onClick={() => { togglePartner(p.id); setShowPartnerPopover(false); }}
                             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                           >
                             <Checkbox checked={isAssigned} className="h-3.5 w-3.5 pointer-events-none" />
