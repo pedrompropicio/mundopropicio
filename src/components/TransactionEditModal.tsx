@@ -12,6 +12,8 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
 import { sortByHierarchicalCode, cn } from "@/lib/utils";
+import { PaymentTimeline } from "@/components/PaymentTimeline";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -309,6 +311,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
         )}
 
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Detalhes</TabsTrigger>
+            <TabsTrigger value="payment">Pagamento</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="payment" className="pt-3">
+            <PaymentTimeline transaction={transaction} />
+          </TabsContent>
+
+          <TabsContent value="details" className="pt-3">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
@@ -628,6 +641,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             {editMutation.isPending ? "A guardar…" : "Guardar Alterações"}
           </button>
         </form>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>,
     document.body
