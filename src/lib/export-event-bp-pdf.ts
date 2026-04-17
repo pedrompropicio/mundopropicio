@@ -56,8 +56,26 @@ interface AuditLog {
 
 const fmt = (n: number) => formatCurrency(n);
 
+interface TxRow {
+  id: string;
+  description: string;
+  specification: string | null;
+  amount: number;
+  iva_rate: number;
+  status: string;
+  paid_amount: number | null;
+  due_date: string | null;
+  payment_date: string | null;
+  category_id: string | null;
+  type: string;
+  event_id: string | null;
+  parent_transaction_id: string | null;
+  invoice_number: string | null;
+  suppliers?: { name: string } | null;
+}
+
 async function fetchEventBundle(eventId: string) {
-  const [evtRes, forecastsRes, partnersRes] = await Promise.all([
+  const [evtRes, forecastsRes, partnersRes, txRes] = await Promise.all([
     supabase
       .from("events")
       .select("id, name, date, status, event_type, location, parent_event_id, cities:city_id(name, country), venues:venue_id(name)")
@@ -73,11 +91,16 @@ async function fetchEventBundle(eventId: string) {
       .from("event_partners")
       .select("id, percentage, suppliers:supplier_id(name)")
       .eq("event_id", eventId),
+    supabase
+      .from("transactions")
+      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, parent_transaction_id, invoice_number, suppliers:supplier_id(name)")
+      .or(`event_id.eq.${eventId},event_id.is.null`),
   ]);
 
   if (evtRes.error) throw evtRes.error;
   if (forecastsRes.error) throw forecastsRes.error;
   if (partnersRes.error) throw partnersRes.error;
+  if (txRes.error) throw txRes.error;
 
   const evt = evtRes.data as any;
   const event: EventRow = {
@@ -97,27 +120,62 @@ async function fetchEventBundle(eventId: string) {
     name: p.suppliers?.name ?? "Sócio",
     percentage: Number(p.percentage),
   }));
+  const transactions: TxRow[] = (txRes.data ?? []) as any;
 
   // Forecast → partners assignments
   const forecastIds = forecasts.map((f) => f.id);
   let forecastPartners: { forecast_id: string; partner_id: string }[] = [];
   let auditLogs: AuditLog[] = [];
-  let linkedTxIds = new Set<string>();
   if (forecastIds.length > 0) {
     const [fpRes, auditRes] = await Promise.all([
       supabase.from("event_forecast_partners").select("forecast_id, partner_id").in("forecast_id", forecastIds),
-      supabase.from("forecast_audit_log").select("*").in("forecast_id", forecastIds).order("created_at", { ascending: false }),
+      supabase.from("forecast_audit_log").select("*").in("forecast_id", forecastIds).order("created_at", { ascending: true }),
     ]);
     if (fpRes.error) throw fpRes.error;
     if (auditRes.error) throw auditRes.error;
     forecastPartners = (fpRes.data ?? []) as any;
     auditLogs = (auditRes.data ?? []) as any;
-    forecasts.forEach((f) => {
-      if (f.transaction_id) linkedTxIds.add(f.transaction_id);
-    });
   }
 
-  return { event, forecasts, partners, forecastPartners, auditLogs };
+  return { event, forecasts, partners, forecastPartners, auditLogs, transactions };
+}
+
+// Match transactions to a forecast line (mirror of UI logic in EventForecast.tsx)
+function matchTransactionsForForecast(
+  fc: ForecastRow,
+  allForecasts: ForecastRow[],
+  transactions: TxRow[],
+): TxRow[] {
+  // 1) Direct link
+  if (fc.transaction_id) {
+    const direct = transactions.filter((t) => t.id === fc.transaction_id);
+    if (direct.length > 0) return direct;
+  }
+  // Scope to same event or master (null event_id)
+  const scoped = transactions.filter((t) => t.event_id === fc.event_id || t.event_id === null);
+  if (!fc.category_id) return [];
+  const sameCat = scoped.filter((t) => t.category_id === fc.category_id && t.type === fc.type);
+
+  const fcSameCat = allForecasts.filter(
+    (f) => f.category_id === fc.category_id && f.type === fc.type && f.event_id === fc.event_id,
+  );
+  if (fcSameCat.length <= 1) return sameCat;
+
+  const descLower = (fc.description ?? "").toLowerCase().trim();
+  const matched = sameCat.filter((t) => {
+    const txDesc = (t.description ?? "").toLowerCase().trim();
+    return txDesc === descLower || txDesc.includes(descLower) || descLower.includes(txDesc);
+  });
+  return matched.length > 0 ? matched : [];
+}
+
+function txStatusLabel(t: TxRow): string {
+  const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+  const paid = Number(t.paid_amount ?? 0);
+  if (t.status === "paid" || paid >= total - 0.01) return "Pago";
+  const today = new Date().toISOString().slice(0, 10);
+  if (t.due_date && t.due_date.slice(0, 10) < today) return "Atrasado";
+  return "A Pagar";
 }
 
 function statusLabel(s: string): string {
