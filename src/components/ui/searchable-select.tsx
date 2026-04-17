@@ -104,8 +104,13 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="min-w-[340px] w-[--radix-popover-trigger-width] max-w-[min(500px,90vw)] p-0 z-[200]" align="start">
-        <div className="flex items-center border-b border-border px-3 py-2">
+      <PopoverContent
+        className="min-w-[280px] w-[--radix-popover-trigger-width] max-w-[min(500px,95vw)] p-0 z-[200] flex flex-col max-h-[min(70vh,var(--radix-popover-content-available-height,70vh))]"
+        align="start"
+        collisionPadding={12}
+        avoidCollisions
+      >
+        <div className="flex items-center border-b border-border px-3 py-2 shrink-0">
           <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50" />
           <input
             value={search}
@@ -114,7 +119,7 @@ export function SearchableSelect({
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-[min(400px,60vh)] overflow-y-auto p-1">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-1">
           {/* Empty option */}
           <button
             type="button"
