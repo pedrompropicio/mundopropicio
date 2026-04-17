@@ -519,13 +519,13 @@ const helpManual: HelpSection[] = [
   },
   {
     id: "exceptions-approvals",
-    title: "Exceções e Aprovações (Reforço Local, Master, Fora do BP)",
+    title: "Exceções e Aprovações (Custo Isolado, Master, Fora do BP)",
     icon: "ShieldAlert",
     topics: [
       {
         title: "📘 Introdução — quando aparece uma exceção?",
         content:
-          "Sempre que tenta registar uma despesa num evento cuja categoria NÃO está prevista no Business Plan (BP) desse evento, o sistema deteta uma exceção e abre um diálogo de classificação. Isto serve para garantir que nenhum custo é lançado sem controlo orçamental e sem rastreabilidade.\n\nExistem três cenários possíveis, todos descritos em detalhe abaixo:\n1. Reforço Local — a categoria existe no BP Master da turnê (ou em outro evento), mas não no BP local deste evento/cidade.\n2. Vincular ao Master — quer agregar este custo a uma linha existente do BP Master (ex: voo da turnê inteira).\n3. Fora do BP — categoria não existe em nenhum BP relacionado; é uma despesa imprevista que requer justificação formal.",
+          "Sempre que tenta registar uma despesa num evento cuja categoria NÃO está prevista no Business Plan (BP) desse evento, o sistema deteta uma exceção e abre um diálogo de classificação. Isto serve para garantir que nenhum custo é lançado sem controlo orçamental e sem rastreabilidade.\n\nExistem três cenários possíveis, todos descritos em detalhe abaixo:\n1. Custo Isolado — a categoria existe no BP Master da turnê (ou em outro evento), mas não no BP local deste evento/cidade.\n2. Vincular ao Master — quer agregar este custo a uma linha existente do BP Master (ex: voo da turnê inteira).\n3. Fora do BP — categoria não existe em nenhum BP relacionado; é uma despesa imprevista que requer justificação formal.",
       },
       {
         title: "═══════ PARTE 1 — UTILIZADOR FINAL ═══════",
@@ -533,9 +533,9 @@ const helpManual: HelpSection[] = [
           "Esta secção destina-se a Editores, Viewers e qualquer utilizador que registe transações no dia-a-dia. Aprenderá passo-a-passo como reagir quando o sistema sinaliza uma exceção e quais as opções disponíveis.",
       },
       {
-        title: "1.1 — Cenário: Reforço Local",
+        title: "1.1 — Cenário: Custo Isolado",
         content:
-          "Quando aparece: está a registar uma despesa num evento Split (sub-evento de uma turnê) e a categoria escolhida existe no BP Master da turnê, mas não no BP local desta cidade.\n\nExemplo prático: A turnê 'Diogo Piçarra 2025' tem no BP Master a categoria '2.2.03 Transporte'. Em Lisboa, o BP local não previu transporte adicional, mas surgiu uma despesa de táxi de 80 €.\n\nComo proceder:\n1. Abra o formulário de Nova Transação no evento de Lisboa.\n2. Escolha a categoria '2.2.03 Transporte' (verá categorias do Master no dropdown).\n3. Ao gravar, o sistema abre o diálogo 'Classificação da Despesa'.\n4. Selecione 'Reforço Local'.\n5. Confirme — a despesa fica vinculada à mesma categoria do Master, mas dentro deste sub-evento.\n\nResultado: A despesa aparece no BP Master quando expandido (mostra contribuição de cada cidade) e fica registada no sub-evento de Lisboa. Não precisa de justificação textual ('Fora do BP'), mas FICA SUJEITA A APROVAÇÃO de gerente/admin antes de poder ser paga.",
+          "Quando aparece: está a registar uma despesa num evento Split (sub-evento de uma turnê) e a categoria escolhida existe no BP Master da turnê, mas não no BP local desta cidade.\n\nExemplo prático: A turnê 'Diogo Piçarra 2025' tem no BP Master a categoria '2.2.03 Transporte'. Em Lisboa, o BP local não previu transporte adicional, mas surgiu uma despesa de táxi de 80 €.\n\nComo proceder:\n1. Abra o formulário de Nova Transação no evento de Lisboa.\n2. Escolha a categoria '2.2.03 Transporte' (verá categorias do Master no dropdown).\n3. Ao gravar, o sistema abre o diálogo 'Classificação da Despesa'.\n4. Selecione 'Custo Isolado'.\n5. Confirme — a despesa fica vinculada à mesma categoria do Master, mas dentro deste sub-evento.\n\nResultado: A despesa aparece no BP Master quando expandido (mostra contribuição de cada cidade) e fica registada no sub-evento de Lisboa. Não precisa de justificação textual ('Fora do BP'), mas FICA SUJEITA A APROVAÇÃO de gerente/admin antes de poder ser paga.",
       },
       {
         title: "1.2 — Cenário: Vincular ao Master",
@@ -550,7 +550,7 @@ const helpManual: HelpSection[] = [
       {
         title: "1.4 — O que é o estado 'Pendente de Aprovação'?",
         content:
-          "Toda a transação criada via Reforço Local ou Vincular ao Master fica automaticamente em estado 'Pendente de Aprovação' (badge laranja ⏳ na lista de transações).\n\nO que pode fazer enquanto pendente:\n• Editar a descrição, valor, data ou anexar documentos.\n• Cancelar/eliminar (se ainda não foi aprovada).\n\nO que NÃO pode fazer:\n• Registar pagamentos.\n• Incluir em listas de pagamento.\n• Marcar como liquidada.\n\nA transação só desbloqueia para pagamento depois de um gerente ou administrador a aprovar formalmente.",
+          "Toda a transação criada via Custo Isolado ou Vincular ao Master fica automaticamente em estado 'Pendente de Aprovação' (badge laranja ⏳ na lista de transações).\n\nO que pode fazer enquanto pendente:\n• Editar a descrição, valor, data ou anexar documentos.\n• Cancelar/eliminar (se ainda não foi aprovada).\n\nO que NÃO pode fazer:\n• Registar pagamentos.\n• Incluir em listas de pagamento.\n• Marcar como liquidada.\n\nA transação só desbloqueia para pagamento depois de um gerente ou administrador a aprovar formalmente.",
       },
       {
         title: "1.5 — Como saber o estado das minhas transações pendentes?",
@@ -570,7 +570,7 @@ const helpManual: HelpSection[] = [
       {
         title: "2.1 — Onde encontrar transações pendentes",
         content:
-          "Existem três pontos de acesso:\n\n1. Tela dedicada '/aprovacoes-pendentes' — lista todas as pendências com filtros por evento, autor, motivo (Reforço Local / Master / Fora do BP) e período. Permite aprovação em lote.\n\n2. Lista de Transações — aplique o filtro 'Estado de Aprovação > Pendentes' para ver apenas as que aguardam decisão.\n\n3. Notificações push/sino — sempre que um utilizador cria uma transação pendente, gerentes e admins recebem notificação (se a opção estiver ativa nas Definições).",
+          "Existem três pontos de acesso:\n\n1. Tela dedicada '/aprovacoes-pendentes' — lista todas as pendências com filtros por evento, autor, motivo (Custo Isolado / Master / Fora do BP) e período. Permite aprovação em lote.\n\n2. Lista de Transações — aplique o filtro 'Estado de Aprovação > Pendentes' para ver apenas as que aguardam decisão.\n\n3. Notificações push/sino — sempre que um utilizador cria uma transação pendente, gerentes e admins recebem notificação (se a opção estiver ativa nas Definições).",
       },
       {
         title: "2.2 — Como aprovar ou rejeitar",
@@ -585,7 +585,7 @@ const helpManual: HelpSection[] = [
       {
         title: "2.4 — Impacto no Business Plan",
         content:
-          "Reforço Local: a despesa aparece dentro do sub-evento (Split) na linha da categoria correspondente. Quando expande a categoria no BP Master, vê a contribuição de cada cidade. Não cria nova linha no Master.\n\nVincular ao Master: o sistema cria automaticamente uma linha 'Master' no BP da turnê (se não existir) e amarra a transação a essa linha. Útil para custos verdadeiramente partilhados.\n\nFora do BP: a transação fica marcada com badge especial e aparece no relatório 'BP Overrides' (Relatórios > Desvios do BP) para auditoria. Não cria linha automática no BP — se o custo se repetir, considere atualizar o BP formalmente.",
+          "Custo Isolado: a despesa aparece dentro do sub-evento (Split) na linha da categoria correspondente. Quando expande a categoria no BP Master, vê a contribuição de cada cidade. Não cria nova linha no Master.\n\nVincular ao Master: o sistema cria automaticamente uma linha 'Master' no BP da turnê (se não existir) e amarra a transação a essa linha. Útil para custos verdadeiramente partilhados.\n\nFora do BP: a transação fica marcada com badge especial e aparece no relatório 'BP Overrides' (Relatórios > Desvios do BP) para auditoria. Não cria linha automática no BP — se o custo se repetir, considere atualizar o BP formalmente.",
       },
       {
         title: "2.5 — Auditoria e rastreabilidade",
@@ -600,7 +600,7 @@ const helpManual: HelpSection[] = [
       {
         title: "2.7 — Casos especiais e exceções à exceção",
         content:
-          "• Eventos Concluídos: transações pendentes em eventos já fechados precisam de reabertura prévia (operação de Admin) antes de poderem ser aprovadas.\n• BP Passivo: em eventos com BP em modo Passivo, o fluxo de exceções não se aplica — todas as transações entram diretamente sem necessidade de aprovação.\n• Admins criam pendentes: mesmo Admins criam transações em estado pendente quando usam Reforço Local ou Vincular ao Master. Podem auto-aprovar imediatamente, mas o registo da decisão fica logado.\n• Transações de Rateio (Master Split): obedecem às mesmas regras — aprovação propaga-se às transações filhas automaticamente.",
+          "• Eventos Concluídos: transações pendentes em eventos já fechados precisam de reabertura prévia (operação de Admin) antes de poderem ser aprovadas.\n• BP Passivo: em eventos com BP em modo Passivo, o fluxo de exceções não se aplica — todas as transações entram diretamente sem necessidade de aprovação.\n• Admins criam pendentes: mesmo Admins criam transações em estado pendente quando usam Custo Isolado ou Vincular ao Master. Podem auto-aprovar imediatamente, mas o registo da decisão fica logado.\n• Transações de Rateio (Master Split): obedecem às mesmas regras — aprovação propaga-se às transações filhas automaticamente.",
       },
       {
         title: "2.8 — Boas práticas para gerentes/admins",
@@ -610,7 +610,7 @@ const helpManual: HelpSection[] = [
       {
         title: "📋 Resumo rápido — fluxo completo",
         content:
-          "1. Utilizador cria transação → categoria não existe no BP local.\n2. Sistema abre diálogo de classificação → utilizador escolhe Reforço Local / Vincular ao Master / Fora do BP.\n3. Transação fica em estado ⏳ Pendente de Aprovação (bloqueada para pagamento).\n4. Gerente/admin recebe notificação e revê na tela de Aprovações Pendentes.\n5. Aprova (✅ desbloqueia para pagamento) ou Rejeita (❌ devolve ao autor com motivo).\n6. Toda a decisão fica auditada e visível no histórico da transação.",
+          "1. Utilizador cria transação → categoria não existe no BP local.\n2. Sistema abre diálogo de classificação → utilizador escolhe Custo Isolado / Vincular ao Master / Fora do BP.\n3. Transação fica em estado ⏳ Pendente de Aprovação (bloqueada para pagamento).\n4. Gerente/admin recebe notificação e revê na tela de Aprovações Pendentes.\n5. Aprova (✅ desbloqueia para pagamento) ou Rejeita (❌ devolve ao autor com motivo).\n6. Toda a decisão fica auditada e visível no histórico da transação.",
       },
     ],
   },

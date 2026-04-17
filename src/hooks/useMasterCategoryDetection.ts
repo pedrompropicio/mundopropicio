@@ -12,7 +12,7 @@ interface MasterForecastInfo {
 /**
  * Detects whether an event is a sub-event of a tour and returns
  * the Master event's expense BP categories.
- * Used to trigger the "Reforço local vs Rateio Master" dialog.
+ * Used to trigger the "Custo Isolado vs Rateio Master" dialog.
  */
 export function useMasterCategoryDetection(
   eventId: string | undefined,
