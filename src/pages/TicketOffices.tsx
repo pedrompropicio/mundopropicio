@@ -14,6 +14,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketOfficeTicketingTab } from "@/components/TicketOfficeTicketingTab";
+import { TicketOfficeSettlementsPanel } from "@/components/TicketOfficeSettlementsPanel";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -230,6 +231,7 @@ export default function TicketOffices() {
             <TabsTrigger value="dados">Dados</TabsTrigger>
             <TabsTrigger value="liquidez">Liquidez</TabsTrigger>
             <TabsTrigger value="vendas">Vendas / Bilhetes</TabsTrigger>
+            <TabsTrigger value="fechos">Fechos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dados">
@@ -294,6 +296,10 @@ export default function TicketOffices() {
               <TicketOfficeEventsList officeId={selectedOffice.id} />
               <TicketOfficeTicketingTab officeId={selectedOffice.id} officeName={selectedOffice.name} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="fechos">
+            <TicketOfficeSettlementsPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>
         </Tabs>
 

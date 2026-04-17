@@ -2134,6 +2134,113 @@ export type Database = {
           },
         ]
       }
+      ticket_office_settlements: {
+        Row: {
+          adjustment_notes: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string
+          document_name: string | null
+          document_url: string | null
+          event_id: string
+          financial_account_id: string
+          gross_revenue: number
+          id: string
+          net_adjusted: number | null
+          net_calculated: number
+          net_transferred: number
+          notes: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          status: string
+          total_deductions: number
+          transfer_account_id: string | null
+          transfer_transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          adjustment_notes?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          document_name?: string | null
+          document_url?: string | null
+          event_id: string
+          financial_account_id: string
+          gross_revenue?: number
+          id?: string
+          net_adjusted?: number | null
+          net_calculated?: number
+          net_transferred?: number
+          notes?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          total_deductions?: number
+          transfer_account_id?: string | null
+          transfer_transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          adjustment_notes?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          document_name?: string | null
+          document_url?: string | null
+          event_id?: string
+          financial_account_id?: string
+          gross_revenue?: number
+          id?: string
+          net_adjusted?: number | null
+          net_calculated?: number
+          net_transferred?: number
+          notes?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: string
+          total_deductions?: number
+          transfer_account_id?: string | null
+          transfer_transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_office_settlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_settlements_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_settlements_transfer_account_id_fkey"
+            columns: ["transfer_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_settlements_transfer_transaction_id_fkey"
+            columns: ["transfer_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_sales: {
         Row: {
           created_at: string
@@ -2380,6 +2487,7 @@ export type Database = {
           payment_reference: string | null
           pl_override_note: string | null
           reimbursement_to: string | null
+          settlement_id: string | null
           specification: string | null
           split_amount: number | null
           split_mode: string | null
@@ -2413,6 +2521,7 @@ export type Database = {
           payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
+          settlement_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
@@ -2446,6 +2555,7 @@ export type Database = {
           payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
+          settlement_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
@@ -2482,6 +2592,13 @@ export type Database = {
             columns: ["parent_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_office_settlements"
             referencedColumns: ["id"]
           },
           {
