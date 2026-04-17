@@ -335,8 +335,10 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   }, [eventForecasts, isParentMultiDay, effectiveEventId]);
 
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
-  // show disambiguation dialog instead of auto-activating split
-  const tryAutoSplitFromSubEvent = (categoryId: string, type: string) => {
+  // show disambiguation dialog instead of auto-activating split.
+  // `clickedLine` (optional): when the user clicks a specific BP line, prefer it
+  // for auto-fill instead of falling back to the first matching forecast in the category.
+  const tryAutoSplitFromSubEvent = (categoryId: string, type: string, clickedLine?: any) => {
     if (!isSubEvent || isSplit || !categoryId) return false;
     const parentId = selectedEvent?.parent_event_id;
     if (!parentId) return false;
@@ -347,10 +349,16 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     );
     if (!parentForecast) return false;
 
-    // Check if category also exists in the sub-event's own BP
-    const subEventForecast = eventForecasts.find(
-      (f: any) => f.event_id === form.event_id && f.type === type && f.category_id === categoryId
-    );
+    // Determine the sub-event forecast to use for auto-fill on "Exclusive":
+    // 1) If user clicked a specific line in the sub-event's BP, prefer it.
+    // 2) Otherwise fall back to the first matching forecast in the category.
+    const clickedIsSubEventLine =
+      clickedLine && clickedLine.event_id === form.event_id;
+    const subEventForecast = clickedIsSubEventLine
+      ? clickedLine
+      : eventForecasts.find(
+          (f: any) => f.event_id === form.event_id && f.type === type && f.category_id === categoryId
+        );
 
     // Get all sibling sub-events (children of the same parent)
     const siblings = subEventsByParent[parentId] || [];
@@ -1413,7 +1421,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
-              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type);
+              const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
               if (switched) return; // disambiguation dialog will handle it
               setForm(prev => ({
                 ...prev,
