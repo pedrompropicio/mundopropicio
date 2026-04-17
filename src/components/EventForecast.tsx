@@ -22,6 +22,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
+import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 
 interface InlineForm {
   type: string;
