@@ -393,8 +393,11 @@ function drawForecastTable(
   yStart: number,
   title: string,
   forecasts: ForecastRow[],
+  allForecasts: ForecastRow[],
   forecastPartners: { forecast_id: string; partner_id: string }[],
   partners: PartnerRow[],
+  transactions: TxRow[],
+  auditLogs: AuditLog[],
   accent: [number, number, number],
 ): number {
   const { doc, marginLeft, contentWidth } = ctx;
@@ -419,7 +422,6 @@ function drawForecastTable(
 
   const groups = groupByCategory(forecasts);
 
-  // Column widths sum = contentWidth (≈ 277 mm em landscape A4 menos margens)
   const colWidths = {
     code: 16,
     desc: 55,
@@ -433,59 +435,128 @@ function drawForecastTable(
   };
   const totalCols = Object.values(colWidths).reduce((s, v) => s + v, 0);
 
+  const auditByFc = new Map<string, AuditLog[]>();
+  auditLogs.forEach((a) => {
+    const arr = auditByFc.get(a.forecast_id) ?? [];
+    arr.push(a);
+    auditByFc.set(a.forecast_id, arr);
+  });
+
   groups.forEach((g) => {
     const head = [[
-      "Código",
-      "Descrição",
-      "Especificação",
-      "Resp. (Sócio)",
-      "Status",
-      "Vínculo",
-      "Valor s/IVA",
-      "IVA %",
-      "Total",
+      "Código", "Descrição", "Especificação", "Resp. (Sócio)",
+      "Status", "Vínculo", "Valor s/IVA", "IVA %", "Total",
     ]];
 
-    // Body: cada linha + (opcional) linha de observação a ocupar a largura toda
     const body: any[] = [];
     g.rows.forEach((r) => {
+      // Main forecast row
       body.push([
         r.account_categories?.code ?? "—",
         r.description ?? "",
         r.specification ?? "",
         partnersForForecast(r.id, forecastPartners, partners),
         statusLabel(r.status),
-        r.transaction_id ? "Sim" : "—",
+        r.transaction_id ? "Vinc." : "—",
         fmt(Number(r.amount)),
         `${r.iva_rate}%`,
         fmt(Number(r.amount) * (1 + Number(r.iva_rate) / 100)),
       ]);
+
+      // Sub-row: Notes / Observação (sempre que existe)
       const note = (r.notes ?? "").trim();
       if (note.length > 0) {
-        body.push([
-          {
-            content: `📝 ${note}`,
+        body.push([{
+          content: `📝 Observação: ${note}`,
+          colSpan: 9,
+          styles: {
+            fillColor: [253, 252, 240] as [number, number, number],
+            textColor: [90, 70, 30] as [number, number, number],
+            fontStyle: "italic" as const,
+            fontSize: 6.8,
+            cellPadding: { top: 1.2, right: 2, bottom: 1.4, left: 6 },
+          },
+        }]);
+      }
+
+      // Sub-rows: Transações vinculadas / correspondentes (desdobramento)
+      const matched = matchTransactionsForForecast(r, allForecasts, transactions);
+      if (matched.length > 0) {
+        body.push([{
+          content: `🔗 Transações (${matched.length})`,
+          colSpan: 9,
+          styles: {
+            fillColor: [238, 244, 252] as [number, number, number],
+            textColor: [40, 60, 110] as [number, number, number],
+            fontStyle: "bold" as const,
+            fontSize: 6.8,
+            cellPadding: { top: 1.2, right: 2, bottom: 1, left: 6 },
+          },
+        }]);
+        matched.forEach((t) => {
+          const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+          const txPaid = Number(t.paid_amount ?? 0);
+          const txBal = Math.max(0, txTotal - txPaid);
+          const sup = t.suppliers?.name ?? "—";
+          const inv = t.invoice_number ? `Fatura ${t.invoice_number} · ` : "";
+          const due = t.due_date ? `Vcto ${formatDatePT(t.due_date)} · ` : "";
+          const pay = t.payment_date ? `Pago em ${formatDatePT(t.payment_date)} · ` : "";
+          const balLine = txBal > 0.01 ? ` · Aberto ${fmt(txBal)}` : "";
+          const specLine = t.specification ? ` (${t.specification})` : "";
+          const txLabel = `   • ${t.description}${specLine}  —  ${sup}\n      ${inv}${due}${pay}Pago ${fmt(txPaid)} / Total ${fmt(txTotal)}${balLine}  [${txStatusLabel(t)}]`;
+          body.push([{
+            content: txLabel,
             colSpan: 9,
             styles: {
-              fillColor: [253, 252, 240] as [number, number, number],
-              textColor: [90, 70, 30] as [number, number, number],
-              fontStyle: "italic" as const,
-              fontSize: 6.8,
-              cellPadding: { top: 1, right: 2, bottom: 1.2, left: 6 },
+              fillColor: [248, 250, 254] as [number, number, number],
+              textColor: [50, 60, 80] as [number, number, number],
+              fontSize: 6.5,
+              cellPadding: { top: 0.8, right: 2, bottom: 0.8, left: 6 },
             },
+          }]);
+        });
+      }
+
+      // Sub-rows: Histórico de auditoria da linha
+      const audits = auditByFc.get(r.id) ?? [];
+      if (audits.length > 0) {
+        body.push([{
+          content: `📜 Histórico de alterações (${audits.length})`,
+          colSpan: 9,
+          styles: {
+            fillColor: [245, 240, 250] as [number, number, number],
+            textColor: [80, 50, 110] as [number, number, number],
+            fontStyle: "bold" as const,
+            fontSize: 6.8,
+            cellPadding: { top: 1.2, right: 2, bottom: 1, left: 6 },
           },
-        ]);
+        }]);
+        audits.forEach((a) => {
+          const when = new Date(a.created_at).toLocaleString("pt-PT", {
+            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+          });
+          const obs = a.observation ? `\n      "${a.observation}"` : "";
+          const auditLine = `   • [${when}] ${a.field_name}: "${a.old_value ?? "—"}" → "${a.new_value ?? "—"}" — por ${a.changed_by}${obs}`;
+          body.push([{
+            content: auditLine,
+            colSpan: 9,
+            styles: {
+              fillColor: [251, 248, 254] as [number, number, number],
+              textColor: [70, 50, 90] as [number, number, number],
+              fontSize: 6.4,
+              cellPadding: { top: 0.7, right: 2, bottom: 0.7, left: 6 },
+            },
+          }]);
+        });
       }
     });
 
-    // Subtotal como FOOT — dentro da grelha → alinhamento garantido
     const foot = [[
       {
         content: `Subtotal ${g.groupCode} ${g.groupName}`,
         colSpan: 6,
         styles: {
-          halign: "left" as const,
-          fontStyle: "bold" as const,
+          halign: "left" as const, fontStyle: "bold" as const,
           fillColor: [240, 240, 245] as [number, number, number],
           textColor: [40, 40, 60] as [number, number, number],
         },
@@ -493,21 +564,16 @@ function drawForecastTable(
       {
         content: fmt(g.baseTotal),
         styles: {
-          halign: "right" as const,
-          fontStyle: "bold" as const,
+          halign: "right" as const, fontStyle: "bold" as const,
           fillColor: [240, 240, 245] as [number, number, number],
           textColor: [40, 40, 60] as [number, number, number],
         },
       },
-      {
-        content: "",
-        styles: { fillColor: [240, 240, 245] as [number, number, number] },
-      },
+      { content: "", styles: { fillColor: [240, 240, 245] as [number, number, number] } },
       {
         content: fmt(g.baseTotal + g.ivaTotal),
         styles: {
-          halign: "right" as const,
-          fontStyle: "bold" as const,
+          halign: "right" as const, fontStyle: "bold" as const,
           fillColor: [240, 240, 245] as [number, number, number],
           textColor: [40, 40, 60] as [number, number, number],
         },
@@ -515,9 +581,7 @@ function drawForecastTable(
     ]];
 
     autoTable(doc, {
-      head,
-      body,
-      foot,
+      head, body, foot,
       startY: y,
       margin: { left: marginLeft, right: marginLeft },
       theme: "grid",
