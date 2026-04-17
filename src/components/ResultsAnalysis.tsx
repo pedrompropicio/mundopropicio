@@ -184,8 +184,9 @@ export function ResultsAnalysis() {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
       const rate = lotIvaRate[ts.lot_id] ?? 6;
-      const netUnit = Number(ts.unit_price) / (1 + rate / 100);
-      salesByEvent[eventId] = (salesByEvent[eventId] || 0) + Number(ts.quantity) * netUnit;
+      const grossRevenue = ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
+      const netRevenue = grossRevenue / (1 + rate / 100);
+      salesByEvent[eventId] = (salesByEvent[eventId] || 0) + netRevenue;
     });
 
     // ── Per-event BP expense map by category_id (event_forecasts.amount já é base sem IVA) ──

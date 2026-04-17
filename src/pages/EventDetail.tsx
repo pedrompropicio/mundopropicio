@@ -251,13 +251,13 @@ export default function EventDetail() {
       // Get all ticket sales
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("lot_id, quantity, unit_price")
+        .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lots.map(l => l.id));
 
       if (!sales || sales.length === 0) return 0;
 
-      // Calculate gross revenue from ticket sales
-      return sales.reduce((sum, s) => sum + (s.quantity * Number(s.unit_price)), 0);
+      // Calculate gross revenue from ticket sales (uses exact total_value when available)
+      return sales.reduce((sum, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
     },
     enabled: !!id,
   });

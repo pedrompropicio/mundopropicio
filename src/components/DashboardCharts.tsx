@@ -53,7 +53,7 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
-      ticketRevenueByEvent[eventId] = (ticketRevenueByEvent[eventId] || 0) + Number(ts.quantity) * Number(ts.unit_price);
+      ticketRevenueByEvent[eventId] = (ticketRevenueByEvent[eventId] || 0) + (ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price));
     });
     Object.entries(ticketRevenueByEvent).forEach(([eventId, revenue]) => {
       if (!eventTotals[eventId]) {
@@ -124,7 +124,7 @@ export function DashboardCharts({ transactions, events, categories, ticketSales 
       const d = new Date(ts.sale_date);
       if (d.getFullYear() === currentYear) {
         const m = d.getMonth();
-        monthly[m].receitas += Number(ts.quantity) * Number(ts.unit_price);
+        monthly[m].receitas += ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
       }
     });
 

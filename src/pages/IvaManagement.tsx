@@ -103,7 +103,7 @@ function computeQuarterlyIva(txns: DbTransaction[], sales: TicketSaleRow[]): Qua
   // Ticket sales (IVA Liquidado) — prices are gross (with IVA)
   sales.forEach((s) => {
     const entry = ensureEntry(s.sale_date);
-    const gross = s.quantity * s.unit_price;
+    const gross = (s as any).total_value != null ? Number((s as any).total_value) : s.quantity * s.unit_price;
     entry.ivaLiquidado += ivaFromGross(gross, s.iva_rate);
   });
 
@@ -134,7 +134,7 @@ function computeEventIva(txns: DbTransaction[], sales: TicketSaleRow[], eventsMa
 
   sales.forEach((s) => {
     const entry = ensureEntry(s.event_id);
-    const gross = s.quantity * s.unit_price;
+    const gross = (s as any).total_value != null ? Number((s as any).total_value) : s.quantity * s.unit_price;
     entry.ivaLiquidado += ivaFromGross(gross, s.iva_rate);
   });
 
@@ -158,7 +158,7 @@ function computeRateBreakdown(txns: DbTransaction[], sales: TicketSaleRow[]): Ra
     const baseIncomeFromTxns = incTxns.reduce((s, t) => s + calcBaseAmount(t.amount, t.iva_rate as IvaRate), 0);
     const ivaIncomeFromTxns = incTxns.reduce((s, t) => s + calcIvaAmount(t.amount, t.iva_rate as IvaRate), 0);
 
-    const grossSales = rateSales.reduce((s, t) => s + t.quantity * t.unit_price, 0);
+    const grossSales = rateSales.reduce((s, t) => s + ((t as any).total_value != null ? Number((t as any).total_value) : t.quantity * t.unit_price), 0);
     const baseIncomeFromSales = baseFromGross(grossSales, rate);
     const ivaIncomeFromSales = ivaFromGross(grossSales, rate);
 
@@ -255,6 +255,7 @@ export default function IvaManagement() {
           sale_date: s.sale_date,
           quantity: s.quantity,
           unit_price: s.unit_price,
+          total_value: (s as any).total_value,
           iva_rate: lot.iva_rate,
           event_id: eventId,
         } as TicketSaleRow;
