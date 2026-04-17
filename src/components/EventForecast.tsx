@@ -1561,6 +1561,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <ArrowUpRight className="h-3.5 w-3.5" /> Consolidar
                       </button>
                     )}
+                    {isAdmin && childEventIds && childEventIds.length > 0 && (
+                      <button
+                        onClick={() => setShowOrphans(true)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors"
+                        title="Listar todas as transações órfãs dos sub-eventos (todas as categorias)"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" /> Órfãs
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
