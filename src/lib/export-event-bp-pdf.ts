@@ -361,56 +361,122 @@ function drawForecastTable(
 
   const groups = groupByCategory(forecasts);
 
+  // Column widths sum = contentWidth (≈ 277 mm em landscape A4 menos margens)
+  const colWidths = {
+    code: 16,
+    desc: 55,
+    spec: 38,
+    partner: 32,
+    status: 18,
+    link: 14,
+    base: 26,
+    iva: 14,
+    total: 28,
+  };
+  const totalCols = Object.values(colWidths).reduce((s, v) => s + v, 0);
+
   groups.forEach((g) => {
-    const head = [
-      [
-        "Código",
-        "Descrição",
-        "Especificação",
-        "Resp. (Sócio)",
-        "Status",
-        "Vínculo",
-        "Valor s/IVA",
-        "IVA %",
-        "Total",
-      ],
-    ];
-    const body = g.rows.map((r) => [
-      r.account_categories?.code ?? "—",
-      r.description ?? "",
-      r.specification ?? "",
-      partnersForForecast(r.id, forecastPartners, partners),
-      statusLabel(r.status),
-      r.transaction_id ? "Sim" : "—",
-      fmt(Number(r.amount)),
-      `${r.iva_rate}%`,
-      fmt(Number(r.amount) * (1 + Number(r.iva_rate) / 100)),
-    ]);
+    const head = [[
+      "Código",
+      "Descrição",
+      "Especificação",
+      "Resp. (Sócio)",
+      "Status",
+      "Vínculo",
+      "Valor s/IVA",
+      "IVA %",
+      "Total",
+    ]];
+
+    // Body: cada linha + (opcional) linha de observação a ocupar a largura toda
+    const body: any[] = [];
+    g.rows.forEach((r) => {
+      body.push([
+        r.account_categories?.code ?? "—",
+        r.description ?? "",
+        r.specification ?? "",
+        partnersForForecast(r.id, forecastPartners, partners),
+        statusLabel(r.status),
+        r.transaction_id ? "Sim" : "—",
+        fmt(Number(r.amount)),
+        `${r.iva_rate}%`,
+        fmt(Number(r.amount) * (1 + Number(r.iva_rate) / 100)),
+      ]);
+      const note = (r.notes ?? "").trim();
+      if (note.length > 0) {
+        body.push([
+          {
+            content: `📝 ${note}`,
+            colSpan: 9,
+            styles: {
+              fillColor: [253, 252, 240] as [number, number, number],
+              textColor: [90, 70, 30] as [number, number, number],
+              fontStyle: "italic" as const,
+              fontSize: 6.8,
+              cellPadding: { top: 1, right: 2, bottom: 1.2, left: 6 },
+            },
+          },
+        ]);
+      }
+    });
+
+    // Subtotal como FOOT — dentro da grelha → alinhamento garantido
+    const foot = [[
+      {
+        content: `Subtotal ${g.groupCode} ${g.groupName}`,
+        colSpan: 6,
+        styles: {
+          halign: "left" as const,
+          fontStyle: "bold" as const,
+          fillColor: [240, 240, 245] as [number, number, number],
+          textColor: [40, 40, 60] as [number, number, number],
+        },
+      },
+      {
+        content: fmt(g.baseTotal),
+        styles: {
+          halign: "right" as const,
+          fontStyle: "bold" as const,
+          fillColor: [240, 240, 245] as [number, number, number],
+          textColor: [40, 40, 60] as [number, number, number],
+        },
+      },
+      {
+        content: "",
+        styles: { fillColor: [240, 240, 245] as [number, number, number] },
+      },
+      {
+        content: fmt(g.baseTotal + g.ivaTotal),
+        styles: {
+          halign: "right" as const,
+          fontStyle: "bold" as const,
+          fillColor: [240, 240, 245] as [number, number, number],
+          textColor: [40, 40, 60] as [number, number, number],
+        },
+      },
+    ]];
 
     autoTable(doc, {
       head,
       body,
+      foot,
       startY: y,
       margin: { left: marginLeft, right: marginLeft },
       theme: "grid",
+      tableWidth: totalCols,
       styles: { fontSize: 7, cellPadding: 1.2, overflow: "linebreak", textColor: [30, 30, 40] },
       headStyles: { fillColor: [240, 240, 245], textColor: [60, 60, 80], fontStyle: "bold", fontSize: 7 },
+      footStyles: { fontSize: 7.5, cellPadding: 1.5 },
       columnStyles: {
-        0: { cellWidth: 14 },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 32 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 16 },
-        5: { cellWidth: 12, halign: "center" },
-        6: { cellWidth: 22, halign: "right" },
-        7: { cellWidth: 12, halign: "right" },
-        8: { cellWidth: 22, halign: "right" },
-      },
-      didDrawPage: () => {},
-      willDrawCell: (data) => {
-        if (data.section === "head" && data.column.index === 0) {
-          // Group header banner before first column header
-        }
+        0: { cellWidth: colWidths.code },
+        1: { cellWidth: colWidths.desc },
+        2: { cellWidth: colWidths.spec },
+        3: { cellWidth: colWidths.partner },
+        4: { cellWidth: colWidths.status },
+        5: { cellWidth: colWidths.link, halign: "center" },
+        6: { cellWidth: colWidths.base, halign: "right" },
+        7: { cellWidth: colWidths.iva, halign: "right" },
+        8: { cellWidth: colWidths.total, halign: "right" },
       },
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 4) {
@@ -421,22 +487,8 @@ function drawForecastTable(
       },
     });
 
-    // After each table, add a group subtotal line
     const finalY = (doc as any).lastAutoTable.finalY ?? y;
-    doc.setFillColor(248, 248, 252);
-    doc.rect(marginLeft, finalY, contentWidth, 5, "F");
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(60, 60, 80);
-    doc.text(`Subtotal ${g.groupCode} ${g.groupName}`, marginLeft + 2, finalY + 3.5);
-    doc.text(
-      `${fmt(g.baseTotal)}  ·  IVA ${fmt(g.ivaTotal)}  ·  Total ${fmt(g.baseTotal + g.ivaTotal)}`,
-      marginLeft + contentWidth - 2,
-      finalY + 3.5,
-      { align: "right" },
-    );
-    doc.setTextColor(0, 0, 0);
-    y = finalY + 8;
+    y = finalY + 4;
 
     if (y > ctx.pageHeight - 20) {
       doc.addPage();
@@ -447,49 +499,6 @@ function drawForecastTable(
   return y;
 }
 
-function drawNotesSection(
-  ctx: RenderContext,
-  yStart: number,
-  forecasts: ForecastRow[],
-): number {
-  const { doc, marginLeft, contentWidth, pageHeight } = ctx;
-  const withNotes = forecasts.filter((f) => f.notes && f.notes.trim().length > 0);
-  if (withNotes.length === 0) return yStart;
-
-  let y = yStart;
-  if (y > pageHeight - 40) {
-    doc.addPage();
-    y = 14;
-  }
-  doc.setFillColor(60, 60, 80);
-  doc.rect(marginLeft, y, contentWidth, 6, "F");
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("OBSERVAÇÕES / NOTAS", marginLeft + 3, y + 4.2);
-  doc.setTextColor(0, 0, 0);
-  y += 8;
-
-  autoTable(doc, {
-    head: [["Código", "Descrição", "Nota"]],
-    body: withNotes.map((f) => [
-      f.account_categories?.code ?? "—",
-      f.description ?? "",
-      f.notes ?? "",
-    ]),
-    startY: y,
-    margin: { left: marginLeft, right: marginLeft },
-    theme: "grid",
-    styles: { fontSize: 7, cellPadding: 1.5, overflow: "linebreak", textColor: [40, 40, 50] },
-    headStyles: { fillColor: [240, 240, 245], textColor: [60, 60, 80], fontStyle: "bold", fontSize: 7 },
-    columnStyles: {
-      0: { cellWidth: 16 },
-      1: { cellWidth: 60 },
-      2: { cellWidth: contentWidth - 76 },
-    },
-  });
-  return ((doc as any).lastAutoTable?.finalY ?? y) + 6;
-}
 
 function drawAuditSection(
   ctx: RenderContext,
@@ -587,7 +596,6 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   }
   y = drawForecastTable(ctx, y, "Despesas", expenses, forecastPartners, partners, [160, 60, 60]);
 
-  y = drawNotesSection(ctx, y + 2, forecasts);
   y = drawAuditSection(ctx, y + 2, forecasts, auditLogs);
 }
 
