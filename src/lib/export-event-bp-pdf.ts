@@ -698,7 +698,7 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   if (!isFirst) {
     ctx.doc.addPage();
   }
-  const { event, forecasts, partners, forecastPartners, auditLogs } = await fetchEventBundle(eventId);
+  const { event, forecasts, partners, forecastPartners, auditLogs, transactions } = await fetchEventBundle(eventId);
 
   let y = drawHeader(
     ctx,
@@ -711,14 +711,12 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   const incomes = forecasts.filter((f) => f.type === "income");
   const expenses = forecasts.filter((f) => f.type === "expense");
 
-  y = drawForecastTable(ctx, y, "Receitas", incomes, forecastPartners, partners, [34, 110, 60]);
+  y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60]);
   if (y > ctx.pageHeight - 40) {
     ctx.doc.addPage();
     y = 14;
   }
-  y = drawForecastTable(ctx, y, "Despesas", expenses, forecastPartners, partners, [160, 60, 60]);
-
-  y = drawAuditSection(ctx, y + 2, forecasts, auditLogs);
+  y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60]);
 }
 
 export async function exportEventBPToPDF({ eventId, includeChildren = true }: BPExportInput): Promise<void> {
