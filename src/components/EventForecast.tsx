@@ -1921,16 +1921,39 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     ) ?? [];
     
     if (forecastsWithSameCat.length <= 1) return sameCat;
-    
-    // Multiple forecasts share this category — match by description
-    const descLower = item.description?.toLowerCase().trim() ?? "";
+
+    // Multiple forecasts share this category — assign each transaction to the
+    // forecast with the BEST description match, so a transaction is never shown
+    // under more than one BP line.
+    const scoreMatch = (forecastDesc: string, txDesc: string): number => {
+      const f = (forecastDesc ?? "").toLowerCase().trim();
+      const t = (txDesc ?? "").toLowerCase().trim();
+      if (!f && !t) return 0;
+      if (f === t) return 1000; // exact match wins
+      if (!f || !t) return 0;
+      // Substring overlap — score by length of the shorter string
+      // (longer overlap = stronger match). Tie-breaker: forecast desc length
+      // so the most specific BP line wins ("Camarim compras cartão mp" beats "Camarim").
+      const isSubstring = t.includes(f) || f.includes(t);
+      if (!isSubstring) return 0;
+      const overlap = Math.min(f.length, t.length);
+      return overlap + (f.length / 1000);
+    };
+
     const matched = sameCat.filter((t: any) => {
-      const txDesc = t.description?.toLowerCase().trim() ?? "";
-      return txDesc === descLower || txDesc.includes(descLower) || descLower.includes(txDesc);
+      const myScore = scoreMatch(item.description, t.description);
+      if (myScore <= 0) return false;
+      // Must beat every other forecast that shares this category
+      const bestOther = forecastsWithSameCat.reduce((max: number, f: any) => {
+        if (f.id === item.id) return max;
+        const s = scoreMatch(f.description, t.description);
+        return s > max ? s : max;
+      }, 0);
+      return myScore > bestOther;
     });
-    
+
     return matched.length > 0 ? matched : [];
-  }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, item.event_id, allForecasts]);
+  }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, item.event_id, item.id, allForecasts]);
 
   const hasMatchingTx = matchingTransactions.length > 0;
 

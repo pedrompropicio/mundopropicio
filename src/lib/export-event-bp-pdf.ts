@@ -161,10 +161,30 @@ function matchTransactionsForForecast(
   );
   if (fcSameCat.length <= 1) return sameCat;
 
-  const descLower = (fc.description ?? "").toLowerCase().trim();
+  // Multiple forecasts share this category — assign each transaction to the
+  // forecast with the BEST description match, so a transaction is never shown
+  // under more than one BP line.
+  const scoreMatch = (forecastDesc: string, txDesc: string): number => {
+    const f = (forecastDesc ?? "").toLowerCase().trim();
+    const t = (txDesc ?? "").toLowerCase().trim();
+    if (!f && !t) return 0;
+    if (f === t) return 1000;
+    if (!f || !t) return 0;
+    const isSubstring = t.includes(f) || f.includes(t);
+    if (!isSubstring) return 0;
+    const overlap = Math.min(f.length, t.length);
+    return overlap + (f.length / 1000);
+  };
+
   const matched = sameCat.filter((t) => {
-    const txDesc = (t.description ?? "").toLowerCase().trim();
-    return txDesc === descLower || txDesc.includes(descLower) || descLower.includes(txDesc);
+    const myScore = scoreMatch(fc.description, t.description ?? "");
+    if (myScore <= 0) return false;
+    const bestOther = fcSameCat.reduce((max, f) => {
+      if (f.id === fc.id) return max;
+      const s = scoreMatch(f.description, t.description ?? "");
+      return s > max ? s : max;
+    }, 0);
+    return myScore > bestOther;
   });
   return matched.length > 0 ? matched : [];
 }
