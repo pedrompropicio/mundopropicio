@@ -1817,6 +1817,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           categories={categories}
         />
       )}
+      {showOrphans && childEventIds && (
+        <OrphanTransactionsModal
+          open={showOrphans}
+          onOpenChange={setShowOrphans}
+          masterEventId={eventId}
+          childEventIds={childEventIds}
+        />
+      )}
     </div>
   );
 }
