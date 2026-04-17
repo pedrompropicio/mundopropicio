@@ -574,10 +574,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
   // Fetch Master split transactions (parent rows: event_id null, with children in current splitEventIds)
   // Used to compute "used" against the Master BP balance (separate bucket from Sub-local expenses)
   const { data: masterSplitUsed = 0 } = useQuery({
-    queryKey: ["master-split-used", splitParentEventIds, form.category_id, form.type, editingId],
+    queryKey: ["master-split-used", splitParentEventIds, form.category_id, form.type],
     queryFn: async () => {
       if (splitParentEventIds.length === 0 || !form.category_id) return 0;
-      // Find all child transactions in any of the parent's sub-events with this category
       const { data: subEvents, error: subErr } = await supabase
         .from("events")
         .select("id")
@@ -593,8 +592,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
         .eq("type", form.type)
         .not("parent_transaction_id", "is", null);
       if (childErr) throw childErr;
-      const filtered = (childTxs ?? []).filter((t: any) => t.id !== editingId);
-      return filtered.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+      return (childTxs ?? []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
     },
     enabled: isSplit && splitParentEventIds.length > 0 && !!form.category_id,
   });
