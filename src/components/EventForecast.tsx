@@ -23,6 +23,7 @@ import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
+import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 
 interface InlineForm {
   type: string;
@@ -68,6 +69,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
   const [showOrphans, setShowOrphans] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -1570,8 +1572,27 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <AlertTriangle className="h-3.5 w-3.5" /> Órfãs
                       </button>
                     )}
+                    <button
+                      onClick={async () => {
+                        setExportingPDF(true);
+                        try {
+                          await exportEventBPToPDF({ eventId, includeChildren: true });
+                          toast({ title: "PDF do BP gerado" });
+                        } catch (err: any) {
+                          toast({ title: "Erro ao gerar PDF", description: err?.message ?? String(err), variant: "destructive" });
+                        } finally {
+                          setExportingPDF(false);
+                        }
+                      }}
+                      disabled={exportingPDF}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                      title="Exportar relatório de conferência do Business Plan em PDF"
+                    >
+                      <FileText className="h-3.5 w-3.5" /> {exportingPDF ? "A gerar…" : "PDF"}
+                    </button>
                   </div>
                 </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>

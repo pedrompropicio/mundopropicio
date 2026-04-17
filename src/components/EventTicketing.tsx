@@ -5,7 +5,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload } from "lucide-react";
+import { Plus, Trash2, Check, X, Ticket, Layers, ChevronDown, ChevronRight, Store, CheckCircle2, Lock, Upload, FileText } from "lucide-react";
+import { exportEventTicketingToPDF } from "@/lib/export-event-ticketing-pdf";
 import { toast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -60,6 +61,7 @@ function ivaFromGross(gross: number, ivaRate: number): number {
 
 export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }: Props) {
   const [forecastImportOpen, setForecastImportOpen] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -576,6 +578,24 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Zonas de Bilhetes <HelpTooltip text={helpTexts.eventTicketing} size={13} /></h3>
           <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setExportingPDF(true);
+                try {
+                  await exportEventTicketingToPDF({ eventId, includeChildren: true });
+                  sonnerToast.success("PDF da Bilheteria gerado");
+                } catch (err: any) {
+                  sonnerToast.error("Erro ao gerar PDF", { description: err?.message ?? String(err) });
+                } finally {
+                  setExportingPDF(false);
+                }
+              }}
+              disabled={exportingPDF}
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground bg-secondary hover:bg-secondary/80 transition-colors disabled:opacity-50"
+              title="Exportar relatório de conferência da Bilheteria em PDF"
+            >
+              <FileText className="h-3.5 w-3.5" /> {exportingPDF ? "A gerar…" : "PDF"}
+            </button>
             {canEditTickets && (
               <Button variant="outline" size="sm" onClick={() => setForecastImportOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" /> Importar Previsão
@@ -592,6 +612,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
             )}
           </div>
           <TicketForecastImportModal open={forecastImportOpen} onClose={() => setForecastImportOpen(false)} />
+
         </div>
 
         {isLoading ? (
