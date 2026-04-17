@@ -502,8 +502,10 @@ export function ResultsAnalysis() {
                   <th className="p-3 text-right font-medium">
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger className="flex items-center gap-1 ml-auto">
-                          <Users className="h-3 w-3" /> Empresa
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center gap-1 ml-auto cursor-help">
+                            <Users className="h-3 w-3" /> Empresa
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent>Parte da margem que cabe à empresa, descontando a participação dos sócios</TooltipContent>
                       </Tooltip>
