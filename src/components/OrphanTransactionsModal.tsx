@@ -288,7 +288,7 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
             Transações Órfãs dos Sub-Eventos
           </DialogTitle>
           <DialogDescription>
-            Apenas categorias que aparecem em <strong>todos</strong> os sub-eventos com <strong>valores idênticos</strong> e que <strong>ainda não existem no BP Master</strong> são candidatas a rateio. As restantes devem ser adotadas individualmente em linhas Master existentes (botão ↗) ou ignoradas.
+            Apenas categorias com <strong>1 transação por sub-evento</strong>, <strong>mesmo fornecedor</strong> e <strong>valores idênticos</strong> são candidatas a rateio Master no BP. Casos assimétricos (valores ou fornecedores diferentes) devem ser tratados via <strong>rateio desproporcional nas Transações</strong>, ou adotados individualmente numa linha Master existente (botão ↗).
           </DialogDescription>
         </DialogHeader>
 
