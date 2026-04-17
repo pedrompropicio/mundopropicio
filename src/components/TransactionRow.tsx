@@ -625,7 +625,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                               if (linkedFc?.length) {
                                 await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
                               }
-                              toast({ title: "Reclassificado como Reforço local" });
+                              toast({ title: "Reclassificado como Custo Isolado" });
                             }
                             queryClient.invalidateQueries({ queryKey: ["local-reinforcement-check", t.id] });
                             queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
@@ -635,13 +635,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                           }
                         }}
                         className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                        title={isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Reforço local"}
+                        title={isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Custo Isolado"}
                       >
                         <Layers className="h-3.5 w-3.5" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      {isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Reforço local"}
+                      {isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Custo Isolado"}
                     </TooltipContent>
                   </Tooltip>
                 )}
