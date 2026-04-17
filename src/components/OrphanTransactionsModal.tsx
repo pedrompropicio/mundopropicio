@@ -134,8 +134,13 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
     return Array.from(map.entries())
       .map(([id, v]) => {
         const totalsByEvent: Record<string, number> = {};
+        const countsByEvent: Record<string, number> = {};
+        const supplierIds = new Set<string>();
         v.items.forEach((t: any) => {
           totalsByEvent[t.event_id] = (totalsByEvent[t.event_id] || 0) + Number(t.amount);
+          countsByEvent[t.event_id] = (countsByEvent[t.event_id] || 0) + 1;
+          if (t.supplier_id) supplierIds.add(t.supplier_id);
+          else supplierIds.add("__none__");
         });
         const eventsCovered = Object.keys(totalsByEvent).length;
         const totalAmount = v.items.reduce((s, t: any) => s + Number(t.amount), 0);
@@ -148,19 +153,25 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
         } else if (masterCategoryIds.has(id)) {
           reason = "Categoria já existe no BP Master — usar botão Adotar (↗) na linha Master";
         } else if (eventsCovered < totalSubEvents) {
-          reason = `Só aparece em ${eventsCovered}/${totalSubEvents} sub-eventos — não é um rateio`;
+          reason = `Só aparece em ${eventsCovered}/${totalSubEvents} sub-eventos — não é rateio Master`;
+        } else if (Object.values(countsByEvent).some((c) => c > 1)) {
+          const dups = Object.entries(countsByEvent).filter(([, c]) => c > 1).length;
+          reason = `Múltiplos lançamentos no mesmo sub-evento (${dups} caso(s)) — assimetria deve ser tratada via rateio nas Transações`;
+        } else if (supplierIds.size > 1) {
+          reason = `Fornecedores diferentes entre sub-eventos (${supplierIds.size}) — não é rateio simétrico`;
         } else {
-          // Verificar se valores são ~iguais
-          const values = Object.values(totalsByEvent);
-          const avg = values.reduce((s, v) => s + v, 0) / values.length;
-          const maxDeviation = Math.max(...values.map((v) => Math.abs(v - avg) / avg));
+          // Verificar se valores individuais são ~iguais
+          const values = v.items.map((t: any) => Number(t.amount));
+          const avg = values.reduce((s: number, x: number) => s + x, 0) / values.length;
+          const maxDeviation = avg > 0 ? Math.max(...values.map((x: number) => Math.abs(x - avg) / avg)) : 0;
           if (maxDeviation > TOLERANCE) {
             const minV = Math.min(...values);
             const maxV = Math.max(...values);
-            reason = `Valores divergem entre sub-eventos (${formatCurrency(minV)} – ${formatCurrency(maxV)}) — não é um rateio clássico`;
+            reason = `Valores divergem entre sub-eventos (${formatCurrency(minV)} – ${formatCurrency(maxV)}) — rateio desproporcional pertence às Transações`;
           } else {
             isValidRateio = true;
-            reason = `Despesa partilhada: ${formatCurrency(avg)} em cada um dos ${totalSubEvents} sub-eventos`;
+            const supplierName = (v.items[0] as any).suppliers?.name;
+            reason = `Rateio simétrico: ${formatCurrency(avg)} × ${totalSubEvents} sub-eventos${supplierName ? ` · ${supplierName}` : ""}`;
           }
         }
 
