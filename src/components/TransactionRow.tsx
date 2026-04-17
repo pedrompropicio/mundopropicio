@@ -665,7 +665,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3 text-xs">
                     <span className="whitespace-nowrap font-mono text-muted-foreground">
-                      {new Date(t.created_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {formatDatePTOptions(t.created_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
                       {" "}
                       {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                     </span>
@@ -680,7 +680,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   {paidAmount > 0 && !movements.some((m) => m.field_name === "Pagamento parcial" || m.field_name === "Recebimento parcial") && (
                     <div className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
-                        {new Date(t.updated_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {formatDatePTOptions(t.updated_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
                         {" "}
                         {new Date(t.updated_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -731,7 +731,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     return (
                     <div key={m.id} className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
-                        {new Date(m.changed_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {formatDatePTOptions(m.changed_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
                         {" "}
                         {new Date(m.changed_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -866,7 +866,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3 text-xs">
                     <span className="whitespace-nowrap font-mono text-muted-foreground">
-                      {new Date(t.created_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      {formatDatePTOptions(t.created_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
                       {" "}
                       {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
                     </span>

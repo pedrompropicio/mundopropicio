@@ -90,7 +90,7 @@ export function AgendaView({ events, currentMonth, currentYear }: AgendaViewProp
               {weekEvents.map((ev, i) => {
                 const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
                 const isToday = ev.date === todayStr;
-                const dateFormatted = new Date(ev.date + "T12:00:00").toLocaleDateString("pt-PT", {
+                const dateFormatted = formatDatePTOptions(ev.date, {
                   weekday: "short",
                   day: "2-digit",
                   month: "short",

@@ -563,7 +563,7 @@ export default function EventCalendar() {
         ) : (
           <div className="space-y-2">
             {monthReservations.reservations.map((r) => {
-              const dateFormatted = new Date(r.date + "T12:00:00").toLocaleDateString("pt-PT", {
+              const dateFormatted = formatDatePTOptions(r.date, {
                 day: "2-digit",
                 month: "short",
               });
@@ -629,7 +629,7 @@ export default function EventCalendar() {
           <div className="space-y-2">
             {monthReservations.eventsWithVenues.map((ev, i) => {
               const cfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.planning;
-              const dateFormatted = new Date(ev.date + "T12:00:00").toLocaleDateString("pt-PT", {
+              const dateFormatted = formatDatePTOptions(ev.date, {
                 day: "2-digit",
                 month: "short",
               });
