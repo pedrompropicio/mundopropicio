@@ -5,7 +5,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -22,6 +22,7 @@ import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
+import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 
 interface InlineForm {
   type: string;
@@ -66,6 +67,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
+  const [showOrphans, setShowOrphans] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -1559,6 +1561,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <ArrowUpRight className="h-3.5 w-3.5" /> Consolidar
                       </button>
                     )}
+                    {isAdmin && childEventIds && childEventIds.length > 0 && (
+                      <button
+                        onClick={() => setShowOrphans(true)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-warning bg-warning/10 hover:bg-warning/20 transition-colors"
+                        title="Listar todas as transações órfãs dos sub-eventos (todas as categorias)"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" /> Órfãs
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -1804,6 +1815,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           childEventIds={childEventIds}
           mode="create"
           categories={categories}
+        />
+      )}
+      {showOrphans && childEventIds && (
+        <OrphanTransactionsModal
+          open={showOrphans}
+          onOpenChange={setShowOrphans}
+          masterEventId={eventId}
+          childEventIds={childEventIds}
         />
       )}
     </div>
