@@ -86,3 +86,23 @@ export function formatDatePT(value?: string | null): string {
   }
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
+
+/**
+ * Versão flexível de formatDatePT que aceita opções de formatação. Constrói a
+ * data ao meio-dia local para evitar drift de fuso quando a entrada é apenas
+ * YYYY-MM-DD.
+ */
+export function formatDatePTOptions(
+  value?: string | null,
+  options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" },
+): string {
+  if (!value) return "";
+  const datePart = String(value).slice(0, 10);
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const local = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+    return local.toLocaleDateString("pt-PT", options);
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("pt-PT", options);
+}
