@@ -67,6 +67,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
+  const [showOrphans, setShowOrphans] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
