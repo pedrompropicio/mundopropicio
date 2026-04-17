@@ -81,7 +81,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, is_transitory, exclude_from_result");
+        .select("id, event_id, type, amount, status");
       if (error) throw error;
       return data;
     },
@@ -92,7 +92,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, is_transitory, exclude_from_result");
+        .select("id, event_id, type, amount");
       if (error) throw error;
       return data;
     },
@@ -131,41 +131,64 @@ export function ResultsAnalysis() {
     },
   });
 
+  const { data: closingCosts = [] } = useQuery({
+    queryKey: ["ra_closing_costs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_closing_costs")
+        .select("event_id, amount");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { completed, active, yearTotals } = useMemo(() => {
-    // Build maps
-    // Projected revenue from ticket lots (capacity × price)
+    // ── Build sub-event children index per Master event ──
+    const childrenByMaster: Record<string, string[]> = {};
+    events.forEach((e: any) => {
+      if (e.parent_event_id) {
+        if (!childrenByMaster[e.parent_event_id]) childrenByMaster[e.parent_event_id] = [];
+        childrenByMaster[e.parent_event_id].push(e.id);
+      }
+    });
+
+    // ── Projected revenue from ticket lots (capacity × price) ──
     const lotRevenueMap: Record<string, number> = {};
     ticketLots.forEach((lot: any) => {
       const eventId = lot.event_ticket_zones?.event_id;
       if (!eventId) return;
       lotRevenueMap[eventId] = (lotRevenueMap[eventId] || 0) + Number(lot.quantity) * Number(lot.price);
     });
+
+    // ── Real transactions per event (no PL flag filtering, all statuses) ──
     const txnMap: Record<string, { income: number; expense: number }> = {};
     transactions.forEach((t: any) => {
-      if (!t.event_id || t.is_transitory || t.exclude_from_result) return;
+      if (!t.event_id) return;
       if (!txnMap[t.event_id]) txnMap[t.event_id] = { income: 0, expense: 0 };
       if (t.type === "income") txnMap[t.event_id].income += Number(t.amount);
       else txnMap[t.event_id].expense += Number(t.amount);
     });
 
-    // Add ticket sales to txnMap income
+    // ── Real ticket sales per event ──
     const salesByEvent: Record<string, number> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
       salesByEvent[eventId] = (salesByEvent[eventId] || 0) + Number(ts.quantity) * Number(ts.unit_price);
     });
-    Object.entries(salesByEvent).forEach(([eid, rev]) => {
-      if (!txnMap[eid]) txnMap[eid] = { income: 0, expense: 0 };
-      txnMap[eid].income += rev;
-    });
 
+    // ── BP forecasts per event (no PL flag filtering) ──
     const forecastMap: Record<string, { income: number; expense: number }> = {};
     forecasts.forEach((f: any) => {
-      if (f.is_transitory || f.exclude_from_result) return;
       if (!forecastMap[f.event_id]) forecastMap[f.event_id] = { income: 0, expense: 0 };
       if (f.type === "income") forecastMap[f.event_id].income += Number(f.amount);
       else forecastMap[f.event_id].expense += Number(f.amount);
+    });
+
+    // ── Closing costs per event ──
+    const closingMap: Record<string, number> = {};
+    closingCosts.forEach((cc: any) => {
+      closingMap[cc.event_id] = (closingMap[cc.event_id] || 0) + Number(cc.amount);
     });
 
     const partnerMap: Record<string, { totalPct: number; items: any[] }> = {};
@@ -175,7 +198,25 @@ export function ResultsAnalysis() {
       partnerMap[p.event_id].items.push(p);
     });
 
-    // Filter events for current year, exclude parent (multi_day) to avoid double counting
+    // ── Helper: get prorated Master share for a sub-event ──
+    // For sub-event X with Master M (containing N sub-events):
+    //   masterBpExpenseShare    = forecastMap[M].expense / N
+    //   masterRealExpenseShare  = txnMap[M].expense / N
+    //   masterClosingShare      = closingMap[M] / N
+    const getMasterShare = (subEventId: string) => {
+      const sub = events.find((e: any) => e.id === subEventId);
+      const masterId = sub?.parent_event_id;
+      if (!masterId) return { bpExpense: 0, realExpense: 0, closing: 0 };
+      const siblings = childrenByMaster[masterId] || [];
+      const n = siblings.length || 1;
+      return {
+        bpExpense: (forecastMap[masterId]?.expense ?? 0) / n,
+        realExpense: (txnMap[masterId]?.expense ?? 0) / n,
+        closing: (closingMap[masterId] ?? 0) / n,
+      };
+    };
+
+    // ── Filter year events, exclude Master (multi_day) — only sub-events and standalones are listed ──
     const yearEvents = events.filter(
       (e: any) => new Date(e.date).getFullYear() === currentYear && e.event_type !== "multi_day"
     );
@@ -183,15 +224,24 @@ export function ResultsAnalysis() {
     const completed: CompletedResult[] = [];
     const active: ActiveProjection[] = [];
 
-    const today = new Date().toISOString().slice(0, 10);
-
     yearEvents.forEach((e: any) => {
-      const income = txnMap[e.id]?.income ?? 0;
-      const expense = txnMap[e.id]?.expense ?? 0;
+      const masterShare = getMasterShare(e.id);
+
+      // ── REAL ──
+      const ownTicketSales = salesByEvent[e.id] ?? 0;
+      const ownTxnIncome = txnMap[e.id]?.income ?? 0;
+      const ownTxnExpense = txnMap[e.id]?.expense ?? 0;
+      const ownClosing = closingMap[e.id] ?? 0;
+
+      // Real revenue = ticket_sales + transactions(income) — no filtering, may double-count if user logs both
+      const income = ownTicketSales + ownTxnIncome;
+      // Real expense = own transactions + Master share + closing costs (own + Master share)
+      const expense = ownTxnExpense + masterShare.realExpense + ownClosing + masterShare.closing;
       const margin = income - expense;
+
       const totalPartnerPct = partnerMap[e.id]?.totalPct ?? 0;
       const companyPct = 100 - totalPartnerPct;
-      const hasSales = (salesByEvent[e.id] ?? 0) > 0;
+      const hasSales = ownTicketSales > 0;
 
       if (e.status === "completed") {
         completed.push({
@@ -209,19 +259,28 @@ export function ResultsAnalysis() {
           expenseSource: "transactions",
         });
       } else if (e.status === "active" || e.status === "confirmed") {
-        // Projections always use planning data (lots + BP)
-        const bpIncome = lotRevenueMap[e.id] ?? 0;
-        const bpExpense = forecastMap[e.id]?.expense ?? 0;
-        const margin100 = bpIncome - bpExpense;
-        const margin80 = bpIncome * 0.8 - bpExpense;
-        const breakEvenPct = bpIncome > 0 ? (bpExpense / bpIncome) * 100 : 0;
+        // ── PLANNED ──
+        // Planned revenue: ticket lots + non-ticket BP income (we keep all forecast income; user accepted no filter)
+        const lotRevenue = lotRevenueMap[e.id] ?? 0;
+        const bpOtherIncome = forecastMap[e.id]?.income ?? 0;
+        const bpIncome100 = lotRevenue + bpOtherIncome;
+        // 80% scenario: only ticket revenue is reduced; other BP income stays at 100%
+        const bpIncome80 = lotRevenue * 0.8 + bpOtherIncome;
+
+        // Planned expense: own BP + Master BP share + own closing + Master closing share
+        const ownBpExpense = forecastMap[e.id]?.expense ?? 0;
+        const bpExpense = ownBpExpense + masterShare.bpExpense + ownClosing + masterShare.closing;
+
+        const margin100 = bpIncome100 - bpExpense;
+        const margin80 = bpIncome80 - bpExpense;
+        const breakEvenPct = bpIncome100 > 0 ? (bpExpense / bpIncome100) * 100 : 0;
 
         active.push({
           id: e.id,
           name: e.name,
           date: e.date,
-          bpIncome100: bpIncome,
-          bpExpense: bpExpense,
+          bpIncome100,
+          bpExpense,
           margin100,
           margin80,
           breakEvenPct: Math.min(breakEvenPct, 999),
@@ -249,7 +308,7 @@ export function ResultsAnalysis() {
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, currentYear]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, currentYear]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
