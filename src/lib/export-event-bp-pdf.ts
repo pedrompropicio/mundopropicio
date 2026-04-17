@@ -70,7 +70,7 @@ interface TxRow {
   type: string;
   event_id: string | null;
   parent_transaction_id: string | null;
-  invoice_number: string | null;
+  invoice_ref: string | null;
   suppliers?: { name: string } | null;
 }
 
@@ -93,7 +93,7 @@ async function fetchEventBundle(eventId: string) {
       .eq("event_id", eventId),
     supabase
       .from("transactions")
-      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, parent_transaction_id, invoice_number, suppliers:supplier_id(name)")
+      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, parent_transaction_id, invoice_ref, suppliers:supplier_id(name)")
       .or(`event_id.eq.${eventId},event_id.is.null`),
   ]);
 
@@ -498,7 +498,7 @@ function drawForecastTable(
           const txPaid = Number(t.paid_amount ?? 0);
           const txBal = Math.max(0, txTotal - txPaid);
           const sup = t.suppliers?.name ?? "—";
-          const inv = t.invoice_number ? `Fatura ${t.invoice_number} · ` : "";
+          const inv = t.invoice_ref ? `Fatura ${t.invoice_ref} · ` : "";
           const due = t.due_date ? `Vcto ${formatDatePT(t.due_date)} · ` : "";
           const pay = t.payment_date ? `Pago em ${formatDatePT(t.payment_date)} · ` : "";
           const balLine = txBal > 0.01 ? ` · Aberto ${fmt(txBal)}` : "";
