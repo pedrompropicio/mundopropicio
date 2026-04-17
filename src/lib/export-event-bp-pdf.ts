@@ -172,10 +172,52 @@ function matchTransactionsForForecast(
 function txStatusLabel(t: TxRow): string {
   const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
   const paid = Number(t.paid_amount ?? 0);
+  if (t.status === "pending") return "Pendente";
   if (t.status === "paid" || paid >= total - 0.01) return "Pago";
+  if (paid > 0.01) return "Parcial";
   const today = new Date().toISOString().slice(0, 10);
   if (t.due_date && t.due_date.slice(0, 10) < today) return "Atrasado";
   return "A Pagar";
+}
+
+/**
+ * Status agregado da linha-mãe do BP quando tem transações vinculadas.
+ * Reflete a evolução real da execução em vez do status estático do forecast.
+ */
+function aggregatedForecastStatus(
+  forecast: ForecastRow,
+  matchedTx: TxRow[],
+): { label: string; progress?: string } {
+  if (matchedTx.length === 0) {
+    return { label: statusLabel(forecast.status) };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let paidCount = 0;
+  let partialCount = 0;
+  let overdueCount = 0;
+  let pendingCount = 0;
+  let openCount = 0;
+
+  matchedTx.forEach((t) => {
+    const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    const paid = Number(t.paid_amount ?? 0);
+    const fullyPaid = t.status === "paid" || paid >= total - 0.01;
+    if (fullyPaid) { paidCount++; return; }
+    if (t.status === "pending") { pendingCount++; return; }
+    if (paid > 0.01) { partialCount++; return; }
+    if (t.due_date && t.due_date.slice(0, 10) < today) { overdueCount++; return; }
+    openCount++;
+  });
+
+  const total = matchedTx.length;
+  const progress = total > 1 ? `${paidCount}/${total}` : undefined;
+
+  if (paidCount === total) return { label: "Pago", progress };
+  if (overdueCount > 0) return { label: "Atrasado", progress };
+  if (partialCount > 0 || (paidCount > 0 && paidCount < total)) return { label: "Parcial", progress };
+  if (pendingCount > 0) return { label: "Pendente", progress };
+  return { label: "A Pagar", progress };
 }
 
 function statusLabel(s: string): string {
@@ -450,14 +492,19 @@ function drawForecastTable(
 
     const body: any[] = [];
     g.rows.forEach((r) => {
+      // Compute matched transactions early to derive aggregated status
+      const matched = matchTransactionsForForecast(r, allForecasts, transactions);
+      const agg = aggregatedForecastStatus(r, matched);
+      const statusCell = agg.progress ? `${agg.label} (${agg.progress})` : agg.label;
+
       // Main forecast row
       body.push([
         r.account_categories?.code ?? "—",
         r.description ?? "",
         r.specification ?? "",
         partnersForForecast(r.id, forecastPartners, partners),
-        statusLabel(r.status),
-        r.transaction_id ? "Vinc." : "—",
+        statusCell,
+        r.transaction_id || matched.length > 0 ? "Vinc." : "—",
         fmt(Number(r.amount)),
         `${r.iva_rate}%`,
         fmt(Number(r.amount) * (1 + Number(r.iva_rate) / 100)),
@@ -480,7 +527,6 @@ function drawForecastTable(
       }
 
       // Sub-rows: Transações vinculadas / correspondentes (desdobramento)
-      const matched = matchTransactionsForForecast(r, allForecasts, transactions);
       if (matched.length > 0) {
         body.push([{
           content: `Transações (${matched.length})`,
@@ -602,9 +648,25 @@ function drawForecastTable(
       },
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 4) {
-          const v = String(data.cell.raw ?? "");
-          if (v === "Aprovado" || v === "Pago") data.cell.styles.textColor = [30, 130, 50];
-          if (v === "Rascunho" || v === "Pendente") data.cell.styles.textColor = [180, 130, 30];
+          const raw = String(data.cell.raw ?? "");
+          // Match label without optional progress suffix " (x/y)"
+          const label = raw.replace(/\s*\(\d+\/\d+\)\s*$/, "");
+          const palette: Record<string, { bg: [number, number, number]; fg: [number, number, number] }> = {
+            "Pago":      { bg: [220, 245, 225], fg: [25, 110, 45] },
+            "A Pagar":   { bg: [220, 232, 250], fg: [30, 70, 150] },
+            "Aprovado":  { bg: [220, 232, 250], fg: [30, 70, 150] },
+            "Parcial":   { bg: [255, 235, 210], fg: [170, 95, 20] },
+            "Atrasado":  { bg: [250, 220, 220], fg: [170, 30, 30] },
+            "Pendente":  { bg: [253, 245, 210], fg: [150, 110, 20] },
+            "Rascunho":  { bg: [235, 235, 240], fg: [90, 90, 110] },
+          };
+          const cfg = palette[label];
+          if (cfg) {
+            data.cell.styles.fillColor = cfg.bg;
+            data.cell.styles.textColor = cfg.fg;
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.halign = "center";
+          }
         }
       },
     });
