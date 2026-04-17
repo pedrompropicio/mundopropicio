@@ -563,7 +563,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       if (splitEventIds.length === 0) return [];
       const { data, error } = await supabase
         .from("transactions")
-        .select("event_id, type, category_id, amount")
+        .select("id, event_id, type, category_id, amount, parent_transaction_id")
         .in("event_id", splitEventIds);
       if (error) throw error;
       return data;
@@ -571,33 +571,79 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     enabled: isSplit && splitEventIds.length > 0,
   });
 
+  // Fetch Master split transactions (parent rows: event_id null, with children in current splitEventIds)
+  // Used to compute "used" against the Master BP balance (separate bucket from Sub-local expenses)
+  const { data: masterSplitUsed = 0 } = useQuery({
+    queryKey: ["master-split-used", splitParentEventIds, form.category_id, form.type, editingId],
+    queryFn: async () => {
+      if (splitParentEventIds.length === 0 || !form.category_id) return 0;
+      // Find all child transactions in any of the parent's sub-events with this category
+      const { data: subEvents, error: subErr } = await supabase
+        .from("events")
+        .select("id")
+        .in("parent_event_id", splitParentEventIds);
+      if (subErr) throw subErr;
+      const subIds = (subEvents ?? []).map((e: any) => e.id);
+      if (subIds.length === 0) return 0;
+      const { data: childTxs, error: childErr } = await supabase
+        .from("transactions")
+        .select("amount, parent_transaction_id")
+        .in("event_id", subIds)
+        .eq("category_id", form.category_id)
+        .eq("type", form.type)
+        .not("parent_transaction_id", "is", null);
+      if (childErr) throw childErr;
+      const filtered = (childTxs ?? []).filter((t: any) => t.id !== editingId);
+      return filtered.reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+    },
+    enabled: isSplit && splitParentEventIds.length > 0 && !!form.category_id,
+  });
+
   const splitBPInfoByEvent = useMemo<Record<string, SplitBPInfo>>(() => {
     if (!isSplit || splitEventIds.length === 0 || !form.category_id) return {};
-    // Check if the category exists in the parent/master BP (projected to children)
+    // Check if the category exists in the parent/master BP
     const categoryInParentBP = parentForecasts.some(
       f => f.type === form.type && f.category_id === form.category_id
     );
     const parentForecastTotal = parentForecasts
       .filter(f => f.type === form.type && f.category_id === form.category_id)
       .reduce((s, f) => s + Number(f.amount), 0);
+    // Master remaining = Master forecast − already used by Master split children
+    const masterRemaining = Math.max(0, parentForecastTotal - Number(masterSplitUsed || 0));
 
     const result: Record<string, SplitBPInfo> = {};
     for (const eventId of splitEventIds) {
       const ev = events.find((e: any) => e.id === eventId);
       const evForecasts = splitForecasts.filter(f => f.event_id === eventId);
-      const evTransactions = splitTransactions.filter(t => t.event_id === eventId);
+      // Sub-local "used" = transactions in the Sub for this category that are NOT children of a Master split
+      const evTransactions = splitTransactions.filter(
+        (t: any) => t.event_id === eventId && !t.parent_transaction_id,
+      );
+      const childForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id);
       const hasAnyForecasts = evForecasts.length > 0 || categoryInParentBP;
-      // Match if the category exists in the child's own BP OR in the parent/master BP
-      const hasForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id)
-        || categoryInParentBP;
+      const hasForecastMatch = childForecastMatch || categoryInParentBP;
       const childForecast = evForecasts
         .filter(f => f.type === form.type && f.category_id === form.category_id)
         .reduce((s, f) => s + Number(f.amount), 0);
-      // If category comes from parent BP, use parent forecast as reference
-      const forecast = childForecast > 0 ? childForecast : parentForecastTotal;
-      const used = evTransactions
-        .filter(t => t.type === form.type && t.category_id === form.category_id)
-        .reduce((s, t) => s + Number(t.amount), 0);
+      const childUsed = evTransactions
+        .filter((t: any) => t.type === form.type && t.category_id === form.category_id)
+        .reduce((s: number, t: any) => s + Number(t.amount), 0);
+
+      // Two independent buckets:
+      //   - Master bucket: parentForecastTotal − masterSplitUsed (shared across all Subs of this rateio)
+      //   - Sub-local bucket: childForecast − childUsed (per Sub)
+      // For validation we expose the "best applicable" forecast/used per Sub:
+      //   - if Master has a line for this category, prefer the Master remaining as the available room
+      //     (because rateios consume the Master bucket, not the Sub)
+      //   - otherwise fall back to the Sub-local numbers
+      const useMasterBucket = categoryInParentBP;
+      const forecast = useMasterBucket
+        ? parentForecastTotal
+        : (childForecast > 0 ? childForecast : 0);
+      const used = useMasterBucket
+        ? Number(masterSplitUsed || 0)
+        : childUsed;
+
       result[eventId] = {
         event_id: eventId,
         pl_mode: ev?.pl_mode ?? null,
@@ -608,7 +654,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       };
     }
     return result;
-  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events, parentForecasts]);
+  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events, parentForecasts, masterSplitUsed]);
 
   // Validate split category against parent/child BP rules
   const splitCategoryBlockReason = useMemo<string | null>(() => {
@@ -652,22 +698,38 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     return `A categoria "${catLabel}" existe no BP dos sub-eventos mas não no master (${parentName}). A transação será criada normalmente.`;
   }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
 
-  // Check if any split event needs BP bypass
+  // Check if any split event needs BP bypass.
+  // Rateio Master → validates against the Master bucket as a whole (sum of fatias = totalAmount).
+  // Despesa local (Sub-only line) → validates per-Sub against the Sub bucket.
   const splitNeedsBypass = useMemo(() => {
     if (!isSplit || !form.category_id || splitCategoryBlockReason) return false;
     const amount = parseFloat(form.amount) || 0;
+    if (amount <= 0) return false;
+
+    const categoryInParentBP = parentForecasts.some(
+      f => f.type === form.type && f.category_id === form.category_id
+    );
+
+    // CASE A: rateio Master — the whole transaction consumes the Master bucket
+    if (categoryInParentBP) {
+      const parentForecastTotal = parentForecasts
+        .filter(f => f.type === form.type && f.category_id === form.category_id)
+        .reduce((s, f) => s + Number(f.amount), 0);
+      const remaining = parentForecastTotal - Number(masterSplitUsed || 0);
+      return amount > remaining + 0.005;
+    }
+
+    // CASE B: per-Sub validation against local BP
     for (const entry of splitEntries) {
       const bp = splitBPInfoByEvent[entry.event_id];
       if (!bp || !bp.hasAnyForecasts) continue;
       const childAmount = +(amount * entry.percentage / 100).toFixed(2);
-      // Category not in BP
       if (!bp.hasForecastMatch) return true;
-      // Exceeds available budget
       const remaining = bp.forecast - bp.used;
-      if (bp.forecast > 0 && childAmount > remaining) return true;
+      if (bp.forecast > 0 && childAmount > remaining + 0.005) return true;
     }
     return false;
-  }, [isSplit, form.category_id, form.amount, splitEntries, splitBPInfoByEvent, splitCategoryBlockReason]);
+  }, [isSplit, form.category_id, form.amount, form.type, splitEntries, splitBPInfoByEvent, splitCategoryBlockReason, parentForecasts, masterSplitUsed]);
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
