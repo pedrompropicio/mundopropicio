@@ -12,7 +12,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 

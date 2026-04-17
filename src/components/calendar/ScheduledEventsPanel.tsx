@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { CalendarClock, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePTOptions } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {

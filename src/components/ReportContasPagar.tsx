@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 

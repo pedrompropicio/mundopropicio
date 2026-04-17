@@ -10,7 +10,7 @@ import { exportBankStatementToPDF, exportBankStatementToExcel } from "@/lib/expo
 import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatDatePT } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

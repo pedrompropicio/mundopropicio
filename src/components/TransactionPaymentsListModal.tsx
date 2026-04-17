@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { calcWithIva, isFullyPaid } from "@/lib/utils";
+import { calcWithIva, isFullyPaid, formatDatePT } from "@/lib/utils";
 import { X, Pencil, Trash2, Check, XCircle, CalendarIcon, Building, FileText, Landmark } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
