@@ -13,10 +13,11 @@ import { format } from "date-fns";
 interface Props {
   transactions: any[];
   onClose: () => void;
+  initialInvoiceRef?: string;
 }
 
-export function BatchPaymentModal({ transactions, onClose }: Props) {
-  const [invoiceRef, setInvoiceRef] = useState("");
+export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "" }: Props) {
+  const [invoiceRef, setInvoiceRef] = useState(initialInvoiceRef);
   const [accountId, setAccountId] = useState("");
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().split("T")[0]
