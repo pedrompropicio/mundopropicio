@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { moveToTrash } from "@/lib/trash";
+import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionPaymentModal } from "@/components/TransactionPaymentModal";
@@ -281,63 +282,7 @@ export default function Transactions() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Fetch transaction data before deleting for audit + trash
-      const { data: txData } = await supabase.from("transactions").select("*").eq("id", id).single();
-      // Fetch child splits
-      const { data: childTxs } = await supabase.from("transactions").select("*").eq("parent_transaction_id", id);
-
-      // Move to trash before hard delete
-      if (txData) {
-        await moveToTrash({
-          entity_type: "transaction",
-          entity_id: id,
-          entity_data: txData,
-          related_data: childTxs && childTxs.length > 0 ? { transactions: childTxs } : null,
-          deleted_by: getAuditUser(user),
-        });
-      }
-
-      // Remove dependent records safely
-      await supabase.from("payment_list_items").delete().eq("transaction_id", id);
-      await supabase.from("reimbursement_note_items").delete().eq("transaction_id", id);
-      await supabase.from("partner_paid_expenses").delete().eq("transaction_id", id);
-      await supabase.from("supplier_credit_usages").delete().eq("transaction_id", id);
-
-      // Audit log: record deletion in transaction_audit_log
-      const callerName = getAuditUser(user);
-      await supabase.from("transaction_audit_log").insert({
-        transaction_id: id,
-        changed_by: callerName,
-        field_name: "Eliminação",
-        old_value: `${txData?.description ?? "—"} — ${txData?.amount ?? 0} €`,
-        new_value: null,
-      });
-
-      // Delete child split transactions first
-      if (childTxs && childTxs.length > 0) {
-        for (const child of childTxs) {
-          await supabase.from("transaction_audit_log").insert({
-            transaction_id: child.id,
-            changed_by: callerName,
-            field_name: "Eliminação",
-            old_value: `Eliminada em cascata com Master`,
-            new_value: null,
-          });
-        }
-      }
-      await supabase.from("transactions").delete().eq("parent_transaction_id", id);
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-      await logAudit({
-        entity_type: "transaction",
-        entity_id: id,
-        action: "delete",
-        changed_by: getAuditUser(user),
-        old_data: txData,
-      });
+      await deleteTransactionCascade({ transactionId: id, user });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
