@@ -199,6 +199,53 @@ export default function EventDetail() {
           const nonChildren = rows.filter((r: any) => !r.parent_transaction_id);
           rows = [...nonChildren, ...(masters ?? [])];
         }
+
+        // Group native sub-event repeated expenses by similarity:
+        // supplier_id + category_id + normalized description + amount
+        const norm = (s?: string | null) => (s ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+        const groups = new Map<string, any[]>();
+        const ungrouped: any[] = [];
+        for (const r of rows) {
+          // Skip Master rateio rows (already consolidated above)
+          if (!r.event_id || r.event_id === id) {
+            ungrouped.push(r);
+            continue;
+          }
+          const key = [
+            r.supplier_id ?? "",
+            r.category_id ?? "",
+            norm(r.description),
+            Number(r.amount).toFixed(2),
+            r.type,
+          ].join("|");
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(r);
+        }
+        const consolidated: any[] = [...ungrouped];
+        for (const [, list] of groups) {
+          if (list.length <= 1) {
+            consolidated.push(...list);
+            continue;
+          }
+          // Build aggregated virtual row
+          const totalAmount = list.reduce((s, r) => s + Number(r.amount), 0);
+          const allPaid = list.every((r) => r.status === "paid");
+          const anyPending = list.some((r) => r.status === "pending");
+          const aggStatus = allPaid ? "paid" : anyPending ? "pending" : list[0].status;
+          const earliestDate = list.map((r) => r.date).filter(Boolean).sort()[0];
+          consolidated.push({
+            ...list[0],
+            id: `group:${list[0].id}`,
+            __grouped: true,
+            __groupCount: list.length,
+            __groupIds: list.map((r) => r.id),
+            __groupEventIds: list.map((r) => r.event_id),
+            amount: totalAmount,
+            date: earliestDate,
+            status: aggStatus,
+          });
+        }
+        rows = consolidated;
       }
 
       const dateKey = (v?: string | null) => (v ? String(v).slice(0, 10) : "");
