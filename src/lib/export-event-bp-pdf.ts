@@ -56,8 +56,26 @@ interface AuditLog {
 
 const fmt = (n: number) => formatCurrency(n);
 
+interface TxRow {
+  id: string;
+  description: string;
+  specification: string | null;
+  amount: number;
+  iva_rate: number;
+  status: string;
+  paid_amount: number | null;
+  due_date: string | null;
+  payment_date: string | null;
+  category_id: string | null;
+  type: string;
+  event_id: string | null;
+  parent_transaction_id: string | null;
+  invoice_number: string | null;
+  suppliers?: { name: string } | null;
+}
+
 async function fetchEventBundle(eventId: string) {
-  const [evtRes, forecastsRes, partnersRes] = await Promise.all([
+  const [evtRes, forecastsRes, partnersRes, txRes] = await Promise.all([
     supabase
       .from("events")
       .select("id, name, date, status, event_type, location, parent_event_id, cities:city_id(name, country), venues:venue_id(name)")
@@ -73,11 +91,16 @@ async function fetchEventBundle(eventId: string) {
       .from("event_partners")
       .select("id, percentage, suppliers:supplier_id(name)")
       .eq("event_id", eventId),
+    supabase
+      .from("transactions")
+      .select("id, description, specification, amount, iva_rate, status, paid_amount, due_date, payment_date, category_id, type, event_id, parent_transaction_id, invoice_number, suppliers:supplier_id(name)")
+      .or(`event_id.eq.${eventId},event_id.is.null`),
   ]);
 
   if (evtRes.error) throw evtRes.error;
   if (forecastsRes.error) throw forecastsRes.error;
   if (partnersRes.error) throw partnersRes.error;
+  if (txRes.error) throw txRes.error;
 
   const evt = evtRes.data as any;
   const event: EventRow = {
@@ -97,27 +120,62 @@ async function fetchEventBundle(eventId: string) {
     name: p.suppliers?.name ?? "Sócio",
     percentage: Number(p.percentage),
   }));
+  const transactions: TxRow[] = (txRes.data ?? []) as any;
 
   // Forecast → partners assignments
   const forecastIds = forecasts.map((f) => f.id);
   let forecastPartners: { forecast_id: string; partner_id: string }[] = [];
   let auditLogs: AuditLog[] = [];
-  let linkedTxIds = new Set<string>();
   if (forecastIds.length > 0) {
     const [fpRes, auditRes] = await Promise.all([
       supabase.from("event_forecast_partners").select("forecast_id, partner_id").in("forecast_id", forecastIds),
-      supabase.from("forecast_audit_log").select("*").in("forecast_id", forecastIds).order("created_at", { ascending: false }),
+      supabase.from("forecast_audit_log").select("*").in("forecast_id", forecastIds).order("created_at", { ascending: true }),
     ]);
     if (fpRes.error) throw fpRes.error;
     if (auditRes.error) throw auditRes.error;
     forecastPartners = (fpRes.data ?? []) as any;
     auditLogs = (auditRes.data ?? []) as any;
-    forecasts.forEach((f) => {
-      if (f.transaction_id) linkedTxIds.add(f.transaction_id);
-    });
   }
 
-  return { event, forecasts, partners, forecastPartners, auditLogs };
+  return { event, forecasts, partners, forecastPartners, auditLogs, transactions };
+}
+
+// Match transactions to a forecast line (mirror of UI logic in EventForecast.tsx)
+function matchTransactionsForForecast(
+  fc: ForecastRow,
+  allForecasts: ForecastRow[],
+  transactions: TxRow[],
+): TxRow[] {
+  // 1) Direct link
+  if (fc.transaction_id) {
+    const direct = transactions.filter((t) => t.id === fc.transaction_id);
+    if (direct.length > 0) return direct;
+  }
+  // Scope to same event or master (null event_id)
+  const scoped = transactions.filter((t) => t.event_id === fc.event_id || t.event_id === null);
+  if (!fc.category_id) return [];
+  const sameCat = scoped.filter((t) => t.category_id === fc.category_id && t.type === fc.type);
+
+  const fcSameCat = allForecasts.filter(
+    (f) => f.category_id === fc.category_id && f.type === fc.type && f.event_id === fc.event_id,
+  );
+  if (fcSameCat.length <= 1) return sameCat;
+
+  const descLower = (fc.description ?? "").toLowerCase().trim();
+  const matched = sameCat.filter((t) => {
+    const txDesc = (t.description ?? "").toLowerCase().trim();
+    return txDesc === descLower || txDesc.includes(descLower) || descLower.includes(txDesc);
+  });
+  return matched.length > 0 ? matched : [];
+}
+
+function txStatusLabel(t: TxRow): string {
+  const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+  const paid = Number(t.paid_amount ?? 0);
+  if (t.status === "paid" || paid >= total - 0.01) return "Pago";
+  const today = new Date().toISOString().slice(0, 10);
+  if (t.due_date && t.due_date.slice(0, 10) < today) return "Atrasado";
+  return "A Pagar";
 }
 
 function statusLabel(s: string): string {
@@ -335,8 +393,11 @@ function drawForecastTable(
   yStart: number,
   title: string,
   forecasts: ForecastRow[],
+  allForecasts: ForecastRow[],
   forecastPartners: { forecast_id: string; partner_id: string }[],
   partners: PartnerRow[],
+  transactions: TxRow[],
+  auditLogs: AuditLog[],
   accent: [number, number, number],
 ): number {
   const { doc, marginLeft, contentWidth } = ctx;
@@ -361,7 +422,6 @@ function drawForecastTable(
 
   const groups = groupByCategory(forecasts);
 
-  // Column widths sum = contentWidth (≈ 277 mm em landscape A4 menos margens)
   const colWidths = {
     code: 16,
     desc: 55,
@@ -375,59 +435,128 @@ function drawForecastTable(
   };
   const totalCols = Object.values(colWidths).reduce((s, v) => s + v, 0);
 
+  const auditByFc = new Map<string, AuditLog[]>();
+  auditLogs.forEach((a) => {
+    const arr = auditByFc.get(a.forecast_id) ?? [];
+    arr.push(a);
+    auditByFc.set(a.forecast_id, arr);
+  });
+
   groups.forEach((g) => {
     const head = [[
-      "Código",
-      "Descrição",
-      "Especificação",
-      "Resp. (Sócio)",
-      "Status",
-      "Vínculo",
-      "Valor s/IVA",
-      "IVA %",
-      "Total",
+      "Código", "Descrição", "Especificação", "Resp. (Sócio)",
+      "Status", "Vínculo", "Valor s/IVA", "IVA %", "Total",
     ]];
 
-    // Body: cada linha + (opcional) linha de observação a ocupar a largura toda
     const body: any[] = [];
     g.rows.forEach((r) => {
+      // Main forecast row
       body.push([
         r.account_categories?.code ?? "—",
         r.description ?? "",
         r.specification ?? "",
         partnersForForecast(r.id, forecastPartners, partners),
         statusLabel(r.status),
-        r.transaction_id ? "Sim" : "—",
+        r.transaction_id ? "Vinc." : "—",
         fmt(Number(r.amount)),
         `${r.iva_rate}%`,
         fmt(Number(r.amount) * (1 + Number(r.iva_rate) / 100)),
       ]);
+
+      // Sub-row: Notes / Observação (sempre que existe)
       const note = (r.notes ?? "").trim();
       if (note.length > 0) {
-        body.push([
-          {
-            content: `📝 ${note}`,
+        body.push([{
+          content: `📝 Observação: ${note}`,
+          colSpan: 9,
+          styles: {
+            fillColor: [253, 252, 240] as [number, number, number],
+            textColor: [90, 70, 30] as [number, number, number],
+            fontStyle: "italic" as const,
+            fontSize: 6.8,
+            cellPadding: { top: 1.2, right: 2, bottom: 1.4, left: 6 },
+          },
+        }]);
+      }
+
+      // Sub-rows: Transações vinculadas / correspondentes (desdobramento)
+      const matched = matchTransactionsForForecast(r, allForecasts, transactions);
+      if (matched.length > 0) {
+        body.push([{
+          content: `🔗 Transações (${matched.length})`,
+          colSpan: 9,
+          styles: {
+            fillColor: [238, 244, 252] as [number, number, number],
+            textColor: [40, 60, 110] as [number, number, number],
+            fontStyle: "bold" as const,
+            fontSize: 6.8,
+            cellPadding: { top: 1.2, right: 2, bottom: 1, left: 6 },
+          },
+        }]);
+        matched.forEach((t) => {
+          const txTotal = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+          const txPaid = Number(t.paid_amount ?? 0);
+          const txBal = Math.max(0, txTotal - txPaid);
+          const sup = t.suppliers?.name ?? "—";
+          const inv = t.invoice_number ? `Fatura ${t.invoice_number} · ` : "";
+          const due = t.due_date ? `Vcto ${formatDatePT(t.due_date)} · ` : "";
+          const pay = t.payment_date ? `Pago em ${formatDatePT(t.payment_date)} · ` : "";
+          const balLine = txBal > 0.01 ? ` · Aberto ${fmt(txBal)}` : "";
+          const specLine = t.specification ? ` (${t.specification})` : "";
+          const txLabel = `   • ${t.description}${specLine}  —  ${sup}\n      ${inv}${due}${pay}Pago ${fmt(txPaid)} / Total ${fmt(txTotal)}${balLine}  [${txStatusLabel(t)}]`;
+          body.push([{
+            content: txLabel,
             colSpan: 9,
             styles: {
-              fillColor: [253, 252, 240] as [number, number, number],
-              textColor: [90, 70, 30] as [number, number, number],
-              fontStyle: "italic" as const,
-              fontSize: 6.8,
-              cellPadding: { top: 1, right: 2, bottom: 1.2, left: 6 },
+              fillColor: [248, 250, 254] as [number, number, number],
+              textColor: [50, 60, 80] as [number, number, number],
+              fontSize: 6.5,
+              cellPadding: { top: 0.8, right: 2, bottom: 0.8, left: 6 },
             },
+          }]);
+        });
+      }
+
+      // Sub-rows: Histórico de auditoria da linha
+      const audits = auditByFc.get(r.id) ?? [];
+      if (audits.length > 0) {
+        body.push([{
+          content: `📜 Histórico de alterações (${audits.length})`,
+          colSpan: 9,
+          styles: {
+            fillColor: [245, 240, 250] as [number, number, number],
+            textColor: [80, 50, 110] as [number, number, number],
+            fontStyle: "bold" as const,
+            fontSize: 6.8,
+            cellPadding: { top: 1.2, right: 2, bottom: 1, left: 6 },
           },
-        ]);
+        }]);
+        audits.forEach((a) => {
+          const when = new Date(a.created_at).toLocaleString("pt-PT", {
+            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+          });
+          const obs = a.observation ? `\n      "${a.observation}"` : "";
+          const auditLine = `   • [${when}] ${a.field_name}: "${a.old_value ?? "—"}" → "${a.new_value ?? "—"}" — por ${a.changed_by}${obs}`;
+          body.push([{
+            content: auditLine,
+            colSpan: 9,
+            styles: {
+              fillColor: [251, 248, 254] as [number, number, number],
+              textColor: [70, 50, 90] as [number, number, number],
+              fontSize: 6.4,
+              cellPadding: { top: 0.7, right: 2, bottom: 0.7, left: 6 },
+            },
+          }]);
+        });
       }
     });
 
-    // Subtotal como FOOT — dentro da grelha → alinhamento garantido
     const foot = [[
       {
         content: `Subtotal ${g.groupCode} ${g.groupName}`,
         colSpan: 6,
         styles: {
-          halign: "left" as const,
-          fontStyle: "bold" as const,
+          halign: "left" as const, fontStyle: "bold" as const,
           fillColor: [240, 240, 245] as [number, number, number],
           textColor: [40, 40, 60] as [number, number, number],
         },
@@ -435,21 +564,16 @@ function drawForecastTable(
       {
         content: fmt(g.baseTotal),
         styles: {
-          halign: "right" as const,
-          fontStyle: "bold" as const,
+          halign: "right" as const, fontStyle: "bold" as const,
           fillColor: [240, 240, 245] as [number, number, number],
           textColor: [40, 40, 60] as [number, number, number],
         },
       },
-      {
-        content: "",
-        styles: { fillColor: [240, 240, 245] as [number, number, number] },
-      },
+      { content: "", styles: { fillColor: [240, 240, 245] as [number, number, number] } },
       {
         content: fmt(g.baseTotal + g.ivaTotal),
         styles: {
-          halign: "right" as const,
-          fontStyle: "bold" as const,
+          halign: "right" as const, fontStyle: "bold" as const,
           fillColor: [240, 240, 245] as [number, number, number],
           textColor: [40, 40, 60] as [number, number, number],
         },
@@ -457,9 +581,7 @@ function drawForecastTable(
     ]];
 
     autoTable(doc, {
-      head,
-      body,
-      foot,
+      head, body, foot,
       startY: y,
       margin: { left: marginLeft, right: marginLeft },
       theme: "grid",
@@ -576,7 +698,7 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   if (!isFirst) {
     ctx.doc.addPage();
   }
-  const { event, forecasts, partners, forecastPartners, auditLogs } = await fetchEventBundle(eventId);
+  const { event, forecasts, partners, forecastPartners, auditLogs, transactions } = await fetchEventBundle(eventId);
 
   let y = drawHeader(
     ctx,
@@ -589,14 +711,12 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   const incomes = forecasts.filter((f) => f.type === "income");
   const expenses = forecasts.filter((f) => f.type === "expense");
 
-  y = drawForecastTable(ctx, y, "Receitas", incomes, forecastPartners, partners, [34, 110, 60]);
+  y = drawForecastTable(ctx, y, "Receitas", incomes, forecasts, forecastPartners, partners, transactions, auditLogs, [34, 110, 60]);
   if (y > ctx.pageHeight - 40) {
     ctx.doc.addPage();
     y = 14;
   }
-  y = drawForecastTable(ctx, y, "Despesas", expenses, forecastPartners, partners, [160, 60, 60]);
-
-  y = drawAuditSection(ctx, y + 2, forecasts, auditLogs);
+  y = drawForecastTable(ctx, y, "Despesas", expenses, forecasts, forecastPartners, partners, transactions, auditLogs, [160, 60, 60]);
 }
 
 export async function exportEventBPToPDF({ eventId, includeChildren = true }: BPExportInput): Promise<void> {
