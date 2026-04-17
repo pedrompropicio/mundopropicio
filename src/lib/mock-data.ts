@@ -161,7 +161,22 @@ export function formatCurrencyDecimal(value: number): string {
 }
 
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("pt-PT", {
+  if (!dateStr) return "";
+  // Parse civil date components directly to avoid UTC→local timezone shifts
+  // (e.g. "2026-04-09" being interpreted as UTC midnight and rendered as 08/Abr in -01:00).
+  const datePart = String(dateStr).slice(0, 10);
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const local = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+    return local.toLocaleDateString("pt-PT", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString("pt-PT", {
     day: "2-digit",
     month: "short",
     year: "numeric",
