@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Building, Layers } from "lucide-react";
+import { Lock, Layers } from "lucide-react";
 import { useState } from "react";
 
 interface Props {
@@ -46,11 +46,14 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
             <RadioGroupItem value="local" id="choice-local" className="mt-0.5" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 font-medium text-sm">
-                <Building className="h-3.5 w-3.5 text-blue-400" />
-                Reforço local
+                <Lock className="h-3.5 w-3.5 text-blue-400" />
+                Custo Isolado
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Despesa exclusiva deste sub-evento (ex: artista local, reforço de mídia da cidade)
+                Despesa exclusiva deste sub-evento (ex: artista local, reforço de mídia da cidade).
+                <span className="block mt-1">
+                  <strong className="text-foreground">Não consome</strong> a verba planeada no BP Master.
+                </span>
               </p>
             </div>
           </label>
