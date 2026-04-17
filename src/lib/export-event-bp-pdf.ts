@@ -596,7 +596,6 @@ async function renderEventBPPage(ctx: RenderContext, eventId: string, isFirst: b
   }
   y = drawForecastTable(ctx, y, "Despesas", expenses, forecastPartners, partners, [160, 60, 60]);
 
-  y = drawNotesSection(ctx, y + 2, forecasts);
   y = drawAuditSection(ctx, y + 2, forecasts, auditLogs);
 }
 
