@@ -1911,8 +1911,8 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
                   <HelpTooltip text={helpTexts.reimbursementToggle} size={12} />
                 </button>
 
-                {/* Paid by partner toggle — only when event has partners */}
-                {form.event_id && eventPartners.length > 0 && !form.is_reimbursement && (
+                {/* Paid by partner toggle — when event (or split Master) has partners */}
+                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && (
                   <button
                     type="button"
                     onClick={() => {
