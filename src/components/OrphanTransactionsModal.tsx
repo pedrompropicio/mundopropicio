@@ -47,7 +47,7 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
       if (childEventIds.length === 0) return [];
       const { data: txs, error } = await supabase
         .from("transactions")
-        .select("id, event_id, description, amount, iva_rate, status, category_id, invoice_ref, account_id, account_categories(code, name), financial_accounts(name)")
+        .select("id, event_id, description, amount, iva_rate, status, category_id, supplier_id, invoice_ref, account_id, account_categories(code, name), suppliers(name), financial_accounts(name)")
         .in("event_id", childEventIds)
         .eq("type", "expense")
         .is("parent_transaction_id", null)
