@@ -752,6 +752,7 @@ export default function Transactions() {
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
+          initialInvoiceRef={batchInitialInvoiceRef}
           onClose={() => { setShowBatchPayment(false); setSelectedIds(new Set()); }}
         />
       )}
