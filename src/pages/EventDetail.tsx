@@ -822,7 +822,7 @@ export default function EventDetail() {
                             : subEvents.find((s: any) => s.id === t.event_id)?.name || "—"
                           : null;
                         return (
-                          <tr key={t.id} className={isSharedCost || (t as any).__grouped ? "bg-amber-500/5" : ""}>
+                          <tr key={t.id} className={isSharedCost ? "bg-amber-500/5" : ""}>
                             <td className="py-3 pr-4">
                               <p className="font-medium">{t.description}</p>
                               <p className="text-xs text-muted-foreground">{formatDate(t.date)}</p>
@@ -831,18 +831,13 @@ export default function EventDetail() {
                                   Custo partilhado ({subEventCount} datas)
                                 </span>
                               )}
-                              {(t as any).__grouped && (
-                                <span className="inline-flex items-center rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[10px] font-medium mt-0.5">
-                                  Repetido em {(t as any).__groupCount} sub-eventos
-                                </span>
-                              )}
                             </td>
                             <td className="hidden py-3 pr-4 text-muted-foreground sm:table-cell">
                               {t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "—"}
                             </td>
                             {isGlobalView && (
                               <td className="hidden py-3 pr-4 text-xs text-muted-foreground md:table-cell">
-                                {(t as any).__grouped ? `${(t as any).__groupCount} sub-eventos` : subName}
+                                {subName}
                               </td>
                             )}
                             <td className="py-3 pr-4">
