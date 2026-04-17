@@ -103,12 +103,12 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       const lotIds = lots.map(l => l.id);
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("lot_id, quantity, unit_price")
+        .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lotIds);
       return (sales || []).map((s: any) => {
         const lot = lots.find((l: any) => l.id === s.lot_id);
         const ivaRate = lot?.iva_rate || 0;
-        const gross = s.quantity * s.unit_price;
+        const gross = s.total_value != null ? Number(s.total_value) : s.quantity * s.unit_price;
         const net = gross / (1 + ivaRate / 100);
         return { gross, net, iva: gross - net };
       });

@@ -231,7 +231,7 @@ export default function Dashboard() {
       if (!eventId) return;
       if (!salesMap[eventId]) salesMap[eventId] = { qty: 0, revenue: 0 };
       salesMap[eventId].qty += Number(ts.quantity);
-      salesMap[eventId].revenue += Number(ts.quantity) * Number(ts.unit_price);
+      salesMap[eventId].revenue += ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
     });
 
     const txnMap: Record<string, { income: number; expense: number }> = {};

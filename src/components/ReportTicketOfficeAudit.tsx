@@ -117,7 +117,7 @@ export default function ReportTicketOfficeAudit() {
         const batch = zoneIds.slice(i, i + batchSize);
         const { data, error } = await supabase
           .from("ticket_sales")
-          .select("zone_id, quantity, unit_price, financial_account_id, sale_date, notes")
+          .select("zone_id, quantity, unit_price, total_value, financial_account_id, sale_date, notes")
           .in("zone_id", batch);
         if (error) throw error;
         allData = allData.concat(data || []);
@@ -196,7 +196,7 @@ export default function ReportTicketOfficeAudit() {
               eventZoneIds.includes(s.zone_id) &&
               (!s.financial_account_id || s.financial_account_id === office.id)
           )
-          .reduce((sum: number, s: any) => sum + s.quantity * Number(s.unit_price), 0);
+          .reduce((sum: number, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
 
         eventSalesMap[a.event_id] = officeSales;
 
@@ -282,13 +282,14 @@ export default function ReportTicketOfficeAudit() {
           )
           .forEach((s: any) => {
             const zoneName = zoneNameMap[s.zone_id] || "";
+            const saleAmount = s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price);
             lines.push({
               date: s.sale_date,
               type: "sale",
               description: `Venda ${s.quantity}x ${formatCurrency(Number(s.unit_price))} — ${zoneName}`,
               eventName: eventNameMap[eventId] || "",
               eventId: eventId,
-              amount: s.quantity * Number(s.unit_price),
+              amount: saleAmount,
             });
           });
       });
@@ -301,7 +302,7 @@ export default function ReportTicketOfficeAudit() {
           .map((z: any) => z.id);
         eventSalesMap[eventId] = allSales
           .filter((s: any) => eventZoneIds.includes(s.zone_id) && (!s.financial_account_id || s.financial_account_id === office.id))
-          .reduce((sum: number, s: any) => sum + s.quantity * Number(s.unit_price), 0);
+          .reduce((sum: number, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
       });
       const totalOfficeSales = Object.values(eventSalesMap).reduce((s, v) => s + v, 0);
 

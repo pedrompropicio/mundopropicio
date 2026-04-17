@@ -68,7 +68,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
 
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("sale_date, sale_date_to, quantity, unit_price, source, lot_id")
+        .select("sale_date, sale_date_to, quantity, unit_price, total_value, source, lot_id")
         .in("lot_id", lotIds)
         .order("sale_date", { ascending: true });
       if (!sales) return [];
@@ -85,19 +85,20 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
         const zoneName = lot ? (zoneMap.get(lot.zone_id) || "—") : "—";
         const lotName = lot ? `${lot.name} (${lot.lot_type})` : "—";
 
+        const saleRevenue = (s as any).total_value != null ? Number((s as any).total_value) : s.quantity * Number(s.unit_price);
         const detail: DayDetail = {
           zone: zoneName,
           lot: lotName,
           quantity: s.quantity,
           unitPrice: Number(s.unit_price),
-          revenue: s.quantity * Number(s.unit_price),
+          revenue: saleRevenue,
           source: s.source,
         };
 
         const existing = dayMap.get(key);
         if (existing) {
           existing.quantity += s.quantity;
-          existing.revenue += s.quantity * Number(s.unit_price);
+          existing.revenue += saleRevenue;
           existing.details.push(detail);
           if (s.source === "import" && !existing.hasImport) { existing.hasImport = true; existing.sources.push("Importação"); }
           if (s.source === "manual" && !existing.hasManual) { existing.hasManual = true; existing.sources.push("Manual"); }
@@ -106,7 +107,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
             date: s.sale_date,
             dateTo: isPeriod ? saleDateTo : null,
             quantity: s.quantity,
-            revenue: s.quantity * Number(s.unit_price),
+            revenue: saleRevenue,
             sources: [],
             hasImport: false,
             hasManual: false,

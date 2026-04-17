@@ -2147,6 +2147,7 @@ export type Database = {
           sale_date: string
           sale_date_to: string | null
           source: string
+          total_value: number | null
           unit_price: number
           zone_id: string | null
         }
@@ -2162,6 +2163,7 @@ export type Database = {
           sale_date?: string
           sale_date_to?: string | null
           source?: string
+          total_value?: number | null
           unit_price?: number
           zone_id?: string | null
         }
@@ -2177,6 +2179,7 @@ export type Database = {
           sale_date?: string
           sale_date_to?: string | null
           source?: string
+          total_value?: number | null
           unit_price?: number
           zone_id?: string | null
         }

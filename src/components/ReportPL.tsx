@@ -130,11 +130,8 @@ function buildPL(
         zoneIva += lotIva;
         zoneQty += qty;
         const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + Number(sl.quantity) * Number(sl.unit_price), 0);
-        const lotSoldNet = lotSales.reduce((s: number, sl: any) => {
-          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
-          return s + Number(sl.quantity) * saleNet;
-        }, 0);
+        const lotSoldGross = lotSales.reduce((s: number, sl: any) => s + (sl.total_value != null ? Number(sl.total_value) : Number(sl.quantity) * Number(sl.unit_price)), 0);
+        const lotSoldNet = lotSoldGross / (1 + ivaRate / 100);
         const lotSoldIva = lotSoldGross - lotSoldNet;
         zoneActualNet += lotSoldNet;
         zoneActualIva += lotSoldIva;
