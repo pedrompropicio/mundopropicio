@@ -454,22 +454,21 @@ export function ResultsAnalysis() {
         startY: y,
         head: [[
           "Evento", "Data",
-          "Planeado Receita", "Planeado Despesa", "Planeado Margem", "Break-Even",
+          "Plan. 100% Receita", "Plan. 100% Margem", "Break-Even",
+          "Plan. 80% Receita", "Plan. 80% Margem",
           "Real Receita", "Real Despesa", "Real Margem",
-          "Pess. Receita", "Pess. Margem",
         ]],
         body: active.map((e) => [
           e.name,
           formatDate(e.date),
           formatCurrency(e.bpIncome100),
-          formatCurrency(e.bpExpense),
           formatCurrency(e.margin100),
           `${e.breakEvenPct.toFixed(1)}%`,
+          formatCurrency(e.bpIncome80),
+          formatCurrency(e.margin80),
           formatCurrency(e.realIncome),
           formatCurrency(e.realExpense),
           formatCurrency(e.realMargin),
-          formatCurrency(e.pessimisticIncome),
-          formatCurrency(e.pessimisticMargin),
         ]),
         styles: { fontSize: 7 },
         headStyles: { fillColor: [59, 130, 246] },
@@ -597,7 +596,7 @@ export function ResultsAnalysis() {
             Eventos Ativos — Projeções
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
-            <strong>Planeado</strong>: BP completo · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP, despesas reais onde existem (senão BP) · <strong>Pessimista</strong>: bilheteira vendida × 0,80 · <em>Todos os valores SEM IVA</em>
+            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP, despesas reais onde existem (senão BP) · <em>Todos os valores SEM IVA</em>
           </p>
           <div className="overflow-x-auto glass rounded-xl">
             <table className="w-full text-sm">
@@ -605,8 +604,8 @@ export function ResultsAnalysis() {
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="p-3 text-left font-medium" rowSpan={2}>Evento</th>
                   <th className="p-3 text-center font-medium border-b border-border/30" colSpan={3}>Planeado 100%</th>
+                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={2}>Planeado 80%</th>
                   <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={4}>Real Atual</th>
-                  <th className="p-3 text-center font-medium border-b border-border/30 border-l-2 border-l-border" colSpan={2}>Pessimista (×0,8)</th>
                 </tr>
                 <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <th className="p-2 text-right font-medium">Receita</th>
@@ -614,12 +613,12 @@ export function ResultsAnalysis() {
                   <th className="p-2 text-right font-medium">Break-Even</th>
 
                   <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
+                  <th className="p-2 text-right font-medium">Margem</th>
+
+                  <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
                   <th className="p-2 text-right font-medium">Despesa</th>
                   <th className="p-2 text-right font-medium">Margem</th>
                   <th className="p-2 text-right font-medium">%</th>
-
-                  <th className="p-2 text-right font-medium border-l-2 border-l-border">Receita</th>
-                  <th className="p-2 text-right font-medium">Margem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -666,6 +665,26 @@ export function ResultsAnalysis() {
                         </Badge>
                       </td>
 
+                      {/* Planeado 80% */}
+                      <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.bpIncome80)}</td>
+                      <td className="p-3 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className={`font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                            {formatCurrency(e.margin80)}
+                          </span>
+                          {e.totalPartnerPct > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                Empresa {companyPct.toFixed(0)}%
+                              </Badge>
+                              <span className={`font-mono text-xs ${e.companyMargin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.companyMargin80)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       {/* Real Atual */}
                       <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.realIncome)}</td>
                       <td className="p-3 text-right font-mono text-warning">{formatCurrency(e.realExpense)}</td>
@@ -689,36 +708,6 @@ export function ResultsAnalysis() {
                       <td className={`p-3 text-right font-mono text-xs ${e.realMargin >= 0 ? "text-success" : "text-destructive"}`}>
                         {e.realMarginPct.toFixed(1)}%
                       </td>
-
-                      {/* Pessimista — N/A para eventos passados (usar vendas reais) */}
-                      {e.isPastEvent ? (
-                        <>
-                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border" colSpan={2}>
-                            <span className="text-[10px] italic">evento realizado · ver Real Atual</span>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.pessimisticIncome)}</td>
-                          <td className="p-3 text-right">
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className={`font-mono ${e.pessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                                {formatCurrency(e.pessimisticMargin)}
-                              </span>
-                              {e.totalPartnerPct > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                                    Empresa {companyPct.toFixed(0)}%
-                                  </Badge>
-                                  <span className={`font-mono text-xs ${e.companyPessimisticMargin >= 0 ? "text-success" : "text-destructive"}`}>
-                                    {formatCurrency(e.companyPessimisticMargin)}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </>
-                      )}
                     </tr>
                   );
                 })}
