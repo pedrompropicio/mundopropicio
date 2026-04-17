@@ -23,6 +23,7 @@ import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
+import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 
 interface InlineForm {
   type: string;
@@ -68,6 +69,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
   const [showOrphans, setShowOrphans] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
