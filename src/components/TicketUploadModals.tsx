@@ -120,6 +120,24 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
   });
   const events = eventsProp || fetchedEvents;
 
+  // Group Master + Splits together (Master first, then its splits)
+  const sortedEvents = (() => {
+    const list = [...events];
+    const byId = new Map(list.map(e => [e.id, e]));
+    const masters = list.filter(e => !e.parent_event_id).sort((a, b) => a.name.localeCompare(b.name));
+    const orphans = list.filter(e => e.parent_event_id && !byId.has(e.parent_event_id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const result: typeof list = [];
+    for (const m of masters) {
+      result.push(m);
+      const children = list.filter(e => e.parent_event_id === m.id)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      result.push(...children);
+    }
+    result.push(...orphans);
+    return result;
+  })();
+
   const { data: allTicketOffices = [] } = useQuery({
     queryKey: ["ticket_offices_active"],
     queryFn: async () => {
@@ -859,9 +877,16 @@ export function TicketImportModal({ events: eventsProp, selectedEventId: preSele
                   <Select value={eventId} onValueChange={setEventId}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o evento…" /></SelectTrigger>
                     <SelectContent>
-                      {events.map(e => (
+                      {sortedEvents.map(e => (
                         <SelectItem key={e.id} value={e.id}>
-                          {e.parent_event_id ? `  ↳ ${e.name}` : e.name}
+                          {e.parent_event_id ? (
+                            <span className="inline-flex items-center gap-1.5 pl-4 text-muted-foreground">
+                              <span className="opacity-60">↳</span>
+                              <span>{e.name}</span>
+                            </span>
+                          ) : (
+                            <span className="font-medium">{e.name}</span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
