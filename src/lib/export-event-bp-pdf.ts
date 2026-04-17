@@ -172,10 +172,52 @@ function matchTransactionsForForecast(
 function txStatusLabel(t: TxRow): string {
   const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
   const paid = Number(t.paid_amount ?? 0);
+  if (t.status === "pending") return "Pendente";
   if (t.status === "paid" || paid >= total - 0.01) return "Pago";
+  if (paid > 0.01) return "Parcial";
   const today = new Date().toISOString().slice(0, 10);
   if (t.due_date && t.due_date.slice(0, 10) < today) return "Atrasado";
   return "A Pagar";
+}
+
+/**
+ * Status agregado da linha-mãe do BP quando tem transações vinculadas.
+ * Reflete a evolução real da execução em vez do status estático do forecast.
+ */
+function aggregatedForecastStatus(
+  forecast: ForecastRow,
+  matchedTx: TxRow[],
+): { label: string; progress?: string } {
+  if (matchedTx.length === 0) {
+    return { label: statusLabel(forecast.status) };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let paidCount = 0;
+  let partialCount = 0;
+  let overdueCount = 0;
+  let pendingCount = 0;
+  let openCount = 0;
+
+  matchedTx.forEach((t) => {
+    const total = Number(t.amount) * (1 + Number(t.iva_rate) / 100);
+    const paid = Number(t.paid_amount ?? 0);
+    const fullyPaid = t.status === "paid" || paid >= total - 0.01;
+    if (fullyPaid) { paidCount++; return; }
+    if (t.status === "pending") { pendingCount++; return; }
+    if (paid > 0.01) { partialCount++; return; }
+    if (t.due_date && t.due_date.slice(0, 10) < today) { overdueCount++; return; }
+    openCount++;
+  });
+
+  const total = matchedTx.length;
+  const progress = total > 1 ? `${paidCount}/${total}` : undefined;
+
+  if (paidCount === total) return { label: "Pago", progress };
+  if (overdueCount > 0) return { label: "Atrasado", progress };
+  if (partialCount > 0 || (paidCount > 0 && paidCount < total)) return { label: "Parcial", progress };
+  if (pendingCount > 0) return { label: "Pendente", progress };
+  return { label: "A Pagar", progress };
 }
 
 function statusLabel(s: string): string {
