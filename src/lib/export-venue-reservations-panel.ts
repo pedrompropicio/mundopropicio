@@ -42,7 +42,7 @@ export function exportVenueReservationsPanelPDF(reservations: ReservationItem[])
 
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  const today = formatDatePTOptions(, { day: "2-digit", month: "long", year: "numeric" });
+  const today = new Date().toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" });
   doc.text(`Gerado em: ${today}  |  Total: ${reservations.length} reserva(s)`, marginLeft, y);
   doc.setTextColor(0, 0, 0);
   y += 10;
