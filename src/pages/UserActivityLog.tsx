@@ -60,19 +60,44 @@ export default function UserActivityLog() {
   // Build profile map
   const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
-  // Calculate per-user usage time (each log entry = ~30s of activity)
-  const INTERVAL_SECONDS = 30;
+  // Calculate per-user usage time by summing intervals between consecutive logs.
+  // If the gap exceeds MAX_GAP_SECONDS, treat as inactive and count only a base interval.
+  const BASE_INTERVAL_SECONDS = 30; // assumed activity per isolated log
+  const MAX_GAP_SECONDS = 5 * 60; // cap gaps > 5 min (user likely went away)
   const userTimeMap = new Map<string, number>(); // user_id -> total seconds (7d)
   const userTodayMap = new Map<string, number>(); // user_id -> total seconds (today)
   const pageTimeMap = new Map<string, number>(); // page -> total seconds
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Local "today" boundary (Europe/Lisbon — uses browser local time)
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTodayMs = startOfToday.getTime();
 
+  // Group activities by user (already sorted ascending by created_at)
+  const byUser = new Map<string, ActivityRow[]>();
   for (const act of activities) {
-    userTimeMap.set(act.user_id, (userTimeMap.get(act.user_id) ?? 0) + INTERVAL_SECONDS);
-    pageTimeMap.set(act.page, (pageTimeMap.get(act.page) ?? 0) + INTERVAL_SECONDS);
-    if (act.created_at.slice(0, 10) === todayStr) {
-      userTodayMap.set(act.user_id, (userTodayMap.get(act.user_id) ?? 0) + INTERVAL_SECONDS);
+    const arr = byUser.get(act.user_id) ?? [];
+    arr.push(act);
+    byUser.set(act.user_id, arr);
+  }
+
+  for (const [userId, logs] of byUser) {
+    let prevTimeMs: number | null = null;
+    for (const log of logs) {
+      const tMs = new Date(log.created_at).getTime();
+      let increment: number;
+      if (prevTimeMs === null) {
+        increment = BASE_INTERVAL_SECONDS;
+      } else {
+        const gapSec = (tMs - prevTimeMs) / 1000;
+        increment = gapSec > MAX_GAP_SECONDS ? BASE_INTERVAL_SECONDS : gapSec;
+      }
+      userTimeMap.set(userId, (userTimeMap.get(userId) ?? 0) + increment);
+      pageTimeMap.set(log.page, (pageTimeMap.get(log.page) ?? 0) + increment);
+      if (tMs >= startOfTodayMs) {
+        userTodayMap.set(userId, (userTodayMap.get(userId) ?? 0) + increment);
+      }
+      prevTimeMs = tMs;
     }
   }
 
