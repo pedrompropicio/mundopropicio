@@ -536,7 +536,7 @@ function drawForecastTable(
             day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
           });
           const obs = a.observation ? `\n      "${a.observation}"` : "";
-          const auditLine = `   • [${when}] ${a.field_name}: "${a.old_value ?? "—"}" → "${a.new_value ?? "—"}" — por ${a.changed_by}${obs}`;
+          const auditLine = `   - [${when}] ${a.field_name}: "${a.old_value ?? "-"}" -> "${a.new_value ?? "-"}" - por ${a.changed_by}${obs}`;
           body.push([{
             content: auditLine,
             colSpan: 9,
