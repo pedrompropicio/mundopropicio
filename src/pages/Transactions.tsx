@@ -637,12 +637,33 @@ export default function Transactions() {
       toast({ title: "Selecione transações aprovadas para liquidar", variant: "destructive" });
       return;
     }
+    // Validate that all selected transactions share the same invoice_ref (or all empty)
+    const selectedTxs = transactions.filter((t: any) => ids.includes(t.id));
+    const refs = new Set(selectedTxs.map((t: any) => (t.invoice_ref ?? "").trim()));
+    if (refs.size > 1) {
+      const list = [...refs].map((r) => r || "(sem fatura)").join(", ");
+      toast({
+        title: "Faturas diferentes na seleção",
+        description: `Para liquidar em lote, todas as transações devem ter o mesmo nº de fatura. Encontradas: ${list}`,
+        variant: "destructive",
+      });
+      return;
+    }
     setShowBatchPayment(true);
   };
 
   const batchPaymentTransactions = transactions.filter((t: any) =>
     [...selectedIds].some((id) => id === t.id && approvedInView.some((a) => a.id === id))
   );
+
+  const batchInitialInvoiceRef = (() => {
+    const refs = new Set(batchPaymentTransactions.map((t: any) => (t.invoice_ref ?? "").trim()));
+    if (refs.size === 1) {
+      const only = [...refs][0];
+      return only || "";
+    }
+    return "";
+  })();
 
   const toggleHiddenMutation = useMutation({
     mutationFn: async ({ id, currentlyHidden }: { id: string; currentlyHidden: boolean }) => {
@@ -731,6 +752,7 @@ export default function Transactions() {
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
+          initialInvoiceRef={batchInitialInvoiceRef}
           onClose={() => { setShowBatchPayment(false); setSelectedIds(new Set()); }}
         />
       )}
