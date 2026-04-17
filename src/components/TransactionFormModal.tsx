@@ -280,12 +280,29 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, type, category_id, amount")
+        .select("id, type, category_id, amount, event_id")
         .in("event_id", forecastEventIds);
       if (error) throw error;
       return data;
     },
     enabled: !!effectiveEventId && hasPL && forecastEventIds.length > 0,
+  });
+
+  // For multi_day (Master) events, only transactions explicitly linked to a Master BP line
+  // (via event_forecasts.transaction_id) should consume the Master budget. Custos Isolados
+  // and stand-alone sub-event transactions must NOT abate the Master ceiling.
+  const { data: masterLinkedTxIds = [] } = useQuery({
+    queryKey: ["master_linked_tx_ids", effectiveEventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("transaction_id")
+        .eq("event_id", effectiveEventId!)
+        .not("transaction_id", "is", null);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.transaction_id as string);
+    },
+    enabled: !!effectiveEventId && hasPL && effectiveEvent?.event_type === "multi_day",
   });
 
   // Fetch cache configs for this event (aggregate from children for parent tours)
@@ -478,7 +495,13 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
     : {};
 
   const usedBudgetByCategory = hasPL
-    ? eventTransactions.reduce<Record<string, number>>((acc, t) => {
+    ? eventTransactions.reduce<Record<string, number>>((acc, t: any) => {
+        // For Master (multi_day) events, only count transactions explicitly linked to a
+        // Master BP line. Sub-event transactions classified as "Custo Isolado" must not
+        // consume the Master budget.
+        if (effectiveEvent?.event_type === "multi_day" && t.event_id !== effectiveEventId) {
+          if (!masterLinkedTxIds.includes(t.id)) return acc;
+        }
         const key = `${t.type}_${t.category_id || "none"}`;
         acc[key] = (acc[key] || 0) + Number(t.amount);
         return acc;
