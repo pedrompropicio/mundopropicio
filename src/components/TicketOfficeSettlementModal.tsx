@@ -47,6 +47,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [submitting, setSubmitting] = useState(false);
   const [grossOverride, setGrossOverride] = useState<string>("");
   const [showNewExpense, setShowNewExpense] = useState(false);
+  const [showNewAdvance, setShowNewAdvance] = useState(false);
   const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [creditStatus, setCreditStatus] = useState<"credited" | "pending">("credited");
   const [expectedCreditDate, setExpectedCreditDate] = useState<string>("");
