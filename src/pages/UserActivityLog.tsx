@@ -78,8 +78,9 @@ export default function UserActivityLog() {
   const userTimeMap = new Map<string, number>(); // user_id -> total seconds (7d)
   const userTodayMap = new Map<string, number>(); // user_id -> total seconds (today)
   const pageTimeMap = new Map<string, number>(); // page -> total seconds
+  const userLastSeenMap = new Map<string, number>(); // user_id -> last seen timestamp (ms)
 
-  // Local "today" boundary (Europe/Lisbon — uses browser local time)
+  // Local "today" boundary (browser local time)
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const startOfTodayMs = startOfToday.getTime();
@@ -110,7 +111,20 @@ export default function UserActivityLog() {
       }
       prevTimeMs = tMs;
     }
+    if (prevTimeMs !== null) userLastSeenMap.set(userId, prevTimeMs);
   }
+
+  const formatLastSeen = (ms: number | undefined): string => {
+    if (!ms) return "—";
+    const d = new Date(ms);
+    return d.toLocaleString("pt-PT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   // Sort users by usage time desc
   const userStats = Array.from(userTimeMap.entries())
@@ -120,6 +134,7 @@ export default function UserActivityLog() {
       email: profileMap.get(userId)?.email ?? "",
       totalMinutes: totalSec / 60,
       todayMinutes: (userTodayMap.get(userId) ?? 0) / 60,
+      lastSeen: userLastSeenMap.get(userId),
     }))
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
