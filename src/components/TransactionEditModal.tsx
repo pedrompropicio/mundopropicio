@@ -13,6 +13,7 @@ import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
 import { sortByHierarchicalCode, cn } from "@/lib/utils";
 import { PaymentTimeline } from "@/components/PaymentTimeline";
+import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
@@ -331,6 +332,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             Ajuste administrativo — todos os campos podem ser alterados. Alterações serão registadas no audit log.
           </div>
         )}
+
+        <ReimbursementNoteRefBadge transactionId={transaction.id} variant="banner" />
 
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
