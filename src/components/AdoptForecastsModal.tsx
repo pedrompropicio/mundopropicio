@@ -379,6 +379,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
             .select("id");
           if (insErr) throw insErr;
           createdIds = (created ?? []).map((r: any) => r.id);
+          createdSplitIds.push(...createdIds);
         }
 
         // Atualizar cada split (existente ou recém-criado) para apontar à transação órfã
