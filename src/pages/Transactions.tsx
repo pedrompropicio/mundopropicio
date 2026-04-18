@@ -1080,29 +1080,29 @@ export default function Transactions() {
             <p className="py-8 text-center text-muted-foreground">Sem transações registadas.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
                     {canApprove && pendingInView.length > 0 && (
-                      <th className="pb-3 pr-2 text-center font-medium w-8">
+                      <th className="pb-2 pr-1 text-center font-medium w-6">
                         <input
                           type="checkbox"
                           checked={selectedPendingCount === pendingInView.length && pendingInView.length > 0}
                           onChange={toggleSelectAll}
-                          className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                          className="h-3 w-3 rounded border-border accent-primary cursor-pointer"
                           title="Selecionar todas pendentes"
                         />
                       </th>
                     )}
-                    <th className="pb-3 text-left font-medium">Descrição</th>
-                    <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
-                    <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                    <th className="hidden pb-3 text-left font-medium lg:table-cell">Categoria</th>
-                    <th className="pb-3 text-left font-medium">Estado</th>
-                    <th className="pb-3 text-left font-medium">Data Vcto</th>
-                    <th className="pb-3 text-right font-medium">Pago</th>
-                    <th className="pb-3 text-right font-medium">Valor c/IVA</th>
-                    <th className="pb-3 text-center font-medium">Ações</th>
+                    <th className="pb-2 pr-2 text-left font-medium">Descrição</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium sm:table-cell">Evento</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium lg:table-cell">Categoria</th>
+                    <th className="pb-2 pr-2 text-left font-medium">Estado</th>
+                    <th className="pb-2 pr-2 text-left font-medium">Data Vcto</th>
+                    <th className="pb-2 pr-2 text-right font-medium">Pago</th>
+                    <th className="pb-2 pr-2 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-2 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -1220,18 +1220,18 @@ export default function Transactions() {
               <div className="flex items-center justify-end mb-3">
                 <span className="text-xs text-muted-foreground">{paidTransactions.length} transação(ões)</span>
               </div>
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="pb-3 text-left font-medium">Descrição</th>
-                    <th className="hidden pb-3 text-left font-medium sm:table-cell">Evento</th>
-                    <th className="hidden pb-3 text-left font-medium md:table-cell">Fornecedor</th>
-                    <th className="hidden pb-3 text-left font-medium lg:table-cell">Categoria</th>
-                    <th className="pb-3 text-left font-medium">Estado</th>
-                    <th className="pb-3 text-left font-medium">Data Pgto</th>
-                    <th className="pb-3 text-right font-medium">Pago</th>
-                    <th className="pb-3 text-right font-medium">Valor c/IVA</th>
-                    <th className="pb-3 text-center font-medium">Ações</th>
+                  <tr className="border-b border-border/50 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <th className="pb-2 pr-2 text-left font-medium">Descrição</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium sm:table-cell">Evento</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium md:table-cell">Fornecedor</th>
+                    <th className="hidden pb-2 pr-2 text-left font-medium lg:table-cell">Categoria</th>
+                    <th className="pb-2 pr-2 text-left font-medium">Estado</th>
+                    <th className="pb-2 pr-2 text-left font-medium">Data Pgto</th>
+                    <th className="pb-2 pr-2 text-right font-medium">Pago</th>
+                    <th className="pb-2 pr-2 text-right font-medium">Valor c/IVA</th>
+                    <th className="pb-2 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">

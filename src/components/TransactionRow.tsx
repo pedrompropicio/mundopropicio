@@ -260,13 +260,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     <>
       <tr ref={rowRef} className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""} ${isHighlighted ? "ring-2 ring-primary ring-inset bg-primary/10 animate-pulse" : ""}`}>
         {showSelectColumn && (
-          <td className="py-3 pr-2 text-center w-8">
+          <td className="py-2 pr-1 text-center w-6">
             {selectable ? (
               <input
                 type="checkbox"
                 checked={!!selected}
                 onChange={onToggleSelect}
-                className={`h-3.5 w-3.5 rounded cursor-pointer ${
+                className={`h-3 w-3 rounded cursor-pointer ${
                   computedStatus === "pending"
                     ? "accent-emerald-500 border-emerald-500"
                     : "accent-sky-500 border-sky-500"
@@ -276,7 +276,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             ) : null}
           </td>
         )}
-        <td className="py-3 pr-4">
+        <td className="py-2 pr-2">
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => isParentSplit ? setChildrenExpanded(!childrenExpanded) : setExpanded(!expanded)}
@@ -416,7 +416,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             </div>
           </div>
         </td>
-        <td className="hidden py-3 pr-4 sm:table-cell">
+        <td className="hidden py-2 pr-2 sm:table-cell">
           {isParentSplit ? (
             <div>
               {childEventNames.length > 0 ? (
@@ -435,8 +435,8 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             <span className="text-muted-foreground">{eventName}</span>
           )}
         </td>
-        <td className="hidden py-3 pr-4 text-muted-foreground md:table-cell">{supplierName}</td>
-        <td className="hidden py-3 pr-4 text-muted-foreground lg:table-cell">
+        <td className="hidden py-2 pr-2 text-muted-foreground md:table-cell">{supplierName}</td>
+        <td className="hidden py-2 pr-2 text-muted-foreground lg:table-cell">
           {(t.account_categories as any)?.name ? (
             <span className="text-xs">
               <span className="text-muted-foreground/70">{(t.account_categories as any)?.code}</span>{" "}
@@ -446,15 +446,15 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             <span className="text-muted-foreground/50 italic text-xs">—</span>
           )}
         </td>
-        <td className="py-3 pr-4">
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+        <td className="py-2 pr-2">
+          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${statusClass}`}>
             {statusLabel}
           </span>
           {balance > 0 && computedStatus !== "paid" && (
             <p className="mt-0.5 text-[10px] text-warning">Aberto: {formatCurrency(balance)}</p>
           )}
         </td>
-        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
+        <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">
           <div className="flex items-center gap-1.5">
             {showPaymentDate ? (
               t.payment_date ? (
@@ -483,10 +483,10 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             )}
           </div>
         </td>
-        <td className="py-3 text-right font-mono text-muted-foreground whitespace-nowrap">
+        <td className="py-2 pr-2 text-right font-mono text-muted-foreground whitespace-nowrap">
           {formatCurrency(paidAmount)}
         </td>
-        <td className={`py-3 text-right whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
+        <td className={`py-2 pr-2 text-right whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
           <span className="font-mono font-semibold">{isExpense ? "-" : "+"}{formatCurrency(totalWithIva)}</span>
           {ivaRate > 0 && (
             <p className="text-[10px] text-muted-foreground font-mono">
@@ -494,7 +494,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             </p>
           )}
         </td>
-        <td className="py-3">
+        <td className="py-2">
           <div className="flex items-center justify-center gap-1">
             {/* Child split transactions: only docs + audit */}
             {isChildSplit ? (
