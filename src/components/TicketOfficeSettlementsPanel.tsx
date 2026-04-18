@@ -60,7 +60,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
       if (expenseIds.length > 0) {
         await (supabase as any)
           .from("transactions")
-          .update({ settlement_id: null, status: "pending", payment_date: null, paid_amount: 0 })
+          .update({ settlement_id: null, status: "pending", payment_date: null, paid_amount: 0, account_id: null })
           .in("id", expenseIds);
       }
       const { error } = await (supabase as any)
