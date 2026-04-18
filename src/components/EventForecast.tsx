@@ -245,6 +245,34 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
+  // Count of native (non-link) transaction_documents per transaction_id, used to
+  // render the 📎 badge on each BP row that has a linked transaction.
+  const transactionIdsForDocs = useMemo(
+    () => (transactions ?? []).map((t: any) => t.id).filter(Boolean) as string[],
+    [transactions],
+  );
+  const { data: nativeDocCountByTx = {} } = useQuery({
+    queryKey: ["bp_native_doc_counts", eventId, transactionIdsForDocs.sort().join(",")],
+    queryFn: async () => {
+      if (transactionIdsForDocs.length === 0) return {} as Record<string, number>;
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id, file_url")
+        .in("transaction_id", transactionIdsForDocs);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const d of data ?? []) {
+        const url = String((d as any).file_url ?? "");
+        // External "ref://" links are tracked separately via attachment_refs.
+        if (url.startsWith("ref://")) continue;
+        const tid = (d as any).transaction_id as string;
+        counts[tid] = (counts[tid] ?? 0) + 1;
+      }
+      return counts;
+    },
+    enabled: transactionIdsForDocs.length > 0,
+  });
+
   // Fetch ticket zones and lots for auto-calculated ticket revenue
   const ticketEventIds = [eventId, ...(childEventIds || [])];
   // Include parentEventId for cache config lookup on sub-events
