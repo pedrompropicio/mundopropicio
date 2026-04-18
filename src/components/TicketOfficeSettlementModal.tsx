@@ -937,13 +937,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       </DialogContent>
 
       {showNewExpense && eventId && (
-        <QuickExpenseModal
-          open={showNewExpense}
+        <TransactionFormModal
           onClose={() => setShowNewExpense(false)}
-          officeId={officeId}
-          officeName={officeName}
-          eventId={eventId}
-          defaultDate={settlementDate}
+          titleOverride="Nova Despesa Liquidada (Bilheteira)"
+          autoMarkPaid
+          defaults={{
+            type: "expense",
+            event_id: eventId,
+            account_id: officeId,
+            date: settlementDate,
+          }}
           onCreated={(txnId) => {
             // Auto-select the new expense as a deduction in the settlement
             setSelectedTxnIds((prev) => {
@@ -951,6 +954,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               next.add(txnId);
               return next;
             });
+            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
           }}
         />
       )}
