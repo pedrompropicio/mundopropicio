@@ -62,13 +62,27 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
-      // Load linked transactions
+      // Detect credit status from existing transfer transaction
       (async () => {
         const { data } = await (supabase as any)
           .from("transactions")
           .select("id")
           .eq("settlement_id", existingSettlement.id);
         setSelectedTxnIds(new Set((data || []).map((t: any) => t.id)));
+        if (existingSettlement.transfer_transaction_id) {
+          const { data: tt } = await (supabase as any)
+            .from("transactions")
+            .select("status, expected_date")
+            .eq("id", existingSettlement.transfer_transaction_id)
+            .single();
+          if (tt) {
+            setCreditStatus(tt.status === "paid" ? "credited" : "pending");
+            setExpectedCreditDate(tt.expected_date ?? "");
+          }
+        } else {
+          setCreditStatus("credited");
+          setExpectedCreditDate("");
+        }
       })();
     } else {
       setEventId("");
@@ -83,6 +97,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setExistingDocName(null);
       setGrossOverride("");
       setSettlementDate(new Date().toISOString().slice(0, 10));
+      setCreditStatus("credited");
+      setExpectedCreditDate("");
     }
   }, [open, existingSettlement]);
 
