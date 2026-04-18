@@ -24,9 +24,10 @@ interface Props {
   officeId: string;
   officeName: string;
   existingSettlement?: any | null;
+  defaultEventId?: string;
 }
 
-export function TicketOfficeSettlementModal({ open, onClose, officeId, officeName, existingSettlement }: Props) {
+export function TicketOfficeSettlementModal({ open, onClose, officeId, officeName, existingSettlement, defaultEventId }: Props) {
   const queryClient = useQueryClient();
   const { user, isAdmin } = useAuth();
   const isEditingConfirmed = !!existingSettlement && existingSettlement.status === "confirmed";
@@ -85,7 +86,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       })();
     } else {
-      setEventId("");
+      setEventId(defaultEventId ?? "");
       setSelectedTxnIds(new Set());
       setAdjustedNet("");
       setAdjustmentNotes("");
@@ -100,7 +101,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setCreditStatus("credited");
       setExpectedCreditDate("");
     }
-  }, [open, existingSettlement]);
+  }, [open, existingSettlement, defaultEventId]);
 
   // Eligible events for this office (assigned events without confirmed settlement)
   const { data: assignedEvents = [] } = useQuery({
