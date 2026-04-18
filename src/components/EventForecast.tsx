@@ -1901,6 +1901,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           childEventIds={childEventIds}
         />
       )}
+      {showBulkAttach && (
+        <BPBulkAttachmentsModal
+          eventIds={childEventIds && childEventIds.length > 0 ? [eventId, ...childEventIds] : [eventId]}
+          onClose={() => setShowBulkAttach(false)}
+        />
+      )}
     </div>
   );
 }
