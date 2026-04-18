@@ -1361,6 +1361,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   {attachingLinks ? "A anexar…" : "Anexar links da planilha"}
                 </button>
                 <button
+                  onClick={() => setShowBulkAttach(true)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                  title="Arrasta um .zip da pasta do Drive para anexar ficheiros em massa, com sugestão automática de linha do BP por fornecedor"
+                >
+                  <FileArchive className="h-3.5 w-3.5" />
+                  Upload em massa
+                </button>
+                <button
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
                 >
