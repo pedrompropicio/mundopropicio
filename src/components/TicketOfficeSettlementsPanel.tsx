@@ -337,6 +337,43 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!confirmingCredit} onOpenChange={() => setConfirmingCredit(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar crédito na conta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Indique a data em que o valor de{" "}
+              <strong className="font-mono">
+                {confirmingCredit?.transfer ? formatCurrency(Number(confirmingCredit.transfer.amount)) : ""}
+              </strong>{" "}
+              foi efetivamente creditado na conta destino. A transferência ficará liquidada e o saldo será atualizado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Data do crédito</label>
+            <DatePicker value={creditDate} onChange={setCreditDate} />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!creditDate) {
+                  toast.error("Indique a data do crédito");
+                  return;
+                }
+                if (confirmingCredit?.transfer?.id) {
+                  confirmCreditMutation.mutate({ transferId: confirmingCredit.transfer.id, date: creditDate });
+                }
+              }}
+              disabled={confirmCreditMutation.isPending}
+            >
+              {confirmCreditMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
