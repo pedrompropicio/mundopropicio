@@ -1102,7 +1102,7 @@ export default function Transactions() {
                     <th className="pb-3 text-left font-medium">Data Vcto</th>
                     <th className="pb-3 text-right font-medium">Pago</th>
                     <th className="pb-3 text-right font-medium">Valor c/IVA</th>
-                    <th className="pb-3 text-center font-medium sticky right-0 bg-card shadow-[-8px_0_12px_-8px_hsl(var(--background))] z-10">Ações</th>
+                    <th className="pb-3 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -1231,7 +1231,7 @@ export default function Transactions() {
                     <th className="pb-3 text-left font-medium">Data Pgto</th>
                     <th className="pb-3 text-right font-medium">Pago</th>
                     <th className="pb-3 text-right font-medium">Valor c/IVA</th>
-                    <th className="pb-3 text-center font-medium sticky right-0 bg-card shadow-[-8px_0_12px_-8px_hsl(var(--background))] z-10">Ações</th>
+                    <th className="pb-3 text-center font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
