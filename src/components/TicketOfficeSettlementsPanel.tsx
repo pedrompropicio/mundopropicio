@@ -108,6 +108,11 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
           .update({ settlement_id: null, status: "pending", payment_date: null, paid_amount: 0, account_id: null })
           .in("id", expenseIds);
       }
+      // Release advances back to pending
+      await (supabase as any)
+        .from("event_ticket_office_advances")
+        .update({ settlement_id: null })
+        .eq("settlement_id", id);
       const { error } = await (supabase as any)
         .from("ticket_office_settlements")
         .update({
@@ -129,6 +134,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket_office_settlements"] });
       queryClient.invalidateQueries({ queryKey: ["ticket_office_balances"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_advances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast.success("Fecho estornado");
       setReversingId(null);
