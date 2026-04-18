@@ -501,12 +501,15 @@ export async function attachLinksFromXlsx(
   buffer: ArrayBuffer,
   eventIds: string[],
   uploadedBy: string,
+  /** Optional Master event id used as fallback when sub-event BP has no match */
+  parentEventId?: string,
 ): Promise<AttachLinksResult> {
   const result: AttachLinksResult = {
     attached: 0,
     skipped: 0,
     rowsWithoutMatch: 0,
     rowsWithoutTx: 0,
+    matchedInMaster: 0,
     errors: [],
   };
 
@@ -514,11 +517,14 @@ export async function attachLinksFromXlsx(
   const allRows = sheets.flatMap((s) => s.rows).filter((r) => (r.attachments || []).some((a) => /^https?:\/\//i.test(a)));
   if (allRows.length === 0) return result;
 
+  // Build the full list of events to scan: requested events + optional Master fallback
+  const lookupEventIds = Array.from(new Set([...eventIds, ...(parentEventId ? [parentEventId] : [])]));
+
   // Load all forecasts for the given events with their transaction_id
   const { data: forecasts, error: forecastErr } = await supabase
     .from("event_forecasts")
-    .select("id, description, amount, transaction_id, attachment_refs")
-    .in("event_id", eventIds);
+    .select("id, event_id, description, amount, transaction_id, attachment_refs")
+    .in("event_id", lookupEventIds);
 
   if (forecastErr) {
     result.errors.push(`Erro ao carregar BP: ${forecastErr.message}`);
@@ -539,6 +545,13 @@ export async function attachLinksFromXlsx(
       existingByTx.set((d as any).transaction_id, set);
     }
   }
+
+  // Split forecasts into "primary" (sub-event scope) and "master fallback" pools
+  const primaryEventIds = new Set(eventIds);
+  const primaryForecasts = (forecasts || []).filter((f: any) => primaryEventIds.has(f.event_id));
+  const masterForecasts = parentEventId
+    ? (forecasts || []).filter((f: any) => f.event_id === parentEventId)
+    : [];
 
   for (const row of allRows) {
     const links = (row.attachments || [])
