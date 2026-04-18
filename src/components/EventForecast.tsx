@@ -908,7 +908,40 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }
   };
 
-  const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
+  const handleAttachLinksXlsx = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setAttachingLinks(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      // For Master events, scan all sub-events too; otherwise only this event
+      const targetEventIds = childEventIds && childEventIds.length > 0
+        ? [eventId, ...childEventIds]
+        : [eventId];
+      const result = await attachLinksFromXlsx(buffer, targetEventIds, user?.email || "system");
+
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary"] });
+
+      const summary = [
+        `${result.attached} link(s) anexado(s)`,
+        result.skipped > 0 ? `${result.skipped} já existia(m)` : null,
+        result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} linha(s) sem BP correspondente` : null,
+        result.rowsWithoutTx > 0 ? `${result.rowsWithoutTx} BP sem transação gerada` : null,
+      ].filter(Boolean).join(" · ");
+
+      toast({
+        title: result.attached > 0 ? "Links anexados às transações" : "Nenhum link novo a anexar",
+        description: summary || (result.errors[0] ?? undefined),
+        variant: result.errors.length > 0 && result.attached === 0 ? "destructive" : undefined,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao anexar links", description: err.message, variant: "destructive" });
+    } finally {
+      setAttachingLinks(false);
+    }
+  };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
