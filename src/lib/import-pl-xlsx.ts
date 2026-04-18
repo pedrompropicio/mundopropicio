@@ -109,13 +109,41 @@ function findHeaderRow(raw: any[][]): number {
   return -1;
 }
 
+/**
+ * Extract hyperlink targets per row from a worksheet.
+ * Excel allows a cell to display text (cell.v) while carrying a separate hyperlink (cell.l.Target).
+ * Returns a map of rowIndex (0-based) -> array of unique http(s) URLs found in that row.
+ */
+function extractHyperlinksByRow(ws: XLSX.WorkSheet): Map<number, string[]> {
+  const map = new Map<number, string[]>();
+  if (!ws || !ws["!ref"]) return map;
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const urls: string[] = [];
+    const seen = new Set<string>();
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[addr];
+      if (!cell) continue;
+      const target = (cell as any).l?.Target;
+      if (typeof target === "string" && /^https?:\/\//i.test(target) && !seen.has(target)) {
+        seen.add(target);
+        urls.push(target);
+      }
+    }
+    if (urls.length > 0) map.set(r, urls);
+  }
+  return map;
+}
+
 export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
-  const wb = XLSX.read(buffer, { type: "array" });
+  const wb = XLSX.read(buffer, { type: "array", cellHTML: false });
   const sheets: ParsedSheet[] = [];
 
   for (const sheetName of wb.SheetNames) {
     const ws = wb.Sheets[sheetName];
     const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    const hyperlinksByRow = extractHyperlinksByRow(ws);
     if (raw.length < 2) { sheets.push({ sheetName, rows: [], warnings: ["Aba vazia"] }); continue; }
 
     const headerIdx = findHeaderRow(raw);
