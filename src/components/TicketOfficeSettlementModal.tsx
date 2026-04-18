@@ -514,15 +514,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 {/* Net calculation */}
                 <div className="rounded-lg border border-border p-4 space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Líquido auto-calculado</span>
+                    <span className="text-sm text-muted-foreground">Líquido auto-calculado (Bruto − Deduções)</span>
                     <span className="font-mono font-bold text-lg">{formatCurrency(netCalculated)}</span>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Ajuste manual do líquido (opcional)</Label>
+                    <Label className="text-xs">Líquido recebido (banco) — opcional, se diverge do calculado</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      placeholder={`Ex: ${netCalculated.toFixed(2)}`}
+                      placeholder={`Calculado: ${netCalculated.toFixed(2)}`}
                       value={adjustedNet}
                       onChange={(e) => setAdjustedNet(e.target.value)}
                       disabled={!canEdit}
@@ -530,12 +530,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </div>
                   {hasAdjustment && (
                     <div className="space-y-2">
-                      <Label className="text-xs text-amber-500">Justificação do ajuste *</Label>
+                      <Label className="text-xs text-amber-500">Justificação da divergência *</Label>
                       <Textarea
                         rows={2}
                         value={adjustmentNotes}
                         onChange={(e) => setAdjustmentNotes(e.target.value)}
-                        placeholder="Ex: arredondamentos, valores em trânsito, retidos…"
+                        placeholder="Ex: comissões extra retidas pela sala, arredondamentos, valores em trânsito…"
                         disabled={!canEdit}
                       />
                     </div>
