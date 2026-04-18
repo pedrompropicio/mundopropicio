@@ -835,92 +835,29 @@ export default function Transactions() {
           </button>
         </div>
 
-        {/* Show hidden toggle (admin only) */}
-        {isAdmin && (
-          <button
-            onClick={() => setShowHidden(!showHidden)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all",
-              showHidden ? "bg-warning/15 text-warning ring-1 ring-warning/30" : "bg-secondary text-muted-foreground hover:text-foreground"
-            )}
-            title={showHidden ? "A mostrar transações ocultas" : "Mostrar transações ocultas"}
-          >
-            <EyeOff className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Ocultas</span>
-          </button>
-        )}
-
-        {/* Event multi-select filter */}
-        <Popover modal={false}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              {selectedEventIds.size === 0
-                ? "Todos os eventos"
-                : `${selectedEventIds.size} evento(s)`}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
-              <Checkbox
-                checked={selectedEventIds.size === events.length && events.length > 0}
-                onCheckedChange={toggleAllEvents}
-              />
-              <span className="text-sm font-medium">Selecionar todos</span>
-            </div>
-            {events.map((e: any) => (
-              <div
-                key={e.id}
-                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
-                onClick={() => toggleEvent(e.id)}
-              >
-                <Checkbox checked={selectedEventIds.has(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
-                <span className="text-sm">{e.name}</span>
-              </div>
-            ))}
-            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
-              <PopoverClose asChild>
-                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
-              </PopoverClose>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Account multi-select filter */}
-        <Popover modal={false}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              {selectedAccountIds.size === 0
-                ? "Todas as contas"
-                : `${selectedAccountIds.size} conta(s)`}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
-              <Checkbox
-                checked={selectedAccountIds.size === accounts.length && accounts.length > 0}
-                onCheckedChange={toggleAllAccounts}
-              />
-              <span className="text-sm font-medium">Selecionar todas</span>
-            </div>
-            {accounts.map((a: any) => (
-              <div
-                key={a.id}
-                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
-                onClick={() => toggleAccount(a.id)}
-              >
-                <Checkbox checked={selectedAccountIds.has(a.id)} onCheckedChange={() => toggleAccount(a.id)} />
-                <span className="text-sm">{a.name}</span>
-              </div>
-            ))}
-            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
-              <PopoverClose asChild>
-                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
-              </PopoverClose>
-            </div>
-          </PopoverContent>
-        </Popover>
+        {/* Unified Filters button (Sheet) */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFiltersOpen(true)}
+          className="text-[13px] font-normal h-8 px-3 relative"
+        >
+          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+          Filtros
+          {(() => {
+            const count =
+              selectedEventIds.size > 0 ? 1 : 0
+              + (selectedAccountIds.size > 0 ? 1 : 0)
+              + (selectedSupplierIds.size > 0 ? 1 : 0)
+              + (onlyPending ? 1 : 0)
+              + (onlyNoDueDate ? 1 : 0)
+              + (onlyGrouped ? 1 : 0)
+              + (showHidden ? 1 : 0);
+            return count > 0 ? (
+              <Badge variant="default" className="ml-1.5 h-5 min-w-5 rounded-full px-1.5 text-[10px]">{count}</Badge>
+            ) : null;
+          })()}
+        </Button>
 
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
