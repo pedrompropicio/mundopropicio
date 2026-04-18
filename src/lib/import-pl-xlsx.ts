@@ -475,8 +475,9 @@ export async function importPLToEvent(
 export interface AttachLinksResult {
   attached: number;        // links inserted
   skipped: number;         // links that already existed
-  rowsWithoutMatch: number; // BP rows with no matching forecast
+  rowsWithoutMatch: number; // BP rows with no matching forecast (sub or master)
   rowsWithoutTx: number;    // matched forecasts that lack transaction_id
+  matchedInMaster: number; // links that matched a forecast in the Master event (fallback)
   errors: string[];
 }
 
@@ -500,12 +501,15 @@ export async function attachLinksFromXlsx(
   buffer: ArrayBuffer,
   eventIds: string[],
   uploadedBy: string,
+  /** Optional Master event id used as fallback when sub-event BP has no match */
+  parentEventId?: string,
 ): Promise<AttachLinksResult> {
   const result: AttachLinksResult = {
     attached: 0,
     skipped: 0,
     rowsWithoutMatch: 0,
     rowsWithoutTx: 0,
+    matchedInMaster: 0,
     errors: [],
   };
 
@@ -513,11 +517,14 @@ export async function attachLinksFromXlsx(
   const allRows = sheets.flatMap((s) => s.rows).filter((r) => (r.attachments || []).some((a) => /^https?:\/\//i.test(a)));
   if (allRows.length === 0) return result;
 
+  // Build the full list of events to scan: requested events + optional Master fallback
+  const lookupEventIds = Array.from(new Set([...eventIds, ...(parentEventId ? [parentEventId] : [])]));
+
   // Load all forecasts for the given events with their transaction_id
   const { data: forecasts, error: forecastErr } = await supabase
     .from("event_forecasts")
-    .select("id, description, amount, transaction_id, attachment_refs")
-    .in("event_id", eventIds);
+    .select("id, event_id, description, amount, transaction_id, attachment_refs")
+    .in("event_id", lookupEventIds);
 
   if (forecastErr) {
     result.errors.push(`Erro ao carregar BP: ${forecastErr.message}`);
@@ -539,23 +546,44 @@ export async function attachLinksFromXlsx(
     }
   }
 
+  // Split forecasts into "primary" (sub-event scope) and "master fallback" pools
+  const primaryEventIds = new Set(eventIds);
+  const primaryForecasts = (forecasts || []).filter((f: any) => primaryEventIds.has(f.event_id));
+  const masterForecasts = parentEventId
+    ? (forecasts || []).filter((f: any) => f.event_id === parentEventId)
+    : [];
+
   for (const row of allRows) {
     const links = (row.attachments || [])
       .map((a) => String(a).trim())
       .filter((a) => /^https?:\/\//i.test(a));
     if (links.length === 0) continue;
 
-    // Find matching forecast by normalized description + baseAmount (1 cent tolerance)
+    // Find matching forecast by normalized description + baseAmount (1 cent tolerance).
+    // For sub-event imports, the spreadsheet often shows partial costs (e.g. ~50% of a
+    // tour-shared expense). Tour BPs consolidate those in the Master event, so we try:
+    //   1) Strict match (desc + amount) inside the sub-event(s)
+    //   2) Description-only match in the Master (fallback for shared/consolidated lines)
     const descKey = norm(row.description);
-    const match = (forecasts || []).find((f: any) => {
+    let match = primaryForecasts.find((f: any) => {
       return norm(String(f.description)) === descKey
         && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
     });
+    let matchedInMaster = false;
+    if (!match && masterForecasts.length > 0) {
+      // Master fallback: prefer exact desc + amount, then desc-only
+      match = masterForecasts.find((f: any) => {
+        return norm(String(f.description)) === descKey
+          && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
+      }) || masterForecasts.find((f: any) => norm(String(f.description)) === descKey);
+      if (match) matchedInMaster = true;
+    }
 
     if (!match) {
       result.rowsWithoutMatch++;
       continue;
     }
+    if (matchedInMaster) result.matchedInMaster++;
 
     // Always update forecast.attachment_refs (merge unique by url)
     const currentRefs: { url: string }[] = Array.isArray((match as any).attachment_refs)
