@@ -86,7 +86,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       })();
     } else {
-      setEventId("");
+      setEventId(defaultEventId ?? "");
       setSelectedTxnIds(new Set());
       setAdjustedNet("");
       setAdjustmentNotes("");
@@ -101,7 +101,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setCreditStatus("credited");
       setExpectedCreditDate("");
     }
-  }, [open, existingSettlement]);
+  }, [open, existingSettlement, defaultEventId]);
 
   // Eligible events for this office (assigned events without confirmed settlement)
   const { data: assignedEvents = [] } = useQuery({
