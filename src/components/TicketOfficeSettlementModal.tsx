@@ -660,6 +660,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           )}
         </DialogFooter>
       </DialogContent>
+
+      {showNewExpense && (
+        <TransactionFormModal
+          onClose={() => {
+            setShowNewExpense(false);
+            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
+          }}
+        />
+      )}
     </Dialog>
   );
 }
