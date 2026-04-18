@@ -475,8 +475,9 @@ export async function importPLToEvent(
 export interface AttachLinksResult {
   attached: number;        // links inserted
   skipped: number;         // links that already existed
-  rowsWithoutMatch: number; // BP rows with no matching forecast
+  rowsWithoutMatch: number; // BP rows with no matching forecast (sub or master)
   rowsWithoutTx: number;    // matched forecasts that lack transaction_id
+  matchedInMaster: number; // links that matched a forecast in the Master event (fallback)
   errors: string[];
 }
 
