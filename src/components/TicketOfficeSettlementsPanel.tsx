@@ -37,12 +37,54 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ticket_office_settlements")
-        .select("*, events(id, name, date), transfer:transactions!ticket_office_settlements_transfer_transaction_id_fkey(id, status, payment_date, expected_date, amount, target_account_id)")
+        .select("*, events(id, name, date)")
         .eq("financial_account_id", officeId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      const list = data || [];
+      const transferIds = list.map((s: any) => s.transfer_transaction_id).filter(Boolean);
+      if (transferIds.length === 0) return list;
+      const { data: transfers } = await (supabase as any)
+        .from("transactions")
+        .select("id, status, payment_date, expected_date, amount, target_account_id")
+        .in("id", transferIds);
+      const tMap = new Map((transfers || []).map((t: any) => [t.id, t]));
+      return list.map((s: any) => ({ ...s, transfer: s.transfer_transaction_id ? tMap.get(s.transfer_transaction_id) : null }));
     },
+  });
+
+  const confirmCreditMutation = useMutation({
+    mutationFn: async ({ transferId, date }: { transferId: string; date: string }) => {
+      const { data: tt } = await (supabase as any)
+        .from("transactions")
+        .select("amount")
+        .eq("id", transferId)
+        .single();
+      const { error } = await (supabase as any)
+        .from("transactions")
+        .update({
+          status: "paid",
+          payment_date: date,
+          paid_amount: Number(tt?.amount || 0),
+        })
+        .eq("id", transferId);
+      if (error) throw error;
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: transferId,
+        action: "settle_ticket_office_credit",
+        changed_by: getAuditUser(user),
+        metadata: { payment_date: date },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_settlements"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_balances"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success("Crédito confirmado");
+      setConfirmingCredit(null);
+    },
+    onError: (err: any) => toast.error("Erro ao confirmar crédito", { description: err.message }),
   });
 
   const reverseMutation = useMutation({
