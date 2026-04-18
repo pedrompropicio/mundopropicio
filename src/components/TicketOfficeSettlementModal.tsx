@@ -762,7 +762,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         >
                           <option value="">— Não transferir agora —</option>
                           {bankAccounts.map((a: any) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
+                            <option key={a.id} value={a.id}>
+                              {a.name}{a.withholds_revenue ? " (sala c/ retenção)" : ""}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -779,7 +781,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       </div>
                     </div>
 
-                    {transferAccountId && Number(transferAmount || 0) > 0 && (
+                    {targetWithholds && transferAccountId && (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+                        <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-amber-600 dark:text-amber-400">
+                            Conta com retenção de receita
+                          </p>
+                          <p className="text-muted-foreground">
+                            <strong>{targetAccount?.name}</strong> retém o valor da bilheteira e fará a prestação de contas final, descontando despesas e adiantamentos. Será criado um movimento <strong>a receber</strong> (pendente) — confirme depois com a data real do crédito quando a sala libertar o valor.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {transferAccountId && Number(transferAmount || 0) > 0 && !targetWithholds && (
                       <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <Label className="text-xs text-muted-foreground">Estado do crédito na conta destino</Label>
                         <div className="grid gap-2 sm:grid-cols-2">
