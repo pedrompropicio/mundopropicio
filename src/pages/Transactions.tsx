@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal } from "lucide-react";
+import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
+import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -53,6 +55,8 @@ export default function Transactions() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<string>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPaymentId, setShowPaymentId] = useState<string | null>(null);
@@ -102,6 +106,15 @@ export default function Transactions() {
       const { data, error } = await supabase.from("financial_accounts").select("id, name").eq("is_active", true).order("name");
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: suppliersList = [] } = useQuery({
+    queryKey: ["suppliers-list-filter"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -389,6 +402,7 @@ export default function Transactions() {
     .filter(matchesSearch)
     .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+    .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
     .filter((t) => {
       if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
@@ -496,6 +510,7 @@ export default function Transactions() {
       .filter(matchesSearch)
       .filter(matchesEventFilter)
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+      .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
@@ -820,92 +835,31 @@ export default function Transactions() {
           </button>
         </div>
 
-        {/* Show hidden toggle (admin only) */}
-        {isAdmin && (
-          <button
-            onClick={() => setShowHidden(!showHidden)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-all",
-              showHidden ? "bg-warning/15 text-warning ring-1 ring-warning/30" : "bg-secondary text-muted-foreground hover:text-foreground"
-            )}
-            title={showHidden ? "A mostrar transações ocultas" : "Mostrar transações ocultas"}
-          >
-            <EyeOff className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Ocultas</span>
-          </button>
-        )}
-
-        {/* Event multi-select filter */}
-        <Popover modal={false}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              {selectedEventIds.size === 0
-                ? "Todos os eventos"
-                : `${selectedEventIds.size} evento(s)`}
+        {/* Unified Filters button (Sheet) */}
+        {(() => {
+          const activeCount =
+            (selectedEventIds.size > 0 ? 1 : 0) +
+            (selectedAccountIds.size > 0 ? 1 : 0) +
+            (selectedSupplierIds.size > 0 ? 1 : 0) +
+            (onlyPending ? 1 : 0) +
+            (onlyNoDueDate ? 1 : 0) +
+            (onlyGrouped ? 1 : 0) +
+            (showHidden ? 1 : 0);
+          return (
+            <Button
+              variant={activeCount > 0 ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFiltersOpen(true)}
+              className="text-[13px] font-normal h-8 px-3"
+            >
+              <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+              Filtros
+              {activeCount > 0 && (
+                <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 rounded-full px-1.5 text-[10px]">{activeCount}</Badge>
+              )}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
-              <Checkbox
-                checked={selectedEventIds.size === events.length && events.length > 0}
-                onCheckedChange={toggleAllEvents}
-              />
-              <span className="text-sm font-medium">Selecionar todos</span>
-            </div>
-            {events.map((e: any) => (
-              <div
-                key={e.id}
-                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
-                onClick={() => toggleEvent(e.id)}
-              >
-                <Checkbox checked={selectedEventIds.has(e.id)} onCheckedChange={() => toggleEvent(e.id)} />
-                <span className="text-sm">{e.name}</span>
-              </div>
-            ))}
-            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
-              <PopoverClose asChild>
-                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
-              </PopoverClose>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* Account multi-select filter */}
-        <Popover modal={false}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              {selectedAccountIds.size === 0
-                ? "Todas as contas"
-                : `${selectedAccountIds.size} conta(s)`}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 max-h-72 overflow-y-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <div className="flex items-center gap-2 border-b border-border/50 pb-2 mb-2">
-              <Checkbox
-                checked={selectedAccountIds.size === accounts.length && accounts.length > 0}
-                onCheckedChange={toggleAllAccounts}
-              />
-              <span className="text-sm font-medium">Selecionar todas</span>
-            </div>
-            {accounts.map((a: any) => (
-              <div
-                key={a.id}
-                className="flex items-center gap-2 rounded px-1 py-1.5 hover:bg-muted/50 cursor-pointer"
-                onClick={() => toggleAccount(a.id)}
-              >
-                <Checkbox checked={selectedAccountIds.has(a.id)} onCheckedChange={() => toggleAccount(a.id)} />
-                <span className="text-sm">{a.name}</span>
-              </div>
-            ))}
-            <div className="border-t border-border/50 pt-2 mt-2 sticky bottom-0 bg-popover">
-              <PopoverClose asChild>
-                <Button variant="outline" size="sm" className="w-full">Fechar</Button>
-              </PopoverClose>
-            </div>
-          </PopoverContent>
-        </Popover>
+          );
+        })()}
 
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
@@ -987,41 +941,7 @@ export default function Transactions() {
           </Popover>
         )}
 
-        {/* Filter: only no due date */}
-        {viewMode === "open" && (
-          <Button
-            variant={onlyNoDueDate ? "default" : "outline"}
-            size="sm"
-            className="text-[13px] font-normal h-8 px-3"
-            onClick={() => setOnlyNoDueDate(!onlyNoDueDate)}
-          >
-            Sem Vencimento
-          </Button>
-        )}
-
-        {/* Filtro Aprovação (open view only) */}
-        {viewMode === "open" && (
-          <Button
-            variant={onlyPending ? "default" : "outline"}
-            size="sm"
-            className="text-[13px] font-normal h-8 px-3"
-            onClick={() => setOnlyPending(!onlyPending)}
-          >
-            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-            Aprovação
-          </Button>
-        )}
-
-        {/* Filtro Agrupadas por Fatura */}
-        <Button
-          variant={onlyGrouped ? "default" : "outline"}
-          size="sm"
-          className="text-[13px] font-normal h-8 px-3"
-          onClick={() => setOnlyGrouped(!onlyGrouped)}
-        >
-          <FileText className="mr-1.5 h-3.5 w-3.5" />
-          Agrupadas
-        </Button>
+        {/* Toggles "Sem Vencimento", "Aprovação" e "Agrupadas" foram movidos para o painel Filtros */}
 
         {/* Period filter for paid view */}
         {viewMode === "paid" && (
@@ -1106,6 +1026,90 @@ export default function Transactions() {
         )}
 
       </div>
+
+      {/* Active filter chips */}
+      {(() => {
+        const chips: { key: string; label: string; onRemove: () => void }[] = [];
+        if (selectedEventIds.size > 0) {
+          const names = events.filter((e: any) => selectedEventIds.has(e.id)).map((e: any) => e.name);
+          const label = names.length <= 2 ? names.join(", ") : `${names.length} eventos`;
+          chips.push({ key: "events", label: `Evento: ${label}`, onRemove: () => setSelectedEventIds(new Set()) });
+        }
+        if (selectedAccountIds.size > 0) {
+          const names = accounts.filter((a: any) => selectedAccountIds.has(a.id)).map((a: any) => a.name);
+          const label = names.length <= 2 ? names.join(", ") : `${names.length} contas`;
+          chips.push({ key: "accounts", label: `Conta: ${label}`, onRemove: () => setSelectedAccountIds(new Set()) });
+        }
+        if (selectedSupplierIds.size > 0) {
+          const names = suppliersList.filter((s: any) => selectedSupplierIds.has(s.id)).map((s: any) => s.name);
+          const label = names.length <= 2 ? names.join(", ") : `${names.length} fornecedores`;
+          chips.push({ key: "suppliers", label: `Fornecedor: ${label}`, onRemove: () => setSelectedSupplierIds(new Set()) });
+        }
+        if (onlyPending) chips.push({ key: "pending", label: "Aprovação pendente", onRemove: () => setOnlyPending(false) });
+        if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
+        if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
+        if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
+        if (chips.length === 0) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {chips.map((c) => (
+              <button
+                key={c.key}
+                onClick={c.onRemove}
+                className="group inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+              >
+                {c.label}
+                <X className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setSelectedEventIds(new Set());
+                setSelectedAccountIds(new Set());
+                setSelectedSupplierIds(new Set());
+                setOnlyPending(false);
+                setOnlyNoDueDate(false);
+                setOnlyGrouped(false);
+                setShowHidden(false);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Limpar tudo
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* Filters Sheet */}
+      <TransactionFiltersPanel
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        selectedEventIds={selectedEventIds}
+        setSelectedEventIds={setSelectedEventIds}
+        selectedAccountIds={selectedAccountIds}
+        setSelectedAccountIds={setSelectedAccountIds}
+        selectedSupplierIds={selectedSupplierIds}
+        setSelectedSupplierIds={setSelectedSupplierIds}
+        viewMode={viewMode}
+        onlyPending={onlyPending}
+        setOnlyPending={setOnlyPending}
+        onlyNoDueDate={onlyNoDueDate}
+        setOnlyNoDueDate={setOnlyNoDueDate}
+        onlyGrouped={onlyGrouped}
+        setOnlyGrouped={setOnlyGrouped}
+        showHidden={showHidden}
+        setShowHidden={setShowHidden}
+        isAdmin={isAdmin}
+        onClearAll={() => {
+          setSelectedEventIds(new Set());
+          setSelectedAccountIds(new Set());
+          setSelectedSupplierIds(new Set());
+          setOnlyPending(false);
+          setOnlyNoDueDate(false);
+          setOnlyGrouped(false);
+          setShowHidden(false);
+        }}
+      />
 
       {/* Table */}
       <div className="glass rounded-xl p-5">
