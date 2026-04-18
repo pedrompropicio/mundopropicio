@@ -945,7 +945,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
 
-
+  const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
