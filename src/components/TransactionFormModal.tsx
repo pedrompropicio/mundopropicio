@@ -975,7 +975,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
       }
-      return insertedTx?.id ?? null;
+      return createdTxId;
     },
     onSuccess: (newTxId) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
