@@ -6,7 +6,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -26,6 +26,8 @@ import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
+import BPAttachmentModal from "@/components/BPAttachmentModal";
+import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 
 interface InlineForm {
   type: string;
@@ -77,6 +79,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
   const [showBulkAttach, setShowBulkAttach] = useState(false);
+  const [showImportMode, setShowImportMode] = useState(false);
+  const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
+  const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
