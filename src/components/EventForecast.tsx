@@ -807,6 +807,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    const mode = pendingImportMode ?? "full";
+    setPendingImportMode(null);
     setImportingXlsx(true);
     try {
       const buffer = await file.arrayBuffer();
@@ -818,6 +820,29 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       const sheetsWithData = sheets.filter((s) => s.rows.length > 0);
       if (sheetsWithData.length === 0) {
         toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
+        return;
+      }
+
+      // Dry-run mode: don't write anything, just show a summary so the user can
+      // verify the file before committing. Triggered from the import-mode dialog.
+      if (mode === "dryrun") {
+        const totalRows = sheetsWithData.reduce((s, sh) => s + sh.rows.length, 0);
+        const totalLinks = sheetsWithData.reduce(
+          (s, sh) => s + sh.rows.reduce((a, r) => a + (r.attachments?.length ?? 0), 0),
+          0,
+        );
+        const sample = sheetsWithData
+          .slice(0, 4)
+          .map((sh) => `• ${sh.sheetName}: ${sh.rows.length} linhas`)
+          .join("\n");
+        const more = sheetsWithData.length > 4 ? `\n• … e mais ${sheetsWithData.length - 4} aba(s)` : "";
+        window.alert(
+          `Validação concluída (nada foi importado):\n\n` +
+          `Abas com dados: ${sheetsWithData.length}\n` +
+          `Total de linhas: ${totalRows}\n` +
+          `Total de links externos detectados: ${totalLinks}\n\n` +
+          `${sample}${more}`,
+        );
         return;
       }
 
