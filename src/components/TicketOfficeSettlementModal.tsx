@@ -46,6 +46,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [grossOverride, setGrossOverride] = useState<string>("");
   const [showNewExpense, setShowNewExpense] = useState(false);
   const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [creditStatus, setCreditStatus] = useState<"credited" | "pending">("credited");
+  const [expectedCreditDate, setExpectedCreditDate] = useState<string>("");
 
   // Reset/load when opening
   useEffect(() => {
@@ -60,13 +62,27 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
-      // Load linked transactions
+      // Detect credit status from existing transfer transaction
       (async () => {
         const { data } = await (supabase as any)
           .from("transactions")
           .select("id")
           .eq("settlement_id", existingSettlement.id);
         setSelectedTxnIds(new Set((data || []).map((t: any) => t.id)));
+        if (existingSettlement.transfer_transaction_id) {
+          const { data: tt } = await (supabase as any)
+            .from("transactions")
+            .select("status, expected_date")
+            .eq("id", existingSettlement.transfer_transaction_id)
+            .single();
+          if (tt) {
+            setCreditStatus(tt.status === "paid" ? "credited" : "pending");
+            setExpectedCreditDate(tt.expected_date ?? "");
+          }
+        } else {
+          setCreditStatus("credited");
+          setExpectedCreditDate("");
+        }
       })();
     } else {
       setEventId("");
@@ -81,6 +97,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setExistingDocName(null);
       setGrossOverride("");
       setSettlementDate(new Date().toISOString().slice(0, 10));
+      setCreditStatus("credited");
+      setExpectedCreditDate("");
     }
   }, [open, existingSettlement]);
 
@@ -323,15 +341,17 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
       // Create transfer transaction if requested and confirming
       if (confirm && transferAmt > 0 && transferAccountId) {
+        const isCredited = creditStatus === "credited";
         const { data: transferTxn, error: tErr } = await (supabase as any)
           .from("transactions")
           .insert({
             type: "transfer",
-            description: `Transferência fecho bilheteira ${officeName}`,
+            description: `Transferência fecho bilheteira ${officeName}${isCredited ? "" : " (a receber)"}`,
             amount: transferAmt,
-            paid_amount: transferAmt,
-            status: "paid",
-            payment_date: settlementDate,
+            paid_amount: isCredited ? transferAmt : 0,
+            status: isCredited ? "paid" : "pending",
+            payment_date: isCredited ? settlementDate : null,
+            expected_date: isCredited ? null : (expectedCreditDate || settlementDate),
             account_id: officeId,
             target_account_id: transferAccountId,
             event_id: eventId,
@@ -633,6 +653,58 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         />
                       </div>
                     </div>
+
+                    {transferAccountId && Number(transferAmount || 0) > 0 && (
+                      <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                        <Label className="text-xs text-muted-foreground">Estado do crédito na conta destino</Label>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <label className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
+                            creditStatus === "credited" ? "border-emerald-500/40 bg-emerald-500/5" : "border-border hover:bg-muted/40"
+                          }`}>
+                            <input
+                              type="radio"
+                              name="creditStatus"
+                              value="credited"
+                              checked={creditStatus === "credited"}
+                              onChange={() => setCreditStatus("credited")}
+                              disabled={!canEdit}
+                              className="mt-0.5"
+                            />
+                            <div className="text-xs">
+                              <p className="font-semibold">Já creditado</p>
+                              <p className="text-muted-foreground">Movimento criado liquidado na data do fecho.</p>
+                            </div>
+                          </label>
+                          <label className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
+                            creditStatus === "pending" ? "border-amber-500/40 bg-amber-500/5" : "border-border hover:bg-muted/40"
+                          }`}>
+                            <input
+                              type="radio"
+                              name="creditStatus"
+                              value="pending"
+                              checked={creditStatus === "pending"}
+                              onChange={() => setCreditStatus("pending")}
+                              disabled={!canEdit}
+                              className="mt-0.5"
+                            />
+                            <div className="text-xs">
+                              <p className="font-semibold">A receber</p>
+                              <p className="text-muted-foreground">Cria um movimento pendente. Confirme depois com a data real do crédito.</p>
+                            </div>
+                          </label>
+                        </div>
+                        {creditStatus === "pending" && (
+                          <div className="space-y-1 pt-1">
+                            <Label className="text-xs text-muted-foreground">Data prevista do crédito (opcional)</Label>
+                            <DatePicker
+                              value={expectedCreditDate}
+                              onChange={setExpectedCreditDate}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </section>
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, FileText, RotateCcw, Pencil, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Plus, FileText, RotateCcw, Pencil, CheckCircle2, AlertCircle, Loader2, Banknote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import { logAudit, getAuditUser } from "@/lib/audit";
 
 interface Props {
@@ -28,6 +29,8 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   const [editing, setEditing] = useState<any>(null);
   const [reversingId, setReversingId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
+  const [confirmingCredit, setConfirmingCredit] = useState<any | null>(null);
+  const [creditDate, setCreditDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const { data: settlements = [], isLoading } = useQuery({
     queryKey: ["ticket_office_settlements", officeId],
@@ -38,8 +41,50 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
         .eq("financial_account_id", officeId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      const list = data || [];
+      const transferIds = list.map((s: any) => s.transfer_transaction_id).filter(Boolean);
+      if (transferIds.length === 0) return list;
+      const { data: transfers } = await (supabase as any)
+        .from("transactions")
+        .select("id, status, payment_date, expected_date, amount, target_account_id")
+        .in("id", transferIds);
+      const tMap = new Map((transfers || []).map((t: any) => [t.id, t]));
+      return list.map((s: any) => ({ ...s, transfer: s.transfer_transaction_id ? tMap.get(s.transfer_transaction_id) : null }));
     },
+  });
+
+  const confirmCreditMutation = useMutation({
+    mutationFn: async ({ transferId, date }: { transferId: string; date: string }) => {
+      const { data: tt } = await (supabase as any)
+        .from("transactions")
+        .select("amount")
+        .eq("id", transferId)
+        .single();
+      const { error } = await (supabase as any)
+        .from("transactions")
+        .update({
+          status: "paid",
+          payment_date: date,
+          paid_amount: Number(tt?.amount || 0),
+        })
+        .eq("id", transferId);
+      if (error) throw error;
+      await logAudit({
+        entity_type: "transaction",
+        entity_id: transferId,
+        action: "settle_ticket_office_credit",
+        changed_by: getAuditUser(user),
+        metadata: { payment_date: date },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_settlements"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_balances"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success("Crédito confirmado");
+      setConfirmingCredit(null);
+    },
+    onError: (err: any) => toast.error("Erro ao confirmar crédito", { description: err.message }),
   });
 
   const reverseMutation = useMutation({
@@ -145,6 +190,17 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                           <AlertCircle className="h-3 w-3" /> Estornado
                         </span>
                       )}
+                      {s.status === "confirmed" && s.transfer && (
+                        s.transfer.status === "paid" ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 px-2 py-0.5 text-xs text-sky-400" title={`Crédito em ${s.transfer.payment_date ? new Date(s.transfer.payment_date).toLocaleDateString("pt-PT") : "—"}`}>
+                            <Banknote className="h-3 w-3" /> Crédito liquidado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
+                            <Clock className="h-3 w-3" /> Crédito a receber
+                          </span>
+                        )
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {s.events?.date ?? ""} • Fecho em {s.settlement_date ? new Date(s.settlement_date).toLocaleDateString("pt-PT") : new Date(s.created_at).toLocaleDateString("pt-PT")}
@@ -180,6 +236,26 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                     )}
                   </div>
                 </div>
+
+                {canManage && s.status === "confirmed" && s.transfer && s.transfer.status === "pending" && (
+                  <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                    <span className="text-amber-500">
+                      Aguarda confirmação de crédito de <strong className="font-mono">{formatCurrency(Number(s.transfer.amount))}</strong>
+                      {s.transfer.expected_date && ` · previsto ${new Date(s.transfer.expected_date).toLocaleDateString("pt-PT")}`}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setConfirmingCredit(s);
+                        setCreditDate(s.transfer.expected_date || new Date().toISOString().slice(0, 10));
+                      }}
+                    >
+                      <Banknote className="h-3 w-3 mr-1" /> Confirmar crédito
+                    </Button>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                   <div className="rounded-lg bg-secondary/40 p-2 text-center">
@@ -257,6 +333,43 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
             >
               {reverseMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Estornar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmingCredit} onOpenChange={() => setConfirmingCredit(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar crédito na conta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Indique a data em que o valor de{" "}
+              <strong className="font-mono">
+                {confirmingCredit?.transfer ? formatCurrency(Number(confirmingCredit.transfer.amount)) : ""}
+              </strong>{" "}
+              foi efetivamente creditado na conta destino. A transferência ficará liquidada e o saldo será atualizado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Data do crédito</label>
+            <DatePicker value={creditDate} onChange={setCreditDate} />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!creditDate) {
+                  toast.error("Indique a data do crédito");
+                  return;
+                }
+                if (confirmingCredit?.transfer?.id) {
+                  confirmCreditMutation.mutate({ transferId: confirmingCredit.transfer.id, date: creditDate });
+                }
+              }}
+              disabled={confirmCreditMutation.isPending}
+            >
+              {confirmCreditMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
