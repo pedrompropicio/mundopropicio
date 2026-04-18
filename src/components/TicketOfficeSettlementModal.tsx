@@ -398,7 +398,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="space-y-6">
             {isEditingConfirmed && !isAdmin && (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
@@ -504,7 +504,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                 checked ? "bg-primary/5" : "hover:bg-muted/40"
                               }`}
                             >
-                              <Checkbox checked={checked} onCheckedChange={() => canEdit && toggleTxn(t.id)} disabled={!canEdit} />
+                              <Checkbox
+                                checked={checked}
+                                onClick={(e) => e.stopPropagation()}
+                                onCheckedChange={() => canEdit && toggleTxn(t.id)}
+                                disabled={!canEdit}
+                              />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{t.description}</p>
                                 <p className="text-xs text-muted-foreground truncate">
@@ -656,7 +661,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="px-6 py-4 border-t border-border gap-2 flex-row">
           <Button variant="outline" onClick={onClose} disabled={submitting}>
