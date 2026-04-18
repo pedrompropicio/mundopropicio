@@ -12,7 +12,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
-import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, Receipt, Calculator, ArrowRightLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, Receipt, Calculator, ArrowRightLeft, CheckCircle2, CalendarDays } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
@@ -44,6 +45,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [submitting, setSubmitting] = useState(false);
   const [grossOverride, setGrossOverride] = useState<string>("");
   const [showNewExpense, setShowNewExpense] = useState(false);
+  const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   // Reset/load when opening
   useEffect(() => {
@@ -57,6 +59,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setNotes(existingSettlement.notes ?? "");
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
+      setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Load linked transactions
       (async () => {
         const { data } = await (supabase as any)
@@ -77,6 +80,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setExistingDocUrl(null);
       setExistingDocName(null);
       setGrossOverride("");
+      setSettlementDate(new Date().toISOString().slice(0, 10));
     }
   }, [open, existingSettlement]);
 
@@ -240,6 +244,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const payload: any = {
         financial_account_id: officeId,
         event_id: eventId,
+        settlement_date: settlementDate,
         gross_revenue: grossRevenue,
         total_deductions: totalDeductions,
         net_calculated: netCalculated,
@@ -290,7 +295,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         const update: any = { settlement_id: settlementId };
         if (confirm) {
           update.status = "paid";
-          update.payment_date = new Date().toISOString().slice(0, 10);
+          update.payment_date = settlementDate;
           update.account_id = officeId;
         }
         // For 'paid' update we need each txn's amount as paid_amount
@@ -302,7 +307,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               .update({
                 settlement_id: settlementId,
                 status: "paid",
-                payment_date: new Date().toISOString().slice(0, 10),
+                payment_date: settlementDate,
                 account_id: officeId,
                 paid_amount: Number(t.amount),
               })
@@ -326,7 +331,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             amount: transferAmt,
             paid_amount: transferAmt,
             status: "paid",
-            payment_date: new Date().toISOString().slice(0, 10),
+            payment_date: settlementDate,
             account_id: officeId,
             target_account_id: transferAccountId,
             event_id: eventId,
@@ -409,24 +414,42 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
             {/* STEP 1 — Event */}
             <section className="space-y-2">
-              <StepHeader n={1} icon={<Ticket className="h-4 w-4" />} title="Evento" done={stepDone.event} />
-              {existingSettlement ? (
-                <Input value={existingSettlement.events?.name ?? eventId} disabled />
-              ) : (
-                <select
-                  value={eventId}
-                  onChange={(e) => setEventId(e.target.value)}
-                  disabled={!canEdit}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Selecione um evento…</option>
-                  {assignedEvents.map((ev: any) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.name} {ev.date ? `(${ev.date})` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <StepHeader n={1} icon={<Ticket className="h-4 w-4" />} title="Evento e data do fecho" done={stepDone.event} />
+              <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Evento</Label>
+                  {existingSettlement ? (
+                    <Input value={existingSettlement.events?.name ?? eventId} disabled />
+                  ) : (
+                    <select
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                      disabled={!canEdit}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Selecione um evento…</option>
+                      {assignedEvents.map((ev: any) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.name} {ev.date ? `(${ev.date})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" /> Data do fecho
+                  </Label>
+                  <DatePicker
+                    value={settlementDate}
+                    onChange={setSettlementDate}
+                    disabled={!canEdit}
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Esta data é usada como data de pagamento das despesas e da transferência ao confirmar.
+              </p>
             </section>
 
             {eventId && (

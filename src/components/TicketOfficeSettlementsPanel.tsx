@@ -147,7 +147,7 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {s.events?.date ?? ""} • Criado em {new Date(s.created_at).toLocaleDateString("pt-PT")}
+                      {s.events?.date ?? ""} • Fecho em {s.settlement_date ? new Date(s.settlement_date).toLocaleDateString("pt-PT") : new Date(s.created_at).toLocaleDateString("pt-PT")}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
