@@ -2187,6 +2187,38 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
               )}
+              {/* Attachment counters: external links + native files */}
+              {(() => {
+                const linkCount = Array.isArray(item.attachment_refs)
+                  ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
+                  : 0;
+                if (linkCount === 0 && nativeDocCount === 0 && !onOpenAttachments) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onOpenAttachments?.(item); }}
+                    disabled={!onOpenAttachments}
+                    className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-default"
+                    title="Gerir anexos desta linha"
+                  >
+                    {linkCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 font-medium">
+                        <Link2 className="h-2.5 w-2.5" />{linkCount}
+                      </span>
+                    )}
+                    {nativeDocCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-success/15 text-success px-1.5 py-0.5 font-medium">
+                        <Paperclip className="h-2.5 w-2.5" />{nativeDocCount}
+                      </span>
+                    )}
+                    {linkCount === 0 && nativeDocCount === 0 && onOpenAttachments && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 hover:bg-secondary/70">
+                        <Paperclip className="h-2.5 w-2.5" />Anexos
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
               {/* Partner badges */}
               {assignedPartnerIds.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-0.5">
