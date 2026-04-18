@@ -12,7 +12,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
-import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw } from "lucide-react";
+import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, Receipt, Calculator, ArrowRightLeft, CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 
