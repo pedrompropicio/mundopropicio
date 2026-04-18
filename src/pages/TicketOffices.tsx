@@ -12,6 +12,7 @@ import { TicketImportModal } from "@/components/TicketUploadModals";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
+import { TicketOfficeAdvancesPanel } from "@/components/TicketOfficeAdvancesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketOfficeTicketingTab } from "@/components/TicketOfficeTicketingTab";
 import { TicketOfficeSettlementsPanel } from "@/components/TicketOfficeSettlementsPanel";
@@ -232,6 +233,7 @@ export default function TicketOffices() {
               <TabsTrigger value="dados">Dados</TabsTrigger>
               <TabsTrigger value="liquidez">Liquidez</TabsTrigger>
               <TabsTrigger value="vendas">Vendas / Bilhetes</TabsTrigger>
+              <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
               <TabsTrigger value="fechos">Fechos</TabsTrigger>
             </TabsList>
           </div>
@@ -298,6 +300,10 @@ export default function TicketOffices() {
               <TicketOfficeEventsList officeId={selectedOffice.id} />
               <TicketOfficeTicketingTab officeId={selectedOffice.id} officeName={selectedOffice.name} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="adiantamentos">
+            <TicketOfficeAdvancesPanel officeId={selectedOffice.id} officeName={selectedOffice.name} />
           </TabsContent>
 
           <TabsContent value="fechos">

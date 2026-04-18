@@ -87,11 +87,19 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("event_ticket_office_advances")
-        .select("*, events(id, name, date), target_account:financial_accounts!event_ticket_office_advances_target_account_id_fkey(id, name)")
+        .select("*, events(id, name, date)")
         .eq("financial_account_id", officeId)
         .order("advance_date", { ascending: false });
       if (error) throw error;
-      return data || [];
+      const list = data || [];
+      const targetIds = Array.from(new Set(list.map((a: any) => a.target_account_id).filter(Boolean)));
+      if (targetIds.length === 0) return list;
+      const { data: targets } = await supabase
+        .from("financial_accounts")
+        .select("id, name")
+        .in("id", targetIds);
+      const tMap = new Map((targets || []).map((t: any) => [t.id, t]));
+      return list.map((a: any) => ({ ...a, target_account: a.target_account_id ? tMap.get(a.target_account_id) : null }));
     },
   });
 
