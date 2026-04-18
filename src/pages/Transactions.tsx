@@ -1027,6 +1027,90 @@ export default function Transactions() {
 
       </div>
 
+      {/* Active filter chips */}
+      {(() => {
+        const chips: { key: string; label: string; onRemove: () => void }[] = [];
+        if (selectedEventIds.size > 0) {
+          const names = events.filter((e: any) => selectedEventIds.has(e.id)).map((e: any) => e.name);
+          const label = names.length <= 2 ? names.join(", ") : `${names.length} eventos`;
+          chips.push({ key: "events", label: `Evento: ${label}`, onRemove: () => setSelectedEventIds(new Set()) });
+        }
+        if (selectedAccountIds.size > 0) {
+          const names = accounts.filter((a: any) => selectedAccountIds.has(a.id)).map((a: any) => a.name);
+          const label = names.length <= 2 ? names.join(", ") : `${names.length} contas`;
+          chips.push({ key: "accounts", label: `Conta: ${label}`, onRemove: () => setSelectedAccountIds(new Set()) });
+        }
+        if (selectedSupplierIds.size > 0) {
+          const names = suppliersList.filter((s: any) => selectedSupplierIds.has(s.id)).map((s: any) => s.name);
+          const label = names.length <= 2 ? names.join(", ") : `${names.length} fornecedores`;
+          chips.push({ key: "suppliers", label: `Fornecedor: ${label}`, onRemove: () => setSelectedSupplierIds(new Set()) });
+        }
+        if (onlyPending) chips.push({ key: "pending", label: "Aprovação pendente", onRemove: () => setOnlyPending(false) });
+        if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
+        if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
+        if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
+        if (chips.length === 0) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {chips.map((c) => (
+              <button
+                key={c.key}
+                onClick={c.onRemove}
+                className="group inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+              >
+                {c.label}
+                <X className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setSelectedEventIds(new Set());
+                setSelectedAccountIds(new Set());
+                setSelectedSupplierIds(new Set());
+                setOnlyPending(false);
+                setOnlyNoDueDate(false);
+                setOnlyGrouped(false);
+                setShowHidden(false);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Limpar tudo
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* Filters Sheet */}
+      <TransactionFiltersPanel
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        selectedEventIds={selectedEventIds}
+        setSelectedEventIds={setSelectedEventIds}
+        selectedAccountIds={selectedAccountIds}
+        setSelectedAccountIds={setSelectedAccountIds}
+        selectedSupplierIds={selectedSupplierIds}
+        setSelectedSupplierIds={setSelectedSupplierIds}
+        viewMode={viewMode}
+        onlyPending={onlyPending}
+        setOnlyPending={setOnlyPending}
+        onlyNoDueDate={onlyNoDueDate}
+        setOnlyNoDueDate={setOnlyNoDueDate}
+        onlyGrouped={onlyGrouped}
+        setOnlyGrouped={setOnlyGrouped}
+        showHidden={showHidden}
+        setShowHidden={setShowHidden}
+        isAdmin={isAdmin}
+        onClearAll={() => {
+          setSelectedEventIds(new Set());
+          setSelectedAccountIds(new Set());
+          setSelectedSupplierIds(new Set());
+          setOnlyPending(false);
+          setOnlyNoDueDate(false);
+          setOnlyGrouped(false);
+          setShowHidden(false);
+        }}
+      />
+
       {/* Table */}
       <div className="glass rounded-xl p-5">
         {isLoading ? (
