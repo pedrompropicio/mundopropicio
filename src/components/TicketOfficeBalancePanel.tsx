@@ -67,8 +67,22 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
     },
   });
 
+  // Pending advances (already transferred to bank, will be deducted in event settlement)
+  const { data: pendingAdvances = [] } = useQuery({
+    queryKey: ["ticket_office_pending_advances", officeId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("event_id, amount, transaction_id, settlement_id")
+        .eq("financial_account_id", officeId)
+        .is("settlement_id", null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const summary = useMemo(() => {
-    const eventMap: Record<string, { name: string; status: string; sales: number; directExpenses: number; isConciliated: boolean }> = {};
+    const eventMap: Record<string, { name: string; status: string; sales: number; directExpenses: number; advances: number; isConciliated: boolean }> = {};
     assignments.forEach((a: any) => {
       if (a.events) {
         eventMap[a.event_id] = {
@@ -76,6 +90,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           status: a.events.status,
           sales: 0,
           directExpenses: 0,
+          advances: 0,
           isConciliated: a.is_conciliated,
         };
       }
@@ -95,26 +110,47 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
       }
     });
 
+    // Advances tied to a transaction are already counted in totalTransfersOut.
+    // Advances WITHOUT a linked transaction represent value moved out of the office
+    // that wasn't recorded as a transfer — count them as outflow as well.
+    const advanceTxnIds = new Set(
+      pendingAdvances.map((a: any) => a.transaction_id).filter(Boolean)
+    );
+    let advancesWithoutTxn = 0;
+    pendingAdvances.forEach((a: any) => {
+      if (eventMap[a.event_id]) {
+        eventMap[a.event_id].advances += Number(a.amount);
+      }
+      if (!a.transaction_id) advancesWithoutTxn += Number(a.amount);
+    });
+
     const totalTransfersOut = accountTxns
       .filter((t: any) => t.type === "expense" && !t.event_id)
       .reduce((sum: number, t: any) => sum + Number(t.paid_amount || 0), 0);
 
     const totalSales = Object.values(eventMap).reduce((s, e) => s + e.sales, 0);
     const totalDirectExpenses = Object.values(eventMap).reduce((s, e) => s + e.directExpenses, 0);
-    const globalBalance = totalSales - totalDirectExpenses - totalTransfersOut;
+    const totalAdvancesPending = Object.values(eventMap).reduce((s, e) => s + e.advances, 0);
+    const globalBalance =
+      totalSales - totalDirectExpenses - totalTransfersOut - advancesWithoutTxn;
 
     const activeEvents = Object.values(eventMap).filter((e) => e.status !== "completed");
     const hasInconsistency = activeEvents.length === 0 && Math.abs(globalBalance) > 0.01;
 
     return {
-      events: Object.entries(eventMap).map(([id, data]) => ({ id, ...data, balance: data.sales - data.directExpenses })),
+      events: Object.entries(eventMap).map(([id, data]) => ({
+        id,
+        ...data,
+        balance: data.sales - data.directExpenses - data.advances,
+      })),
       totalSales,
       totalDirectExpenses,
       totalTransfersOut,
+      totalAdvancesPending,
       globalBalance,
       hasInconsistency,
     };
-  }, [assignments, ticketSales, accountTxns, officeId]);
+  }, [assignments, ticketSales, accountTxns, pendingAdvances, officeId]);
 
   if (assignments.length === 0) {
     return (
@@ -126,7 +162,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vendas</p>
           <p className="text-sm font-mono font-semibold text-emerald-500">{formatCurrency(summary.totalSales)}</p>
@@ -136,15 +172,22 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           <p className="text-sm font-mono font-semibold text-amber-500">{formatCurrency(summary.totalDirectExpenses)}</p>
         </div>
         <div className="rounded-lg bg-secondary/40 p-2 text-center">
+          <p className="text-[10px] text-muted-foreground">Adiantamentos</p>
+          <p className="text-sm font-mono font-semibold text-amber-500">{formatCurrency(summary.totalAdvancesPending)}</p>
+        </div>
+        <div className="rounded-lg bg-secondary/40 p-2 text-center">
           <p className="text-[10px] text-muted-foreground">Transferências</p>
           <p className="text-sm font-mono font-semibold">{formatCurrency(summary.totalTransfersOut)}</p>
         </div>
       </div>
 
       <div className={`rounded-lg p-3 text-center ${summary.hasInconsistency ? "bg-destructive/10 border border-destructive/30" : "bg-secondary/40"}`}>
-        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Saldo Disponível na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">Retido na Bilheteira <HelpTooltip text={helpTexts.ticketOfficeBalance} size={12} /></p>
         <p className={`text-lg font-mono font-bold ${summary.globalBalance >= 0 ? "text-emerald-500" : "text-red-400"}`}>
           {formatCurrency(summary.globalBalance)}
+        </p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">
+          Vendas − despesas diretas − transferências (adiantamentos já saíram)
         </p>
         {summary.hasInconsistency && (
           <p className="flex items-center justify-center gap-1 text-[10px] text-destructive mt-1">

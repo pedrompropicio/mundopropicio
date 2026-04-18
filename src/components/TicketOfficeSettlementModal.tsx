@@ -222,20 +222,34 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  // Transferable bank accounts
+  // Transferable bank accounts (includes withholds_revenue flag for venue-style accounts)
   const { data: bankAccounts = [] } = useQuery({
     queryKey: ["settlement_bank_accounts"],
     enabled: open,
     queryFn: async () => {
       const { data } = await supabase
         .from("financial_accounts")
-        .select("id, name, type")
-        .in("type", ["bank", "cash"])
+        .select("id, name, type, withholds_revenue")
+        .in("type", ["bank", "cash", "venue"])
         .eq("is_active", true)
         .order("name");
       return data || [];
     },
   });
+
+  const targetAccount = useMemo(
+    () => bankAccounts.find((a: any) => a.id === transferAccountId),
+    [bankAccounts, transferAccountId]
+  );
+  const targetWithholds = !!targetAccount?.withholds_revenue;
+
+  // When target retains revenue, force "pending" — the venue physically holds the money
+  // and will release it later through their own settlement.
+  useEffect(() => {
+    if (targetWithholds && creditStatus !== "pending") {
+      setCreditStatus("pending");
+    }
+  }, [targetWithholds, creditStatus]);
 
   // Pending advances for this event on this office (excluding any already linked to this settlement)
   const { data: pendingAdvances = [] } = useQuery({
@@ -391,12 +405,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
       // Create transfer transaction if requested and confirming
       if (confirm && transferAmt > 0 && transferAccountId) {
-        const isCredited = creditStatus === "credited";
+        const isCredited = creditStatus === "credited" && !targetWithholds;
+        const baseDesc = targetWithholds
+          ? `Acerto fecho com ${targetAccount?.name} (a receber)`
+          : `Transferência fecho bilheteira ${officeName}${isCredited ? "" : " (a receber)"}`;
         const { data: transferTxn, error: tErr } = await (supabase as any)
           .from("transactions")
           .insert({
             type: "transfer",
-            description: `Transferência fecho bilheteira ${officeName}${isCredited ? "" : " (a receber)"}`,
+            description: baseDesc,
             amount: transferAmt,
             paid_amount: isCredited ? transferAmt : 0,
             status: isCredited ? "paid" : "pending",
@@ -745,7 +762,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         >
                           <option value="">— Não transferir agora —</option>
                           {bankAccounts.map((a: any) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
+                            <option key={a.id} value={a.id}>
+                              {a.name}{a.withholds_revenue ? " (sala c/ retenção)" : ""}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -762,7 +781,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       </div>
                     </div>
 
-                    {transferAccountId && Number(transferAmount || 0) > 0 && (
+                    {targetWithholds && transferAccountId && (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+                        <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-amber-600 dark:text-amber-400">
+                            Conta com retenção de receita
+                          </p>
+                          <p className="text-muted-foreground">
+                            <strong>{targetAccount?.name}</strong> retém o valor da bilheteira e fará a prestação de contas final, descontando despesas e adiantamentos. Será criado um movimento <strong>a receber</strong> (pendente) — confirme depois com a data real do crédito quando a sala libertar o valor.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {transferAccountId && Number(transferAmount || 0) > 0 && !targetWithholds && (
                       <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <Label className="text-xs text-muted-foreground">Estado do crédito na conta destino</Label>
                         <div className="grid gap-2 sm:grid-cols-2">
