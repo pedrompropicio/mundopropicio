@@ -161,6 +161,41 @@ Deno.serve(async (req) => {
         errors.push(`Erro ao vincular previsão "${forecast.description}": ${linkError.message}`);
       }
 
+      // Propagate forecast.attachment_refs into transaction_documents (skip duplicates)
+      const refs = Array.isArray((forecast as any).attachment_refs)
+        ? ((forecast as any).attachment_refs as Array<{ url?: string }>)
+        : [];
+      const refUrls = refs
+        .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
+        .filter((u) => /^https?:\/\//i.test(u));
+
+      if (refUrls.length > 0) {
+        const { data: existing } = await adminClient
+          .from("transaction_documents")
+          .select("file_url")
+          .eq("transaction_id", newTx.id);
+        const existingSet = new Set((existing || []).map((d: any) => d.file_url));
+
+        for (const link of refUrls) {
+          const fileUrl = `ref://${link}`;
+          if (existingSet.has(fileUrl)) continue;
+          const fileName = (() => {
+            try {
+              const u = new URL(link);
+              return decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || u.hostname).slice(0, 120);
+            } catch { return link.slice(0, 80); }
+          })();
+          await adminClient.from("transaction_documents").insert({
+            transaction_id: newTx.id,
+            name: fileName,
+            file_url: fileUrl,
+            doc_type: "outro",
+            uploaded_by: caller.email ?? "sistema",
+            is_accounting: true,
+          });
+        }
+      }
+
       created++;
     }
 

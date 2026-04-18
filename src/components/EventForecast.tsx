@@ -18,7 +18,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
-import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
+import { parseXlsxPL, importPLToEvent, attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
@@ -73,6 +73,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [exportingPDF, setExportingPDF] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const linksFileInputRef = useRef<HTMLInputElement>(null);
+  const [attachingLinks, setAttachingLinks] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -906,6 +908,41 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }
   };
 
+  const handleAttachLinksXlsx = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setAttachingLinks(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      // For Master events, scan all sub-events too; otherwise only this event
+      const targetEventIds = childEventIds && childEventIds.length > 0
+        ? [eventId, ...childEventIds]
+        : [eventId];
+      const result = await attachLinksFromXlsx(buffer, targetEventIds, user?.email || "system");
+
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary"] });
+
+      const summary = [
+        `${result.attached} link(s) anexado(s)`,
+        result.skipped > 0 ? `${result.skipped} já existia(m)` : null,
+        result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} linha(s) sem BP correspondente` : null,
+        result.rowsWithoutTx > 0 ? `${result.rowsWithoutTx} BP sem transação gerada` : null,
+      ].filter(Boolean).join(" · ");
+
+      toast({
+        title: result.attached > 0 ? "Links anexados às transações" : "Nenhum link novo a anexar",
+        description: summary || (result.errors[0] ?? undefined),
+        variant: result.errors.length > 0 && result.attached === 0 ? "destructive" : undefined,
+      });
+    } catch (err: any) {
+      toast({ title: "Erro ao anexar links", description: err.message, variant: "destructive" });
+    } finally {
+      setAttachingLinks(false);
+    }
+  };
+
   const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
 
   const toggleSelect = (id: string) => {
@@ -1296,6 +1333,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   className="hidden"
                   onChange={handleImportXlsx}
                 />
+                <input
+                  ref={linksFileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleAttachLinksXlsx}
+                />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importingXlsx}
@@ -1303,6 +1347,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <Upload className="h-3.5 w-3.5" />
                   {importingXlsx ? "A importar…" : "Importar XLSX"}
+                </button>
+                <button
+                  onClick={() => linksFileInputRef.current?.click()}
+                  disabled={attachingLinks}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  title="Lê a planilha original e anexa os links das colunas G–K às transações geradas"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  {attachingLinks ? "A anexar…" : "Anexar links da planilha"}
                 </button>
                 <button
                   onClick={() => setShowCopyModal(true)}

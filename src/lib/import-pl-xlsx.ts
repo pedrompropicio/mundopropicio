@@ -395,6 +395,12 @@ export async function importPLToEvent(
       continue;
     }
 
+    // Build attachment_refs from row.attachments (only http(s) URLs)
+    const attachmentRefs = (row.attachments || [])
+      .map((a) => String(a).trim())
+      .filter((a) => /^https?:\/\//i.test(a))
+      .map((url) => ({ url }));
+
     const { error: forecastError } = await supabase
       .from("event_forecasts")
       .insert({
@@ -406,7 +412,8 @@ export async function importPLToEvent(
         iva_rate: row.ivaRate,
         category_id: categoryId,
         status: "draft",
-      });
+        attachment_refs: attachmentRefs as any,
+      } as any);
 
     if (forecastError) {
       errors.push(`Previsão "${row.description}": ${forecastError.message}`);
@@ -417,4 +424,151 @@ export async function importPLToEvent(
   }
 
   return { created, errors };
+}
+
+// ============================================================
+// Layer B: Re-import only the attachment links from a spreadsheet
+// ============================================================
+
+export interface AttachLinksResult {
+  attached: number;        // links inserted
+  skipped: number;         // links that already existed
+  rowsWithoutMatch: number; // BP rows with no matching forecast
+  rowsWithoutTx: number;    // matched forecasts that lack transaction_id
+  errors: string[];
+}
+
+/** Extract a friendly file name from a URL (last segment, strip query). */
+function fileNameFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const last = u.pathname.split("/").filter(Boolean).pop() || u.hostname;
+    return decodeURIComponent(last).slice(0, 120);
+  } catch {
+    return url.slice(0, 80);
+  }
+}
+
+/**
+ * Read a BP spreadsheet and attach its column G–K links to existing transactions
+ * generated from the BP. Matching key: (description normalized + baseAmount within 1 cent).
+ * Skips when the same file_url already exists for that transaction.
+ */
+export async function attachLinksFromXlsx(
+  buffer: ArrayBuffer,
+  eventIds: string[],
+  uploadedBy: string,
+): Promise<AttachLinksResult> {
+  const result: AttachLinksResult = {
+    attached: 0,
+    skipped: 0,
+    rowsWithoutMatch: 0,
+    rowsWithoutTx: 0,
+    errors: [],
+  };
+
+  const sheets = parseXlsxPL(buffer);
+  const allRows = sheets.flatMap((s) => s.rows).filter((r) => (r.attachments || []).some((a) => /^https?:\/\//i.test(a)));
+  if (allRows.length === 0) return result;
+
+  // Load all forecasts for the given events with their transaction_id
+  const { data: forecasts, error: forecastErr } = await supabase
+    .from("event_forecasts")
+    .select("id, description, amount, transaction_id, attachment_refs")
+    .in("event_id", eventIds);
+
+  if (forecastErr) {
+    result.errors.push(`Erro ao carregar BP: ${forecastErr.message}`);
+    return result;
+  }
+
+  // Pre-load existing transaction_documents to detect duplicates
+  const txIds = (forecasts || []).map((f: any) => f.transaction_id).filter(Boolean) as string[];
+  const existingByTx = new Map<string, Set<string>>();
+  if (txIds.length > 0) {
+    const { data: existingDocs } = await supabase
+      .from("transaction_documents")
+      .select("transaction_id, file_url")
+      .in("transaction_id", txIds);
+    for (const d of existingDocs || []) {
+      const set = existingByTx.get((d as any).transaction_id) ?? new Set<string>();
+      set.add((d as any).file_url);
+      existingByTx.set((d as any).transaction_id, set);
+    }
+  }
+
+  for (const row of allRows) {
+    const links = (row.attachments || [])
+      .map((a) => String(a).trim())
+      .filter((a) => /^https?:\/\//i.test(a));
+    if (links.length === 0) continue;
+
+    // Find matching forecast by normalized description + baseAmount (1 cent tolerance)
+    const descKey = norm(row.description);
+    const match = (forecasts || []).find((f: any) => {
+      return norm(String(f.description)) === descKey
+        && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
+    });
+
+    if (!match) {
+      result.rowsWithoutMatch++;
+      continue;
+    }
+
+    // Always update forecast.attachment_refs (merge unique by url)
+    const currentRefs: { url: string }[] = Array.isArray((match as any).attachment_refs)
+      ? ((match as any).attachment_refs as any[]).filter((r) => r && typeof r.url === "string")
+      : [];
+    const refUrls = new Set(currentRefs.map((r) => r.url));
+    let refsChanged = false;
+    for (const link of links) {
+      if (!refUrls.has(link)) {
+        currentRefs.push({ url: link });
+        refUrls.add(link);
+        refsChanged = true;
+      }
+    }
+    if (refsChanged) {
+      await supabase
+        .from("event_forecasts")
+        .update({ attachment_refs: currentRefs as any } as any)
+        .eq("id", (match as any).id);
+    }
+
+    if (!(match as any).transaction_id) {
+      result.rowsWithoutTx++;
+      continue;
+    }
+
+    const txId = (match as any).transaction_id as string;
+    const existing = existingByTx.get(txId) ?? new Set<string>();
+
+    for (const link of links) {
+      const fileUrl = `ref://${link}`;
+      if (existing.has(fileUrl)) {
+        result.skipped++;
+        continue;
+      }
+
+      const { error: insertErr } = await supabase.from("transaction_documents").insert({
+        transaction_id: txId,
+        name: fileNameFromUrl(link),
+        file_url: fileUrl,
+        doc_type: "outro",
+        uploaded_by: uploadedBy,
+        is_accounting: true,
+      } as any);
+
+      if (insertErr) {
+        result.errors.push(`Erro ao anexar a "${row.description}": ${insertErr.message}`);
+        continue;
+      }
+
+      existing.add(fileUrl);
+      existingByTx.set(txId, existing);
+      result.attached++;
+    }
+  }
+
+  return result;
 }
