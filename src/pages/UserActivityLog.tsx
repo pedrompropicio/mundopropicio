@@ -212,6 +212,7 @@ export default function UserActivityLog() {
               <TableRow>
                 <TableHead>Utilizador</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Último acesso</TableHead>
                 <TableHead className="text-right">Hoje</TableHead>
                 <TableHead className="text-right">7 Dias</TableHead>
               </TableRow>
@@ -221,6 +222,7 @@ export default function UserActivityLog() {
                 <TableRow key={u.userId}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm font-mono">{formatLastSeen(u.lastSeen)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
