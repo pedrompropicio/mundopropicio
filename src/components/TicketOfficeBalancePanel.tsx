@@ -16,6 +16,10 @@ interface Props {
 }
 
 export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
+  const { isAdmin, hasPermission } = useAuth();
+  const canManage = isAdmin || hasPermission("manage_accounts");
+  const [settlementModal, setSettlementModal] = useState<{ open: boolean; eventId?: string }>({ open: false });
+
   // Get all assignments for this office (financial_account_id)
   const { data: assignments = [] } = useQuery({
     queryKey: ["ticket_office_assignments", officeId],
