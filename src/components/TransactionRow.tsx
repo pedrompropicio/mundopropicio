@@ -493,7 +493,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             </p>
           )}
         </td>
-        <td className="py-3">
+        <td className="py-3 sticky right-0 bg-card shadow-[-8px_0_12px_-8px_hsl(var(--background))] z-[1]">
           <div className="flex items-center justify-center gap-1">
             {/* Child split transactions: only docs + audit */}
             {isChildSplit ? (
