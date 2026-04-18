@@ -281,6 +281,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     try {
       let masterForecastId: string;
       let masterCategoryId: string | null = null;
+      const createdSplitIds: string[] = [];
 
       if (mode === "create") {
         if (!newDescription.trim()) {
