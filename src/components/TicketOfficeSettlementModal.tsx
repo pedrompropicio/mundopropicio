@@ -152,6 +152,27 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   const grossRevenue = grossOverride !== "" ? Number(grossOverride) : grossAuto;
 
+  // Sales log presence check — required to allow a settlement
+  const { data: salesCount = 0, isLoading: salesCountLoading } = useQuery({
+    queryKey: ["settlement_sales_count", officeId, eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", eventId);
+      const zoneIds = (zones || []).map((z: any) => z.id);
+      if (zoneIds.length === 0) return 0;
+      const { count } = await (supabase as any)
+        .from("ticket_sales")
+        .select("id", { count: "exact", head: true })
+        .in("zone_id", zoneIds)
+        .eq("financial_account_id", officeId);
+      return count ?? 0;
+    },
+  });
+  const hasSalesLog = salesCount > 0;
+
   // Eligible transactions: not-yet-paid expenses for the event (direct or via Master split),
   // already linked to this settlement, or unlinked. Excludes already 'paid' (liquidated elsewhere).
   const { data: eligibleTxns = [] } = useQuery({
@@ -236,6 +257,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   const handleSubmit = async (confirm: boolean) => {
     if (!eventId) return toast.error("Selecione o evento");
+    if (!hasSalesLog) {
+      return toast.error("Sem registo de vendas", {
+        description: "Só é possível fazer fecho de eventos com bilhetes vendidos registados nesta bilheteira. Importe ou registe as vendas antes de prosseguir.",
+      });
+    }
     if (hasAdjustment && !adjustmentNotes.trim()) {
       return toast.error("Justifique o ajuste manual do líquido");
     }
@@ -472,7 +498,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               </p>
             </section>
 
-            {eventId && (
+            {eventId && !salesCountLoading && !hasSalesLog && (
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-destructive">Sem registo de vendas para este evento</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Só é possível fazer fecho de eventos que tenham bilhetes vendidos registados nesta bilheteira. Importe ou registe as vendas no Log de Vendas antes de criar o fecho.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {eventId && hasSalesLog && (
               <>
                 {/* STEP 2 — Gross revenue */}
                 <section className="space-y-2">
@@ -766,11 +804,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           </Button>
           {canEdit && (
             <>
-              <Button variant="secondary" onClick={() => handleSubmit(false)} disabled={submitting || !eventId}>
+              <Button variant="secondary" onClick={() => handleSubmit(false)} disabled={submitting || !eventId || !hasSalesLog}>
                 {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Guardar rascunho
               </Button>
-              <Button onClick={() => handleSubmit(true)} disabled={submitting || !eventId}>
+              <Button onClick={() => handleSubmit(true)} disabled={submitting || !eventId || !hasSalesLog}>
                 {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <CheckCircle2 className="h-4 w-4 mr-1" /> Confirmar fecho
               </Button>
