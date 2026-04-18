@@ -12,7 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
-import { Loader2, Paperclip, X, FileText, AlertCircle } from "lucide-react";
+import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw } from "lucide-react";
+import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
+import { TransactionFormModal } from "@/components/TransactionFormModal";
 
 interface Props {
   open: boolean;
@@ -39,6 +41,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [existingDocUrl, setExistingDocUrl] = useState<string | null>(null);
   const [existingDocName, setExistingDocName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [grossOverride, setGrossOverride] = useState<string>("");
+  const [showNewExpense, setShowNewExpense] = useState(false);
 
   // Reset/load when opening
   useEffect(() => {
