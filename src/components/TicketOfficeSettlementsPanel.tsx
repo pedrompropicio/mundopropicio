@@ -29,13 +29,15 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
   const [editing, setEditing] = useState<any>(null);
   const [reversingId, setReversingId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
+  const [confirmingCredit, setConfirmingCredit] = useState<any | null>(null);
+  const [creditDate, setCreditDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const { data: settlements = [], isLoading } = useQuery({
     queryKey: ["ticket_office_settlements", officeId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("ticket_office_settlements")
-        .select("*, events(id, name, date)")
+        .select("*, events(id, name, date), transfer:transactions!ticket_office_settlements_transfer_transaction_id_fkey(id, status, payment_date, expected_date, amount, target_account_id)")
         .eq("financial_account_id", officeId)
         .order("created_at", { ascending: false });
       if (error) throw error;
