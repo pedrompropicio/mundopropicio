@@ -12,7 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
-import { Loader2, Paperclip, X, FileText, AlertCircle } from "lucide-react";
+import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw } from "lucide-react";
+import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
+import { TransactionFormModal } from "@/components/TransactionFormModal";
 
 interface Props {
   open: boolean;
@@ -39,6 +41,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [existingDocUrl, setExistingDocUrl] = useState<string | null>(null);
   const [existingDocName, setExistingDocName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [grossOverride, setGrossOverride] = useState<string>("");
+  const [showNewExpense, setShowNewExpense] = useState(false);
 
   // Reset/load when opening
   useEffect(() => {
@@ -71,6 +75,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setFile(null);
       setExistingDocUrl(null);
       setExistingDocName(null);
+      setGrossOverride("");
     }
   }, [open, existingSettlement]);
 
@@ -100,8 +105,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  // Gross revenue for selected event
-  const { data: grossRevenue = 0 } = useQuery({
+  // Gross revenue for selected event (c/IVA — usa total_value preservado da importação)
+  const { data: grossAuto = 0 } = useQuery({
     queryKey: ["settlement_gross", officeId, eventId],
     enabled: !!eventId,
     queryFn: async () => {
@@ -113,13 +118,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const zoneIds = zones.map((z: any) => z.id);
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("quantity, unit_price, financial_account_id")
+        .select("quantity, unit_price, total_value, financial_account_id")
         .in("zone_id", zoneIds);
-      return (sales || [])
-        .filter((s: any) => !s.financial_account_id || s.financial_account_id === officeId)
-        .reduce((acc: number, s: any) => acc + s.quantity * Number(s.unit_price), 0);
+      const filtered = (sales || []).filter(
+        (s: any) => !s.financial_account_id || s.financial_account_id === officeId
+      );
+      return sumTicketSalesRevenue(filtered);
     },
   });
+
+  const grossRevenue = grossOverride !== "" ? Number(grossOverride) : grossAuto;
 
   // Eligible transactions: not-yet-paid expenses for the event (direct or via Master split),
   // already linked to this settlement, or unlinked. Excludes already 'paid' (liquidated elsewhere).
@@ -406,17 +414,59 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
             {eventId && (
               <>
-                {/* Gross revenue */}
-                <div className="rounded-lg bg-secondary/40 p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita bruta de bilhetes</p>
-                  <p className="text-2xl font-mono font-bold text-emerald-500 mt-1">
-                    {formatCurrency(grossRevenue)}
-                  </p>
+                {/* Gross revenue (c/IVA) */}
+                <div className="rounded-lg bg-secondary/40 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita bruta de bilhetes (c/IVA)</p>
+                      <p className="text-2xl font-mono font-bold text-emerald-500 mt-1">
+                        {formatCurrency(grossRevenue)}
+                      </p>
+                      {grossOverride !== "" && (
+                        <p className="text-xs text-amber-500 mt-1">
+                          Manual — auto: {formatCurrency(grossAuto)}
+                        </p>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setGrossOverride("")}
+                        title="Recalcular das vendas"
+                        className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Ajuste manual da receita bruta (opcional)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder={`Auto: ${grossAuto.toFixed(2)}`}
+                      value={grossOverride}
+                      onChange={(e) => setGrossOverride(e.target.value)}
+                      disabled={!canEdit}
+                    />
+                  </div>
                 </div>
 
                 {/* Eligible transactions */}
                 <div className="space-y-2">
-                  <Label>Despesas a deduzir (vincular pendentes)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Despesas a deduzir (valores c/IVA)</Label>
+                    {canEdit && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNewExpense(true)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Nova despesa
+                      </Button>
+                    )}
+                  </div>
                   <div className="rounded-lg border border-border max-h-64 overflow-y-auto">
                     {eligibleTxns.length === 0 ? (
                       <p className="p-4 text-sm text-muted-foreground text-center">
@@ -430,7 +480,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                             <th className="text-left p-2">Descrição</th>
                             <th className="text-left p-2">Fornecedor</th>
                             <th className="text-left p-2">Categoria</th>
-                            <th className="text-right p-2">Valor</th>
+                            <th className="text-right p-2">Valor c/IVA</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -457,22 +507,22 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{selectedTxnIds.size} selecionada(s)</span>
-                    <span className="font-mono font-semibold">Total: {formatCurrency(totalDeductions)}</span>
+                    <span className="font-mono font-semibold">Total c/IVA: {formatCurrency(totalDeductions)}</span>
                   </div>
                 </div>
 
                 {/* Net calculation */}
                 <div className="rounded-lg border border-border p-4 space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Líquido auto-calculado</span>
+                    <span className="text-sm text-muted-foreground">Líquido auto-calculado (Bruto − Deduções)</span>
                     <span className="font-mono font-bold text-lg">{formatCurrency(netCalculated)}</span>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Ajuste manual do líquido (opcional)</Label>
+                    <Label className="text-xs">Líquido recebido (banco) — opcional, se diverge do calculado</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      placeholder={`Ex: ${netCalculated.toFixed(2)}`}
+                      placeholder={`Calculado: ${netCalculated.toFixed(2)}`}
                       value={adjustedNet}
                       onChange={(e) => setAdjustedNet(e.target.value)}
                       disabled={!canEdit}
@@ -480,12 +530,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </div>
                   {hasAdjustment && (
                     <div className="space-y-2">
-                      <Label className="text-xs text-amber-500">Justificação do ajuste *</Label>
+                      <Label className="text-xs text-amber-500">Justificação da divergência *</Label>
                       <Textarea
                         rows={2}
                         value={adjustmentNotes}
                         onChange={(e) => setAdjustmentNotes(e.target.value)}
-                        placeholder="Ex: arredondamentos, valores em trânsito, retidos…"
+                        placeholder="Ex: comissões extra retidas pela sala, arredondamentos, valores em trânsito…"
                         disabled={!canEdit}
                       />
                     </div>
@@ -610,6 +660,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           )}
         </DialogFooter>
       </DialogContent>
+
+      {showNewExpense && (
+        <TransactionFormModal
+          onClose={() => {
+            setShowNewExpense(false);
+            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
+          }}
+        />
+      )}
     </Dialog>
   );
 }
