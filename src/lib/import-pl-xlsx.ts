@@ -219,9 +219,23 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       }
 
       const attachments: string[] = [];
+      const seenAttach = new Set<string>();
+      // 1) Plain-text URLs in trailing columns (legacy behavior)
       for (let c = attachStartIdx; c < row.length; c++) {
         const val = String(row[c] ?? "").trim();
-        if (val && val.length > 2) attachments.push(val);
+        if (val && val.length > 2 && !seenAttach.has(val)) {
+          seenAttach.add(val);
+          attachments.push(val);
+        }
+      }
+      // 2) Excel hyperlinks (cell.l.Target) anywhere in the row — captures Drive/Dropbox links
+      //    hidden behind display text like "invoice.pdf"
+      const rowLinks = hyperlinksByRow.get(i) || [];
+      for (const link of rowLinks) {
+        if (!seenAttach.has(link)) {
+          seenAttach.add(link);
+          attachments.push(link);
+        }
       }
 
       const rawValues: Record<string, string> = {
