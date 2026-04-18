@@ -369,16 +369,12 @@ export default function Transactions() {
     });
   };
 
-  // Compute invoice_refs that appear on 2+ transactions (real groups)
+  // Compute all invoice_refs in use (any transaction with invoice_ref counts as "grouped by invoice")
   const groupedInvoiceRefs = useMemo(() => {
-    const counts = new Map<string, number>();
+    const set = new Set<string>();
     for (const t of transactions) {
       const ref = (t as any).invoice_ref?.trim();
-      if (ref) counts.set(ref, (counts.get(ref) ?? 0) + 1);
-    }
-    const set = new Set<string>();
-    for (const [ref, cnt] of counts) {
-      if (cnt >= 2) set.add(ref);
+      if (ref) set.add(ref);
     }
     return set;
   }, [transactions]);
