@@ -196,8 +196,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           </button>
         </div>
 
-        {/* Pending references from import */}
-        {refDocs.length > 0 && realDocs.length === 0 && (
+        {/* Pending textual references from import (no URL — needs upload) */}
+        {refDocs.length > 0 && realDocs.length === 0 && externalLinks.length === 0 && (
           <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
             <p className="font-semibold mb-0.5">📎 Referência pendente da importação:</p>
             {refDocs.map((d) => (
@@ -205,7 +205,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
             ))}
           </div>
         )}
-        {refDocs.length > 0 && realDocs.length > 0 && (
+        {refDocs.length > 0 && (realDocs.length > 0 || externalLinks.length > 0) && (
           <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
             <p className="font-semibold">✓ Referência da importação associada</p>
             {refDocs.map((d) => (
@@ -263,13 +263,23 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
           </div>
         </div>
 
-        {/* Documents list (only real docs) */}
+        {/* Documents list (uploaded files + external links) */}
         {isLoading ? (
           <p className="text-center text-sm text-muted-foreground py-4">A carregar…</p>
-        ) : realDocs.length === 0 ? (
+        ) : realDocs.length === 0 && externalLinks.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-4">Nenhum documento anexado.</p>
         ) : (
           <div className="space-y-2">
+            {externalLinks.map((doc: any) => (
+              <ExternalLinkAttachment
+                key={doc.id}
+                doc={doc}
+                uploadedAtFormatted={formatDatePT(doc.uploaded_at)}
+                onToggleAccounting={() => toggleAccounting(doc)}
+                onDelete={() => requestDelete(doc)}
+              />
+            ))}
+
             {realDocs.map((doc: any) => (
               <div key={doc.id} className="flex items-center gap-3 rounded-lg bg-secondary/50 px-3 py-2.5">
                 <FileText className="h-4 w-4 shrink-0 text-primary" />
@@ -288,12 +298,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={async () => {
-                      const newVal = !doc.is_accounting;
-                      await supabase.from("transaction_documents").update({ is_accounting: newVal } as any).eq("id", doc.id);
-                      queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
-                      toast({ title: newVal ? "Marcado como contábil" : "Removida marcação contábil" });
-                    }}
+                    onClick={() => toggleAccounting(doc)}
                     className={`rounded-lg p-1.5 transition-colors ${doc.is_accounting ? "text-primary hover:bg-primary/15" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
                     title={doc.is_accounting ? "Remover marcação contábil" : "Marcar como contábil"}
                   >
@@ -307,11 +312,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                     <ExternalLink className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm("Remover este documento?")) {
-                        deleteMutation.mutate({ id: doc.id, file_url: doc.file_url, name: doc.name });
-                      }
-                    }}
+                    onClick={() => requestDelete(doc)}
                     className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors"
                     title="Remover"
                   >
