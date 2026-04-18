@@ -295,7 +295,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         const update: any = { settlement_id: settlementId };
         if (confirm) {
           update.status = "paid";
-          update.payment_date = new Date().toISOString().slice(0, 10);
+          update.payment_date = settlementDate;
           update.account_id = officeId;
         }
         // For 'paid' update we need each txn's amount as paid_amount
@@ -307,7 +307,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               .update({
                 settlement_id: settlementId,
                 status: "paid",
-                payment_date: new Date().toISOString().slice(0, 10),
+                payment_date: settlementDate,
                 account_id: officeId,
                 paid_amount: Number(t.amount),
               })
@@ -331,7 +331,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             amount: transferAmt,
             paid_amount: transferAmt,
             status: "paid",
-            payment_date: new Date().toISOString().slice(0, 10),
+            payment_date: settlementDate,
             account_id: officeId,
             target_account_id: transferAccountId,
             event_id: eventId,
