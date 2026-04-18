@@ -21,11 +21,12 @@ export function showUndoToast({
   undoId,
   user,
   onUndone,
-  durationMs = 15000,
+  durationMs = 60000,
 }: ShowUndoToastOptions) {
+  const seconds = Math.round(durationMs / 1000);
   const { dismiss } = toast({
     title: message,
-    description: description ?? "Toque em Desfazer nos próximos 15 segundos.",
+    description: description ?? `Toque em Desfazer nos próximos ${seconds} segundos.`,
     duration: durationMs,
     action: (
       <ToastAction
