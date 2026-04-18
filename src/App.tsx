@@ -7,6 +7,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
+import ScrollToTop from "@/components/ScrollToTop";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -227,6 +228,7 @@ function App() {
           <Sonner />
           <AuthProvider>
             <BrowserRouter>
+              <ScrollToTop />
               <Routes>
                 <Route path="/login" element={<AuthRoute />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
