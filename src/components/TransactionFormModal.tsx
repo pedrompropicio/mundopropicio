@@ -973,14 +973,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
       }
+      return insertedTx?.id ?? null;
     },
-    onSuccess: () => {
+    onSuccess: (newTxId) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
+      queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
+      if (newTxId) onCreated?.(newTxId);
       onClose();
-      toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
+      toast({ title: isSplit ? "Rateio criado com sucesso!" : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!") });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
