@@ -1333,6 +1333,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   className="hidden"
                   onChange={handleImportXlsx}
                 />
+                <input
+                  ref={linksFileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleAttachLinksXlsx}
+                />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importingXlsx}
@@ -1340,6 +1347,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <Upload className="h-3.5 w-3.5" />
                   {importingXlsx ? "A importar…" : "Importar XLSX"}
+                </button>
+                <button
+                  onClick={() => linksFileInputRef.current?.click()}
+                  disabled={attachingLinks}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                  title="Lê a planilha original e anexa os links das colunas G–K às transações geradas"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  {attachingLinks ? "A anexar…" : "Anexar links da planilha"}
                 </button>
                 <button
                   onClick={() => setShowCopyModal(true)}
