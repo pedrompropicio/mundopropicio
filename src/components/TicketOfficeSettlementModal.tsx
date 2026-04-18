@@ -219,8 +219,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         seen.add(t.id);
         // Always keep transactions already linked to this settlement (when editing)
         if (existingSettlement && t.settlement_id === existingSettlement.id) return true;
-        // Eligible: not yet liquidated (pending or approved). Exclude 'paid' and 'cancelled'.
-        return t.status === "pending" || t.status === "approved";
+        // Eligible: pending/approved (to be liquidated by the settlement) OR
+        // already paid by this very box-office account (e.g. registered via "Nova despesa liquidada").
+        if (t.status === "pending" || t.status === "approved") return true;
+        if (t.status === "paid" && t.account_id === officeId) return true;
+        return false;
       });
     },
   });
