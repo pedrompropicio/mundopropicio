@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { calcWithIva, isFullyPaid, formatDatePT, formatDatePTOptions } from "@/lib/utils";
-import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers } from "lucide-react";
+import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers, MoreHorizontal } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
 import { toast } from "@/hooks/use-toast";
 
@@ -493,7 +494,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             </p>
           )}
         </td>
-        <td className="py-3 sticky right-0 bg-card shadow-[-8px_0_12px_-8px_hsl(var(--background))] z-[1]">
+        <td className="py-3">
           <div className="flex items-center justify-center gap-1">
             {/* Child split transactions: only docs + audit */}
             {isChildSplit ? (
