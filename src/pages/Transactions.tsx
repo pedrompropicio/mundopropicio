@@ -20,6 +20,7 @@ import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsLi
 import { TransactionRow } from "@/components/TransactionRow";
 import { TransferFormModal } from "@/components/TransferFormModal";
 import { BatchPaymentModal } from "@/components/BatchPaymentModal";
+import { TicketOfficeSettlementLauncher } from "@/components/TicketOfficeSettlementLauncher";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger, PopoverClose } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -679,6 +680,9 @@ export default function Transactions() {
             <span className="hidden sm:inline">Transferência</span>
             <HelpTooltip text={helpTexts.transferBetweenAccounts} size={13} />
           </button>
+          {(isAdmin || isManager || hasPermission("manage_ticket_offices")) && (
+            <TicketOfficeSettlementLauncher />
+          )}
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[13px] font-medium text-primary-foreground transition-all hover:bg-primary/90 glow-primary"
