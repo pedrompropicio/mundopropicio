@@ -92,7 +92,9 @@ export function TicketOfficeAdvancesPanel({ officeId, officeName }: Props) {
         .order("advance_date", { ascending: false });
       if (error) throw error;
       const list = data || [];
-      const targetIds = Array.from(new Set(list.map((a: any) => a.target_account_id).filter(Boolean)));
+      const targetIds = Array.from(
+        new Set(list.map((a: any) => a.target_account_id).filter(Boolean))
+      ) as string[];
       if (targetIds.length === 0) return list;
       const { data: targets } = await supabase
         .from("financial_accounts")
