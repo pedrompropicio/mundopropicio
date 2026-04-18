@@ -44,13 +44,24 @@ export default function UserActivityLog() {
   const { data: activities = [], isLoading } = useQuery<ActivityRow[]>({
     queryKey: ["user-activity-log-7d"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("user_activity_log")
-        .select("user_id, page, created_at")
-        .gte("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      // Paginate to bypass default 1000-row limit
+      const PAGE_SIZE = 1000;
+      let all: ActivityRow[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from("user_activity_log")
+          .select("user_id, page, created_at")
+          .gte("created_at", sevenDaysAgo)
+          .order("created_at", { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const batch = (data ?? []) as ActivityRow[];
+        all = all.concat(batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return all;
     },
     refetchInterval: 60_000,
   });
@@ -67,8 +78,9 @@ export default function UserActivityLog() {
   const userTimeMap = new Map<string, number>(); // user_id -> total seconds (7d)
   const userTodayMap = new Map<string, number>(); // user_id -> total seconds (today)
   const pageTimeMap = new Map<string, number>(); // page -> total seconds
+  const userLastSeenMap = new Map<string, number>(); // user_id -> last seen timestamp (ms)
 
-  // Local "today" boundary (Europe/Lisbon — uses browser local time)
+  // Local "today" boundary (browser local time)
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const startOfTodayMs = startOfToday.getTime();
@@ -99,7 +111,20 @@ export default function UserActivityLog() {
       }
       prevTimeMs = tMs;
     }
+    if (prevTimeMs !== null) userLastSeenMap.set(userId, prevTimeMs);
   }
+
+  const formatLastSeen = (ms: number | undefined): string => {
+    if (!ms) return "—";
+    const d = new Date(ms);
+    return d.toLocaleString("pt-PT", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   // Sort users by usage time desc
   const userStats = Array.from(userTimeMap.entries())
@@ -109,6 +134,7 @@ export default function UserActivityLog() {
       email: profileMap.get(userId)?.email ?? "",
       totalMinutes: totalSec / 60,
       todayMinutes: (userTodayMap.get(userId) ?? 0) / 60,
+      lastSeen: userLastSeenMap.get(userId),
     }))
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 
@@ -186,6 +212,7 @@ export default function UserActivityLog() {
               <TableRow>
                 <TableHead>Utilizador</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Último acesso</TableHead>
                 <TableHead className="text-right">Hoje</TableHead>
                 <TableHead className="text-right">7 Dias</TableHead>
               </TableRow>
@@ -195,6 +222,7 @@ export default function UserActivityLog() {
                 <TableRow key={u.userId}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{u.email}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm font-mono">{formatLastSeen(u.lastSeen)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
