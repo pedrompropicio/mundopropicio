@@ -28,14 +28,6 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   // Admins can fully edit paid transactions (audit adjustment)
   const paidLocked = isPaid && !isAdmin;
 
-  // Lock body scroll while modal is open to preserve scroll position
-  useEffect(() => {
-    const originalOverflow = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    return () => {
-      document.documentElement.style.overflow = originalOverflow;
-    };
-  }, []);
   const [form, setForm] = useState({
     description: transaction.description,
     amount: String(transaction.amount),
