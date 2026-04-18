@@ -41,6 +41,7 @@ interface AccountForm {
   iban: string;
   card_number: string;
   skip_balance_check: boolean;
+  withholds_revenue: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -53,6 +54,7 @@ const emptyForm: AccountForm = {
   iban: "",
   card_number: "",
   skip_balance_check: false,
+  withholds_revenue: false,
 };
 
 export default function FinancialAccounts() {
@@ -132,6 +134,7 @@ export default function FinancialAccounts() {
         iban: (form.type === "bank" || form.type === "prepaid_card") ? (form.iban.trim() || null) : null,
         card_number: form.type === "prepaid_card" ? (form.card_number.trim() || null) : null,
         skip_balance_check: form.skip_balance_check,
+        withholds_revenue: form.withholds_revenue,
       };
 
       if (editingId) {
@@ -175,6 +178,7 @@ export default function FinancialAccounts() {
       iban: account.iban ?? "",
       card_number: account.card_number ?? "",
       skip_balance_check: account.skip_balance_check ?? false,
+      withholds_revenue: account.withholds_revenue ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
