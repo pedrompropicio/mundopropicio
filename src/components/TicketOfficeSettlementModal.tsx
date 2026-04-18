@@ -16,7 +16,7 @@ import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, 
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
-import { TransactionFormModal } from "@/components/TransactionFormModal";
+import { QuickExpenseModal } from "@/components/QuickExpenseModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 
 interface Props {
