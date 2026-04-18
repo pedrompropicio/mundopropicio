@@ -65,6 +65,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
   const [newDescription, setNewDescription] = useState("");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newIvaRate, setNewIvaRate] = useState("23");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Master expense categories (for filtering orphan transactions in create mode)
   const { data: masterCategoryIds = [] } = useQuery({
