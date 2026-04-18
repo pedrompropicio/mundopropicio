@@ -661,7 +661,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="px-6 py-4 border-t border-border gap-2 flex-row">
           <Button variant="outline" onClick={onClose} disabled={submitting}>
