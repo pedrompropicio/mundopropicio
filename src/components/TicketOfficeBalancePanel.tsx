@@ -257,7 +257,7 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
           onClose={() => setSettlementModal({ open: false })}
           officeId={officeId}
           officeName={officeName}
-          existingSettlement={settlementModal.eventId ? { event_id: settlementModal.eventId } : null}
+          defaultEventId={settlementModal.eventId}
         />
       )}
     </div>
