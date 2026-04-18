@@ -617,6 +617,7 @@ export type Database = {
           amount: number
           approved_at: string | null
           approved_by: string | null
+          attachment_refs: Json
           cache_config_id: string | null
           category_id: string | null
           created_at: string
@@ -640,6 +641,7 @@ export type Database = {
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
+          attachment_refs?: Json
           cache_config_id?: string | null
           category_id?: string | null
           created_at?: string
@@ -663,6 +665,7 @@ export type Database = {
           amount?: number
           approved_at?: string | null
           approved_by?: string | null
+          attachment_refs?: Json
           cache_config_id?: string | null
           category_id?: string | null
           created_at?: string
