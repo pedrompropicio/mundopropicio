@@ -557,18 +557,13 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 )}
                 {/* Documents (with badge) — kept visible because it shows status */}
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
-                {/* Delete: blocked if event completed */}
-                {!eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue"))) && (
-                  <button onClick={() => onDelete(t.id)} className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors" title="Eliminar">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
                 {/* Secondary actions menu */}
                 {(() => {
+                  const showDelete = !eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue")));
                   const showViewPayments = onViewPayments && paidAmount > 0;
                   const showHide = isAdmin && onToggleHidden;
                   const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
-                  if (!showViewPayments && !showHide && !showReclassify) return null;
+                  if (!showDelete && !showViewPayments && !showHide && !showReclassify) return null;
                   return (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
