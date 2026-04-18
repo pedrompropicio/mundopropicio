@@ -45,6 +45,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [submitting, setSubmitting] = useState(false);
   const [grossOverride, setGrossOverride] = useState<string>("");
   const [showNewExpense, setShowNewExpense] = useState(false);
+  const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   // Reset/load when opening
   useEffect(() => {
@@ -58,6 +59,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setNotes(existingSettlement.notes ?? "");
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
+      setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Load linked transactions
       (async () => {
         const { data } = await (supabase as any)
@@ -78,6 +80,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setExistingDocUrl(null);
       setExistingDocName(null);
       setGrossOverride("");
+      setSettlementDate(new Date().toISOString().slice(0, 10));
     }
   }, [open, existingSettlement]);
 
@@ -241,6 +244,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const payload: any = {
         financial_account_id: officeId,
         event_id: eventId,
+        settlement_date: settlementDate,
         gross_revenue: grossRevenue,
         total_deductions: totalDeductions,
         net_calculated: netCalculated,
