@@ -75,6 +75,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setFile(null);
       setExistingDocUrl(null);
       setExistingDocName(null);
+      setGrossOverride("");
     }
   }, [open, existingSettlement]);
 
@@ -413,12 +414,42 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
             {eventId && (
               <>
-                {/* Gross revenue */}
-                <div className="rounded-lg bg-secondary/40 p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita bruta de bilhetes</p>
-                  <p className="text-2xl font-mono font-bold text-emerald-500 mt-1">
-                    {formatCurrency(grossRevenue)}
-                  </p>
+                {/* Gross revenue (c/IVA) */}
+                <div className="rounded-lg bg-secondary/40 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita bruta de bilhetes (c/IVA)</p>
+                      <p className="text-2xl font-mono font-bold text-emerald-500 mt-1">
+                        {formatCurrency(grossRevenue)}
+                      </p>
+                      {grossOverride !== "" && (
+                        <p className="text-xs text-amber-500 mt-1">
+                          Manual — auto: {formatCurrency(grossAuto)}
+                        </p>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setGrossOverride("")}
+                        title="Recalcular das vendas"
+                        className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Ajuste manual da receita bruta (opcional)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder={`Auto: ${grossAuto.toFixed(2)}`}
+                      value={grossOverride}
+                      onChange={(e) => setGrossOverride(e.target.value)}
+                      disabled={!canEdit}
+                    />
+                  </div>
                 </div>
 
                 {/* Eligible transactions */}
