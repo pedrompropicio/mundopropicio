@@ -63,6 +63,7 @@ type Item =
 
 export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEventIds, masterForecast, mode, categories = [] }: Props) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
