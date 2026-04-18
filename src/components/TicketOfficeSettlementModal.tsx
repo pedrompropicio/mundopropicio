@@ -237,13 +237,37 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
+  // Pending advances for this event on this office (excluding any already linked to this settlement)
+  const { data: pendingAdvances = [] } = useQuery({
+    queryKey: ["settlement_advances", officeId, eventId, existingSettlement?.id],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("*")
+        .eq("financial_account_id", officeId)
+        .eq("event_id", eventId)
+        .order("advance_date", { ascending: true });
+      const list = data || [];
+      // Include unlinked OR linked to this settlement (when editing)
+      return list.filter((a: any) =>
+        !a.settlement_id || (existingSettlement && a.settlement_id === existingSettlement.id)
+      );
+    },
+  });
+
+  const totalAdvances = useMemo(
+    () => pendingAdvances.reduce((s: number, a: any) => s + Number(a.amount), 0),
+    [pendingAdvances]
+  );
+
   const totalDeductions = useMemo(() => {
     return eligibleTxns
       .filter((t: any) => selectedTxnIds.has(t.id))
       .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
   }, [eligibleTxns, selectedTxnIds]);
 
-  const netCalculated = grossRevenue - totalDeductions;
+  const netCalculated = grossRevenue - totalDeductions - totalAdvances;
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
 
