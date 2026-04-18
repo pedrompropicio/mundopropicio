@@ -454,10 +454,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         </Button>
                       )}
                     </div>
-                    <details className="mt-3">
-                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                        Ajuste manual (opcional)
-                      </summary>
+                    <div className="mt-3 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Ajustar receita bruta manualmente (opcional)
+                      </Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -465,9 +465,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         value={grossOverride}
                         onChange={(e) => setGrossOverride(e.target.value)}
                         disabled={!canEdit}
-                        className="mt-2"
                       />
-                    </details>
+                    </div>
                   </div>
                 </section>
 
