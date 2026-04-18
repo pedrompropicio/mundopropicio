@@ -175,7 +175,10 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent
+        className="w-full sm:max-w-md overflow-y-auto [&~[data-radix-dialog-overlay]]:bg-transparent"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <SheetHeader>
           <SheetTitle>Filtros de Transações</SheetTitle>
           <SheetDescription>Refine os resultados com critérios combinados.</SheetDescription>
