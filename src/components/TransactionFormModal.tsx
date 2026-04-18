@@ -743,6 +743,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      let createdTxId: string | null = null;
       if (isSplit && splitEntries.length >= 2) {
         // --- SPLIT TRANSACTION ---
         const totalAmount = parseFloat(data.amount);
