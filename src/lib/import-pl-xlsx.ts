@@ -28,6 +28,26 @@ export interface ParsedSheet {
 
 const STANDARD_IVA_RATES = [0, 6, 13, 23];
 
+/**
+ * Extract a Google Drive / Docs file ID from a URL, when present.
+ * Supports the common patterns:
+ *   - https://drive.google.com/file/d/<ID>/view
+ *   - https://drive.google.com/open?id=<ID>
+ *   - https://docs.google.com/document/d/<ID>/edit
+ * Returns null for non-Drive URLs.
+ */
+export function extractDriveFileId(url: string): string | null {
+  if (!url) return null;
+  const s = String(url);
+  // /d/<ID>/ pattern (file, document, spreadsheets, presentation)
+  const m1 = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m1) return m1[1];
+  // ?id=<ID>
+  const m2 = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m2) return m2[1];
+  return null;
+}
+
 function roundMoney(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
