@@ -703,14 +703,4 @@ function StepHeader({ n, icon, title, done, badge }: { n: number; icon: React.Re
     </div>
   );
 }
-      {showNewExpense && (
-        <TransactionFormModal
-          onClose={() => {
-            setShowNewExpense(false);
-            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
-          }}
-        />
-      )}
-    </Dialog>
-  );
-}
+
