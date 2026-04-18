@@ -17,6 +17,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Layers, Search, Receipt, FileText, AlertTriangle, Wallet, Hash } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { recordUndo } from "@/lib/undo";
+import { showUndoToast } from "@/hooks/useUndoToast";
+import { getAuditUser } from "@/lib/audit";
 
 interface Props {
   open: boolean;
@@ -59,6 +63,7 @@ type Item =
 
 export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEventIds, masterForecast, mode, categories = [] }: Props) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
@@ -276,6 +281,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     try {
       let masterForecastId: string;
       let masterCategoryId: string | null = null;
+      const createdSplitIds: string[] = [];
 
       if (mode === "create") {
         if (!newDescription.trim()) {
@@ -373,6 +379,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
             .select("id");
           if (insErr) throw insErr;
           createdIds = (created ?? []).map((r: any) => r.id);
+          createdSplitIds.push(...createdIds);
         }
 
         // Atualizar cada split (existente ou recém-criado) para apontar à transação órfã
@@ -394,16 +401,54 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
-      queryClient.invalidateQueries({ queryKey: ["sub_event_forecasts_for_adopt"] });
-      queryClient.invalidateQueries({ queryKey: ["orphan_transactions_for_adopt"] });
-      queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
-      toast({
-        title: `${selectedKeys.size} item(ns) vinculado(s) ao Master`,
-        description: selectedTxs.length > 0
-          ? `${selectedForecasts.length} linha(s) BP + ${selectedTxs.length} transação(ões) órfã(s)`
-          : undefined,
-      });
+      const invalidate = () => {
+        queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+        queryClient.invalidateQueries({ queryKey: ["sub_event_forecasts_for_adopt"] });
+        queryClient.invalidateQueries({ queryKey: ["orphan_transactions_for_adopt"] });
+        queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
+      };
+      invalidate();
+
+      // Record undo entry capturing exactly what was changed
+      const undoRecord = user
+        ? await recordUndo({
+            action_type: "adopt_to_master",
+            entity_type: "event_forecast_master",
+            entity_id: masterForecastId,
+            performed_by: user.id,
+            performed_by_name: getAuditUser(user),
+            description: mode === "create"
+              ? `Criou linha Master "${newDescription.trim()}" e vinculou ${selectedKeys.size} item(ns)`
+              : `Vinculou ${selectedKeys.size} item(ns) ao Master "${masterForecast?.description ?? ""}"`,
+            payload: {
+              mode,
+              linkedForecastIds: selectedForecasts.map((i) => i.id),
+              createdSplitIds: createdSplitIds,
+              createdMasterId: mode === "create" ? masterForecastId : null,
+              totalAmount: totalSelected,
+              itemCount: selectedKeys.size,
+            },
+          })
+        : null;
+
+      const summary = selectedTxs.length > 0
+        ? `${selectedForecasts.length} linha(s) BP + ${selectedTxs.length} transação(ões) órfã(s)`
+        : undefined;
+
+      if (undoRecord && user) {
+        showUndoToast({
+          message: `${selectedKeys.size} item(ns) vinculado(s) ao Master`,
+          description: summary,
+          undoId: undoRecord.id,
+          user: { id: user.id, name: getAuditUser(user) },
+          onUndone: invalidate,
+        });
+      } else {
+        toast({
+          title: `${selectedKeys.size} item(ns) vinculado(s) ao Master`,
+          description: summary,
+        });
+      }
       onOpenChange(false);
       setSelectedKeys(new Set());
       setNewDescription("");
