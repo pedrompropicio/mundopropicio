@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
+import { useGlobalModalScrollLock } from "@/hooks/useGlobalModalScrollLock";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -215,27 +216,31 @@ function ThemeToggle() {
   );
 }
 
-const App = () => (
-  <ThemeProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<AuthRoute />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/unsubscribe" element={<Unsubscribe />} />
-              <Route path="/parceiro/*" element={<PartnerLayout />} />
-              <Route path="/*" element={<ProtectedLayout />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
-);
+function App() {
+  useGlobalModalScrollLock();
+
+  return (
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AuthProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<AuthRoute />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/unsubscribe" element={<Unsubscribe />} />
+                <Route path="/parceiro/*" element={<PartnerLayout />} />
+                <Route path="/*" element={<ProtectedLayout />} />
+              </Routes>
+            </BrowserRouter>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+}
 
 function AuthRoute() {
   const { user, loading, isPartner } = useAuth();
