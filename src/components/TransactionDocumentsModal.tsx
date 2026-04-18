@@ -9,6 +9,12 @@ import helpTexts from "@/lib/help-texts";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { formatDatePT } from "@/lib/utils";
+import ExternalLinkAttachment from "@/components/ExternalLinkAttachment";
+
+/** Detect if a ref:// entry actually contains an http(s) URL (clickable external link). */
+function isExternalLinkRef(fileUrl: string): boolean {
+  return /^ref:\/\/https?:\/\//i.test(fileUrl);
+}
 
 interface Props {
   transactionId: string;
@@ -158,8 +164,24 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     window.open(data.signedUrl, "_blank");
   };
 
-  const refDocs = documents.filter((d) => d.file_url.startsWith("ref://"));
+  // Three groups: external clickable links (ref://http...), pending textual refs, and uploaded files
+  const externalLinks = documents.filter((d) => isExternalLinkRef(d.file_url));
+  const refDocs = documents.filter((d) => d.file_url.startsWith("ref://") && !isExternalLinkRef(d.file_url));
   const realDocs = documents.filter((d) => !d.file_url.startsWith("ref://"));
+
+  const toggleAccounting = async (doc: any) => {
+    const newVal = !doc.is_accounting;
+    await supabase.from("transaction_documents").update({ is_accounting: newVal } as any).eq("id", doc.id);
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents", transactionId] });
+    queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", transactionId] });
+    toast({ title: newVal ? "Marcado como contábil" : "Removida marcação contábil" });
+  };
+
+  const requestDelete = (doc: any) => {
+    if (confirm("Remover este documento?")) {
+      deleteMutation.mutate({ id: doc.id, file_url: doc.file_url, name: doc.name });
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
