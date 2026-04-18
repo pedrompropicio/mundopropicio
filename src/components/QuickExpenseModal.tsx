@@ -196,7 +196,7 @@ export function QuickExpenseModal({ open, onClose, officeId, officeName, eventId
             <Label>Categoria</Label>
             <SearchableSelect
               value={categoryId}
-              onChange={setCategoryId}
+              onValueChange={setCategoryId}
               options={categories.map((c: any) => ({ value: c.id, label: `${c.code} — ${c.name}` }))}
               placeholder="Selecione a categoria"
             />
@@ -206,7 +206,7 @@ export function QuickExpenseModal({ open, onClose, officeId, officeName, eventId
             <Label>Fornecedor (opcional)</Label>
             <SearchableSelect
               value={supplierId}
-              onChange={setSupplierId}
+              onValueChange={setSupplierId}
               options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
               placeholder="Selecione o fornecedor"
             />
