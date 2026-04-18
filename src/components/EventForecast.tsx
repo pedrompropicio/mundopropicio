@@ -915,17 +915,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     setAttachingLinks(true);
     try {
       const buffer = await file.arrayBuffer();
-      // For Master events, scan all sub-events too; otherwise only this event
+      // For Master events, scan all sub-events too; for Sub events, fall back to Master BP
       const targetEventIds = childEventIds && childEventIds.length > 0
         ? [eventId, ...childEventIds]
         : [eventId];
-      const result = await attachLinksFromXlsx(buffer, targetEventIds, user?.email || "system");
+      const result = await attachLinksFromXlsx(buffer, targetEventIds, user?.email || "system", parentEventId);
 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary"] });
 
       const summary = [
         `${result.attached} link(s) anexado(s)`,
+        result.matchedInMaster > 0 ? `${result.matchedInMaster} via Master` : null,
         result.skipped > 0 ? `${result.skipped} já existia(m)` : null,
         result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} linha(s) sem BP correspondente` : null,
         result.rowsWithoutTx > 0 ? `${result.rowsWithoutTx} BP sem transação gerada` : null,
