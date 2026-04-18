@@ -542,12 +542,6 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     <CreditCard className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {/* View Payments History: when there's any paid amount */}
-                {onViewPayments && paidAmount > 0 && (
-                  <button onClick={() => onViewPayments(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Ver pagamentos">
-                    <History className="h-3.5 w-3.5" />
-                  </button>
-                )}
                 {/* Reimbursement transactions: show info that payment is via note */}
                 {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && t.is_reimbursement && (
                   <Tooltip>
@@ -561,95 +555,106 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     </TooltipContent>
                   </Tooltip>
                 )}
+                {/* Documents (with badge) — kept visible because it shows status */}
+                <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 {/* Delete: blocked if event completed */}
                 {!eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue"))) && (
                   <button onClick={() => onDelete(t.id)} className="rounded-lg p-1.5 text-destructive hover:bg-destructive/15 transition-colors" title="Eliminar">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {/* Hide/Show: admin only */}
-                {isAdmin && onToggleHidden && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => onToggleHidden(t.id, isHidden)}
-                        className={`rounded-lg p-1.5 transition-colors ${isHidden ? "text-warning hover:bg-warning/15" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
-                        title={isHidden ? "Tornar visível" : "Ocultar transação"}
-                      >
-                        {isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      {isHidden ? "Tornar visível" : "Ocultar transação"}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                {/* Reclassify: toggle local reinforcement vs Master rateio */}
-                {isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo) && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={async () => {
-                          try {
-                            if (isLocalReinforcement) {
-                              // Currently local → link to Master
-                              const { data: masterFc } = await supabase
-                                .from("event_forecasts")
-                                .select("id")
-                                .eq("event_id", parentTourEventId!)
-                                .eq("type", "expense")
-                                .eq("category_id", t.category_id!)
-                                .limit(1);
-                              if (!masterFc?.length) {
-                                toast({ title: "Linha Master não encontrada para esta categoria", variant: "destructive" });
-                                return;
-                              }
-                              await supabase.from("event_forecasts").insert({
-                                event_id: t.event_id,
-                                type: "expense",
-                                description: t.description || "(sem descrição)",
-                                category_id: t.category_id,
-                                amount: Number(t.amount),
-                                iva_rate: t.iva_rate ?? 23,
-                                status: "approved",
-                                transaction_id: t.id,
-                                master_forecast_id: masterFc[0].id,
-                              } as any);
-                              toast({ title: "Reclassificado como Rateio Master" });
-                            } else {
-                              // Currently linked to Master → remove the forecast link
-                              const { data: linkedFc } = await supabase
-                                .from("event_forecasts")
-                                .select("id")
-                                .eq("transaction_id", t.id)
-                                .not("master_forecast_id", "is", null);
-                              if (linkedFc?.length) {
-                                await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
-                              }
-                              toast({ title: "Reclassificado como Custo Isolado" });
-                            }
-                            queryClient.invalidateQueries({ queryKey: ["local-reinforcement-check", t.id] });
-                            queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
-                            queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
-                          } catch (err: any) {
-                            toast({ title: "Erro ao reclassificar", description: err.message, variant: "destructive" });
-                          }
-                        }}
-                        className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                        title={isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Custo Isolado"}
-                      >
-                        <Layers className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      {isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Custo Isolado"}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
-                <button onClick={() => onAudit(t.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Histórico de alterações">
-                  <History className="h-3.5 w-3.5" />
-                </button>
+                {/* Secondary actions menu */}
+                {(() => {
+                  const showViewPayments = onViewPayments && paidAmount > 0;
+                  const showHide = isAdmin && onToggleHidden;
+                  const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
+                  if (!showViewPayments && !showHide && !showReclassify) return null;
+                  return (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                          title="Mais ações"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={() => onAudit(t.id)}>
+                          <History className="h-3.5 w-3.5 mr-2" /> Histórico de alterações
+                        </DropdownMenuItem>
+                        {showViewPayments && (
+                          <DropdownMenuItem onClick={() => onViewPayments!(t.id)}>
+                            <CreditCard className="h-3.5 w-3.5 mr-2" /> Ver pagamentos
+                          </DropdownMenuItem>
+                        )}
+                        {showHide && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => onToggleHidden!(t.id, isHidden)}>
+                              {isHidden ? <Eye className="h-3.5 w-3.5 mr-2" /> : <EyeOff className="h-3.5 w-3.5 mr-2" />}
+                              {isHidden ? "Tornar visível" : "Ocultar transação"}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {showReclassify && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                try {
+                                  if (isLocalReinforcement) {
+                                    const { data: masterFc } = await supabase
+                                      .from("event_forecasts")
+                                      .select("id")
+                                      .eq("event_id", parentTourEventId!)
+                                      .eq("type", "expense")
+                                      .eq("category_id", t.category_id!)
+                                      .limit(1);
+                                    if (!masterFc?.length) {
+                                      toast({ title: "Linha Master não encontrada para esta categoria", variant: "destructive" });
+                                      return;
+                                    }
+                                    await supabase.from("event_forecasts").insert({
+                                      event_id: t.event_id,
+                                      type: "expense",
+                                      description: t.description || "(sem descrição)",
+                                      category_id: t.category_id,
+                                      amount: Number(t.amount),
+                                      iva_rate: t.iva_rate ?? 23,
+                                      status: "approved",
+                                      transaction_id: t.id,
+                                      master_forecast_id: masterFc[0].id,
+                                    } as any);
+                                    toast({ title: "Reclassificado como Rateio Master" });
+                                  } else {
+                                    const { data: linkedFc } = await supabase
+                                      .from("event_forecasts")
+                                      .select("id")
+                                      .eq("transaction_id", t.id)
+                                      .not("master_forecast_id", "is", null);
+                                    if (linkedFc?.length) {
+                                      await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
+                                    }
+                                    toast({ title: "Reclassificado como Custo Isolado" });
+                                  }
+                                  queryClient.invalidateQueries({ queryKey: ["local-reinforcement-check", t.id] });
+                                  queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+                                  queryClient.invalidateQueries({ queryKey: ["adopted_forecasts"] });
+                                } catch (err: any) {
+                                  toast({ title: "Erro ao reclassificar", description: err.message, variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <Layers className="h-3.5 w-3.5 mr-2" />
+                              {isLocalReinforcement ? "Vincular ao Rateio Master" : "Marcar como Custo Isolado"}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  );
+                })()}
               </>
             )}
           </div>
