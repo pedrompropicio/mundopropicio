@@ -222,20 +222,34 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  // Transferable bank accounts
+  // Transferable bank accounts (includes withholds_revenue flag for venue-style accounts)
   const { data: bankAccounts = [] } = useQuery({
     queryKey: ["settlement_bank_accounts"],
     enabled: open,
     queryFn: async () => {
       const { data } = await supabase
         .from("financial_accounts")
-        .select("id, name, type")
-        .in("type", ["bank", "cash"])
+        .select("id, name, type, withholds_revenue")
+        .in("type", ["bank", "cash", "venue"])
         .eq("is_active", true)
         .order("name");
       return data || [];
     },
   });
+
+  const targetAccount = useMemo(
+    () => bankAccounts.find((a: any) => a.id === transferAccountId),
+    [bankAccounts, transferAccountId]
+  );
+  const targetWithholds = !!targetAccount?.withholds_revenue;
+
+  // When target retains revenue, force "pending" — the venue physically holds the money
+  // and will release it later through their own settlement.
+  useEffect(() => {
+    if (targetWithholds && creditStatus !== "pending") {
+      setCreditStatus("pending");
+    }
+  }, [targetWithholds, creditStatus]);
 
   // Pending advances for this event on this office (excluding any already linked to this settlement)
   const { data: pendingAdvances = [] } = useQuery({
