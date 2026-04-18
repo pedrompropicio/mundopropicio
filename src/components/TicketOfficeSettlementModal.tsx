@@ -936,11 +936,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         </DialogFooter>
       </DialogContent>
 
-      {showNewExpense && (
-        <TransactionFormModal
-          onClose={() => {
-            setShowNewExpense(false);
-            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
+      {showNewExpense && eventId && (
+        <QuickExpenseModal
+          open={showNewExpense}
+          onClose={() => setShowNewExpense(false)}
+          officeId={officeId}
+          officeName={officeName}
+          eventId={eventId}
+          defaultDate={settlementDate}
+          onCreated={(txnId) => {
+            // Auto-select the new expense as a deduction in the settlement
+            setSelectedTxnIds((prev) => {
+              const next = new Set(prev);
+              next.add(txnId);
+              return next;
+            });
           }}
         />
       )}
