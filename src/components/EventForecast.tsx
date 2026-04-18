@@ -76,6 +76,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
+  const [showBulkAttach, setShowBulkAttach] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
