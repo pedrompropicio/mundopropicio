@@ -6,7 +6,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -26,6 +26,8 @@ import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
+import BPAttachmentModal from "@/components/BPAttachmentModal";
+import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 
 interface InlineForm {
   type: string;
@@ -77,6 +79,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
   const [showBulkAttach, setShowBulkAttach] = useState(false);
+  const [showImportMode, setShowImportMode] = useState(false);
+  const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
+  const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -238,6 +243,34 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }
       return merged;
     },
+  });
+
+  // Count of native (non-link) transaction_documents per transaction_id, used to
+  // render the 📎 badge on each BP row that has a linked transaction.
+  const transactionIdsForDocs = useMemo(
+    () => (transactions ?? []).map((t: any) => t.id).filter(Boolean) as string[],
+    [transactions],
+  );
+  const { data: nativeDocCountByTx = {} } = useQuery({
+    queryKey: ["bp_native_doc_counts", eventId, transactionIdsForDocs.sort().join(",")],
+    queryFn: async () => {
+      if (transactionIdsForDocs.length === 0) return {} as Record<string, number>;
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id, file_url")
+        .in("transaction_id", transactionIdsForDocs);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      for (const d of data ?? []) {
+        const url = String((d as any).file_url ?? "");
+        // External "ref://" links are tracked separately via attachment_refs.
+        if (url.startsWith("ref://")) continue;
+        const tid = (d as any).transaction_id as string;
+        counts[tid] = (counts[tid] ?? 0) + 1;
+      }
+      return counts;
+    },
+    enabled: transactionIdsForDocs.length > 0,
   });
 
   // Fetch ticket zones and lots for auto-calculated ticket revenue
@@ -802,6 +835,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    const mode = pendingImportMode ?? "full";
+    setPendingImportMode(null);
     setImportingXlsx(true);
     try {
       const buffer = await file.arrayBuffer();
@@ -813,6 +848,29 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       const sheetsWithData = sheets.filter((s) => s.rows.length > 0);
       if (sheetsWithData.length === 0) {
         toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
+        return;
+      }
+
+      // Dry-run mode: don't write anything, just show a summary so the user can
+      // verify the file before committing. Triggered from the import-mode dialog.
+      if (mode === "dryrun") {
+        const totalRows = sheetsWithData.reduce((s, sh) => s + sh.rows.length, 0);
+        const totalLinks = sheetsWithData.reduce(
+          (s, sh) => s + sh.rows.reduce((a, r) => a + (r.attachments?.length ?? 0), 0),
+          0,
+        );
+        const sample = sheetsWithData
+          .slice(0, 4)
+          .map((sh) => `• ${sh.sheetName}: ${sh.rows.length} linhas`)
+          .join("\n");
+        const more = sheetsWithData.length > 4 ? `\n• … e mais ${sheetsWithData.length - 4} aba(s)` : "";
+        window.alert(
+          `Validação concluída (nada foi importado):\n\n` +
+          `Abas com dados: ${sheetsWithData.length}\n` +
+          `Total de linhas: ${totalRows}\n` +
+          `Total de links externos detectados: ${totalLinks}\n\n` +
+          `${sample}${more}`,
+        );
         return;
       }
 
@@ -1344,22 +1402,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   onChange={handleAttachLinksXlsx}
                 />
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={importingXlsx}
+                  onClick={() => setShowImportMode(true)}
+                  disabled={importingXlsx || attachingLinks}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
                 >
                   <Upload className="h-3.5 w-3.5" />
-                  {importingXlsx ? "A importar…" : "Importar XLSX"}
+                  {importingXlsx ? "A importar…" : attachingLinks ? "A anexar…" : "Importar XLSX"}
                 </button>
-                <button
-                  onClick={() => linksFileInputRef.current?.click()}
-                  disabled={attachingLinks}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
-                  title="Lê a planilha original e anexa os links das colunas G–K às transações geradas"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  {attachingLinks ? "A anexar…" : "Anexar links da planilha"}
-                </button>
+                {/* Legacy "links only" entry kept hidden for backwards-compat power users.
+                    The visible flow is now driven by the import-mode dialog above. */}
                 <button
                   onClick={() => setShowBulkAttach(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
@@ -1509,7 +1560,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} onOpenAttachments={canEditBP ? setAttachmentForecast : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -1730,7 +1781,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <React.Fragment key={f.id}>
-                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} />
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} onOpenAttachments={canEditBP ? setAttachmentForecast : undefined} />
                                   {/* Adopted sub-event children */}
                                   {(adoptedByMaster[f.id] ?? []).map((af: any) => (
                                     <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
@@ -1907,13 +1958,37 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           onClose={() => setShowBulkAttach(false)}
         />
       )}
+      <BPImportModeDialog
+        open={showImportMode}
+        onOpenChange={setShowImportMode}
+        onConfirm={(mode) => {
+          setPendingImportMode(mode);
+          // Defer the click so the dialog has time to close (avoids focus traps).
+          setTimeout(() => {
+            if (mode === "links") {
+              linksFileInputRef.current?.click();
+            } else {
+              // "full" and "dryrun" both go through the main parser path; the
+              // mode is read by handleImportXlsx via pendingImportMode.
+              fileInputRef.current?.click();
+            }
+          }, 50);
+        }}
+      />
+      {attachmentForecast && (
+        <BPAttachmentModal
+          open={!!attachmentForecast}
+          onOpenChange={(v) => { if (!v) setAttachmentForecast(null); }}
+          forecast={attachmentForecast}
+        />
+      )}
     </div>
   );
 }
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [] }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], nativeDocCount = 0, onOpenAttachments }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -1926,6 +2001,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   onDistributeToSplits?: (item: any) => void;
   onAdoptFromSplits?: (item: any) => void;
   adoptedChildren?: any[];
+  /** Number of native (non-link) attachments on the linked transaction. */
+  nativeDocCount?: number;
+  /** Open the per-row attachments modal for managing links + native files. */
+  onOpenAttachments?: (forecast: any) => void;
 }) {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
@@ -2108,6 +2187,38 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
               )}
+              {/* Attachment counters: external links + native files */}
+              {(() => {
+                const linkCount = Array.isArray(item.attachment_refs)
+                  ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
+                  : 0;
+                if (linkCount === 0 && nativeDocCount === 0 && !onOpenAttachments) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onOpenAttachments?.(item); }}
+                    disabled={!onOpenAttachments}
+                    className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-default"
+                    title="Gerir anexos desta linha"
+                  >
+                    {linkCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 font-medium">
+                        <Link2 className="h-2.5 w-2.5" />{linkCount}
+                      </span>
+                    )}
+                    {nativeDocCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-success/15 text-success px-1.5 py-0.5 font-medium">
+                        <Paperclip className="h-2.5 w-2.5" />{nativeDocCount}
+                      </span>
+                    )}
+                    {linkCount === 0 && nativeDocCount === 0 && onOpenAttachments && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 hover:bg-secondary/70">
+                        <Paperclip className="h-2.5 w-2.5" />Anexos
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
               {/* Partner badges */}
               {assignedPartnerIds.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-0.5">
