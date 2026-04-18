@@ -398,7 +398,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
           <div className="space-y-6">
             {isEditingConfirmed && !isAdmin && (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
