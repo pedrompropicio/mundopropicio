@@ -13,6 +13,7 @@ import helpTexts from "@/lib/help-texts";
 import { DatePicker } from "@/components/ui/date-picker";
 import { sortByHierarchicalCode, cn } from "@/lib/utils";
 import { PaymentTimeline } from "@/components/PaymentTimeline";
+import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
