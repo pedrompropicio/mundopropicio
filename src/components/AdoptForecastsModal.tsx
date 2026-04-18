@@ -17,6 +17,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { Layers, Search, Receipt, FileText, AlertTriangle, Wallet, Hash } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { recordUndo } from "@/lib/undo";
+import { showUndoToast } from "@/hooks/useUndoToast";
+import { getAuditUser } from "@/lib/audit";
 
 interface Props {
   open: boolean;
