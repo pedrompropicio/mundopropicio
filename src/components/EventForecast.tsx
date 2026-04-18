@@ -18,7 +18,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
-import { parseXlsxPL, importPLToEvent } from "@/lib/import-pl-xlsx";
+import { parseXlsxPL, importPLToEvent, attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
@@ -73,6 +73,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [exportingPDF, setExportingPDF] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const linksFileInputRef = useRef<HTMLInputElement>(null);
+  const [attachingLinks, setAttachingLinks] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
