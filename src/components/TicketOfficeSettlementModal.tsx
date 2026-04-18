@@ -504,7 +504,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                 checked ? "bg-primary/5" : "hover:bg-muted/40"
                               }`}
                             >
-                              <Checkbox checked={checked} onCheckedChange={() => canEdit && toggleTxn(t.id)} disabled={!canEdit} />
+                              <Checkbox
+                                checked={checked}
+                                onClick={(e) => e.stopPropagation()}
+                                onCheckedChange={() => canEdit && toggleTxn(t.id)}
+                                disabled={!canEdit}
+                              />
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate">{t.description}</p>
                                 <p className="text-xs text-muted-foreground truncate">
