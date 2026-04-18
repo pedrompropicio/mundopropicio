@@ -17,6 +17,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
+import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 
 interface Props {
   open: boolean;
@@ -46,6 +47,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [submitting, setSubmitting] = useState(false);
   const [grossOverride, setGrossOverride] = useState<string>("");
   const [showNewExpense, setShowNewExpense] = useState(false);
+  const [showNewAdvance, setShowNewAdvance] = useState(false);
   const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [creditStatus, setCreditStatus] = useState<"credited" | "pending">("credited");
   const [expectedCreditDate, setExpectedCreditDate] = useState<string>("");
@@ -613,7 +615,17 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     badge={selectedTxnIds.size > 0 ? `${selectedTxnIds.size} selecionada(s)` : undefined}
                   />
                   {canEdit && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNewAdvance(true)}
+                        disabled={!eventId}
+                        title={!eventId ? "Selecione o evento primeiro" : ""}
+                      >
+                        <Banknote className="h-3.5 w-3.5 mr-1" /> Novo adiantamento
+                      </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setShowNewExpense(true)}>
                         <Plus className="h-3.5 w-3.5 mr-1" /> Nova despesa
                       </Button>
@@ -927,6 +939,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             setShowNewExpense(false);
             queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
           }}
+        />
+      )}
+
+      {showNewAdvance && eventId && (
+        <QuickAdvanceModal
+          open={showNewAdvance}
+          onClose={() => setShowNewAdvance(false)}
+          officeId={officeId}
+          officeName={officeName}
+          eventId={eventId}
         />
       )}
     </Dialog>
