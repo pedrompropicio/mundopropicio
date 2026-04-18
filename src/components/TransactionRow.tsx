@@ -646,6 +646,17 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                             </DropdownMenuItem>
                           </>
                         )}
+                        {showDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => onDelete(t.id)}
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   );
