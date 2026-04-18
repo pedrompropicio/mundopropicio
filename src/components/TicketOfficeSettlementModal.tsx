@@ -646,12 +646,48 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </div>
                 </section>
 
+                {/* STEP 3.5 — Advances received */}
+                {pendingAdvances.length > 0 && (
+                  <section className="space-y-2">
+                    <StepHeader
+                      n={4}
+                      icon={<Banknote className="h-4 w-4" />}
+                      title="Adiantamentos já recebidos"
+                      badge={`${pendingAdvances.length}`}
+                    />
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Valores que esta bilheteira já transferiu para este evento. São automaticamente abatidos do líquido a transferir.
+                      </p>
+                      <ul className="divide-y divide-border/60 rounded-md border border-border bg-background">
+                        {pendingAdvances.map((a: any) => (
+                          <li key={a.id} className="flex items-center gap-2 p-2 text-xs">
+                            <span className="text-muted-foreground whitespace-nowrap">
+                              {new Date(a.advance_date).toLocaleDateString("pt-PT")}
+                            </span>
+                            <span className="flex-1 truncate">{a.notes || "Adiantamento"}</span>
+                            <span className="font-mono font-semibold text-amber-500 whitespace-nowrap">
+                              − {formatCurrency(Number(a.amount))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between items-center text-sm pt-1">
+                        <span className="text-muted-foreground">Total adiantamentos</span>
+                        <span className="font-mono font-bold text-amber-500">− {formatCurrency(totalAdvances)}</span>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
                 {/* STEP 4 — Net */}
                 <section className="space-y-2">
-                  <StepHeader n={4} icon={<Calculator className="h-4 w-4" />} title="Líquido a receber" done={stepDone.net} />
+                  <StepHeader n={pendingAdvances.length > 0 ? 5 : 4} icon={<Calculator className="h-4 w-4" />} title="Líquido a receber" done={stepDone.net} />
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Bruto − Deduções</span>
+                      <span className="text-muted-foreground">
+                        Bruto − Deduções{totalAdvances > 0 ? " − Adiantamentos" : ""}
+                      </span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
                     <div className="space-y-2 pt-2 border-t border-border/60">
