@@ -125,6 +125,52 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
     },
   });
 
+  // Totais por bilheteira (financial account)
+  const { data: salesByOffice = [] } = useQuery({
+    queryKey: ["sales-log-by-office", eventId, sessionId],
+    queryFn: async () => {
+      let zonesQuery = supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", eventId);
+      if (sessionId) zonesQuery = zonesQuery.eq("session_id", sessionId);
+      const { data: zones } = await zonesQuery;
+      if (!zones || zones.length === 0) return [] as Array<{ id: string | null; name: string; quantity: number; revenue: number; sources: Set<string> }>;
+      const zoneIds = zones.map((z) => z.id);
+
+      const { data: sales } = await supabase
+        .from("ticket_sales")
+        .select("quantity, unit_price, total_value, source, financial_account_id")
+        .in("zone_id", zoneIds);
+      if (!sales || sales.length === 0) return [];
+
+      const accIds = Array.from(
+        new Set(sales.map((s: any) => s.financial_account_id).filter(Boolean))
+      ) as string[];
+      const accMap = new Map<string, string>();
+      if (accIds.length > 0) {
+        const { data: accs } = await supabase
+          .from("financial_accounts")
+          .select("id, name")
+          .in("id", accIds);
+        (accs || []).forEach((a: any) => accMap.set(a.id, a.name));
+      }
+
+      const map = new Map<string, { id: string | null; name: string; quantity: number; revenue: number; sources: Set<string> }>();
+      for (const s of sales as any[]) {
+        const key = s.financial_account_id || "__none__";
+        const name = s.financial_account_id ? (accMap.get(s.financial_account_id) || "Bilheteira") : "Sem bilheteira atribuída";
+        const rev = s.total_value != null ? Number(s.total_value) : Number(s.quantity) * Number(s.unit_price);
+        const entry = map.get(key) || { id: s.financial_account_id ?? null, name, quantity: 0, revenue: 0, sources: new Set<string>() };
+        entry.quantity += Number(s.quantity || 0);
+        entry.revenue += rev;
+        if (s.source) entry.sources.add(s.source);
+        map.set(key, entry);
+      }
+      return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
+    },
+  });
+
   // Fetch import logs
   const { data: importLogs = [] } = useQuery({
     queryKey: ["sales-import-logs", eventId],
