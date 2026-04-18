@@ -354,11 +354,39 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             .eq("id", child.id);
         }
       }
+      return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05 };
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
       onClose();
+      // Record undo for the status change (approve→paid or pending→approved on partial)
+      if (result?.undoSnapshot && user) {
+        const { recordUndo } = await import("@/lib/undo");
+        const { showUndoToast } = await import("@/hooks/useUndoToast");
+        const undoRec = await recordUndo({
+          action_type: "pay_transaction",
+          entity_type: "transaction",
+          entity_id: transaction.id,
+          payload: result.undoSnapshot,
+          description: `Pagamento: ${transaction.description ?? ""}`.slice(0, 200),
+          performed_by: user.id,
+          performed_by_name: user.user_metadata?.full_name ?? user.email ?? undefined,
+        });
+        if (undoRec) {
+          showUndoToast({
+            message: successMsg,
+            description: "Toque em Desfazer para reverter o estado e a data de pagamento. Atenção: pagamentos individuais e créditos não são revertidos automaticamente.",
+            undoId: undoRec.id,
+            user: { id: user.id, name: user.user_metadata?.full_name ?? user.email ?? undefined },
+            onUndone: () => {
+              queryClient.invalidateQueries({ queryKey: ["transactions"] });
+              queryClient.invalidateQueries({ queryKey: ["supplier-credits"] });
+            },
+          });
+          return;
+        }
+      }
       toast({ title: successMsg });
     },
     onError: (err: any) => {
