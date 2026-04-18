@@ -393,6 +393,7 @@ export default function Transactions() {
     .filter(matchesSearch)
     .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
+    .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
     .filter((t) => {
       if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
