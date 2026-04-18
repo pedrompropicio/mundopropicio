@@ -1349,22 +1349,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   onChange={handleAttachLinksXlsx}
                 />
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={importingXlsx}
+                  onClick={() => setShowImportMode(true)}
+                  disabled={importingXlsx || attachingLinks}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
                 >
                   <Upload className="h-3.5 w-3.5" />
-                  {importingXlsx ? "A importar…" : "Importar XLSX"}
+                  {importingXlsx ? "A importar…" : attachingLinks ? "A anexar…" : "Importar XLSX"}
                 </button>
-                <button
-                  onClick={() => linksFileInputRef.current?.click()}
-                  disabled={attachingLinks}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
-                  title="Lê a planilha original e anexa os links das colunas G–K às transações geradas"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  {attachingLinks ? "A anexar…" : "Anexar links da planilha"}
-                </button>
+                {/* Legacy "links only" entry kept hidden for backwards-compat power users.
+                    The visible flow is now driven by the import-mode dialog above. */}
                 <button
                   onClick={() => setShowBulkAttach(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
