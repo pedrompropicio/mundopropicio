@@ -121,14 +121,13 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         .eq("event_id", eventId);
       if (!zones || zones.length === 0) return 0;
       const zoneIds = zones.map((z: any) => z.id);
+      // Receita = total de TODAS as vendas registadas/importadas do evento
+      // (independentemente da bilheteira de origem — o fecho consolida o evento)
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("quantity, unit_price, total_value, financial_account_id")
+        .select("quantity, unit_price, total_value")
         .in("zone_id", zoneIds);
-      const filtered = (sales || []).filter(
-        (s: any) => !s.financial_account_id || s.financial_account_id === officeId
-      );
-      return sumTicketSalesRevenue(filtered);
+      return sumTicketSalesRevenue(sales || []);
     },
   });
 
