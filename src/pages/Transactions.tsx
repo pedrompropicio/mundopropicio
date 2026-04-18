@@ -836,28 +836,30 @@ export default function Transactions() {
         </div>
 
         {/* Unified Filters button (Sheet) */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setFiltersOpen(true)}
-          className="text-[13px] font-normal h-8 px-3 relative"
-        >
-          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
-          Filtros
-          {(() => {
-            const count =
-              selectedEventIds.size > 0 ? 1 : 0
-              + (selectedAccountIds.size > 0 ? 1 : 0)
-              + (selectedSupplierIds.size > 0 ? 1 : 0)
-              + (onlyPending ? 1 : 0)
-              + (onlyNoDueDate ? 1 : 0)
-              + (onlyGrouped ? 1 : 0)
-              + (showHidden ? 1 : 0);
-            return count > 0 ? (
-              <Badge variant="default" className="ml-1.5 h-5 min-w-5 rounded-full px-1.5 text-[10px]">{count}</Badge>
-            ) : null;
-          })()}
-        </Button>
+        {(() => {
+          const activeCount =
+            (selectedEventIds.size > 0 ? 1 : 0) +
+            (selectedAccountIds.size > 0 ? 1 : 0) +
+            (selectedSupplierIds.size > 0 ? 1 : 0) +
+            (onlyPending ? 1 : 0) +
+            (onlyNoDueDate ? 1 : 0) +
+            (onlyGrouped ? 1 : 0) +
+            (showHidden ? 1 : 0);
+          return (
+            <Button
+              variant={activeCount > 0 ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFiltersOpen(true)}
+              className="text-[13px] font-normal h-8 px-3"
+            >
+              <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+              Filtros
+              {activeCount > 0 && (
+                <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 rounded-full px-1.5 text-[10px]">{activeCount}</Badge>
+              )}
+            </Button>
+          );
+        })()}
 
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
