@@ -804,11 +804,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           </Button>
           {canEdit && (
             <>
-              <Button variant="secondary" onClick={() => handleSubmit(false)} disabled={submitting || !eventId}>
+              <Button variant="secondary" onClick={() => handleSubmit(false)} disabled={submitting || !eventId || !hasSalesLog}>
                 {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Guardar rascunho
               </Button>
-              <Button onClick={() => handleSubmit(true)} disabled={submitting || !eventId}>
+              <Button onClick={() => handleSubmit(true)} disabled={submitting || !eventId || !hasSalesLog}>
                 {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <CheckCircle2 className="h-4 w-4 mr-1" /> Confirmar fecho
               </Button>
