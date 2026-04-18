@@ -559,17 +559,31 @@ export async function attachLinksFromXlsx(
       .filter((a) => /^https?:\/\//i.test(a));
     if (links.length === 0) continue;
 
-    // Find matching forecast by normalized description + baseAmount (1 cent tolerance)
+    // Find matching forecast by normalized description + baseAmount (1 cent tolerance).
+    // For sub-event imports, the spreadsheet often shows partial costs (e.g. ~50% of a
+    // tour-shared expense). Tour BPs consolidate those in the Master event, so we try:
+    //   1) Strict match (desc + amount) inside the sub-event(s)
+    //   2) Description-only match in the Master (fallback for shared/consolidated lines)
     const descKey = norm(row.description);
-    const match = (forecasts || []).find((f: any) => {
+    let match = primaryForecasts.find((f: any) => {
       return norm(String(f.description)) === descKey
         && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
     });
+    let matchedInMaster = false;
+    if (!match && masterForecasts.length > 0) {
+      // Master fallback: prefer exact desc + amount, then desc-only
+      match = masterForecasts.find((f: any) => {
+        return norm(String(f.description)) === descKey
+          && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
+      }) || masterForecasts.find((f: any) => norm(String(f.description)) === descKey);
+      if (match) matchedInMaster = true;
+    }
 
     if (!match) {
       result.rowsWithoutMatch++;
       continue;
     }
+    if (matchedInMaster) result.matchedInMaster++;
 
     // Always update forecast.attachment_refs (merge unique by url)
     const currentRefs: { url: string }[] = Array.isArray((match as any).attachment_refs)
