@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
-import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, Receipt, Calculator, ArrowRightLeft, CheckCircle2, CalendarDays } from "lucide-react";
+import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, Receipt, Calculator, ArrowRightLeft, CheckCircle2, CalendarDays, Banknote } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
@@ -237,13 +237,37 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
+  // Pending advances for this event on this office (excluding any already linked to this settlement)
+  const { data: pendingAdvances = [] } = useQuery({
+    queryKey: ["settlement_advances", officeId, eventId, existingSettlement?.id],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("event_ticket_office_advances")
+        .select("*")
+        .eq("financial_account_id", officeId)
+        .eq("event_id", eventId)
+        .order("advance_date", { ascending: true });
+      const list = data || [];
+      // Include unlinked OR linked to this settlement (when editing)
+      return list.filter((a: any) =>
+        !a.settlement_id || (existingSettlement && a.settlement_id === existingSettlement.id)
+      );
+    },
+  });
+
+  const totalAdvances = useMemo(
+    () => pendingAdvances.reduce((s: number, a: any) => s + Number(a.amount), 0),
+    [pendingAdvances]
+  );
+
   const totalDeductions = useMemo(() => {
     return eligibleTxns
       .filter((t: any) => selectedTxnIds.has(t.id))
       .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
   }, [eligibleTxns, selectedTxnIds]);
 
-  const netCalculated = grossRevenue - totalDeductions;
+  const netCalculated = grossRevenue - totalDeductions - totalAdvances;
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
 
@@ -393,6 +417,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       }
 
+      // Link advances to settlement (or unlink when reverting to draft)
+      if (pendingAdvances.length > 0) {
+        const advanceIds = pendingAdvances.map((a: any) => a.id);
+        await (supabase as any)
+          .from("event_ticket_office_advances")
+          .update({ settlement_id: confirm ? settlementId : null })
+          .in("id", advanceIds);
+      }
+
       await logAudit({
         entity_type: "ticket_office_settlement",
         entity_id: settlementId,
@@ -404,6 +437,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       toast.success(confirm ? "Fecho confirmado" : "Rascunho guardado");
       queryClient.invalidateQueries({ queryKey: ["ticket_office_settlements"] });
       queryClient.invalidateQueries({ queryKey: ["ticket_office_balances"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_advances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onClose();
     } catch (err: any) {
@@ -612,12 +646,48 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </div>
                 </section>
 
+                {/* STEP 3.5 — Advances received */}
+                {pendingAdvances.length > 0 && (
+                  <section className="space-y-2">
+                    <StepHeader
+                      n={4}
+                      icon={<Banknote className="h-4 w-4" />}
+                      title="Adiantamentos já recebidos"
+                      badge={`${pendingAdvances.length}`}
+                    />
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Valores que esta bilheteira já transferiu para este evento. São automaticamente abatidos do líquido a transferir.
+                      </p>
+                      <ul className="divide-y divide-border/60 rounded-md border border-border bg-background">
+                        {pendingAdvances.map((a: any) => (
+                          <li key={a.id} className="flex items-center gap-2 p-2 text-xs">
+                            <span className="text-muted-foreground whitespace-nowrap">
+                              {new Date(a.advance_date).toLocaleDateString("pt-PT")}
+                            </span>
+                            <span className="flex-1 truncate">{a.notes || "Adiantamento"}</span>
+                            <span className="font-mono font-semibold text-amber-500 whitespace-nowrap">
+                              − {formatCurrency(Number(a.amount))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between items-center text-sm pt-1">
+                        <span className="text-muted-foreground">Total adiantamentos</span>
+                        <span className="font-mono font-bold text-amber-500">− {formatCurrency(totalAdvances)}</span>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
                 {/* STEP 4 — Net */}
                 <section className="space-y-2">
-                  <StepHeader n={4} icon={<Calculator className="h-4 w-4" />} title="Líquido a receber" done={stepDone.net} />
+                  <StepHeader n={pendingAdvances.length > 0 ? 5 : 4} icon={<Calculator className="h-4 w-4" />} title="Líquido a receber" done={stepDone.net} />
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Bruto − Deduções</span>
+                      <span className="text-muted-foreground">
+                        Bruto − Deduções{totalAdvances > 0 ? " − Adiantamentos" : ""}
+                      </span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
                     <div className="space-y-2 pt-2 border-t border-border/60">

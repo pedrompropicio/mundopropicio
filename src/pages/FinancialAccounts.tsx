@@ -41,6 +41,7 @@ interface AccountForm {
   iban: string;
   card_number: string;
   skip_balance_check: boolean;
+  withholds_revenue: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -53,6 +54,7 @@ const emptyForm: AccountForm = {
   iban: "",
   card_number: "",
   skip_balance_check: false,
+  withholds_revenue: false,
 };
 
 export default function FinancialAccounts() {
@@ -132,6 +134,7 @@ export default function FinancialAccounts() {
         iban: (form.type === "bank" || form.type === "prepaid_card") ? (form.iban.trim() || null) : null,
         card_number: form.type === "prepaid_card" ? (form.card_number.trim() || null) : null,
         skip_balance_check: form.skip_balance_check,
+        withholds_revenue: form.withholds_revenue,
       };
 
       if (editingId) {
@@ -175,6 +178,7 @@ export default function FinancialAccounts() {
       iban: account.iban ?? "",
       card_number: account.card_number ?? "",
       skip_balance_check: account.skip_balance_check ?? false,
+      withholds_revenue: account.withholds_revenue ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -371,6 +375,20 @@ export default function FinancialAccounts() {
                 <Switch
                   checked={form.skip_balance_check}
                   onCheckedChange={(v) => setForm({ ...form, skip_balance_check: v })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label className="text-sm font-medium">Retém receita de bilheteira</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Para salas/recintos que retêm a receita das bilheteiras e fazem o acerto final.
+                    Nos fechos, em vez de criar uma transferência, gera um valor a receber.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.withholds_revenue}
+                  onCheckedChange={(v) => setForm({ ...form, withholds_revenue: v })}
                 />
               </div>
 

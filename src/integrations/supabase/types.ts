@@ -951,6 +951,51 @@ export type Database = {
           },
         ]
       }
+      event_ticket_office_advances: {
+        Row: {
+          advance_date: string
+          amount: number
+          created_at: string
+          created_by: string
+          event_id: string
+          financial_account_id: string
+          id: string
+          notes: string | null
+          settlement_id: string | null
+          target_account_id: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          advance_date?: string
+          amount?: number
+          created_at?: string
+          created_by?: string
+          event_id: string
+          financial_account_id: string
+          id?: string
+          notes?: string | null
+          settlement_id?: string | null
+          target_account_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          advance_date?: string
+          amount?: number
+          created_at?: string
+          created_by?: string
+          event_id?: string
+          financial_account_id?: string
+          id?: string
+          notes?: string | null
+          settlement_id?: string | null
+          target_account_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_ticket_office_assignments: {
         Row: {
           commission_notes: string | null
@@ -1188,6 +1233,7 @@ export type Database = {
           skip_balance_check: boolean
           type: string
           updated_at: string
+          withholds_revenue: boolean
         }
         Insert: {
           balance_visible_to_all?: boolean
@@ -1205,6 +1251,7 @@ export type Database = {
           skip_balance_check?: boolean
           type?: string
           updated_at?: string
+          withholds_revenue?: boolean
         }
         Update: {
           balance_visible_to_all?: boolean
@@ -1222,6 +1269,7 @@ export type Database = {
           skip_balance_check?: boolean
           type?: string
           updated_at?: string
+          withholds_revenue?: boolean
         }
         Relationships: []
       }
