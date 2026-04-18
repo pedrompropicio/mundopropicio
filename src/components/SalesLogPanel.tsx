@@ -311,6 +311,53 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
             </div>
           </div>
 
+          {/* Totais por bilheteira */}
+          {salesByOffice.length > 0 && (
+            <div className="glass rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Vendas por bilheteira
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {salesByOffice.length} bilheteira{salesByOffice.length > 1 ? "s" : ""}
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {salesByOffice.map((o) => {
+                  const sources = Array.from(o.sources);
+                  const hasImport = sources.includes("import");
+                  const hasManual = sources.includes("manual");
+                  return (
+                    <div
+                      key={o.id ?? "none"}
+                      className="rounded-lg border border-border/50 bg-secondary/20 p-2.5 space-y-1"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-semibold truncate" title={o.name}>{o.name}</p>
+                        <div className="flex gap-1 shrink-0">
+                          {hasImport && (
+                            <Badge variant="outline" className="text-[9px] py-0 px-1 h-4">Import.</Badge>
+                          )}
+                          {hasManual && (
+                            <Badge variant="outline" className="text-[9px] py-0 px-1 h-4">Manual</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[10px] text-muted-foreground">
+                          {o.quantity.toLocaleString("pt-PT")} bilh.
+                        </span>
+                        <span className="text-sm font-mono font-semibold text-success">
+                          {formatCurrency(o.revenue)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Last sales date control */}
           {isEditable && lastDate && (
             <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/20 px-3 py-2">
