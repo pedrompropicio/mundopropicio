@@ -378,6 +378,20 @@ export default function FinancialAccounts() {
                 />
               </div>
 
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label className="text-sm font-medium">Retém receita de bilheteira</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Para salas/recintos que retêm a receita das bilheteiras e fazem o acerto final.
+                    Nos fechos, em vez de criar uma transferência, gera um valor a receber.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.withholds_revenue}
+                  onCheckedChange={(v) => setForm({ ...form, withholds_revenue: v })}
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={saveMutation.isPending}
