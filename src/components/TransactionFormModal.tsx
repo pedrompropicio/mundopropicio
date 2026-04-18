@@ -80,9 +80,21 @@ const parseDueDateForDb = (value: string) => {
   return `${year}-${month}-${day}`;
 };
 
-export function TransactionFormModal({ onClose }: { onClose: () => void }) {
+interface TransactionFormModalProps {
+  onClose: () => void;
+  /** Pre-fill form fields. Use for contextual creation (e.g. from settlement flow). */
+  defaults?: Partial<TransactionForm>;
+  /** When true, after creation the transaction is immediately marked as paid using account_id + payment_date = date. */
+  autoMarkPaid?: boolean;
+  /** Optional callback invoked with the new transaction ID after successful creation (and auto-payment if enabled). */
+  onCreated?: (transactionId: string) => void;
+  /** Optional title override (e.g. "Nova despesa liquidada"). */
+  titleOverride?: string;
+}
+
+export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
-  const [form, setForm] = useState<TransactionForm>(emptyForm);
+  const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
