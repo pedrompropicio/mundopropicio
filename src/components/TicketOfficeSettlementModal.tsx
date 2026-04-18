@@ -414,24 +414,42 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
             {/* STEP 1 — Event */}
             <section className="space-y-2">
-              <StepHeader n={1} icon={<Ticket className="h-4 w-4" />} title="Evento" done={stepDone.event} />
-              {existingSettlement ? (
-                <Input value={existingSettlement.events?.name ?? eventId} disabled />
-              ) : (
-                <select
-                  value={eventId}
-                  onChange={(e) => setEventId(e.target.value)}
-                  disabled={!canEdit}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Selecione um evento…</option>
-                  {assignedEvents.map((ev: any) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.name} {ev.date ? `(${ev.date})` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <StepHeader n={1} icon={<Ticket className="h-4 w-4" />} title="Evento e data do fecho" done={stepDone.event} />
+              <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Evento</Label>
+                  {existingSettlement ? (
+                    <Input value={existingSettlement.events?.name ?? eventId} disabled />
+                  ) : (
+                    <select
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                      disabled={!canEdit}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Selecione um evento…</option>
+                      {assignedEvents.map((ev: any) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.name} {ev.date ? `(${ev.date})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" /> Data do fecho
+                  </Label>
+                  <DatePicker
+                    value={settlementDate}
+                    onChange={setSettlementDate}
+                    disabled={!canEdit}
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Esta data é usada como data de pagamento das despesas e da transferência ao confirmar.
+              </p>
             </section>
 
             {eventId && (
