@@ -498,7 +498,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
               </p>
             </section>
 
-            {eventId && (
+            {eventId && !salesCountLoading && !hasSalesLog && (
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-destructive">Sem registo de vendas para este evento</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Só é possível fazer fecho de eventos que tenham bilhetes vendidos registados nesta bilheteira. Importe ou registe as vendas no Log de Vendas antes de criar o fecho.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {eventId && hasSalesLog && (
               <>
                 {/* STEP 2 — Gross revenue */}
                 <section className="space-y-2">
