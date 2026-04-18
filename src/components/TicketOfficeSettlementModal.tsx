@@ -152,6 +152,27 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
   const grossRevenue = grossOverride !== "" ? Number(grossOverride) : grossAuto;
 
+  // Sales log presence check — required to allow a settlement
+  const { data: salesCount = 0, isLoading: salesCountLoading } = useQuery({
+    queryKey: ["settlement_sales_count", officeId, eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", eventId);
+      const zoneIds = (zones || []).map((z: any) => z.id);
+      if (zoneIds.length === 0) return 0;
+      const { count } = await (supabase as any)
+        .from("ticket_sales")
+        .select("id", { count: "exact", head: true })
+        .in("zone_id", zoneIds)
+        .eq("financial_account_id", officeId);
+      return count ?? 0;
+    },
+  });
+  const hasSalesLog = salesCount > 0;
+
   // Eligible transactions: not-yet-paid expenses for the event (direct or via Master split),
   // already linked to this settlement, or unlinked. Excludes already 'paid' (liquidated elsewhere).
   const { data: eligibleTxns = [] } = useQuery({
