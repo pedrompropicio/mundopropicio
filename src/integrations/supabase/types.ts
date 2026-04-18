@@ -2697,6 +2697,57 @@ export type Database = {
         }
         Relationships: []
       }
+      undo_actions: {
+        Row: {
+          action_type: string
+          description: string | null
+          entity_id: string | null
+          entity_type: string
+          expires_at: string
+          id: string
+          payload: Json
+          performed_at: string
+          performed_by: string
+          performed_by_name: string | null
+          revert_reason: string | null
+          reverted_at: string | null
+          reverted_by: string | null
+          reverted_by_name: string | null
+        }
+        Insert: {
+          action_type: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type: string
+          expires_at?: string
+          id?: string
+          payload?: Json
+          performed_at?: string
+          performed_by: string
+          performed_by_name?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          reverted_by_name?: string | null
+        }
+        Update: {
+          action_type?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          expires_at?: string
+          id?: string
+          payload?: Json
+          performed_at?: string
+          performed_by?: string
+          performed_by_name?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          reverted_by_name?: string | null
+        }
+        Relationships: []
+      }
       user_activity_log: {
         Row: {
           created_at: string
