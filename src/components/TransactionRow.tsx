@@ -8,6 +8,7 @@ import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, Chevr
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
+import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -395,6 +396,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   </span>
                 )}
                 {isLocalReinforcement && <LocalReinforcementBadge />}
+                <ReimbursementNoteRefBadge transactionId={t.id} />
               </div>
               {t.specification && (
                 <p className="text-xs text-muted-foreground">{t.specification}</p>

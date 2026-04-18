@@ -332,6 +332,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
         )}
 
+        <ReimbursementNoteRefBadge transactionId={transaction.id} variant="banner" />
+
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="details">Detalhes</TabsTrigger>
