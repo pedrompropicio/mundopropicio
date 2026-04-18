@@ -175,79 +175,93 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="w-full sm:max-w-md overflow-y-auto [&~[data-radix-dialog-overlay]]:bg-transparent"
-        onInteractOutside={(e) => e.preventDefault()}
-      >
-        <SheetHeader>
-          <SheetTitle>Filtros de Transações</SheetTitle>
-          <SheetDescription>Refine os resultados com critérios combinados.</SheetDescription>
-        </SheetHeader>
+    <SheetPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetPrimitive.Portal>
+        <SheetPrimitive.Content
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          className={cn(
+            "fixed inset-y-0 right-0 z-50 h-full w-full sm:max-w-md border-l border-border bg-background p-6 shadow-2xl",
+            "overflow-y-auto",
+            "transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out",
+            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+            "data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          )}
+        >
+          <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </SheetPrimitive.Close>
 
-        <div className="mt-6 space-y-6">
-          {/* Quick toggles */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Estado rápido</h3>
-            <div className="flex flex-wrap gap-2">
-              {viewMode === "open" && (
-                <>
-                  <ToggleChip active={onlyPending} onClick={() => setOnlyPending(!onlyPending)} label="Aprovação pendente" />
-                  <ToggleChip active={onlyNoDueDate} onClick={() => setOnlyNoDueDate(!onlyNoDueDate)} label="Sem vencimento" />
-                </>
-              )}
-              <ToggleChip active={onlyGrouped} onClick={() => setOnlyGrouped(!onlyGrouped)} label="Agrupadas por fatura" />
-              {isAdmin && (
-                <ToggleChip active={showHidden} onClick={() => setShowHidden(!showHidden)} label="Mostrar ocultas" />
-              )}
-            </div>
-          </section>
+          <SheetHeader>
+            <SheetTitle>Filtros de Transações</SheetTitle>
+            <SheetDescription>Refine os resultados com critérios combinados.</SheetDescription>
+          </SheetHeader>
 
-          {/* Suppliers */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fornecedor</h3>
-            <MultiSelectList
-              items={suppliers as any}
-              selected={selectedSupplierIds}
-              onToggle={(id) => toggle(selectedSupplierIds, id, setSelectedSupplierIds)}
-              onToggleAll={() => toggleAll(suppliers as any, selectedSupplierIds, setSelectedSupplierIds)}
-              searchPlaceholder="Procurar fornecedor…"
-            />
-          </section>
+          <div className="mt-6 space-y-6">
+            {/* Quick toggles */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Estado rápido</h3>
+              <div className="flex flex-wrap gap-2">
+                {viewMode === "open" && (
+                  <>
+                    <ToggleChip active={onlyPending} onClick={() => setOnlyPending(!onlyPending)} label="Aprovação pendente" />
+                    <ToggleChip active={onlyNoDueDate} onClick={() => setOnlyNoDueDate(!onlyNoDueDate)} label="Sem vencimento" />
+                  </>
+                )}
+                <ToggleChip active={onlyGrouped} onClick={() => setOnlyGrouped(!onlyGrouped)} label="Agrupadas por fatura" />
+                {isAdmin && (
+                  <ToggleChip active={showHidden} onClick={() => setShowHidden(!showHidden)} label="Mostrar ocultas" />
+                )}
+              </div>
+            </section>
 
-          {/* Events */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Evento</h3>
-            <MultiSelectList
-              items={events as any}
-              selected={selectedEventIds}
-              onToggle={(id) => toggle(selectedEventIds, id, setSelectedEventIds)}
-              onToggleAll={() => toggleAll(events as any, selectedEventIds, setSelectedEventIds)}
-              searchPlaceholder="Procurar evento…"
-            />
-          </section>
+            {/* Suppliers */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fornecedor</h3>
+              <MultiSelectList
+                items={suppliers as any}
+                selected={selectedSupplierIds}
+                onToggle={(id) => toggle(selectedSupplierIds, id, setSelectedSupplierIds)}
+                onToggleAll={() => toggleAll(suppliers as any, selectedSupplierIds, setSelectedSupplierIds)}
+                searchPlaceholder="Procurar fornecedor…"
+              />
+            </section>
 
-          {/* Accounts */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conta financeira</h3>
-            <MultiSelectList
-              items={accounts as any}
-              selected={selectedAccountIds}
-              onToggle={(id) => toggle(selectedAccountIds, id, setSelectedAccountIds)}
-              onToggleAll={() => toggleAll(accounts as any, selectedAccountIds, setSelectedAccountIds)}
-              searchPlaceholder="Procurar conta…"
-            />
-          </section>
-        </div>
+            {/* Events */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Evento</h3>
+              <MultiSelectList
+                items={events as any}
+                selected={selectedEventIds}
+                onToggle={(id) => toggle(selectedEventIds, id, setSelectedEventIds)}
+                onToggleAll={() => toggleAll(events as any, selectedEventIds, setSelectedEventIds)}
+                searchPlaceholder="Procurar evento…"
+              />
+            </section>
 
-        <SheetFooter className="mt-6 flex-row gap-2 sm:justify-between">
-          <Button variant="ghost" size="sm" onClick={onClearAll} className="gap-1.5">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Limpar tudo
-          </Button>
-          <Button size="sm" onClick={() => onOpenChange(false)}>Aplicar</Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+            {/* Accounts */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conta financeira</h3>
+              <MultiSelectList
+                items={accounts as any}
+                selected={selectedAccountIds}
+                onToggle={(id) => toggle(selectedAccountIds, id, setSelectedAccountIds)}
+                onToggleAll={() => toggleAll(accounts as any, selectedAccountIds, setSelectedAccountIds)}
+                searchPlaceholder="Procurar conta…"
+              />
+            </section>
+          </div>
+
+          <SheetFooter className="mt-6 flex-row gap-2 sm:justify-between">
+            <Button variant="ghost" size="sm" onClick={onClearAll} className="gap-1.5">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Limpar tudo
+            </Button>
+            <Button size="sm" onClick={() => onOpenChange(false)}>Aplicar</Button>
+          </SheetFooter>
+        </SheetPrimitive.Content>
+      </SheetPrimitive.Portal>
+    </SheetPrimitive.Root>
   );
 }
