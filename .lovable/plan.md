@@ -1,55 +1,39 @@
 
-## Reformulação da coluna Real — Análise de Resultados
 
-### Decisões consolidadas
-- **P1 (cenário 80%)**: Opção C — substituir por **"Real Pessimista"** = vendas atuais × fator
-- **P2 (despesas reais)**: Opção C — **Real onde existe + BP onde não existe** (substituição linha-a-linha por categoria)
-- **P3 (Master)**: Sim — manter divisão igualitária do Master ÷ nº sub-eventos
+## O que está a acontecer
 
-### Nova estrutura de colunas
+O Google aplica a política `iam.disableServiceAccountKeyCreation` herdada da organização ao projeto `mp-anexos-geral` (ou `Mundo Propicio`). Por isso falha o "Create Key" da service account. Estás na página correta para resolver — só falta filtrar e fazer o override.
 
-| Coluna | Receita | Despesas |
-|---|---|---|
-| **Planeado 100%** | Bilheteira BP (lotes×preço) + outras receitas BP | BP completo + rateio Master + custos fecho BP |
-| **Real Atual** | Bilheteira **vendida** + outras receitas BP | **Real onde existe + BP onde não** (por categoria) + rateio Master idem + fecho real |
-| **Real Pessimista** | Bilheteira vendida × fator (default 0,80) + outras receitas BP | Igual ao Real Atual |
+## Passos detalhados (no ecrã onde estás agora)
 
-### Lógica de substituição linha-a-linha (P2 — Opção C)
+1. Em **Políticas da organização** (estás aí), no campo **Filtro** no topo da lista (parte de baixo do ecrã), escreve: `disableServiceAccountKeyCreation`
+2. Vai aparecer 1 linha: **"Desativar criação de chaves de conta de serviço"** (`iam.disableServiceAccountKeyCreation`). O estado provavelmente diz **"Aplicado herdado"** (Inherited).
+3. Clica no nome da política para abrir o detalhe.
+4. Topo direito: clica em **GERIR POLÍTICA** (Manage Policy / Editar).
+5. No formulário:
+   - **Origem da política**: seleciona **Substituir política do recurso pai** (Override parent's policy)
+   - **Aplicação de regras** / **Enforcement**: marca **Desativada** (Off / Not enforced)
+   - **Regras**: adiciona uma regra com **Aplicação: Desativada**
+6. Clica **DEFINIR POLÍTICA** (Set Policy / Save).
+7. Espera ~1 min para propagar.
+8. Volta a **IAM e admin → Contas de serviço → mp-anexos-geral → Chaves → Adicionar chave → Criar nova chave → JSON → Criar**.
+9. Descarrega o `.json` e avisa-me.
 
-Para cada categoria do BP do evento (e do Master prorrateado):
-```
-despesa_real_categoria = transacoes_reais[categoria].sum() > 0 
-    ? transacoes_reais[categoria].sum() 
-    : bp[categoria].amount
-```
+## Se o passo 4 não te deixar (botão a cinzento)
 
-Isto significa:
-- Categoria com transação executada → usa o **valor real** (mesmo que > BP)
-- Categoria sem transação → assume **BP** (custo previsto ainda por executar)
-- Transação real **sem linha BP correspondente** → soma como custo extra (fora do BP)
+Significa que não tens o papel **roles/orgpolicy.policyAdmin** no projeto. Solução:
+- IAM e admin → IAM → encontra o teu utilizador → Editar (lápis) → Adicionar outro papel → procura **Administrador de políticas da organização** → Guardar.
+- Se o IAM também estiver bloqueado, então és Editor mas não Owner — precisas que o Owner da organização te dê esse papel.
 
-### Implementação técnica em `ResultsAnalysis.tsx`
+## Próximos passos depois do JSON
 
-1. **Novo helper `mergeBpAndReal(eventId)`** — agrupa BP e transações por `category_id`, retorna `Map<categoryId, amount>` aplicando regra C
-2. **Substituir** `txnMap[event.id]?.expense` por `mergedExpenseMap[event.id]` na coluna Real
-3. **Renomear** coluna "Real" para "Real Atual" e adicionar coluna "Real Pessimista"
-4. **Substituir** coluna "Planeado 80%" por "Real Pessimista" (fator 0,80 só sobre bilheteira vendida)
-5. **Master proration**: aplicar mesma lógica `mergeBpAndReal(masterId)` antes de dividir por nº sub-eventos
-6. **Custos fecho**: já são reais (mantém)
-7. **Atualizar `mem://features/results-analysis-rules`** com nova lógica
+1. Avisas-me que tens o `.json`.
+2. Eu peço o secret `GOOGLE_SERVICE_ACCOUNT_JSON` e tu colas o conteúdo.
+3. Crio a Edge Function `migrate-drive-attachments` que:
+   - Lê `event_forecasts.attachment_refs` com URLs `drive.google.com`
+   - Faz download via Drive API com a service account
+   - Faz upload para bucket `transaction-documents`
+   - Substitui a referência por `transaction-documents://...`
+4. Adiciono o botão **"Migrar anexos do Drive"** no header do BP + disparo automático em novas importações.
+5. Tu partilhas as pastas do Drive com o email da service account (Leitor) — podes adiantar isto agora.
 
-### Estrutura visual final
-```text
-| Categoria         | Planeado 100% | Real Atual | Real Pessimista |
-|-------------------|---------------|------------|-----------------|
-| Receita Bilheteira| BP            | Vendido    | Vendido × 0,80  |
-| Outras Receitas   | BP            | BP         | BP              |
-| Despesas          | BP            | Real||BP   | Real||BP        |
-| Custos Fecho      | BP            | Real       | Real            |
-| RESULTADO         | calc          | calc       | calc            |
-```
-
-### Pontos de atenção
-- Transações **sem categoria** ou com categoria fora do BP → contam como despesa extra (não substituem nada)
-- Fator 0,80 será **constante** (sem UI para ajustar nesta iteração) — pode evoluir depois
-- Coluna Real Atual ≈ Planeado 100% quando vendas a 100% e sem desvios; **deliberado**
