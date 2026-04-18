@@ -16,7 +16,7 @@ import { Loader2, Paperclip, X, FileText, AlertCircle, Plus, RefreshCw, Ticket, 
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
-import { TransactionFormModal } from "@/components/TransactionFormModal";
+import { QuickExpenseModal } from "@/components/QuickExpenseModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
 
 interface Props {
@@ -183,7 +183,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     enabled: !!eventId,
     queryFn: async () => {
       const settlementFilter = `settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`;
-      const cols = "id, description, amount, paid_amount, status, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers(name), account_categories(name, code)";
+      const cols = "id, description, amount, paid_amount, status, account_id, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers(name), account_categories(name, code)";
 
       // 1) Direct expenses for this event (Splits also live here with parent_transaction_id set)
       const { data: direct } = await (supabase as any)
@@ -219,8 +219,11 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         seen.add(t.id);
         // Always keep transactions already linked to this settlement (when editing)
         if (existingSettlement && t.settlement_id === existingSettlement.id) return true;
-        // Eligible: not yet liquidated (pending or approved). Exclude 'paid' and 'cancelled'.
-        return t.status === "pending" || t.status === "approved";
+        // Eligible: pending/approved (to be liquidated by the settlement) OR
+        // already paid by this very box-office account (e.g. registered via "Nova despesa liquidada").
+        if (t.status === "pending" || t.status === "approved") return true;
+        if (t.status === "paid" && t.account_id === officeId) return true;
+        return false;
       });
     },
   });
@@ -933,11 +936,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         </DialogFooter>
       </DialogContent>
 
-      {showNewExpense && (
-        <TransactionFormModal
-          onClose={() => {
-            setShowNewExpense(false);
-            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
+      {showNewExpense && eventId && (
+        <QuickExpenseModal
+          open={showNewExpense}
+          onClose={() => setShowNewExpense(false)}
+          officeId={officeId}
+          officeName={officeName}
+          eventId={eventId}
+          defaultDate={settlementDate}
+          onCreated={(txnId) => {
+            // Auto-select the new expense as a deduction in the settlement
+            setSelectedTxnIds((prev) => {
+              const next = new Set(prev);
+              next.add(txnId);
+              return next;
+            });
           }}
         />
       )}
