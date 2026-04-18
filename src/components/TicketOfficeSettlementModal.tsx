@@ -488,6 +488,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
@@ -935,40 +936,40 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           )}
         </DialogFooter>
       </DialogContent>
-
-      {showNewExpense && eventId && (
-        <TransactionFormModal
-          onClose={() => setShowNewExpense(false)}
-          titleOverride="Nova Despesa Liquidada (Bilheteira)"
-          autoMarkPaid
-          defaults={{
-            type: "expense",
-            event_id: eventId,
-            account_id: officeId,
-            date: settlementDate,
-          }}
-          onCreated={(txnId) => {
-            // Auto-select the new expense as a deduction in the settlement
-            setSelectedTxnIds((prev) => {
-              const next = new Set(prev);
-              next.add(txnId);
-              return next;
-            });
-            queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
-          }}
-        />
-      )}
-
-      {showNewAdvance && eventId && (
-        <QuickAdvanceModal
-          open={showNewAdvance}
-          onClose={() => setShowNewAdvance(false)}
-          officeId={officeId}
-          officeName={officeName}
-          eventId={eventId}
-        />
-      )}
     </Dialog>
+
+    {showNewExpense && eventId && (
+      <TransactionFormModal
+        onClose={() => setShowNewExpense(false)}
+        titleOverride="Nova Despesa Liquidada (Bilheteira)"
+        autoMarkPaid
+        defaults={{
+          type: "expense",
+          event_id: eventId,
+          account_id: officeId,
+          date: settlementDate,
+        }}
+        onCreated={(txnId) => {
+          setSelectedTxnIds((prev) => {
+            const next = new Set(prev);
+            next.add(txnId);
+            return next;
+          });
+          queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns", officeId, eventId] });
+        }}
+      />
+    )}
+
+    {showNewAdvance && eventId && (
+      <QuickAdvanceModal
+        open={showNewAdvance}
+        onClose={() => setShowNewAdvance(false)}
+        officeId={officeId}
+        officeName={officeName}
+        eventId={eventId}
+      />
+    )}
+    </>
   );
 }
 
