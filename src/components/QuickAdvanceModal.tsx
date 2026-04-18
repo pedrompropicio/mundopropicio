@@ -43,8 +43,8 @@ export function QuickAdvanceModal({ open, onClose, officeId, officeName, eventId
       const { data } = await supabase
         .from("financial_accounts")
         .select("id, name, type")
-        .in("type", ["bank", "cash"])
         .eq("is_active", true)
+        .neq("id", officeId)
         .order("name");
       return data || [];
     },
