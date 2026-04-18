@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
-import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { AlertCircle, CheckCircle2, Store, TrendingUp, TrendingDown, ArrowRight, Receipt, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { TicketOfficeSettlementModal } from "@/components/TicketOfficeSettlementModal";
 
 interface Props {
   officeId: string; // This is now the financial_account_id directly
