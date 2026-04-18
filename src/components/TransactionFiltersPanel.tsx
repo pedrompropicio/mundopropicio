@@ -178,8 +178,6 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     <SheetPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetPrimitive.Portal>
         <SheetPrimitive.Content
-          onInteractOutside={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
           className={cn(
             "fixed inset-y-0 right-0 z-50 h-full w-full sm:max-w-md border-l border-border bg-background p-6 shadow-2xl",
             "overflow-y-auto",
