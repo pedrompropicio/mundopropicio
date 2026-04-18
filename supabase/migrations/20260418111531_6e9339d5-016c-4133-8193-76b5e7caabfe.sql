@@ -1,0 +1,1 @@
+ALTER TABLE public.ticket_office_settlements ADD COLUMN IF NOT EXISTS settlement_date date NOT NULL DEFAULT CURRENT_DATE;

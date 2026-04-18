@@ -2154,6 +2154,7 @@ export type Database = {
           reversal_reason: string | null
           reversed_at: string | null
           reversed_by: string | null
+          settlement_date: string
           status: string
           total_deductions: number
           transfer_account_id: string | null
@@ -2179,6 +2180,7 @@ export type Database = {
           reversal_reason?: string | null
           reversed_at?: string | null
           reversed_by?: string | null
+          settlement_date?: string
           status?: string
           total_deductions?: number
           transfer_account_id?: string | null
@@ -2204,6 +2206,7 @@ export type Database = {
           reversal_reason?: string | null
           reversed_at?: string | null
           reversed_by?: string | null
+          settlement_date?: string
           status?: string
           total_deductions?: number
           transfer_account_id?: string | null
