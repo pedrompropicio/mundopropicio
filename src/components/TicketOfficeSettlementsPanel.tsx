@@ -190,6 +190,17 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                           <AlertCircle className="h-3 w-3" /> Estornado
                         </span>
                       )}
+                      {s.status === "confirmed" && s.transfer && (
+                        s.transfer.status === "paid" ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/15 px-2 py-0.5 text-xs text-sky-400" title={`Crédito em ${s.transfer.payment_date ? new Date(s.transfer.payment_date).toLocaleDateString("pt-PT") : "—"}`}>
+                            <Banknote className="h-3 w-3" /> Crédito liquidado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
+                            <Clock className="h-3 w-3" /> Crédito a receber
+                          </span>
+                        )
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {s.events?.date ?? ""} • Fecho em {s.settlement_date ? new Date(s.settlement_date).toLocaleDateString("pt-PT") : new Date(s.created_at).toLocaleDateString("pt-PT")}
