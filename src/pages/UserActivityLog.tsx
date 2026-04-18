@@ -44,13 +44,24 @@ export default function UserActivityLog() {
   const { data: activities = [], isLoading } = useQuery<ActivityRow[]>({
     queryKey: ["user-activity-log-7d"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("user_activity_log")
-        .select("user_id, page, created_at")
-        .gte("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      // Paginate to bypass default 1000-row limit
+      const PAGE_SIZE = 1000;
+      let all: ActivityRow[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await (supabase as any)
+          .from("user_activity_log")
+          .select("user_id, page, created_at")
+          .gte("created_at", sevenDaysAgo)
+          .order("created_at", { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const batch = (data ?? []) as ActivityRow[];
+        all = all.concat(batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return all;
     },
     refetchInterval: 60_000,
   });
