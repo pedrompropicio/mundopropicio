@@ -941,41 +941,7 @@ export default function Transactions() {
           </Popover>
         )}
 
-        {/* Filter: only no due date */}
-        {viewMode === "open" && (
-          <Button
-            variant={onlyNoDueDate ? "default" : "outline"}
-            size="sm"
-            className="text-[13px] font-normal h-8 px-3"
-            onClick={() => setOnlyNoDueDate(!onlyNoDueDate)}
-          >
-            Sem Vencimento
-          </Button>
-        )}
-
-        {/* Filtro Aprovação (open view only) */}
-        {viewMode === "open" && (
-          <Button
-            variant={onlyPending ? "default" : "outline"}
-            size="sm"
-            className="text-[13px] font-normal h-8 px-3"
-            onClick={() => setOnlyPending(!onlyPending)}
-          >
-            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-            Aprovação
-          </Button>
-        )}
-
-        {/* Filtro Agrupadas por Fatura */}
-        <Button
-          variant={onlyGrouped ? "default" : "outline"}
-          size="sm"
-          className="text-[13px] font-normal h-8 px-3"
-          onClick={() => setOnlyGrouped(!onlyGrouped)}
-        >
-          <FileText className="mr-1.5 h-3.5 w-3.5" />
-          Agrupadas
-        </Button>
+        {/* Toggles "Sem Vencimento", "Aprovação" e "Agrupadas" foram movidos para o painel Filtros */}
 
         {/* Period filter for paid view */}
         {viewMode === "paid" && (
