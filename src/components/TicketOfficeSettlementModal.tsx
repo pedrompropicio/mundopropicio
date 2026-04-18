@@ -405,12 +405,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
       // Create transfer transaction if requested and confirming
       if (confirm && transferAmt > 0 && transferAccountId) {
-        const isCredited = creditStatus === "credited";
+        const isCredited = creditStatus === "credited" && !targetWithholds;
+        const baseDesc = targetWithholds
+          ? `Acerto fecho com ${targetAccount?.name} (a receber)`
+          : `Transferência fecho bilheteira ${officeName}${isCredited ? "" : " (a receber)"}`;
         const { data: transferTxn, error: tErr } = await (supabase as any)
           .from("transactions")
           .insert({
             type: "transfer",
-            description: `Transferência fecho bilheteira ${officeName}${isCredited ? "" : " (a receber)"}`,
+            description: baseDesc,
             amount: transferAmt,
             paid_amount: isCredited ? transferAmt : 0,
             status: isCredited ? "paid" : "pending",
