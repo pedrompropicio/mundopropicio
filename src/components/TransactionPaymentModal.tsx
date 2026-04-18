@@ -172,6 +172,13 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
+      // Snapshot before payment for undo
+      const undoSnapshot = {
+        previousStatus: transaction.status ?? "approved",
+        previousPaymentDate: transaction.payment_date ?? null,
+        previousPaidAmount: Number(transaction.paid_amount ?? 0),
+        previousAccountId: transaction.account_id ?? null,
+      };
       const addAmount = parseFloat(paymentAmount);
       if (!addAmount || addAmount <= 0) throw new Error("Insira um valor válido");
       if (!accountId && totalCreditApplied < addAmount) throw new Error("Selecione a conta");
