@@ -80,9 +80,21 @@ const parseDueDateForDb = (value: string) => {
   return `${year}-${month}-${day}`;
 };
 
-export function TransactionFormModal({ onClose }: { onClose: () => void }) {
+interface TransactionFormModalProps {
+  onClose: () => void;
+  /** Pre-fill form fields. Use for contextual creation (e.g. from settlement flow). */
+  defaults?: Partial<TransactionForm>;
+  /** When true, after creation the transaction is immediately marked as paid using account_id + payment_date = date. */
+  autoMarkPaid?: boolean;
+  /** Optional callback invoked with the new transaction ID after successful creation (and auto-payment if enabled). */
+  onCreated?: (transactionId: string) => void;
+  /** Optional title override (e.g. "Nova despesa liquidada"). */
+  titleOverride?: string;
+}
+
+export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
-  const [form, setForm] = useState<TransactionForm>(emptyForm);
+  const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
@@ -731,6 +743,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
+      let createdTxId: string | null = null;
       if (isSplit && splitEntries.length >= 2) {
         // --- SPLIT TRANSACTION ---
         const totalAmount = parseFloat(data.amount);
@@ -868,8 +881,9 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
-          status: autoApproved ? "approved" : "pending",
-          paid_amount: 0,
+          status: autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending"),
+          paid_amount: autoMarkPaid ? parseFloat(data.amount) : 0,
+          payment_date: autoMarkPaid ? data.date : null,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: isTransitory,
@@ -880,6 +894,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
         } as any).select("id").single();
         if (error) throw error;
+        createdTxId = insertedTx?.id ?? null;
 
         // Audit: log creation
         if (insertedTx?.id) {
@@ -960,14 +975,17 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
           }
         }
       }
+      return createdTxId;
     },
-    onSuccess: () => {
+    onSuccess: (newTxId) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
+      queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
+      if (newTxId) onCreated?.(newTxId);
       onClose();
-      toast({ title: isSplit ? "Rateio criado com sucesso!" : "Transação criada com sucesso!" });
+      toast({ title: isSplit ? "Rateio criado com sucesso!" : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!") });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
@@ -1243,7 +1261,7 @@ export function TransactionFormModal({ onClose }: { onClose: () => void }) {
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
         <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Nova Transação</h2>
+          <h2 className="text-lg font-bold">{titleOverride ?? "Nova Transação"}</h2>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
