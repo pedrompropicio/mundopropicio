@@ -24,9 +24,10 @@ interface Props {
   officeId: string;
   officeName: string;
   existingSettlement?: any | null;
+  defaultEventId?: string;
 }
 
-export function TicketOfficeSettlementModal({ open, onClose, officeId, officeName, existingSettlement }: Props) {
+export function TicketOfficeSettlementModal({ open, onClose, officeId, officeName, existingSettlement, defaultEventId }: Props) {
   const queryClient = useQueryClient();
   const { user, isAdmin } = useAuth();
   const isEditingConfirmed = !!existingSettlement && existingSettlement.status === "confirmed";
