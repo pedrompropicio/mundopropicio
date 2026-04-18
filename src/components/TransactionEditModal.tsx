@@ -196,6 +196,12 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         ...paymentFields,
       };
 
+      // Build snapshot of pre-change values for the same fields
+      const snapshot: Record<string, any> = {};
+      for (const key of Object.keys(updates)) {
+        snapshot[key] = transaction[key] ?? null;
+      }
+
       // Send child adjustments if amount changed on a parent split
       const childUpdatesPayload = (amountChanged && hasChildren)
         ? Object.entries(childAdjustments).map(([id, amt]) => ({ id, amount: amt }))
@@ -206,11 +212,34 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data;
+      return { data, snapshot, changesCount: changes.length };
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onClose();
+      if (result?.snapshot && user) {
+        const { recordUndo } = await import("@/lib/undo");
+        const { showUndoToast } = await import("@/hooks/useUndoToast");
+        const undoRec = await recordUndo({
+          action_type: "edit_transaction",
+          entity_type: "transaction",
+          entity_id: transaction.id,
+          payload: { snapshot: result.snapshot },
+          description: `Edição: ${transaction.description ?? ""}`.slice(0, 200),
+          performed_by: user.id,
+          performed_by_name: user.user_metadata?.full_name ?? user.email ?? undefined,
+        });
+        if (undoRec) {
+          showUndoToast({
+            message: "Transação atualizada com sucesso!",
+            description: `${result.changesCount} alteração(ões) gravada(s). Toque em Desfazer para restaurar os valores anteriores.`,
+            undoId: undoRec.id,
+            user: { id: user.id, name: user.user_metadata?.full_name ?? user.email ?? undefined },
+            onUndone: () => queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+          });
+          return;
+        }
+      }
       toast({ title: "Transação atualizada com sucesso!" });
     },
     onError: (err: any) => {

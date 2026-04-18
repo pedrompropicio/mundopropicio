@@ -95,6 +95,15 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
 
+      // Snapshot for undo (pre-change values)
+      const snapshot = {
+        description: forecast.description,
+        specification: forecast.specification,
+        category_id: forecast.category_id,
+        amount: Number(forecast.amount),
+        iva_rate: Number(forecast.iva_rate),
+      };
+
       // Update forecast
       const updatePayload: any = {
         description: newDescription,
@@ -124,12 +133,40 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           } as any);
         if (logError) console.error("Audit log error:", logError);
       }
+
+      return { snapshot, changesCount: changes.length };
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
       queryClient.invalidateQueries({ queryKey: ["forecast_audit_log", forecast.id] });
-      toast({ title: "Previsão atualizada com sucesso!" });
       onClose();
+      if (result?.snapshot && user) {
+        const { recordUndo } = await import("@/lib/undo");
+        const { showUndoToast } = await import("@/hooks/useUndoToast");
+        const undoRec = await recordUndo({
+          action_type: "edit_forecast",
+          entity_type: "event_forecast",
+          entity_id: forecast.id,
+          payload: { snapshot: result.snapshot },
+          description: `Edição BP: ${forecast.description ?? ""}`.slice(0, 200),
+          performed_by: user.id,
+          performed_by_name: user.user_metadata?.full_name ?? user.email ?? undefined,
+        });
+        if (undoRec) {
+          showUndoToast({
+            message: "Previsão atualizada com sucesso!",
+            description: `${result.changesCount} alteração(ões) gravada(s). Toque em Desfazer para restaurar os valores anteriores.`,
+            undoId: undoRec.id,
+            user: { id: user.id, name: user.user_metadata?.full_name ?? user.email ?? undefined },
+            onUndone: () => {
+              queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+              queryClient.invalidateQueries({ queryKey: ["forecast_audit_log", forecast.id] });
+            },
+          });
+          return;
+        }
+      }
+      toast({ title: "Previsão atualizada com sucesso!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
