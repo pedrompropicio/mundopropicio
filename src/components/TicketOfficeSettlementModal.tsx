@@ -615,7 +615,17 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                     badge={selectedTxnIds.size > 0 ? `${selectedTxnIds.size} selecionada(s)` : undefined}
                   />
                   {canEdit && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNewAdvance(true)}
+                        disabled={!eventId}
+                        title={!eventId ? "Selecione o evento primeiro" : ""}
+                      >
+                        <Banknote className="h-3.5 w-3.5 mr-1" /> Novo adiantamento
+                      </Button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setShowNewExpense(true)}>
                         <Plus className="h-3.5 w-3.5 mr-1" /> Nova despesa
                       </Button>
