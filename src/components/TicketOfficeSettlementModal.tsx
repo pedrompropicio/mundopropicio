@@ -941,6 +941,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           }}
         />
       )}
+
+      {showNewAdvance && eventId && (
+        <QuickAdvanceModal
+          open={showNewAdvance}
+          onClose={() => setShowNewAdvance(false)}
+          officeId={officeId}
+          officeName={officeName}
+          eventId={eventId}
+        />
+      )}
     </Dialog>
   );
 }
