@@ -205,28 +205,60 @@ export function TicketOfficeBalancePanel({ officeId, officeName }: Props) {
 
       {summary.events.length > 0 && (
         <div>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Saldo por Evento</h4>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Saldo por Evento</h4>
+            {canManage && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setSettlementModal({ open: true })}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Novo Fecho
+              </Button>
+            )}
+          </div>
           <div className="space-y-1">
             {summary.events.map((ev) => (
-              <Link
+              <div
                 key={ev.id}
-                to={`/eventos/${ev.id}`}
                 className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-colors group"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <Link to={`/eventos/${ev.id}`} className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="text-xs truncate">{ev.name}</span>
                   {ev.isConciliated && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />}
-                </div>
+                </Link>
                 <div className="flex items-center gap-2">
                   <span className={`text-xs font-mono font-medium ${ev.balance > 0 ? "text-emerald-500" : ev.balance < 0 ? "text-red-400" : "text-muted-foreground"}`}>
                     {formatCurrency(ev.balance)}
                   </span>
-                  <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {canManage && Math.abs(ev.balance) > 0.01 && !ev.isConciliated && (
+                    <button
+                      onClick={() => setSettlementModal({ open: true, eventId: ev.id })}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-primary/15 hover:text-primary transition-colors"
+                      title="Fechar evento nesta bilheteira"
+                    >
+                      <Receipt className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <Link to={`/eventos/${ev.id}`}>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
+      )}
+
+      {settlementModal.open && (
+        <TicketOfficeSettlementModal
+          open={settlementModal.open}
+          onClose={() => setSettlementModal({ open: false })}
+          officeId={officeId}
+          officeName={officeName}
+          existingSettlement={settlementModal.eventId ? { event_id: settlementModal.eventId } : null}
+        />
       )}
     </div>
   );
