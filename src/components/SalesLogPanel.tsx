@@ -68,7 +68,7 @@ export function SalesLogPanel({ eventId, lastSalesDate, isEditable, sessionId }:
 
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("sale_date, sale_date_to, quantity, unit_price, total_value, source, lot_id")
+        .select("sale_date, sale_date_to, quantity, unit_price, total_value, source, lot_id, financial_account_id")
         .in("lot_id", lotIds)
         .order("sale_date", { ascending: true });
       if (!sales) return [];
