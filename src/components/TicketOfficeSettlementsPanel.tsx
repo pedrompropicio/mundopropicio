@@ -237,6 +237,26 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                   </div>
                 </div>
 
+                {canManage && s.status === "confirmed" && s.transfer && s.transfer.status === "pending" && (
+                  <div className="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                    <span className="text-amber-500">
+                      Aguarda confirmação de crédito de <strong className="font-mono">{formatCurrency(Number(s.transfer.amount))}</strong>
+                      {s.transfer.expected_date && ` · previsto ${new Date(s.transfer.expected_date).toLocaleDateString("pt-PT")}`}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setConfirmingCredit(s);
+                        setCreditDate(s.transfer.expected_date || new Date().toISOString().slice(0, 10));
+                      }}
+                    >
+                      <Banknote className="h-3 w-3 mr-1" /> Confirmar crédito
+                    </Button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                   <div className="rounded-lg bg-secondary/40 p-2 text-center">
                     <p className="text-[10px] text-muted-foreground uppercase">Bruto</p>
