@@ -104,8 +104,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     },
   });
 
-  // Gross revenue for selected event
-  const { data: grossRevenue = 0 } = useQuery({
+  // Gross revenue for selected event (c/IVA — usa total_value preservado da importação)
+  const { data: grossAuto = 0 } = useQuery({
     queryKey: ["settlement_gross", officeId, eventId],
     enabled: !!eventId,
     queryFn: async () => {
@@ -117,13 +117,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       const zoneIds = zones.map((z: any) => z.id);
       const { data: sales } = await supabase
         .from("ticket_sales")
-        .select("quantity, unit_price, financial_account_id")
+        .select("quantity, unit_price, total_value, financial_account_id")
         .in("zone_id", zoneIds);
-      return (sales || [])
-        .filter((s: any) => !s.financial_account_id || s.financial_account_id === officeId)
-        .reduce((acc: number, s: any) => acc + s.quantity * Number(s.unit_price), 0);
+      const filtered = (sales || []).filter(
+        (s: any) => !s.financial_account_id || s.financial_account_id === officeId
+      );
+      return sumTicketSalesRevenue(filtered);
     },
   });
+
+  const grossRevenue = grossOverride !== "" ? Number(grossOverride) : grossAuto;
 
   // Eligible transactions: not-yet-paid expenses for the event (direct or via Master split),
   // already linked to this settlement, or unlinked. Excludes already 'paid' (liquidated elsewhere).
