@@ -653,6 +653,58 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         />
                       </div>
                     </div>
+
+                    {transferAccountId && Number(transferAmount || 0) > 0 && (
+                      <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                        <Label className="text-xs text-muted-foreground">Estado do crédito na conta destino</Label>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <label className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
+                            creditStatus === "credited" ? "border-emerald-500/40 bg-emerald-500/5" : "border-border hover:bg-muted/40"
+                          }`}>
+                            <input
+                              type="radio"
+                              name="creditStatus"
+                              value="credited"
+                              checked={creditStatus === "credited"}
+                              onChange={() => setCreditStatus("credited")}
+                              disabled={!canEdit}
+                              className="mt-0.5"
+                            />
+                            <div className="text-xs">
+                              <p className="font-semibold">Já creditado</p>
+                              <p className="text-muted-foreground">Movimento criado liquidado na data do fecho.</p>
+                            </div>
+                          </label>
+                          <label className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
+                            creditStatus === "pending" ? "border-amber-500/40 bg-amber-500/5" : "border-border hover:bg-muted/40"
+                          }`}>
+                            <input
+                              type="radio"
+                              name="creditStatus"
+                              value="pending"
+                              checked={creditStatus === "pending"}
+                              onChange={() => setCreditStatus("pending")}
+                              disabled={!canEdit}
+                              className="mt-0.5"
+                            />
+                            <div className="text-xs">
+                              <p className="font-semibold">A receber</p>
+                              <p className="text-muted-foreground">Cria um movimento pendente. Confirme depois com a data real do crédito.</p>
+                            </div>
+                          </label>
+                        </div>
+                        {creditStatus === "pending" && (
+                          <div className="space-y-1 pt-1">
+                            <Label className="text-xs text-muted-foreground">Data prevista do crédito (opcional)</Label>
+                            <DatePicker
+                              value={expectedCreditDate}
+                              onChange={setExpectedCreditDate}
+                              disabled={!canEdit}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </section>
 
