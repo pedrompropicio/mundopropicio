@@ -417,6 +417,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       }
 
+      // Link advances to settlement (or unlink when reverting to draft)
+      if (pendingAdvances.length > 0) {
+        const advanceIds = pendingAdvances.map((a: any) => a.id);
+        await (supabase as any)
+          .from("event_ticket_office_advances")
+          .update({ settlement_id: confirm ? settlementId : null })
+          .in("id", advanceIds);
+      }
+
       await logAudit({
         entity_type: "ticket_office_settlement",
         entity_id: settlementId,
@@ -428,6 +437,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       toast.success(confirm ? "Fecho confirmado" : "Rascunho guardado");
       queryClient.invalidateQueries({ queryKey: ["ticket_office_settlements"] });
       queryClient.invalidateQueries({ queryKey: ["ticket_office_balances"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket_office_advances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       onClose();
     } catch (err: any) {
