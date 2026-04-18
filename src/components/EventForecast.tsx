@@ -6,7 +6,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -25,6 +25,7 @@ import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
+import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
 
 interface InlineForm {
   type: string;
@@ -75,6 +76,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
+  const [showBulkAttach, setShowBulkAttach] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -1359,6 +1361,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   {attachingLinks ? "A anexar…" : "Anexar links da planilha"}
                 </button>
                 <button
+                  onClick={() => setShowBulkAttach(true)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                  title="Arrasta um .zip da pasta do Drive para anexar ficheiros em massa, com sugestão automática de linha do BP por fornecedor"
+                >
+                  <FileArchive className="h-3.5 w-3.5" />
+                  Upload em massa
+                </button>
+                <button
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
                 >
@@ -1889,6 +1899,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           onOpenChange={setShowOrphans}
           masterEventId={eventId}
           childEventIds={childEventIds}
+        />
+      )}
+      {showBulkAttach && (
+        <BPBulkAttachmentsModal
+          eventIds={childEventIds && childEventIds.length > 0 ? [eventId, ...childEventIds] : [eventId]}
+          onClose={() => setShowBulkAttach(false)}
         />
       )}
     </div>

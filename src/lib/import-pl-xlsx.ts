@@ -28,6 +28,26 @@ export interface ParsedSheet {
 
 const STANDARD_IVA_RATES = [0, 6, 13, 23];
 
+/**
+ * Extract a Google Drive / Docs file ID from a URL, when present.
+ * Supports the common patterns:
+ *   - https://drive.google.com/file/d/<ID>/view
+ *   - https://drive.google.com/open?id=<ID>
+ *   - https://docs.google.com/document/d/<ID>/edit
+ * Returns null for non-Drive URLs.
+ */
+export function extractDriveFileId(url: string): string | null {
+  if (!url) return null;
+  const s = String(url);
+  // /d/<ID>/ pattern (file, document, spreadsheets, presentation)
+  const m1 = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m1) return m1[1];
+  // ?id=<ID>
+  const m2 = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m2) return m2[1];
+  return null;
+}
+
 function roundMoney(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
@@ -112,23 +132,79 @@ function findHeaderRow(raw: any[][]): number {
 /**
  * Extract hyperlink targets per row from a worksheet.
  * Excel allows a cell to display text (cell.v) while carrying a separate hyperlink (cell.l.Target).
- * Returns a map of rowIndex (0-based) -> array of unique http(s) URLs found in that row.
+ * Also captures =HYPERLINK("url","label") formulas and bare URLs (with or without https://)
+ * embedded in cell text. Returns a map of rowIndex (0-based) -> array of unique URLs found
+ * in that row. URLs are normalised to include the https:// prefix.
  */
 function extractHyperlinksByRow(ws: XLSX.WorkSheet): Map<number, string[]> {
   const map = new Map<number, string[]>();
   if (!ws || !ws["!ref"]) return map;
   const range = XLSX.utils.decode_range(ws["!ref"]);
+  // Match URLs in plain text, with or without protocol. Captures the URL up to the first whitespace
+  // or closing quote/parenthesis. Drive/Dropbox/SharePoint links are most common.
+  const URL_REGEX = /(?:https?:\/\/)?(?:[\w-]+\.)+[\w-]{2,}(?:\/[^\s"')\]>]*)?/gi;
+  const KNOWN_HOSTS = /(drive\.google\.com|docs\.google\.com|dropbox\.com|onedrive|sharepoint|wetransfer|mega\.nz|box\.com|icloud\.com)/i;
+
+  const normaliseUrl = (raw: string): string | null => {
+    let s = String(raw).trim();
+    if (!s) return null;
+    // Strip surrounding quotes/parens
+    s = s.replace(/^["'(<\[]+|["')>\]]+$/g, "");
+    if (!s) return null;
+    if (/^https?:\/\//i.test(s)) return s;
+    // Bare URL — only auto-prefix if it looks like a known host or has at least one dot + slash
+    if (KNOWN_HOSTS.test(s) || /^[\w-]+(\.[\w-]+)+\//.test(s)) return `https://${s}`;
+    return null;
+  };
+
+  const extractFromHyperlinkFormula = (formula: string): string[] => {
+    // Matches HYPERLINK("url", ...) or HYPERLINK('url', ...) — case-insensitive, optional spaces
+    const out: string[] = [];
+    const re = /HYPERLINK\s*\(\s*["']([^"']+)["']/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(formula)) !== null) {
+      const url = normaliseUrl(m[1]);
+      if (url) out.push(url);
+    }
+    return out;
+  };
+
+  const extractFromText = (text: string): string[] => {
+    const out: string[] = [];
+    const matches = String(text).match(URL_REGEX);
+    if (!matches) return out;
+    for (const raw of matches) {
+      const url = normaliseUrl(raw);
+      if (url) out.push(url);
+    }
+    return out;
+  };
+
   for (let r = range.s.r; r <= range.e.r; r++) {
-    const urls: string[] = [];
     const seen = new Set<string>();
+    const urls: string[] = [];
+    const push = (u: string | null | undefined) => {
+      if (!u) return;
+      if (seen.has(u)) return;
+      seen.add(u);
+      urls.push(u);
+    };
     for (let c = range.s.c; c <= range.e.c; c++) {
       const addr = XLSX.utils.encode_cell({ r, c });
       const cell = ws[addr];
       if (!cell) continue;
+      // 1) Native Excel hyperlink (cell.l.Target)
       const target = (cell as any).l?.Target;
-      if (typeof target === "string" && /^https?:\/\//i.test(target) && !seen.has(target)) {
-        seen.add(target);
-        urls.push(target);
+      if (typeof target === "string") push(normaliseUrl(target));
+      // 2) =HYPERLINK("url", "label") formulas (cell.f)
+      const formula = (cell as any).f;
+      if (typeof formula === "string" && /HYPERLINK/i.test(formula)) {
+        for (const u of extractFromHyperlinkFormula(formula)) push(u);
+      }
+      // 3) Bare URLs / domain-only URLs in cell display value (cell.v / cell.w)
+      const display = (cell as any).w ?? (cell as any).v;
+      if (typeof display === "string" && display.length > 4) {
+        for (const u of extractFromText(display)) push(u);
       }
     }
     if (urls.length > 0) map.set(r, urls);
