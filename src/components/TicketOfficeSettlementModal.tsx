@@ -454,10 +454,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         </Button>
                       )}
                     </div>
-                    <details className="mt-3">
-                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                        Ajuste manual (opcional)
-                      </summary>
+                    <div className="mt-3 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Ajustar receita bruta manualmente (opcional)
+                      </Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -465,9 +465,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         value={grossOverride}
                         onChange={(e) => setGrossOverride(e.target.value)}
                         disabled={!canEdit}
-                        className="mt-2"
                       />
-                    </details>
+                    </div>
                   </div>
                 </section>
 
@@ -540,31 +539,34 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                       <span className="text-muted-foreground">Bruto − Deduções</span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
-                    <details>
-                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                        Líquido recebido pelo banco diverge?
-                      </summary>
-                      <div className="mt-2 space-y-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder={`Calculado: ${netCalculated.toFixed(2)}`}
-                          value={adjustedNet}
-                          onChange={(e) => setAdjustedNet(e.target.value)}
+                    <div className="space-y-2 pt-2 border-t border-border/60">
+                      <Label className="text-xs text-muted-foreground">
+                        Líquido recebido pelo banco (ajuste manual)
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder={`Calculado: ${netCalculated.toFixed(2)}`}
+                        value={adjustedNet}
+                        onChange={(e) => setAdjustedNet(e.target.value)}
+                        disabled={!canEdit}
+                      />
+                      {hasAdjustment && (
+                        <Textarea
+                          rows={2}
+                          value={adjustmentNotes}
+                          onChange={(e) => setAdjustmentNotes(e.target.value)}
+                          placeholder="Justificação obrigatória: comissões extra, arredondamentos…"
                           disabled={!canEdit}
+                          className="border-amber-500/40"
                         />
-                        {hasAdjustment && (
-                          <Textarea
-                            rows={2}
-                            value={adjustmentNotes}
-                            onChange={(e) => setAdjustmentNotes(e.target.value)}
-                            placeholder="Justificação obrigatória: comissões extra, arredondamentos…"
-                            disabled={!canEdit}
-                            className="border-amber-500/40"
-                          />
-                        )}
-                      </div>
-                    </details>
+                      )}
+                      {adjustedNet !== "" && !canEdit && (
+                        <p className="text-xs text-muted-foreground">
+                          Apenas administradores podem editar fechos confirmados.
+                        </p>
+                      )}
+                    </div>
                     <div className="flex justify-between items-center pt-3 border-t border-border">
                       <span className="text-sm font-semibold">Líquido final</span>
                       <span className={`font-mono font-bold text-2xl ${netFinal >= 0 ? "text-emerald-500" : "text-red-400"}`}>
