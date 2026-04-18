@@ -1905,6 +1905,30 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           onClose={() => setShowBulkAttach(false)}
         />
       )}
+      <BPImportModeDialog
+        open={showImportMode}
+        onOpenChange={setShowImportMode}
+        onConfirm={(mode) => {
+          setPendingImportMode(mode);
+          // Defer the click so the dialog has time to close (avoids focus traps).
+          setTimeout(() => {
+            if (mode === "links") {
+              linksFileInputRef.current?.click();
+            } else {
+              // "full" and "dryrun" both go through the main parser path; the
+              // mode is read by handleImportXlsx via pendingImportMode.
+              fileInputRef.current?.click();
+            }
+          }, 50);
+        }}
+      />
+      {attachmentForecast && (
+        <BPAttachmentModal
+          open={!!attachmentForecast}
+          onOpenChange={(v) => { if (!v) setAttachmentForecast(null); }}
+          forecast={attachmentForecast}
+        />
+      )}
     </div>
   );
 }
