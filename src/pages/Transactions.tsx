@@ -109,6 +109,15 @@ export default function Transactions() {
     },
   });
 
+  const { data: suppliersList = [] } = useQuery({
+    queryKey: ["suppliers-list-filter"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const toggleAccount = (id: string) => {
     setSelectedAccountIds((prev) => {
       const next = new Set(prev);
