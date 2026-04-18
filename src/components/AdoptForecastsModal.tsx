@@ -598,13 +598,76 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
             Cancelar
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => setConfirmOpen(true)}
             disabled={saving || selectedKeys.size === 0}
             className="rounded-lg px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {saving ? "A vincular…" : `Vincular ${selectedKeys.size > 0 ? `(${selectedKeys.size})` : ""}`}
           </button>
         </DialogFooter>
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+                Confirmar vinculação ao Master
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3 text-sm">
+                  <p>
+                    {mode === "create"
+                      ? <>Será criada uma <strong>nova linha no BP do Master</strong> e vinculados <strong>{selectedKeys.size}</strong> item(ns) dos sub-eventos, totalizando <strong className="font-mono">{formatCurrency(totalSelected)}</strong>.</>
+                      : <>Serão vinculados <strong>{selectedKeys.size}</strong> item(ns) dos sub-eventos à conta Master <strong>"{masterForecast?.description ?? ""}"</strong>, totalizando <strong className="font-mono">{formatCurrency(totalSelected)}</strong>.</>
+                    }
+                  </p>
+                  <div className="rounded-md border border-border/60 bg-muted/40 p-3 space-y-1.5 text-xs">
+                    <p className="font-semibold text-foreground">O que vai acontecer:</p>
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                      {selectedForecasts.length > 0 && (
+                        <li><strong>{selectedForecasts.length}</strong> linha(s) de BP do sub-evento passam a apontar para o Master.</li>
+                      )}
+                      {selectedTxs.length > 0 && (
+                        <li><strong>{selectedTxs.length}</strong> transação(ões) órfã(s) serão ligadas via split BP no sub-evento.</li>
+                      )}
+                      <li>O saldo do Master passa a consumir o BP Master; o Sub continua a consumir o seu próprio BP.</li>
+                    </ul>
+                  </div>
+                  <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground">
+                    <p className="font-semibold flex items-center gap-1.5 text-warning">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Atenção: ação sem reversão automática
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      Não existe botão de desfazer. Para reverter, será necessário pedir um script SQL ao suporte. Reveja a sua seleção antes de confirmar.
+                    </p>
+                  </div>
+                  {partialInvoiceWarnings.length > 0 && (
+                    <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs">
+                      <p className="font-semibold text-warning">Faturas parcialmente selecionadas:</p>
+                      <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+                        {partialInvoiceWarnings.map((w) => <li key={w}>{w}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Rever seleção</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await handleSave();
+                  setConfirmOpen(false);
+                }}
+                disabled={saving}
+              >
+                {saving ? "A vincular…" : "Confirmar vinculação"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
