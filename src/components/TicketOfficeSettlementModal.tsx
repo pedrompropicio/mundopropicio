@@ -454,7 +454,19 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
 
                 {/* Eligible transactions */}
                 <div className="space-y-2">
-                  <Label>Despesas a deduzir (vincular pendentes)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Despesas a deduzir (valores c/IVA)</Label>
+                    {canEdit && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNewExpense(true)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Nova despesa
+                      </Button>
+                    )}
+                  </div>
                   <div className="rounded-lg border border-border max-h-64 overflow-y-auto">
                     {eligibleTxns.length === 0 ? (
                       <p className="p-4 text-sm text-muted-foreground text-center">
@@ -468,7 +480,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                             <th className="text-left p-2">Descrição</th>
                             <th className="text-left p-2">Fornecedor</th>
                             <th className="text-left p-2">Categoria</th>
-                            <th className="text-right p-2">Valor</th>
+                            <th className="text-right p-2">Valor c/IVA</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -495,7 +507,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{selectedTxnIds.size} selecionada(s)</span>
-                    <span className="font-mono font-semibold">Total: {formatCurrency(totalDeductions)}</span>
+                    <span className="font-mono font-semibold">Total c/IVA: {formatCurrency(totalDeductions)}</span>
                   </div>
                 </div>
 
