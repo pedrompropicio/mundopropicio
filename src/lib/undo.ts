@@ -237,44 +237,5 @@ async function revertTransactionStatusChange(r: UndoActionRecord) {
   if (error) throw error;
 }
 
-// ─── UI helper: show undo toast ────────────────────────────────────────────
+// UI helpers live in src/hooks/useUndoToast.tsx (JSX requires .tsx file).
 
-interface ShowUndoToastOptions {
-  message: string;
-  undoId: string;
-  user: { id: string; name?: string };
-  onUndone?: () => void;
-  durationMs?: number;
-}
-
-export function showUndoToast({
-  message,
-  undoId,
-  user,
-  onUndone,
-  durationMs = 15000,
-}: ShowUndoToastOptions) {
-  const { dismiss } = toast({
-    title: message,
-    description: "Pode desfazer esta ação nos próximos 15 segundos.",
-    duration: durationMs,
-    action: {
-      label: "Desfazer",
-      onClick: async () => {
-        try {
-          await executeUndo(undoId, user);
-          toast({ title: "Ação desfeita com sucesso" });
-          onUndone?.();
-        } catch (err: any) {
-          toast({
-            title: "Erro ao desfazer",
-            description: err.message,
-            variant: "destructive",
-          });
-        } finally {
-          dismiss();
-        }
-      },
-    } as any,
-  });
-}
