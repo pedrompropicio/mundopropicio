@@ -180,16 +180,53 @@ export default function Transactions() {
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Capture previous status for undo
+      const { data: prev } = await supabase
+        .from("transactions")
+        .select("id, status, payment_date, paid_amount, account_id, description")
+        .eq("id", id)
+        .maybeSingle();
       const { data, error } = await supabase.functions.invoke("approve-transaction", {
         body: { transaction_ids: [id] },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data;
+      return { data, prev };
     },
-    onSuccess: (data) => {
+    onSuccess: async ({ data, prev }) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       if (data?.approved_count > 0) {
+        // Record undo
+        if (prev && user) {
+          const { recordUndo } = await import("@/lib/undo");
+          const { showUndoToast } = await import("@/hooks/useUndoToast");
+          const undoRec = await recordUndo({
+            action_type: "approve_transaction",
+            entity_type: "transaction",
+            entity_id: prev.id,
+            payload: {
+              previousStatus: prev.status ?? "pending",
+              previousPaymentDate: prev.payment_date,
+              previousPaidAmount: prev.paid_amount ?? 0,
+              previousAccountId: prev.account_id,
+            },
+            description: `Aprovação: ${prev.description ?? ""}`.slice(0, 200),
+            performed_by: user.id,
+            performed_by_name: user.user_metadata?.full_name ?? user.email ?? undefined,
+          });
+          if (undoRec) {
+            showUndoToast({
+              message: "Transação aprovada",
+              description: data?.skipped_count > 0
+                ? "Alguns itens já não estavam pendentes e foram ignorados. Toque em Desfazer para reverter."
+                : undefined,
+              undoId: undoRec.id,
+              user: { id: user.id, name: user.user_metadata?.full_name ?? user.email ?? undefined },
+              onUndone: () => queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+            });
+            return;
+          }
+        }
         toast({
           title: "Transação aprovada!",
           description: data?.skipped_count > 0 ? "Alguns itens já não estavam pendentes e foram ignorados." : undefined,
