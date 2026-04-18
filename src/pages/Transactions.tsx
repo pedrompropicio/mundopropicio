@@ -577,7 +577,7 @@ export default function Transactions() {
       const bInv = b.invoice_ref ?? "";
       return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
