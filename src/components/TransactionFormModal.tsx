@@ -894,6 +894,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
         } as any).select("id").single();
         if (error) throw error;
+        createdTxId = insertedTx?.id ?? null;
 
         // Audit: log creation
         if (insertedTx?.id) {
