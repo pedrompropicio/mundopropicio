@@ -610,26 +610,66 @@ export function findForecastMatch(
   rowBaseAmount: number,
   primary: ForecastLike[],
   master: ForecastLike[],
+  /**
+   * Optional: aggregated value across ALL sheets/sub-events for this same
+   * normalized description. Used as a Master-only secondary signal because
+   * rateio (split) lines on the Master correspond to the SUM of sub-event
+   * lines in the XLSX, not the individual ones.
+   */
+  aggregatedAmountForDesc?: number,
 ): { forecast: ForecastLike; fromMaster: boolean } | null {
   const descKey = norm(rowDescription);
   const TOL = 0.01;
-  const matchesAmount = (f: ForecastLike): boolean => {
+  const matchesAmount = (f: ForecastLike, target: number): boolean => {
     const net = Number(f.amount) || 0;
     const ivaPct = Number(f.iva_rate ?? 0) || 0;
     const gross = roundMoney(net * (1 + ivaPct / 100));
-    return Math.abs(net - rowBaseAmount) <= TOL || Math.abs(gross - rowBaseAmount) <= TOL;
+    return Math.abs(net - target) <= TOL || Math.abs(gross - target) <= TOL;
   };
+
+  // 1) Primary pool — strict match (desc + amount, individual row)
   const inPrimary = primary.find(
-    (f) => norm(String(f.description)) === descKey && matchesAmount(f),
+    (f) => norm(String(f.description)) === descKey && matchesAmount(f, rowBaseAmount),
   );
   if (inPrimary) return { forecast: inPrimary, fromMaster: false };
+
+  // 2) Master pool — strict match by individual row amount
   const inMasterTight = master.find(
-    (f) => norm(String(f.description)) === descKey && matchesAmount(f),
+    (f) => norm(String(f.description)) === descKey && matchesAmount(f, rowBaseAmount),
   );
   if (inMasterTight) return { forecast: inMasterTight, fromMaster: true };
+
+  // 3) Master pool — match by AGGREGATED amount across all sub-event sheets
+  //    (rateio: Master forecast value = sum of all sub-event rows for same desc)
+  if (aggregatedAmountForDesc != null) {
+    const inMasterAggregated = master.find(
+      (f) => norm(String(f.description)) === descKey && matchesAmount(f, aggregatedAmountForDesc),
+    );
+    if (inMasterAggregated) return { forecast: inMasterAggregated, fromMaster: true };
+  }
+
+  // 4) Master pool — description-only fallback (last resort)
   const inMasterDescOnly = master.find((f) => norm(String(f.description)) === descKey);
   if (inMasterDescOnly) return { forecast: inMasterDescOnly, fromMaster: true };
+
   return null;
+}
+
+/**
+ * Build a map { normalizedDescription -> sum of baseAmount } across a flat
+ * list of XLSX rows. Used to derive aggregated values for matching against
+ * Master rateio lines.
+ */
+export function buildAggregatedAmountByDesc(
+  rows: Array<{ description: string; baseAmount: number }>,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const key = norm(r.description);
+    if (!key) continue;
+    out.set(key, roundMoney((out.get(key) ?? 0) + (Number(r.baseAmount) || 0)));
+  }
+  return out;
 }
 
 /**
@@ -702,13 +742,25 @@ export async function attachLinksFromXlsx(
     ? (forecasts || []).filter((f: any) => f.event_id === parentEventId)
     : [];
 
+  // Pre-compute aggregated baseAmount per normalized description across ALL
+  // sheets in this XLSX. This lets us resolve Master "rateio" forecasts whose
+  // value equals the sum of the same line across all sub-events.
+  const aggregatedByDesc = buildAggregatedAmountByDesc(allRows);
+
   for (const row of allRows) {
     const links = (row.attachments || [])
       .map((a) => String(a).trim())
       .filter((a) => /^https?:\/\//i.test(a));
     if (links.length === 0) continue;
 
-    const found = findForecastMatch(row.description, row.baseAmount, primaryForecasts as any, masterForecasts as any);
+    const aggregated = aggregatedByDesc.get(norm(row.description));
+    const found = findForecastMatch(
+      row.description,
+      row.baseAmount,
+      primaryForecasts as any,
+      masterForecasts as any,
+      aggregated,
+    );
     let match = found?.forecast;
     const matchedInMaster = found?.fromMaster ?? false;
 
@@ -890,12 +942,24 @@ export async function reprocessOrphanAttachments(
     }
   }
 
+  // Aggregated baseAmount per description across pending orphans (one row per
+  // sheet/sub-event). Enables matching against Master rateio lines whose value
+  // equals the SUM of all sub-event rows for the same description.
+  const aggregatedByDesc = buildAggregatedAmountByDesc(
+    (orphans ?? []).map((o: any) => ({
+      description: o.row_description,
+      baseAmount: Number(o.row_base_amount) || 0,
+    })),
+  );
+
   for (const orphan of orphans ?? []) {
+    const aggregated = aggregatedByDesc.get(norm((orphan as any).row_description));
     const found = findForecastMatch(
       (orphan as any).row_description,
       Number((orphan as any).row_base_amount) || 0,
       primaryForecasts as any,
       masterForecasts as any,
+      aggregated,
     );
     if (!found) {
       out.stillOrphan++;
