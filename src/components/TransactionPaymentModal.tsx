@@ -426,9 +426,69 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             </div>
             <div className="flex justify-between border-t border-border/50 pt-2">
               <span className="text-muted-foreground">Saldo em aberto:</span>
-              <span className="font-bold text-warning">{formatCurrency(balance)}</span>
+              <span className="font-bold text-warning inline-flex items-center gap-1.5">
+                {formatCurrency(balance)}
+                <CurrencyBadge currency={transaction.currency} originalAmount={transaction.original_amount} fxRate={transaction.fx_rate} />
+              </span>
             </div>
           </div>
+
+          {isForeign && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Câmbio do dia (1 {txCurrency} = X €)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={paymentFxRate}
+                    onChange={(e) => setPaymentFxRate(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder={transaction.fx_rate ? String(transaction.fx_rate) : "Ex.: 0.17"}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoadingFx(true);
+                    const r = await fetchSuggestedFxRate(txCurrency, supabase);
+                    setLoadingFx(false);
+                    if (r) setPaymentFxRate(r.toFixed(6));
+                  }}
+                  disabled={loadingFx}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingFx ? "animate-spin" : ""}`} />
+                  Sugerir
+                </button>
+              </div>
+              {(() => {
+                const rate = parseFloat(paymentFxRate) || 0;
+                const eur = parseFloat(paymentAmount) || 0;
+                if (rate <= 0 || eur <= 0) return (
+                  <p className="text-[11px] text-muted-foreground">
+                    Informativo: o valor pago é registado em EUR ({formatCurrency(eur)}). Câmbio guardado apenas para histórico.
+                  </p>
+                );
+                const orig = eurToOriginal(eur, rate);
+                const origRate = Number(transaction.fx_rate) || 0;
+                const diff = origRate > 0 ? rate - origRate : 0;
+                return (
+                  <div className="text-[11px] text-muted-foreground space-y-0.5">
+                    <p>Equivale a <span className="font-semibold text-foreground">{formatInCurrency(orig, txCurrency)}</span> à taxa do dia.</p>
+                    {origRate > 0 && (
+                      <p className={diff >= 0 ? "text-success" : "text-warning"}>
+                        Variação vs. câmbio original ({origRate.toFixed(6)}): {diff >= 0 ? "+" : ""}{diff.toFixed(6)} €/{txCurrency}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>
