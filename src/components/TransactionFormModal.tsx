@@ -918,6 +918,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+          currency,
+          original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+          fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+          fx_rate_source: currency === "EUR" ? null : fxRateSource,
         } as any).select("id").single();
         if (error) throw error;
         createdTxId = insertedTx?.id ?? null;
