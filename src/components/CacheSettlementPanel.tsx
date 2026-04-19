@@ -207,6 +207,7 @@ export function CacheSettlementPanel({
           <Calculator className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Fecho do Cachê — Valores Reais
+            {cityLabel && <span className="ml-1 text-primary normal-case">· {cityLabel}</span>}
           </span>
         </div>
         {isVariable && (
@@ -494,16 +495,16 @@ export function CacheSettlementPanel({
               <button
                 onClick={() => {
                   setAdjustedInput(adjustedAmount != null ? String(adjustedAmount) : String(calculatedNow));
-                  setAdjustmentNotesInput(config.agreement_notes ?? "");
+                  setAdjustmentNotesInput(sourceRow.agreement_notes ?? "");
                   setEditingAdjusted(true);
                 }}
                 className="text-xs text-primary hover:underline"
               >
                 {adjustedAmount != null ? "Editar valor ajustado" : "Definir valor ajustado (negociado)"}
               </button>
-              {adjustedAmount != null && config.agreement_notes && (
+              {adjustedAmount != null && sourceRow.agreement_notes && (
                 <p className="text-[10px] text-muted-foreground italic pl-1">
-                  💬 {config.agreement_notes}
+                  💬 {sourceRow.agreement_notes}
                 </p>
               )}
             </div>
@@ -523,10 +524,10 @@ export function CacheSettlementPanel({
             <span className="text-xs font-medium">
               {isFinalized ? "Cachê Fechado" : "Fechar Cachê"}
             </span>
-            {isFinalized && config.finalized_at && (
+            {isFinalized && sourceRow.finalized_at && (
               <p className="text-[10px] text-muted-foreground">
-                por {config.finalized_by || "—"} em{" "}
-                {format(new Date(config.finalized_at), "dd/MM/yyyy HH:mm")}
+                por {sourceRow.finalized_by || "—"} em{" "}
+                {format(new Date(sourceRow.finalized_at), "dd/MM/yyyy HH:mm")}
               </p>
             )}
             {!isFinalized && (
@@ -570,7 +571,7 @@ export function CacheSettlementPanel({
       {showTxModal && (
         <CacheTransactionModal
           onClose={() => setShowTxModal(false)}
-          eventId={eventId}
+          eventId={effectiveEventId}
           artistName={config.artist_name}
           amount={effectiveValue}
           cacheConfigId={config.id}
