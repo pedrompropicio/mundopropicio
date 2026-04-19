@@ -425,7 +425,12 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     });
     await Promise.all(workers);
     setValidating(false);
-    toast({ title: "Validação concluída", description: `${targets.length} ficheiro(s) verificado(s).` });
+    // Count how many were auto-excluded by ownership mismatch.
+    const excludedNow = files.filter((f) => targets.find((t) => t.id === f.id)).length;
+    toast({
+      title: "Validação concluída",
+      description: `${targets.length} ficheiro(s) verificado(s). PDFs de outros eventos foram automaticamente excluídos.`,
+    });
   };
 
   const acceptAllConfident = () => {
