@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { resolvePercentageFromTiers, type CacheTier } from "@/lib/cache-pl-helper";
+import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier } from "@/lib/cache-pl-helper";
 
 interface CacheConfig {
   id: string;
@@ -15,6 +15,8 @@ interface CacheConfig {
   cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
+  real_amount?: number | null;
+  adjusted_amount?: number | null;
   tiers?: CacheTier[];
 }
 
