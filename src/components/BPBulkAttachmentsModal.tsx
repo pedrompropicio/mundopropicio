@@ -334,22 +334,21 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
 
   const [validating, setValidating] = useState(false);
 
-  /** Run AI value validation on every PDF/image with a matched forecast. */
+  /** Run AI validation on every PDF/image: extracts total + names + date,
+   * compares value vs BP and checks ownership against the events in scope. */
   const validateValues = async () => {
     const targets = files.filter(
       (f) =>
-        f.forecastId &&
         !f.excluded &&
         f.status === "pending" &&
         isValidatable(f.name, f.blob) &&
         (!f.validation || f.validation.state === "idle" || f.validation.state === "error"),
     );
     if (targets.length === 0) {
-      toast({ title: "Nada a validar", description: "Apenas PDFs/imagens com linha do BP atribuída são validados." });
+      toast({ title: "Nada a validar", description: "Apenas PDFs/imagens pendentes são validados." });
       return;
     }
     setValidating(true);
-    // Mark all as running
     setFiles((prev) =>
       prev.map((f) => (targets.find((t) => t.id === f.id) ? { ...f, validation: { state: "running" } } : f)),
     );
@@ -358,8 +357,6 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     const queue = [...targets];
     const runOne = async (item: PendingFile) => {
       try {
-        const fc = forecastById.get(item.forecastId!);
-        if (!fc) throw new Error("Linha do BP desapareceu");
         const fileBase64 = await blobToBase64(item.blob);
         const mime = item.blob.type || (item.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream");
         const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
@@ -369,31 +366,44 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const total: number | null = typeof data?.total === "number" ? data.total : null;
         const currency: string | null = data?.currency ?? null;
         const note: string | undefined = data?.raw;
+        const mentionedNames: string | null = typeof data?.mentioned_names === "string" ? data.mentioned_names : null;
+        const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
+        const ownership = checkOwnership(mentionedNames, documentDate);
+
+        // Determine value-validation state.
+        const fc = item.forecastId ? forecastById.get(item.forecastId) : null;
+        let valueState: "match" | "mismatch" | "no-total";
+        let diffPct: number | undefined;
         if (total === null) {
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.id === item.id
-                ? { ...f, validation: { state: "no-total", currency, note: note || "Total não detetado" } }
-                : f,
-            ),
-          );
-          return;
+          valueState = "no-total";
+        } else if (fc) {
+          const expected = fc.amount;
+          const diff = Math.abs(total - expected);
+          diffPct = expected > 0 ? diff / expected : 1;
+          valueState = diff <= TOLERANCE_ABS || diffPct <= TOLERANCE_PCT ? "match" : "mismatch";
+        } else {
+          // No forecast linked → can't compare value, but we still ran extraction.
+          valueState = "no-total";
         }
-        const expected = fc.amount;
-        const diff = Math.abs(total - expected);
-        const diffPct = expected > 0 ? diff / expected : 1;
-        const matches = diff <= TOLERANCE_ABS || diffPct <= TOLERANCE_PCT;
+
+        // If ownership is a clear mismatch, auto-exclude the file from upload.
+        const autoExclude = ownership.state === "mismatch";
+
         setFiles((prev) =>
           prev.map((f) =>
             f.id === item.id
               ? {
                   ...f,
+                  excluded: autoExclude ? true : f.excluded,
                   validation: {
-                    state: matches ? "match" : "mismatch",
+                    state: valueState,
                     extractedTotal: total,
                     currency,
                     diffPct,
                     note,
+                    mentionedNames,
+                    documentDate,
+                    ownership,
                   },
                 }
               : f,
