@@ -241,6 +241,24 @@ async function syncTourCacheForecasts(
     .eq("type", "expense")
     .is("cache_config_id", null);
 
+  // Fetch per-city settlements (override priority over master legacy fields)
+  const cacheConfigIds = cacheConfigs.map((c) => c.id);
+  const { data: citySettlementsRows } = cacheConfigIds.length > 0
+    ? await supabase
+        .from("event_cache_city_settlements")
+        .select("event_id, cache_config_id, is_finalized, real_amount, adjusted_amount")
+        .in("event_id", childEventIds)
+        .in("cache_config_id", cacheConfigIds)
+    : { data: [] as any[] };
+  const citySettlementMap = new Map<string, CityCacheSettlement>();
+  for (const r of (citySettlementsRows ?? [])) {
+    citySettlementMap.set(`${r.event_id}:${r.cache_config_id}`, {
+      is_finalized: r.is_finalized,
+      real_amount: r.real_amount,
+      adjusted_amount: r.adjusted_amount,
+    });
+  }
+
   const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number; iva_rate?: number }[]> = {};
   for (const cid of childEventIds) expensesByChild[cid] = [];
   for (const f of (childExpenseForecasts ?? [])) {
