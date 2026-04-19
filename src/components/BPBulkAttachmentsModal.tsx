@@ -33,6 +33,12 @@ interface PendingFile {
   /** Upload state */
   status: "pending" | "uploading" | "done" | "error";
   errorMsg?: string;
+  /** AI-suggested category id (from PDF service description). User must confirm. */
+  suggestedCategoryId?: string | null;
+  /** Category override picked by user (defaults to suggestion). */
+  categoryId?: string | null;
+  /** Whether user accepted applying the category to the linked BP row on upload. */
+  categoryConfirmed?: boolean;
   /** AI value validation (PDFs/images only) */
   validation?: {
     state: "idle" | "running" | "match" | "mismatch" | "no-total" | "error";
@@ -46,6 +52,8 @@ interface PendingFile {
     documentDate?: string | null;
     /** Detected document type: invoice / proforma / quote / receipt / transfer / contract / other. */
     documentType?: string | null;
+    /** Short description of services/products billed. */
+    serviceDescription?: string | null;
     /** Ownership decision against the events in scope. */
     ownership?: {
       state: "match" | "mismatch" | "unknown";
