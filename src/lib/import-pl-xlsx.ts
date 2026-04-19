@@ -657,19 +657,9 @@ export async function attachLinksFromXlsx(
       .filter((a) => /^https?:\/\//i.test(a));
     if (links.length === 0) continue;
 
-    const descKey = norm(row.description);
-    let match = primaryForecasts.find((f: any) => {
-      return norm(String(f.description)) === descKey
-        && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
-    });
-    let matchedInMaster = false;
-    if (!match && masterForecasts.length > 0) {
-      match = masterForecasts.find((f: any) => {
-        return norm(String(f.description)) === descKey
-          && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
-      }) || masterForecasts.find((f: any) => norm(String(f.description)) === descKey);
-      if (match) matchedInMaster = true;
-    }
+    const found = findForecastMatch(row.description, row.baseAmount, primaryForecasts as any, masterForecasts as any);
+    let match = found?.forecast;
+    const matchedInMaster = found?.fromMaster ?? false;
 
     if (!match) {
       result.rowsWithoutMatch++;
