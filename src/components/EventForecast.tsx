@@ -116,15 +116,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return category?.id ?? null;
   }, [categories]);
 
+  const forecastEventIds = useMemo(() => {
+    const ids = [eventId];
+    if (childEventIds && childEventIds.length > 0) ids.push(...childEventIds);
+    return Array.from(new Set(ids));
+  }, [eventId, childEventIds]);
+
   const { data: forecasts = [], isLoading } = useQuery({
-    queryKey: ["event_forecasts", eventId],
+    queryKey: ["event_forecasts", eventId, forecastEventIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const query = supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
-        .eq("event_id", eventId)
+        .in("event_id", forecastEventIds)
         .order("type")
         .order("created_at");
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -920,17 +927,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
         let totalCreated = 0;
         const allErrors: string[] = [];
+        const importBreakdown: string[] = [];
         for (const { sheet, childEvent } of matchedSheets) {
           const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system", eventId, instructions);
           totalCreated += result.created;
           allErrors.push(...result.errors);
+          importBreakdown.push(`${(childEvent.cities as any)?.name || childEvent.name}: ${result.created}`);
           queryClient.invalidateQueries({ queryKey: ["event_forecasts", childEvent.id] });
           queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", childEvent.id] });
         }
         queryClient.invalidateQueries({ queryKey: ["transactions"] });
         toast({
-          title: `${totalCreated} linha(s) importada(s) em ${matchedSheets.length} evento(s) Split!`,
-          description: allErrors.length > 0 ? `${allErrors.length} erro(s): ${allErrors[0]}` : undefined,
+          title: `${totalCreated} linha(s) importada(s) nos sub-eventos`,
+          description: [
+            `Guardado em: ${importBreakdown.join(" · ")}`,
+            allErrors.length > 0 ? `${allErrors.length} erro(s): ${allErrors[0]}` : null,
+          ].filter(Boolean).join(" — "),
+          variant: totalCreated === 0 ? "destructive" : undefined,
         });
       } else {
         // Single event import (sub-event or simple event)
