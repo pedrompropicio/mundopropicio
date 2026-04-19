@@ -226,7 +226,7 @@ export default function ReportIvaAudit() {
                   <TableCell className="text-right">{formatCurrency(d.base)}</TableCell>
                   <TableCell className="text-right">{d.rate}%</TableCell>
                   <TableCell className="text-right">{formatCurrency(d.expectedIva)}</TableCell>
-                  <TableCell className="text-right text-amber-500">
+                  <TableCell className="text-right text-muted-foreground">
                     {d.diff > 0 ? "+" : ""}{d.diff.toFixed(3)} €
                   </TableCell>
                 </TableRow>
