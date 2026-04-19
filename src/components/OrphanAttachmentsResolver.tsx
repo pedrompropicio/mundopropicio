@@ -116,7 +116,7 @@ export default function OrphanAttachmentsResolver({
 }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const isMobile = useIsMobile();
+  
 
   const allEventIds = useMemo(
     () => Array.from(new Set([eventId, ...childEventIds, ...(parentEventId ? [parentEventId] : [])])),
