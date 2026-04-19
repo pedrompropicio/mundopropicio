@@ -30,7 +30,6 @@ import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
-import BPSheetMappingModal, { type SheetMappingItem, type SheetMappingTarget } from "@/components/BPSheetMappingModal";
 
 interface InlineForm {
   type: string;
