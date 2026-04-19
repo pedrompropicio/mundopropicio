@@ -570,11 +570,9 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     });
     await Promise.all(workers);
     setValidating(false);
-    // Count how many were auto-excluded by ownership mismatch.
-    const excludedNow = files.filter((f) => targets.find((t) => t.id === f.id)).length;
     toast({
       title: "Validação concluída",
-      description: `${targets.length} ficheiro(s) verificado(s). PDFs de outros eventos foram automaticamente excluídos.`,
+      description: `${targets.length} ficheiro(s) verificado(s). Documentos com origem incerta ficam marcados — confirma manualmente antes de subir.`,
     });
   };
 
