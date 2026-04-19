@@ -318,7 +318,7 @@ export default function OrphanAttachmentsResolver({
         ) : (
           <div className="flex-1 grid grid-cols-12 overflow-hidden">
             {/* Left: list */}
-            <div className="col-span-3 border-r border-border/40 overflow-hidden flex flex-col">
+            <div className={`${isMobile ? "col-span-5" : "col-span-3"} border-r border-border/40 overflow-hidden flex flex-col`}>
               <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border/40">
                 Órfãos ({orphans.length})
               </div>
