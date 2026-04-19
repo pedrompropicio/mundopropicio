@@ -1,5 +1,5 @@
-// Extract the invoice grand total (and currency) from a PDF using Lovable AI (Gemini).
-// Returns { total: number | null, currency: string | null, confidence: "high"|"medium"|"low", raw?: string }
+// Extract the invoice grand total + ownership signals (event/artist name, date)
+// from a PDF/image using Lovable AI (Gemini).
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
 interface ReqBody {
@@ -15,6 +15,10 @@ interface ExtractResult {
   total: number | null;
   currency: string | null;
   confidence: "high" | "medium" | "low";
+  /** Free-text snippet with names mentioned in the document (event, artist, client, project). */
+  mentioned_names: string | null;
+  /** Best invoice/document date in ISO YYYY-MM-DD if detected. */
+  document_date: string | null;
   raw?: string;
   error?: string;
 }
@@ -35,7 +39,7 @@ Deno.serve(async (req) => {
     const mime = body.mimeType || "application/pdf";
 
     const systemPrompt =
-      "You extract the GRAND TOTAL amount payable from invoices/receipts (Portuguese 'Total a pagar', 'Valor Total', 'Total fatura'; Brazilian 'Valor Total', 'Total Geral'; English 'Total', 'Amount Due'). Always pick the FINAL total INCLUDING VAT, not subtotals or VAT-only lines. Use null if the document is not an invoice or no total is found.";
+      "You analyze invoices/receipts. Extract: (1) GRAND TOTAL payable INCLUDING VAT (Portuguese 'Total a pagar', 'Valor Total'; Brazilian 'Valor Total', 'Total Geral'; English 'Total', 'Amount Due'); (2) any names that identify WHO/WHAT the invoice refers to (event names, artist/band names, client names, project names, show names, tour names — include all you can find verbatim, comma-separated); (3) the document/invoice date. Use null when truly absent.";
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -52,7 +56,7 @@ Deno.serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Extract the invoice grand total. Call the tool exactly once.",
+                text: "Extract grand total, mentioned names (event/artist/client/project) and document date. Call the tool exactly once.",
               },
               {
                 type: "image_url",
@@ -66,7 +70,7 @@ Deno.serve(async (req) => {
             type: "function",
             function: {
               name: "report_invoice_total",
-              description: "Report the invoice grand total payable.",
+              description: "Report invoice grand total, mentioned names and document date.",
               parameters: {
                 type: "object",
                 properties: {
@@ -83,12 +87,20 @@ Deno.serve(async (req) => {
                     enum: ["high", "medium", "low"],
                     description: "high = total label clearly visible; medium = inferred from context; low = guessed.",
                   },
+                  mentioned_names: {
+                    type: ["string", "null"],
+                    description: "Comma-separated list of every event/artist/client/project/show/tour name verbatim from the document. Null if none.",
+                  },
+                  document_date: {
+                    type: ["string", "null"],
+                    description: "ISO date YYYY-MM-DD of the invoice/document (data da fatura). Null if not detected.",
+                  },
                   notes: {
                     type: "string",
-                    description: "Brief reason — e.g. 'found Total a Pagar 1234.56€' or 'no invoice detected'.",
+                    description: "Brief reason — e.g. 'found Total a Pagar 1234.56€, evento Maiara e Maraisa Lisboa'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "notes"],
                 additionalProperties: false,
               },
             },
@@ -110,19 +122,21 @@ Deno.serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) {
-      return json({ total: null, currency: null, confidence: "low", error: "No tool call returned" } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, error: "No tool call returned" } satisfies ExtractResult);
     }
     let parsed: any;
     try {
       parsed = JSON.parse(argsStr);
     } catch {
-      return json({ total: null, currency: null, confidence: "low", error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
     }
 
     const out: ExtractResult = {
       total: typeof parsed.total === "number" && Number.isFinite(parsed.total) ? parsed.total : null,
       currency: typeof parsed.currency === "string" ? parsed.currency.toUpperCase() : null,
       confidence: (["high", "medium", "low"].includes(parsed.confidence) ? parsed.confidence : "low") as ExtractResult["confidence"],
+      mentioned_names: typeof parsed.mentioned_names === "string" && parsed.mentioned_names.trim() ? parsed.mentioned_names.trim() : null,
+      document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };
     return json(out);
