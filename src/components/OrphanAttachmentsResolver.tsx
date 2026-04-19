@@ -344,75 +344,76 @@ export default function OrphanAttachmentsResolver({
               </ScrollArea>
             </div>
 
-            {/* Center: preview */}
-            <div className="col-span-5 border-r border-border/40 flex flex-col overflow-hidden">
-              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border/40 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Pré-visualização
-                </span>
-                {current && (
-                  <a
-                    href={current.link_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline flex items-center gap-1"
-                  >
-                    Abrir <ExternalLink className="h-3 w-3" />
-                  </a>
-                )}
-              </div>
-              <div className="flex-1 bg-muted/20 overflow-hidden">
-                {isMobile ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground p-4 text-center">
-                    <FileText className="h-8 w-8" />
-                    <p className="text-xs">Pré-visualização não suportada no telemóvel.</p>
-                    {current && (
-                      <Button asChild size="sm" variant="outline">
-                        <a href={current.link_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                          Abrir anexo
+            {/* Center: preview (desktop only) */}
+            {!isMobile && (
+              <div className="col-span-5 border-r border-border/40 flex flex-col overflow-hidden">
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border/40 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" /> Pré-visualização
+                  </span>
+                  {current && (
+                    <a
+                      href={current.link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline flex items-center gap-1"
+                    >
+                      Abrir <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                <div className="flex-1 bg-muted/20 overflow-hidden">
+                  {previewUrl ? (
+                    <iframe
+                      key={current?.id}
+                      src={previewUrl}
+                      className="w-full h-full bg-background"
+                      allow="autoplay"
+                      title="Pré-visualização do anexo"
+                    />
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground p-4 text-center">
+                      <Link2 className="h-6 w-6" />
+                      <p>Pré-visualização não disponível para este link.</p>
+                      {current && (
+                        <a
+                          href={current.link_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline text-xs break-all"
+                        >
+                          {current.link_url}
                         </a>
-                      </Button>
-                    )}
-                  </div>
-                ) : previewUrl ? (
-                  <iframe
-                    key={current?.id}
-                    src={previewUrl}
-                    className="w-full h-full bg-background"
-                    allow="autoplay"
-                    title="Pré-visualização do anexo"
-                  />
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground p-4 text-center">
-                    <Link2 className="h-6 w-6" />
-                    <p>Pré-visualização não disponível para este link.</p>
-                    {current && (
-                      <a
-                        href={current.link_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline text-xs break-all"
-                      >
-                        {current.link_url}
-                      </a>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Right: suggestions + actions */}
-            <div className="col-span-4 flex flex-col overflow-hidden">
+            <div className={`${isMobile ? "col-span-7" : "col-span-4"} flex flex-col overflow-hidden`}>
               <div className="px-3 py-2 border-b border-border/40">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">Linha original (XLSX)</div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="text-xs font-semibold text-muted-foreground">Linha original (XLSX)</div>
+                  {isMobile && current && (
+                    <a
+                      href={current.link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline flex items-center gap-1 shrink-0"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Abrir anexo
+                    </a>
+                  )}
+                </div>
                 {current && (
                   <div className="text-sm">
                     <div className="font-medium truncate" title={current.row_description}>{current.row_description}</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <span>{current.sheet_name}</span>
+                      <span className="truncate">{current.sheet_name}</span>
                       <span>·</span>
-                      <span>{fmtEur(current.row_base_amount)}</span>
+                      <span className="shrink-0">{fmtEur(current.row_base_amount)}</span>
                     </div>
                   </div>
                 )}
