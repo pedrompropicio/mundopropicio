@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
 import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
@@ -18,7 +19,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
-import { parseXlsxPL, importPLToEvent, attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
+import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
@@ -29,7 +30,6 @@ import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
-import BPSheetMappingModal, { type SheetMappingItem, type SheetMappingTarget } from "@/components/BPSheetMappingModal";
 
 interface InlineForm {
   type: string;
@@ -62,6 +62,7 @@ interface Props {
 }
 
 export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus }: Props) {
+  const navigate = useNavigate();
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,11 +88,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
-  const [showSheetMapping, setShowSheetMapping] = useState(false);
-  const [pendingSheets, setPendingSheets] = useState<any[] | null>(null);
-  const [pendingChildEvents, setPendingChildEvents] = useState<any[]>([]);
-  const [pendingMappings, setPendingMappings] = useState<SheetMappingItem[]>([]);
-  const [pendingTargets, setPendingTargets] = useState<SheetMappingTarget[]>([]);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -848,280 +844,102 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     generateHistoricalMutation.mutate();
   };
 
+  /**
+   * Importing the BP from Eventos now redirects the user to the full
+   * Implantação flow (`/admin/implantacao/:id`) which is far richer:
+   *   - sheet mapping per sub-event/date
+   *   - app/raw/comparison views
+   *   - automatic apportionment & rollback history
+   *   - new attachments step (column links + ZIP matching)
+   *
+   * We create (or reuse) an `event_implementations` row for the current
+   * event, upload the XLSX and navigate to the detail page so the user can
+   * pick up exactly where they left off.
+   */
   const handleImportXlsx = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
-    const mode = pendingImportMode ?? "full";
     const instructions = pendingImportInstructions;
     setPendingImportMode(null);
     setPendingImportInstructions("");
     setImportingXlsx(true);
     try {
-      const buffer = await file.arrayBuffer();
-      const sheets = parseXlsxPL(buffer);
-      const allWarnings = sheets.flatMap((s) => s.warnings);
-      if (allWarnings.length > 0) {
-        toast({ title: "Avisos na leitura", description: allWarnings.join("; "), variant: "destructive" });
-      }
-      const sheetsWithData = sheets.filter((s) => s.rows.length > 0);
-      if (sheetsWithData.length === 0) {
-        toast({ title: "Nenhuma linha válida encontrada no ficheiro", variant: "destructive" });
-        return;
-      }
+      // For sub-events route the implementation to the Master so the user can
+      // distribute the file across all siblings in one go.
+      const implEventId = parentEventId ?? eventId;
 
-      // Dry-run mode: don't write anything, just show a summary so the user can
-      // verify the file before committing. Triggered from the import-mode dialog.
-      if (mode === "dryrun") {
-        const totalRows = sheetsWithData.reduce((s, sh) => s + sh.rows.length, 0);
-        const totalLinks = sheetsWithData.reduce(
-          (s, sh) => s + sh.rows.reduce((a, r) => a + (r.attachments?.length ?? 0), 0),
-          0,
-        );
-        const sample = sheetsWithData
-          .slice(0, 4)
-          .map((sh) => `• ${sh.sheetName}: ${sh.rows.length} linhas`)
-          .join("\n");
-        const more = sheetsWithData.length > 4 ? `\n• … e mais ${sheetsWithData.length - 4} aba(s)` : "";
-        window.alert(
-          `Validação concluída (nada foi importado):\n\n` +
-          `Abas com dados: ${sheetsWithData.length}\n` +
-          `Total de linhas: ${totalRows}\n` +
-          `Total de links externos detectados: ${totalLinks}\n\n` +
-          `${sample}${more}`,
-        );
-        return;
-      }
+      // Reuse an existing in-progress/pending implementation for this event
+      // when one already exists — avoids cluttering the list with duplicates.
+      const { data: existing } = await supabase
+        .from("event_implementations")
+        .select("id, status")
+        .eq("event_id", implEventId)
+        .in("status", ["pending", "in_progress"])
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      // Parent event with child events: open mapping dialog so the user can
-      // confirm/adjust which sheet goes to which sub-event (or to Master).
-      if (childEventIds && childEventIds.length > 0 && sheetsWithData.length > 1) {
-        const { data: childEvents } = await supabase
-          .from("events")
-          .select("id, name, date, city_id, cities:city_id(name)")
-          .in("id", childEventIds);
+      // Upload the new file regardless — each import gets its own copy so the
+      // user can re-run with a fresh ficheiro if needed.
+      const filePath = `${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("implementation-files")
+        .upload(filePath, file);
+      if (uploadErr) throw uploadErr;
 
-        if (!childEvents || childEvents.length === 0) {
-          toast({ title: "Nenhum evento Split encontrado", variant: "destructive" });
-          return;
+      let implementationId: string;
+      if (existing && existing.length > 0) {
+        implementationId = existing[0].id;
+        // Replace the previous file (if any) with the new one
+        const { data: prev } = await supabase
+          .from("event_implementations")
+          .select("reference_file_url")
+          .eq("id", implementationId)
+          .single();
+        if (prev?.reference_file_url) {
+          await supabase.storage
+            .from("implementation-files")
+            .remove([prev.reference_file_url]);
         }
-
-        const normStr = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
-        const buildCandidates = (ce: any): string[] => {
-          const out = new Set<string>();
-          const cityName = (ce.cities as any)?.name || "";
-          const eventName = ce.name || "";
-          if (cityName) out.add(normStr(cityName));
-          if (eventName) {
-            out.add(normStr(eventName));
-            const suffixMatch = eventName.split(/[—–-]/).map((p: string) => p.trim()).filter(Boolean);
-            if (suffixMatch.length > 1) out.add(normStr(suffixMatch[suffixMatch.length - 1]));
-            for (const word of normStr(eventName).split(/\s+/)) {
-              if (word.length >= 4) out.add(word);
-            }
-          }
-          return Array.from(out).filter(Boolean);
-        };
-
-        // Auto-suggest a target for each sheet, then let the user confirm.
-        const usedChildIds = new Set<string>();
-        const initialMappings: SheetMappingItem[] = sheetsWithData.map((sheet) => {
-          const sheetNorm = normStr(sheet.sheetName);
-          // Master keywords route to the parent event directly
-          const masterKeywords = ["master", "turne", "turnê", "geral", "comum", "compartilhad"];
-          const isMasterSheet = masterKeywords.some((kw) => sheetNorm.includes(normStr(kw)));
-          if (isMasterSheet) {
-            return { sheetName: sheet.sheetName, rowCount: sheet.rows.length, target: eventId, autoMatched: true };
-          }
-          const candidates = childEvents
-            .filter((ce: any) => !usedChildIds.has(ce.id))
-            .map((ce: any) => ({ ce, keys: buildCandidates(ce) }))
-            .filter((entry) => entry.keys.some((k) => k === sheetNorm || sheetNorm.includes(k) || k.includes(sheetNorm)));
-          if (candidates.length === 1) {
-            usedChildIds.add(candidates[0].ce.id);
-            return { sheetName: sheet.sheetName, rowCount: sheet.rows.length, target: candidates[0].ce.id, autoMatched: true };
-          }
-          return { sheetName: sheet.sheetName, rowCount: sheet.rows.length, target: "ignore", autoMatched: false };
-        });
-
-        const targets: SheetMappingTarget[] = [
-          { value: eventId, label: `${eventName ?? "Master"} (Master)`, isMaster: true },
-          ...childEvents.map((ce: any) => ({
-            value: ce.id,
-            label: (ce.cities as any)?.name ? `${(ce.cities as any).name} — ${ce.name}` : ce.name,
-          })),
-        ];
-
-        // Stash everything the modal callback needs
-        setPendingSheets(sheetsWithData);
-        setPendingChildEvents(childEvents);
-        setPendingTargets(targets);
-        setPendingMappings(initialMappings);
-        setShowSheetMapping(true);
-        setImportingXlsx(false); // pause spinner; modal takes over
-        return; // wait for user confirmation in the modal
+        await supabase
+          .from("event_implementations")
+          .update({
+            reference_file_url: filePath,
+            reference_file_name: file.name,
+            import_instructions: instructions || null,
+            status: "in_progress",
+          })
+          .eq("id", implementationId);
       } else {
-        // Single event import (sub-event or simple event)
-        let selectedRows = sheetsWithData[0].rows;
-        if (sheetsWithData.length > 1) {
-          const sheetNames = sheetsWithData.map((s) => `${s.sheetName} (${s.rows.length} linhas)`).join("\n");
-          const choice = window.prompt(
-            `O ficheiro tem ${sheetsWithData.length} abas com dados:\n\n${sheetNames}\n\nDigite o número da aba (1-${sheetsWithData.length}) ou "todas" para importar tudo:`,
-            "1"
-          );
-          if (!choice) return;
-          if (choice.toLowerCase() === "todas" || choice.toLowerCase() === "all") {
-            selectedRows = sheetsWithData.flatMap((s) => s.rows);
-          } else {
-            const idx = parseInt(choice) - 1;
-            if (idx >= 0 && idx < sheetsWithData.length) {
-              selectedRows = sheetsWithData[idx].rows;
-            } else {
-              toast({ title: "Opção inválida", variant: "destructive" });
-              return;
-            }
-          }
-        }
-        if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o BP deste evento?`)) return;
-        const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system", parentEventId, instructions);
-        queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-        queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
-        toast({
-          title: `${result.created} linha(s) importada(s) com sucesso!`,
-          description: result.errors.length > 0 ? `${result.errors.length} erro(s): ${result.errors[0]}` : undefined,
-        });
-      }
-    } catch (err: any) {
-      toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
-    } finally {
-      setImportingXlsx(false);
-    }
-  };
-
-  /**
-   * Runs the actual import after the user confirms the sheet→event mapping in
-   * the BPSheetMappingModal. Mirrors the legacy auto-distribution path,
-   * including the post-import "promote duplicates to Master" detection.
-   */
-  const executeMappedImport = async (mappings: SheetMappingItem[]) => {
-    if (!pendingSheets) return;
-    const instructions = pendingImportInstructions;
-    setShowSheetMapping(false);
-    setImportingXlsx(true);
-    try {
-      const childEvents = pendingChildEvents;
-      const masterId = eventId;
-      const eventById = new Map<string, any>();
-      for (const ce of childEvents) eventById.set(ce.id, ce);
-      const labelFor = (id: string) =>
-        id === masterId
-          ? `${eventName ?? "Master"} (Master)`
-          : ((eventById.get(id) as any)?.cities?.name ||
-              (eventById.get(id) as any)?.name ||
-              id);
-
-      const active = mappings.filter((m) => m.target && m.target !== "ignore");
-      if (active.length === 0) {
-        toast({ title: "Nenhuma aba selecionada para importação", variant: "destructive" });
-        return;
+        const { data: created, error: insertErr } = await supabase
+          .from("event_implementations")
+          .insert({
+            event_id: implEventId,
+            status: "in_progress",
+            reference_file_url: filePath,
+            reference_file_name: file.name,
+            import_instructions: instructions || null,
+          })
+          .select("id")
+          .single();
+        if (insertErr || !created) throw insertErr ?? new Error("Falha a criar implantação");
+        implementationId = created.id;
       }
 
-      let totalCreated = 0;
-      const allErrors: string[] = [];
-      const importBreakdown: string[] = [];
-      const importedSubIds: string[] = [];
-
-      for (const mapping of active) {
-        const sheet = pendingSheets.find((s: any) => s.sheetName === mapping.sheetName);
-        if (!sheet) continue;
-        const targetEvent =
-          mapping.target === masterId
-            ? { id: masterId, date: eventDate, name: eventName }
-            : eventById.get(mapping.target);
-        if (!targetEvent) continue;
-        const result = await importPLToEvent(
-          sheet.rows,
-          targetEvent.id,
-          targetEvent.date || eventDate,
-          categories,
-          user?.email || "system",
-          mapping.target === masterId ? parentEventId : masterId,
-          instructions,
-        );
-        totalCreated += result.created;
-        allErrors.push(...result.errors);
-        importBreakdown.push(`${labelFor(mapping.target)}: ${result.created}`);
-        if (mapping.target !== masterId) importedSubIds.push(mapping.target);
-        queryClient.invalidateQueries({ queryKey: ["event_forecasts", targetEvent.id] });
-        queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", targetEvent.id] });
-      }
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast({
-        title: `${totalCreated} linha(s) importada(s)`,
-        description: [
-          `Guardado em: ${importBreakdown.join(" · ")}`,
-          allErrors.length > 0 ? `${allErrors.length} erro(s): ${allErrors[0]}` : null,
-        ].filter(Boolean).join(" — "),
-        variant: totalCreated === 0 ? "destructive" : undefined,
+        title: "A abrir o fluxo completo de importação…",
+        description: "Mapeamento de abas, anexos e rateio disponíveis no próximo ecrã.",
       });
-
-      // Detect duplicates across imported sub-events for Master promotion
-      if (importedSubIds.length >= 2 && totalCreated > 0) {
-        const subNameById: Record<string, string> = {};
-        for (const id of importedSubIds) subNameById[id] = labelFor(id);
-        const { data: justImported } = await supabase
-          .from("event_forecasts")
-          .select("id, event_id, description, category_id, amount, iva_rate")
-          .in("event_id", importedSubIds)
-          .eq("type", "expense")
-          .eq("status", "draft");
-        const normDesc = (s: string | null) =>
-          (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const groups = new Map<string, { rows: any[]; categoryId: string | null; description: string }>();
-        for (const row of justImported ?? []) {
-          const key = `${row.category_id ?? "no-cat"}::${normDesc(row.description)}`;
-          const g = groups.get(key);
-          if (g) g.rows.push(row);
-          else groups.set(key, { rows: [row], categoryId: row.category_id, description: row.description });
-        }
-        const candidates: PromoteCandidate[] = [];
-        for (const [, g] of groups) {
-          const eventsCovered = new Set(g.rows.map((r) => r.event_id));
-          if (eventsCovered.size !== importedSubIds.length) continue;
-          const amounts = g.rows.map((r) => Math.round(Number(r.amount) * 100));
-          const allEqual = amounts.every((a) => a === amounts[0]);
-          if (!allEqual || amounts[0] === 0) continue;
-          const cat = categories.find((c: any) => c.id === g.categoryId);
-          candidates.push({
-            key: `${g.categoryId ?? "no-cat"}::${normDesc(g.description)}`,
-            description: g.description,
-            categoryId: g.categoryId,
-            categoryCode: cat?.code ?? null,
-            categoryName: cat?.name ?? null,
-            amount: amounts[0] / 100,
-            ivaRate: Number(g.rows[0].iva_rate ?? 23),
-            subEventNames: Array.from(eventsCovered).map((id) => subNameById[id as string] ?? "?"),
-            forecastIds: g.rows.map((r) => r.id),
-          });
-        }
-        if (candidates.length > 0) {
-          setPromoteCandidates(candidates);
-          setShowPromoteModal(true);
-        }
-      }
+      navigate(`/admin/implantacao/${implementationId}`);
     } catch (err: any) {
-      toast({ title: "Erro ao importar", description: err.message, variant: "destructive" });
+      toast({ title: "Erro a iniciar importação", description: err.message, variant: "destructive" });
     } finally {
       setImportingXlsx(false);
-      setPendingSheets(null);
-      setPendingChildEvents([]);
-      setPendingTargets([]);
-      setPendingMappings([]);
-      setPendingImportInstructions("");
     }
   };
+
+
+
 
   const handleAttachLinksXlsx = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2135,25 +1953,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           setShowImportMode(false);
         }}
       />
-      <BPSheetMappingModal
-        open={showSheetMapping}
-        onOpenChange={(v) => {
-          setShowSheetMapping(v);
-          if (!v) {
-            // User cancelled — clear pending state
-            setPendingSheets(null);
-            setPendingChildEvents([]);
-            setPendingTargets([]);
-            setPendingMappings([]);
-            setPendingImportInstructions("");
-          }
-        }}
-        targets={pendingTargets}
-        initialMappings={pendingMappings}
-        onConfirm={(mappings) => {
-          void executeMappedImport(mappings);
-        }}
-      />
+      {/* Sheet mapping modal removed — full import flow now lives at /admin/implantacao/:id */}
+
       <PromoteToMasterModal
         open={showPromoteModal}
         onOpenChange={setShowPromoteModal}
