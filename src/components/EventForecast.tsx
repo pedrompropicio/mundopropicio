@@ -26,7 +26,7 @@ import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
-import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
+
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
@@ -81,7 +81,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const fileInputRef = useRef<HTMLInputElement>(null);
   const linksFileInputRef = useRef<HTMLInputElement>(null);
   const [attachingLinks, setAttachingLinks] = useState(false);
-  const [showBulkAttach, setShowBulkAttach] = useState(false);
+  
   const [showImportMode, setShowImportMode] = useState(false);
   const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
   const [pendingImportInstructions, setPendingImportInstructions] = useState<string>("");
@@ -1386,16 +1386,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <Upload className="h-3.5 w-3.5" />
                   {importingXlsx ? "A importar…" : attachingLinks ? "A anexar…" : "Importar XLSX"}
                 </button>
-                {/* Legacy "links only" entry kept hidden for backwards-compat power users.
-                    The visible flow is now driven by the import-mode dialog above. */}
-                <button
-                  onClick={() => setShowBulkAttach(true)}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-                  title="Arrasta um .zip da pasta do Drive para anexar ficheiros em massa, com sugestão automática de linha do BP por fornecedor"
-                >
-                  <FileArchive className="h-3.5 w-3.5" />
-                  Upload em massa
-                </button>
+                {/* Bulk attachments are now handled inside the Implantação modal,
+                    after the BP has been imported (motor unificado de matching). */}
                 <button
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
@@ -1927,12 +1919,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           onOpenChange={setShowOrphans}
           masterEventId={eventId}
           childEventIds={childEventIds}
-        />
-      )}
-      {showBulkAttach && (
-        <BPBulkAttachmentsModal
-          eventIds={childEventIds && childEventIds.length > 0 ? [eventId, ...childEventIds] : [eventId]}
-          onClose={() => setShowBulkAttach(false)}
         />
       )}
       <BPImportModeDialog

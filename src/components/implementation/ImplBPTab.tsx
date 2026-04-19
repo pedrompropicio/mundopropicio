@@ -2783,6 +2783,15 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           setCategoryModalCallback(null);
         }}
       />
+      {showBulkAttach && (
+        <BPBulkAttachmentsModal
+          eventIds={allEventIds.length > 0 ? allEventIds : (event?.id ? [event.id] : [])}
+          onClose={() => {
+            setShowBulkAttach(false);
+            queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
+          }}
+        />
+      )}
     </div>
   );
 }
