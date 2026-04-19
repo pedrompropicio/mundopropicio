@@ -19,7 +19,31 @@ export interface CacheConfig {
   cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
+  /** Snapshot do valor calculado no momento do fecho. Consumido quando is_finalized=true e adjusted_amount é null. */
+  real_amount?: number | null;
+  /** Valor negociado/acordado que sobrepõe qualquer cálculo. Tem prioridade máxima. */
+  adjusted_amount?: number | null;
   tiers?: CacheTier[];
+}
+
+/**
+ * Single source of truth para o valor "efetivo" do cachê de um artista.
+ *
+ * Prioridade:
+ *   1. adjusted_amount   → valor negociado pelo gerente (sempre prevalece)
+ *   2. real_amount       → snapshot gravado ao finalizar (só se is_finalized=true)
+ *   3. calculatedAmount  → cálculo dinâmico em tempo real (BP ou vendas reais)
+ *
+ * Adiantamentos (event_cache_payments) NÃO entram aqui — são abatidos só na
+ * geração da transação final de pagamento, não alteram o valor do cachê em si.
+ */
+export function getCacheEffectiveAmount(
+  config: Pick<CacheConfig, "is_finalized" | "real_amount" | "adjusted_amount">,
+  calculatedAmount: number,
+): number {
+  if (config.adjusted_amount != null) return Number(config.adjusted_amount);
+  if (config.is_finalized && config.real_amount != null) return Number(config.real_amount);
+  return calculatedAmount;
 }
 
 /**
