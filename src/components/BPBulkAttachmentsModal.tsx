@@ -410,6 +410,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const mentionedNames: string | null = typeof data?.mentioned_names === "string" ? data.mentioned_names : null;
         const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
         const documentType: string | null = typeof data?.document_type === "string" ? data.document_type : null;
+        const serviceDescription: string | null = typeof data?.service_description === "string" ? data.service_description : null;
         const ownership = checkOwnership(mentionedNames, documentDate);
 
         // Determine value-validation state.
@@ -434,6 +435,17 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
           valueState = "no-total";
         }
 
+        // Suggest a category from the PDF service description (+ filename + names as context).
+        let suggestedCategoryId: string | null = null;
+        if (categoryMatcher) {
+          const descParts = [serviceDescription, mentionedNames, item.name.replace(/[._-]+/g, " ")]
+            .filter(Boolean)
+            .join(" · ");
+          if (descParts.trim()) {
+            suggestedCategoryId = categoryMatcher({ description: descParts, specification: serviceDescription });
+          }
+        }
+
         // If ownership is a clear mismatch, auto-exclude the file from upload.
         const autoExclude = ownership.state === "mismatch";
 
@@ -443,6 +455,9 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
               ? {
                   ...f,
                   excluded: autoExclude ? true : f.excluded,
+                  suggestedCategoryId,
+                  // Default the editable category to the suggestion (user can change/clear).
+                  categoryId: f.categoryId === undefined ? suggestedCategoryId : f.categoryId,
                   validation: {
                     state: valueState,
                     extractedTotal: total,
@@ -452,6 +467,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     mentionedNames,
                     documentDate,
                     documentType,
+                    serviceDescription,
                     ownership,
                   },
                 }
