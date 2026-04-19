@@ -306,7 +306,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
 
     // (b) No names mentioned → fall back to date-only ownership.
     if (dateMatched) {
-      return { state: "date" === "date" ? "match" : "match", matchedBy: ["date"], reason: dateReason };
+      return { state: "match", matchedBy: ["date"], reason: dateReason };
     }
     return {
       state: "mismatch",
