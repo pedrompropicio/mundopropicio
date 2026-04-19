@@ -1394,14 +1394,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   ref={fileInputRef}
                   type="file"
                   accept=".xlsx,.xls"
-                  className="hidden"
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onChange={handleImportXlsx}
                 />
                 <input
                   ref={linksFileInputRef}
                   type="file"
                   accept=".xlsx,.xls"
-                  className="hidden"
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onChange={handleAttachLinksXlsx}
                 />
                 <button
