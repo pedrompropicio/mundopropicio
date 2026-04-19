@@ -793,6 +793,13 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                   Aceitar sugestões ≥70%
                 </button>
                 <button
+                  onClick={acceptAllCategorySuggestions}
+                  className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80"
+                  title="Confirma a aplicação das categorias sugeridas pela IA nas linhas do BP"
+                >
+                  Aceitar categorias sugeridas
+                </button>
+                <button
                   onClick={() => setFiles([])}
                   className="rounded-lg bg-destructive/15 text-destructive px-3 py-1.5 text-xs font-medium hover:bg-destructive/25"
                 >
