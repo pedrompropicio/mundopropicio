@@ -1967,16 +1967,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         onConfirm={(mode, instructions) => {
           setPendingImportMode(mode);
           setPendingImportInstructions(instructions);
-          // Defer the click so the dialog has time to close (avoids focus traps).
-          setTimeout(() => {
-            if (mode === "links") {
-              linksFileInputRef.current?.click();
-            } else {
-              // "full" and "dryrun" both go through the main parser path; the
-              // mode is read by handleImportXlsx via pendingImportMode.
-              fileInputRef.current?.click();
-            }
-          }, 50);
+          // iOS Safari requires the file input .click() to happen inside the
+          // same synchronous user-gesture callback. Calling it via setTimeout
+          // breaks the gesture and the picker silently fails to open. We
+          // trigger the click synchronously and then close the dialog.
+          if (mode === "links") {
+            linksFileInputRef.current?.click();
+          } else {
+            fileInputRef.current?.click();
+          }
+          setShowImportMode(false);
         }}
       />
       {attachmentForecast && (
