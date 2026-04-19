@@ -2410,7 +2410,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleSyncAttachments(); }}
                       disabled={syncingAttachments}
-                      className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
+                      className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning hover:bg-warning/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
                       title={`Copiar ${linkCount} link(s) do BP para ${matchingTransactions.length} transação(ões) vinculada(s)`}
                     >
                       <ArrowDownRight className="h-2.5 w-2.5" />
