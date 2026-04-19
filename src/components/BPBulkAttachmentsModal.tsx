@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import {
-  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles,
+  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles, Scale,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,23 @@ interface PendingFile {
   /** Upload state */
   status: "pending" | "uploading" | "done" | "error";
   errorMsg?: string;
+  /** AI value validation (PDFs/images only) */
+  validation?: {
+    state: "idle" | "running" | "match" | "mismatch" | "no-total" | "error";
+    extractedTotal?: number | null;
+    currency?: string | null;
+    diffPct?: number;
+    note?: string;
+  };
+}
+
+const TOLERANCE_PCT = 0.01; // 1%
+const TOLERANCE_ABS = 1; // €1
+function isValidatable(name: string, blob: Blob): boolean {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (["pdf", "jpg", "jpeg", "png", "webp"].includes(ext)) return true;
+  if (blob.type === "application/pdf" || blob.type.startsWith("image/")) return true;
+  return false;
 }
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -191,6 +208,105 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, excluded: !f.excluded } : f)));
   };
   const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
+
+  /** Read a Blob into a base64 string (no data URL prefix). */
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result || "");
+        const i = s.indexOf(",");
+        resolve(i >= 0 ? s.slice(i + 1) : s);
+      };
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+
+  const [validating, setValidating] = useState(false);
+
+  /** Run AI value validation on every PDF/image with a matched forecast. */
+  const validateValues = async () => {
+    const targets = files.filter(
+      (f) =>
+        f.forecastId &&
+        !f.excluded &&
+        f.status === "pending" &&
+        isValidatable(f.name, f.blob) &&
+        (!f.validation || f.validation.state === "idle" || f.validation.state === "error"),
+    );
+    if (targets.length === 0) {
+      toast({ title: "Nada a validar", description: "Apenas PDFs/imagens com linha do BP atribuída são validados." });
+      return;
+    }
+    setValidating(true);
+    // Mark all as running
+    setFiles((prev) =>
+      prev.map((f) => (targets.find((t) => t.id === f.id) ? { ...f, validation: { state: "running" } } : f)),
+    );
+
+    const CONCURRENCY = 3;
+    const queue = [...targets];
+    const runOne = async (item: PendingFile) => {
+      try {
+        const fc = forecastById.get(item.forecastId!);
+        if (!fc) throw new Error("Linha do BP desapareceu");
+        const fileBase64 = await blobToBase64(item.blob);
+        const mime = item.blob.type || (item.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream");
+        const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
+          body: { fileBase64, fileName: item.name, mimeType: mime },
+        });
+        if (error) throw error;
+        const total: number | null = typeof data?.total === "number" ? data.total : null;
+        const currency: string | null = data?.currency ?? null;
+        const note: string | undefined = data?.raw;
+        if (total === null) {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === item.id
+                ? { ...f, validation: { state: "no-total", currency, note: note || "Total não detetado" } }
+                : f,
+            ),
+          );
+          return;
+        }
+        const expected = fc.amount;
+        const diff = Math.abs(total - expected);
+        const diffPct = expected > 0 ? diff / expected : 1;
+        const matches = diff <= TOLERANCE_ABS || diffPct <= TOLERANCE_PCT;
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id
+              ? {
+                  ...f,
+                  validation: {
+                    state: matches ? "match" : "mismatch",
+                    extractedTotal: total,
+                    currency,
+                    diffPct,
+                    note,
+                  },
+                }
+              : f,
+          ),
+        );
+      } catch (err: any) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id ? { ...f, validation: { state: "error", note: err?.message ?? "Erro" } } : f,
+          ),
+        );
+      }
+    };
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (queue.length > 0) {
+        const next = queue.shift();
+        if (next) await runOne(next);
+      }
+    });
+    await Promise.all(workers);
+    setValidating(false);
+    toast({ title: "Validação concluída", description: `${targets.length} ficheiro(s) verificado(s).` });
+  };
 
   const acceptAllConfident = () => {
     setFiles((prev) =>
@@ -449,6 +565,15 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={validateValues}
+                  disabled={validating || uploading}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 disabled:opacity-50"
+                  title="Compara o total do PDF com o valor planeado no BP (tolerância ±1% ou €1)"
+                >
+                  {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />}
+                  Validar valores PDF
+                </button>
+                <button
                   onClick={acceptAllConfident}
                   className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80"
                 >
@@ -470,6 +595,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     <th className="px-2 py-2 text-left">Ficheiro</th>
                     <th className="px-2 py-2 text-left">Linha do BP</th>
                     <th className="px-2 py-2 text-left">Match</th>
+                    <th className="px-2 py-2 text-left">Valor PDF</th>
                     <th className="px-2 py-2 text-right">Tamanho</th>
                     <th className="px-2 py-2 text-center">Estado</th>
                     <th className="px-2 py-2"></th>
@@ -509,6 +635,49 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                             {lbl.label}
                             {f.score > 0 && f.strategy !== "drive-id" ? ` ${Math.round(f.score * 100)}%` : ""}
                           </span>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {(() => {
+                            const v = f.validation;
+                            if (!v || v.state === "idle") {
+                              return <span className="text-[10px] text-muted-foreground">—</span>;
+                            }
+                            if (v.state === "running") {
+                              return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+                            }
+                            if (v.state === "no-total") {
+                              return (
+                                <span title={v.note} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <AlertCircle className="h-3 w-3" />
+                                  s/ total
+                                </span>
+                              );
+                            }
+                            if (v.state === "error") {
+                              return (
+                                <span title={v.note} className="inline-flex items-center gap-1 text-[10px] text-destructive">
+                                  <AlertCircle className="h-3 w-3" />
+                                  erro
+                                </span>
+                              );
+                            }
+                            const total = v.extractedTotal ?? 0;
+                            const cur = v.currency || "€";
+                            const symbol = cur === "EUR" ? "€" : cur === "BRL" ? "R$" : cur === "USD" ? "$" : cur;
+                            const fc = forecastById.get(f.forecastId!);
+                            const expected = fc?.amount ?? 0;
+                            const cls = v.state === "match" ? "text-success" : "text-destructive";
+                            const Icon = v.state === "match" ? CheckCircle2 : AlertCircle;
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[11px] font-medium ${cls}`}
+                                title={`PDF: ${total.toFixed(2)} ${symbol}\nBP: ${expected.toFixed(2)} €\nDiferença: ${(v.diffPct ? v.diffPct * 100 : 0).toFixed(1)}%${v.note ? `\n${v.note}` : ""}`}
+                              >
+                                <Icon className="h-3 w-3" />
+                                {total.toFixed(2)} {symbol}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-2 py-1.5 text-right text-muted-foreground">{bytesToReadable(f.size)}</td>
                         <td className="px-2 py-1.5 text-center">
