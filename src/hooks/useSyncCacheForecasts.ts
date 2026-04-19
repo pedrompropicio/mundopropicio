@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { resolvePercentageFromTiers, type CacheTier } from "@/lib/cache-pl-helper";
+import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier } from "@/lib/cache-pl-helper";
 
 interface CacheConfig {
   id: string;
@@ -15,6 +15,8 @@ interface CacheConfig {
   cache_deduction_basis?: string;
   minimum_guaranteed?: number;
   is_finalized?: boolean;
+  real_amount?: number | null;
+  adjusted_amount?: number | null;
   tiers?: CacheTier[];
 }
 
@@ -100,6 +102,8 @@ export function useSyncCacheForecasts({
         cache_deduction_basis: c.cache_deduction_basis,
         minimum_guaranteed: c.minimum_guaranteed,
         is_finalized: c.is_finalized,
+        real_amount: c.real_amount,
+        adjusted_amount: c.adjusted_amount,
         tiers: c.tiers,
       })),
       deductions: deductions.map((d) => `${d.cache_config_id}:${d.category_id}`).sort(),
@@ -266,16 +270,14 @@ async function syncTourCacheForecasts(
       const existing = existingMap.get(key);
 
       if (existing) {
-        if (!config.is_finalized) {
-          const currentAmount = Math.round(existing.amount * 100);
-          const newAmount = Math.round(amount * 100);
-          if (currentAmount !== newAmount) {
-            await supabase
-              .from("event_forecasts")
-              .update({ amount, description: `Cachê — ${config.artist_name}` })
-              .eq("id", existing.id);
-            changed = true;
-          }
+        const currentAmount = Math.round(existing.amount * 100);
+        const newAmount = Math.round(amount * 100);
+        if (currentAmount !== newAmount) {
+          await supabase
+            .from("event_forecasts")
+            .update({ amount, description: `Cachê — ${config.artist_name}` })
+            .eq("id", existing.id);
+          changed = true;
         }
         existingMap.delete(key);
       } else {
@@ -400,16 +402,14 @@ async function syncSimpleCacheForecasts(
     );
 
     if (existing) {
-      if (!config.is_finalized) {
-        const currentAmount = Math.round(Number(existing.amount) * 100);
-        const newAmount = Math.round(amount * 100);
-        if (currentAmount !== newAmount) {
-          await supabase
-            .from("event_forecasts")
-            .update({ amount, description: `Cachê — ${config.artist_name}` })
-            .eq("id", existing.id);
-          changed = true;
-        }
+      const currentAmount = Math.round(Number(existing.amount) * 100);
+      const newAmount = Math.round(amount * 100);
+      if (currentAmount !== newAmount) {
+        await supabase
+          .from("event_forecasts")
+          .update({ amount, description: `Cachê — ${config.artist_name}` })
+          .eq("id", existing.id);
+        changed = true;
       }
     } else {
       await supabase.from("event_forecasts").insert({
@@ -460,33 +460,36 @@ function calculateCacheAmount(
   expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
   occupancyPct: number = 100
 ): number {
+  let calculated: number;
   if (config.cache_type === "fixed") {
-    return Number(config.fixed_amount);
+    calculated = Number(config.fixed_amount);
+  } else {
+    const basis =
+      config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
+
+    const deductionCategoryIds = new Set(configDeductions.map((d) => d.category_id));
+    const deductionBasisGross = config.cache_deduction_basis === "gross";
+
+    const categoryDeductionAmount = expenseForecasts
+      .filter((f) => f.type === "expense" && deductionCategoryIds.has(f.category_id ?? ""))
+      .reduce((s, f) => {
+        const base = Number(f.amount);
+        if (deductionBasisGross) {
+          const rate = Number(f.iva_rate ?? 0);
+          return s + base * (1 + rate / 100);
+        }
+        return s + base;
+      }, 0);
+
+    const fixedPctDeduction =
+      basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
+    const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
+    const baseForCalc = basis - totalDeduction;
+    const pct = resolvePercentageFromTiers(config, occupancyPct);
+    const calc = Math.max(0, baseForCalc * (pct / 100));
+    const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+    calculated = Math.round(Math.max(minGuaranteed, calc));
   }
-
-  const basis =
-    config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
-
-  const deductionCategoryIds = new Set(configDeductions.map((d) => d.category_id));
-  const deductionBasisGross = config.cache_deduction_basis === "gross";
-
-  const categoryDeductionAmount = expenseForecasts
-    .filter((f) => f.type === "expense" && deductionCategoryIds.has(f.category_id ?? ""))
-    .reduce((s, f) => {
-      const base = Number(f.amount);
-      if (deductionBasisGross) {
-        const rate = Number(f.iva_rate ?? 0);
-        return s + base * (1 + rate / 100);
-      }
-      return s + base;
-    }, 0);
-
-  const fixedPctDeduction =
-    basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
-  const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
-  const baseForCalc = basis - totalDeduction;
-  const pct = resolvePercentageFromTiers(config, occupancyPct);
-  const calculated = Math.max(0, baseForCalc * (pct / 100));
-  const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-  return Math.round(Math.max(minGuaranteed, calculated));
+  // Apply override priority: adjusted → snapshot if finalized → calculated
+  return Math.round(getCacheEffectiveAmount(config, calculated));
 }
