@@ -80,15 +80,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find the "Histórico / Ajuste" account
+    // Find the "Eventos Históricos" account
     const { data: histAccount } = await adminClient
       .from("financial_accounts")
       .select("id")
-      .eq("name", "Histórico / Ajuste")
+      .eq("name", "Eventos Históricos")
       .single();
 
     if (!histAccount) {
-      return new Response(JSON.stringify({ error: "Conta 'Histórico / Ajuste' não encontrada. Crie-a primeiro." }), {
+      return new Response(JSON.stringify({ error: "Conta 'Eventos Históricos' não encontrada. Crie-a primeiro." }), {
         status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
