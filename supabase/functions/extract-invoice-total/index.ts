@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     const mime = body.mimeType || "application/pdf";
 
     const systemPrompt =
-      "You analyze invoices/receipts. Extract: (1) GRAND TOTAL payable INCLUDING VAT (Portuguese 'Total a pagar', 'Valor Total'; Brazilian 'Valor Total', 'Total Geral'; English 'Total', 'Amount Due'); (2) any names that identify WHO/WHAT the invoice refers to (event names, artist/band names, client names, project names, show names, tour names — include all you can find verbatim, comma-separated); (3) the document/invoice date. Use null when truly absent.";
+      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type. Use null when truly absent.";
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
