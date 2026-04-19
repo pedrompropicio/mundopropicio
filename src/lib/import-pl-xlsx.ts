@@ -808,3 +808,161 @@ export async function attachLinksFromXlsx(
 
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Reprocess orphan attachments
+// ---------------------------------------------------------------------------
+
+export interface ReprocessOrphansResult {
+  scanned: number;
+  resolved: number;
+  attached: number; // transaction_documents inserted
+  skipped: number;  // links already present
+  stillOrphan: number;
+  errors: string[];
+}
+
+/**
+ * Re-run the matching engine against all *pending* `bp_orphan_attachments`
+ * for a given event tree (anchor + sub-events + master). Any orphan that now
+ * finds a forecast match has its link merged into the forecast's
+ * attachment_refs and inserted into transaction_documents (if a transaction
+ * already exists). Successfully resolved orphans are marked as 'resolved'.
+ *
+ * This is the recovery path used after the matching logic itself has been
+ * improved — instead of forcing a full re-import, we replay the new logic
+ * over the queued orphans only.
+ */
+export async function reprocessOrphanAttachments(
+  anchorEventId: string,
+  /** Sub-event ids whose forecasts should be considered "primary" candidates */
+  childEventIds: string[],
+  /** Master event id (when the anchor IS a sub-event) — searched as fallback */
+  parentEventId: string | undefined,
+  resolvedBy: string,
+): Promise<ReprocessOrphansResult> {
+  const out: ReprocessOrphansResult = {
+    scanned: 0, resolved: 0, attached: 0, skipped: 0, stillOrphan: 0, errors: [],
+  };
+
+  // Load pending orphans for the anchor event
+  const { data: orphans, error: orphansErr } = await supabase
+    .from("bp_orphan_attachments")
+    .select("id, event_id, sheet_name, row_description, row_base_amount, link_url, status")
+    .eq("event_id", anchorEventId)
+    .eq("status", "pending");
+  if (orphansErr) {
+    out.errors.push(`Erro ao carregar órfãos: ${orphansErr.message}`);
+    return out;
+  }
+  out.scanned = (orphans ?? []).length;
+  if (out.scanned === 0) return out;
+
+  // Build forecast pool: anchor + children + (master OR anchor as master)
+  const primaryEventIds = Array.from(new Set([anchorEventId, ...childEventIds]));
+  const masterEventId = parentEventId ?? anchorEventId;
+  const lookupEventIds = Array.from(new Set([...primaryEventIds, masterEventId]));
+
+  const { data: forecasts, error: fErr } = await supabase
+    .from("event_forecasts")
+    .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
+    .in("event_id", lookupEventIds);
+  if (fErr) {
+    out.errors.push(`Erro ao carregar BP: ${fErr.message}`);
+    return out;
+  }
+
+  const primaryForecasts = (forecasts ?? []).filter((f: any) => primaryEventIds.includes(f.event_id));
+  const masterForecasts = (forecasts ?? []).filter((f: any) => f.event_id === masterEventId);
+
+  // Pre-load existing transaction_documents to detect duplicates
+  const txIds = (forecasts ?? []).map((f: any) => f.transaction_id).filter(Boolean) as string[];
+  const existingByTx = new Map<string, Set<string>>();
+  if (txIds.length > 0) {
+    const { data: existingDocs } = await supabase
+      .from("transaction_documents")
+      .select("transaction_id, file_url")
+      .in("transaction_id", txIds);
+    for (const d of existingDocs ?? []) {
+      const set = existingByTx.get((d as any).transaction_id) ?? new Set<string>();
+      set.add((d as any).file_url);
+      existingByTx.set((d as any).transaction_id, set);
+    }
+  }
+
+  for (const orphan of orphans ?? []) {
+    const found = findForecastMatch(
+      (orphan as any).row_description,
+      Number((orphan as any).row_base_amount) || 0,
+      primaryForecasts as any,
+      masterForecasts as any,
+    );
+    if (!found) {
+      out.stillOrphan++;
+      continue;
+    }
+
+    const f = found.forecast;
+    const link = String((orphan as any).link_url);
+
+    // 1) Merge into forecast.attachment_refs
+    const currentRefs: { url: string }[] = Array.isArray(f.attachment_refs)
+      ? (f.attachment_refs as any[]).filter((r) => r && typeof r.url === "string")
+      : [];
+    const refUrls = new Set(currentRefs.map((r) => r.url));
+    if (!refUrls.has(link)) {
+      currentRefs.push({ url: link });
+      const { error: upErr } = await supabase
+        .from("event_forecasts")
+        .update({ attachment_refs: currentRefs as any } as any)
+        .eq("id", f.id);
+      if (upErr) {
+        out.errors.push(`Erro ao gravar refs em "${f.description}": ${upErr.message}`);
+        continue;
+      }
+    }
+
+    // 2) Insert into transaction_documents (if transaction exists)
+    if (f.transaction_id) {
+      const fileUrl = `ref://${link}`;
+      const existing = existingByTx.get(f.transaction_id) ?? new Set<string>();
+      if (existing.has(fileUrl)) {
+        out.skipped++;
+      } else {
+        const { error: insertErr } = await supabase.from("transaction_documents").insert({
+          transaction_id: f.transaction_id,
+          name: fileNameFromUrl(link),
+          file_url: fileUrl,
+          doc_type: "outro",
+          uploaded_by: resolvedBy,
+          is_accounting: true,
+        } as any);
+        if (insertErr) {
+          out.errors.push(`Erro a anexar "${f.description}": ${insertErr.message}`);
+          continue;
+        }
+        existing.add(fileUrl);
+        existingByTx.set(f.transaction_id, existing);
+        out.attached++;
+      }
+    }
+
+    // 3) Mark orphan as resolved
+    const { error: resolveErr } = await supabase
+      .from("bp_orphan_attachments")
+      .update({
+        status: "resolved",
+        resolved_at: new Date().toISOString(),
+        resolved_by: resolvedBy,
+        resolved_forecast_ids: [f.id],
+      } as any)
+      .eq("id", (orphan as any).id);
+    if (resolveErr) {
+      out.errors.push(`Erro a marcar órfão como resolvido: ${resolveErr.message}`);
+      continue;
+    }
+    out.resolved++;
+  }
+
+  return out;
+}
