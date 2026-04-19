@@ -15,8 +15,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Link2, Upload, Trash2, ExternalLink, FileText, Plus, Loader2 } from "lucide-react";
+import { Link2, Upload, Trash2, ExternalLink, FileText, Plus, Loader2, Eye } from "lucide-react";
 import { extractDriveFileId } from "@/lib/import-pl-xlsx";
+
+/**
+ * Build a Drive embed URL that works inside an iframe (preview mode).
+ * Returns null for non-Drive links or if no file id can be extracted.
+ */
+function drivePreviewUrl(url: string): string | null {
+  const id = extractDriveFileId(url);
+  if (!id) return null;
+  return `https://drive.google.com/file/d/${id}/preview`;
+}
 
 interface Props {
   open: boolean;
