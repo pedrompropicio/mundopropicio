@@ -29,6 +29,7 @@ import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
+import BPSheetMappingModal, { type SheetMappingItem, type SheetMappingTarget } from "@/components/BPSheetMappingModal";
 
 interface InlineForm {
   type: string;
@@ -86,6 +87,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showSheetMapping, setShowSheetMapping] = useState(false);
+  const [pendingSheets, setPendingSheets] = useState<any[] | null>(null);
+  const [pendingChildEvents, setPendingChildEvents] = useState<any[]>([]);
+  const [pendingMappings, setPendingMappings] = useState<SheetMappingItem[]>([]);
+  const [pendingTargets, setPendingTargets] = useState<SheetMappingTarget[]>([]);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
