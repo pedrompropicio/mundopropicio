@@ -83,19 +83,33 @@ export function CacheSettlementPanel({
   if (eventStatus !== "active" && eventStatus !== "completed") return null;
   if (!realResult) return null;
 
-  const effectiveValue = adjustedAmount != null ? adjustedAmount : realAmount;
+  // Effective value uses helper: adjusted → snapshot if finalized → live calculation
+  const effectiveValue = useMemo(
+    () => getCacheEffectiveAmount(config, calculatedNow),
+    [config, calculatedNow]
+  );
   const effectiveWithholding = withholdingApplicable ? Math.round(effectiveValue * (withholdingRate / 100)) : 0;
-  const netPayable = effectiveValue - effectiveWithholding;
+  const grossPayable = effectiveValue - effectiveWithholding;
+  const balanceToPay = Math.max(0, grossPayable - advancesPaid);
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
   const hasMissingDeductions = (realResult.missingDeductionCategories?.length ?? 0) > 0;
 
-  // Save adjusted amount
+  // True when the user is changing adjusted to a value different from calculated
+  const adjustedDiffersFromCalculated = useMemo(() => {
+    const parsed = parseFloat(adjustedInput);
+    if (isNaN(parsed)) return false;
+    return Math.abs(parsed - calculatedNow) >= 0.01;
+  }, [adjustedInput, calculatedNow]);
+
+  // Save adjusted amount (with mandatory justification when value differs from calculated)
   const saveAdjustedMutation = useMutation({
-    mutationFn: async (value: number | null) => {
+    mutationFn: async ({ value, notes }: { value: number | null; notes: string | null }) => {
+      const updates: any = { adjusted_amount: value };
+      updates.agreement_notes = value != null ? notes : null;
       const { error } = await supabase
         .from("event_cache_configs" as any)
-        .update({ adjusted_amount: value, real_amount: realAmount })
+        .update(updates)
         .eq("id", config.id);
       if (error) throw error;
     },
@@ -104,22 +118,23 @@ export function CacheSettlementPanel({
       setEditingAdjusted(false);
       toast({ title: "Valor ajustado guardado" });
     },
+    onError: (err: any) => {
+      toast({ title: "Erro ao guardar", description: err.message, variant: "destructive" });
+    },
   });
 
-  // Finalize cache
+  // Finalize cache (snapshots calculatedNow into real_amount)
   const finalizeMutation = useMutation({
     mutationFn: async (finalize: boolean) => {
-      const updates: any = {
-        is_finalized: finalize,
-        real_amount: realAmount,
-      };
+      const updates: any = { is_finalized: finalize };
       if (finalize) {
+        // Snapshot the live calculation at the moment of finalization
+        updates.real_amount = calculatedNow;
         updates.finalized_at = new Date().toISOString();
         updates.finalized_by = userName || "sistema";
-        if (adjustedAmount == null) {
-          updates.adjusted_amount = null;
-        }
       } else {
+        // Reopening clears snapshot so live calculation takes over again
+        updates.real_amount = null;
         updates.finalized_at = null;
         updates.finalized_by = null;
       }
@@ -134,7 +149,7 @@ export function CacheSettlementPanel({
       toast({
         title: finalize ? "Cachê finalizado" : "Cachê reaberto",
         description: finalize
-          ? "O valor está travado e não será recalculado."
+          ? "O valor calculado foi gravado como snapshot. Não será mais recalculado."
           : "O valor voltará a ser recalculado automaticamente.",
       });
     },
