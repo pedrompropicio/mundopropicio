@@ -36,7 +36,7 @@ import helpTexts from "@/lib/help-texts";
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
-  const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "all" | "range">("week");
+  const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "all" | "range">("all");
   const [paidPeriod, setPaidPeriod] = useState<"all" | "yesterday" | "week" | "month" | "range">("all");
   const [periodDateField, setPeriodDateField] = useState<"due_date" | "date">("due_date");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
