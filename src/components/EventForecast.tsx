@@ -30,6 +30,7 @@ import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
+import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 
 interface InlineForm {
   type: string;
