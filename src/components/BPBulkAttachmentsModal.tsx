@@ -8,6 +8,7 @@ import {
   X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles, Scale,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
+import { createExpenseCategoryMatcher, getExpenseLeafCategories, type ExpenseCategoryLite } from "@/lib/pl-category-matching";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -32,6 +33,12 @@ interface PendingFile {
   /** Upload state */
   status: "pending" | "uploading" | "done" | "error";
   errorMsg?: string;
+  /** AI-suggested category id (from PDF service description). User must confirm. */
+  suggestedCategoryId?: string | null;
+  /** Category override picked by user (defaults to suggestion). */
+  categoryId?: string | null;
+  /** Whether user accepted applying the category to the linked BP row on upload. */
+  categoryConfirmed?: boolean;
   /** AI value validation (PDFs/images only) */
   validation?: {
     state: "idle" | "running" | "match" | "mismatch" | "no-total" | "error";
@@ -45,6 +52,8 @@ interface PendingFile {
     documentDate?: string | null;
     /** Detected document type: invoice / proforma / quote / receipt / transfer / contract / other. */
     documentType?: string | null;
+    /** Short description of services/products billed. */
+    serviceDescription?: string | null;
     /** Ownership decision against the events in scope. */
     ownership?: {
       state: "match" | "mismatch" | "unknown";
@@ -182,6 +191,36 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     },
   });
 
+  // Load all expense leaf categories so we can suggest one per PDF.
+  const { data: expenseCategories = [] } = useQuery({
+    queryKey: ["bp_bulk_expense_categories"],
+    queryFn: async (): Promise<ExpenseCategoryLite[]> => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("id, code, name, type, parent_id")
+        .eq("type", "expense")
+        .eq("is_active", true);
+      if (error) throw error;
+      return (data ?? []) as ExpenseCategoryLite[];
+    },
+  });
+
+  const categoryById = useMemo(() => {
+    const m = new Map<string, ExpenseCategoryLite>();
+    for (const c of expenseCategories) m.set(c.id, c);
+    return m;
+  }, [expenseCategories]);
+
+  const leafCategoriesForSelect = useMemo(
+    () => getExpenseLeafCategories(expenseCategories).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })),
+    [expenseCategories],
+  );
+
+  const categoryMatcher = useMemo(
+    () => (expenseCategories.length > 0 ? createExpenseCategoryMatcher(expenseCategories) : null),
+    [expenseCategories],
+  );
+
   /** Decide if a document belongs to any event in scope. Rule: name OR date matches. */
   const checkOwnership = (
     mentionedNames: string | null,
@@ -316,6 +355,24 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
   const setForecast = (id: string, forecastId: string | null) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, forecastId, overridden: true } : f)));
   };
+  const setCategory = (id: string, categoryId: string | null) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, categoryId } : f)));
+  };
+  const toggleCategoryConfirmed = (id: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, categoryConfirmed: !f.categoryConfirmed } : f)),
+    );
+  };
+  const acceptAllCategorySuggestions = () => {
+    setFiles((prev) =>
+      prev.map((f) =>
+        !f.excluded && f.forecastId && f.suggestedCategoryId && f.categoryId
+          ? { ...f, categoryConfirmed: true }
+          : f,
+      ),
+    );
+    toast({ title: "Categorias sugeridas aceites" });
+  };
   const toggleExclude = (id: string) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, excluded: !f.excluded } : f)));
   };
@@ -371,6 +428,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const mentionedNames: string | null = typeof data?.mentioned_names === "string" ? data.mentioned_names : null;
         const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
         const documentType: string | null = typeof data?.document_type === "string" ? data.document_type : null;
+        const serviceDescription: string | null = typeof data?.service_description === "string" ? data.service_description : null;
         const ownership = checkOwnership(mentionedNames, documentDate);
 
         // Determine value-validation state.
@@ -395,6 +453,17 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
           valueState = "no-total";
         }
 
+        // Suggest a category from the PDF service description (+ filename + names as context).
+        let suggestedCategoryId: string | null = null;
+        if (categoryMatcher) {
+          const descParts = [serviceDescription, mentionedNames, item.name.replace(/[._-]+/g, " ")]
+            .filter(Boolean)
+            .join(" · ");
+          if (descParts.trim()) {
+            suggestedCategoryId = categoryMatcher({ description: descParts, specification: serviceDescription });
+          }
+        }
+
         // If ownership is a clear mismatch, auto-exclude the file from upload.
         const autoExclude = ownership.state === "mismatch";
 
@@ -404,6 +473,9 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
               ? {
                   ...f,
                   excluded: autoExclude ? true : f.excluded,
+                  suggestedCategoryId,
+                  // Default the editable category to the suggestion (user can change/clear).
+                  categoryId: f.categoryId === undefined ? suggestedCategoryId : f.categoryId,
                   validation: {
                     state: valueState,
                     extractedTotal: total,
@@ -413,6 +485,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     mentionedNames,
                     documentDate,
                     documentType,
+                    serviceDescription,
                     ownership,
                   },
                 }
@@ -516,9 +589,14 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
               uploadedAt: new Date().toISOString(),
               uploadedBy: user?.email ?? "system",
             } as any);
+            const updatePayload: Record<string, unknown> = { attachment_refs: refs as any };
+            // Apply confirmed AI-suggested category to the BP row.
+            if (item.categoryConfirmed && item.categoryId) {
+              updatePayload.category_id = item.categoryId;
+            }
             const { error: dbErr } = await supabase
               .from("event_forecasts")
-              .update({ attachment_refs: refs as any } as any)
+              .update(updatePayload as any)
               .eq("id", forecast.id);
             if (dbErr) throw dbErr;
 
@@ -715,6 +793,13 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                   Aceitar sugestões ≥70%
                 </button>
                 <button
+                  onClick={acceptAllCategorySuggestions}
+                  className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80"
+                  title="Confirma a aplicação das categorias sugeridas pela IA nas linhas do BP"
+                >
+                  Aceitar categorias sugeridas
+                </button>
+                <button
                   onClick={() => setFiles([])}
                   className="rounded-lg bg-destructive/15 text-destructive px-3 py-1.5 text-xs font-medium hover:bg-destructive/25"
                 >
@@ -732,6 +817,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     <th className="px-2 py-2 text-left">Match</th>
                     <th className="px-2 py-2 text-left">Evento</th>
                     <th className="px-2 py-2 text-left">Valor PDF</th>
+                    <th className="px-2 py-2 text-left">Categoria (IA)</th>
                     <th className="px-2 py-2 text-right">Tamanho</th>
                     <th className="px-2 py-2 text-center">Estado</th>
                     <th className="px-2 py-2"></th>
@@ -872,6 +958,62 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                                 <Icon className="h-3 w-3" />
                                 {total.toFixed(2)} {symbol}
                               </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {(() => {
+                            const v = f.validation;
+                            if (!v || v.state === "idle") {
+                              return <span className="text-[10px] text-muted-foreground">—</span>;
+                            }
+                            if (v.state === "running") {
+                              return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+                            }
+                            const suggested = f.suggestedCategoryId
+                              ? categoryById.get(f.suggestedCategoryId)
+                              : null;
+                            const isSuggestion = !!suggested && f.categoryId === f.suggestedCategoryId;
+                            return (
+                              <div className="flex flex-col gap-1 max-w-[220px]">
+                                <select
+                                  value={f.categoryId ?? ""}
+                                  onChange={(e) => setCategory(f.id, e.target.value || null)}
+                                  disabled={f.status === "uploading" || f.status === "done"}
+                                  className={`w-full rounded border bg-background px-1.5 py-1 text-[11px] ${
+                                    isSuggestion ? "border-primary/50" : "border-border"
+                                  }`}
+                                  title={
+                                    v.serviceDescription
+                                      ? `IA leu: "${v.serviceDescription}"`
+                                      : "Sem descrição extraída do PDF"
+                                  }
+                                >
+                                  <option value="">— sem alteração —</option>
+                                  {leafCategoriesForSelect.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.code} — {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                {f.categoryId && (
+                                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!f.categoryConfirmed}
+                                      onChange={() => toggleCategoryConfirmed(f.id)}
+                                      disabled={!f.forecastId || f.status === "uploading" || f.status === "done"}
+                                      className="h-3 w-3"
+                                    />
+                                    {isSuggestion ? "Aplicar sugestão" : "Aplicar à linha BP"}
+                                  </label>
+                                )}
+                                {!f.suggestedCategoryId && v.serviceDescription && (
+                                  <span className="text-[9px] text-muted-foreground italic" title={v.serviceDescription}>
+                                    sem match automático
+                                  </span>
+                                )}
+                              </div>
                             );
                           })()}
                         </td>

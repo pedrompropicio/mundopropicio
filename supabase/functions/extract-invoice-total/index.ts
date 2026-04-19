@@ -21,6 +21,8 @@ interface ExtractResult {
   document_date: string | null;
   /** Detected document type: invoice, proforma, quote/proposal, receipt, transfer, contract, other. */
   document_type: string | null;
+  /** Concise free-text description of the services/products billed (used for category matching). */
+  service_description: string | null;
   raw?: string;
   error?: string;
 }
@@ -41,7 +43,7 @@ Deno.serve(async (req) => {
     const mime = body.mimeType || "application/pdf";
 
     const systemPrompt =
-      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type. Use null when truly absent.";
+      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type; (5) a SHORT description (max ~150 chars, Portuguese) summarising the SERVICES OR PRODUCTS being billed/contracted (e.g. 'Aluguer de som e luz para palco principal', 'Cachê artístico DJ', 'Hospedagem 3 noites hotel X', 'Catering camarim 30 pax'). Use null when truly absent.";
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -102,12 +104,16 @@ Deno.serve(async (req) => {
                     enum: ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other", null],
                     description: "Document type detected: invoice (fatura/nota fiscal), proforma, quote (orçamento/proposta), receipt (recibo), transfer (comprovativo de transferência), contract (contrato), other.",
                   },
+                  service_description: {
+                    type: ["string", "null"],
+                    description: "Short PT-PT description of the services/products being billed or contracted (max ~150 chars). E.g. 'Aluguer de som e luz', 'Cachê artístico', 'Hospedagem hotel'. Null if unreadable.",
+                  },
                   notes: {
                     type: "string",
                     description: "Brief reason — e.g. 'contrato Maiara e Maraisa, cachê 50000€' or 'comprovativo TRF 1234.56€'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "notes"],
                 additionalProperties: false,
               },
             },
@@ -129,13 +135,13 @@ Deno.serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, error: "No tool call returned" } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "No tool call returned" } satisfies ExtractResult);
     }
     let parsed: any;
     try {
       parsed = JSON.parse(argsStr);
     } catch {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
     }
 
     const validTypes = ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other"];
@@ -146,6 +152,7 @@ Deno.serve(async (req) => {
       mentioned_names: typeof parsed.mentioned_names === "string" && parsed.mentioned_names.trim() ? parsed.mentioned_names.trim() : null,
       document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
       document_type: typeof parsed.document_type === "string" && validTypes.includes(parsed.document_type) ? parsed.document_type : null,
+      service_description: typeof parsed.service_description === "string" && parsed.service_description.trim() ? parsed.service_description.trim().slice(0, 200) : null,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };
     return json(out);
