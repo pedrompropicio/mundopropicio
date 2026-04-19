@@ -367,6 +367,25 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
           </p>
         </label>
 
+        {/* Optional context for matching */}
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-attach-instructions" className="flex items-center gap-1.5 text-xs">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Instruções sobre os ficheiros <span className="text-muted-foreground font-normal">(opcional)</span>
+          </Label>
+          <Textarea
+            id="bulk-attach-instructions"
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            placeholder={`Ex.: "Os PDFs com prefixo INV são da fatura agrupada XPTO. Ficheiros 'Drive_xxx' devem ir para a linha de Som."`}
+            className="min-h-[64px] text-xs"
+            maxLength={1000}
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Texto livre com contexto sobre os ficheiros que estás a anexar. {instructions.length}/1000
+          </p>
+        </div>
+
         {files.length > 0 && (
           <>
             {/* Match summary banner */}
