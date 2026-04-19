@@ -118,6 +118,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
+  // Pending orphan attachment links waiting for manual resolution.
+  const { data: pendingOrphansCount = 0 } = useQuery({
+    queryKey: ["bp_orphan_attachments_count", eventId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("bp_orphan_attachments")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", eventId)
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!eventId,
+  });
+
   const cacheCategoryId = useMemo(() => {
     const category = categories.find((item: any) => item.code === "2.1.01" && item.type === "expense");
     return category?.id ?? null;
