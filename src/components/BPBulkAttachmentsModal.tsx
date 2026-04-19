@@ -39,6 +39,16 @@ interface PendingFile {
     currency?: string | null;
     diffPct?: number;
     note?: string;
+    /** Names extracted from the document (free-text). */
+    mentionedNames?: string | null;
+    /** Document date (YYYY-MM-DD) if detected. */
+    documentDate?: string | null;
+    /** Ownership decision against the events in scope. */
+    ownership?: {
+      state: "match" | "mismatch" | "unknown";
+      matchedBy: ("name" | "date")[];
+      reason?: string;
+    };
   };
 }
 
