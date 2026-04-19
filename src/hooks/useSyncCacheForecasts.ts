@@ -282,7 +282,8 @@ async function syncTourCacheForecasts(
     for (const childId of childEventIds) {
       const rev = revenueByChild[childId] || { gross: 0, net: 0 };
       const childExpenses = expensesByChild[childId] || [];
-      const amount = calculateCacheAmount(config, configDeductions, rev.net, rev.gross, childExpenses);
+      const citySettlement = citySettlementMap.get(`${childId}:${config.id}`) ?? null;
+      const amount = calculateCacheAmount(config, configDeductions, rev.net, rev.gross, childExpenses, 100, citySettlement);
 
       const key = `${childId}:${config.id}`;
       const existing = existingMap.get(key);
