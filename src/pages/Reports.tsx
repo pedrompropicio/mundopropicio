@@ -110,6 +110,7 @@ const allReportGroups: ReportGroup[] = [
       { to: "/relatorios/pendencias-documentais", icon: FileWarning, label: "Pendências Documentais", permission: "view_report_document_pendencies" },
       { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_accounting_export", managementOnly: true },
       { to: "/relatorios/indice-pendencias", icon: AlertTriangle, label: "Índice de Pendências", permission: "view_report_document_pendencies" },
+      { to: "/relatorios/auditoria-iva", icon: AlertTriangle, label: "Auditoria de IVA", permission: "view_report_document_pendencies" },
     ],
   },
 ];
