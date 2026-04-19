@@ -200,6 +200,24 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
 
   const eligible = files.filter((f) => f.forecastId && !f.excluded && f.status !== "done");
 
+  // Summary stats for the banner
+  const stats = useMemo(() => {
+    const total = files.length;
+    const matched = files.filter((f) => f.forecastId && !f.excluded).length;
+    const unmatched = files.filter((f) => !f.forecastId && !f.excluded).length;
+    const byDriveId = files.filter((f) => f.strategy === "drive-id" && !f.excluded).length;
+    const bySupplier = files.filter((f) => f.strategy === "supplier" && !f.excluded).length;
+    const bySimilarity = files.filter((f) => f.strategy === "similarity" && !f.excluded).length;
+
+    // BP rows that still have no attachments (no attachment_refs)
+    const rowsWithoutAttachments = candidates.filter(
+      (c) => !c.attachment_refs || c.attachment_refs.length === 0,
+    ).length;
+    const totalRows = candidates.length;
+
+    return { total, matched, unmatched, byDriveId, bySupplier, bySimilarity, rowsWithoutAttachments, totalRows };
+  }, [files, candidates]);
+
   const handleUpload = async () => {
     if (eligible.length === 0) {
       toast({ title: "Nada para subir", description: "Atribui pelo menos uma linha do BP a um ficheiro.", variant: "destructive" });
