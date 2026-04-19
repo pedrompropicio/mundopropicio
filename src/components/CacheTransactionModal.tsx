@@ -216,21 +216,47 @@ export function CacheTransactionModal({
     mutationFn: async () => {
       const today = new Date().toISOString().split("T")[0];
 
-      // Pre-fetch cache forecast attachment_refs for this cache_config + event,
-      // so we can propagate links to the newly-created transactions.
-      const { data: cacheForecast } = await supabase
+      // Pre-fetch ALL cache-related forecasts for this event so we can propagate
+      // their attachment links to the newly-created transactions. This covers:
+      //  1) The official cache_module forecast linked to this cache_config (if any).
+      //  2) Free-form BP lines whose description starts with "Cach" (typically
+      //     imported from XLSX as formula_type='fixed') that don't yet have a
+      //     transaction associated.
+      const { data: moduleForecasts } = await supabase
         .from("event_forecasts")
-        .select("id, transaction_id, attachment_refs")
+        .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .eq("cache_config_id", cacheConfigId)
-        .eq("formula_type", "cache_module")
-        .maybeSingle();
+        .eq("formula_type", "cache_module");
 
-      const refUrls: string[] = Array.isArray((cacheForecast as any)?.attachment_refs)
-        ? ((cacheForecast as any).attachment_refs as any[])
-            .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
-            .filter((u) => /^https?:\/\//i.test(u))
-        : [];
+      const { data: freeFormCacheForecasts } = await supabase
+        .from("event_forecasts")
+        .select("id, transaction_id, attachment_refs, description, formula_type")
+        .eq("event_id", eventId)
+        .ilike("description", "Cach%")
+        .is("transaction_id", null);
+
+      const allCacheForecasts = [
+        ...((moduleForecasts as any[]) || []),
+        ...((freeFormCacheForecasts as any[]) || []).filter(
+          (f) => !((moduleForecasts as any[]) || []).some((m: any) => m.id === f.id),
+        ),
+      ];
+
+      // Use the official cache_module record (if exists) as the primary forecast
+      // we will eventually back-link to the first created transaction.
+      const cacheForecast = (moduleForecasts as any[])?.[0] || allCacheForecasts[0] || null;
+
+      // Merge attachment refs across all matched forecasts and dedupe by URL.
+      const refSet = new Set<string>();
+      for (const f of allCacheForecasts) {
+        const refs = Array.isArray(f?.attachment_refs) ? (f.attachment_refs as any[]) : [];
+        for (const r of refs) {
+          const url = r && typeof r.url === "string" ? r.url.trim() : "";
+          if (/^https?:\/\//i.test(url)) refSet.add(url);
+        }
+      }
+      const refUrls: string[] = Array.from(refSet);
 
       const createdTxIds: string[] = [];
 
@@ -282,13 +308,15 @@ export function CacheTransactionModal({
           await supabase.from("transaction_documents").insert(docs as any);
         }
 
-        // Link the forecast to the first created transaction so future link adds
-        // via BPAttachmentModal continue to propagate automatically.
-        if (cacheForecast?.id && !cacheForecast.transaction_id) {
+        // Back-link every cache forecast (module + free-form) we just used to
+        // the first created transaction, so future attachment edits in the BP
+        // continue to propagate automatically.
+        const forecastsToLink = allCacheForecasts.filter((f: any) => !f.transaction_id);
+        if (forecastsToLink.length > 0) {
           await supabase
             .from("event_forecasts")
             .update({ transaction_id: createdTxIds[0] } as any)
-            .eq("id", cacheForecast.id);
+            .in("id", forecastsToLink.map((f: any) => f.id));
         }
       }
 
