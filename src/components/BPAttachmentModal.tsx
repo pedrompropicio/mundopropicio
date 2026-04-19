@@ -266,10 +266,19 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
                       target="_blank"
                       rel="noopener noreferrer"
                       className="rounded p-1 hover:bg-secondary"
-                      title="Abrir"
+                      title="Abrir em nova aba"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
+                    {drivePreviewUrl(r.url) && (
+                      <button
+                        onClick={() => setPreviewUrl(drivePreviewUrl(r.url))}
+                        className="rounded p-1 hover:bg-secondary text-primary"
+                        title="Pré-visualizar aqui"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => removeLinkMutation.mutate(r.url)}
                       disabled={removeLinkMutation.isPending}
