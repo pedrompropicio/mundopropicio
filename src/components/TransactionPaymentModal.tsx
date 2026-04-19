@@ -45,6 +45,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   );
   const [paymentEntity, setPaymentEntity] = useState(transaction.payment_entity ?? "");
   const [paymentReference, setPaymentReference] = useState(transaction.payment_reference ?? "");
+  // FX on payment day (only if transaction is in a foreign currency)
+  const txCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
+  const isForeign = txCurrency !== "EUR";
+  const [paymentFxRate, setPaymentFxRate] = useState<string>(isForeign ? String(transaction.fx_rate ?? "") : "");
+  const [loadingFx, setLoadingFx] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
