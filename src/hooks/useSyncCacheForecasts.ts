@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier } from "@/lib/cache-pl-helper";
+import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, type CityCacheSettlement } from "@/lib/cache-pl-helper";
 
 interface CacheConfig {
   id: string;
