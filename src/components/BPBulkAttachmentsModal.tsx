@@ -357,7 +357,13 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
             dragOver ? "border-primary bg-primary/10" : "border-border hover:border-primary/50 hover:bg-primary/5"
           }`}
         >
-          <input type="file" multiple accept=".zip,*/*" className="hidden" onChange={onPickFiles} />
+          <input
+            type="file"
+            multiple
+            accept=".zip,.pdf,.jpg,.jpeg,.png,.webp,.gif,.heic,.doc,.docx,.xls,.xlsx,.csv,.txt,application/zip,application/x-zip-compressed,application/pdf,image/*"
+            className="hidden"
+            onChange={onPickFiles}
+          />
           <Upload className="mx-auto h-7 w-7 text-muted-foreground" />
           <p className="mt-2 text-sm font-medium">
             {extracting ? "A descomprimir…" : "Arrasta ficheiros ou .zip aqui (ou clica para escolher)"}
