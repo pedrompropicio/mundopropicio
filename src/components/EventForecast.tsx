@@ -19,7 +19,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
-import { parseXlsxPL, importPLToEvent, attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
+import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
