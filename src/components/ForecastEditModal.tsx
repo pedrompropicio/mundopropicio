@@ -76,13 +76,20 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      const newAmount = parseFloat(amount) || 0;
+      const newAmount = Math.round(eurAmount * 100) / 100;
       const newIvaRate = parseInt(ivaRate) || 0;
       const newDescription = description.trim();
       const newSpecification = specification.trim() || null;
       const newCategoryId = categoryId || null;
+      const newCurrency = currency;
+      const newOriginal = newCurrency === "EUR" ? null : (parseFloat(originalAmount) || 0);
+      const newFxRate = newCurrency === "EUR" ? null : (parseFloat(fxRate) || 0);
+      const newFxRateSource = newCurrency === "EUR" ? null : fxRateSource;
 
       if (!newDescription) throw new Error("A descrição é obrigatória.");
+      if (newCurrency !== "EUR" && (!newFxRate || newFxRate <= 0)) {
+        throw new Error("Define o câmbio para a moeda selecionada.");
+      }
 
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
 
@@ -102,7 +109,21 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
       if (newAmount !== Number(forecast.amount)) {
-        changes.push({ field_name: "Valor", old_value: String(forecast.amount), new_value: String(newAmount) });
+        changes.push({ field_name: "Valor (EUR)", old_value: String(forecast.amount), new_value: String(newAmount) });
+      }
+      const oldCurrency = forecast.currency || "EUR";
+      if (newCurrency !== oldCurrency) {
+        changes.push({ field_name: "Moeda", old_value: oldCurrency, new_value: newCurrency });
+      }
+      if (newCurrency !== "EUR") {
+        const oldOrig = forecast.original_amount != null ? String(forecast.original_amount) : "—";
+        const oldRate = forecast.fx_rate != null ? String(forecast.fx_rate) : "—";
+        if (String(newOriginal) !== oldOrig) {
+          changes.push({ field_name: `Valor original (${newCurrency})`, old_value: oldOrig, new_value: String(newOriginal) });
+        }
+        if (String(newFxRate) !== oldRate) {
+          changes.push({ field_name: "Câmbio", old_value: oldRate, new_value: String(newFxRate) });
+        }
       }
       if (newIvaRate !== Number(forecast.iva_rate)) {
         changes.push({ field_name: "Taxa IVA", old_value: `${forecast.iva_rate}%`, new_value: `${newIvaRate}%` });
@@ -118,6 +139,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         category_id: forecast.category_id,
         amount: Number(forecast.amount),
         iva_rate: Number(forecast.iva_rate),
+        currency: oldCurrency,
+        original_amount: forecast.original_amount,
+        fx_rate: forecast.fx_rate,
+        fx_rate_source: forecast.fx_rate_source,
       };
 
       // Update forecast
@@ -127,6 +152,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         category_id: newCategoryId,
         amount: newAmount,
         iva_rate: newIvaRate,
+        currency: newCurrency,
+        original_amount: newOriginal,
+        fx_rate: newFxRate,
+        fx_rate_source: newFxRateSource,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
