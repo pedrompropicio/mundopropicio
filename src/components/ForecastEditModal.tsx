@@ -254,12 +254,19 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           </select>
         </div>
 
-        {/* Amount + IVA */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor s/ IVA (€)</label>
-            <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
-          </div>
+        {/* Amount (multi-currency) + IVA */}
+        <div className="space-y-3">
+          <CurrencyAmountInput
+            currency={currency}
+            onCurrencyChange={setCurrency}
+            originalAmount={originalAmount}
+            onOriginalAmountChange={setOriginalAmount}
+            fxRate={fxRate}
+            onFxRateChange={setFxRate}
+            onFxRateSourceChange={setFxRateSource}
+            onEurAmountChange={setEurAmount}
+            label="Valor s/ IVA"
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
             <select value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className={inputClass}>
@@ -269,6 +276,12 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
               <option value="0">0%</option>
             </select>
           </div>
+          {currency !== "EUR" && (
+            <p className="text-xs text-muted-foreground">
+              Será gravado em EUR: <span className="font-semibold text-foreground">{formatCurrency(eurAmount)}</span>
+              <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
+            </p>
+          )}
         </div>
 
         {/* Observation */}
