@@ -39,11 +39,22 @@ interface PendingFile {
     currency?: string | null;
     diffPct?: number;
     note?: string;
+    /** Names extracted from the document (free-text). */
+    mentionedNames?: string | null;
+    /** Document date (YYYY-MM-DD) if detected. */
+    documentDate?: string | null;
+    /** Ownership decision against the events in scope. */
+    ownership?: {
+      state: "match" | "mismatch" | "unknown";
+      matchedBy: ("name" | "date")[];
+      reason?: string;
+    };
   };
 }
 
 const TOLERANCE_PCT = 0.01; // 1%
 const TOLERANCE_ABS = 1; // €1
+const DATE_WINDOW_DAYS = 60; // PDF date must be within ±60 days of any event date
 function isValidatable(name: string, blob: Blob): boolean {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (["pdf", "jpg", "jpeg", "png", "webp"].includes(ext)) return true;
@@ -52,6 +63,29 @@ function isValidatable(name: string, blob: Blob): boolean {
 }
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+/** Strip diacritics, lowercase, collapse non-alphanumerics to single spaces. */
+function normalizeForMatch(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Tokenize and drop very short / stop tokens. */
+function tokens(s: string): string[] {
+  const STOP = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "as", "os", "no", "na", "em", "the", "of", "and", "para", "por", "tour", "show", "festival", "evento"]);
+  return normalizeForMatch(s).split(" ").filter((t) => t.length >= 3 && !STOP.has(t));
+}
+
+interface EventScope {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  extraDates: string[];
+}
 
 function bytesToReadable(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -121,6 +155,82 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     for (const f of candidates) m.set(f.id, f);
     return m;
   }, [candidates]);
+
+  // Load event names + dates (used to validate ownership of each PDF).
+  const { data: eventScope = [] } = useQuery({
+    queryKey: ["bp_bulk_event_scope", eventIds],
+    queryFn: async (): Promise<EventScope[]> => {
+      if (eventIds.length === 0) return [];
+      const [{ data: evs }, { data: dts }] = await Promise.all([
+        supabase.from("events").select("id, name, date").in("id", eventIds),
+        supabase.from("event_dates").select("event_id, date").in("event_id", eventIds),
+      ]);
+      const extras = new Map<string, string[]>();
+      for (const d of dts ?? []) {
+        const arr = extras.get((d as any).event_id) ?? [];
+        arr.push((d as any).date);
+        extras.set((d as any).event_id, arr);
+      }
+      return (evs ?? []).map((e: any) => ({
+        id: e.id,
+        name: e.name,
+        date: e.date,
+        extraDates: extras.get(e.id) ?? [],
+      }));
+    },
+  });
+
+  /** Decide if a document belongs to any event in scope. Rule: name OR date matches. */
+  const checkOwnership = (
+    mentionedNames: string | null,
+    documentDate: string | null,
+  ): { state: "match" | "mismatch" | "unknown"; matchedBy: ("name" | "date")[]; reason?: string } => {
+    if (eventScope.length === 0) return { state: "unknown", matchedBy: [], reason: "Sem eventos no contexto" };
+    if (!mentionedNames && !documentDate) {
+      return { state: "unknown", matchedBy: [], reason: "PDF sem nome nem data legíveis" };
+    }
+    const matchedBy: ("name" | "date")[] = [];
+    let reason = "";
+
+    if (mentionedNames) {
+      const haystack = " " + normalizeForMatch(mentionedNames) + " ";
+      for (const ev of eventScope) {
+        const evTokens = tokens(ev.name);
+        if (evTokens.length === 0) continue;
+        const hits = evTokens.filter((t) => haystack.includes(t));
+        const hasStrong = hits.some((t) => t.length >= 4);
+        if (hasStrong || hits.length >= 2) {
+          matchedBy.push("name");
+          reason = `nome "${hits.slice(0, 3).join(", ")}" do evento "${ev.name}"`;
+          break;
+        }
+      }
+    }
+
+    if (documentDate) {
+      const docMs = Date.parse(documentDate + "T00:00:00Z");
+      if (Number.isFinite(docMs)) {
+        const allDates = eventScope.flatMap((ev) => [ev.date, ...ev.extraDates]).filter(Boolean);
+        for (const d of allDates) {
+          const ms = Date.parse(d + "T00:00:00Z");
+          if (!Number.isFinite(ms)) continue;
+          const diffDays = Math.abs(ms - docMs) / (1000 * 60 * 60 * 24);
+          if (diffDays <= DATE_WINDOW_DAYS) {
+            matchedBy.push("date");
+            if (!reason) reason = `data ${documentDate} a ${Math.round(diffDays)}d do evento`;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matchedBy.length > 0) return { state: "match", matchedBy, reason };
+    return {
+      state: "mismatch",
+      matchedBy: [],
+      reason: `Sem match de nome nem data (PDF: ${mentionedNames ?? "?"}${documentDate ? ` · ${documentDate}` : ""})`,
+    };
+  };
 
   /** Add raw files (and unzip ZIPs into individual entries) and run matching. */
   const addFiles = async (incoming: File[]) => {
@@ -224,22 +334,21 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
 
   const [validating, setValidating] = useState(false);
 
-  /** Run AI value validation on every PDF/image with a matched forecast. */
+  /** Run AI validation on every PDF/image: extracts total + names + date,
+   * compares value vs BP and checks ownership against the events in scope. */
   const validateValues = async () => {
     const targets = files.filter(
       (f) =>
-        f.forecastId &&
         !f.excluded &&
         f.status === "pending" &&
         isValidatable(f.name, f.blob) &&
         (!f.validation || f.validation.state === "idle" || f.validation.state === "error"),
     );
     if (targets.length === 0) {
-      toast({ title: "Nada a validar", description: "Apenas PDFs/imagens com linha do BP atribuída são validados." });
+      toast({ title: "Nada a validar", description: "Apenas PDFs/imagens pendentes são validados." });
       return;
     }
     setValidating(true);
-    // Mark all as running
     setFiles((prev) =>
       prev.map((f) => (targets.find((t) => t.id === f.id) ? { ...f, validation: { state: "running" } } : f)),
     );
@@ -248,8 +357,6 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     const queue = [...targets];
     const runOne = async (item: PendingFile) => {
       try {
-        const fc = forecastById.get(item.forecastId!);
-        if (!fc) throw new Error("Linha do BP desapareceu");
         const fileBase64 = await blobToBase64(item.blob);
         const mime = item.blob.type || (item.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream");
         const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
@@ -259,31 +366,44 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const total: number | null = typeof data?.total === "number" ? data.total : null;
         const currency: string | null = data?.currency ?? null;
         const note: string | undefined = data?.raw;
+        const mentionedNames: string | null = typeof data?.mentioned_names === "string" ? data.mentioned_names : null;
+        const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
+        const ownership = checkOwnership(mentionedNames, documentDate);
+
+        // Determine value-validation state.
+        const fc = item.forecastId ? forecastById.get(item.forecastId) : null;
+        let valueState: "match" | "mismatch" | "no-total";
+        let diffPct: number | undefined;
         if (total === null) {
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.id === item.id
-                ? { ...f, validation: { state: "no-total", currency, note: note || "Total não detetado" } }
-                : f,
-            ),
-          );
-          return;
+          valueState = "no-total";
+        } else if (fc) {
+          const expected = fc.amount;
+          const diff = Math.abs(total - expected);
+          diffPct = expected > 0 ? diff / expected : 1;
+          valueState = diff <= TOLERANCE_ABS || diffPct <= TOLERANCE_PCT ? "match" : "mismatch";
+        } else {
+          // No forecast linked → can't compare value, but we still ran extraction.
+          valueState = "no-total";
         }
-        const expected = fc.amount;
-        const diff = Math.abs(total - expected);
-        const diffPct = expected > 0 ? diff / expected : 1;
-        const matches = diff <= TOLERANCE_ABS || diffPct <= TOLERANCE_PCT;
+
+        // If ownership is a clear mismatch, auto-exclude the file from upload.
+        const autoExclude = ownership.state === "mismatch";
+
         setFiles((prev) =>
           prev.map((f) =>
             f.id === item.id
               ? {
                   ...f,
+                  excluded: autoExclude ? true : f.excluded,
                   validation: {
-                    state: matches ? "match" : "mismatch",
+                    state: valueState,
                     extractedTotal: total,
                     currency,
                     diffPct,
                     note,
+                    mentionedNames,
+                    documentDate,
+                    ownership,
                   },
                 }
               : f,
@@ -305,7 +425,12 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     });
     await Promise.all(workers);
     setValidating(false);
-    toast({ title: "Validação concluída", description: `${targets.length} ficheiro(s) verificado(s).` });
+    // Count how many were auto-excluded by ownership mismatch.
+    const excludedNow = files.filter((f) => targets.find((t) => t.id === f.id)).length;
+    toast({
+      title: "Validação concluída",
+      description: `${targets.length} ficheiro(s) verificado(s). PDFs de outros eventos foram automaticamente excluídos.`,
+    });
   };
 
   const acceptAllConfident = () => {
@@ -595,6 +720,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     <th className="px-2 py-2 text-left">Ficheiro</th>
                     <th className="px-2 py-2 text-left">Linha do BP</th>
                     <th className="px-2 py-2 text-left">Match</th>
+                    <th className="px-2 py-2 text-left">Evento</th>
                     <th className="px-2 py-2 text-left">Valor PDF</th>
                     <th className="px-2 py-2 text-right">Tamanho</th>
                     <th className="px-2 py-2 text-center">Estado</th>
@@ -635,6 +761,36 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                             {lbl.label}
                             {f.score > 0 && f.strategy !== "drive-id" ? ` ${Math.round(f.score * 100)}%` : ""}
                           </span>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {(() => {
+                            const o = f.validation?.ownership;
+                            const v = f.validation;
+                            if (!v || v.state === "idle") return <span className="text-[10px] text-muted-foreground">—</span>;
+                            if (v.state === "running") return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+                            if (!o || o.state === "unknown") {
+                              return (
+                                <span title={o?.reason ?? "Sem dados"} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <AlertCircle className="h-3 w-3" />
+                                  ?
+                                </span>
+                              );
+                            }
+                            if (o.state === "match") {
+                              return (
+                                <span title={o.reason} className="inline-flex items-center gap-1 text-[11px] font-medium text-success">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  {o.matchedBy.join("+")}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span title={o.reason} className="inline-flex items-center gap-1 text-[11px] font-medium text-destructive">
+                                <AlertCircle className="h-3 w-3" />
+                                outro evento
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-2 py-1.5">
                           {(() => {
