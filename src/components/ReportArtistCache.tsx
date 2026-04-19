@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 
 export default function ReportArtistCache() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
@@ -172,8 +173,11 @@ export default function ReportArtistCache() {
       const pct = Number(config.percentage) || 0;
       const calculated = isVariable ? Math.max(0, baseForCalc * (pct / 100)) : Number(config.fixed_amount);
       const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-      const cacheAmount = isVariable ? Math.max(minGuaranteed, calculated) : calculated;
+      const calculatedFinal = isVariable ? Math.max(minGuaranteed, calculated) : calculated;
+      // Apply effective override (adjusted → snapshot if finalized → calculated)
+      const cacheAmount = getCacheEffectiveAmount(config, calculatedFinal);
       const isUsingMinimum = isVariable && minGuaranteed > 0 && cacheAmount === minGuaranteed;
+      const hasOverride = config.adjusted_amount != null || (!!config.is_finalized && config.real_amount != null);
 
       // Extras for this config
       const configExtras = cacheExtras.filter((e: any) => e.cache_config_id === config.id);

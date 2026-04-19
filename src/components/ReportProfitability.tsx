@@ -37,7 +37,7 @@ export default function ReportProfitability() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_cache_configs")
-        .select("event_id, artist_name, real_amount, fixed_amount, minimum_guaranteed");
+        .select("event_id, artist_name, real_amount, adjusted_amount, fixed_amount, minimum_guaranteed, is_finalized");
       if (error) throw error;
       return data;
     },
