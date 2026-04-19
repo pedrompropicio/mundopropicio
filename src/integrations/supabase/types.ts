@@ -258,6 +258,63 @@ export type Database = {
         }
         Relationships: []
       }
+      event_cache_city_settlements: {
+        Row: {
+          adjusted_amount: number | null
+          agreement_notes: string | null
+          cache_config_id: string
+          created_at: string
+          event_id: string
+          finalized_at: string | null
+          finalized_by: string | null
+          id: string
+          is_finalized: boolean
+          real_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          adjusted_amount?: number | null
+          agreement_notes?: string | null
+          cache_config_id: string
+          created_at?: string
+          event_id: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          is_finalized?: boolean
+          real_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          adjusted_amount?: number | null
+          agreement_notes?: string | null
+          cache_config_id?: string
+          created_at?: string
+          event_id?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          is_finalized?: boolean
+          real_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cache_city_settlements_cache_config_id_fkey"
+            columns: ["cache_config_id"]
+            isOneToOne: false
+            referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_city_settlements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_cache_configs: {
         Row: {
           adjusted_amount: number | null

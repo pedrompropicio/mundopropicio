@@ -18,6 +18,12 @@ interface Props {
   eventId: string;
   canEdit: boolean;
   eventStatus?: string;
+  /** When set, the panel works in "per-city" mode (turnê).
+   * Reads from / writes to event_cache_city_settlements instead of event_cache_configs. */
+  cityEventId?: string;
+  citySettlement?: any | null;
+  /** Optional label (city/venue name) shown on the header when in city mode. */
+  cityLabel?: string;
 }
 
 export function CacheSettlementPanel({
@@ -27,15 +33,20 @@ export function CacheSettlementPanel({
   eventId,
   canEdit,
   eventStatus,
+  cityEventId,
+  citySettlement,
+  cityLabel,
 }: Props) {
   const { user } = useAuth();
   const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
   const queryClient = useQueryClient();
-  const isFinalized = !!config.is_finalized;
-  const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
-  const snapshotRealAmount = config.real_amount != null ? Number(config.real_amount) : null;
+
+  // Source row depends on mode: city settlement (turnê) takes priority over config legacy fields.
+  const sourceRow: any = cityEventId ? (citySettlement ?? {}) : config;
+  const isFinalized = !!sourceRow.is_finalized;
+  const adjustedAmount = sourceRow.adjusted_amount != null ? Number(sourceRow.adjusted_amount) : null;
+  const snapshotRealAmount = sourceRow.real_amount != null ? Number(sourceRow.real_amount) : null;
   const calculatedNow = realResult?.finalAmount ?? 0;
-  // When finalized, show the gravado snapshot; otherwise the live calculation
   const realAmount = isFinalized && snapshotRealAmount != null ? snapshotRealAmount : calculatedNow;
 
   const withholdingApplicable = !!config.withholding_applicable;
@@ -45,16 +56,18 @@ export function CacheSettlementPanel({
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
   );
-  const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(config.agreement_notes ?? "");
+  const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(sourceRow.agreement_notes ?? "");
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showTxModal, setShowTxModal] = useState(false);
 
-  // Fetch advances already paid for this artist (transactions with cache category + supplier)
+  // Effective event for advances/transactions: city if turnê, master otherwise
+  const effectiveEventId = cityEventId ?? eventId;
+
+  // Fetch advances already paid for this artist
   const { data: advancesPaid = 0 } = useQuery({
-    queryKey: ["cache-advances-paid", config.id, eventId, config.supplier_id],
+    queryKey: ["cache-advances-paid", config.id, effectiveEventId, config.supplier_id],
     enabled: !!config.supplier_id,
     queryFn: async () => {
-      // Find cache category
       const { data: catRow } = await supabase
         .from("account_categories")
         .select("id")
@@ -69,20 +82,19 @@ export function CacheSettlementPanel({
       const { data } = await supabase
         .from("transactions")
         .select("amount, paid_amount, status")
-        .eq("event_id", eventId)
+        .eq("event_id", effectiveEventId)
         .eq("type", "expense")
         .eq("category_id", cacheCatId)
         .eq("supplier_id", config.supplier_id);
 
-      // Sum of paid_amount (advances already settled). Pending transactions are NOT counted as paid.
       return (data ?? []).reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
     },
   });
 
-  // Effective value uses helper: adjusted → snapshot if finalized → live calculation
+  // Effective value uses helper: city settlement → config legacy → live calculation
   const effectiveValue = useMemo(
-    () => getCacheEffectiveAmount(config, calculatedNow),
-    [config, calculatedNow]
+    () => getCacheEffectiveAmount(config, calculatedNow, cityEventId ? citySettlement : null),
+    [config, calculatedNow, cityEventId, citySettlement]
   );
   const effectiveWithholding = withholdingApplicable ? Math.round(effectiveValue * (withholdingRate / 100)) : 0;
   const grossPayable = effectiveValue - effectiveWithholding;
@@ -91,26 +103,46 @@ export function CacheSettlementPanel({
   const isVariable = config.cache_type === "variable";
   const hasMissingDeductions = (realResult?.missingDeductionCategories?.length ?? 0) > 0;
 
-  // True when the user is changing adjusted to a value different from calculated
   const adjustedDiffersFromCalculated = useMemo(() => {
     const parsed = parseFloat(adjustedInput);
     if (isNaN(parsed)) return false;
     return Math.abs(parsed - calculatedNow) >= 0.01;
   }, [adjustedInput, calculatedNow]);
 
-  // Save adjusted amount (with mandatory justification when value differs from calculated)
+  // Helper to invalidate the right caches based on mode
+  const invalidateAfterChange = () => {
+    if (cityEventId) {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_city_settlements", eventId] });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+    }
+  };
+
+  // Save adjusted amount — writes to city table when in city mode
   const saveAdjustedMutation = useMutation({
     mutationFn: async ({ value, notes }: { value: number | null; notes: string | null }) => {
-      const updates: any = { adjusted_amount: value };
-      updates.agreement_notes = value != null ? notes : null;
-      const { error } = await supabase
-        .from("event_cache_configs" as any)
-        .update(updates)
-        .eq("id", config.id);
-      if (error) throw error;
+      if (cityEventId) {
+        const payload: any = {
+          cache_config_id: config.id,
+          event_id: cityEventId,
+          adjusted_amount: value,
+          agreement_notes: value != null ? notes : null,
+        };
+        const { error } = await supabase
+          .from("event_cache_city_settlements" as any)
+          .upsert(payload, { onConflict: "cache_config_id,event_id" });
+        if (error) throw error;
+      } else {
+        const updates: any = { adjusted_amount: value, agreement_notes: value != null ? notes : null };
+        const { error } = await supabase
+          .from("event_cache_configs" as any)
+          .update(updates)
+          .eq("id", config.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      invalidateAfterChange();
       setEditingAdjusted(false);
       toast({ title: "Valor ajustado guardado" });
     },
@@ -119,29 +151,38 @@ export function CacheSettlementPanel({
     },
   });
 
-  // Finalize cache (snapshots calculatedNow into real_amount)
+  // Finalize cache — writes to city table when in city mode
   const finalizeMutation = useMutation({
     mutationFn: async (finalize: boolean) => {
-      const updates: any = { is_finalized: finalize };
-      if (finalize) {
-        // Snapshot the live calculation at the moment of finalization
-        updates.real_amount = calculatedNow;
-        updates.finalized_at = new Date().toISOString();
-        updates.finalized_by = userName || "sistema";
+      if (cityEventId) {
+        const payload: any = {
+          cache_config_id: config.id,
+          event_id: cityEventId,
+          is_finalized: finalize,
+          real_amount: finalize ? calculatedNow : null,
+          finalized_at: finalize ? new Date().toISOString() : null,
+          finalized_by: finalize ? (userName || "sistema") : null,
+        };
+        const { error } = await supabase
+          .from("event_cache_city_settlements" as any)
+          .upsert(payload, { onConflict: "cache_config_id,event_id" });
+        if (error) throw error;
       } else {
-        // Reopening clears snapshot so live calculation takes over again
-        updates.real_amount = null;
-        updates.finalized_at = null;
-        updates.finalized_by = null;
+        const updates: any = {
+          is_finalized: finalize,
+          real_amount: finalize ? calculatedNow : null,
+          finalized_at: finalize ? new Date().toISOString() : null,
+          finalized_by: finalize ? (userName || "sistema") : null,
+        };
+        const { error } = await supabase
+          .from("event_cache_configs" as any)
+          .update(updates)
+          .eq("id", config.id);
+        if (error) throw error;
       }
-      const { error } = await supabase
-        .from("event_cache_configs" as any)
-        .update(updates)
-        .eq("id", config.id);
-      if (error) throw error;
     },
     onSuccess: (_, finalize) => {
-      queryClient.invalidateQueries({ queryKey: ["event_cache_configs", eventId] });
+      invalidateAfterChange();
       toast({
         title: finalize ? "Cachê finalizado" : "Cachê reaberto",
         description: finalize
@@ -166,6 +207,7 @@ export function CacheSettlementPanel({
           <Calculator className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Fecho do Cachê — Valores Reais
+            {cityLabel && <span className="ml-1 text-primary normal-case">· {cityLabel}</span>}
           </span>
         </div>
         {isVariable && (
@@ -453,16 +495,16 @@ export function CacheSettlementPanel({
               <button
                 onClick={() => {
                   setAdjustedInput(adjustedAmount != null ? String(adjustedAmount) : String(calculatedNow));
-                  setAdjustmentNotesInput(config.agreement_notes ?? "");
+                  setAdjustmentNotesInput(sourceRow.agreement_notes ?? "");
                   setEditingAdjusted(true);
                 }}
                 className="text-xs text-primary hover:underline"
               >
                 {adjustedAmount != null ? "Editar valor ajustado" : "Definir valor ajustado (negociado)"}
               </button>
-              {adjustedAmount != null && config.agreement_notes && (
+              {adjustedAmount != null && sourceRow.agreement_notes && (
                 <p className="text-[10px] text-muted-foreground italic pl-1">
-                  💬 {config.agreement_notes}
+                  💬 {sourceRow.agreement_notes}
                 </p>
               )}
             </div>
@@ -482,10 +524,10 @@ export function CacheSettlementPanel({
             <span className="text-xs font-medium">
               {isFinalized ? "Cachê Fechado" : "Fechar Cachê"}
             </span>
-            {isFinalized && config.finalized_at && (
+            {isFinalized && sourceRow.finalized_at && (
               <p className="text-[10px] text-muted-foreground">
-                por {config.finalized_by || "—"} em{" "}
-                {format(new Date(config.finalized_at), "dd/MM/yyyy HH:mm")}
+                por {sourceRow.finalized_by || "—"} em{" "}
+                {format(new Date(sourceRow.finalized_at), "dd/MM/yyyy HH:mm")}
               </p>
             )}
             {!isFinalized && (
@@ -529,7 +571,7 @@ export function CacheSettlementPanel({
       {showTxModal && (
         <CacheTransactionModal
           onClose={() => setShowTxModal(false)}
-          eventId={eventId}
+          eventId={effectiveEventId}
           artistName={config.artist_name}
           amount={effectiveValue}
           cacheConfigId={config.id}

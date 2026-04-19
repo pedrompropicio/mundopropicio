@@ -27,12 +27,24 @@ export interface CacheConfig {
 }
 
 /**
+ * Settlement de cidade (uma row de event_cache_city_settlements).
+ * Quando presente, sobrepõe os campos legacy de event_cache_configs.
+ */
+export interface CityCacheSettlement {
+  is_finalized?: boolean;
+  real_amount?: number | null;
+  adjusted_amount?: number | null;
+}
+
+/**
  * Single source of truth para o valor "efetivo" do cachê de um artista.
  *
  * Prioridade:
- *   1. adjusted_amount   → valor negociado pelo gerente (sempre prevalece)
- *   2. real_amount       → snapshot gravado ao finalizar (só se is_finalized=true)
- *   3. calculatedAmount  → cálculo dinâmico em tempo real (BP ou vendas reais)
+ *   1. citySettlement.adjusted_amount  → ajuste por cidade (turnê)
+ *   2. citySettlement.real_amount      → snapshot da cidade (se finalizada)
+ *   3. config.adjusted_amount          → ajuste no Master (eventos simples)
+ *   4. config.real_amount              → snapshot do Master (se finalizado)
+ *   5. calculatedAmount                → cálculo dinâmico em tempo real
  *
  * Adiantamentos (event_cache_payments) NÃO entram aqui — são abatidos só na
  * geração da transação final de pagamento, não alteram o valor do cachê em si.
@@ -40,7 +52,14 @@ export interface CacheConfig {
 export function getCacheEffectiveAmount(
   config: Pick<CacheConfig, "is_finalized" | "real_amount" | "adjusted_amount">,
   calculatedAmount: number,
+  citySettlement?: CityCacheSettlement | null,
 ): number {
+  if (citySettlement) {
+    if (citySettlement.adjusted_amount != null) return Number(citySettlement.adjusted_amount);
+    if (citySettlement.is_finalized && citySettlement.real_amount != null) {
+      return Number(citySettlement.real_amount);
+    }
+  }
   if (config.adjusted_amount != null) return Number(config.adjusted_amount);
   if (config.is_finalized && config.real_amount != null) return Number(config.real_amount);
   return calculatedAmount;
