@@ -234,20 +234,31 @@ export function CacheSettlementPanel({
         </div>
       )}
 
-      {/* Withholding summary */}
-      {withholdingApplicable && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 space-y-1">
+      {/* Withholding + Advances summary (always shown when there is a payment to make) */}
+      {(withholdingApplicable || advancesPaid > 0) && (
+        <div className="rounded-lg border border-border bg-background p-2.5 space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Cachê Bruto</span>
+            <span className="text-muted-foreground">Cachê Total Acordado</span>
             <span className="font-mono">{formatCurrency(effectiveValue)}</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-destructive">
-            <span>Retenção IRS ({withholdingRate}%)</span>
-            <span className="font-mono">− {formatCurrency(effectiveWithholding)}</span>
-          </div>
-          <div className="flex items-center justify-between text-xs font-semibold border-t border-destructive/20 pt-1">
-            <span>Líquido a Pagar</span>
-            <span className="font-mono">{formatCurrency(netPayable)}</span>
+          {withholdingApplicable && (
+            <div className="flex items-center justify-between text-xs text-destructive">
+              <span>(−) Retenção IRS ({withholdingRate}%)</span>
+              <span className="font-mono">− {formatCurrency(effectiveWithholding)}</span>
+            </div>
+          )}
+          {advancesPaid > 0 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Wallet className="h-3 w-3" />
+                (−) Adiantamentos já pagos
+              </span>
+              <span className="font-mono">− {formatCurrency(advancesPaid)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-xs font-semibold border-t border-border pt-1">
+            <span>Saldo a Pagar</span>
+            <span className="font-mono">{formatCurrency(balanceToPay)}</span>
           </div>
         </div>
       )}
@@ -359,56 +370,98 @@ export function CacheSettlementPanel({
       {canEdit && !isFinalized && (
         <div className="space-y-2">
           {editingAdjusted ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                step="1"
-                min="0"
-                value={adjustedInput}
-                onChange={(e) => setAdjustedInput(e.target.value)}
-                className={`${inputClass} text-xs max-w-[160px]`}
-                placeholder="Valor negociado"
-                autoFocus
-              />
-              <button
-                onClick={() => {
-                  const val = parseFloat(adjustedInput);
-                  if (!isNaN(val) && val >= 0) {
-                    saveAdjustedMutation.mutate(val);
-                  }
-                }}
-                className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Guardar
-              </button>
-              {adjustedAmount != null && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={adjustedInput}
+                  onChange={(e) => setAdjustedInput(e.target.value)}
+                  className={`${inputClass} text-xs max-w-[160px]`}
+                  placeholder="Valor negociado"
+                  autoFocus
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  Calculado: <span className="font-mono">{formatCurrency(calculatedNow)}</span>
+                </span>
+              </div>
+              {adjustedDiffersFromCalculated && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-warning">
+                    Justificativa obrigatória (valor difere do calculado):
+                  </label>
+                  <textarea
+                    value={adjustmentNotesInput}
+                    onChange={(e) => setAdjustmentNotesInput(e.target.value)}
+                    className={`${inputClass} text-xs min-h-[60px]`}
+                    placeholder="Ex: Câmbio dos voos BRL ainda em aberto, arredondamento na negociação com o artista..."
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    saveAdjustedMutation.mutate(null);
-                    setAdjustedInput("");
+                    const val = parseFloat(adjustedInput);
+                    if (isNaN(val) || val < 0) return;
+                    if (adjustedDiffersFromCalculated && !adjustmentNotesInput.trim()) {
+                      toast({
+                        title: "Justificativa obrigatória",
+                        description: "Explica o motivo do ajuste antes de guardar.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    saveAdjustedMutation.mutate({
+                      value: val,
+                      notes: adjustedDiffersFromCalculated ? adjustmentNotesInput.trim() : null,
+                    });
                   }}
-                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary"
+                  className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  Limpar
+                  Guardar
                 </button>
-              )}
-              <button
-                onClick={() => setEditingAdjusted(false)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Cancelar
-              </button>
+                {adjustedAmount != null && (
+                  <button
+                    onClick={() => {
+                      saveAdjustedMutation.mutate({ value: null, notes: null });
+                      setAdjustedInput("");
+                      setAdjustmentNotesInput("");
+                    }}
+                    className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary"
+                  >
+                    Limpar
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setEditingAdjusted(false);
+                    setAdjustmentNotesInput(config.agreement_notes ?? "");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           ) : (
-            <button
-              onClick={() => {
-                setAdjustedInput(adjustedAmount != null ? String(adjustedAmount) : String(realAmount));
-                setEditingAdjusted(true);
-              }}
-              className="text-xs text-primary hover:underline"
-            >
-              {adjustedAmount != null ? "Editar valor ajustado" : "Definir valor ajustado (negociado)"}
-            </button>
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  setAdjustedInput(adjustedAmount != null ? String(adjustedAmount) : String(calculatedNow));
+                  setAdjustmentNotesInput(config.agreement_notes ?? "");
+                  setEditingAdjusted(true);
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                {adjustedAmount != null ? "Editar valor ajustado" : "Definir valor ajustado (negociado)"}
+              </button>
+              {adjustedAmount != null && config.agreement_notes && (
+                <p className="text-[10px] text-muted-foreground italic pl-1">
+                  💬 {config.agreement_notes}
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -447,19 +500,25 @@ export function CacheSettlementPanel({
       </div>
 
       {/* Generate transaction button — only when finalized */}
-      {isFinalized && canEdit && (
+      {isFinalized && canEdit && balanceToPay > 0 && (
         <button
           onClick={() => setShowTxModal(true)}
           className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
         >
           <FileText className="h-4 w-4" />
-          Gerar Transação de Pagamento ({formatCurrency(netPayable)})
+          Gerar Transação de Pagamento ({formatCurrency(balanceToPay)})
           {withholdingApplicable && (
             <span className="text-[10px] text-muted-foreground ml-1">
               + retenção {formatCurrency(effectiveWithholding)}
             </span>
           )}
         </button>
+      )}
+      {isFinalized && canEdit && balanceToPay <= 0 && (
+        <div className="w-full flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 py-2.5 text-xs text-success">
+          <CheckCircle2 className="h-4 w-4" />
+          Cachê integralmente pago via adiantamentos
+        </div>
       )}
 
       {/* Transaction generation modal */}
