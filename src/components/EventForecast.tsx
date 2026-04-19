@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { roundCents, calcIvaAmount } from "@/lib/iva";
 import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { moveToTrash } from "@/lib/trash";
@@ -442,9 +443,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Prorated parent expenses (amount / number of sub-events)
   const proratedParentExpenses = useMemo(() => {
     if (!parentEventId || parentForecasts.length === 0) return [];
+    // Base do rateio sempre arredondada ao cêntimo (CIVA Art.º 18: cálculo linha a linha)
     return parentForecasts.map((f: any) => ({
       ...f,
-      amount: Number(f.amount) / siblingCount,
+      amount: roundCents(Number(f.amount) / siblingCount),
       _prorated: true,
       _originalAmount: Number(f.amount),
       _siblingCount: siblingCount,
@@ -1232,15 +1234,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return groups;
   }, [expenseForecasts, filteredProratedParentExpenses, catLookup]);
 
+  // IVA somado SEMPRE linha-a-linha com arredondamento ao cêntimo (CIVA Art.º 18)
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0);
+  const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
 
   const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
-  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + ticketRevenueIva;
+  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0) + ticketRevenueIva;
   const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
   const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
   const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + filteredCacheAmount + proratedExpenseBase;
-  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + Number(f.amount) * Number(f.iva_rate) / 100, 0) + proratedExpenseIva;
+  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0) + proratedExpenseIva;
   const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
