@@ -400,13 +400,32 @@ export default function ReportArtistCache() {
                   </>
                 )}
 
-                {/* Cache bruto */}
+                {/* Cache bruto - quando há override mostramos calculado original e o efetivo */}
+                {report.hasOverride && Math.abs(report.calculatedFinal - report.cacheAmount) >= 0.01 && (
+                  <TableRow>
+                    <TableCell className="text-muted-foreground italic text-xs">
+                      Cachê Calculado (referência)
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground line-through">
+                      {formatCurrency(report.calculatedFinal)}
+                    </TableCell>
+                  </TableRow>
+                )}
                 <TableRow className="bg-primary/5 border-t-2 border-primary/20">
                   <TableCell className="font-semibold">
                     {report.isVariable ? "Cachê Bruto" : "Cachê Fixo"}
+                    {report.isAdjusted && <span className="ml-2 text-[10px] font-normal text-warning">(ajustado)</span>}
+                    {!report.isAdjusted && report.hasOverride && <span className="ml-2 text-[10px] font-normal text-primary">(snapshot)</span>}
                   </TableCell>
                   <TableCell className="text-right font-semibold">{formatCurrency(report.cacheAmount)}</TableCell>
                 </TableRow>
+                {report.isAdjusted && report.agreementNotes && (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-[11px] text-muted-foreground italic bg-warning/5 border-l-2 border-warning/40">
+                      💬 {report.agreementNotes}
+                    </TableCell>
+                  </TableRow>
+                )}
 
                 {/* Extras */}
                 {report.extras.length > 0 && (
