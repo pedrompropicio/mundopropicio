@@ -1105,6 +1105,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
     }
+    if (currency !== "EUR") {
+      const orig = parseFloat(originalAmount) || 0;
+      const rate = parseFloat(fxRate) || 0;
+      if (orig <= 0 || rate <= 0) {
+        toast({ title: `Define valor em ${currency} e câmbio`, variant: "destructive" });
+        return;
+      }
+    }
     if (form.is_reimbursement && !form.reimbursement_note_id && !showNewReimbursementNote) {
       toast({ title: "Selecione ou crie uma Nota de Reembolso", variant: "destructive" });
       return;
