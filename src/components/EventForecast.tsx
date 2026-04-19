@@ -7,7 +7,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { format } from "date-fns";
@@ -19,7 +19,7 @@ import { buildCategoryLookup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction, type CachePLLine } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { CopyPLModal } from "@/components/CopyPLModal";
-import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
+import { attachLinksFromXlsx, reprocessOrphanAttachments } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
@@ -1433,14 +1433,52 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 {/* Bulk attachments are now handled inside the Implantação modal,
                     after the BP has been imported (motor unificado de matching). */}
                 {pendingOrphansCount > 0 && (
-                  <button
-                    onClick={() => setShowOrphanResolver(true)}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
-                    title="Anexos do XLSX que ainda não foram vinculados a uma linha do BP"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                    Anexos pendentes ({pendingOrphansCount})
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowOrphanResolver(true)}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
+                      title="Anexos do XLSX que ainda não foram vinculados a uma linha do BP"
+                    >
+                      <Paperclip className="h-3.5 w-3.5" />
+                      Anexos pendentes ({pendingOrphansCount})
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await reprocessOrphanAttachments(
+                            eventId,
+                            childEventIds,
+                            parentEventId,
+                            user?.email || "system",
+                          );
+                          queryClient.invalidateQueries({ queryKey: ["bp_orphan_attachments", eventId] });
+                          queryClient.invalidateQueries({ queryKey: ["bp_orphan_attachments_count", eventId] });
+                          queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+                          const parts: string[] = [];
+                          parts.push(`${res.resolved}/${res.scanned} resolvidos`);
+                          if (res.attached > 0) parts.push(`${res.attached} anexos vinculados`);
+                          if (res.skipped > 0) parts.push(`${res.skipped} já existiam`);
+                          if (res.stillOrphan > 0) parts.push(`${res.stillOrphan} ainda sem match`);
+                          toast({
+                            title: "Reprocessamento concluído",
+                            description: parts.join(" · "),
+                            variant: res.errors.length > 0 ? "destructive" : "default",
+                          });
+                        } catch (err: any) {
+                          toast({
+                            title: "Erro no reprocessamento",
+                            description: err?.message ?? "Erro desconhecido",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
+                      title="Re-executar o motor de matching atualizado contra os órfãos pendentes"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Reprocessar
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setShowCopyModal(true)}
