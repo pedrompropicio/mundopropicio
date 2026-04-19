@@ -355,6 +355,24 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
   const setForecast = (id: string, forecastId: string | null) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, forecastId, overridden: true } : f)));
   };
+  const setCategory = (id: string, categoryId: string | null) => {
+    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, categoryId } : f)));
+  };
+  const toggleCategoryConfirmed = (id: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, categoryConfirmed: !f.categoryConfirmed } : f)),
+    );
+  };
+  const acceptAllCategorySuggestions = () => {
+    setFiles((prev) =>
+      prev.map((f) =>
+        !f.excluded && f.forecastId && f.suggestedCategoryId && f.categoryId
+          ? { ...f, categoryConfirmed: true }
+          : f,
+      ),
+    );
+    toast({ title: "Categorias sugeridas aceites" });
+  };
   const toggleExclude = (id: string) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, excluded: !f.excluded } : f)));
   };
