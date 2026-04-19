@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark } from "lucide-react";
+import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -13,6 +13,8 @@ import { pt } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
