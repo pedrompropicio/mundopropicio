@@ -28,6 +28,7 @@ import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
+import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 
 interface InlineForm {
   type: string;
@@ -83,6 +84,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
   const [pendingImportInstructions, setPendingImportInstructions] = useState<string>("");
   const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
+  const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
