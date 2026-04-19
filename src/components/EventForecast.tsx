@@ -30,6 +30,7 @@ import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
+import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 
 interface InlineForm {
   type: string;
@@ -88,6 +89,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showOrphanResolver, setShowOrphanResolver] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
@@ -114,6 +116,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (error) throw error;
       return sortByHierarchicalCode(data ?? [], (category) => category.code);
     },
+  });
+
+  // Pending orphan attachment links waiting for manual resolution.
+  const { data: pendingOrphansCount = 0 } = useQuery({
+    queryKey: ["bp_orphan_attachments_count", eventId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("bp_orphan_attachments")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", eventId)
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!eventId,
   });
 
   const cacheCategoryId = useMemo(() => {
@@ -956,12 +973,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["bp_orphan_attachments_count", eventId] });
 
       const summary = [
         `${result.attached} link(s) anexado(s)`,
         result.matchedInMaster > 0 ? `${result.matchedInMaster} via Master` : null,
         result.skipped > 0 ? `${result.skipped} já existia(m)` : null,
-        result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} linha(s) sem BP correspondente` : null,
+        result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} órfão(s) — abre resolução manual` : null,
         result.rowsWithoutTx > 0 ? `${result.rowsWithoutTx} BP sem transação gerada` : null,
       ].filter(Boolean).join(" · ");
 
@@ -970,6 +988,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         description: summary || (result.errors[0] ?? undefined),
         variant: result.errors.length > 0 && result.attached === 0 ? "destructive" : undefined,
       });
+
+      // Auto-open resolver when there are orphans
+      if (result.orphans && result.orphans.length > 0) {
+        setShowOrphanResolver(true);
+      }
     } catch (err: any) {
       toast({ title: "Erro ao anexar links", description: err.message, variant: "destructive" });
     } finally {
@@ -1388,6 +1411,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </button>
                 {/* Bulk attachments are now handled inside the Implantação modal,
                     after the BP has been imported (motor unificado de matching). */}
+                {pendingOrphansCount > 0 && (
+                  <button
+                    onClick={() => setShowOrphanResolver(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
+                    title="Anexos do XLSX que ainda não foram vinculados a uma linha do BP"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Anexos pendentes ({pendingOrphansCount})
+                  </button>
+                )}
                 <button
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
@@ -1940,6 +1973,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         }}
       />
       {/* Sheet mapping modal removed — full import flow now lives at /admin/implantacao/:id */}
+
+      <OrphanAttachmentsResolver
+        open={showOrphanResolver}
+        onOpenChange={setShowOrphanResolver}
+        eventId={eventId}
+        childEventIds={childEventIds}
+        parentEventId={parentEventId}
+      />
 
       <PromoteToMasterModal
         open={showPromoteModal}

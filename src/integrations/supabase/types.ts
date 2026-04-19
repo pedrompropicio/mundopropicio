@@ -94,6 +94,62 @@ export type Database = {
         }
         Relationships: []
       }
+      bp_orphan_attachments: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          link_url: string
+          notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_forecast_ids: string[]
+          row_base_amount: number
+          row_description: string
+          sheet_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          link_url: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_forecast_ids?: string[]
+          row_base_amount?: number
+          row_description: string
+          sheet_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          link_url?: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_forecast_ids?: string[]
+          row_base_amount?: number
+          row_description?: string
+          sheet_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bp_orphan_attachments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cities: {
         Row: {
           country: string
