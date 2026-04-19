@@ -1411,6 +1411,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </button>
                 {/* Bulk attachments are now handled inside the Implantação modal,
                     after the BP has been imported (motor unificado de matching). */}
+                {pendingOrphansCount > 0 && (
+                  <button
+                    onClick={() => setShowOrphanResolver(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
+                    title="Anexos do XLSX que ainda não foram vinculados a uma linha do BP"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Anexos pendentes ({pendingOrphansCount})
+                  </button>
+                )}
                 <button
                   onClick={() => setShowCopyModal(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
