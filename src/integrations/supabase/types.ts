@@ -261,6 +261,7 @@ export type Database = {
       event_cache_configs: {
         Row: {
           adjusted_amount: number | null
+          agreement_notes: string | null
           artist_name: string
           cache_deduction_basis: string
           cache_revenue_basis: string
@@ -283,6 +284,7 @@ export type Database = {
         }
         Insert: {
           adjusted_amount?: number | null
+          agreement_notes?: string | null
           artist_name: string
           cache_deduction_basis?: string
           cache_revenue_basis?: string
@@ -305,6 +307,7 @@ export type Database = {
         }
         Update: {
           adjusted_amount?: number | null
+          agreement_notes?: string | null
           artist_name?: string
           cache_deduction_basis?: string
           cache_revenue_basis?: string
