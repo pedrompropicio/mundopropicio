@@ -589,9 +589,14 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
               uploadedAt: new Date().toISOString(),
               uploadedBy: user?.email ?? "system",
             } as any);
+            const updatePayload: Record<string, unknown> = { attachment_refs: refs as any };
+            // Apply confirmed AI-suggested category to the BP row.
+            if (item.categoryConfirmed && item.categoryId) {
+              updatePayload.category_id = item.categoryId;
+            }
             const { error: dbErr } = await supabase
               .from("event_forecasts")
-              .update({ attachment_refs: refs as any } as any)
+              .update(updatePayload as any)
               .eq("id", forecast.id);
             if (dbErr) throw dbErr;
 
