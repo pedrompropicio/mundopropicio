@@ -584,6 +584,55 @@ function fileNameFromUrl(url: string): string {
 }
 
 /**
+ * Find a matching forecast for an XLSX row using a layered strategy:
+ *  1. Primary pool — match by description AND (net OR gross within 1 cent)
+ *  2. Master pool  — match by description AND (net OR gross within 1 cent)
+ *  3. Master pool  — match by description only (last resort, since Master often
+ *     stores aggregated values that differ per sub-event)
+ *
+ * The XLSX baseAmount is the value the user typed in the spreadsheet, which can
+ * be either net (without VAT) or gross (with VAT) depending on how the BP was
+ * filled. We therefore tolerate both. The pure-description fallback only fires
+ * for the Master pool to avoid wrong matches on sub-events that may share names.
+ */
+export type ForecastLike = {
+  id: string;
+  event_id: string;
+  description: string;
+  amount: number;
+  iva_rate?: number | null;
+  transaction_id?: string | null;
+  attachment_refs?: any;
+};
+
+export function findForecastMatch(
+  rowDescription: string,
+  rowBaseAmount: number,
+  primary: ForecastLike[],
+  master: ForecastLike[],
+): { forecast: ForecastLike; fromMaster: boolean } | null {
+  const descKey = norm(rowDescription);
+  const TOL = 0.01;
+  const matchesAmount = (f: ForecastLike): boolean => {
+    const net = Number(f.amount) || 0;
+    const ivaPct = Number(f.iva_rate ?? 0) || 0;
+    const gross = roundMoney(net * (1 + ivaPct / 100));
+    return Math.abs(net - rowBaseAmount) <= TOL || Math.abs(gross - rowBaseAmount) <= TOL;
+  };
+  const inPrimary = primary.find(
+    (f) => norm(String(f.description)) === descKey && matchesAmount(f),
+  );
+  if (inPrimary) return { forecast: inPrimary, fromMaster: false };
+  const inMasterTight = master.find(
+    (f) => norm(String(f.description)) === descKey && matchesAmount(f),
+  );
+  if (inMasterTight) return { forecast: inMasterTight, fromMaster: true };
+  const inMasterDescOnly = master.find((f) => norm(String(f.description)) === descKey);
+  if (inMasterDescOnly) return { forecast: inMasterDescOnly, fromMaster: true };
+  return null;
+}
+
+/**
  * Read a BP spreadsheet and attach its column G–K links to existing transactions
  * generated from the BP. Matching key: (description normalized + baseAmount within 1 cent).
  * Skips when the same file_url already exists for that transaction.
