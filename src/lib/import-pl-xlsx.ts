@@ -354,7 +354,8 @@ interface ImportResult {
  */
 async function matchCategoriesWithAI(
   rows: ParsedRow[],
-  categories: { id: string; name: string; code: string; type: string; parent_id?: string | null }[]
+  categories: { id: string; name: string; code: string; type: string; parent_id?: string | null }[],
+  userInstructions?: string,
 ): Promise<Record<number, string>> {
   const leafCategories = getExpenseLeafCategories(categories);
   const matchCategoryFallback = createExpenseCategoryMatcher(leafCategories);
@@ -366,7 +367,7 @@ async function matchCategoriesWithAI(
 
   try {
     const { data, error } = await supabase.functions.invoke("match-categories", {
-      body: { descriptions, categories: leafCategories },
+      body: { descriptions, categories: leafCategories, instructions: userInstructions ?? "" },
     });
 
     if (error || !data?.matches) {
@@ -410,14 +411,15 @@ export async function importPLToEvent(
   eventDate: string,
   categories: { id: string; name: string; code: string; type: string; parent_id?: string | null }[],
   userEmail: string,
-  parentEventId?: string
+  parentEventId?: string,
+  userInstructions?: string,
 ): Promise<ImportResult> {
   let created = 0;
   const errors: string[] = [];
 
 
   // Use AI to match categories
-  const aiMatches = await matchCategoriesWithAI(rows, categories);
+  const aiMatches = await matchCategoriesWithAI(rows, categories, userInstructions);
 
   // Fallback: simple word matching
   const expenseCategories = getExpenseLeafCategories(categories);

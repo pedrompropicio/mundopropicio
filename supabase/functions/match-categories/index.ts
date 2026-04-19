@@ -149,7 +149,7 @@ ATENÇÃO sobre LED/Ecrã:
 - Internet escritório → 10.7.09
 - Software, SaaS, licença software → 10.7.10
 - Cloud, hosting, servidor → 10.7.11
-- Equipamento, hardware → 10.7.12`
+- Equipamento, hardware → 10.7.12${userInstructionsBlock}`
           },
           {
             role: "user",
