@@ -973,12 +973,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["bp_orphan_attachments_count", eventId] });
 
       const summary = [
         `${result.attached} link(s) anexado(s)`,
         result.matchedInMaster > 0 ? `${result.matchedInMaster} via Master` : null,
         result.skipped > 0 ? `${result.skipped} já existia(m)` : null,
-        result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} linha(s) sem BP correspondente` : null,
+        result.rowsWithoutMatch > 0 ? `${result.rowsWithoutMatch} órfão(s) — abre resolução manual` : null,
         result.rowsWithoutTx > 0 ? `${result.rowsWithoutTx} BP sem transação gerada` : null,
       ].filter(Boolean).join(" · ");
 
@@ -987,6 +988,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         description: summary || (result.errors[0] ?? undefined),
         variant: result.errors.length > 0 && result.attached === 0 ? "destructive" : undefined,
       });
+
+      // Auto-open resolver when there are orphans
+      if (result.orphans && result.orphans.length > 0) {
+        setShowOrphanResolver(true);
+      }
     } catch (err: any) {
       toast({ title: "Erro ao anexar links", description: err.message, variant: "destructive" });
     } finally {
