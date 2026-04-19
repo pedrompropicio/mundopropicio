@@ -21,6 +21,8 @@ interface ExtractResult {
   document_date: string | null;
   /** Detected document type: invoice, proforma, quote/proposal, receipt, transfer, contract, other. */
   document_type: string | null;
+  /** Concise free-text description of the services/products billed (used for category matching). */
+  service_description: string | null;
   raw?: string;
   error?: string;
 }
