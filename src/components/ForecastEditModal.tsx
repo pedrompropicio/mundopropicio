@@ -6,6 +6,9 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
+import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 
 interface Props {
   forecast: any;
@@ -17,7 +20,20 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [description, setDescription] = useState(forecast.description || "");
   const [specification, setSpecification] = useState(forecast.specification || "");
   const [categoryId, setCategoryId] = useState(forecast.category_id || "");
-  const [amount, setAmount] = useState(String(forecast.amount));
+  const initialCurrency: CurrencyCode = isSupportedCurrency(forecast.currency) ? forecast.currency : "EUR";
+  const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency);
+  const [originalAmount, setOriginalAmount] = useState(
+    initialCurrency === "EUR"
+      ? String(forecast.amount)
+      : String(forecast.original_amount ?? eurToOriginal(Number(forecast.amount), Number(forecast.fx_rate) || 1))
+  );
+  const [fxRate, setFxRate] = useState(
+    initialCurrency === "EUR" ? "" : String(forecast.fx_rate ?? "")
+  );
+  const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">(
+    forecast.fx_rate_source === "suggested" ? "suggested" : "manual"
+  );
+  const [eurAmount, setEurAmount] = useState<number>(Number(forecast.amount) || 0);
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
