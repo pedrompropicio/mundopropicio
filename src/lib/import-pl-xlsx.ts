@@ -550,6 +550,17 @@ export async function importPLToEvent(
 // Layer B: Re-import only the attachment links from a spreadsheet
 // ============================================================
 
+export interface OrphanLinkRow {
+  /** Excel sheet the orphan came from */
+  sheetName: string;
+  /** Row description as parsed from XLSX */
+  description: string;
+  /** Row base amount (no IVA) */
+  baseAmount: number;
+  /** Links from this row that could NOT be matched */
+  links: string[];
+}
+
 export interface AttachLinksResult {
   attached: number;        // links inserted
   skipped: number;         // links that already existed
@@ -557,6 +568,8 @@ export interface AttachLinksResult {
   rowsWithoutTx: number;    // matched forecasts that lack transaction_id
   matchedInMaster: number; // links that matched a forecast in the Master event (fallback)
   errors: string[];
+  /** Detailed list of orphan rows (for manual resolution UI) */
+  orphans: OrphanLinkRow[];
 }
 
 /** Extract a friendly file name from a URL (last segment, strip query). */
