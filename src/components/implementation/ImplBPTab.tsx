@@ -1495,18 +1495,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               Histórico ({importBatches.length})
             </Button>
           )}
-          {allEventIds.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkAttach(true)}
-              className="gap-2"
-              title="Anexar ficheiros (ZIP ou pasta de PDFs) às linhas do BP já importadas, com casamento automático por fornecedor / Drive ID / similaridade"
-            >
-              <Paperclip className="h-4 w-4" />
-              Anexos em massa
-            </Button>
-          )}
+          {/* "Anexos em massa" removed — each BP row links directly to its Drive file. */}
           {parsedSheets && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
