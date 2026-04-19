@@ -917,6 +917,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             old_value: null,
             new_value: `${data.type === "income" ? "Receita" : "Despesa"} — ${data.description} — ${parseFloat(data.amount).toFixed(2)} €`,
           });
+          if (autoApproved && !autoMarkPaid) {
+            await supabase.from("transaction_audit_log").insert({
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "status",
+              old_value: "pending",
+              new_value: "approved",
+              observation: "Aprovação automática — categoria com BP aprovado e dentro do saldo disponível",
+            } as any);
+          }
         }
 
         // Link to Master forecast if user chose "master" in reinforcement dialog
