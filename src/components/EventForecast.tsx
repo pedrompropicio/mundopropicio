@@ -898,19 +898,48 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
         const normStr = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-        // Match each sheet to a child event by name similarity
+        // Build candidate keys for each sub-event so the matcher works without
+        // needing the city to be filled. We accept:
+        //  - the city name (if any)
+        //  - the full event name
+        //  - the suffix after the last "—" / "–" / "-" (e.g. "Porto", "Lisboa")
+        //  - any whitespace-separated word in the event name (last resort)
+        const buildCandidates = (ce: any): string[] => {
+          const out = new Set<string>();
+          const cityName = (ce.cities as any)?.name || "";
+          const eventName = ce.name || "";
+          if (cityName) out.add(normStr(cityName));
+          if (eventName) {
+            out.add(normStr(eventName));
+            const suffixMatch = eventName.split(/[—–-]/).map((p: string) => p.trim()).filter(Boolean);
+            if (suffixMatch.length > 1) out.add(normStr(suffixMatch[suffixMatch.length - 1]));
+            for (const word of normStr(eventName).split(/\s+/)) {
+              if (word.length >= 4) out.add(word);
+            }
+          }
+          return Array.from(out).filter(Boolean);
+        };
+
+        // Match each sheet to a single child event. We require an unambiguous
+        // match so we don't accidentally route the wrong city's tab.
         const matchedSheets: { sheet: typeof sheetsWithData[0]; childEvent: any }[] = [];
         const unmatchedSheets: string[] = [];
+        const usedChildIds = new Set<string>();
 
         for (const sheet of sheetsWithData) {
           const sheetNorm = normStr(sheet.sheetName);
-          const match = childEvents.find((ce: any) => {
-            const cityName = (ce.cities as any)?.name || "";
-            const eventName = ce.name || "";
-            return normStr(cityName) === sheetNorm || normStr(eventName).includes(sheetNorm) || sheetNorm.includes(normStr(cityName));
-          });
-          if (match) {
-            matchedSheets.push({ sheet, childEvent: match });
+          const candidates = childEvents
+            .filter((ce: any) => !usedChildIds.has(ce.id))
+            .map((ce: any) => ({
+              ce,
+              keys: buildCandidates(ce),
+            }))
+            .filter((entry) =>
+              entry.keys.some((k) => k === sheetNorm || sheetNorm.includes(k) || k.includes(sheetNorm)),
+            );
+          if (candidates.length === 1) {
+            matchedSheets.push({ sheet, childEvent: candidates[0].ce });
+            usedChildIds.add(candidates[0].ce.id);
           } else {
             unmatchedSheets.push(sheet.sheetName);
           }
