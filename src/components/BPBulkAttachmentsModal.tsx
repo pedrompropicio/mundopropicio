@@ -224,18 +224,29 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
   /**
    * Decide if a document belongs to any event in scope.
    *
-   * Rule (name has VETO power over date):
-   *   1. If the PDF explicitly mentions an event/artist name, that name MUST match an
-   *      event in scope. If it doesn't, we declare a mismatch even if the date is close
-   *      (otherwise an invoice for "Newgang" dated near "Maiara e Maraisa" would be
-   *      wrongly attributed to the latter).
-   *   2. If the PDF has NO names mentioned (rare — e.g. a generic transfer proof),
-   *      we fall back to date-based ownership.
+   * Three signals (combined):
+   *   1. NAME — strong veto: if the PDF mentions a name, ≥60% of the event's strong
+   *      tokens must appear (or the full name as a contiguous phrase).
+   *   2. DATE — within ±60 days of any event date.
+   *   3. AMOUNT — extracted total matches the amount of any BP line in the events
+   *      in scope (within ±1% or €1). Acts as a tiebreaker when name/date are weak.
+   *
+   * State logic:
+   *   - "match"   → name matched, OR (date+amount matched), OR (no names mentioned + date matched)
+   *   - "unknown" → some partial signal but not enough confidence (needs manual review)
+   *   - "mismatch" → kept reserved (currently never returned; we prefer "unknown" over hard rejection)
    */
   const checkOwnership = (
     mentionedNames: string | null,
     documentDate: string | null,
-  ): { state: "match" | "mismatch" | "unknown"; matchedBy: ("name" | "date")[]; reason?: string } => {
+    extractedTotal: number | null = null,
+  ): { state: "match" | "mismatch" | "unknown"; matchedBy: ("name" | "date" | "amount")[]; reason?: string } => {
+    if (eventScope.length === 0) return { state: "unknown", matchedBy: [], reason: "Sem eventos no contexto" };
+    const hasNames = !!(mentionedNames && mentionedNames.trim().length > 0);
+    const hasAmount = typeof extractedTotal === "number" && Number.isFinite(extractedTotal) && extractedTotal > 0;
+    if (!hasNames && !documentDate && !hasAmount) {
+      return { state: "unknown", matchedBy: [], reason: "PDF sem nome, data nem valor legíveis" };
+    }
     if (eventScope.length === 0) return { state: "unknown", matchedBy: [], reason: "Sem eventos no contexto" };
     const hasNames = !!(mentionedNames && mentionedNames.trim().length > 0);
     if (!hasNames && !documentDate) {
