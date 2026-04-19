@@ -58,6 +58,7 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
   const qc = useQueryClient();
   const [newLink, setNewLink] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refs: Array<{ url: string }> = Array.isArray(forecast.attachment_refs)
