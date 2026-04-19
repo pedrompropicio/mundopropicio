@@ -270,16 +270,14 @@ async function syncTourCacheForecasts(
       const existing = existingMap.get(key);
 
       if (existing) {
-        if (!config.is_finalized) {
-          const currentAmount = Math.round(existing.amount * 100);
-          const newAmount = Math.round(amount * 100);
-          if (currentAmount !== newAmount) {
-            await supabase
-              .from("event_forecasts")
-              .update({ amount, description: `Cachê — ${config.artist_name}` })
-              .eq("id", existing.id);
-            changed = true;
-          }
+        const currentAmount = Math.round(existing.amount * 100);
+        const newAmount = Math.round(amount * 100);
+        if (currentAmount !== newAmount) {
+          await supabase
+            .from("event_forecasts")
+            .update({ amount, description: `Cachê — ${config.artist_name}` })
+            .eq("id", existing.id);
+          changed = true;
         }
         existingMap.delete(key);
       } else {
