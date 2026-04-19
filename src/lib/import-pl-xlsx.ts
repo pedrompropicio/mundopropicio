@@ -648,7 +648,31 @@ export function findForecastMatch(
     if (inMasterAggregated) return { forecast: inMasterAggregated, fromMaster: true };
   }
 
-  // 4) Master pool — description-only fallback (last resort)
+  // 4) Primary pool — value match + partial description similarity
+  //    Catches sub-event rows where the XLSX description differs from the BP
+  //    description but the amount and at least one significant token match.
+  //    Example: "Hotel porto palacio(artista)" 1067€ <-> BP "Hotel - Artistas" 1067€
+  //    Restricted to primary pool to avoid Master rateio ambiguity. Requires a
+  //    UNIQUE candidate (>1 match aborts) to prevent false positives.
+  const xlsxTokens = new Set(
+    descKey.split(/[^a-z0-9]+/).filter((t) => t.length >= 3),
+  );
+  if (xlsxTokens.size > 0) {
+    const candidates = primary.filter((f) => {
+      if (!matchesAmount(f, rowBaseAmount)) return false;
+      const fTokens = new Set(
+        norm(String(f.description)).split(/[^a-z0-9]+/).filter((t) => t.length >= 3),
+      );
+      // Require at least one shared significant token
+      for (const t of xlsxTokens) {
+        if (fTokens.has(t)) return true;
+      }
+      return false;
+    });
+    if (candidates.length === 1) return { forecast: candidates[0], fromMaster: false };
+  }
+
+  // 5) Master pool — description-only fallback (last resort)
   const inMasterDescOnly = master.find((f) => norm(String(f.description)) === descKey);
   if (inMasterDescOnly) return { forecast: inMasterDescOnly, fromMaster: true };
 
