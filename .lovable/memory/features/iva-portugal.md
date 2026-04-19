@@ -42,3 +42,11 @@ Em `EventForecast.tsx` (`proratedParentExpenses` + totais do BP do sub-evento):
 - Base prorrateada **arredondada ao cêntimo** antes de qualquer soma (`roundCents(parentBase / siblingCount)`).
 - IVA somado **linha-a-linha** via `calcIvaAmount`, nunca como `Σ(base) × taxa`.
 - Mesma regra aplicada a `incomeForecasts`/`expenseForecasts` para evitar resíduo agregado (caso Maiara e Maraisa Porto: ficheiro 191.721,09 vs ecrã 191.721,02 antes da correção).
+
+### Compensação do último irmão (Σ sub = Master)
+Quando `parentBase / siblingCount` não fecha ao cêntimo, os primeiros N−1 sub-eventos
+recebem `roundCents(parentBase / N)` e o **último irmão (ordenado por data crescente)**
+absorve o cêntimo residual: `share_last = round(parentBase − share * (N−1), 2)`.
+Garante `Σ shares = parentBase` exato sem espalhar resíduo por todos.
+- Variáveis expostas no objeto prorrateado: `_isLastSibling`, `_siblingIndex`, `_siblingCount`.
+- Em rateios 50/50 com IVA 23%, o desvio típico é ±0,01€/linha que vai parar ao último sub-evento.
