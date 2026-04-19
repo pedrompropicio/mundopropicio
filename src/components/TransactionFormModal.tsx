@@ -624,17 +624,45 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     enabled: isSplit && splitParentEventIds.length > 0 && !!form.category_id,
   });
 
-  const splitBPInfoByEvent = useMemo<Record<string, SplitBPInfo>>(() => {
-    if (!isSplit || splitEventIds.length === 0 || !form.category_id) return {};
-    // Check if the category exists in the parent/master BP
-    const categoryInParentBP = parentForecasts.some(
-      f => f.type === form.type && f.category_id === form.category_id
+  const splitBudgetKey = `${form.type}_${form.category_id || "none"}`;
+  const shouldUseEffectiveMasterBudget =
+    isSplit &&
+    !!effectiveEventId &&
+    effectiveEvent?.event_type === "multi_day" &&
+    splitParentEventIds.includes(effectiveEventId);
+
+  const splitCategoryExistsInParent = useMemo(() => {
+    if (!isSplit || !form.category_id) return false;
+    if (shouldUseEffectiveMasterBudget) {
+      return relevantForecasts.some(
+        (f: any) => f.type === form.type && f.category_id === form.category_id,
+      );
+    }
+    return parentForecasts.some(
+      f => f.type === form.type && f.category_id === form.category_id,
     );
-    const parentForecastTotal = parentForecasts
+  }, [isSplit, form.category_id, form.type, shouldUseEffectiveMasterBudget, relevantForecasts, parentForecasts]);
+
+  const splitParentForecastTotal = useMemo(() => {
+    if (!isSplit || !form.category_id) return 0;
+    if (shouldUseEffectiveMasterBudget) {
+      return Number(forecastBudgetByCategory[splitBudgetKey] || 0);
+    }
+    return parentForecasts
       .filter(f => f.type === form.type && f.category_id === form.category_id)
       .reduce((s, f) => s + Number(f.amount), 0);
-    // Master remaining = Master forecast − already used by Master split children
-    const masterRemaining = Math.max(0, parentForecastTotal - Number(masterSplitUsed || 0));
+  }, [isSplit, form.category_id, form.type, shouldUseEffectiveMasterBudget, forecastBudgetByCategory, splitBudgetKey, parentForecasts]);
+
+  const splitParentUsedTotal = useMemo(() => {
+    if (!isSplit || !form.category_id) return 0;
+    if (shouldUseEffectiveMasterBudget) {
+      return Number(usedBudgetByCategory[splitBudgetKey] || 0);
+    }
+    return Number(masterSplitUsed || 0);
+  }, [isSplit, form.category_id, shouldUseEffectiveMasterBudget, usedBudgetByCategory, splitBudgetKey, masterSplitUsed]);
+
+  const splitBPInfoByEvent = useMemo<Record<string, SplitBPInfo>>(() => {
+    if (!isSplit || splitEventIds.length === 0 || !form.category_id) return {};
 
     const result: Record<string, SplitBPInfo> = {};
     for (const eventId of splitEventIds) {
@@ -645,8 +673,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         (t: any) => t.event_id === eventId && !t.parent_transaction_id,
       );
       const childForecastMatch = evForecasts.some(f => f.type === form.type && f.category_id === form.category_id);
-      const hasAnyForecasts = evForecasts.length > 0 || categoryInParentBP;
-      const hasForecastMatch = childForecastMatch || categoryInParentBP;
+      const hasAnyForecasts = evForecasts.length > 0 || splitCategoryExistsInParent;
+      const hasForecastMatch = childForecastMatch || splitCategoryExistsInParent;
       const childForecast = evForecasts
         .filter(f => f.type === form.type && f.category_id === form.category_id)
         .reduce((s, f) => s + Number(f.amount), 0);
@@ -654,19 +682,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         .filter((t: any) => t.type === form.type && t.category_id === form.category_id)
         .reduce((s: number, t: any) => s + Number(t.amount), 0);
 
-      // Two independent buckets:
-      //   - Master bucket: parentForecastTotal − masterSplitUsed (shared across all Subs of this rateio)
-      //   - Sub-local bucket: childForecast − childUsed (per Sub)
-      // For validation we expose the "best applicable" forecast/used per Sub:
-      //   - if Master has a line for this category, prefer the Master remaining as the available room
-      //     (because rateios consume the Master bucket, not the Sub)
-      //   - otherwise fall back to the Sub-local numbers
-      const useMasterBucket = categoryInParentBP;
+      const useMasterBucket = splitCategoryExistsInParent;
       const forecast = useMasterBucket
-        ? parentForecastTotal
+        ? splitParentForecastTotal
         : (childForecast > 0 ? childForecast : 0);
       const used = useMasterBucket
-        ? Number(masterSplitUsed || 0)
+        ? splitParentUsedTotal
         : childUsed;
 
       result[eventId] = {
@@ -679,7 +700,18 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       };
     }
     return result;
-  }, [isSplit, splitEventIds, form.category_id, form.type, splitForecasts, splitTransactions, events, parentForecasts, masterSplitUsed]);
+  }, [
+    isSplit,
+    splitEventIds,
+    form.category_id,
+    form.type,
+    splitForecasts,
+    splitTransactions,
+    events,
+    splitCategoryExistsInParent,
+    splitParentForecastTotal,
+    splitParentUsedTotal,
+  ]);
 
   // Validate split category against parent/child BP rules
   const splitCategoryBlockReason = useMemo<string | null>(() => {
@@ -688,30 +720,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     if (splitAutoConfigured) return null;
 
     // Rule 1: Category already exists in the parent/master event's BP → block
-    if (splitParentEventIds.length > 0) {
-      const categoryInParent = parentForecasts.some(
-        f => f.type === form.type && f.category_id === form.category_id
-      );
-      if (categoryInParent) {
-        const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
-        const parentName = parentEvent?.name ?? "evento master";
-        return `Esta categoria já existe no BP do ${parentName}. A transação deve ser criada directamente no evento master, que fará o rateio automático para os sub-eventos.`;
-      }
+    if (splitParentEventIds.length > 0 && splitCategoryExistsInParent) {
+      const parentEvent = events.find((e: any) => splitParentEventIds.includes(e.id));
+      const parentName = parentEvent?.name ?? "evento master";
+      return `Esta categoria já existe no BP do ${parentName}. A transação deve ser criada directamente no evento master, que fará o rateio automático para os sub-eventos.`;
     }
 
     // Rule 2: removed — now handled as warning only (splitCategoryWarning)
 
     return null;
-  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
+  }, [isSplit, splitAutoConfigured, form.category_id, splitEventIds.length, splitParentEventIds, splitCategoryExistsInParent, events]);
 
   // Warning (non-blocking): category in all children but not in master
   const splitCategoryWarning = useMemo<string | null>(() => {
     if (!isSplit || !form.category_id || splitEventIds.length < 2 || splitAutoConfigured) return null;
     if (splitParentEventIds.length === 0) return null;
-    const categoryInParent = parentForecasts.some(
-      f => f.type === form.type && f.category_id === form.category_id
-    );
-    if (categoryInParent) return null;
+    if (splitCategoryExistsInParent) return null;
     const allChildrenHaveCategory = splitEventIds.every(eventId =>
       splitForecasts.some(f => f.event_id === eventId && f.type === form.type && f.category_id === form.category_id)
     );
@@ -721,7 +745,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     const selectedCat = categories.find((c: any) => c.id === form.category_id);
     const catLabel = selectedCat ? `${selectedCat.code} ${selectedCat.name}` : "esta categoria";
     return `A categoria "${catLabel}" existe no BP dos sub-eventos mas não no master (${parentName}). A transação será criada normalmente.`;
-  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, parentForecasts, splitForecasts, events, categories]);
+  }, [isSplit, splitAutoConfigured, form.category_id, form.type, splitEventIds, splitParentEventIds, splitCategoryExistsInParent, splitForecasts, events, categories]);
 
   // Check if any split event needs BP bypass.
   // Rateio Master → validates against the Master bucket as a whole (sum of fatias = totalAmount).
@@ -731,16 +755,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     const amount = parseFloat(form.amount) || 0;
     if (amount <= 0) return false;
 
-    const categoryInParentBP = parentForecasts.some(
-      f => f.type === form.type && f.category_id === form.category_id
-    );
-
     // CASE A: rateio Master — the whole transaction consumes the Master bucket
-    if (categoryInParentBP) {
-      const parentForecastTotal = parentForecasts
-        .filter(f => f.type === form.type && f.category_id === form.category_id)
-        .reduce((s, f) => s + Number(f.amount), 0);
-      const remaining = parentForecastTotal - Number(masterSplitUsed || 0);
+    if (splitCategoryExistsInParent) {
+      const remaining = splitParentForecastTotal - splitParentUsedTotal;
       return amount > remaining + 0.005;
     }
 
@@ -754,7 +771,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       if (bp.forecast > 0 && childAmount > remaining + 0.005) return true;
     }
     return false;
-  }, [isSplit, form.category_id, form.amount, form.type, splitEntries, splitBPInfoByEvent, splitCategoryBlockReason, parentForecasts, masterSplitUsed]);
+  }, [
+    isSplit,
+    form.category_id,
+    form.amount,
+    splitCategoryBlockReason,
+    splitCategoryExistsInParent,
+    splitParentForecastTotal,
+    splitParentUsedTotal,
+    splitEntries,
+    splitBPInfoByEvent,
+  ]);
 
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
