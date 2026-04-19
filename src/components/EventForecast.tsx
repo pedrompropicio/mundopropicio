@@ -959,6 +959,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         setPendingTargets(targets);
         setPendingMappings(initialMappings);
         setShowSheetMapping(true);
+        setImportingXlsx(false); // pause spinner; modal takes over
         return; // wait for user confirmation in the modal
       } else {
         // Single event import (sub-event or simple event)
