@@ -742,13 +742,25 @@ export async function attachLinksFromXlsx(
     ? (forecasts || []).filter((f: any) => f.event_id === parentEventId)
     : [];
 
+  // Pre-compute aggregated baseAmount per normalized description across ALL
+  // sheets in this XLSX. This lets us resolve Master "rateio" forecasts whose
+  // value equals the sum of the same line across all sub-events.
+  const aggregatedByDesc = buildAggregatedAmountByDesc(allRows);
+
   for (const row of allRows) {
     const links = (row.attachments || [])
       .map((a) => String(a).trim())
       .filter((a) => /^https?:\/\//i.test(a));
     if (links.length === 0) continue;
 
-    const found = findForecastMatch(row.description, row.baseAmount, primaryForecasts as any, masterForecasts as any);
+    const aggregated = aggregatedByDesc.get(norm(row.description));
+    const found = findForecastMatch(
+      row.description,
+      row.baseAmount,
+      primaryForecasts as any,
+      masterForecasts as any,
+      aggregated,
+    );
     let match = found?.forecast;
     const matchedInMaster = found?.fromMaster ?? false;
 
