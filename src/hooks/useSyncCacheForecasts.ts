@@ -477,7 +477,8 @@ function calculateCacheAmount(
   ticketRevenueNet: number,
   ticketRevenueGross: number,
   expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
-  occupancyPct: number = 100
+  occupancyPct: number = 100,
+  citySettlement: CityCacheSettlement | null = null,
 ): number {
   let calculated: number;
   if (config.cache_type === "fixed") {
@@ -509,6 +510,6 @@ function calculateCacheAmount(
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
     calculated = Math.round(Math.max(minGuaranteed, calc));
   }
-  // Apply override priority: adjusted → snapshot if finalized → calculated
-  return Math.round(getCacheEffectiveAmount(config, calculated));
+  // Apply override priority: city settlement > config legacy > calculated
+  return Math.round(getCacheEffectiveAmount(config, calculated, citySettlement));
 }
