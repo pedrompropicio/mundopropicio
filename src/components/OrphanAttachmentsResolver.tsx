@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +123,7 @@ export default function OrphanAttachmentsResolver({
 }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
 
   const allEventIds = useMemo(
     () => Array.from(new Set([eventId, ...childEventIds, ...(parentEventId ? [parentEventId] : [])])),
@@ -360,7 +362,20 @@ export default function OrphanAttachmentsResolver({
                 )}
               </div>
               <div className="flex-1 bg-muted/20 overflow-hidden">
-                {previewUrl ? (
+                {isMobile ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground p-4 text-center">
+                    <FileText className="h-8 w-8" />
+                    <p className="text-xs">Pré-visualização não suportada no telemóvel.</p>
+                    {current && (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={current.link_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                          Abrir anexo
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                ) : previewUrl ? (
                   <iframe
                     key={current?.id}
                     src={previewUrl}
