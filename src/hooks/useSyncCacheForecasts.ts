@@ -85,6 +85,26 @@ export function useSyncCacheForecasts({
     refetchInterval: 15000,
   });
 
+  // Fingerprint of city settlements so hash changes when an adjustment/finalization happens per city
+  const cacheConfigIdsKey = useMemo(() => cacheConfigs.map((c) => c.id).sort().join(","), [cacheConfigs]);
+  const { data: citySettlementsFingerprint } = useQuery({
+    queryKey: ["cache-sync-city-settlements-fp", cacheConfigIdsKey, ...(childEventIds ?? [])],
+    queryFn: async () => {
+      if (!childEventIds || childEventIds.length === 0 || cacheConfigs.length === 0) return "no-cities";
+      const { data } = await supabase
+        .from("event_cache_city_settlements")
+        .select("event_id, cache_config_id, is_finalized, real_amount, adjusted_amount, updated_at")
+        .in("event_id", childEventIds)
+        .in("cache_config_id", cacheConfigs.map((c) => c.id));
+      return (data ?? [])
+        .map((r: any) => `${r.event_id}:${r.cache_config_id}:${r.is_finalized}:${r.real_amount ?? ""}:${r.adjusted_amount ?? ""}:${r.updated_at}`)
+        .sort()
+        .join("|");
+    },
+    enabled: enabled && cacheConfigs.length > 0 && !!childEventIds && childEventIds.length > 0,
+    refetchInterval: 10000,
+  });
+
   useEffect(() => {
     if (!enabled || !cacheCategoryId || cacheConfigs.length === 0 || syncingRef.current) return;
 
