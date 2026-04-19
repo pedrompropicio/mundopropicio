@@ -96,50 +96,54 @@ export function calculateCacheLinesForPL(
   occupancyPct?: number
 ): CachePLLine[] {
   return configs.map((config) => {
+    let calculated: number;
+    let cacheType: string;
+
     if (config.cache_type === "fixed") {
-      return {
-        artistName: config.artist_name,
-        cacheType: "fixed",
-        amount: Number(config.fixed_amount),
-      };
+      calculated = Number(config.fixed_amount);
+      cacheType = "fixed";
+    } else {
+      // Variable: percentage over (revenue - deduction expenses)
+      const basis = config.cache_revenue_basis === "gross" ? (ticketRevenueGross ?? ticketRevenueNet) : ticketRevenueNet;
+      const configDeductions = deductions.filter(
+        (d) => d.cache_config_id === config.id
+      );
+      const deductionCategoryIds = new Set(
+        configDeductions.map((d) => d.category_id)
+      );
+
+      const deductionBasisGross = config.cache_deduction_basis === "gross";
+
+      const categoryDeductionAmount = forecasts
+        .filter(
+          (f) =>
+            f.type === "expense" && deductionCategoryIds.has(f.category_id ?? "")
+        )
+        .reduce((s, f) => {
+          const base = Number(f.amount);
+          if (deductionBasisGross) {
+            const rate = Number(f.iva_rate ?? 0);
+            return s + base * (1 + rate / 100);
+          }
+          return s + base;
+        }, 0);
+
+      const fixedPctDeduction = basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
+      const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
+      const baseForCalc = basis - totalDeduction;
+      const pct = resolvePercentageFromTiers(config, occupancyPct ?? 100);
+      const calcRaw = Math.max(0, baseForCalc * (pct / 100));
+      const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+      calculated = Math.round(Math.max(minGuaranteed, calcRaw));
+      cacheType = "variable";
     }
 
-    // Variable: percentage over (revenue - deduction expenses)
-    const basis = config.cache_revenue_basis === "gross" ? (ticketRevenueGross ?? ticketRevenueNet) : ticketRevenueNet;
-    const configDeductions = deductions.filter(
-      (d) => d.cache_config_id === config.id
-    );
-    const deductionCategoryIds = new Set(
-      configDeductions.map((d) => d.category_id)
-    );
-
-    const deductionBasisGross = config.cache_deduction_basis === "gross";
-
-    const categoryDeductionAmount = forecasts
-      .filter(
-        (f) =>
-          f.type === "expense" && deductionCategoryIds.has(f.category_id ?? "")
-      )
-      .reduce((s, f) => {
-        const base = Number(f.amount);
-        if (deductionBasisGross) {
-          const rate = Number(f.iva_rate ?? 0);
-          return s + base * (1 + rate / 100);
-        }
-        return s + base;
-      }, 0);
-
-    const fixedPctDeduction = basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
-    const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
-    const baseForCalc = basis - totalDeduction;
-    const pct = resolvePercentageFromTiers(config, occupancyPct ?? 100);
-    const calculated = Math.max(0, baseForCalc * (pct / 100));
-    const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-    const amount = Math.round(Math.max(minGuaranteed, calculated));
+    // Apply override priority (adjusted_amount → real_amount if finalized → calculated)
+    const amount = getCacheEffectiveAmount(config, calculated);
 
     return {
       artistName: config.artist_name,
-      cacheType: "variable",
+      cacheType,
       amount,
     };
   });
