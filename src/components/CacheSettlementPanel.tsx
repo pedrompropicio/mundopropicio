@@ -154,7 +154,11 @@ export function CacheSettlementPanel({
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
-  return (
+  // Early returns AFTER all hooks
+  if (eventStatus !== "active" && eventStatus !== "completed") return null;
+  if (!realResult) return null;
+
+
     <div className="border-t border-border bg-muted/20 p-3 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
