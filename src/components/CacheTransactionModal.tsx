@@ -308,13 +308,15 @@ export function CacheTransactionModal({
           await supabase.from("transaction_documents").insert(docs as any);
         }
 
-        // Link the forecast to the first created transaction so future link adds
-        // via BPAttachmentModal continue to propagate automatically.
-        if (cacheForecast?.id && !cacheForecast.transaction_id) {
+        // Back-link every cache forecast (module + free-form) we just used to
+        // the first created transaction, so future attachment edits in the BP
+        // continue to propagate automatically.
+        const forecastsToLink = allCacheForecasts.filter((f: any) => !f.transaction_id);
+        if (forecastsToLink.length > 0) {
           await supabase
             .from("event_forecasts")
             .update({ transaction_id: createdTxIds[0] } as any)
-            .eq("id", cacheForecast.id);
+            .in("id", forecastsToLink.map((f: any) => f.id));
         }
       }
 
