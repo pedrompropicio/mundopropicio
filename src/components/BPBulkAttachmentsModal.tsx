@@ -5,9 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import {
-  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText,
+  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   /** All event IDs whose BP forecasts can receive attachments (master + children, or single event). */
@@ -60,6 +62,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [instructions, setInstructions] = useState("");
 
   // Load forecasts + suppliers (via linked transactions) for all events in scope
   const { data: candidates = [], isLoading } = useQuery({
