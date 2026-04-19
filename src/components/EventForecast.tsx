@@ -977,6 +977,70 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           ].filter(Boolean).join(" — "),
           variant: totalCreated === 0 ? "destructive" : undefined,
         });
+
+        // After a multi-sub import, look for lines that are identical across
+        // every imported sub-event (same description + category + amount) so
+        // the user can promote them once to the Master event instead of
+        // duplicating per city.
+        if (matchedSheets.length >= 2 && totalCreated > 0) {
+          const subIds = matchedSheets.map((m) => m.childEvent.id);
+          const subNameById: Record<string, string> = {};
+          for (const m of matchedSheets) {
+            subNameById[m.childEvent.id] =
+              (m.childEvent.cities as any)?.name || m.childEvent.name;
+          }
+          const { data: justImported } = await supabase
+            .from("event_forecasts")
+            .select("id, event_id, description, category_id, amount, iva_rate")
+            .in("event_id", subIds)
+            .eq("type", "expense")
+            .eq("status", "draft");
+          const normDesc = (s: string | null) =>
+            (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          const groups = new Map<
+            string,
+            { rows: any[]; categoryId: string | null; description: string }
+          >();
+          for (const row of justImported ?? []) {
+            const key = `${row.category_id ?? "no-cat"}::${normDesc(row.description)}`;
+            const g = groups.get(key);
+            if (g) g.rows.push(row);
+            else
+              groups.set(key, {
+                rows: [row],
+                categoryId: row.category_id,
+                description: row.description,
+              });
+          }
+          const candidates: PromoteCandidate[] = [];
+          for (const [key, g] of groups) {
+            // Must appear in every imported sub-event…
+            const eventsCovered = new Set(g.rows.map((r) => r.event_id));
+            if (eventsCovered.size !== subIds.length) continue;
+            // …with the same amount (round to cents to ignore float noise).
+            const amounts = g.rows.map((r) => Math.round(Number(r.amount) * 100));
+            const allEqual = amounts.every((a) => a === amounts[0]);
+            if (!allEqual || amounts[0] === 0) continue;
+            const cat = categories.find((c: any) => c.id === g.categoryId);
+            candidates.push({
+              key,
+              description: g.description,
+              categoryId: g.categoryId,
+              categoryCode: cat?.code ?? null,
+              categoryName: cat?.name ?? null,
+              amount: amounts[0] / 100,
+              ivaRate: Number(g.rows[0].iva_rate ?? 23),
+              subEventNames: Array.from(eventsCovered).map(
+                (id) => subNameById[id as string] ?? "?",
+              ),
+              forecastIds: g.rows.map((r) => r.id),
+            });
+          }
+          if (candidates.length > 0) {
+            setPromoteCandidates(candidates);
+            setShowPromoteModal(true);
+          }
+        }
       } else {
         // Single event import (sub-event or simple event)
         let selectedRows = sheetsWithData[0].rows;
