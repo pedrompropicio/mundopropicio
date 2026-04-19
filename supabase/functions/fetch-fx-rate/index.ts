@@ -1,6 +1,9 @@
 // Fetch suggested FX rate (foreign currency -> EUR) using free public APIs.
 // No API key required. Phase 1 supports BRL and USD.
-import { corsHeaders } from "@supabase/supabase-js/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 type FromCurrency = "BRL" | "USD" | "EUR";
 

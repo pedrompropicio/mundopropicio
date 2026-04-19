@@ -6,6 +6,9 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
+import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, isSupportedCurrency, eurToOriginal, formatInCurrency } from "@/lib/currency";
 
 interface Props {
   forecast: any;
@@ -17,7 +20,20 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   const [description, setDescription] = useState(forecast.description || "");
   const [specification, setSpecification] = useState(forecast.specification || "");
   const [categoryId, setCategoryId] = useState(forecast.category_id || "");
-  const [amount, setAmount] = useState(String(forecast.amount));
+  const initialCurrency: CurrencyCode = isSupportedCurrency(forecast.currency) ? forecast.currency : "EUR";
+  const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency);
+  const [originalAmount, setOriginalAmount] = useState(
+    initialCurrency === "EUR"
+      ? String(forecast.amount)
+      : String(forecast.original_amount ?? eurToOriginal(Number(forecast.amount), Number(forecast.fx_rate) || 1))
+  );
+  const [fxRate, setFxRate] = useState(
+    initialCurrency === "EUR" ? "" : String(forecast.fx_rate ?? "")
+  );
+  const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">(
+    forecast.fx_rate_source === "suggested" ? "suggested" : "manual"
+  );
+  const [eurAmount, setEurAmount] = useState<number>(Number(forecast.amount) || 0);
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
@@ -60,13 +76,20 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      const newAmount = parseFloat(amount) || 0;
+      const newAmount = Math.round(eurAmount * 100) / 100;
       const newIvaRate = parseInt(ivaRate) || 0;
       const newDescription = description.trim();
       const newSpecification = specification.trim() || null;
       const newCategoryId = categoryId || null;
+      const newCurrency = currency;
+      const newOriginal = newCurrency === "EUR" ? null : (parseFloat(originalAmount) || 0);
+      const newFxRate = newCurrency === "EUR" ? null : (parseFloat(fxRate) || 0);
+      const newFxRateSource = newCurrency === "EUR" ? null : fxRateSource;
 
       if (!newDescription) throw new Error("A descrição é obrigatória.");
+      if (newCurrency !== "EUR" && (!newFxRate || newFxRate <= 0)) {
+        throw new Error("Define o câmbio para a moeda selecionada.");
+      }
 
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
 
@@ -86,7 +109,21 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         });
       }
       if (newAmount !== Number(forecast.amount)) {
-        changes.push({ field_name: "Valor", old_value: String(forecast.amount), new_value: String(newAmount) });
+        changes.push({ field_name: "Valor (EUR)", old_value: String(forecast.amount), new_value: String(newAmount) });
+      }
+      const oldCurrency = forecast.currency || "EUR";
+      if (newCurrency !== oldCurrency) {
+        changes.push({ field_name: "Moeda", old_value: oldCurrency, new_value: newCurrency });
+      }
+      if (newCurrency !== "EUR") {
+        const oldOrig = forecast.original_amount != null ? String(forecast.original_amount) : "—";
+        const oldRate = forecast.fx_rate != null ? String(forecast.fx_rate) : "—";
+        if (String(newOriginal) !== oldOrig) {
+          changes.push({ field_name: `Valor original (${newCurrency})`, old_value: oldOrig, new_value: String(newOriginal) });
+        }
+        if (String(newFxRate) !== oldRate) {
+          changes.push({ field_name: "Câmbio", old_value: oldRate, new_value: String(newFxRate) });
+        }
       }
       if (newIvaRate !== Number(forecast.iva_rate)) {
         changes.push({ field_name: "Taxa IVA", old_value: `${forecast.iva_rate}%`, new_value: `${newIvaRate}%` });
@@ -102,6 +139,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         category_id: forecast.category_id,
         amount: Number(forecast.amount),
         iva_rate: Number(forecast.iva_rate),
+        currency: oldCurrency,
+        original_amount: forecast.original_amount,
+        fx_rate: forecast.fx_rate,
+        fx_rate_source: forecast.fx_rate_source,
       };
 
       // Update forecast
@@ -111,6 +152,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         category_id: newCategoryId,
         amount: newAmount,
         iva_rate: newIvaRate,
+        currency: newCurrency,
+        original_amount: newOriginal,
+        fx_rate: newFxRate,
+        fx_rate_source: newFxRateSource,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
@@ -209,12 +254,19 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           </select>
         </div>
 
-        {/* Amount + IVA */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor s/ IVA (€)</label>
-            <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
-          </div>
+        {/* Amount (multi-currency) + IVA */}
+        <div className="space-y-3">
+          <CurrencyAmountInput
+            currency={currency}
+            onCurrencyChange={setCurrency}
+            originalAmount={originalAmount}
+            onOriginalAmountChange={setOriginalAmount}
+            fxRate={fxRate}
+            onFxRateChange={setFxRate}
+            onFxRateSourceChange={setFxRateSource}
+            onEurAmountChange={setEurAmount}
+            label="Valor s/ IVA"
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
             <select value={ivaRate} onChange={(e) => setIvaRate(e.target.value)} className={inputClass}>
@@ -224,6 +276,12 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
               <option value="0">0%</option>
             </select>
           </div>
+          {currency !== "EUR" && (
+            <p className="text-xs text-muted-foreground">
+              Será gravado em EUR: <span className="font-semibold text-foreground">{formatCurrency(eurAmount)}</span>
+              <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
+            </p>
+          )}
         </div>
 
         {/* Observation */}
