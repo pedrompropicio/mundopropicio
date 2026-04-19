@@ -191,6 +191,36 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     },
   });
 
+  // Load all expense leaf categories so we can suggest one per PDF.
+  const { data: expenseCategories = [] } = useQuery({
+    queryKey: ["bp_bulk_expense_categories"],
+    queryFn: async (): Promise<ExpenseCategoryLite[]> => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("id, code, name, type, parent_id")
+        .eq("type", "expense")
+        .eq("is_active", true);
+      if (error) throw error;
+      return (data ?? []) as ExpenseCategoryLite[];
+    },
+  });
+
+  const categoryById = useMemo(() => {
+    const m = new Map<string, ExpenseCategoryLite>();
+    for (const c of expenseCategories) m.set(c.id, c);
+    return m;
+  }, [expenseCategories]);
+
+  const leafCategoriesForSelect = useMemo(
+    () => getExpenseLeafCategories(expenseCategories).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })),
+    [expenseCategories],
+  );
+
+  const categoryMatcher = useMemo(
+    () => (expenseCategories.length > 0 ? createExpenseCategoryMatcher(expenseCategories) : null),
+    [expenseCategories],
+  );
+
   /** Decide if a document belongs to any event in scope. Rule: name OR date matches. */
   const checkOwnership = (
     mentionedNames: string | null,
