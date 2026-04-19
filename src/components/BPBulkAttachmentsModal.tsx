@@ -57,7 +57,7 @@ interface PendingFile {
     /** Ownership decision against the events in scope. */
     ownership?: {
       state: "match" | "mismatch" | "unknown";
-      matchedBy: ("name" | "date")[];
+      matchedBy: ("name" | "date" | "amount")[];
       reason?: string;
     };
   };
@@ -247,11 +247,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     if (!hasNames && !documentDate && !hasAmount) {
       return { state: "unknown", matchedBy: [], reason: "PDF sem nome, data nem valor legíveis" };
     }
-    if (eventScope.length === 0) return { state: "unknown", matchedBy: [], reason: "Sem eventos no contexto" };
-    const hasNames = !!(mentionedNames && mentionedNames.trim().length > 0);
-    if (!hasNames && !documentDate) {
-      return { state: "unknown", matchedBy: [], reason: "PDF sem nome nem data legíveis" };
-    }
+
 
     // ── 1. Name check ─────────────────────────────────────────────────────────
     // We require a **strong overlap** between the event name tokens and what the
@@ -312,37 +308,61 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
       }
     }
 
+    // ── 3. Amount check (NEW) — does the extracted total match any BP line in scope? ─
+    let amountMatched = false;
+    let amountReason = "";
+    if (hasAmount) {
+      for (const cand of candidates) {
+        const expected = cand.amount;
+        if (!Number.isFinite(expected) || expected <= 0) continue;
+        const diff = Math.abs((extractedTotal as number) - expected);
+        const pct = expected > 0 ? diff / expected : 1;
+        if (diff <= TOLERANCE_ABS || pct <= TOLERANCE_PCT) {
+          amountMatched = true;
+          const ev = eventScope.find((e) => e.id === cand.event_id);
+          amountReason = `valor ${(extractedTotal as number).toFixed(2)} ≈ linha BP "${cand.description}"${ev ? ` (${ev.name})` : ""}`;
+          break;
+        }
+      }
+    }
+
     // ── Decision ──────────────────────────────────────────────────────────────
     // (a) PDF mentions a name → name has veto power.
     if (hasNames) {
       if (nameMatchedEvent) {
-        const matchedBy: ("name" | "date")[] = ["name"];
+        const matchedBy: ("name" | "date" | "amount")[] = ["name"];
         let reason = `nome "${nameHits.slice(0, 3).join(", ")}" do evento "${nameMatchedEvent.name}"`;
-        if (dateMatched) {
-          matchedBy.push("date");
-          reason += ` + ${dateReason}`;
-        }
+        if (dateMatched) { matchedBy.push("date"); reason += ` + ${dateReason}`; }
+        if (amountMatched) { matchedBy.push("amount"); reason += ` + ${amountReason}`; }
         return { state: "match", matchedBy, reason };
       }
-      // Name was mentioned but didn't reach 60% coverage of any event in scope.
-      // Don't auto-exclude — surface as "unknown" so the user can decide.
+      // Name was mentioned but didn't reach 60% coverage. Amount can't override
+      // a name conflict (a Henry & Klauss invoice that happens to match an
+      // unrelated BP amount in Maiara would be a coincidence, not ownership).
       return {
         state: "unknown",
-        matchedBy: [],
+        matchedBy: amountMatched ? ["amount"] : [],
         reason: nameAmbiguous
-          ? `Documento menciona "${mentionedNames}" — coincidência parcial, requer confirmação manual${dateMatched ? ` (${dateReason})` : ""}`
-          : `Documento menciona "${mentionedNames}" — não corresponde a nenhum evento do contexto, requer confirmação manual${dateMatched ? ` (${dateReason})` : ""}`,
+          ? `Documento menciona "${mentionedNames}" — coincidência parcial, requer confirmação manual${dateMatched ? ` (${dateReason})` : ""}${amountMatched ? ` (${amountReason})` : ""}`
+          : `Documento menciona "${mentionedNames}" — não corresponde a nenhum evento do contexto, requer confirmação manual${dateMatched ? ` (${dateReason})` : ""}${amountMatched ? ` (${amountReason})` : ""}`,
       };
     }
 
-    // (b) No names mentioned → fall back to date-only ownership.
+    // (b) No names mentioned → date + amount can confirm ownership.
+    if (dateMatched && amountMatched) {
+      return { state: "match", matchedBy: ["date", "amount"], reason: `${dateReason} + ${amountReason}` };
+    }
     if (dateMatched) {
       return { state: "match", matchedBy: ["date"], reason: dateReason };
+    }
+    if (amountMatched) {
+      // Amount alone is a weaker signal — surface as unknown for confirmation.
+      return { state: "unknown", matchedBy: ["amount"], reason: `${amountReason} (sem nome nem data, requer confirmação)` };
     }
     return {
       state: "unknown",
       matchedBy: [],
-      reason: `Sem match de nome nem data (PDF: ${mentionedNames ?? "?"}${documentDate ? ` · ${documentDate}` : ""}), requer confirmação manual`,
+      reason: `Sem match de nome, data nem valor (PDF: ${mentionedNames ?? "?"}${documentDate ? ` · ${documentDate}` : ""}), requer confirmação manual`,
     };
   };
 
