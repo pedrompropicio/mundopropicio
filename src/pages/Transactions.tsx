@@ -36,7 +36,7 @@ import helpTexts from "@/lib/help-texts";
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
-  const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "range">("week");
+  const [duePeriod, setDuePeriod] = useState<"day" | "week" | "month" | "all" | "range">("week");
   const [paidPeriod, setPaidPeriod] = useState<"all" | "yesterday" | "week" | "month" | "range">("all");
   const [periodDateField, setPeriodDateField] = useState<"due_date" | "date">("due_date");
   const [periodPopoverOpen, setPeriodPopoverOpen] = useState(false);
@@ -440,14 +440,23 @@ export default function Transactions() {
       periodEnd.setHours(23, 59, 59, 999);
     } else if (duePeriod === "month") {
       periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (duePeriod === "all") {
+      periodEnd = new Date(today.getFullYear() + 50, 11, 31, 23, 59, 59, 999);
     } else {
       // range
       periodEnd = rangeTo ? new Date(rangeTo) : new Date(today.getFullYear() + 10, 0, 1);
       periodEnd.setHours(23, 59, 59, 999);
     }
 
-    const periodStart = duePeriod === "range" && rangeFrom ? new Date(rangeFrom) : today;
-    if (duePeriod === "range" && rangeFrom) periodStart.setHours(0, 0, 0, 0);
+    let periodStart: Date;
+    if (duePeriod === "range" && rangeFrom) {
+      periodStart = new Date(rangeFrom);
+      periodStart.setHours(0, 0, 0, 0);
+    } else if (duePeriod === "all") {
+      periodStart = new Date(1970, 0, 1);
+    } else {
+      periodStart = new Date(today);
+    }
 
     const getDateValue = (t: any): string | null => {
       if (periodDateField === "due_date") return t.due_date;
@@ -864,7 +873,7 @@ export default function Transactions() {
               <Button variant="outline" size="sm" className="text-[13px] font-normal h-8 px-3">
                 <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                 {periodDateField === "date" ? "Lançamento: " : ""}
-                {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : "Período"}
+                {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Semana" : duePeriod === "month" ? "Mês" : duePeriod === "all" ? "Tudo" : "Período"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -890,7 +899,7 @@ export default function Transactions() {
                     Dt. Lançamento
                   </button>
                 </div>
-                {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
+                {([["day", "Hoje"], ["week", "Semana"], ["month", "Mês"], ["all", "Tudo (sem limite)"], ["range", "Período personalizado"]] as const).map(([val, label]) => (
                   <button
                     key={val}
                     onClick={() => { setDuePeriod(val); if (val !== "range") setPeriodPopoverOpen(false); }}
@@ -1182,7 +1191,7 @@ export default function Transactions() {
                       <td colSpan={10} className="pt-4 pb-2 px-1">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-                            📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : "Período"} ({periodGroup.length})
+                            📅 {duePeriod === "day" ? "Hoje" : duePeriod === "week" ? "Esta semana" : duePeriod === "month" ? "Este mês" : duePeriod === "all" ? "Tudo" : "Período"} ({periodGroup.length})
                           </span>
                           <div className="flex-1 border-t border-primary/20" />
                         </div>
