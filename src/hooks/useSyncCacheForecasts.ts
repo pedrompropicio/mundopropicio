@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier } from "@/lib/cache-pl-helper";
+import { resolvePercentageFromTiers, getCacheEffectiveAmount, type CacheTier, type CityCacheSettlement } from "@/lib/cache-pl-helper";
 
 interface CacheConfig {
   id: string;
@@ -85,6 +85,26 @@ export function useSyncCacheForecasts({
     refetchInterval: 15000,
   });
 
+  // Fingerprint of city settlements so hash changes when an adjustment/finalization happens per city
+  const cacheConfigIdsKey = useMemo(() => cacheConfigs.map((c) => c.id).sort().join(","), [cacheConfigs]);
+  const { data: citySettlementsFingerprint } = useQuery({
+    queryKey: ["cache-sync-city-settlements-fp", cacheConfigIdsKey, ...(childEventIds ?? [])],
+    queryFn: async () => {
+      if (!childEventIds || childEventIds.length === 0 || cacheConfigs.length === 0) return "no-cities";
+      const { data } = await supabase
+        .from("event_cache_city_settlements")
+        .select("event_id, cache_config_id, is_finalized, real_amount, adjusted_amount, updated_at")
+        .in("event_id", childEventIds)
+        .in("cache_config_id", cacheConfigs.map((c) => c.id));
+      return (data ?? [])
+        .map((r: any) => `${r.event_id}:${r.cache_config_id}:${r.is_finalized}:${r.real_amount ?? ""}:${r.adjusted_amount ?? ""}:${r.updated_at}`)
+        .sort()
+        .join("|");
+    },
+    enabled: enabled && cacheConfigs.length > 0 && !!childEventIds && childEventIds.length > 0,
+    refetchInterval: 10000,
+  });
+
   useEffect(() => {
     if (!enabled || !cacheCategoryId || cacheConfigs.length === 0 || syncingRef.current) return;
 
@@ -111,6 +131,7 @@ export function useSyncCacheForecasts({
       ticketRevenueGross: Math.round(ticketRevenueGross * 100),
       childEventIds: childEventIds?.sort(),
       salesFingerprint,
+      citySettlementsFingerprint,
       expenseForecasts: forecasts
         .filter((f) => f.type === "expense" && !f.cache_config_id)
         .map((f) => `${f.category_id}:${Math.round(Number(f.amount) * 100)}:${f.iva_rate}`)
@@ -152,7 +173,7 @@ export function useSyncCacheForecasts({
     };
 
     doSync();
-  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint]);
+  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint, citySettlementsFingerprint]);
 }
 
 /**
@@ -241,6 +262,24 @@ async function syncTourCacheForecasts(
     .eq("type", "expense")
     .is("cache_config_id", null);
 
+  // Fetch per-city settlements (override priority over master legacy fields)
+  const cacheConfigIds = cacheConfigs.map((c) => c.id);
+  const { data: citySettlementsRows } = cacheConfigIds.length > 0
+    ? await supabase
+        .from("event_cache_city_settlements")
+        .select("event_id, cache_config_id, is_finalized, real_amount, adjusted_amount")
+        .in("event_id", childEventIds)
+        .in("cache_config_id", cacheConfigIds)
+    : { data: [] as any[] };
+  const citySettlementMap = new Map<string, CityCacheSettlement>();
+  for (const r of (citySettlementsRows ?? [])) {
+    citySettlementMap.set(`${r.event_id}:${r.cache_config_id}`, {
+      is_finalized: r.is_finalized,
+      real_amount: r.real_amount,
+      adjusted_amount: r.adjusted_amount,
+    });
+  }
+
   const expensesByChild: Record<string, { type: string; category_id: string | null; amount: number; iva_rate?: number }[]> = {};
   for (const cid of childEventIds) expensesByChild[cid] = [];
   for (const f of (childExpenseForecasts ?? [])) {
@@ -264,7 +303,8 @@ async function syncTourCacheForecasts(
     for (const childId of childEventIds) {
       const rev = revenueByChild[childId] || { gross: 0, net: 0 };
       const childExpenses = expensesByChild[childId] || [];
-      const amount = calculateCacheAmount(config, configDeductions, rev.net, rev.gross, childExpenses);
+      const citySettlement = citySettlementMap.get(`${childId}:${config.id}`) ?? null;
+      const amount = calculateCacheAmount(config, configDeductions, rev.net, rev.gross, childExpenses, 100, citySettlement);
 
       const key = `${childId}:${config.id}`;
       const existing = existingMap.get(key);
@@ -458,7 +498,8 @@ function calculateCacheAmount(
   ticketRevenueNet: number,
   ticketRevenueGross: number,
   expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
-  occupancyPct: number = 100
+  occupancyPct: number = 100,
+  citySettlement: CityCacheSettlement | null = null,
 ): number {
   let calculated: number;
   if (config.cache_type === "fixed") {
@@ -490,6 +531,6 @@ function calculateCacheAmount(
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
     calculated = Math.round(Math.max(minGuaranteed, calc));
   }
-  // Apply override priority: adjusted → snapshot if finalized → calculated
-  return Math.round(getCacheEffectiveAmount(config, calculated));
+  // Apply override priority: city settlement > config legacy > calculated
+  return Math.round(getCacheEffectiveAmount(config, calculated, citySettlement));
 }
