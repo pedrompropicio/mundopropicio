@@ -19,6 +19,8 @@ interface ExtractResult {
   mentioned_names: string | null;
   /** Best invoice/document date in ISO YYYY-MM-DD if detected. */
   document_date: string | null;
+  /** Detected document type: invoice, proforma, quote/proposal, receipt, transfer, contract, other. */
+  document_type: string | null;
   raw?: string;
   error?: string;
 }
