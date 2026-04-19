@@ -8,6 +8,7 @@ import {
   X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles, Scale,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
+import { createExpenseCategoryMatcher, getExpenseLeafCategories, type ExpenseCategoryLite } from "@/lib/pl-category-matching";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
