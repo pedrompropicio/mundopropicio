@@ -9,8 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown, Plus, FileArchive, Paperclip } from "lucide-react";
-import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
+import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown, Plus, FileArchive } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
 import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
