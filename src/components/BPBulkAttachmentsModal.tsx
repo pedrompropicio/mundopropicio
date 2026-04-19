@@ -961,6 +961,62 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                             );
                           })()}
                         </td>
+                        <td className="px-2 py-1.5">
+                          {(() => {
+                            const v = f.validation;
+                            if (!v || v.state === "idle") {
+                              return <span className="text-[10px] text-muted-foreground">—</span>;
+                            }
+                            if (v.state === "running") {
+                              return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+                            }
+                            const suggested = f.suggestedCategoryId
+                              ? categoryById.get(f.suggestedCategoryId)
+                              : null;
+                            const isSuggestion = !!suggested && f.categoryId === f.suggestedCategoryId;
+                            return (
+                              <div className="flex flex-col gap-1 max-w-[220px]">
+                                <select
+                                  value={f.categoryId ?? ""}
+                                  onChange={(e) => setCategory(f.id, e.target.value || null)}
+                                  disabled={f.status === "uploading" || f.status === "done"}
+                                  className={`w-full rounded border bg-background px-1.5 py-1 text-[11px] ${
+                                    isSuggestion ? "border-primary/50" : "border-border"
+                                  }`}
+                                  title={
+                                    v.serviceDescription
+                                      ? `IA leu: "${v.serviceDescription}"`
+                                      : "Sem descrição extraída do PDF"
+                                  }
+                                >
+                                  <option value="">— sem alteração —</option>
+                                  {leafCategoriesForSelect.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.code} — {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                {f.categoryId && (
+                                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!f.categoryConfirmed}
+                                      onChange={() => toggleCategoryConfirmed(f.id)}
+                                      disabled={!f.forecastId || f.status === "uploading" || f.status === "done"}
+                                      className="h-3 w-3"
+                                    />
+                                    {isSuggestion ? "Aplicar sugestão" : "Aplicar à linha BP"}
+                                  </label>
+                                )}
+                                {!f.suggestedCategoryId && v.serviceDescription && (
+                                  <span className="text-[9px] text-muted-foreground italic" title={v.serviceDescription}>
+                                    sem match automático
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td className="px-2 py-1.5 text-right text-muted-foreground">{bytesToReadable(f.size)}</td>
                         <td className="px-2 py-1.5 text-center">
                           {f.status === "uploading" && <Loader2 className="inline h-3.5 w-3.5 animate-spin text-primary" />}
