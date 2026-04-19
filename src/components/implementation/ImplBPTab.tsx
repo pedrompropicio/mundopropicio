@@ -9,8 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown, Plus, FileArchive, Paperclip } from "lucide-react";
-import BPBulkAttachmentsModal from "@/components/BPBulkAttachmentsModal";
+import { X, Pencil, Save, AlertTriangle, CheckCircle2, FileSearch, Loader2, ArrowRight, Eye, GitMerge, Upload, History, Undo2, MapPin, Crown, Plus, FileArchive } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { parseXlsxPL, type ParsedRow, type ParsedSheet } from "@/lib/import-pl-xlsx";
 import { createExpenseCategoryMatcher } from "@/lib/pl-category-matching";
@@ -134,7 +133,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [importedSheets, setImportedSheets] = useState<Set<string>>(new Set());
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryModalCallback, setCategoryModalCallback] = useState<((catId: string) => void) | null>(null);
-  const [showBulkAttach, setShowBulkAttach] = useState(false);
+  // Bulk attachments modal removed — attachments are now Drive links per row.
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
@@ -1496,18 +1495,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
               Histórico ({importBatches.length})
             </Button>
           )}
-          {allEventIds.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkAttach(true)}
-              className="gap-2"
-              title="Anexar ficheiros (ZIP ou pasta de PDFs) às linhas do BP já importadas, com casamento automático por fornecedor / Drive ID / similaridade"
-            >
-              <Paperclip className="h-4 w-4" />
-              Anexos em massa
-            </Button>
-          )}
+          {/* "Anexos em massa" removed — each BP row links directly to its Drive file. */}
           {parsedSheets && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="ml-2">
               <TabsList className="h-8">
@@ -2783,15 +2771,6 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           setCategoryModalCallback(null);
         }}
       />
-      {showBulkAttach && (
-        <BPBulkAttachmentsModal
-          eventIds={allEventIds.length > 0 ? allEventIds : (event?.id ? [event.id] : [])}
-          onClose={() => {
-            setShowBulkAttach(false);
-            queryClient.invalidateQueries({ queryKey: ["impl-forecasts"] });
-          }}
-        />
-      )}
     </div>
   );
 }
