@@ -36,7 +36,7 @@ interface FilterPanelProps {
 }
 
 interface MultiSelectListProps {
-  items: { id: string; name: string }[];
+  items: { id: string; name: string; is_partner?: boolean }[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
