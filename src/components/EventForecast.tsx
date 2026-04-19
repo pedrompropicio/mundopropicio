@@ -771,11 +771,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     bulkApproveMutation.mutate(items);
   };
 
-  // Bulk create "A Pagar" transactions from selected approved lines (admin only)
+  // Bulk create "A Pagar" transactions from selected approved lines (admin only).
+  // Regra: linha do BP aprovada → transação nasce já aprovada (BP é a aprovação).
   const bulkCreateTxMutation = useMutation({
     mutationFn: async (forecastItems: any[]) => {
       let created = 0;
+      let autoApproved = 0;
       for (const f of forecastItems) {
+        const isBPApproved = f.status === "approved";
+        const txStatus = isBPApproved ? "approved" : "pending";
+
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           event_id: eventId,
           type: f.type,
@@ -786,11 +791,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           category_id: f.category_id || null,
           date: eventDate,
           due_date: eventDate,
-          status: "pending",
+          status: txStatus,
         }).select("id").single();
         if (error) throw error;
 
-        // Audit: log creation from BP
+        // Audit: log creation from BP (and auto-approval if applicable)
         if (insertedTx?.id) {
           const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
           await supabase.from("transaction_audit_log").insert({
@@ -800,16 +805,32 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             old_value: null,
             new_value: `Gerado do BP — ${f.description} — ${Number(f.amount).toFixed(2)} €`,
           });
+          if (isBPApproved) {
+            await supabase.from("transaction_audit_log").insert({
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "status",
+              old_value: "pending",
+              new_value: "approved",
+              observation: "Aprovação automática — linha do BP já aprovada",
+            } as any);
+            autoApproved++;
+          }
         }
         created++;
       }
-      return created;
+      return { created, autoApproved };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ created, autoApproved }) => {
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedIds(new Set());
-      toast({ title: `${count} transação(ões) "A Pagar" criada(s) (pendentes de aprovação)!` });
+      const msg = autoApproved === created
+        ? `${created} transação(ões) criada(s) já aprovada(s) (BP aprovado).`
+        : autoApproved > 0
+          ? `${created} transação(ões) criada(s) — ${autoApproved} já aprovada(s), ${created - autoApproved} pendente(s).`
+          : `${created} transação(ões) "A Pagar" criada(s) (pendentes de aprovação)!`;
+      toast({ title: msg });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });

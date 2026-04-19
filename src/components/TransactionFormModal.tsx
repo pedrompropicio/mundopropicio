@@ -861,10 +861,21 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         }
       } else {
         // --- SINGLE TRANSACTION ---
-        const hasForecastMatch = relevantForecasts.length > 0 && relevantForecasts.some(
+        // Auto-aprovação: a categoria tem linha(s) do BP APROVADAS para este tipo,
+        // e o valor lançado cabe dentro do saldo restante (forecast - já usado).
+        // Se exceder o saldo (lançamento "fora do planeado"), fica pending para revisão.
+        const matchingForecasts = relevantForecasts.filter(
           (f) => f.type === data.type && f.category_id === data.category_id
         );
-        const autoApproved = hasForecastMatch;
+        const hasForecastMatch = matchingForecasts.length > 0;
+        const hasApprovedBPLine = matchingForecasts.some((f) => f.status === "approved");
+        const budgetKey = `${data.type}_${data.category_id || "none"}`;
+        const forecastTotal = forecastBudgetByCategory[budgetKey] || 0;
+        const usedTotal = usedBudgetByCategory[budgetKey] || 0;
+        const remaining = forecastTotal - usedTotal;
+        const newAmount = parseFloat(data.amount) || 0;
+        const fitsWithinBudget = forecastTotal > 0 && newAmount <= remaining + 0.005;
+        const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
         const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
 
