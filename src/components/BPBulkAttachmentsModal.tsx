@@ -156,6 +156,82 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     return m;
   }, [candidates]);
 
+  // Load event names + dates (used to validate ownership of each PDF).
+  const { data: eventScope = [] } = useQuery({
+    queryKey: ["bp_bulk_event_scope", eventIds],
+    queryFn: async (): Promise<EventScope[]> => {
+      if (eventIds.length === 0) return [];
+      const [{ data: evs }, { data: dts }] = await Promise.all([
+        supabase.from("events").select("id, name, date").in("id", eventIds),
+        supabase.from("event_dates").select("event_id, date").in("event_id", eventIds),
+      ]);
+      const extras = new Map<string, string[]>();
+      for (const d of dts ?? []) {
+        const arr = extras.get((d as any).event_id) ?? [];
+        arr.push((d as any).date);
+        extras.set((d as any).event_id, arr);
+      }
+      return (evs ?? []).map((e: any) => ({
+        id: e.id,
+        name: e.name,
+        date: e.date,
+        extraDates: extras.get(e.id) ?? [],
+      }));
+    },
+  });
+
+  /** Decide if a document belongs to any event in scope. Rule: name OR date matches. */
+  const checkOwnership = (
+    mentionedNames: string | null,
+    documentDate: string | null,
+  ): { state: "match" | "mismatch" | "unknown"; matchedBy: ("name" | "date")[]; reason?: string } => {
+    if (eventScope.length === 0) return { state: "unknown", matchedBy: [], reason: "Sem eventos no contexto" };
+    if (!mentionedNames && !documentDate) {
+      return { state: "unknown", matchedBy: [], reason: "PDF sem nome nem data legíveis" };
+    }
+    const matchedBy: ("name" | "date")[] = [];
+    let reason = "";
+
+    if (mentionedNames) {
+      const haystack = " " + normalizeForMatch(mentionedNames) + " ";
+      for (const ev of eventScope) {
+        const evTokens = tokens(ev.name);
+        if (evTokens.length === 0) continue;
+        const hits = evTokens.filter((t) => haystack.includes(t));
+        const hasStrong = hits.some((t) => t.length >= 4);
+        if (hasStrong || hits.length >= 2) {
+          matchedBy.push("name");
+          reason = `nome "${hits.slice(0, 3).join(", ")}" do evento "${ev.name}"`;
+          break;
+        }
+      }
+    }
+
+    if (documentDate) {
+      const docMs = Date.parse(documentDate + "T00:00:00Z");
+      if (Number.isFinite(docMs)) {
+        const allDates = eventScope.flatMap((ev) => [ev.date, ...ev.extraDates]).filter(Boolean);
+        for (const d of allDates) {
+          const ms = Date.parse(d + "T00:00:00Z");
+          if (!Number.isFinite(ms)) continue;
+          const diffDays = Math.abs(ms - docMs) / (1000 * 60 * 60 * 24);
+          if (diffDays <= DATE_WINDOW_DAYS) {
+            matchedBy.push("date");
+            if (!reason) reason = `data ${documentDate} a ${Math.round(diffDays)}d do evento`;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matchedBy.length > 0) return { state: "match", matchedBy, reason };
+    return {
+      state: "mismatch",
+      matchedBy: [],
+      reason: `Sem match de nome nem data (PDF: ${mentionedNames ?? "?"}${documentDate ? ` · ${documentDate}` : ""})`,
+    };
+  };
+
   /** Add raw files (and unzip ZIPs into individual entries) and run matching. */
   const addFiles = async (incoming: File[]) => {
     if (incoming.length === 0) return;
