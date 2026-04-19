@@ -102,6 +102,8 @@ export function useSyncCacheForecasts({
         cache_deduction_basis: c.cache_deduction_basis,
         minimum_guaranteed: c.minimum_guaranteed,
         is_finalized: c.is_finalized,
+        real_amount: c.real_amount,
+        adjusted_amount: c.adjusted_amount,
         tiers: c.tiers,
       })),
       deductions: deductions.map((d) => `${d.cache_config_id}:${d.category_id}`).sort(),
