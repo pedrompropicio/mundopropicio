@@ -619,12 +619,16 @@ export function findForecastMatch(
   aggregatedAmountForDesc?: number,
 ): { forecast: ForecastLike; fromMaster: boolean } | null {
   const descKey = norm(rowDescription);
-  const TOL = 0.01;
+  // Tolerância: maior entre 1€ absoluto e 0,5% do valor.
+  // Apanha arredondamentos típicos de cachês/grandes valores
+  // (ex.: 67 917,85€ no XLSX vs 67 918,00€ no BP).
+  const tolFor = (target: number) => Math.max(1, Math.abs(target) * 0.005);
   const matchesAmount = (f: ForecastLike, target: number): boolean => {
     const net = Number(f.amount) || 0;
     const ivaPct = Number(f.iva_rate ?? 0) || 0;
     const gross = roundMoney(net * (1 + ivaPct / 100));
-    return Math.abs(net - target) <= TOL || Math.abs(gross - target) <= TOL;
+    const tol = tolFor(target);
+    return Math.abs(net - target) <= tol || Math.abs(gross - target) <= tol;
   };
 
   // 1) Primary pool — strict match (desc + amount, individual row)
