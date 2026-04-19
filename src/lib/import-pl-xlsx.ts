@@ -286,6 +286,19 @@ export function parseXlsxPL(buffer: ArrayBuffer): ParsedSheet[] {
       const calculatedRate = finalBase > 0 ? (finalIva / finalBase) * 100 : 0;
       const ivaRate = snapIvaRate(calculatedRate);
 
+      // Validação CIVA: o IVA do ficheiro deve bater com base × taxa (±0,01€).
+      // Se divergir, registamos warning e usamos o valor matematicamente correto.
+      if (finalBase > 0 && ivaRate > 0) {
+        const expectedIva = Math.round(finalBase * (ivaRate / 100) * 100) / 100;
+        const ivaDiff = Math.round((finalIva - expectedIva) * 100) / 100;
+        if (Math.abs(ivaDiff) > 0.01) {
+          warnings.push(
+            `Linha ${i + 1} ("${desc}"): IVA do ficheiro (${finalIva.toFixed(2)}€) difere do cálculo correto (${expectedIva.toFixed(2)}€ a ${ivaRate}%). Usando valor calculado.`,
+          );
+          finalIva = expectedIva;
+        }
+      }
+
       const specification = specIdx >= 0 ? toSentenceCase(String(row[specIdx] ?? "").trim()) || null : null;
 
       let status: "paid" | "approved" = "paid";
