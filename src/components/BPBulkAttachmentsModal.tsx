@@ -366,6 +366,55 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
 
         {files.length > 0 && (
           <>
+            {/* Match summary banner */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <FileArchive className="h-4 w-4 text-primary" />
+                  Resumo de correspondências
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {stats.rowsWithoutAttachments} de {stats.totalRows} linha(s) do BP ainda sem anexo
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                <div className="rounded-md bg-background px-2 py-1.5 border border-border">
+                  <div className="text-muted-foreground">Ficheiros</div>
+                  <div className="text-base font-bold">{stats.total}</div>
+                </div>
+                <div className="rounded-md bg-success/10 px-2 py-1.5 border border-success/30">
+                  <div className="text-success">Com match</div>
+                  <div className="text-base font-bold text-success">{stats.matched}</div>
+                </div>
+                <div className="rounded-md bg-destructive/10 px-2 py-1.5 border border-destructive/30">
+                  <div className="text-destructive">Sem match</div>
+                  <div className="text-base font-bold text-destructive">{stats.unmatched}</div>
+                </div>
+                <div className="rounded-md bg-primary/10 px-2 py-1.5 border border-primary/30">
+                  <div className="text-primary">Por fornecedor</div>
+                  <div className="text-base font-bold text-primary">{stats.bySupplier}</div>
+                </div>
+                <div className="rounded-md bg-warning/10 px-2 py-1.5 border border-warning/30">
+                  <div className="text-warning">Por similaridade</div>
+                  <div className="text-base font-bold text-warning">{stats.bySimilarity}</div>
+                </div>
+              </div>
+              {stats.total !== stats.rowsWithoutAttachments && (
+                <div className="flex items-start gap-2 text-xs rounded-md bg-warning/10 border border-warning/30 p-2 text-warning">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Recebeste <strong>{stats.total}</strong> ficheiro(s) mas existem{" "}
+                    <strong>{stats.rowsWithoutAttachments}</strong> linha(s) do BP por anexar.
+                    {stats.total < stats.rowsWithoutAttachments
+                      ? " Faltam ficheiros."
+                      : stats.total > stats.rowsWithoutAttachments
+                      ? " Há ficheiros a mais ou linhas já anexadas."
+                      : ""}
+                  </span>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs text-muted-foreground">
                 {files.length} ficheiro(s) · {eligible.length} prontos a anexar
