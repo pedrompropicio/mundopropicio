@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { LocalReinforcementBadge } from "@/components/LocalReinforcementBadge";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -489,7 +490,10 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
           {formatCurrency(paidAmount)}
         </td>
         <td className={`py-2 pr-2 text-right whitespace-nowrap ${isExpense ? "text-warning" : "text-success"}`}>
-          <span className="font-mono font-semibold">{isExpense ? "-" : "+"}{formatCurrency(totalWithIva)}</span>
+          <span className="inline-flex items-center justify-end gap-1.5">
+            <span className="font-mono font-semibold">{isExpense ? "-" : "+"}{formatCurrency(totalWithIva)}</span>
+            <CurrencyBadge currency={t.currency} originalAmount={t.original_amount} fxRate={t.fx_rate} />
+          </span>
           {ivaRate > 0 && (
             <p className="text-[10px] text-muted-foreground font-mono">
               Base: {formatCurrency(amount)} + IVA {ivaRate}%
