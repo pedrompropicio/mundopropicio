@@ -89,6 +89,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showOrphanResolver, setShowOrphanResolver] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const isEventLocked = eventStatus === "completed";
