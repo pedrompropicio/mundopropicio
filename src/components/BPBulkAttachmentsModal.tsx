@@ -636,6 +636,49 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                             {f.score > 0 && f.strategy !== "drive-id" ? ` ${Math.round(f.score * 100)}%` : ""}
                           </span>
                         </td>
+                        <td className="px-2 py-1.5">
+                          {(() => {
+                            const v = f.validation;
+                            if (!v || v.state === "idle") {
+                              return <span className="text-[10px] text-muted-foreground">—</span>;
+                            }
+                            if (v.state === "running") {
+                              return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+                            }
+                            if (v.state === "no-total") {
+                              return (
+                                <span title={v.note} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <AlertCircle className="h-3 w-3" />
+                                  s/ total
+                                </span>
+                              );
+                            }
+                            if (v.state === "error") {
+                              return (
+                                <span title={v.note} className="inline-flex items-center gap-1 text-[10px] text-destructive">
+                                  <AlertCircle className="h-3 w-3" />
+                                  erro
+                                </span>
+                              );
+                            }
+                            const total = v.extractedTotal ?? 0;
+                            const cur = v.currency || "€";
+                            const symbol = cur === "EUR" ? "€" : cur === "BRL" ? "R$" : cur === "USD" ? "$" : cur;
+                            const fc = forecastById.get(f.forecastId!);
+                            const expected = fc?.amount ?? 0;
+                            const cls = v.state === "match" ? "text-success" : "text-destructive";
+                            const Icon = v.state === "match" ? CheckCircle2 : AlertCircle;
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[11px] font-medium ${cls}`}
+                                title={`PDF: ${total.toFixed(2)} ${symbol}\nBP: ${expected.toFixed(2)} €\nDiferença: ${(v.diffPct ? v.diffPct * 100 : 0).toFixed(1)}%${v.note ? `\n${v.note}` : ""}`}
+                              >
+                                <Icon className="h-3 w-3" />
+                                {total.toFixed(2)} {symbol}
+                              </span>
+                            );
+                          })()}
+                        </td>
                         <td className="px-2 py-1.5 text-right text-muted-foreground">{bytesToReadable(f.size)}</td>
                         <td className="px-2 py-1.5 text-center">
                           {f.status === "uploading" && <Loader2 className="inline h-3.5 w-3.5 animate-spin text-primary" />}
