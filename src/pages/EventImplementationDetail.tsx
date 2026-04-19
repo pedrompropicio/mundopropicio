@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { ArrowLeft, FileText, Download, Plus, Link2, Loader2, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -622,7 +623,7 @@ export default function EventImplementationDetail() {
                   </div>
                   <div>
                     <Label>Data</Label>
-                    <Input type="date" value={setupDate} onChange={(e) => setSetupDate(e.target.value)} />
+                    <DatePicker value={setupDate} onChange={setSetupDate} />
                   </div>
                   {setupMode === "create_master" && (
                     <div className="space-y-3">
