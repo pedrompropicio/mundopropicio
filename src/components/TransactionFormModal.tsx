@@ -1802,22 +1802,48 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base (€) *</label>
-                <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+            {currency === "EUR" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base *</label>
+                  <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Moeda</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="EUR">EUR</option>
+                    <option value="BRL">BRL</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value={23}>23% - Normal</option>
-                  <option value={13}>13% - Intermédia</option>
-                  <option value={6}>6% - Reduzida</option>
-                  <option value={0}>0% - Isento</option>
-                </select>
-              </div>
+            ) : (
+              <CurrencyAmountInput
+                currency={currency}
+                onCurrencyChange={setCurrency}
+                originalAmount={originalAmount}
+                onOriginalAmountChange={setOriginalAmount}
+                fxRate={fxRate}
+                onFxRateChange={setFxRate}
+                onFxRateSourceChange={setFxRateSource}
+                onEurAmountChange={setEurFromCurrency}
+                label="Valor Base"
+              />
+            )}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value={23}>23% - Normal</option>
+                <option value={13}>13% - Intermédia</option>
+                <option value={6}>6% - Reduzida</option>
+                <option value={0}>0% - Isento</option>
+              </select>
             </div>
             {/* IVA breakdown */}
             {(() => {
@@ -1828,7 +1854,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
                   <span className="text-muted-foreground">
-                    Base: {base.toFixed(2)}€
+                    Base (EUR): {base.toFixed(2)}€
+                    {currency !== "EUR" && (
+                      <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
+                    )}
                   </span>
                   <span className="text-muted-foreground">
                     + IVA ({form.iva_rate}%): {ivaValue.toFixed(2)}€
