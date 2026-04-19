@@ -2252,6 +2252,85 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
 
   const colCount = isExpense ? 8 : 7;
 
+  // ── Sync attachments from BP line → linked transactions
+  // Copies external links (attachment_refs) from this BP row into transaction_documents
+  // for every matching transaction. Used when transactions were generated before
+  // attachments existed on the BP, or via flows that didn't propagate them.
+  const linkCount = Array.isArray(item.attachment_refs)
+    ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
+    : 0;
+  const canSyncAttachments = linkCount > 0 && hasMatchingTx;
+  const [syncingAttachments, setSyncingAttachments] = useState(false);
+
+  const handleSyncAttachments = async () => {
+    if (!canSyncAttachments || syncingAttachments) return;
+    setSyncingAttachments(true);
+    try {
+      const refUrls = (item.attachment_refs as any[])
+        .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
+        .filter((u) => /^https?:\/\//i.test(u));
+      if (refUrls.length === 0) {
+        toast({ title: "Sem links válidos", description: "Esta linha não tem URLs http(s) anexadas.", variant: "destructive" });
+        return;
+      }
+      const txIds = matchingTransactions.map((t: any) => t.id);
+      // Pre-load existing ref:// docs to avoid duplicates per transaction
+      const { data: existing } = await supabase
+        .from("transaction_documents")
+        .select("transaction_id, file_url")
+        .in("transaction_id", txIds);
+      const existingByTx = new Map<string, Set<string>>();
+      for (const d of existing ?? []) {
+        const tid = (d as any).transaction_id as string;
+        const url = String((d as any).file_url ?? "");
+        if (!existingByTx.has(tid)) existingByTx.set(tid, new Set());
+        existingByTx.get(tid)!.add(url);
+      }
+      const rows: any[] = [];
+      for (const tid of txIds) {
+        const seen = existingByTx.get(tid) ?? new Set<string>();
+        for (const url of refUrls) {
+          const refUrl = `ref://${url}`;
+          if (seen.has(refUrl)) continue;
+          rows.push({
+            transaction_id: tid,
+            file_url: refUrl,
+            file_name: "Link externo",
+            file_size: 0,
+            mime_type: "text/uri-list",
+          });
+        }
+      }
+      if (rows.length === 0) {
+        toast({ title: "Já sincronizado", description: "Todos os links já estão nas transações vinculadas." });
+        return;
+      }
+      const { error } = await supabase.from("transaction_documents").insert(rows as any);
+      if (error) throw error;
+
+      // Back-link the BP line to its first transaction so future syncs / cascades work.
+      if (!item.transaction_id && matchingTransactions.length > 0) {
+        await supabase
+          .from("event_forecasts")
+          .update({ transaction_id: matchingTransactions[0].id } as any)
+          .eq("id", item.id);
+      }
+
+      toast({
+        title: "Anexos sincronizados",
+        description: `${rows.length} link(s) propagado(s) para ${txIds.length} transação(ões).`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual"] });
+      queryClient.invalidateQueries({ queryKey: ["bp_native_doc_counts"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction_documents"] });
+    } catch (e: any) {
+      toast({ title: "Erro ao sincronizar", description: e?.message ?? "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSyncingAttachments(false);
+    }
+  };
+
   return (
     <>
       <tr className={readOnly ? "bg-primary/5 opacity-70" : isApproved ? "group opacity-60 hover:opacity-100 hover:bg-muted/30 transition-all" : "group hover:bg-muted/30 transition-colors"}>
