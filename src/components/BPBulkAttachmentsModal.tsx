@@ -817,6 +817,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     <th className="px-2 py-2 text-left">Match</th>
                     <th className="px-2 py-2 text-left">Evento</th>
                     <th className="px-2 py-2 text-left">Valor PDF</th>
+                    <th className="px-2 py-2 text-left">Categoria (IA)</th>
                     <th className="px-2 py-2 text-right">Tamanho</th>
                     <th className="px-2 py-2 text-center">Estado</th>
                     <th className="px-2 py-2"></th>
