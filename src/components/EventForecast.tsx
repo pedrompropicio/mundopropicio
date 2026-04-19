@@ -1974,6 +1974,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       />
       {/* Sheet mapping modal removed — full import flow now lives at /admin/implantacao/:id */}
 
+      <OrphanAttachmentsResolver
+        open={showOrphanResolver}
+        onOpenChange={setShowOrphanResolver}
+        eventId={eventId}
+        childEventIds={childEventIds}
+        parentEventId={parentEventId}
+      />
+
       <PromoteToMasterModal
         open={showPromoteModal}
         onOpenChange={setShowPromoteModal}
