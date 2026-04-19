@@ -142,7 +142,7 @@ export default function BPSheetMappingModal({
                           {opt.value === "ignore" ? (
                             <X className="h-3.5 w-3.5 text-muted-foreground" />
                           ) : opt.isMaster ? (
-                            <Crown className="h-3.5 w-3.5 text-amber-500" />
+                            <Crown className="h-3.5 w-3.5 text-warning" />
                           ) : (
                             <MapPin className="h-3.5 w-3.5 text-primary" />
                           )}
