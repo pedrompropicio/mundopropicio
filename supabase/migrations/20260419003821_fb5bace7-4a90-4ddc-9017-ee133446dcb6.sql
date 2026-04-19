@@ -1,0 +1,8 @@
+DELETE FROM event_cache_payments WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc');
+DELETE FROM event_cache_extras WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc');
+DELETE FROM event_cache_tiers WHERE cache_config_id IN (SELECT id FROM event_cache_configs WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc'));
+DELETE FROM event_cache_deductions WHERE cache_config_id IN (SELECT id FROM event_cache_configs WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc'));
+DELETE FROM forecast_audit_log WHERE forecast_id IN (SELECT id FROM event_forecasts WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc'));
+DELETE FROM event_forecast_partners WHERE forecast_id IN (SELECT id FROM event_forecasts WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc'));
+DELETE FROM event_forecasts WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc');
+DELETE FROM event_cache_configs WHERE event_id IN ('cc992ad9-1071-4adc-894a-3992d4c1ca89','2b91008e-d93a-4ae6-832b-ed8ea6d630a5','7eb40834-0def-4093-b7aa-0c574287d7cc');
