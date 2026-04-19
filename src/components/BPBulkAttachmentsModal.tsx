@@ -565,6 +565,15 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={validateValues}
+                  disabled={validating || uploading}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 disabled:opacity-50"
+                  title="Compara o total do PDF com o valor planeado no BP (tolerância ±1% ou €1)"
+                >
+                  {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />}
+                  Validar valores PDF
+                </button>
+                <button
                   onClick={acceptAllConfident}
                   className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-secondary/80"
                 >
