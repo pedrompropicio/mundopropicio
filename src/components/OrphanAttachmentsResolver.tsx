@@ -311,7 +311,7 @@ export default function OrphanAttachmentsResolver({
         ) : (
           <div className="flex-1 grid grid-cols-12 overflow-hidden">
             {/* Left: list */}
-            <div className={`${isMobile ? "col-span-5" : "col-span-3"} border-r border-border/40 overflow-hidden flex flex-col`}>
+            <div className="col-span-5 border-r border-border/40 overflow-hidden flex flex-col">
               <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border/40">
                 Órfãos ({orphans.length})
               </div>
@@ -337,59 +337,12 @@ export default function OrphanAttachmentsResolver({
               </ScrollArea>
             </div>
 
-            {/* Center: preview (desktop only) */}
-            {!isMobile && (
-              <div className="col-span-5 border-r border-border/40 flex flex-col overflow-hidden">
-                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border/40 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <FileText className="h-3.5 w-3.5" /> Pré-visualização
-                  </span>
-                  {current && (
-                    <a
-                      href={current.link_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1"
-                    >
-                      Abrir <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-                <div className="flex-1 bg-muted/20 overflow-hidden">
-                  {previewUrl ? (
-                    <iframe
-                      key={current?.id}
-                      src={previewUrl}
-                      className="w-full h-full bg-background"
-                      allow="autoplay"
-                      title="Pré-visualização do anexo"
-                    />
-                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground p-4 text-center">
-                      <Link2 className="h-6 w-6" />
-                      <p>Pré-visualização não disponível para este link.</p>
-                      {current && (
-                        <a
-                          href={current.link_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline text-xs break-all"
-                        >
-                          {current.link_url}
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Right: suggestions + actions */}
-            <div className={`${isMobile ? "col-span-7" : "col-span-4"} flex flex-col overflow-hidden`}>
+            {/* Right: original row + suggestions + actions */}
+            <div className="col-span-7 flex flex-col overflow-hidden">
               <div className="px-3 py-2 border-b border-border/40">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <div className="text-xs font-semibold text-muted-foreground">Linha original (XLSX)</div>
-                  {isMobile && current && (
+                  {current && (
                     <a
                       href={current.link_url}
                       target="_blank"
