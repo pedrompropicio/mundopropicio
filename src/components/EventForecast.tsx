@@ -81,6 +81,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showBulkAttach, setShowBulkAttach] = useState(false);
   const [showImportMode, setShowImportMode] = useState(false);
   const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
+  const [pendingImportInstructions, setPendingImportInstructions] = useState<string>("");
   const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
@@ -836,7 +837,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     if (!file) return;
     e.target.value = "";
     const mode = pendingImportMode ?? "full";
+    const instructions = pendingImportInstructions;
     setPendingImportMode(null);
+    setPendingImportInstructions("");
     setImportingXlsx(true);
     try {
       const buffer = await file.arrayBuffer();
@@ -918,7 +921,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         let totalCreated = 0;
         const allErrors: string[] = [];
         for (const { sheet, childEvent } of matchedSheets) {
-          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system", eventId);
+          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system", eventId, instructions);
           totalCreated += result.created;
           allErrors.push(...result.errors);
           queryClient.invalidateQueries({ queryKey: ["event_forecasts", childEvent.id] });
@@ -952,7 +955,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           }
         }
         if (!window.confirm(`Importar ${selectedRows.length} linha(s) de despesa para o BP deste evento?`)) return;
-        const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system", parentEventId);
+        const result = await importPLToEvent(selectedRows, eventId, eventDate, categories, user?.email || "system", parentEventId, instructions);
         queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
         queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
         queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -1961,8 +1964,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       <BPImportModeDialog
         open={showImportMode}
         onOpenChange={setShowImportMode}
-        onConfirm={(mode) => {
+        onConfirm={(mode, instructions) => {
           setPendingImportMode(mode);
+          setPendingImportInstructions(instructions);
           // Defer the click so the dialog has time to close (avoids focus traps).
           setTimeout(() => {
             if (mode === "links") {
