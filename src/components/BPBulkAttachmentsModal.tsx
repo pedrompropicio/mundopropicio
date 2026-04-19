@@ -5,12 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import {
-  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles, Scale,
+  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles, Scale, Info,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
 import { createExpenseCategoryMatcher, getExpenseLeafCategories, type ExpenseCategoryLite } from "@/lib/pl-category-matching";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Props {
   /** All event IDs whose BP forecasts can receive attachments (master + children, or single event). */
@@ -908,7 +909,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     <th className="px-2 py-2 text-left">Match</th>
                     <th className="px-2 py-2 text-left">Evento</th>
                     <th className="px-2 py-2 text-left">Valor PDF</th>
-                    <th className="px-2 py-2 text-left">Categoria (IA)</th>
+                    <th className="px-2 py-2 text-left min-w-[320px]">Categoria (IA)</th>
                     <th className="px-2 py-2 text-right">Tamanho</th>
                     <th className="px-2 py-2 text-center">Estado</th>
                     <th className="px-2 py-2"></th>
@@ -1066,27 +1067,99 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                               : null;
                             const isSuggestion = !!suggested && f.categoryId === f.suggestedCategoryId;
                             return (
-                              <div className="flex flex-col gap-1 max-w-[220px]">
-                                <select
-                                  value={f.categoryId ?? ""}
-                                  onChange={(e) => setCategory(f.id, e.target.value || null)}
-                                  disabled={f.status === "uploading" || f.status === "done"}
-                                  className={`w-full rounded border bg-background px-1.5 py-1 text-[11px] ${
-                                    isSuggestion ? "border-primary/50" : "border-border"
-                                  }`}
-                                  title={
-                                    v.serviceDescription
-                                      ? `IA leu: "${v.serviceDescription}"`
-                                      : "Sem descrição extraída do PDF"
-                                  }
-                                >
-                                  <option value="">— sem alteração —</option>
-                                  {leafCategoriesForSelect.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.code} — {c.name}
-                                    </option>
-                                  ))}
-                                </select>
+                              <div className="flex flex-col gap-1 min-w-[300px] max-w-[360px]">
+                                <div className="flex items-center gap-1">
+                                  <select
+                                    value={f.categoryId ?? ""}
+                                    onChange={(e) => setCategory(f.id, e.target.value || null)}
+                                    disabled={f.status === "uploading" || f.status === "done"}
+                                    className={`flex-1 min-w-0 rounded border bg-background px-1.5 py-1 text-[11px] ${
+                                      isSuggestion ? "border-primary/50" : "border-border"
+                                    }`}
+                                    title={
+                                      v.serviceDescription
+                                        ? `IA leu: "${v.serviceDescription}"`
+                                        : "Sem descrição extraída do PDF"
+                                    }
+                                  >
+                                    <option value="">— sem alteração —</option>
+                                    {leafCategoriesForSelect.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.code} — {c.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        title="Ver detalhes extraídos do PDF"
+                                        className="shrink-0 rounded border border-border bg-muted/30 p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                                      >
+                                        <Info className="h-3 w-3" />
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="end" className="w-80 text-xs space-y-2">
+                                      <div className="font-semibold text-sm">Dados extraídos pela IA</div>
+                                      {v.serviceDescription && (
+                                        <div>
+                                          <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Descrição (serviços)</div>
+                                          <div className="text-foreground">{v.serviceDescription}</div>
+                                        </div>
+                                      )}
+                                      {v.mentionedNames && (
+                                        <div>
+                                          <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Nomes mencionados</div>
+                                          <div className="text-foreground">{v.mentionedNames}</div>
+                                        </div>
+                                      )}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {v.documentType && (
+                                          <div>
+                                            <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Tipo</div>
+                                            <div className="text-foreground">{v.documentType}</div>
+                                          </div>
+                                        )}
+                                        {v.documentDate && (
+                                          <div>
+                                            <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Data</div>
+                                            <div className="text-foreground">{v.documentDate}</div>
+                                          </div>
+                                        )}
+                                        {v.extractedTotal != null && (
+                                          <div>
+                                            <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Valor</div>
+                                            <div className="text-foreground">{v.extractedTotal.toFixed(2)} {v.currency ?? ""}</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {suggested && (
+                                        <div className="border-t border-border pt-2">
+                                          <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Categoria sugerida</div>
+                                          <div className="text-foreground font-medium">{suggested.code} — {suggested.name}</div>
+                                        </div>
+                                      )}
+                                      {v.ownership?.reason && (
+                                        <div className="border-t border-border pt-2">
+                                          <div className="text-muted-foreground text-[10px] uppercase tracking-wide">Origem (match)</div>
+                                          <div className="text-foreground">{v.ownership.reason}</div>
+                                        </div>
+                                      )}
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                                {/* Inline service description for quick scanning without opening popover */}
+                                {v.serviceDescription && (
+                                  <span className="text-[10px] text-muted-foreground line-clamp-2 leading-snug" title={v.serviceDescription}>
+                                    <span className="font-medium text-foreground/70">PDF: </span>
+                                    {v.serviceDescription}
+                                  </span>
+                                )}
+                                {suggested && f.categoryId === f.suggestedCategoryId && (
+                                  <span className="text-[10px] text-primary truncate" title={`${suggested.code} — ${suggested.name}`}>
+                                    Sugestão: {suggested.code} — {suggested.name}
+                                  </span>
+                                )}
                                 {f.categoryId && (
                                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
                                     <input
@@ -1100,7 +1173,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                                   </label>
                                 )}
                                 {!f.suggestedCategoryId && v.serviceDescription && (
-                                  <span className="text-[9px] text-muted-foreground italic" title={v.serviceDescription}>
+                                  <span className="text-[9px] text-muted-foreground italic">
                                     sem match automático
                                   </span>
                                 )}
