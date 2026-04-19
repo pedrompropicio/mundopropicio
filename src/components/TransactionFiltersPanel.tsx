@@ -95,7 +95,7 @@ function MultiSelectList({ items, selected, onToggle, onToggleAll, searchPlaceho
                 <Checkbox checked={selected.has(i.id)} onCheckedChange={() => onToggle(i.id)} />
                 <span className="truncate flex-1">{i.name}</span>
                 {i.is_partner && (
-                  <span className="shrink-0 rounded-full bg-indigo-500/15 text-indigo-400 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                  <span className="shrink-0 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
                     Sócio
                   </span>
                 )}
