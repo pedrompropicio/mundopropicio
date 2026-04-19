@@ -7,6 +7,10 @@
  *   - "links": don't touch existing BP. Only attach the G–K external links to
  *     matching rows.
  *   - "dryrun": parse the file but show a preview without writing anything.
+ *
+ * Optional free-text "instructions" are forwarded to the AI category matcher to
+ * give context about the file (e.g. "ignorar aba Resumo", "valores em milhares",
+ * "CUSTOS LISBOA são da turnê de 07/02").
  */
 import { useState } from "react";
 import {
@@ -18,7 +22,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Link2, Eye } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { FileSpreadsheet, Link2, Eye, Sparkles } from "lucide-react";
 
 export type BPImportMode = "full" | "links" | "dryrun";
 
@@ -26,7 +32,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   /** Called when the user confirms a mode. The parent should then open its file picker. */
-  onConfirm: (mode: BPImportMode) => void;
+  onConfirm: (mode: BPImportMode, instructions: string) => void;
 }
 
 const OPTIONS: Array<{
@@ -57,6 +63,7 @@ const OPTIONS: Array<{
 
 export default function BPImportModeDialog({ open, onOpenChange, onConfirm }: Props) {
   const [mode, setMode] = useState<BPImportMode>("full");
+  const [instructions, setInstructions] = useState("");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,13 +110,33 @@ export default function BPImportModeDialog({ open, onOpenChange, onConfirm }: Pr
           })}
         </div>
 
+        {mode !== "links" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="bp-import-instructions" className="flex items-center gap-1.5 text-xs">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Instruções para a IA <span className="text-muted-foreground font-normal">(opcional)</span>
+            </Label>
+            <Textarea
+              id="bp-import-instructions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder={`Ex.: "A aba CUSTOS LISBOA é da data de 07/02. Valores estão em milhares. Categoria 'Cabos' é Som e Luz."`}
+              className="min-h-[80px] text-xs"
+              maxLength={1000}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Este texto é enviado à IA de classificação para melhorar o mapeamento de categorias e o tratamento das linhas. {instructions.length}/1000
+            </p>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button
             onClick={() => {
-              onConfirm(mode);
+              onConfirm(mode, instructions.trim());
               onOpenChange(false);
             }}
           >
