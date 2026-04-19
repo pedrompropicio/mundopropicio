@@ -282,7 +282,7 @@ export default function OrphanAttachmentsResolver({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[85vh] p-0 gap-0 flex flex-col">
+      <DialogContent className="max-w-3xl h-[80vh] p-0 gap-0 flex flex-col">
         <DialogHeader className="px-5 py-3 border-b border-border/40 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
