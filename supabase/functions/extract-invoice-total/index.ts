@@ -135,13 +135,13 @@ Deno.serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, error: "No tool call returned" } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "No tool call returned" } satisfies ExtractResult);
     }
     let parsed: any;
     try {
       parsed = JSON.parse(argsStr);
     } catch {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
     }
 
     const validTypes = ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other"];
@@ -152,6 +152,7 @@ Deno.serve(async (req) => {
       mentioned_names: typeof parsed.mentioned_names === "string" && parsed.mentioned_names.trim() ? parsed.mentioned_names.trim() : null,
       document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
       document_type: typeof parsed.document_type === "string" && validTypes.includes(parsed.document_type) ? parsed.document_type : null,
+      service_description: typeof parsed.service_description === "string" && parsed.service_description.trim() ? parsed.service_description.trim().slice(0, 200) : null,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };
     return json(out);
