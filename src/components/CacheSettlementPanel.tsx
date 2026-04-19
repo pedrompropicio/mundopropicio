@@ -158,7 +158,7 @@ export function CacheSettlementPanel({
   if (eventStatus !== "active" && eventStatus !== "completed") return null;
   if (!realResult) return null;
 
-
+  return (
     <div className="border-t border-border bg-muted/20 p-3 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
