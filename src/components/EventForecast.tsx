@@ -2380,17 +2380,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 </p>
               )}
               {/* Attachment counters: external links + native files */}
-              {(() => {
-                const linkCount = Array.isArray(item.attachment_refs)
-                  ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
-                  : 0;
-                if (linkCount === 0 && nativeDocCount === 0 && !onOpenAttachments) return null;
-                return (
+              {(linkCount > 0 || nativeDocCount > 0 || onOpenAttachments) && (
+                <div className="mt-0.5 flex items-center gap-1">
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onOpenAttachments?.(item); }}
                     disabled={!onOpenAttachments}
-                    className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-default"
+                    className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-default"
                     title="Gerir anexos desta linha"
                   >
                     {linkCount > 0 && (
@@ -2409,8 +2405,20 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                       </span>
                     )}
                   </button>
-                );
-              })()}
+                  {canSyncAttachments && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleSyncAttachments(); }}
+                      disabled={syncingAttachments}
+                      className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
+                      title={`Copiar ${linkCount} link(s) do BP para ${matchingTransactions.length} transação(ões) vinculada(s)`}
+                    >
+                      <ArrowDownRight className="h-2.5 w-2.5" />
+                      {syncingAttachments ? "A sincronizar…" : "Sincronizar"}
+                    </button>
+                  )}
+                </div>
+              )}
               {/* Partner badges */}
               {assignedPartnerIds.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-0.5">
