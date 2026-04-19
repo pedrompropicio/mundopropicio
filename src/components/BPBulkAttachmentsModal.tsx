@@ -192,6 +192,21 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     },
   });
 
+  // Load **all** active events (not just the scope) so we can detect when a PDF
+  // clearly mentions a *different* event. Used to flag "outro evento" mismatches.
+  const { data: allEvents = [] } = useQuery({
+    queryKey: ["bp_bulk_all_events_for_mismatch"],
+    queryFn: async (): Promise<{ id: string; name: string }[]> => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name")
+        .order("date", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   // Load all expense leaf categories so we can suggest one per PDF.
   const { data: expenseCategories = [] } = useQuery({
     queryKey: ["bp_bulk_expense_categories"],
