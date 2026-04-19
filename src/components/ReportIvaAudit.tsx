@@ -141,7 +141,7 @@ export default function ReportIvaAudit() {
       "Resíduo de arredondamento (€)": d.diff,
     }));
     const ws = utils.json_to_sheet(rows);
-    applyPTNumberFormat(ws, ["E", "G", "H"], "#,##0.00 €");
+    applyPTNumberFormat(ws);
     const wb = utils.book_new();
     utils.book_append_sheet(wb, ws, "Auditoria IVA");
     writeFile(wb, `auditoria-iva-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -190,13 +190,13 @@ export default function ReportIvaAudit() {
         <p className="text-sm text-muted-foreground">A carregar…</p>
       ) : divergences.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+          <CheckCircle2 className="h-5 w-5 text-primary" />
           Nenhuma divergência de IVA detetada com esta tolerância. ✅
         </div>
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-border bg-amber-500/10 px-4 py-2 text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2 text-sm">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium">{divergences.length}</span> linha(s) com resíduo de arredondamento de IVA
           </div>
           <Table>
