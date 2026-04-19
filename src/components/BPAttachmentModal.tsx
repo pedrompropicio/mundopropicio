@@ -364,6 +364,23 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
           </section>
         </div>
       </DialogContent>
+
+      {/* Preview popup for Drive links — uses /preview embed which works in iframes */}
+      <Dialog open={!!previewUrl} onOpenChange={(o) => { if (!o) setPreviewUrl(null); }}>
+        <DialogContent className="max-w-3xl h-[70vh] p-0 gap-0 flex flex-col">
+          <DialogHeader className="px-4 py-2 border-b border-border/40">
+            <DialogTitle className="text-sm">Pré-visualização</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <iframe
+              src={previewUrl}
+              className="flex-1 w-full bg-background"
+              allow="autoplay"
+              title="Pré-visualização do anexo"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
