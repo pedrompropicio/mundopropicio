@@ -737,16 +737,20 @@ export type Database = {
           cache_config_id: string | null
           category_id: string | null
           created_at: string
+          currency: string
           description: string
           event_id: string
           exclude_from_result: boolean
           formula_type: string
           formula_value: number
+          fx_rate: number | null
+          fx_rate_source: string | null
           id: string
           is_transitory: boolean
           iva_rate: number
           master_forecast_id: string | null
           notes: string | null
+          original_amount: number | null
           specification: string | null
           status: string
           transaction_id: string | null
@@ -761,16 +765,20 @@ export type Database = {
           cache_config_id?: string | null
           category_id?: string | null
           created_at?: string
+          currency?: string
           description: string
           event_id: string
           exclude_from_result?: boolean
           formula_type?: string
           formula_value?: number
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
           notes?: string | null
+          original_amount?: number | null
           specification?: string | null
           status?: string
           transaction_id?: string | null
@@ -785,16 +793,20 @@ export type Database = {
           cache_config_id?: string | null
           category_id?: string | null
           created_at?: string
+          currency?: string
           description?: string
           event_id?: string
           exclude_from_result?: boolean
           formula_type?: string
           formula_value?: number
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
           notes?: string | null
+          original_amount?: number | null
           specification?: string | null
           status?: string
           transaction_id?: string | null
@@ -2638,17 +2650,21 @@ export type Database = {
           amount: number
           category_id: string | null
           created_at: string
+          currency: string
           date: string
           description: string
           due_date: string | null
           event_id: string | null
           exclude_from_result: boolean
+          fx_rate: number | null
+          fx_rate_source: string | null
           id: string
           invoice_ref: string | null
           is_hidden: boolean
           is_reimbursement: boolean
           is_transitory: boolean
           iva_rate: number
+          original_amount: number | null
           paid_amount: number
           parent_transaction_id: string | null
           payment_date: string | null
@@ -2672,17 +2688,21 @@ export type Database = {
           amount: number
           category_id?: string | null
           created_at?: string
+          currency?: string
           date: string
           description: string
           due_date?: string | null
           event_id?: string | null
           exclude_from_result?: boolean
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           invoice_ref?: string | null
           is_hidden?: boolean
           is_reimbursement?: boolean
           is_transitory?: boolean
           iva_rate?: number
+          original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
           payment_date?: string | null
@@ -2706,17 +2726,21 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
+          currency?: string
           date?: string
           description?: string
           due_date?: string | null
           event_id?: string | null
           exclude_from_result?: boolean
+          fx_rate?: number | null
+          fx_rate_source?: string | null
           id?: string
           invoice_ref?: string | null
           is_hidden?: boolean
           is_reimbursement?: boolean
           is_transitory?: boolean
           iva_rate?: number
+          original_amount?: number | null
           paid_amount?: number
           parent_transaction_id?: string | null
           payment_date?: string | null
