@@ -104,12 +104,16 @@ Deno.serve(async (req) => {
                     enum: ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other", null],
                     description: "Document type detected: invoice (fatura/nota fiscal), proforma, quote (orçamento/proposta), receipt (recibo), transfer (comprovativo de transferência), contract (contrato), other.",
                   },
+                  service_description: {
+                    type: ["string", "null"],
+                    description: "Short PT-PT description of the services/products being billed or contracted (max ~150 chars). E.g. 'Aluguer de som e luz', 'Cachê artístico', 'Hospedagem hotel'. Null if unreadable.",
+                  },
                   notes: {
                     type: "string",
                     description: "Brief reason — e.g. 'contrato Maiara e Maraisa, cachê 50000€' or 'comprovativo TRF 1234.56€'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "notes"],
                 additionalProperties: false,
               },
             },
