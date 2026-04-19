@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark } from "lucide-react";
+import { X, CalendarIcon, Paperclip, CreditCard, Building, FileText, Landmark, RefreshCw } from "lucide-react";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import { toast } from "@/hooks/use-toast";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
@@ -13,6 +13,8 @@ import { pt } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn, calcWithIva, isFullyPaid } from "@/lib/utils";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, isSupportedCurrency, formatInCurrency, fetchSuggestedFxRate, eurToOriginal } from "@/lib/currency";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -43,6 +45,11 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   );
   const [paymentEntity, setPaymentEntity] = useState(transaction.payment_entity ?? "");
   const [paymentReference, setPaymentReference] = useState(transaction.payment_reference ?? "");
+  // FX on payment day (only if transaction is in a foreign currency)
+  const txCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
+  const isForeign = txCurrency !== "EUR";
+  const [paymentFxRate, setPaymentFxRate] = useState<string>(isForeign ? String(transaction.fx_rate ?? "") : "");
+  const [loadingFx, setLoadingFx] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -274,6 +281,20 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
       };
+      // Audit FX of the payment day (informativo, sem ajuste de valor)
+      if (isForeign) {
+        const rate = parseFloat(paymentFxRate) || 0;
+        if (rate > 0) {
+          const origRate = Number(transaction.fx_rate) || 0;
+          auditEntries.push({
+            transaction_id: transaction.id,
+            changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+            field_name: `Câmbio do dia (${txCurrency})`,
+            old_value: origRate ? origRate.toFixed(6) : null,
+            new_value: `${rate.toFixed(6)} (variação: ${origRate ? (rate - origRate).toFixed(6) : "—"})`,
+          });
+        }
+      }
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       if (paymentMethod !== "transfer") {
         const methodLabel = paymentMethod === "service_payment" ? "Pag. Serviços" : "Pag. Estado";
@@ -419,9 +440,69 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             </div>
             <div className="flex justify-between border-t border-border/50 pt-2">
               <span className="text-muted-foreground">Saldo em aberto:</span>
-              <span className="font-bold text-warning">{formatCurrency(balance)}</span>
+              <span className="font-bold text-warning inline-flex items-center gap-1.5">
+                {formatCurrency(balance)}
+                <CurrencyBadge currency={transaction.currency} originalAmount={transaction.original_amount} fxRate={transaction.fx_rate} />
+              </span>
             </div>
           </div>
+
+          {isForeign && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Câmbio do dia (1 {txCurrency} = X €)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    value={paymentFxRate}
+                    onChange={(e) => setPaymentFxRate(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder={transaction.fx_rate ? String(transaction.fx_rate) : "Ex.: 0.17"}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoadingFx(true);
+                    const r = await fetchSuggestedFxRate(txCurrency, supabase);
+                    setLoadingFx(false);
+                    if (r) setPaymentFxRate(r.toFixed(6));
+                  }}
+                  disabled={loadingFx}
+                  className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingFx ? "animate-spin" : ""}`} />
+                  Sugerir
+                </button>
+              </div>
+              {(() => {
+                const rate = parseFloat(paymentFxRate) || 0;
+                const eur = parseFloat(paymentAmount) || 0;
+                if (rate <= 0 || eur <= 0) return (
+                  <p className="text-[11px] text-muted-foreground">
+                    Informativo: o valor pago é registado em EUR ({formatCurrency(eur)}). Câmbio guardado apenas para histórico.
+                  </p>
+                );
+                const orig = eurToOriginal(eur, rate);
+                const origRate = Number(transaction.fx_rate) || 0;
+                const diff = origRate > 0 ? rate - origRate : 0;
+                return (
+                  <div className="text-[11px] text-muted-foreground space-y-0.5">
+                    <p>Equivale a <span className="font-semibold text-foreground">{formatInCurrency(orig, txCurrency)}</span> à taxa do dia.</p>
+                    {origRate > 0 && (
+                      <p className={diff >= 0 ? "text-success" : "text-warning"}>
+                        Variação vs. câmbio original ({origRate.toFixed(6)}): {diff >= 0 ? "+" : ""}{diff.toFixed(6)} €/{txCurrency}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">{accountLabel}</label>

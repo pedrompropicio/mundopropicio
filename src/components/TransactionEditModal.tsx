@@ -15,6 +15,9 @@ import { sortByHierarchicalCode, cn } from "@/lib/utils";
 import { PaymentTimeline } from "@/components/PaymentTimeline";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -50,6 +53,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
+
+  // Multi-currency state
+  const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
+  const [currency, setCurrency] = useState<CurrencyCode>(initCurrency);
+  const [originalAmount, setOriginalAmount] = useState<string>(
+    initCurrency === "EUR"
+      ? ""
+      : String(transaction.original_amount ?? eurToOriginal(Number(transaction.amount), Number(transaction.fx_rate) || 1))
+  );
+  const [fxRate, setFxRate] = useState<string>(initCurrency === "EUR" ? "" : String(transaction.fx_rate ?? ""));
+  const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">(
+    transaction.fx_rate_source === "suggested" ? "suggested" : "manual"
+  );
+  const [eurFromCurrency, setEurFromCurrency] = useState<number>(Number(transaction.amount) || 0);
+  useEffect(() => {
+    if (currency !== "EUR") {
+      setForm((f) => ({ ...f, amount: eurFromCurrency ? String(eurFromCurrency) : "" }));
+    }
+  }, [currency, eurFromCurrency]);
 
   // Check if this is a parent split transaction (has children)
   const isAbsoluteMode = (transaction.split_mode ?? "percentage") === "absolute";
@@ -187,7 +209,19 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
         ...paymentFields,
+        currency,
+        original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+        fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+        fx_rate_source: currency === "EUR" ? null : fxRateSource,
       };
+
+      if (!paidLocked && currency !== "EUR") {
+        const orig = parseFloat(originalAmount) || 0;
+        const rate = parseFloat(fxRate) || 0;
+        if (orig <= 0 || rate <= 0) {
+          throw new Error(`Define valor em ${currency} e câmbio.`);
+        }
+      }
 
       // Build snapshot of pre-change values for the same fields
       const snapshot: Record<string, any> = {};
@@ -375,25 +409,53 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
           {!paidLocked && (
           <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base (€) *</label>
-                <input type="number" step="0.01" min="0" value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  disabled={valueLocked}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
+            {currency === "EUR" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base *</label>
+                  <input type="number" step="0.01" min="0" value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    disabled={valueLocked}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Moeda</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                    disabled={valueLocked}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                  >
+                    <option value="EUR">EUR</option>
+                    <option value="BRL">BRL</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                  disabled={valueLocked}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed">
-                  <option value={23}>23% - Normal</option>
-                  <option value={13}>13% - Intermédia</option>
-                  <option value={6}>6% - Reduzida</option>
-                  <option value={0}>0% - Isento</option>
-                </select>
-              </div>
+            ) : (
+              <CurrencyAmountInput
+                currency={currency}
+                onCurrencyChange={setCurrency}
+                originalAmount={originalAmount}
+                onOriginalAmountChange={setOriginalAmount}
+                fxRate={fxRate}
+                onFxRateChange={setFxRate}
+                onFxRateSourceChange={setFxRateSource}
+                onEurAmountChange={setEurFromCurrency}
+                label="Valor Base"
+                disabled={valueLocked}
+              />
+            )}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+                disabled={valueLocked}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed">
+                <option value={23}>23% - Normal</option>
+                <option value={13}>13% - Intermédia</option>
+                <option value={6}>6% - Reduzida</option>
+                <option value={0}>0% - Isento</option>
+              </select>
             </div>
             {(() => {
               const base = parseFloat(form.amount) || 0;
@@ -402,7 +464,12 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               if (base <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
-                  <span className="text-muted-foreground">Base: {base.toFixed(2)}€</span>
+                  <span className="text-muted-foreground">
+                    Base (EUR): {base.toFixed(2)}€
+                    {currency !== "EUR" && (
+                      <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
+                    )}
+                  </span>
                   <span className="text-muted-foreground">+ IVA ({form.iva_rate}%): {iva.toFixed(2)}€</span>
                   <span className="font-semibold text-foreground">Total: {total.toFixed(2)}€</span>
                 </div>

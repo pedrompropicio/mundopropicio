@@ -18,6 +18,9 @@ import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -95,6 +98,18 @@ interface TransactionFormModalProps {
 export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
+  // Multi-currency state
+  const [currency, setCurrency] = useState<CurrencyCode>("EUR");
+  const [originalAmount, setOriginalAmount] = useState<string>("");
+  const [fxRate, setFxRate] = useState<string>("");
+  const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">("manual");
+  const [eurFromCurrency, setEurFromCurrency] = useState<number>(0);
+  // Sync EUR amount back into form.amount when currency != EUR
+  useEffect(() => {
+    if (currency !== "EUR") {
+      setForm((f) => ({ ...f, amount: eurFromCurrency ? String(eurFromCurrency) : "" }));
+    }
+  }, [currency, eurFromCurrency]);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
@@ -903,6 +918,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+          currency,
+          original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+          fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+          fx_rate_source: currency === "EUR" ? null : fxRateSource,
         } as any).select("id").single();
         if (error) throw error;
         createdTxId = insertedTx?.id ?? null;
@@ -1085,6 +1104,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
+    }
+    if (currency !== "EUR") {
+      const orig = parseFloat(originalAmount) || 0;
+      const rate = parseFloat(fxRate) || 0;
+      if (orig <= 0 || rate <= 0) {
+        toast({ title: `Define valor em ${currency} e câmbio`, variant: "destructive" });
+        return;
+      }
     }
     if (form.is_reimbursement && !form.reimbursement_note_id && !showNewReimbursementNote) {
       toast({ title: "Selecione ou crie uma Nota de Reembolso", variant: "destructive" });
@@ -1787,22 +1814,48 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base (€) *</label>
-                <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+            {currency === "EUR" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Valor Base *</label>
+                  <input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Moeda</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="EUR">EUR</option>
+                    <option value="BRL">BRL</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value={23}>23% - Normal</option>
-                  <option value={13}>13% - Intermédia</option>
-                  <option value={6}>6% - Reduzida</option>
-                  <option value={0}>0% - Isento</option>
-                </select>
-              </div>
+            ) : (
+              <CurrencyAmountInput
+                currency={currency}
+                onCurrencyChange={setCurrency}
+                originalAmount={originalAmount}
+                onOriginalAmountChange={setOriginalAmount}
+                fxRate={fxRate}
+                onFxRateChange={setFxRate}
+                onFxRateSourceChange={setFxRateSource}
+                onEurAmountChange={setEurFromCurrency}
+                label="Valor Base"
+              />
+            )}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+              <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value={23}>23% - Normal</option>
+                <option value={13}>13% - Intermédia</option>
+                <option value={6}>6% - Reduzida</option>
+                <option value={0}>0% - Isento</option>
+              </select>
             </div>
             {/* IVA breakdown */}
             {(() => {
@@ -1813,7 +1866,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
                   <span className="text-muted-foreground">
-                    Base: {base.toFixed(2)}€
+                    Base (EUR): {base.toFixed(2)}€
+                    {currency !== "EUR" && (
+                      <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
+                    )}
                   </span>
                   <span className="text-muted-foreground">
                     + IVA ({form.iva_rate}%): {ivaValue.toFixed(2)}€
