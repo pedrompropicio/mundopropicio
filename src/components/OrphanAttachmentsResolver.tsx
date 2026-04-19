@@ -88,13 +88,7 @@ function scoreCandidate(orphan: OrphanRow, f: ForecastRow): number {
   return 0.7 * tokenSimilarity(orphan.row_description, f.description) + 0.3 * amountCloseness(orphan.row_base_amount, Number(f.amount));
 }
 
-// ---- Drive helpers ------------------------------------------------------
-
-function drivePreviewUrl(url: string): string | null {
-  const id = extractDriveFileId(url);
-  if (!id) return null;
-  return `https://drive.google.com/file/d/${id}/preview`;
-}
+// ---- Helpers ------------------------------------------------------------
 
 function fileNameFromUrl(url: string): string {
   try {
