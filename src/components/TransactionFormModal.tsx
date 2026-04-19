@@ -18,6 +18,9 @@ import { compareHierarchicalCodes, sortByHierarchicalCode } from "@/lib/utils";
 import { TransactionSplitConfig, type SplitEntry, type SplitBPInfo, type SplitInputMode } from "@/components/TransactionSplitConfig";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
