@@ -25,8 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
-import { extractDriveFileId } from "@/lib/import-pl-xlsx";
-import { Link2, EyeOff, ExternalLink, ChevronLeft, ChevronRight, FileText, Sparkles, Search } from "lucide-react";
+import { Link2, EyeOff, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Search } from "lucide-react";
 
 // ---- Types ---------------------------------------------------------------
 
