@@ -60,6 +60,7 @@ import ReportSalesComparisonPage from "./pages/ReportSalesComparisonPage";
 import ReportRevenueMixPage from "./pages/ReportRevenueMixPage";
 import ReportPartnerSettlementPage from "./pages/ReportPartnerSettlementPage";
 import ReportPendencyIndexPage from "./pages/ReportPendencyIndexPage";
+import ReportIvaAuditPage from "./pages/ReportIvaAuditPage";
 import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
@@ -184,6 +185,7 @@ function ProtectedLayout() {
                 <Route path="mix-receitas" element={<ReportRevenueMixPage />} />
                 <Route path="acerto-socios" element={<ReportPartnerSettlementPage />} />
                 <Route path="indice-pendencias" element={<ReportPendencyIndexPage />} />
+                <Route path="auditoria-iva" element={<ReportIvaAuditPage />} />
               </Route>
               
               <Route path="/admin" element={<AdminPanel />} />
