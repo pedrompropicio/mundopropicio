@@ -13,6 +13,7 @@ import { sortByHierarchicalCode } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { CacheExtrasPanel } from "@/components/CacheExtrasPanel";
 import { CacheSettlementPanel } from "@/components/CacheSettlementPanel";
+import { CityCacheSettlementsPanel } from "@/components/CityCacheSettlementsPanel";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { useRealCacheCalculation } from "@/hooks/useRealCacheCalculation";
 
@@ -272,7 +273,7 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
   })), [cacheConfigs, tiers]);
 
   // Real cache calculation (for settlement)
-  const { results: realCacheResults } = useRealCacheCalculation(
+  const { results: realCacheResults, resultsByCity } = useRealCacheCalculation(
     eventId,
     childEventIds || [],
     enrichedConfigs,
@@ -280,6 +281,8 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     categories,
     enrichedConfigs.length > 0 && (eventStatus === "active" || eventStatus === "completed"),
   );
+
+  const isTour = (childEventIds?.length ?? 0) > 0;
 
   // Expense categories (level 3 only - detail accounts)
   const expenseDetailCategories = useMemo(() => {
@@ -1060,15 +1063,29 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
                   />
                 </div>
 
-                {/* Settlement panel — Real values for closing */}
-                <CacheSettlementPanel
-                  config={config}
-                  realResult={realCacheResults.find((r) => r.configId === config.id)}
-                  projectedValue={displayValue}
-                  eventId={eventId}
-                  canEdit={canEdit}
-                  eventStatus={eventStatus}
-                />
+                {/* Settlement panel — Master único (eventos simples) */}
+                {!isTour && (
+                  <CacheSettlementPanel
+                    config={config}
+                    realResult={realCacheResults.find((r) => r.configId === config.id)}
+                    projectedValue={displayValue}
+                    eventId={eventId}
+                    canEdit={canEdit}
+                    eventStatus={eventStatus}
+                  />
+                )}
+
+                {/* Settlement por cidade — Tours (Master com sub-eventos) */}
+                {isTour && (
+                  <CityCacheSettlementsPanel
+                    config={config}
+                    eventId={eventId}
+                    childEventIds={childEventIds!}
+                    resultsByCity={resultsByCity}
+                    canEdit={canEdit}
+                    eventStatus={eventStatus}
+                  />
+                )}
               </div>
             );
           })}
