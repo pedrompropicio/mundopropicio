@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Extract grand total, mentioned names (event/artist/client/project) and document date. Call the tool exactly once.",
+                text: "Identify the document type and extract the most relevant monetary amount, mentioned names (event/artist/client/project) and document date. Call the tool exactly once.",
               },
               {
                 type: "image_url",
