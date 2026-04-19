@@ -36,3 +36,9 @@ Rota **`/relatorios/auditoria-iva`** (permission `view_report_document_pendencie
 
 ## Testes
 `src/lib/__tests__/iva.test.ts` cobre cálculo, consistência, snap e inferência.
+
+## Rateio Master → Sub (BP)
+Em `EventForecast.tsx` (`proratedParentExpenses` + totais do BP do sub-evento):
+- Base prorrateada **arredondada ao cêntimo** antes de qualquer soma (`roundCents(parentBase / siblingCount)`).
+- IVA somado **linha-a-linha** via `calcIvaAmount`, nunca como `Σ(base) × taxa`.
+- Mesma regra aplicada a `incomeForecasts`/`expenseForecasts` para evitar resíduo agregado (caso Maiara e Maraisa Porto: ficheiro 191.721,09 vs ecrã 191.721,02 antes da correção).
