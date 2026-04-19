@@ -602,10 +602,17 @@ export async function attachLinksFromXlsx(
     rowsWithoutTx: 0,
     matchedInMaster: 0,
     errors: [],
+    orphans: [],
   };
 
   const sheets = parseXlsxPL(buffer);
-  const allRows = sheets.flatMap((s) => s.rows).filter((r) => (r.attachments || []).some((a) => /^https?:\/\//i.test(a)));
+  // Preserve the originating sheet name for each row so we can group orphans.
+  type RowWithSheet = ParsedRow & { _sheet: string };
+  const allRows: RowWithSheet[] = sheets.flatMap((s) =>
+    s.rows
+      .filter((r) => (r.attachments || []).some((a) => /^https?:\/\//i.test(a)))
+      .map((r) => ({ ...r, _sheet: s.sheetName }))
+  );
   if (allRows.length === 0) return result;
 
   // Build the full list of events to scan: requested events + optional Master fallback
@@ -650,11 +657,6 @@ export async function attachLinksFromXlsx(
       .filter((a) => /^https?:\/\//i.test(a));
     if (links.length === 0) continue;
 
-    // Find matching forecast by normalized description + baseAmount (1 cent tolerance).
-    // For sub-event imports, the spreadsheet often shows partial costs (e.g. ~50% of a
-    // tour-shared expense). Tour BPs consolidate those in the Master event, so we try:
-    //   1) Strict match (desc + amount) inside the sub-event(s)
-    //   2) Description-only match in the Master (fallback for shared/consolidated lines)
     const descKey = norm(row.description);
     let match = primaryForecasts.find((f: any) => {
       return norm(String(f.description)) === descKey
@@ -662,7 +664,6 @@ export async function attachLinksFromXlsx(
     });
     let matchedInMaster = false;
     if (!match && masterForecasts.length > 0) {
-      // Master fallback: prefer exact desc + amount, then desc-only
       match = masterForecasts.find((f: any) => {
         return norm(String(f.description)) === descKey
           && Math.abs(Number(f.amount) - row.baseAmount) <= 0.01;
@@ -672,6 +673,12 @@ export async function attachLinksFromXlsx(
 
     if (!match) {
       result.rowsWithoutMatch++;
+      result.orphans.push({
+        sheetName: row._sheet,
+        description: row.description,
+        baseAmount: row.baseAmount,
+        links,
+      });
       continue;
     }
     if (matchedInMaster) result.matchedInMaster++;
@@ -728,6 +735,33 @@ export async function attachLinksFromXlsx(
       existing.add(fileUrl);
       existingByTx.set(txId, existing);
       result.attached++;
+    }
+  }
+
+  // Persist orphans into bp_orphan_attachments (anchored to primary event = first eventId).
+  // We anchor to the first event id since that's the BP context where the user will resolve them.
+  if (result.orphans.length > 0 && eventIds.length > 0) {
+    const anchorEventId = eventIds[0];
+    const rowsToUpsert = result.orphans.flatMap((o) =>
+      o.links.map((url) => ({
+        event_id: anchorEventId,
+        sheet_name: o.sheetName,
+        row_description: o.description,
+        row_base_amount: o.baseAmount,
+        link_url: url,
+        status: "pending",
+      })),
+    );
+    if (rowsToUpsert.length > 0) {
+      const { error: upsertErr } = await supabase
+        .from("bp_orphan_attachments")
+        .upsert(rowsToUpsert as any, {
+          onConflict: "event_id,link_url,row_description",
+          ignoreDuplicates: true,
+        });
+      if (upsertErr) {
+        result.errors.push(`Erro ao registar órfãos: ${upsertErr.message}`);
+      }
     }
   }
 
