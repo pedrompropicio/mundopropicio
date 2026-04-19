@@ -15,8 +15,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Link2, Upload, Trash2, ExternalLink, FileText, Plus, Loader2 } from "lucide-react";
+import { Link2, Upload, Trash2, ExternalLink, FileText, Plus, Loader2, Eye } from "lucide-react";
 import { extractDriveFileId } from "@/lib/import-pl-xlsx";
+
+/**
+ * Build a Drive embed URL that works inside an iframe (preview mode).
+ * Returns null for non-Drive links or if no file id can be extracted.
+ */
+function drivePreviewUrl(url: string): string | null {
+  const id = extractDriveFileId(url);
+  if (!id) return null;
+  return `https://drive.google.com/file/d/${id}/preview`;
+}
 
 interface Props {
   open: boolean;
@@ -48,6 +58,7 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
   const qc = useQueryClient();
   const [newLink, setNewLink] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refs: Array<{ url: string }> = Array.isArray(forecast.attachment_refs)
@@ -255,10 +266,19 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
                       target="_blank"
                       rel="noopener noreferrer"
                       className="rounded p-1 hover:bg-secondary"
-                      title="Abrir"
+                      title="Abrir em nova aba"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
+                    {drivePreviewUrl(r.url) && (
+                      <button
+                        onClick={() => setPreviewUrl(drivePreviewUrl(r.url))}
+                        className="rounded p-1 hover:bg-secondary text-primary"
+                        title="Pré-visualizar aqui"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => removeLinkMutation.mutate(r.url)}
                       disabled={removeLinkMutation.isPending}
@@ -344,6 +364,23 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
           </section>
         </div>
       </DialogContent>
+
+      {/* Preview popup for Drive links — uses /preview embed which works in iframes */}
+      <Dialog open={!!previewUrl} onOpenChange={(o) => { if (!o) setPreviewUrl(null); }}>
+        <DialogContent className="max-w-3xl h-[70vh] p-0 gap-0 flex flex-col">
+          <DialogHeader className="px-4 py-2 border-b border-border/40">
+            <DialogTitle className="text-sm">Pré-visualização</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <iframe
+              src={previewUrl}
+              className="flex-1 w-full bg-background"
+              allow="autoplay"
+              title="Pré-visualização do anexo"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
