@@ -667,10 +667,12 @@ export async function attachLinksFromXlsx(
   // Build the full list of events to scan: requested events + optional Master fallback
   const lookupEventIds = Array.from(new Set([...eventIds, ...(parentEventId ? [parentEventId] : [])]));
 
-  // Load all forecasts for the given events with their transaction_id
+  // Load all forecasts for the given events with their transaction_id and iva_rate
+  // (iva_rate is needed so we can also try matching by gross value, since the
+  // XLSX BP can store either net or gross amounts in column F).
   const { data: forecasts, error: forecastErr } = await supabase
     .from("event_forecasts")
-    .select("id, event_id, description, amount, transaction_id, attachment_refs")
+    .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
     .in("event_id", lookupEventIds);
 
   if (forecastErr) {
