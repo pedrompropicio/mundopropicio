@@ -1,6 +1,6 @@
 ---
 name: BP attachment links
-description: Importação e propagação de links externos (Drive/Dropbox) das colunas G–K do BP, com matching multi-camada (líquido OR bruto OR só descrição no Master) e botão "Reprocessar" que re-tenta órfãos pendentes
+description: Importação e propagação de links externos (Drive/Dropbox) das colunas G–K do BP, com matching multi-camada (líquido OR bruto OR só descrição no Master). Para retentar órfãos, re-importar XLSX em modo "Só links/anexos"
 type: feature
 ---
 
@@ -16,12 +16,14 @@ Pipeline em 3 camadas, parando na primeira que encontra:
 2. **Master pool** — mesma regra (descrição + líquido OU bruto).
 3. **Master pool** — apenas descrição normalizada (último recurso). Cobre casos em que o Master agrega valores que diferem dos sub-eventos (ex: cachê total ≠ cachê por cidade).
 
-A tolerância dual líquido/bruto é fundamental porque o XLSX de BP pode trazer na coluna F tanto valor com IVA como sem IVA dependendo de quem preencheu. O fallback de descrição pura só dispara para o Master para evitar falsos positivos entre sub-eventos com nomes repetidos.
+A tolerância dual líquido/bruto é fundamental porque o XLSX de BP pode trazer na coluna F tanto valor com IVA como sem IVA. O fallback de descrição pura só dispara para o Master para evitar falsos positivos entre sub-eventos com nomes repetidos.
 
 ## Órfãos e reprocessamento
 
 Quando nenhuma das 3 camadas bate, o link cai em `bp_orphan_attachments` (status `pending`), ancorado ao primeiro `eventId` da importação.
 
-A UI do BP mostra dois botões quando há órfãos:
-- **"Anexos pendentes (N)"** → abre `OrphanAttachmentsResolver` para resolução manual (sugestões por similaridade de tokens + valor).
-- **"Reprocessar"** → invoca `reprocessOrphanAttachments(anchorEventId, childEventIds, parentEventId, user)`, que re-aplica `findForecastMatch` aos órfãos pendentes, vinculando os que agora batem (à medida que o Master é criado/promovido depois da primeira importação) e mantendo como `pending` os que continuam sem match. Útil quando o motor é melhorado ou quando linhas Master surgem após a importação inicial.
+Quando há órfãos, o BP mostra o botão **"Anexos pendentes (N)"** que abre `OrphanAttachmentsResolver` para resolução manual (sugestões por similaridade de tokens + valor).
+
+**Para retentar com o motor atualizado**: usar **Importar XLSX → "Só links/anexos"** no `BPImportModeDialog`. Este modo invoca `attachLinksFromXlsx` que re-aplica o pipeline de matching (incluindo a regra bruto/líquido) sem tocar em valores ou categorias do BP — é a forma canónica de re-processar órfãos depois de o motor ser melhorado ou de o Master ser criado/promovido depois da primeira importação.
+
+A função `reprocessOrphanAttachments(anchorEventId, childEventIds, parentEventId, user)` em `src/lib/import-pl-xlsx.ts` existe como utilitário interno (re-aplica `findForecastMatch` aos órfãos pendentes sem precisar do XLSX), mas não tem botão dedicado na UI — o fluxo recomendado é re-importar em modo "Só links/anexos".
