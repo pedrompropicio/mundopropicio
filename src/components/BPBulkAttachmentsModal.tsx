@@ -192,6 +192,21 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     },
   });
 
+  // Load **all** active events (not just the scope) so we can detect when a PDF
+  // clearly mentions a *different* event. Used to flag "outro evento" mismatches.
+  const { data: allEvents = [] } = useQuery({
+    queryKey: ["bp_bulk_all_events_for_mismatch"],
+    queryFn: async (): Promise<{ id: string; name: string }[]> => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name")
+        .order("date", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   // Load all expense leaf categories so we can suggest one per PDF.
   const { data: expenseCategories = [] } = useQuery({
     queryKey: ["bp_bulk_expense_categories"],
@@ -252,31 +267,51 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
 
     // ── 1. Name check ─────────────────────────────────────────────────────────
     // We require a **strong overlap** between the event name tokens and what the
-    // PDF mentions: at least 60% of the event's strong tokens (≥4 chars) must
-    // appear in the document. This avoids false positives like a "Henry e Klauss"
-    // invoice being matched to "Maiara e Maraisa" just because *one* unrelated
-    // token happens to coincide.
+    // PDF mentions:
+    //   - Generic words like "festival", "arena", "tour" are IGNORED (they are
+    //     too commonly shared between unrelated events).
+    //   - For events with ≥3 strong tokens, at least 2 must hit (prevents
+    //     a single coincidental token match like "festival").
+    //   - Otherwise, ≥60% coverage of the strong tokens.
+    //   - Exact contiguous-phrase match always wins.
+    const GENERIC_NAME_TOKENS = new Set([
+      "festival", "arena", "gala", "tour", "show", "concerto", "concert",
+      "evento", "event", "live", "session", "sessao", "sessoes",
+      "meo", "altice", "estadio", "estadio", "pavilhao", "coliseu",
+      "centro", "casa", "teatro", "noite", "dia", "fest",
+    ]);
     let nameMatchedEvent: EventScope | null = null;
     let nameHits: string[] = [];
     let nameAmbiguous = false; // PDF has names but coverage is too weak to decide
+    let mentionedOtherEvent: { id: string; name: string; hits: string[] } | null = null;
     if (hasNames) {
       const haystack = " " + normalizeForMatch(mentionedNames!) + " ";
       let bestCoverage = 0;
-      for (const ev of eventScope) {
-        const evTokens = tokens(ev.name);
-        // Tokens that actually carry signal (≥4 chars). Short tokens like "ana"
-        // or generic 3-letter words are too easily shared.
-        const strongEvTokens = evTokens.filter((t) => t.length >= 4);
-        if (strongEvTokens.length === 0) continue;
 
-        const hits = strongEvTokens.filter(
+      // Helper: distinctive tokens (≥4 chars, not generic).
+      const distinctiveTokens = (name: string) =>
+        tokens(name).filter((t) => t.length >= 4 && !GENERIC_NAME_TOKENS.has(t));
+
+      // Helper: count hits of a token list inside the haystack.
+      const countHits = (toks: string[]) =>
+        toks.filter(
           (t) => haystack.includes(" " + t) || haystack.includes(t + " ") || haystack.includes(" " + t.slice(0, -1)),
         );
+
+      // First pass: events in scope.
+      for (const ev of eventScope) {
+        const strongEvTokens = distinctiveTokens(ev.name);
+        if (strongEvTokens.length === 0) continue;
+
+        const hits = countHits(strongEvTokens);
         const coverage = hits.length / strongEvTokens.length;
-        // Strong contiguous-phrase shortcut: full event name appears verbatim.
         const phraseHit = haystack.includes(" " + normalizeForMatch(ev.name) + " ");
 
-        if (phraseHit || coverage >= 0.6) {
+        // Threshold: phrase match, OR ≥60% coverage with at least 2 hits when
+        // the event has ≥3 distinctive tokens (otherwise allow a single hit
+        // for short event names like "Rock Rio").
+        const minHits = strongEvTokens.length >= 3 ? 2 : 1;
+        if (phraseHit || (coverage >= 0.6 && hits.length >= minHits)) {
           nameMatchedEvent = ev;
           nameHits = hits;
           nameAmbiguous = false;
@@ -285,6 +320,31 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         if (coverage > 0 && coverage > bestCoverage) {
           bestCoverage = coverage;
           nameAmbiguous = true; // some overlap, but not enough → don't trust it
+        }
+      }
+
+      // Second pass: detect a stronger match against an event OUTSIDE the
+      // current scope. If we find one, the document almost certainly belongs
+      // elsewhere → return "mismatch" and let the UI auto-exclude it.
+      if (!nameMatchedEvent) {
+        const scopeIds = new Set(eventScope.map((e) => e.id));
+        let bestOther: { id: string; name: string; hits: string[]; coverage: number } | null = null;
+        for (const ev of allEvents) {
+          if (scopeIds.has(ev.id)) continue;
+          const strongEvTokens = distinctiveTokens(ev.name);
+          if (strongEvTokens.length === 0) continue;
+          const hits = countHits(strongEvTokens);
+          const coverage = hits.length / strongEvTokens.length;
+          const phraseHit = haystack.includes(" " + normalizeForMatch(ev.name) + " ");
+          const minHits = strongEvTokens.length >= 3 ? 2 : 1;
+          if (phraseHit || (coverage >= 0.6 && hits.length >= minHits)) {
+            if (!bestOther || coverage > bestOther.coverage) {
+              bestOther = { id: ev.id, name: ev.name, hits, coverage };
+            }
+          }
+        }
+        if (bestOther) {
+          mentionedOtherEvent = { id: bestOther.id, name: bestOther.name, hits: bestOther.hits };
         }
       }
     }
@@ -309,7 +369,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
       }
     }
 
-    // ── 3. Amount check (NEW) — does the extracted total match any BP line in scope? ─
+    // ── 3. Amount check — does the extracted total match any BP line in scope? ─
     let amountMatched = false;
     let amountReason = "";
     if (hasAmount) {
@@ -337,9 +397,16 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         if (amountMatched) { matchedBy.push("amount"); reason += ` + ${amountReason}`; }
         return { state: "match", matchedBy, reason };
       }
+      // Hard mismatch: PDF clearly names ANOTHER event in the database.
+      if (mentionedOtherEvent) {
+        return {
+          state: "mismatch",
+          matchedBy: [],
+          reason: `Documento menciona "${mentionedOtherEvent.name}" — pertence a outro evento, excluído automaticamente`,
+        };
+      }
       // Name was mentioned but didn't reach 60% coverage. Amount can't override
-      // a name conflict (a Henry & Klauss invoice that happens to match an
-      // unrelated BP amount in Maiara would be a coincidence, not ownership).
+      // a name conflict.
       return {
         state: "unknown",
         matchedBy: amountMatched ? ["amount"] : [],
