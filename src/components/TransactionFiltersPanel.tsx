@@ -141,7 +141,11 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers-list-filter"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, is_partner")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data ?? [];
     },
