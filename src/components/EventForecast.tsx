@@ -893,13 +893,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         return;
       }
 
-      // Parent event with child events: distribute tabs to matching sub-events
+      // Parent event with child events: open mapping dialog so the user can
+      // confirm/adjust which sheet goes to which sub-event (or to Master).
       if (childEventIds && childEventIds.length > 0 && sheetsWithData.length > 1) {
         const { data: childEvents } = await supabase
           .from("events")
           .select("id, name, date, city_id, cities:city_id(name)")
           .in("id", childEventIds);
-        
+
         if (!childEvents || childEvents.length === 0) {
           toast({ title: "Nenhum evento Split encontrado", variant: "destructive" });
           return;
@@ -907,12 +908,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
         const normStr = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-        // Build candidate keys for each sub-event so the matcher works without
-        // needing the city to be filled. We accept:
-        //  - the city name (if any)
-        //  - the full event name
-        //  - the suffix after the last "—" / "–" / "-" (e.g. "Porto", "Lisboa")
-        //  - any whitespace-separated word in the event name (last resort)
         const buildCandidates = (ce: any): string[] => {
           const out = new Set<string>();
           const cityName = (ce.cities as any)?.name || "";
@@ -929,124 +924,42 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           return Array.from(out).filter(Boolean);
         };
 
-        // Match each sheet to a single child event. We require an unambiguous
-        // match so we don't accidentally route the wrong city's tab.
-        const matchedSheets: { sheet: typeof sheetsWithData[0]; childEvent: any }[] = [];
-        const unmatchedSheets: string[] = [];
+        // Auto-suggest a target for each sheet, then let the user confirm.
         const usedChildIds = new Set<string>();
-
-        for (const sheet of sheetsWithData) {
+        const initialMappings: SheetMappingItem[] = sheetsWithData.map((sheet) => {
           const sheetNorm = normStr(sheet.sheetName);
+          // Master keywords route to the parent event directly
+          const masterKeywords = ["master", "turne", "turnê", "geral", "comum", "compartilhad"];
+          const isMasterSheet = masterKeywords.some((kw) => sheetNorm.includes(normStr(kw)));
+          if (isMasterSheet) {
+            return { sheetName: sheet.sheetName, rowCount: sheet.rows.length, target: eventId, autoMatched: true };
+          }
           const candidates = childEvents
             .filter((ce: any) => !usedChildIds.has(ce.id))
-            .map((ce: any) => ({
-              ce,
-              keys: buildCandidates(ce),
-            }))
-            .filter((entry) =>
-              entry.keys.some((k) => k === sheetNorm || sheetNorm.includes(k) || k.includes(sheetNorm)),
-            );
+            .map((ce: any) => ({ ce, keys: buildCandidates(ce) }))
+            .filter((entry) => entry.keys.some((k) => k === sheetNorm || sheetNorm.includes(k) || k.includes(sheetNorm)));
           if (candidates.length === 1) {
-            matchedSheets.push({ sheet, childEvent: candidates[0].ce });
             usedChildIds.add(candidates[0].ce.id);
-          } else {
-            unmatchedSheets.push(sheet.sheetName);
+            return { sheetName: sheet.sheetName, rowCount: sheet.rows.length, target: candidates[0].ce.id, autoMatched: true };
           }
-        }
-
-        if (matchedSheets.length === 0) {
-          toast({ title: "Nenhuma aba corresponde aos eventos Split", description: `Abas: ${sheetsWithData.map(s => s.sheetName).join(", ")}. Splits: ${childEvents.map((ce: any) => (ce.cities as any)?.name || ce.name).join(", ")}`, variant: "destructive" });
-          return;
-        }
-
-        const summary = matchedSheets.map(m => `${m.sheet.sheetName} → ${(m.childEvent.cities as any)?.name || m.childEvent.name} (${m.sheet.rows.length} linhas)`).join("\n");
-        const unmatchedMsg = unmatchedSheets.length > 0 ? `\n\nAbas sem correspondência (ignoradas): ${unmatchedSheets.join(", ")}` : "";
-        if (!window.confirm(`Distribuir importação:\n\n${summary}${unmatchedMsg}\n\nConfirmar?`)) return;
-
-        let totalCreated = 0;
-        const allErrors: string[] = [];
-        const importBreakdown: string[] = [];
-        for (const { sheet, childEvent } of matchedSheets) {
-          const result = await importPLToEvent(sheet.rows, childEvent.id, childEvent.date, categories, user?.email || "system", eventId, instructions);
-          totalCreated += result.created;
-          allErrors.push(...result.errors);
-          importBreakdown.push(`${(childEvent.cities as any)?.name || childEvent.name}: ${result.created}`);
-          queryClient.invalidateQueries({ queryKey: ["event_forecasts", childEvent.id] });
-          queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", childEvent.id] });
-        }
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
-        toast({
-          title: `${totalCreated} linha(s) importada(s) nos sub-eventos`,
-          description: [
-            `Guardado em: ${importBreakdown.join(" · ")}`,
-            allErrors.length > 0 ? `${allErrors.length} erro(s): ${allErrors[0]}` : null,
-          ].filter(Boolean).join(" — "),
-          variant: totalCreated === 0 ? "destructive" : undefined,
+          return { sheetName: sheet.sheetName, rowCount: sheet.rows.length, target: "ignore", autoMatched: false };
         });
 
-        // After a multi-sub import, look for lines that are identical across
-        // every imported sub-event (same description + category + amount) so
-        // the user can promote them once to the Master event instead of
-        // duplicating per city.
-        if (matchedSheets.length >= 2 && totalCreated > 0) {
-          const subIds = matchedSheets.map((m) => m.childEvent.id);
-          const subNameById: Record<string, string> = {};
-          for (const m of matchedSheets) {
-            subNameById[m.childEvent.id] =
-              (m.childEvent.cities as any)?.name || m.childEvent.name;
-          }
-          const { data: justImported } = await supabase
-            .from("event_forecasts")
-            .select("id, event_id, description, category_id, amount, iva_rate")
-            .in("event_id", subIds)
-            .eq("type", "expense")
-            .eq("status", "draft");
-          const normDesc = (s: string | null) =>
-            (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-          const groups = new Map<
-            string,
-            { rows: any[]; categoryId: string | null; description: string }
-          >();
-          for (const row of justImported ?? []) {
-            const key = `${row.category_id ?? "no-cat"}::${normDesc(row.description)}`;
-            const g = groups.get(key);
-            if (g) g.rows.push(row);
-            else
-              groups.set(key, {
-                rows: [row],
-                categoryId: row.category_id,
-                description: row.description,
-              });
-          }
-          const candidates: PromoteCandidate[] = [];
-          for (const [key, g] of groups) {
-            // Must appear in every imported sub-event…
-            const eventsCovered = new Set(g.rows.map((r) => r.event_id));
-            if (eventsCovered.size !== subIds.length) continue;
-            // …with the same amount (round to cents to ignore float noise).
-            const amounts = g.rows.map((r) => Math.round(Number(r.amount) * 100));
-            const allEqual = amounts.every((a) => a === amounts[0]);
-            if (!allEqual || amounts[0] === 0) continue;
-            const cat = categories.find((c: any) => c.id === g.categoryId);
-            candidates.push({
-              key,
-              description: g.description,
-              categoryId: g.categoryId,
-              categoryCode: cat?.code ?? null,
-              categoryName: cat?.name ?? null,
-              amount: amounts[0] / 100,
-              ivaRate: Number(g.rows[0].iva_rate ?? 23),
-              subEventNames: Array.from(eventsCovered).map(
-                (id) => subNameById[id as string] ?? "?",
-              ),
-              forecastIds: g.rows.map((r) => r.id),
-            });
-          }
-          if (candidates.length > 0) {
-            setPromoteCandidates(candidates);
-            setShowPromoteModal(true);
-          }
-        }
+        const targets: SheetMappingTarget[] = [
+          { value: eventId, label: `${eventName ?? "Master"} (Master)`, isMaster: true },
+          ...childEvents.map((ce: any) => ({
+            value: ce.id,
+            label: (ce.cities as any)?.name ? `${(ce.cities as any).name} — ${ce.name}` : ce.name,
+          })),
+        ];
+
+        // Stash everything the modal callback needs
+        setPendingSheets(sheetsWithData);
+        setPendingChildEvents(childEvents);
+        setPendingTargets(targets);
+        setPendingMappings(initialMappings);
+        setShowSheetMapping(true);
+        return; // wait for user confirmation in the modal
       } else {
         // Single event import (sub-event or simple event)
         let selectedRows = sheetsWithData[0].rows;
