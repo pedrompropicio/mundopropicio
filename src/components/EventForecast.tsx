@@ -1959,25 +1959,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           setShowImportMode(false);
         }}
       />
-      <BPSheetMappingModal
-        open={showSheetMapping}
-        onOpenChange={(v) => {
-          setShowSheetMapping(v);
-          if (!v) {
-            // User cancelled — clear pending state
-            setPendingSheets(null);
-            setPendingChildEvents([]);
-            setPendingTargets([]);
-            setPendingMappings([]);
-            setPendingImportInstructions("");
-          }
-        }}
-        targets={pendingTargets}
-        initialMappings={pendingMappings}
-        onConfirm={(mappings) => {
-          void executeMappedImport(mappings);
-        }}
-      />
+      {/* Sheet mapping modal removed — full import flow now lives at /admin/implantacao/:id */}
+
       <PromoteToMasterModal
         open={showPromoteModal}
         onOpenChange={setShowPromoteModal}
