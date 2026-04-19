@@ -1433,52 +1433,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 {/* Bulk attachments are now handled inside the Implantação modal,
                     after the BP has been imported (motor unificado de matching). */}
                 {pendingOrphansCount > 0 && (
-                  <>
-                    <button
-                      onClick={() => setShowOrphanResolver(true)}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
-                      title="Anexos do XLSX que ainda não foram vinculados a uma linha do BP"
-                    >
-                      <Paperclip className="h-3.5 w-3.5" />
-                      Anexos pendentes ({pendingOrphansCount})
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await reprocessOrphanAttachments(
-                            eventId,
-                            childEventIds,
-                            parentEventId,
-                            user?.email || "system",
-                          );
-                          queryClient.invalidateQueries({ queryKey: ["bp_orphan_attachments", eventId] });
-                          queryClient.invalidateQueries({ queryKey: ["bp_orphan_attachments_count", eventId] });
-                          queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-                          const parts: string[] = [];
-                          parts.push(`${res.resolved}/${res.scanned} resolvidos`);
-                          if (res.attached > 0) parts.push(`${res.attached} anexos vinculados`);
-                          if (res.skipped > 0) parts.push(`${res.skipped} já existiam`);
-                          if (res.stillOrphan > 0) parts.push(`${res.stillOrphan} ainda sem match`);
-                          toast({
-                            title: "Reprocessamento concluído",
-                            description: parts.join(" · "),
-                            variant: res.errors.length > 0 ? "destructive" : "default",
-                          });
-                        } catch (err: any) {
-                          toast({
-                            title: "Erro no reprocessamento",
-                            description: err?.message ?? "Erro desconhecido",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
-                      title="Re-executar o motor de matching atualizado contra os órfãos pendentes"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Reprocessar
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setShowOrphanResolver(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
+                    title="Anexos do XLSX que ainda não foram vinculados a uma linha do BP. Para retentar com o motor atualizado, usa Importar XLSX → Só links/anexos."
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Anexos pendentes ({pendingOrphansCount})
+                  </button>
                 )}
                 <button
                   onClick={() => setShowCopyModal(true)}
