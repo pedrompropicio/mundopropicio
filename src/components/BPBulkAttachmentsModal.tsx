@@ -5,9 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import {
-  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText,
+  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   /** All event IDs whose BP forecasts can receive attachments (master + children, or single event). */
@@ -60,6 +62,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [instructions, setInstructions] = useState("");
 
   // Load forecasts + suppliers (via linked transactions) for all events in scope
   const { data: candidates = [], isLoading } = useQuery({
@@ -363,6 +366,25 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
             {isLoading ? "A carregar BP…" : `${candidates.length} linha(s) do BP elegíveis · máx ${MAX_FILE_BYTES / 1024 / 1024}MB por ficheiro`}
           </p>
         </label>
+
+        {/* Optional context for matching */}
+        <div className="space-y-1.5">
+          <Label htmlFor="bulk-attach-instructions" className="flex items-center gap-1.5 text-xs">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Instruções sobre os ficheiros <span className="text-muted-foreground font-normal">(opcional)</span>
+          </Label>
+          <Textarea
+            id="bulk-attach-instructions"
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            placeholder={`Ex.: "Os PDFs com prefixo INV são da fatura agrupada XPTO. Ficheiros 'Drive_xxx' devem ir para a linha de Som."`}
+            className="min-h-[64px] text-xs"
+            maxLength={1000}
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Texto livre com contexto sobre os ficheiros que estás a anexar. {instructions.length}/1000
+          </p>
+        </div>
 
         {files.length > 0 && (
           <>

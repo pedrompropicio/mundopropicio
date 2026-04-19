@@ -9,9 +9,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { descriptions, categories } = await req.json();
+    const { descriptions, categories, instructions } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const userInstructionsBlock = (typeof instructions === "string" && instructions.trim().length > 0)
+      ? `\n\nINSTRUÇÕES ADICIONAIS DO UTILIZADOR SOBRE ESTE FICHEIRO (prioritárias quando entrarem em conflito com o mapeamento padrão):\n"""\n${instructions.trim().slice(0, 1500)}\n"""`
+      : "";
 
     const categoryList = categories
       .map((c: any) => `${c.code} - ${c.name}`)
@@ -145,7 +149,7 @@ ATENÇÃO sobre LED/Ecrã:
 - Internet escritório → 10.7.09
 - Software, SaaS, licença software → 10.7.10
 - Cloud, hosting, servidor → 10.7.11
-- Equipamento, hardware → 10.7.12`
+- Equipamento, hardware → 10.7.12${userInstructionsBlock}`
           },
           {
             role: "user",
