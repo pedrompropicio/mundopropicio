@@ -98,6 +98,18 @@ interface TransactionFormModalProps {
 export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreated, titleOverride }: TransactionFormModalProps) {
   const { isAdmin: authIsAdmin, isManager: authIsManager, user } = useAuth();
   const [form, setForm] = useState<TransactionForm>({ ...emptyForm, ...(defaults || {}) });
+  // Multi-currency state
+  const [currency, setCurrency] = useState<CurrencyCode>("EUR");
+  const [originalAmount, setOriginalAmount] = useState<string>("");
+  const [fxRate, setFxRate] = useState<string>("");
+  const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">("manual");
+  const [eurFromCurrency, setEurFromCurrency] = useState<number>(0);
+  // Sync EUR amount back into form.amount when currency != EUR
+  useEffect(() => {
+    if (currency !== "EUR") {
+      setForm((f) => ({ ...f, amount: eurFromCurrency ? String(eurFromCurrency) : "" }));
+    }
+  }, [currency, eurFromCurrency]);
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [showProrationConfirm, setShowProrationConfirm] = useState(false);
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
