@@ -464,33 +464,36 @@ function calculateCacheAmount(
   expenseForecasts: { type: string; category_id: string | null; amount: number; iva_rate?: number }[],
   occupancyPct: number = 100
 ): number {
+  let calculated: number;
   if (config.cache_type === "fixed") {
-    return Number(config.fixed_amount);
+    calculated = Number(config.fixed_amount);
+  } else {
+    const basis =
+      config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
+
+    const deductionCategoryIds = new Set(configDeductions.map((d) => d.category_id));
+    const deductionBasisGross = config.cache_deduction_basis === "gross";
+
+    const categoryDeductionAmount = expenseForecasts
+      .filter((f) => f.type === "expense" && deductionCategoryIds.has(f.category_id ?? ""))
+      .reduce((s, f) => {
+        const base = Number(f.amount);
+        if (deductionBasisGross) {
+          const rate = Number(f.iva_rate ?? 0);
+          return s + base * (1 + rate / 100);
+        }
+        return s + base;
+      }, 0);
+
+    const fixedPctDeduction =
+      basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
+    const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
+    const baseForCalc = basis - totalDeduction;
+    const pct = resolvePercentageFromTiers(config, occupancyPct);
+    const calc = Math.max(0, baseForCalc * (pct / 100));
+    const minGuaranteed = Number(config.minimum_guaranteed) || 0;
+    calculated = Math.round(Math.max(minGuaranteed, calc));
   }
-
-  const basis =
-    config.cache_revenue_basis === "gross" ? ticketRevenueGross : ticketRevenueNet;
-
-  const deductionCategoryIds = new Set(configDeductions.map((d) => d.category_id));
-  const deductionBasisGross = config.cache_deduction_basis === "gross";
-
-  const categoryDeductionAmount = expenseForecasts
-    .filter((f) => f.type === "expense" && deductionCategoryIds.has(f.category_id ?? ""))
-    .reduce((s, f) => {
-      const base = Number(f.amount);
-      if (deductionBasisGross) {
-        const rate = Number(f.iva_rate ?? 0);
-        return s + base * (1 + rate / 100);
-      }
-      return s + base;
-    }, 0);
-
-  const fixedPctDeduction =
-    basis * ((Number(config.fixed_deduction_percentage) || 0) / 100);
-  const totalDeduction = categoryDeductionAmount + fixedPctDeduction;
-  const baseForCalc = basis - totalDeduction;
-  const pct = resolvePercentageFromTiers(config, occupancyPct);
-  const calculated = Math.max(0, baseForCalc * (pct / 100));
-  const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-  return Math.round(Math.max(minGuaranteed, calculated));
+  // Apply override priority: adjusted → snapshot if finalized → calculated
+  return Math.round(getCacheEffectiveAmount(config, calculated));
 }
