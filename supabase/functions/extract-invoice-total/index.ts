@@ -72,13 +72,13 @@ Deno.serve(async (req) => {
             type: "function",
             function: {
               name: "report_invoice_total",
-              description: "Report invoice grand total, mentioned names and document date.",
+              description: "Report document type, most relevant monetary amount, mentioned names and date.",
               parameters: {
                 type: "object",
                 properties: {
                   total: {
                     type: ["number", "null"],
-                    description: "Grand total INCLUDING VAT, as a number (use dot as decimal separator). Null if not an invoice or unreadable.",
+                    description: "Most relevant monetary amount (incl. VAT for invoices/receipts; transferred amount for transfer proofs; proposed total for quotes; contracted fee for contracts). Use dot as decimal separator. Null if unreadable.",
                   },
                   currency: {
                     type: ["string", "null"],
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
                   confidence: {
                     type: "string",
                     enum: ["high", "medium", "low"],
-                    description: "high = total label clearly visible; medium = inferred from context; low = guessed.",
+                    description: "high = amount label clearly visible; medium = inferred from context; low = guessed.",
                   },
                   mentioned_names: {
                     type: ["string", "null"],
@@ -95,14 +95,19 @@ Deno.serve(async (req) => {
                   },
                   document_date: {
                     type: ["string", "null"],
-                    description: "ISO date YYYY-MM-DD of the invoice/document (data da fatura). Null if not detected.",
+                    description: "ISO date YYYY-MM-DD of the document (invoice date, transfer date, contract date…). Null if not detected.",
+                  },
+                  document_type: {
+                    type: ["string", "null"],
+                    enum: ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other", null],
+                    description: "Document type detected: invoice (fatura/nota fiscal), proforma, quote (orçamento/proposta), receipt (recibo), transfer (comprovativo de transferência), contract (contrato), other.",
                   },
                   notes: {
                     type: "string",
-                    description: "Brief reason — e.g. 'found Total a Pagar 1234.56€, evento Maiara e Maraisa Lisboa'.",
+                    description: "Brief reason — e.g. 'contrato Maiara e Maraisa, cachê 50000€' or 'comprovativo TRF 1234.56€'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "notes"],
                 additionalProperties: false,
               },
             },
@@ -124,21 +129,23 @@ Deno.serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, error: "No tool call returned" } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, error: "No tool call returned" } satisfies ExtractResult);
     }
     let parsed: any;
     try {
       parsed = JSON.parse(argsStr);
     } catch {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
     }
 
+    const validTypes = ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other"];
     const out: ExtractResult = {
       total: typeof parsed.total === "number" && Number.isFinite(parsed.total) ? parsed.total : null,
       currency: typeof parsed.currency === "string" ? parsed.currency.toUpperCase() : null,
       confidence: (["high", "medium", "low"].includes(parsed.confidence) ? parsed.confidence : "low") as ExtractResult["confidence"],
       mentioned_names: typeof parsed.mentioned_names === "string" && parsed.mentioned_names.trim() ? parsed.mentioned_names.trim() : null,
       document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
+      document_type: typeof parsed.document_type === "string" && validTypes.includes(parsed.document_type) ? parsed.document_type : null,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };
     return json(out);
