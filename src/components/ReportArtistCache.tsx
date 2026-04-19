@@ -338,6 +338,16 @@ export default function ReportArtistCache() {
               {report.isUsingMinimum && (
                 <Badge variant="outline" className="border-accent text-accent-foreground">Mín. Garantido</Badge>
               )}
+              {report.isAdjusted && (
+                <Badge variant="outline" className="border-warning/50 text-warning" title={report.agreementNotes ?? "Valor negociado/ajustado manualmente"}>
+                  Ajustado
+                </Badge>
+              )}
+              {!report.isAdjusted && report.hasOverride && (
+                <Badge variant="outline" className="border-primary/40 text-primary" title="Snapshot gravado no fecho — não recalcula">
+                  Snapshot
+                </Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
