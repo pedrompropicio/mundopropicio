@@ -43,6 +43,8 @@ interface PendingFile {
     mentionedNames?: string | null;
     /** Document date (YYYY-MM-DD) if detected. */
     documentDate?: string | null;
+    /** Detected document type: invoice / proforma / quote / receipt / transfer / contract / other. */
+    documentType?: string | null;
     /** Ownership decision against the events in scope. */
     ownership?: {
       state: "match" | "mismatch" | "unknown";
@@ -368,13 +370,20 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const note: string | undefined = data?.raw;
         const mentionedNames: string | null = typeof data?.mentioned_names === "string" ? data.mentioned_names : null;
         const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
+        const documentType: string | null = typeof data?.document_type === "string" ? data.document_type : null;
         const ownership = checkOwnership(mentionedNames, documentDate);
 
         // Determine value-validation state.
+        // Contracts / quotes / proformas: extracted value is informational, do NOT flag mismatches against BP
+        // (the contracted/proposed value can legitimately differ from the planned BP amount).
+        const informationalTypes = new Set(["contract", "quote", "proforma"]);
         const fc = item.forecastId ? forecastById.get(item.forecastId) : null;
         let valueState: "match" | "mismatch" | "no-total";
         let diffPct: number | undefined;
         if (total === null) {
+          valueState = "no-total";
+        } else if (documentType && informationalTypes.has(documentType)) {
+          // Show extracted amount, but treat as informational (no mismatch).
           valueState = "no-total";
         } else if (fc) {
           const expected = fc.amount;
@@ -403,6 +412,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     note,
                     mentionedNames,
                     documentDate,
+                    documentType,
                     ownership,
                   },
                 }
@@ -801,9 +811,40 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                             if (v.state === "running") {
                               return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
                             }
+                            const docTypeLabel: Record<string, string> = {
+                              invoice: "fatura",
+                              proforma: "proforma",
+                              quote: "proposta",
+                              receipt: "recibo",
+                              transfer: "transf.",
+                              contract: "contrato",
+                              other: "outro",
+                            };
+                            const typeBadge = v.documentType ? (
+                              <span className="rounded bg-muted px-1 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                                {docTypeLabel[v.documentType] ?? v.documentType}
+                              </span>
+                            ) : null;
+                            const cur = v.currency || "€";
+                            const symbol = cur === "EUR" ? "€" : cur === "BRL" ? "R$" : cur === "USD" ? "$" : cur;
+                            const informational = v.documentType && ["contract", "quote", "proforma"].includes(v.documentType);
+
                             if (v.state === "no-total") {
+                              // Informational types: show value (no compare) with neutral icon
+                              if (informational && v.extractedTotal != null) {
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+                                    title={`Documento informativo (${docTypeLabel[v.documentType!] ?? v.documentType}) — valor não comparado com o BP.\n${v.extractedTotal.toFixed(2)} ${symbol}${v.note ? `\n${v.note}` : ""}`}
+                                  >
+                                    {typeBadge}
+                                    {v.extractedTotal.toFixed(2)} {symbol}
+                                  </span>
+                                );
+                              }
                               return (
                                 <span title={v.note} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  {typeBadge}
                                   <AlertCircle className="h-3 w-3" />
                                   s/ total
                                 </span>
@@ -818,8 +859,6 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                               );
                             }
                             const total = v.extractedTotal ?? 0;
-                            const cur = v.currency || "€";
-                            const symbol = cur === "EUR" ? "€" : cur === "BRL" ? "R$" : cur === "USD" ? "$" : cur;
                             const fc = forecastById.get(f.forecastId!);
                             const expected = fc?.amount ?? 0;
                             const cls = v.state === "match" ? "text-success" : "text-destructive";
@@ -829,6 +868,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                                 className={`inline-flex items-center gap-1 text-[11px] font-medium ${cls}`}
                                 title={`PDF: ${total.toFixed(2)} ${symbol}\nBP: ${expected.toFixed(2)} €\nDiferença: ${(v.diffPct ? v.diffPct * 100 : 0).toFixed(1)}%${v.note ? `\n${v.note}` : ""}`}
                               >
+                                {typeBadge}
                                 <Icon className="h-3 w-3" />
                                 {total.toFixed(2)} {symbol}
                               </span>
