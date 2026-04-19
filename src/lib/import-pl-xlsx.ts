@@ -672,6 +672,59 @@ export function buildAggregatedAmountByDesc(
   return out;
 }
 
+function splitForecastPools(
+  forecasts: ForecastLike[],
+  eventIds: string[],
+  parentEventId?: string,
+): { primaryForecasts: ForecastLike[]; masterForecasts: ForecastLike[] } {
+  if (parentEventId) {
+    const primaryEventIds = new Set(eventIds);
+    return {
+      primaryForecasts: forecasts.filter((f) => primaryEventIds.has(f.event_id)),
+      masterForecasts: forecasts.filter((f) => f.event_id === parentEventId),
+    };
+  }
+
+  if (eventIds.length > 1) {
+    const masterEventId = eventIds[0];
+    const childEventIds = new Set(eventIds.slice(1));
+    return {
+      primaryForecasts: forecasts.filter((f) => childEventIds.has(f.event_id)),
+      masterForecasts: forecasts.filter((f) => f.event_id === masterEventId),
+    };
+  }
+
+  const primaryEventIds = new Set(eventIds);
+  return {
+    primaryForecasts: forecasts.filter((f) => primaryEventIds.has(f.event_id)),
+    masterForecasts: [],
+  };
+}
+
+async function resolvePendingOrphansForMatch(
+  anchorEventId: string,
+  rowDescription: string,
+  links: string[],
+  forecastId: string,
+  resolvedBy: string,
+) {
+  const resolvedAt = new Date().toISOString();
+  for (const link of links) {
+    await supabase
+      .from("bp_orphan_attachments")
+      .update({
+        status: "resolved",
+        resolved_at: resolvedAt,
+        resolved_by: resolvedBy,
+        resolved_forecast_ids: [forecastId],
+      } as any)
+      .eq("event_id", anchorEventId)
+      .eq("row_description", rowDescription)
+      .eq("link_url", link)
+      .eq("status", "pending");
+  }
+}
+
 /**
  * Read a BP spreadsheet and attach its column G–K links to existing transactions
  * generated from the BP. Matching key: (description normalized + baseAmount within 1 cent).
@@ -735,12 +788,12 @@ export async function attachLinksFromXlsx(
     }
   }
 
-  // Split forecasts into "primary" (sub-event scope) and "master fallback" pools
-  const primaryEventIds = new Set(eventIds);
-  const primaryForecasts = (forecasts || []).filter((f: any) => primaryEventIds.has(f.event_id));
-  const masterForecasts = parentEventId
-    ? (forecasts || []).filter((f: any) => f.event_id === parentEventId)
-    : [];
+  const anchorEventId = eventIds[0];
+  const { primaryForecasts, masterForecasts } = splitForecastPools(
+    ((forecasts || []) as ForecastLike[]),
+    eventIds,
+    parentEventId,
+  );
 
   // Pre-compute aggregated baseAmount per normalized description across ALL
   // sheets in this XLSX. This lets us resolve Master "rateio" forecasts whose
@@ -797,6 +850,13 @@ export async function attachLinksFromXlsx(
     }
 
     if (!(match as any).transaction_id) {
+      await resolvePendingOrphansForMatch(
+        anchorEventId,
+        row.description,
+        links,
+        (match as any).id,
+        uploadedBy,
+      );
       result.rowsWithoutTx++;
       continue;
     }
@@ -829,12 +889,19 @@ export async function attachLinksFromXlsx(
       existingByTx.set(txId, existing);
       result.attached++;
     }
+
+    await resolvePendingOrphansForMatch(
+      anchorEventId,
+      row.description,
+      links,
+      (match as any).id,
+      uploadedBy,
+    );
   }
 
   // Persist orphans into bp_orphan_attachments (anchored to primary event = first eventId).
   // We anchor to the first event id since that's the BP context where the user will resolve them.
   if (result.orphans.length > 0 && eventIds.length > 0) {
-    const anchorEventId = eventIds[0];
     const rowsToUpsert = result.orphans.flatMap((o) =>
       o.links.map((url) => ({
         event_id: anchorEventId,
