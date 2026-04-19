@@ -187,7 +187,7 @@ export default function OrphanAttachmentsResolver({
       .slice(0, search.trim() ? 30 : 5);
   }, [current, forecasts, search]);
 
-  const previewUrl = current ? drivePreviewUrl(current.link_url) : null;
+  
 
   // ---- Mutations --------------------------------------------------------
 
