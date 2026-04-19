@@ -1,14 +1,15 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, AlertTriangle, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, AlertTriangle, ChevronDown, ChevronUp, FileText, Wallet } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import type { RealCacheResult } from "@/hooks/useRealCacheCalculation";
 import { CacheTransactionModal } from "@/components/CacheTransactionModal";
+import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 
 interface Props {
   config: any;
@@ -32,36 +33,79 @@ export function CacheSettlementPanel({
   const queryClient = useQueryClient();
   const isFinalized = !!config.is_finalized;
   const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
-  const realAmount = realResult?.finalAmount ?? 0;
+  const snapshotRealAmount = config.real_amount != null ? Number(config.real_amount) : null;
+  const calculatedNow = realResult?.finalAmount ?? 0;
+  // When finalized, show the gravado snapshot; otherwise the live calculation
+  const realAmount = isFinalized && snapshotRealAmount != null ? snapshotRealAmount : calculatedNow;
 
   const withholdingApplicable = !!config.withholding_applicable;
   const withholdingRate = Number(config.withholding_rate) || 25;
-  const withholdingAmount = withholdingApplicable ? Math.round(realAmount * (withholdingRate / 100)) : 0;
 
   const [editingAdjusted, setEditingAdjusted] = useState(false);
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
   );
+  const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(config.agreement_notes ?? "");
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showTxModal, setShowTxModal] = useState(false);
 
-  // Only show for active/completed events
-  if (eventStatus !== "active" && eventStatus !== "completed") return null;
-  if (!realResult) return null;
+  // Fetch advances already paid for this artist (transactions with cache category + supplier)
+  const { data: advancesPaid = 0 } = useQuery({
+    queryKey: ["cache-advances-paid", config.id, eventId, config.supplier_id],
+    enabled: !!config.supplier_id,
+    queryFn: async () => {
+      // Find cache category
+      const { data: catRow } = await supabase
+        .from("account_categories")
+        .select("id")
+        .eq("is_active", true)
+        .eq("type", "expense")
+        .ilike("name", "%cach%")
+        .order("code")
+        .limit(1);
+      const cacheCatId = catRow?.[0]?.id;
+      if (!cacheCatId) return 0;
 
-  const effectiveValue = adjustedAmount != null ? adjustedAmount : realAmount;
+      const { data } = await supabase
+        .from("transactions")
+        .select("amount, paid_amount, status")
+        .eq("event_id", eventId)
+        .eq("type", "expense")
+        .eq("category_id", cacheCatId)
+        .eq("supplier_id", config.supplier_id);
+
+      // Sum of paid_amount (advances already settled). Pending transactions are NOT counted as paid.
+      return (data ?? []).reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
+    },
+  });
+
+  // Effective value uses helper: adjusted → snapshot if finalized → live calculation
+  const effectiveValue = useMemo(
+    () => getCacheEffectiveAmount(config, calculatedNow),
+    [config, calculatedNow]
+  );
   const effectiveWithholding = withholdingApplicable ? Math.round(effectiveValue * (withholdingRate / 100)) : 0;
-  const netPayable = effectiveValue - effectiveWithholding;
+  const grossPayable = effectiveValue - effectiveWithholding;
+  const balanceToPay = Math.max(0, grossPayable - advancesPaid);
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
-  const hasMissingDeductions = (realResult.missingDeductionCategories?.length ?? 0) > 0;
+  const hasMissingDeductions = (realResult?.missingDeductionCategories?.length ?? 0) > 0;
 
-  // Save adjusted amount
+  // True when the user is changing adjusted to a value different from calculated
+  const adjustedDiffersFromCalculated = useMemo(() => {
+    const parsed = parseFloat(adjustedInput);
+    if (isNaN(parsed)) return false;
+    return Math.abs(parsed - calculatedNow) >= 0.01;
+  }, [adjustedInput, calculatedNow]);
+
+  // Save adjusted amount (with mandatory justification when value differs from calculated)
   const saveAdjustedMutation = useMutation({
-    mutationFn: async (value: number | null) => {
+    mutationFn: async ({ value, notes }: { value: number | null; notes: string | null }) => {
+      const updates: any = { adjusted_amount: value };
+      updates.agreement_notes = value != null ? notes : null;
       const { error } = await supabase
         .from("event_cache_configs" as any)
-        .update({ adjusted_amount: value, real_amount: realAmount })
+        .update(updates)
         .eq("id", config.id);
       if (error) throw error;
     },
@@ -70,22 +114,23 @@ export function CacheSettlementPanel({
       setEditingAdjusted(false);
       toast({ title: "Valor ajustado guardado" });
     },
+    onError: (err: any) => {
+      toast({ title: "Erro ao guardar", description: err.message, variant: "destructive" });
+    },
   });
 
-  // Finalize cache
+  // Finalize cache (snapshots calculatedNow into real_amount)
   const finalizeMutation = useMutation({
     mutationFn: async (finalize: boolean) => {
-      const updates: any = {
-        is_finalized: finalize,
-        real_amount: realAmount,
-      };
+      const updates: any = { is_finalized: finalize };
       if (finalize) {
+        // Snapshot the live calculation at the moment of finalization
+        updates.real_amount = calculatedNow;
         updates.finalized_at = new Date().toISOString();
         updates.finalized_by = userName || "sistema";
-        if (adjustedAmount == null) {
-          updates.adjusted_amount = null;
-        }
       } else {
+        // Reopening clears snapshot so live calculation takes over again
+        updates.real_amount = null;
         updates.finalized_at = null;
         updates.finalized_by = null;
       }
@@ -100,7 +145,7 @@ export function CacheSettlementPanel({
       toast({
         title: finalize ? "Cachê finalizado" : "Cachê reaberto",
         description: finalize
-          ? "O valor está travado e não será recalculado."
+          ? "O valor calculado foi gravado como snapshot. Não será mais recalculado."
           : "O valor voltará a ser recalculado automaticamente.",
       });
     },
@@ -108,6 +153,10 @@ export function CacheSettlementPanel({
 
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
+
+  // Early returns AFTER all hooks
+  if (eventStatus !== "active" && eventStatus !== "completed") return null;
+  if (!realResult) return null;
 
   return (
     <div className="border-t border-border bg-muted/20 p-3 space-y-3">
@@ -189,20 +238,31 @@ export function CacheSettlementPanel({
         </div>
       )}
 
-      {/* Withholding summary */}
-      {withholdingApplicable && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 space-y-1">
+      {/* Withholding + Advances summary (always shown when there is a payment to make) */}
+      {(withholdingApplicable || advancesPaid > 0) && (
+        <div className="rounded-lg border border-border bg-background p-2.5 space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Cachê Bruto</span>
+            <span className="text-muted-foreground">Cachê Total Acordado</span>
             <span className="font-mono">{formatCurrency(effectiveValue)}</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-destructive">
-            <span>Retenção IRS ({withholdingRate}%)</span>
-            <span className="font-mono">− {formatCurrency(effectiveWithholding)}</span>
-          </div>
-          <div className="flex items-center justify-between text-xs font-semibold border-t border-destructive/20 pt-1">
-            <span>Líquido a Pagar</span>
-            <span className="font-mono">{formatCurrency(netPayable)}</span>
+          {withholdingApplicable && (
+            <div className="flex items-center justify-between text-xs text-destructive">
+              <span>(−) Retenção IRS ({withholdingRate}%)</span>
+              <span className="font-mono">− {formatCurrency(effectiveWithholding)}</span>
+            </div>
+          )}
+          {advancesPaid > 0 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Wallet className="h-3 w-3" />
+                (−) Adiantamentos já pagos
+              </span>
+              <span className="font-mono">− {formatCurrency(advancesPaid)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-xs font-semibold border-t border-border pt-1">
+            <span>Saldo a Pagar</span>
+            <span className="font-mono">{formatCurrency(balanceToPay)}</span>
           </div>
         </div>
       )}
@@ -314,56 +374,98 @@ export function CacheSettlementPanel({
       {canEdit && !isFinalized && (
         <div className="space-y-2">
           {editingAdjusted ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                step="1"
-                min="0"
-                value={adjustedInput}
-                onChange={(e) => setAdjustedInput(e.target.value)}
-                className={`${inputClass} text-xs max-w-[160px]`}
-                placeholder="Valor negociado"
-                autoFocus
-              />
-              <button
-                onClick={() => {
-                  const val = parseFloat(adjustedInput);
-                  if (!isNaN(val) && val >= 0) {
-                    saveAdjustedMutation.mutate(val);
-                  }
-                }}
-                className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Guardar
-              </button>
-              {adjustedAmount != null && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={adjustedInput}
+                  onChange={(e) => setAdjustedInput(e.target.value)}
+                  className={`${inputClass} text-xs max-w-[160px]`}
+                  placeholder="Valor negociado"
+                  autoFocus
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  Calculado: <span className="font-mono">{formatCurrency(calculatedNow)}</span>
+                </span>
+              </div>
+              {adjustedDiffersFromCalculated && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-warning">
+                    Justificativa obrigatória (valor difere do calculado):
+                  </label>
+                  <textarea
+                    value={adjustmentNotesInput}
+                    onChange={(e) => setAdjustmentNotesInput(e.target.value)}
+                    className={`${inputClass} text-xs min-h-[60px]`}
+                    placeholder="Ex: Câmbio dos voos BRL ainda em aberto, arredondamento na negociação com o artista..."
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    saveAdjustedMutation.mutate(null);
-                    setAdjustedInput("");
+                    const val = parseFloat(adjustedInput);
+                    if (isNaN(val) || val < 0) return;
+                    if (adjustedDiffersFromCalculated && !adjustmentNotesInput.trim()) {
+                      toast({
+                        title: "Justificativa obrigatória",
+                        description: "Explica o motivo do ajuste antes de guardar.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    saveAdjustedMutation.mutate({
+                      value: val,
+                      notes: adjustedDiffersFromCalculated ? adjustmentNotesInput.trim() : null,
+                    });
                   }}
-                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary"
+                  className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  Limpar
+                  Guardar
                 </button>
-              )}
-              <button
-                onClick={() => setEditingAdjusted(false)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Cancelar
-              </button>
+                {adjustedAmount != null && (
+                  <button
+                    onClick={() => {
+                      saveAdjustedMutation.mutate({ value: null, notes: null });
+                      setAdjustedInput("");
+                      setAdjustmentNotesInput("");
+                    }}
+                    className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary"
+                  >
+                    Limpar
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setEditingAdjusted(false);
+                    setAdjustmentNotesInput(config.agreement_notes ?? "");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           ) : (
-            <button
-              onClick={() => {
-                setAdjustedInput(adjustedAmount != null ? String(adjustedAmount) : String(realAmount));
-                setEditingAdjusted(true);
-              }}
-              className="text-xs text-primary hover:underline"
-            >
-              {adjustedAmount != null ? "Editar valor ajustado" : "Definir valor ajustado (negociado)"}
-            </button>
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  setAdjustedInput(adjustedAmount != null ? String(adjustedAmount) : String(calculatedNow));
+                  setAdjustmentNotesInput(config.agreement_notes ?? "");
+                  setEditingAdjusted(true);
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                {adjustedAmount != null ? "Editar valor ajustado" : "Definir valor ajustado (negociado)"}
+              </button>
+              {adjustedAmount != null && config.agreement_notes && (
+                <p className="text-[10px] text-muted-foreground italic pl-1">
+                  💬 {config.agreement_notes}
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -402,19 +504,25 @@ export function CacheSettlementPanel({
       </div>
 
       {/* Generate transaction button — only when finalized */}
-      {isFinalized && canEdit && (
+      {isFinalized && canEdit && balanceToPay > 0 && (
         <button
           onClick={() => setShowTxModal(true)}
           className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
         >
           <FileText className="h-4 w-4" />
-          Gerar Transação de Pagamento ({formatCurrency(netPayable)})
+          Gerar Transação de Pagamento ({formatCurrency(balanceToPay)})
           {withholdingApplicable && (
             <span className="text-[10px] text-muted-foreground ml-1">
               + retenção {formatCurrency(effectiveWithholding)}
             </span>
           )}
         </button>
+      )}
+      {isFinalized && canEdit && balanceToPay <= 0 && (
+        <div className="w-full flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/5 px-4 py-2.5 text-xs text-success">
+          <CheckCircle2 className="h-4 w-4" />
+          Cachê integralmente pago via adiantamentos
+        </div>
       )}
 
       {/* Transaction generation modal */}
