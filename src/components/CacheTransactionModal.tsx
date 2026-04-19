@@ -216,24 +216,80 @@ export function CacheTransactionModal({
     mutationFn: async () => {
       const today = new Date().toISOString().split("T")[0];
 
+      // Pre-fetch cache forecast attachment_refs for this cache_config + event,
+      // so we can propagate links to the newly-created transactions.
+      const { data: cacheForecast } = await supabase
+        .from("event_forecasts")
+        .select("id, transaction_id, attachment_refs")
+        .eq("event_id", eventId)
+        .eq("cache_config_id", cacheConfigId)
+        .eq("formula_type", "cache_module")
+        .maybeSingle();
+
+      const refUrls: string[] = Array.isArray((cacheForecast as any)?.attachment_refs)
+        ? ((cacheForecast as any).attachment_refs as any[])
+            .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
+            .filter((u) => /^https?:\/\//i.test(u))
+        : [];
+
+      const createdTxIds: string[] = [];
+
       // Create payment transactions for each part
       for (const part of effectiveParts) {
         if (part.amount <= 0) continue;
-        const { error } = await supabase.from("transactions").insert({
-          description: part.description,
-          type: "expense",
-          amount: part.amount,
-          iva_rate: 0,
-          event_id: eventId,
-          category_id: part.categoryId || null,
-          supplier_id: part.supplierId || null,
-          account_id: accountId || null,
-          date: today,
-          due_date: dueDate || null,
-          status: "approved",
-          paid_amount: 0,
-        } as any);
+        const { data: newTx, error } = await supabase
+          .from("transactions")
+          .insert({
+            description: part.description,
+            type: "expense",
+            amount: part.amount,
+            iva_rate: 0,
+            event_id: eventId,
+            category_id: part.categoryId || null,
+            supplier_id: part.supplierId || null,
+            account_id: accountId || null,
+            date: today,
+            due_date: dueDate || null,
+            status: "approved",
+            paid_amount: 0,
+          } as any)
+          .select("id")
+          .single();
         if (error) throw error;
+        if (newTx?.id) createdTxIds.push(newTx.id);
+      }
+
+      // Propagate cache forecast attachment links to each created transaction.
+      if (refUrls.length > 0 && createdTxIds.length > 0) {
+        for (const txId of createdTxIds) {
+          const docs = refUrls.map((link) => {
+            let fileName = link.slice(0, 80);
+            try {
+              const u = new URL(link);
+              fileName = decodeURIComponent(
+                u.pathname.split("/").filter(Boolean).pop() || u.hostname,
+              ).slice(0, 120);
+            } catch { /* keep fallback */ }
+            return {
+              transaction_id: txId,
+              name: fileName,
+              file_url: `ref://${link}`,
+              doc_type: "outro",
+              uploaded_by: user?.email ?? "system",
+              is_accounting: true,
+            };
+          });
+          await supabase.from("transaction_documents").insert(docs as any);
+        }
+
+        // Link the forecast to the first created transaction so future link adds
+        // via BPAttachmentModal continue to propagate automatically.
+        if (cacheForecast?.id && !cacheForecast.transaction_id) {
+          await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: createdTxIds[0] } as any)
+            .eq("id", cacheForecast.id);
+        }
       }
 
       // Create withholding tax obligation transaction
