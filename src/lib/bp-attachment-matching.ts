@@ -110,10 +110,30 @@ export function matchFilesToForecasts(opts: MatchOptions): FileMatch[] {
 
   for (const fileName of fileNames) {
     // Strategy 1 — Drive ID embedded in file name
-    const driveId = extractDriveFileId(fileName) ||
-      (fileName.match(/[a-zA-Z0-9_-]{25,}/)?.[0] ?? null);
-    if (driveId && driveIdToForecast.has(driveId)) {
-      results.push({ fileName, forecastId: driveIdToForecast.get(driveId)!, score: 1, strategy: "drive-id" });
+    let matchedForecastId: string | null = null;
+    const directId = extractDriveFileId(fileName);
+    if (directId && driveIdToForecast.has(directId)) {
+      matchedForecastId = driveIdToForecast.get(directId)!;
+    } else {
+      // Try every long alphanumeric token in the filename and look up each one
+      const candidates = fileName.match(/[a-zA-Z0-9_-]{25,}/g) ?? [];
+      for (const cand of candidates) {
+        if (driveIdToForecast.has(cand)) {
+          matchedForecastId = driveIdToForecast.get(cand)!;
+          break;
+        }
+        // Also try suffixes (in case filename is "fatura_<ID>")
+        for (const [id, fid] of driveIdToForecast) {
+          if (cand.endsWith(id) || cand.includes(id)) {
+            matchedForecastId = fid;
+            break;
+          }
+        }
+        if (matchedForecastId) break;
+      }
+    }
+    if (matchedForecastId) {
+      results.push({ fileName, forecastId: matchedForecastId, score: 1, strategy: "drive-id" });
       continue;
     }
 
