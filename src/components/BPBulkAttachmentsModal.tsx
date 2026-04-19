@@ -522,7 +522,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
         const documentType: string | null = typeof data?.document_type === "string" ? data.document_type : null;
         const serviceDescription: string | null = typeof data?.service_description === "string" ? data.service_description : null;
-        const ownership = checkOwnership(mentionedNames, documentDate);
+        const ownership = checkOwnership(mentionedNames, documentDate, total);
 
         // Determine value-validation state.
         // Contracts / quotes / proformas: extracted value is informational, do NOT flag mismatches against BP
