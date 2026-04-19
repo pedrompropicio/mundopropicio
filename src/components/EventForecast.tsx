@@ -440,18 +440,39 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const siblingCount = siblingEvents.length || 1;
 
-  // Prorated parent expenses (amount / number of sub-events)
+  // Posição deste sub-evento dentro dos irmãos (ordenados por data crescente).
+  // O último irmão absorve o cêntimo residual do rateio para garantir Σ sub = Master.
+  const siblingIndex = useMemo(() => {
+    if (!parentEventId || siblingEvents.length === 0) return 0;
+    const idx = siblingEvents.findIndex((s: any) => s.id === eventId);
+    return idx < 0 ? 0 : idx;
+  }, [siblingEvents, parentEventId, eventId]);
+  const isLastSibling = siblingCount > 0 && siblingIndex === siblingCount - 1;
+
+  // Prorated parent expenses (amount / number of sub-events).
+  // Distribuição com compensação: cada irmão fica com round(base/N, 2), mas o
+  // último absorve o resíduo de cêntimo para fechar exatamente o total Master
+  // (Σ sub = Master). Mantém IVA linha-a-linha (CIVA Art.º 18).
   const proratedParentExpenses = useMemo(() => {
     if (!parentEventId || parentForecasts.length === 0) return [];
-    // Base do rateio sempre arredondada ao cêntimo (CIVA Art.º 18: cálculo linha a linha)
-    return parentForecasts.map((f: any) => ({
-      ...f,
-      amount: roundCents(Number(f.amount) / siblingCount),
-      _prorated: true,
-      _originalAmount: Number(f.amount),
-      _siblingCount: siblingCount,
-    }));
-  }, [parentForecasts, siblingCount, parentEventId]);
+    return parentForecasts.map((f: any) => {
+      const original = Number(f.amount) || 0;
+      const baseShare = roundCents(original / siblingCount);
+      // Último irmão recebe o que falta para fechar o total (pode ser ±0,01€).
+      const share = isLastSibling
+        ? roundCents(original - baseShare * (siblingCount - 1))
+        : baseShare;
+      return {
+        ...f,
+        amount: share,
+        _prorated: true,
+        _originalAmount: original,
+        _siblingCount: siblingCount,
+        _siblingIndex: siblingIndex,
+        _isLastSibling: isLastSibling,
+      };
+    });
+  }, [parentForecasts, siblingCount, parentEventId, isLastSibling, siblingIndex]);
 
   // Ticket revenue: price includes IVA ("por dentro"), extract net value for BP
   const ticketRevenueGross = ticketLots.reduce((s, l) => s + l.quantity * Number(l.price), 0);
