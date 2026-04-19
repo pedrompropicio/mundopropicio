@@ -2092,6 +2092,48 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           setShowImportMode(false);
         }}
       />
+      <PromoteToMasterModal
+        open={showPromoteModal}
+        onOpenChange={setShowPromoteModal}
+        candidates={promoteCandidates}
+        onConfirm={async (selected) => {
+          if (selected.length === 0) return;
+          let promoted = 0;
+          const errors: string[] = [];
+          for (const cand of selected) {
+            const { error: insertErr } = await supabase
+              .from("event_forecasts")
+              .insert({
+                event_id: eventId,
+                type: "expense" as const,
+                description: cand.description,
+                amount: cand.amount,
+                iva_rate: cand.ivaRate,
+                category_id: cand.categoryId,
+                status: "draft",
+              } as any);
+            if (insertErr) {
+              errors.push(`${cand.description}: ${insertErr.message}`);
+              continue;
+            }
+            const { error: delErr } = await supabase
+              .from("event_forecasts")
+              .delete()
+              .in("id", cand.forecastIds);
+            if (delErr) {
+              errors.push(`${cand.description} (cleanup): ${delErr.message}`);
+              continue;
+            }
+            promoted++;
+          }
+          queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+          toast({
+            title: `${promoted} linha(s) promovida(s) ao Master`,
+            description: errors.length > 0 ? errors[0] : undefined,
+            variant: errors.length > 0 && promoted === 0 ? "destructive" : undefined,
+          });
+        }}
+      />
       {attachmentForecast && (
         <BPAttachmentModal
           open={!!attachmentForecast}
