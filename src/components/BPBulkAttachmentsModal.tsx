@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import {
-  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles,
+  X, Upload, FileArchive, CheckCircle2, AlertCircle, Loader2, Trash2, FileText, Sparkles, Scale,
 } from "lucide-react";
 import { matchFilesToForecasts, type BpForecastForMatch, type FileMatch } from "@/lib/bp-attachment-matching";
 import { Label } from "@/components/ui/label";
