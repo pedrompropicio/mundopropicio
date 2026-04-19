@@ -764,6 +764,36 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                         </td>
                         <td className="px-2 py-1.5">
                           {(() => {
+                            const o = f.validation?.ownership;
+                            const v = f.validation;
+                            if (!v || v.state === "idle") return <span className="text-[10px] text-muted-foreground">—</span>;
+                            if (v.state === "running") return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+                            if (!o || o.state === "unknown") {
+                              return (
+                                <span title={o?.reason ?? "Sem dados"} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  <AlertCircle className="h-3 w-3" />
+                                  ?
+                                </span>
+                              );
+                            }
+                            if (o.state === "match") {
+                              return (
+                                <span title={o.reason} className="inline-flex items-center gap-1 text-[11px] font-medium text-success">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  {o.matchedBy.join("+")}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span title={o.reason} className="inline-flex items-center gap-1 text-[11px] font-medium text-destructive">
+                                <AlertCircle className="h-3 w-3" />
+                                outro evento
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {(() => {
                             const v = f.validation;
                             if (!v || v.state === "idle") {
                               return <span className="text-[10px] text-muted-foreground">—</span>;
