@@ -79,10 +79,6 @@ export function CacheSettlementPanel({
     },
   });
 
-  // Only show for active/completed events
-  if (eventStatus !== "active" && eventStatus !== "completed") return null;
-  if (!realResult) return null;
-
   // Effective value uses helper: adjusted → snapshot if finalized → live calculation
   const effectiveValue = useMemo(
     () => getCacheEffectiveAmount(config, calculatedNow),
@@ -93,7 +89,7 @@ export function CacheSettlementPanel({
   const balanceToPay = Math.max(0, grossPayable - advancesPaid);
   const diff = effectiveValue - projectedValue;
   const isVariable = config.cache_type === "variable";
-  const hasMissingDeductions = (realResult.missingDeductionCategories?.length ?? 0) > 0;
+  const hasMissingDeductions = (realResult?.missingDeductionCategories?.length ?? 0) > 0;
 
   // True when the user is changing adjusted to a value different from calculated
   const adjustedDiffersFromCalculated = useMemo(() => {
