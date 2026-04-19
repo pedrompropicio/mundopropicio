@@ -370,13 +370,20 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         const note: string | undefined = data?.raw;
         const mentionedNames: string | null = typeof data?.mentioned_names === "string" ? data.mentioned_names : null;
         const documentDate: string | null = typeof data?.document_date === "string" ? data.document_date : null;
+        const documentType: string | null = typeof data?.document_type === "string" ? data.document_type : null;
         const ownership = checkOwnership(mentionedNames, documentDate);
 
         // Determine value-validation state.
+        // Contracts / quotes / proformas: extracted value is informational, do NOT flag mismatches against BP
+        // (the contracted/proposed value can legitimately differ from the planned BP amount).
+        const informationalTypes = new Set(["contract", "quote", "proforma"]);
         const fc = item.forecastId ? forecastById.get(item.forecastId) : null;
         let valueState: "match" | "mismatch" | "no-total";
         let diffPct: number | undefined;
         if (total === null) {
+          valueState = "no-total";
+        } else if (documentType && informationalTypes.has(documentType)) {
+          // Show extracted amount, but treat as informational (no mismatch).
           valueState = "no-total";
         } else if (fc) {
           const expected = fc.amount;
@@ -405,6 +412,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                     note,
                     mentionedNames,
                     documentDate,
+                    documentType,
                     ownership,
                   },
                 }
