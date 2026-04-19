@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
@@ -2469,7 +2470,10 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         </td>
         <td className="py-2.5 text-right text-muted-foreground text-xs">{item.iva_rate}%</td>
         <td className={`py-2.5 text-right font-mono font-semibold ${colorClass}`}>
-          {formatCurrency(Number(item.amount))}
+          <span className="inline-flex items-center justify-end gap-1.5">
+            {formatCurrency(Number(item.amount))}
+            <CurrencyBadge currency={item.currency} originalAmount={item.original_amount} fxRate={item.fx_rate} />
+          </span>
         </td>
         <td className="py-2.5 text-right font-mono text-xs text-muted-foreground">
           {formatCurrency(Number(item.amount) * Number(item.iva_rate) / 100)}
