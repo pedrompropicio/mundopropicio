@@ -209,6 +209,105 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
   };
   const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
 
+  /** Read a Blob into a base64 string (no data URL prefix). */
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result || "");
+        const i = s.indexOf(",");
+        resolve(i >= 0 ? s.slice(i + 1) : s);
+      };
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+
+  const [validating, setValidating] = useState(false);
+
+  /** Run AI value validation on every PDF/image with a matched forecast. */
+  const validateValues = async () => {
+    const targets = files.filter(
+      (f) =>
+        f.forecastId &&
+        !f.excluded &&
+        f.status === "pending" &&
+        isValidatable(f.name, f.blob) &&
+        (!f.validation || f.validation.state === "idle" || f.validation.state === "error"),
+    );
+    if (targets.length === 0) {
+      toast({ title: "Nada a validar", description: "Apenas PDFs/imagens com linha do BP atribuída são validados." });
+      return;
+    }
+    setValidating(true);
+    // Mark all as running
+    setFiles((prev) =>
+      prev.map((f) => (targets.find((t) => t.id === f.id) ? { ...f, validation: { state: "running" } } : f)),
+    );
+
+    const CONCURRENCY = 3;
+    const queue = [...targets];
+    const runOne = async (item: PendingFile) => {
+      try {
+        const fc = forecastById.get(item.forecastId!);
+        if (!fc) throw new Error("Linha do BP desapareceu");
+        const fileBase64 = await blobToBase64(item.blob);
+        const mime = item.blob.type || (item.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream");
+        const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
+          body: { fileBase64, fileName: item.name, mimeType: mime },
+        });
+        if (error) throw error;
+        const total: number | null = typeof data?.total === "number" ? data.total : null;
+        const currency: string | null = data?.currency ?? null;
+        const note: string | undefined = data?.raw;
+        if (total === null) {
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === item.id
+                ? { ...f, validation: { state: "no-total", currency, note: note || "Total não detetado" } }
+                : f,
+            ),
+          );
+          return;
+        }
+        const expected = fc.amount;
+        const diff = Math.abs(total - expected);
+        const diffPct = expected > 0 ? diff / expected : 1;
+        const matches = diff <= TOLERANCE_ABS || diffPct <= TOLERANCE_PCT;
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id
+              ? {
+                  ...f,
+                  validation: {
+                    state: matches ? "match" : "mismatch",
+                    extractedTotal: total,
+                    currency,
+                    diffPct,
+                    note,
+                  },
+                }
+              : f,
+          ),
+        );
+      } catch (err: any) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id ? { ...f, validation: { state: "error", note: err?.message ?? "Erro" } } : f,
+          ),
+        );
+      }
+    };
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (queue.length > 0) {
+        const next = queue.shift();
+        if (next) await runOne(next);
+      }
+    });
+    await Promise.all(workers);
+    setValidating(false);
+    toast({ title: "Validação concluída", description: `${targets.length} ficheiro(s) verificado(s).` });
+  };
+
   const acceptAllConfident = () => {
     setFiles((prev) =>
       prev.map((f) =>
