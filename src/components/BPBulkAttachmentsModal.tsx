@@ -54,6 +54,7 @@ interface PendingFile {
 
 const TOLERANCE_PCT = 0.01; // 1%
 const TOLERANCE_ABS = 1; // €1
+const DATE_WINDOW_DAYS = 60; // PDF date must be within ±60 days of any event date
 function isValidatable(name: string, blob: Blob): boolean {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (["pdf", "jpg", "jpeg", "png", "webp"].includes(ext)) return true;
@@ -62,6 +63,29 @@ function isValidatable(name: string, blob: Blob): boolean {
 }
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+/** Strip diacritics, lowercase, collapse non-alphanumerics to single spaces. */
+function normalizeForMatch(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Tokenize and drop very short / stop tokens. */
+function tokens(s: string): string[] {
+  const STOP = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "as", "os", "no", "na", "em", "the", "of", "and", "para", "por", "tour", "show", "festival", "evento"]);
+  return normalizeForMatch(s).split(" ").filter((t) => t.length >= 3 && !STOP.has(t));
+}
+
+interface EventScope {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  extraDates: string[];
+}
 
 function bytesToReadable(n: number): string {
   if (n < 1024) return `${n} B`;
