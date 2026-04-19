@@ -209,7 +209,19 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
         ...paymentFields,
+        currency,
+        original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+        fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+        fx_rate_source: currency === "EUR" ? null : fxRateSource,
       };
+
+      if (!paidLocked && currency !== "EUR") {
+        const orig = parseFloat(originalAmount) || 0;
+        const rate = parseFloat(fxRate) || 0;
+        if (orig <= 0 || rate <= 0) {
+          throw new Error(`Define valor em ${currency} e câmbio.`);
+        }
+      }
 
       // Build snapshot of pre-change values for the same fields
       const snapshot: Record<string, any> = {};
