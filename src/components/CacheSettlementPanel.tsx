@@ -18,6 +18,12 @@ interface Props {
   eventId: string;
   canEdit: boolean;
   eventStatus?: string;
+  /** When set, the panel works in "per-city" mode (turnê).
+   * Reads from / writes to event_cache_city_settlements instead of event_cache_configs. */
+  cityEventId?: string;
+  citySettlement?: any | null;
+  /** Optional label (city/venue name) shown on the header when in city mode. */
+  cityLabel?: string;
 }
 
 export function CacheSettlementPanel({
@@ -27,15 +33,20 @@ export function CacheSettlementPanel({
   eventId,
   canEdit,
   eventStatus,
+  cityEventId,
+  citySettlement,
+  cityLabel,
 }: Props) {
   const { user } = useAuth();
   const userName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
   const queryClient = useQueryClient();
-  const isFinalized = !!config.is_finalized;
-  const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
-  const snapshotRealAmount = config.real_amount != null ? Number(config.real_amount) : null;
+
+  // Source row depends on mode: city settlement (turnê) takes priority over config legacy fields.
+  const sourceRow: any = cityEventId ? (citySettlement ?? {}) : config;
+  const isFinalized = !!sourceRow.is_finalized;
+  const adjustedAmount = sourceRow.adjusted_amount != null ? Number(sourceRow.adjusted_amount) : null;
+  const snapshotRealAmount = sourceRow.real_amount != null ? Number(sourceRow.real_amount) : null;
   const calculatedNow = realResult?.finalAmount ?? 0;
-  // When finalized, show the gravado snapshot; otherwise the live calculation
   const realAmount = isFinalized && snapshotRealAmount != null ? snapshotRealAmount : calculatedNow;
 
   const withholdingApplicable = !!config.withholding_applicable;
@@ -45,7 +56,7 @@ export function CacheSettlementPanel({
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
   );
-  const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(config.agreement_notes ?? "");
+  const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(sourceRow.agreement_notes ?? "");
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showTxModal, setShowTxModal] = useState(false);
 
