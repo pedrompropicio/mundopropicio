@@ -362,7 +362,20 @@ export default function OrphanAttachmentsResolver({
                 )}
               </div>
               <div className="flex-1 bg-muted/20 overflow-hidden">
-                {previewUrl ? (
+                {isMobile ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground p-4 text-center">
+                    <FileText className="h-8 w-8" />
+                    <p className="text-xs">Pré-visualização não suportada no telemóvel.</p>
+                    {current && (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={current.link_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                          Abrir anexo
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                ) : previewUrl ? (
                   <iframe
                     key={current?.id}
                     src={previewUrl}
