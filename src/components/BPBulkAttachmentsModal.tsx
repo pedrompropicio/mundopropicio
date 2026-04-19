@@ -243,21 +243,40 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     }
 
     // ── 1. Name check ─────────────────────────────────────────────────────────
+    // We require a **strong overlap** between the event name tokens and what the
+    // PDF mentions: at least 60% of the event's strong tokens (≥4 chars) must
+    // appear in the document. This avoids false positives like a "Henry e Klauss"
+    // invoice being matched to "Maiara e Maraisa" just because *one* unrelated
+    // token happens to coincide.
     let nameMatchedEvent: EventScope | null = null;
     let nameHits: string[] = [];
+    let nameAmbiguous = false; // PDF has names but coverage is too weak to decide
     if (hasNames) {
       const haystack = " " + normalizeForMatch(mentionedNames!) + " ";
+      let bestCoverage = 0;
       for (const ev of eventScope) {
         const evTokens = tokens(ev.name);
-        if (evTokens.length === 0) continue;
-        const hits = evTokens.filter((t) => haystack.includes(" " + t) || haystack.includes(t + " "));
-        // Require a strong (≥4 chars) hit OR ≥2 distinct hits to avoid weak matches
-        // (e.g. a 3-letter token shared between unrelated artist names).
-        const hasStrong = hits.some((t) => t.length >= 4);
-        if (hasStrong || hits.length >= 2) {
+        // Tokens that actually carry signal (≥4 chars). Short tokens like "ana"
+        // or generic 3-letter words are too easily shared.
+        const strongEvTokens = evTokens.filter((t) => t.length >= 4);
+        if (strongEvTokens.length === 0) continue;
+
+        const hits = strongEvTokens.filter(
+          (t) => haystack.includes(" " + t) || haystack.includes(t + " ") || haystack.includes(" " + t.slice(0, -1)),
+        );
+        const coverage = hits.length / strongEvTokens.length;
+        // Strong contiguous-phrase shortcut: full event name appears verbatim.
+        const phraseHit = haystack.includes(" " + normalizeForMatch(ev.name) + " ");
+
+        if (phraseHit || coverage >= 0.6) {
           nameMatchedEvent = ev;
           nameHits = hits;
+          nameAmbiguous = false;
           break;
+        }
+        if (coverage > 0 && coverage > bestCoverage) {
+          bestCoverage = coverage;
+          nameAmbiguous = true; // some overlap, but not enough → don't trust it
         }
       }
     }
@@ -294,13 +313,14 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
         }
         return { state: "match", matchedBy, reason };
       }
-      // Name was mentioned but NO event in scope matches → reject, regardless of date.
+      // Name was mentioned but didn't reach 60% coverage of any event in scope.
+      // Don't auto-exclude — surface as "unknown" so the user can decide.
       return {
-        state: "mismatch",
+        state: "unknown",
         matchedBy: [],
-        reason: `Documento menciona "${mentionedNames}" — não corresponde a nenhum evento do contexto${
-          dateMatched ? " (data próxima ignorada)" : ""
-        }`,
+        reason: nameAmbiguous
+          ? `Documento menciona "${mentionedNames}" — coincidência parcial, requer confirmação manual${dateMatched ? ` (${dateReason})` : ""}`
+          : `Documento menciona "${mentionedNames}" — não corresponde a nenhum evento do contexto, requer confirmação manual${dateMatched ? ` (${dateReason})` : ""}`,
       };
     }
 
@@ -309,9 +329,9 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
       return { state: "match", matchedBy: ["date"], reason: dateReason };
     }
     return {
-      state: "mismatch",
+      state: "unknown",
       matchedBy: [],
-      reason: `Sem match de nome nem data (PDF: ${mentionedNames ?? "?"}${documentDate ? ` · ${documentDate}` : ""})`,
+      reason: `Sem match de nome nem data (PDF: ${mentionedNames ?? "?"}${documentDate ? ` · ${documentDate}` : ""}), requer confirmação manual`,
     };
   };
 
