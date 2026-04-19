@@ -43,6 +43,8 @@ interface PendingFile {
     mentionedNames?: string | null;
     /** Document date (YYYY-MM-DD) if detected. */
     documentDate?: string | null;
+    /** Detected document type: invoice / proforma / quote / receipt / transfer / contract / other. */
+    documentType?: string | null;
     /** Ownership decision against the events in scope. */
     ownership?: {
       state: "match" | "mismatch" | "unknown";
