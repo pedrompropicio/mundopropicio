@@ -1,14 +1,15 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, AlertTriangle, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Calculator, TrendingUp, TrendingDown, Minus, CheckCircle2, Unlock, AlertTriangle, ChevronDown, ChevronUp, FileText, Wallet } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import type { RealCacheResult } from "@/hooks/useRealCacheCalculation";
 import { CacheTransactionModal } from "@/components/CacheTransactionModal";
+import { getCacheEffectiveAmount } from "@/lib/cache-pl-helper";
 
 interface Props {
   config: any;
@@ -32,18 +33,51 @@ export function CacheSettlementPanel({
   const queryClient = useQueryClient();
   const isFinalized = !!config.is_finalized;
   const adjustedAmount = config.adjusted_amount != null ? Number(config.adjusted_amount) : null;
-  const realAmount = realResult?.finalAmount ?? 0;
+  const snapshotRealAmount = config.real_amount != null ? Number(config.real_amount) : null;
+  const calculatedNow = realResult?.finalAmount ?? 0;
+  // When finalized, show the gravado snapshot; otherwise the live calculation
+  const realAmount = isFinalized && snapshotRealAmount != null ? snapshotRealAmount : calculatedNow;
 
   const withholdingApplicable = !!config.withholding_applicable;
   const withholdingRate = Number(config.withholding_rate) || 25;
-  const withholdingAmount = withholdingApplicable ? Math.round(realAmount * (withholdingRate / 100)) : 0;
 
   const [editingAdjusted, setEditingAdjusted] = useState(false);
   const [adjustedInput, setAdjustedInput] = useState(
     adjustedAmount != null ? String(adjustedAmount) : ""
   );
+  const [adjustmentNotesInput, setAdjustmentNotesInput] = useState(config.agreement_notes ?? "");
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showTxModal, setShowTxModal] = useState(false);
+
+  // Fetch advances already paid for this artist (transactions with cache category + supplier)
+  const { data: advancesPaid = 0 } = useQuery({
+    queryKey: ["cache-advances-paid", config.id, eventId, config.supplier_id],
+    enabled: !!config.supplier_id,
+    queryFn: async () => {
+      // Find cache category
+      const { data: catRow } = await supabase
+        .from("account_categories")
+        .select("id")
+        .eq("is_active", true)
+        .eq("type", "expense")
+        .ilike("name", "%cach%")
+        .order("code")
+        .limit(1);
+      const cacheCatId = catRow?.[0]?.id;
+      if (!cacheCatId) return 0;
+
+      const { data } = await supabase
+        .from("transactions")
+        .select("amount, paid_amount, status")
+        .eq("event_id", eventId)
+        .eq("type", "expense")
+        .eq("category_id", cacheCatId)
+        .eq("supplier_id", config.supplier_id);
+
+      // Sum of paid_amount (advances already settled). Pending transactions are NOT counted as paid.
+      return (data ?? []).reduce((s: number, t: any) => s + Number(t.paid_amount ?? 0), 0);
+    },
+  });
 
   // Only show for active/completed events
   if (eventStatus !== "active" && eventStatus !== "completed") return null;
