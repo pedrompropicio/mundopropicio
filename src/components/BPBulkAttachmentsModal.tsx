@@ -221,33 +221,50 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
     [expenseCategories],
   );
 
-  /** Decide if a document belongs to any event in scope. Rule: name OR date matches. */
+  /**
+   * Decide if a document belongs to any event in scope.
+   *
+   * Rule (name has VETO power over date):
+   *   1. If the PDF explicitly mentions an event/artist name, that name MUST match an
+   *      event in scope. If it doesn't, we declare a mismatch even if the date is close
+   *      (otherwise an invoice for "Newgang" dated near "Maiara e Maraisa" would be
+   *      wrongly attributed to the latter).
+   *   2. If the PDF has NO names mentioned (rare — e.g. a generic transfer proof),
+   *      we fall back to date-based ownership.
+   */
   const checkOwnership = (
     mentionedNames: string | null,
     documentDate: string | null,
   ): { state: "match" | "mismatch" | "unknown"; matchedBy: ("name" | "date")[]; reason?: string } => {
     if (eventScope.length === 0) return { state: "unknown", matchedBy: [], reason: "Sem eventos no contexto" };
-    if (!mentionedNames && !documentDate) {
+    const hasNames = !!(mentionedNames && mentionedNames.trim().length > 0);
+    if (!hasNames && !documentDate) {
       return { state: "unknown", matchedBy: [], reason: "PDF sem nome nem data legíveis" };
     }
-    const matchedBy: ("name" | "date")[] = [];
-    let reason = "";
 
-    if (mentionedNames) {
-      const haystack = " " + normalizeForMatch(mentionedNames) + " ";
+    // ── 1. Name check ─────────────────────────────────────────────────────────
+    let nameMatchedEvent: EventScope | null = null;
+    let nameHits: string[] = [];
+    if (hasNames) {
+      const haystack = " " + normalizeForMatch(mentionedNames!) + " ";
       for (const ev of eventScope) {
         const evTokens = tokens(ev.name);
         if (evTokens.length === 0) continue;
-        const hits = evTokens.filter((t) => haystack.includes(t));
+        const hits = evTokens.filter((t) => haystack.includes(" " + t) || haystack.includes(t + " "));
+        // Require a strong (≥4 chars) hit OR ≥2 distinct hits to avoid weak matches
+        // (e.g. a 3-letter token shared between unrelated artist names).
         const hasStrong = hits.some((t) => t.length >= 4);
         if (hasStrong || hits.length >= 2) {
-          matchedBy.push("name");
-          reason = `nome "${hits.slice(0, 3).join(", ")}" do evento "${ev.name}"`;
+          nameMatchedEvent = ev;
+          nameHits = hits;
           break;
         }
       }
     }
 
+    // ── 2. Date check (used as primary signal only when names are absent) ─────
+    let dateMatched = false;
+    let dateReason = "";
     if (documentDate) {
       const docMs = Date.parse(documentDate + "T00:00:00Z");
       if (Number.isFinite(docMs)) {
@@ -257,15 +274,40 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
           if (!Number.isFinite(ms)) continue;
           const diffDays = Math.abs(ms - docMs) / (1000 * 60 * 60 * 24);
           if (diffDays <= DATE_WINDOW_DAYS) {
-            matchedBy.push("date");
-            if (!reason) reason = `data ${documentDate} a ${Math.round(diffDays)}d do evento`;
+            dateMatched = true;
+            dateReason = `data ${documentDate} a ${Math.round(diffDays)}d do evento`;
             break;
           }
         }
       }
     }
 
-    if (matchedBy.length > 0) return { state: "match", matchedBy, reason };
+    // ── Decision ──────────────────────────────────────────────────────────────
+    // (a) PDF mentions a name → name has veto power.
+    if (hasNames) {
+      if (nameMatchedEvent) {
+        const matchedBy: ("name" | "date")[] = ["name"];
+        let reason = `nome "${nameHits.slice(0, 3).join(", ")}" do evento "${nameMatchedEvent.name}"`;
+        if (dateMatched) {
+          matchedBy.push("date");
+          reason += ` + ${dateReason}`;
+        }
+        return { state: "match", matchedBy, reason };
+      }
+      // Name was mentioned but NO event in scope matches → reject, regardless of date.
+      return {
+        state: "mismatch",
+        matchedBy: [],
+        reason: `Documento menciona "${mentionedNames}" — não corresponde a nenhum evento do contexto${
+          dateMatched ? " (data próxima ignorada)" : ""
+        }`,
+      };
+    }
+
+    // (b) No names mentioned → fall back to date-only ownership.
+    if (dateMatched) {
+      return { state: "date" === "date" ? "match" : "match", matchedBy: ["date"], reason: dateReason };
+    }
     return {
       state: "mismatch",
       matchedBy: [],
