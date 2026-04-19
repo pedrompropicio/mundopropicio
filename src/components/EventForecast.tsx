@@ -116,15 +116,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return category?.id ?? null;
   }, [categories]);
 
+  const forecastEventIds = useMemo(() => {
+    const ids = [eventId];
+    if (childEventIds && childEventIds.length > 0) ids.push(...childEventIds);
+    return Array.from(new Set(ids));
+  }, [eventId, childEventIds]);
+
   const { data: forecasts = [], isLoading } = useQuery({
-    queryKey: ["event_forecasts", eventId],
+    queryKey: ["event_forecasts", eventId, forecastEventIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const query = supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
-        .eq("event_id", eventId)
+        .in("event_id", forecastEventIds)
         .order("type")
         .order("created_at");
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
