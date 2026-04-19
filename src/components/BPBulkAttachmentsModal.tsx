@@ -32,6 +32,23 @@ interface PendingFile {
   /** Upload state */
   status: "pending" | "uploading" | "done" | "error";
   errorMsg?: string;
+  /** AI value validation (PDFs/images only) */
+  validation?: {
+    state: "idle" | "running" | "match" | "mismatch" | "no-total" | "error";
+    extractedTotal?: number | null;
+    currency?: string | null;
+    diffPct?: number;
+    note?: string;
+  };
+}
+
+const TOLERANCE_PCT = 0.01; // 1%
+const TOLERANCE_ABS = 1; // €1
+function isValidatable(name: string, blob: Blob): boolean {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (["pdf", "jpg", "jpeg", "png", "webp"].includes(ext)) return true;
+  if (blob.type === "application/pdf" || blob.type.startsWith("image/")) return true;
+  return false;
 }
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
