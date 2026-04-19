@@ -811,9 +811,40 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                             if (v.state === "running") {
                               return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
                             }
+                            const docTypeLabel: Record<string, string> = {
+                              invoice: "fatura",
+                              proforma: "proforma",
+                              quote: "proposta",
+                              receipt: "recibo",
+                              transfer: "transf.",
+                              contract: "contrato",
+                              other: "outro",
+                            };
+                            const typeBadge = v.documentType ? (
+                              <span className="rounded bg-muted px-1 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                                {docTypeLabel[v.documentType] ?? v.documentType}
+                              </span>
+                            ) : null;
+                            const cur = v.currency || "€";
+                            const symbol = cur === "EUR" ? "€" : cur === "BRL" ? "R$" : cur === "USD" ? "$" : cur;
+                            const informational = v.documentType && ["contract", "quote", "proforma"].includes(v.documentType);
+
                             if (v.state === "no-total") {
+                              // Informational types: show value (no compare) with neutral icon
+                              if (informational && v.extractedTotal != null) {
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+                                    title={`Documento informativo (${docTypeLabel[v.documentType!] ?? v.documentType}) — valor não comparado com o BP.\n${v.extractedTotal.toFixed(2)} ${symbol}${v.note ? `\n${v.note}` : ""}`}
+                                  >
+                                    {typeBadge}
+                                    {v.extractedTotal.toFixed(2)} {symbol}
+                                  </span>
+                                );
+                              }
                               return (
                                 <span title={v.note} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                  {typeBadge}
                                   <AlertCircle className="h-3 w-3" />
                                   s/ total
                                 </span>
@@ -828,8 +859,6 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                               );
                             }
                             const total = v.extractedTotal ?? 0;
-                            const cur = v.currency || "€";
-                            const symbol = cur === "EUR" ? "€" : cur === "BRL" ? "R$" : cur === "USD" ? "$" : cur;
                             const fc = forecastById.get(f.forecastId!);
                             const expected = fc?.amount ?? 0;
                             const cls = v.state === "match" ? "text-success" : "text-destructive";
@@ -839,6 +868,7 @@ export default function BPBulkAttachmentsModal({ eventIds, onClose }: Props) {
                                 className={`inline-flex items-center gap-1 text-[11px] font-medium ${cls}`}
                                 title={`PDF: ${total.toFixed(2)} ${symbol}\nBP: ${expected.toFixed(2)} €\nDiferença: ${(v.diffPct ? v.diffPct * 100 : 0).toFixed(1)}%${v.note ? `\n${v.note}` : ""}`}
                               >
+                                {typeBadge}
                                 <Icon className="h-3 w-3" />
                                 {total.toFixed(2)} {symbol}
                               </span>
