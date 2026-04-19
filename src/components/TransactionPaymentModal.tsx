@@ -281,6 +281,20 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
         payment_entity: paymentMethod === "service_payment" ? paymentEntity.trim() : null,
         payment_reference: paymentMethod !== "transfer" ? paymentReference.trim() : null,
       };
+      // Audit FX of the payment day (informativo, sem ajuste de valor)
+      if (isForeign) {
+        const rate = parseFloat(paymentFxRate) || 0;
+        if (rate > 0) {
+          const origRate = Number(transaction.fx_rate) || 0;
+          auditEntries.push({
+            transaction_id: transaction.id,
+            changed_by: user?.user_metadata?.full_name ?? user?.email ?? "utilizador",
+            field_name: `Câmbio do dia (${txCurrency})`,
+            old_value: origRate ? origRate.toFixed(6) : null,
+            new_value: `${rate.toFixed(6)} (variação: ${origRate ? (rate - origRate).toFixed(6) : "—"})`,
+          });
+        }
+      }
       if (invoiceRef.trim()) updateData.invoice_ref = invoiceRef.trim();
       if (paymentMethod !== "transfer") {
         const methodLabel = paymentMethod === "service_payment" ? "Pag. Serviços" : "Pag. Estado";
