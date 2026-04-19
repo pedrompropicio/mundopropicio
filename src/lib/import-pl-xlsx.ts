@@ -942,12 +942,24 @@ export async function reprocessOrphanAttachments(
     }
   }
 
+  // Aggregated baseAmount per description across pending orphans (one row per
+  // sheet/sub-event). Enables matching against Master rateio lines whose value
+  // equals the SUM of all sub-event rows for the same description.
+  const aggregatedByDesc = buildAggregatedAmountByDesc(
+    (orphans ?? []).map((o: any) => ({
+      description: o.row_description,
+      baseAmount: Number(o.row_base_amount) || 0,
+    })),
+  );
+
   for (const orphan of orphans ?? []) {
+    const aggregated = aggregatedByDesc.get(norm((orphan as any).row_description));
     const found = findForecastMatch(
       (orphan as any).row_description,
       Number((orphan as any).row_base_amount) || 0,
       primaryForecasts as any,
       masterForecasts as any,
+      aggregated,
     );
     if (!found) {
       out.stillOrphan++;
