@@ -133,7 +133,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
   const [importedSheets, setImportedSheets] = useState<Set<string>>(new Set());
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryModalCallback, setCategoryModalCallback] = useState<((catId: string) => void) | null>(null);
-  const [showBulkAttach, setShowBulkAttach] = useState(false);
+  // Bulk attachments modal removed — attachments are now Drive links per row.
 
   // Event dates for selected event
   const datesForEvent = eventDates.filter((d: any) => d.event_id === selectedEventId);
