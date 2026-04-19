@@ -861,16 +861,19 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }
       return { created, autoApproved, propagatedAttachments };
     },
-    onSuccess: ({ created, autoApproved }) => {
+    onSuccess: ({ created, autoApproved, propagatedAttachments }) => {
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedIds(new Set());
-      const msg = autoApproved === created
+      const baseMsg = autoApproved === created
         ? `${created} transação(ões) criada(s) já aprovada(s) (BP aprovado).`
         : autoApproved > 0
           ? `${created} transação(ões) criada(s) — ${autoApproved} já aprovada(s), ${created - autoApproved} pendente(s).`
           : `${created} transação(ões) "A Pagar" criada(s) (pendentes de aprovação)!`;
-      toast({ title: msg });
+      const desc = propagatedAttachments > 0
+        ? `${propagatedAttachments} anexo(s) do BP propagado(s) para as transações.`
+        : undefined;
+      toast({ title: baseMsg, description: desc });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
