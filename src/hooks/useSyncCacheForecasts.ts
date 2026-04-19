@@ -173,7 +173,7 @@ export function useSyncCacheForecasts({
     };
 
     doSync();
-  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint]);
+  }, [eventId, childEventIds, cacheConfigs, deductions, forecasts, ticketRevenueNet, ticketRevenueGross, cacheCategoryId, enabled, queryClient, salesFingerprint, citySettlementsFingerprint]);
 }
 
 /**
