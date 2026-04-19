@@ -777,6 +777,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     mutationFn: async (forecastItems: any[]) => {
       let created = 0;
       let autoApproved = 0;
+      let propagatedAttachments = 0;
       for (const f of forecastItems) {
         const isBPApproved = f.status === "approved";
         const txStatus = isBPApproved ? "approved" : "pending";
@@ -816,10 +817,49 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             } as any);
             autoApproved++;
           }
+
+          // Propagate BP attachment links (Drive/Dropbox/etc.) from the forecast
+          // to the newly-created transaction as ref:// documents.
+          const refUrls: string[] = Array.isArray(f.attachment_refs)
+            ? (f.attachment_refs as any[])
+                .map((r) => (r && typeof r.url === "string" ? r.url.trim() : ""))
+                .filter((u) => /^https?:\/\//i.test(u))
+            : [];
+
+          if (refUrls.length > 0) {
+            const docs = refUrls.map((link) => {
+              let fileName = link.slice(0, 80);
+              try {
+                const u = new URL(link);
+                fileName = decodeURIComponent(
+                  u.pathname.split("/").filter(Boolean).pop() || u.hostname,
+                ).slice(0, 120);
+              } catch { /* keep fallback */ }
+              return {
+                transaction_id: insertedTx.id,
+                name: fileName,
+                file_url: `ref://${link}`,
+                doc_type: "outro",
+                uploaded_by: user?.email ?? "system",
+                is_accounting: true,
+              };
+            });
+            await supabase.from("transaction_documents").insert(docs as any);
+            propagatedAttachments += refUrls.length;
+          }
+
+          // Back-link the forecast to the new transaction so future BP edits
+          // continue to propagate automatically.
+          if (!f.transaction_id) {
+            await supabase
+              .from("event_forecasts")
+              .update({ transaction_id: insertedTx.id } as any)
+              .eq("id", f.id);
+          }
         }
         created++;
       }
-      return { created, autoApproved };
+      return { created, autoApproved, propagatedAttachments };
     },
     onSuccess: ({ created, autoApproved }) => {
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
