@@ -15,6 +15,9 @@ import { sortByHierarchicalCode, cn } from "@/lib/utils";
 import { PaymentTimeline } from "@/components/PaymentTimeline";
 import { ReimbursementNoteRefBadge } from "@/components/ReimbursementNoteRefBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
+import { CurrencyBadge } from "@/components/CurrencyBadge";
+import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -50,6 +53,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
+
+  // Multi-currency state
+  const initCurrency: CurrencyCode = isSupportedCurrency(transaction.currency) ? transaction.currency : "EUR";
+  const [currency, setCurrency] = useState<CurrencyCode>(initCurrency);
+  const [originalAmount, setOriginalAmount] = useState<string>(
+    initCurrency === "EUR"
+      ? ""
+      : String(transaction.original_amount ?? eurToOriginal(Number(transaction.amount), Number(transaction.fx_rate) || 1))
+  );
+  const [fxRate, setFxRate] = useState<string>(initCurrency === "EUR" ? "" : String(transaction.fx_rate ?? ""));
+  const [fxRateSource, setFxRateSource] = useState<"manual" | "suggested">(
+    transaction.fx_rate_source === "suggested" ? "suggested" : "manual"
+  );
+  const [eurFromCurrency, setEurFromCurrency] = useState<number>(Number(transaction.amount) || 0);
+  useEffect(() => {
+    if (currency !== "EUR") {
+      setForm((f) => ({ ...f, amount: eurFromCurrency ? String(eurFromCurrency) : "" }));
+    }
+  }, [currency, eurFromCurrency]);
 
   // Check if this is a parent split transaction (has children)
   const isAbsoluteMode = (transaction.split_mode ?? "percentage") === "absolute";
