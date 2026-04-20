@@ -199,7 +199,7 @@ export function useRealCacheCalculation(
       const pct = resolvePercentageFromTiers(config, occupancyPct);
       const calculated = Math.max(0, baseForCalc * (pct / 100));
       const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-      const finalAmount = Math.round(Math.max(minGuaranteed, calculated));
+      const finalAmount = Math.round(Math.max(minGuaranteed, calculated) * 100) / 100;
 
       const missingDeductionCategories = deductionDetails.filter((d) => !d.hasTransaction);
 
@@ -221,7 +221,7 @@ export function useRealCacheCalculation(
         calculatedAmount: calculated,
         minimumGuaranteed: minGuaranteed,
         finalAmount,
-        isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed),
+        isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed * 100) / 100,
         missingDeductionCategories,
       };
     });
@@ -317,7 +317,7 @@ export function useRealCacheCalculation(
         const pct = resolvePercentageFromTiers(config, occ);
         const calculated = Math.max(0, baseForCalc * (pct / 100));
         const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-        const finalAmount = Math.round(Math.max(minGuaranteed, calculated));
+        const finalAmount = Math.round(Math.max(minGuaranteed, calculated) * 100) / 100;
         return {
           configId: config.id,
           artistName: config.artist_name,
@@ -336,7 +336,7 @@ export function useRealCacheCalculation(
           calculatedAmount: calculated,
           minimumGuaranteed: minGuaranteed,
           finalAmount,
-          isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed),
+          isUsingMinimum: minGuaranteed > 0 && finalAmount === Math.round(minGuaranteed * 100) / 100,
           missingDeductionCategories: deductionDetails.filter((d) => !d.hasTransaction),
         };
       });

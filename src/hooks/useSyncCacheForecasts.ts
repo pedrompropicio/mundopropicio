@@ -529,8 +529,8 @@ function calculateCacheAmount(
     const pct = resolvePercentageFromTiers(config, occupancyPct);
     const calc = Math.max(0, baseForCalc * (pct / 100));
     const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-    calculated = Math.round(Math.max(minGuaranteed, calc));
+    calculated = Math.round(Math.max(minGuaranteed, calc) * 100) / 100;
   }
   // Apply override priority: city settlement > config legacy > calculated
-  return Math.round(getCacheEffectiveAmount(config, calculated, citySettlement));
+  return Math.round(getCacheEffectiveAmount(config, calculated, citySettlement) * 100) / 100;
 }
