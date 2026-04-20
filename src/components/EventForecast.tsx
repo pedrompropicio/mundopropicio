@@ -77,6 +77,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [bpSearch, setBpSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
   const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
+  const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
   const [showAdoptCreate, setShowAdoptCreate] = useState(false);
   const [showOrphans, setShowOrphans] = useState(false);
@@ -143,12 +144,17 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const forecastEventIds = useMemo(() => {
     const ids = [eventId];
-    if (childEventIds && childEventIds.length > 0) ids.push(...childEventIds);
+    // Only include sub-event forecasts when the user explicitly toggles "Master + Subs".
+    // Default behaviour shows ONLY the master's own lines, preventing the visual mix
+    // that made sub-event expenses look like they were duplicated in the Master BP.
+    if (includeSubsInBP && childEventIds && childEventIds.length > 0) {
+      ids.push(...childEventIds);
+    }
     return Array.from(new Set(ids));
-  }, [eventId, childEventIds]);
+  }, [eventId, childEventIds, includeSubsInBP]);
 
   const { data: forecasts = [], isLoading } = useQuery({
-    queryKey: ["event_forecasts", eventId, forecastEventIds.join(",")],
+    queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP],
     queryFn: async () => {
       const query = supabase
         .from("event_forecasts")
@@ -1469,6 +1475,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 <option value="without_tx">Sem transação</option>
               </select>
             </div>
+            {/* Master ↔ Master+Subs toggle (only on master with children) */}
+            {childEventIds && childEventIds.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={includeSubsInBP ? "all" : "master"}
+                  onChange={(e) => setIncludeSubsInBP(e.target.value === "all")}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  title="Alternar entre BP só do Master (rateios) ou consolidado Master + sub-eventos"
+                >
+                  <option value="master">Só Master</option>
+                  <option value="all">Master + Subs</option>
+                </select>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
