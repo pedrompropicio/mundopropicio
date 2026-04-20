@@ -285,12 +285,20 @@ export default function DatabaseBackups() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => handlePreview(file.name)}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                    title="Restaurar este backup"
+                    onClick={() => setSelectiveTarget(file.name)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                    title="Restaurar tabelas ou eventos específicos"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Restaurar</span>
+                    <span className="hidden sm:inline">Seletivo</span>
+                  </button>
+                  <button
+                    onClick={() => handlePreview(file.name)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                    title="Restaurar este backup completo"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Completo</span>
                   </button>
                   <button
                     onClick={() => handleDownload(file.name)}
