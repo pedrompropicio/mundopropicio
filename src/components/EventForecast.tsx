@@ -1492,7 +1492,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin && approvedWithoutTxCount > 0 && eventStatus === "completed" && (
+            {isAdmin && approvedWithoutTxCount > 0 && (eventStatus === "completed" || eventStatus === "active") && (
               <button
                 onClick={handleGenerateHistorical}
                 disabled={generateHistoricalMutation.isPending}
