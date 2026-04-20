@@ -146,8 +146,9 @@ export function ResultsAnalysis() {
     queryKey: ["ra_closing_costs"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_closing_costs")
-        .select("event_id, amount");
+        .from("event_forecasts")
+        .select("event_id, amount")
+        .eq("is_overhead", true);
       if (error) throw error;
       return data;
     },
