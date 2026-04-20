@@ -1358,7 +1358,33 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const totalActualExpense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
   const actualProfit = totalActualIncome - totalActualExpense;
 
-  const comparisonData = buildComparison(forecasts, transactions, categories);
+  // Comparison view (Previsão vs Real) — regras estritas:
+  // 1) Previsto: apenas linhas BP `approved` (rascunhos/rejeitadas não contam).
+  // 2) Real: apenas TX `approved` ou `paid`; exclui transitórias e marcadas exclude_from_result.
+  // 3) Overhead Master→Splits: a fatia virtual NÃO entra aqui (overhead vive só no Master).
+  // 4) Perímetro Real: ignora TX de sub-eventos quando se vê o Master sem o toggle Master+Subs.
+  const comparisonForecasts = useMemo(() => {
+    return (forecasts as any[]).filter((f) => {
+      if (f._overhead_via_master) return false; // overhead só no Master
+      if (f.status !== "approved") return false;
+      if (f.exclude_from_result) return false;
+      if (f.is_transitory) return false;
+      // Quando vê-se só o Master (toggle OFF), exclui forecasts de filhos por segurança
+      if (!includeSubsInBP && parentEventId === null && f.event_id !== eventId) return false;
+      return true;
+    });
+  }, [forecasts, includeSubsInBP, parentEventId, eventId]);
+  const comparisonTransactions = useMemo(() => {
+    return (transactions as any[]).filter((t) => {
+      if (!(t.status === "approved" || t.status === "paid")) return false;
+      if (t.is_transitory) return false;
+      if (t.exclude_from_result) return false;
+      // Master sem toggle: só TX deste Master (event_id === eventId) ou multi-event masters (event_id null)
+      if (!includeSubsInBP && parentEventId === null && t.event_id && t.event_id !== eventId) return false;
+      return true;
+    });
+  }, [transactions, includeSubsInBP, parentEventId, eventId]);
+  const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   const draftCount = forecasts.filter((f) => f.status === "draft").length;
   const approvedCount = forecasts.filter((f) => f.status === "approved").length;
