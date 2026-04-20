@@ -2485,7 +2485,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
-          {form.type === "expense" && form.payment_method === "service_payment" && (
+          {form.type === "expense" && !isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
@@ -2504,7 +2504,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
-          {form.type === "expense" && form.payment_method === "state_payment" && (
+          {form.type === "expense" && !isPaidByPartner && form.payment_method === "state_payment" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento</label>
               <input type="text" value={form.payment_reference}
