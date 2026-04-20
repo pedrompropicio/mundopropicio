@@ -322,6 +322,7 @@ export function ResultsAnalysis() {
           id: e.id,
           name: e.name,
           date: e.date,
+          parentEventId: e.parent_event_id ?? null,
           totalIncome: income,
           totalExpense: expense,
           margin,
