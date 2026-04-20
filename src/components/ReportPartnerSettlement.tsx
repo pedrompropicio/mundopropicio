@@ -50,6 +50,19 @@ export default function ReportPartnerSettlement() {
     },
   });
 
+  // Rateios de Overhead — somam-se às despesas do evento APENAS para o cálculo do acerto com sócios.
+  const { data: overheads = [] } = useQuery({
+    queryKey: ["settlement-overheads"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("event_id, amount")
+        .eq("is_overhead", true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   interface SettlementRow {
     partnerId: string;
     partnerName: string;
@@ -57,6 +70,7 @@ export default function ReportPartnerSettlement() {
     eventStatus: string;
     percentage: number;
     result: number;
+    overhead: number;
     partnerShare: number;
     extras: number;
     paidExpenses: number;
@@ -72,7 +86,11 @@ export default function ReportPartnerSettlement() {
       const evTxs = transactions.filter((t) => t.event_id === p.event_id && !t.is_transitory && !t.exclude_from_result);
       const revenue = evTxs.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
       const expense = evTxs.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
-      const result = revenue - expense;
+      // Overhead deste evento entra como despesa adicional para o sócio
+      const overhead = overheads
+        .filter((o: any) => o.event_id === p.event_id)
+        .reduce((s: number, o: any) => s + Number(o.amount), 0);
+      const result = revenue - expense - overhead;
 
       const partnerShare = result * (p.percentage / 100);
       const partnerExtras = extras.filter((e) => e.partner_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
@@ -89,13 +107,14 @@ export default function ReportPartnerSettlement() {
         eventStatus: ev.status,
         percentage: p.percentage,
         result,
+        overhead,
         partnerShare,
         extras: partnerExtras,
         paidExpenses: partnerPaid,
         settlement,
       } as SettlementRow;
     }).filter(Boolean) as SettlementRow[];
-  }, [partners, transactions, extras, paidExpenses]);
+  }, [partners, transactions, extras, paidExpenses, overheads]);
 
   const totals = settlementData.reduce(
     (acc, d: any) => ({
