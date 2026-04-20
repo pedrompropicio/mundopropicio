@@ -156,7 +156,8 @@ export default function ReportPartnerSettlement() {
               <TableHead>Sócio</TableHead>
               <TableHead>Evento</TableHead>
               <TableHead className="text-center">%</TableHead>
-              <TableHead className="text-right">Resultado</TableHead>
+              <TableHead className="text-right">Resultado<br/><span className="text-[10px] font-normal text-muted-foreground">(c/ overhead)</span></TableHead>
+              <TableHead className="text-right text-warning">Overhead</TableHead>
               <TableHead className="text-right">Quota-Parte</TableHead>
               <TableHead className="text-right">Extras</TableHead>
               <TableHead className="text-right">Desp. Pagas</TableHead>
@@ -165,7 +166,7 @@ export default function ReportPartnerSettlement() {
           </TableHeader>
           <TableBody>
             {settlementData.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
             ) : settlementData.map((d: any) => (
               <TableRow key={d.partnerId}>
                 <TableCell className="font-medium">{d.partnerName}</TableCell>
@@ -175,6 +176,7 @@ export default function ReportPartnerSettlement() {
                 </TableCell>
                 <TableCell className="text-center">{d.percentage}%</TableCell>
                 <TableCell className={`text-right font-mono ${d.result >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(d.result)}</TableCell>
+                <TableCell className="text-right font-mono text-warning">{d.overhead > 0 ? formatCurrency(d.overhead) : "—"}</TableCell>
                 <TableCell className="text-right font-mono">{formatCurrency(d.partnerShare)}</TableCell>
                 <TableCell className="text-right font-mono text-warning">{formatCurrency(d.extras)}</TableCell>
                 <TableCell className="text-right font-mono text-success">{formatCurrency(d.paidExpenses)}</TableCell>
