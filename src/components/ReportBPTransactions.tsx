@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
@@ -54,10 +54,22 @@ interface CategoryLine {
   transactions: TransactionWithMeta[];
 }
 
-export default function ReportBPTransactions() {
-  const [selectedEventId, setSelectedEventId] = useState<string>("");
+interface Props {
+  /** Pre-select an event when the report opens. Used by deep-links from EventForecast. */
+  initialEventId?: string;
+}
+
+export default function ReportBPTransactions({ initialEventId }: Props = {}) {
+  const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId ?? "");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  // If parent provides initialEventId after first render (e.g. async query param),
+  // adopt it once. Manual user selection from the dropdown takes over from there.
+  useEffect(() => {
+    if (initialEventId && !selectedEventId) setSelectedEventId(initialEventId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEventId]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
