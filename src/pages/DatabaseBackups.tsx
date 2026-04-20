@@ -36,6 +36,7 @@ export default function DatabaseBackups() {
   const [previewing, setPreviewing] = useState(false);
   const [surgicalLoading, setSurgicalLoading] = useState(false);
   const [surgicalResult, setSurgicalResult] = useState<any>(null);
+  const [selectiveTarget, setSelectiveTarget] = useState<string | null>(null);
 
   const handleSurgicalRestore = async () => {
     if (!confirm("Restaurar lotes e vendas da Tour Maiara e Maraisa do backup de 06/Abril? Apenas esses dados serão repostos.")) return;
