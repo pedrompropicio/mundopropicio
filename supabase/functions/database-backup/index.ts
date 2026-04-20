@@ -99,10 +99,11 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Verify caller: service role key, anon key (cron), or admin user
-    const authHeader = req.headers.get("Authorization");
-    const token = authHeader?.replace("Bearer ", "") ?? "";
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
+    const token = authHeader?.replace(/^Bearer\s+/i, "").trim() ?? "";
     const isServiceRole = token === serviceRoleKey;
     const isCronCall = token === anonKey;
+    console.log("[database-backup] auth check", { hasToken: !!token, isServiceRole, isCronCall });
 
     if (!isServiceRole && !isCronCall) {
       // Must be a user JWT – verify admin role
