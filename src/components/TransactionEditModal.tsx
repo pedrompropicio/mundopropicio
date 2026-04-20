@@ -736,7 +736,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
-          {isAdmin && isPaid && (
+          {isAdmin && isPaid && !isPaidByPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento</label>
               <DatePicker value={form.payment_date} onChange={(d) => setForm({ ...form, payment_date: d })} />
