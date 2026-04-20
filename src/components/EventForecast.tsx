@@ -1278,6 +1278,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const matchesTxLinkFilter = (f: any) => {
     if (txLinkFilter === "all") return true;
+    // Linhas Master vistas no Sub (overhead via Master) não pertencem a este sub-evento;
+    // ficam sempre visíveis (ignoradas pelo filtro) para não poluir "Sem transação".
+    if (f._overhead_via_master || f._readonly) return true;
     // Check both direct link (transaction_id) and matching transactions by category
     const hasDirectLink = !!f.transaction_id;
     const hasMatchingTx = transactions.some((t: any) => t.category_id === f.category_id && t.type === f.type);
