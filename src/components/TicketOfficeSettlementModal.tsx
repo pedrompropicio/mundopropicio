@@ -399,7 +399,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 status: "paid",
                 payment_date: settlementDate,
                 account_id: officeId,
-                paid_amount: Number(t.amount),
+                paid_amount: txnGross(t),
               })
               .eq("id", t.id);
           }
