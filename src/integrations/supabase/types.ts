@@ -1516,6 +1516,7 @@ export type Database = {
           event_id: string
           id: string
           notes: string | null
+          paid_date: string | null
           partner_id: string
           transaction_id: string
         }
@@ -1524,6 +1525,7 @@ export type Database = {
           event_id: string
           id?: string
           notes?: string | null
+          paid_date?: string | null
           partner_id: string
           transaction_id: string
         }
@@ -1532,6 +1534,7 @@ export type Database = {
           event_id?: string
           id?: string
           notes?: string | null
+          paid_date?: string | null
           partner_id?: string
           transaction_id?: string
         }

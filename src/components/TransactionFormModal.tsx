@@ -128,6 +128,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [splitExpanded, setSplitExpanded] = useState(false);
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
+  const [partnerPaidDate, setPartnerPaidDate] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
@@ -934,9 +935,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           };
         });
 
-        // Parent is approved only if ALL children are approved
+        // Parent is approved only if ALL children are approved.
+        // Pago por Sócio: parent fica imediatamente liquidado.
         const allChildrenApproved = childInserts.every(c => c.status === "approved");
-        const parentStatus = allChildrenApproved ? "approved" : "pending";
+        const parentStatus = isPaidByPartner ? "paid" : (allChildrenApproved ? "approved" : "pending");
+        const parentPaidAmount = isPaidByPartner ? totalAmount : 0;
+        const parentPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : null;
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
@@ -954,7 +958,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
           status: parentStatus,
-          paid_amount: 0,
+          paid_amount: parentPaidAmount,
+          payment_date: parentPaymentDate,
            split_percentage: null,
            parent_transaction_id: null,
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
@@ -992,7 +997,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             event_id: splitMasterEventId,
             partner_id: paidByPartnerId,
             transaction_id: parentId,
-          });
+            paid_date: partnerPaidDate || data.date,
+          } as any);
         }
       } else {
         // --- SINGLE TRANSACTION ---
@@ -1013,6 +1019,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
         const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
+        // Pago por Sócio: já fica liquidado, sem conta financeira da empresa.
+        // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
+        const partnerStatus = isPaidByPartner ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending"));
+        const partnerPaidAmount = isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0);
+        const partnerPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null);
 
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description,
@@ -1027,9 +1038,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
-          status: autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending"),
-          paid_amount: autoMarkPaid ? parseFloat(data.amount) : 0,
-          payment_date: autoMarkPaid ? data.date : null,
+          status: partnerStatus,
+          paid_amount: partnerPaidAmount,
+          payment_date: partnerPaymentDate,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: isTransitory,
@@ -1087,13 +1098,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
-        // Auto-link to partner if paid by partner
+        // Auto-link to partner if paid by partner (com data em que o sócio pagou)
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
           await supabase.from("partner_paid_expenses").insert({
             event_id: data.event_id,
             partner_id: paidByPartnerId,
             transaction_id: insertedTx.id,
-          });
+            paid_date: partnerPaidDate || data.date,
+          } as any);
         }
 
         // Auto-link to reimbursement note
@@ -1277,6 +1289,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     if (isPaidByPartner && !paidByPartnerId) {
       toast({ title: "Selecione o sócio que pagou a despesa", variant: "destructive" });
+      return;
+    }
+    if (isPaidByPartner && !partnerPaidDate) {
+      toast({ title: "Indique a data em que o sócio pagou", variant: "destructive" });
       return;
     }
 
@@ -2289,7 +2305,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       const next = !isPaidByPartner;
                       setIsPaidByPartner(next);
                       setPaidByPartnerId("");
-                      if (next) { setForm({ ...form, account_id: "" }); }
+                      if (next) {
+                        setForm({ ...form, account_id: "" });
+                        // Default: data em que o sócio pagou = data da despesa
+                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
+                      } else {
+                        setPartnerPaidDate("");
+                      }
                     }}
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                       isPaidByPartner
@@ -2297,7 +2319,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         : "bg-secondary text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    🤝 {isPaidByPartner ? "Pago por Sócio" : "Pago por Sócio"}
+                    🤝 Pago por Sócio
                     <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
                   </button>
                 )}
@@ -2387,20 +2409,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </div>
               )}
               {isPaidByPartner && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
-                  <SearchableSelect
-                    options={eventPartners.map((p: any) => ({
-                      value: p.id,
-                      label: `${p.suppliers?.name} (${p.percentage}%)`,
-                    }))}
-                    value={paidByPartnerId}
-                    onValueChange={setPaidByPartnerId}
-                    placeholder="Selecionar sócio…"
-                    searchPlaceholder="Pesquisar…"
-                  />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Despesa paga diretamente pelo sócio — sem conta financeira da empresa
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
+                    <SearchableSelect
+                      options={eventPartners.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.suppliers?.name} (${p.percentage}%)`,
+                      }))}
+                      value={paidByPartnerId}
+                      onValueChange={setPaidByPartnerId}
+                      placeholder="Selecionar sócio…"
+                      searchPlaceholder="Pesquisar…"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
+                    <DatePicker
+                      value={partnerPaidDate}
+                      onChange={(v) => setPartnerPaidDate(v)}
+                    />
+                  </div>
+                  <p className="sm:col-span-2 text-[10px] text-muted-foreground">
+                    Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
                   </p>
                 </div>
               )}
@@ -2419,8 +2450,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
           </div>
 
-          {/* Método de Pagamento */}
-          {form.type === "expense" && (() => {
+          {/* Método de Pagamento — escondido quando pago por sócio (não há pagamento da empresa) */}
+          {form.type === "expense" && !isPaidByPartner && (() => {
             const selectedCat = categories.find((c: any) => c.id === form.category_id);
             const isStateCategory = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
             const methods = [
@@ -2454,7 +2485,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             );
           })()}
 
-          {form.type === "expense" && form.payment_method === "service_payment" && (
+          {form.type === "expense" && !isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
@@ -2473,7 +2504,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
           )}
 
-          {form.type === "expense" && form.payment_method === "state_payment" && (
+          {form.type === "expense" && !isPaidByPartner && form.payment_method === "state_payment" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento</label>
               <input type="text" value={form.payment_reference}

@@ -1,0 +1,1 @@
+ALTER TABLE public.partner_paid_expenses ADD COLUMN IF NOT EXISTS paid_date date;

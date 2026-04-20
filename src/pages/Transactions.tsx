@@ -56,6 +56,7 @@ export default function Transactions() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<string>>(new Set());
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -115,6 +116,24 @@ export default function Transactions() {
       const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  // Map: transaction_id -> Set<partner_id> (for "Pago por sócio" filter)
+  const { data: partnerPaidMap = new Map<string, Set<string>>() } = useQuery({
+    queryKey: ["partner-paid-expenses-map"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("transaction_id, partner_id");
+      if (error) throw error;
+      const map = new Map<string, Set<string>>();
+      (data ?? []).forEach((row: any) => {
+        const set = map.get(row.transaction_id) ?? new Set<string>();
+        set.add(row.partner_id);
+        map.set(row.transaction_id, set);
+      });
+      return map;
     },
   });
 
@@ -399,6 +418,13 @@ export default function Transactions() {
     .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
+    .filter((t: any) => {
+      if (selectedPartnerIds.size === 0) return true;
+      const partners = partnerPaidMap.get(t.id);
+      if (!partners) return false;
+      for (const pid of selectedPartnerIds) if (partners.has(pid)) return true;
+      return false;
+    })
     .filter((t) => {
       if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
@@ -516,6 +542,13 @@ export default function Transactions() {
       .filter(matchesEventFilter)
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
+      .filter((t: any) => {
+        if (selectedPartnerIds.size === 0) return true;
+        const partners = partnerPaidMap.get(t.id);
+        if (!partners) return false;
+        for (const pid of selectedPartnerIds) if (partners.has(pid)) return true;
+        return false;
+      })
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
@@ -846,6 +879,7 @@ export default function Transactions() {
             (selectedEventIds.size > 0 ? 1 : 0) +
             (selectedAccountIds.size > 0 ? 1 : 0) +
             (selectedSupplierIds.size > 0 ? 1 : 0) +
+            (selectedPartnerIds.size > 0 ? 1 : 0) +
             (onlyPending ? 1 : 0) +
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
@@ -1095,6 +1129,8 @@ export default function Transactions() {
         setSelectedAccountIds={setSelectedAccountIds}
         selectedSupplierIds={selectedSupplierIds}
         setSelectedSupplierIds={setSelectedSupplierIds}
+        selectedPartnerIds={selectedPartnerIds}
+        setSelectedPartnerIds={setSelectedPartnerIds}
         viewMode={viewMode}
         onlyPending={onlyPending}
         setOnlyPending={setOnlyPending}
@@ -1109,6 +1145,7 @@ export default function Transactions() {
           setSelectedEventIds(new Set());
           setSelectedAccountIds(new Set());
           setSelectedSupplierIds(new Set());
+          setSelectedPartnerIds(new Set());
           setOnlyPending(false);
           setOnlyNoDueDate(false);
           setOnlyGrouped(false);
