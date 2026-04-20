@@ -948,6 +948,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           is_transitory: isTransitory,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
+          invoice_group_id: data.invoice_group_id ?? null,
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
