@@ -42,32 +42,44 @@ export async function deleteTransactionCascade({
   transactionId,
   user,
   auditReason,
+  cascadeInvoiceGroup = true,
 }: DeleteCascadeParams): Promise<void> {
   const callerName = getAuditUser(user);
 
-  // 1) Snapshot
-  const { data: txData } = await supabase
+  // 0) Expand to invoice-group siblings (linhas da mesma fatura com IVAs diferentes)
+  const rootIds = cascadeInvoiceGroup
+    ? await expandTransactionIdsByInvoiceGroup([transactionId])
+    : [transactionId];
+
+  // 1) Snapshot root transactions
+  const { data: rootTxs } = await supabase
     .from("transactions")
     .select("*")
-    .eq("id", transactionId)
-    .single();
+    .in("id", rootIds);
 
-  // 2) Snapshot children (split)
+  const primaryTx = (rootTxs ?? []).find((t: any) => t.id === transactionId) ?? null;
+
+  // 2) Snapshot children (split) of every root
   const { data: childTxs } = await supabase
     .from("transactions")
     .select("*")
-    .eq("parent_transaction_id", transactionId);
+    .in("parent_transaction_id", rootIds);
 
-  const allIds = [transactionId, ...(childTxs?.map((c: any) => c.id) ?? [])];
+  const allIds = [
+    ...rootIds,
+    ...((childTxs ?? []).map((c: any) => c.id)),
+  ];
 
-  // 3) Trash
-  if (txData) {
+  // 3) Trash (one entry per root tx, with own children when applicable)
+  for (const tx of rootTxs ?? []) {
+    const ownChildren = (childTxs ?? []).filter(
+      (c: any) => c.parent_transaction_id === tx.id,
+    );
     await moveToTrash({
       entity_type: "transaction",
-      entity_id: transactionId,
-      entity_data: txData,
-      related_data:
-        childTxs && childTxs.length > 0 ? { transactions: childTxs } : null,
+      entity_id: tx.id,
+      entity_data: tx,
+      related_data: ownChildren.length > 0 ? { transactions: ownChildren } : null,
       deleted_by: callerName,
     });
   }
@@ -118,46 +130,56 @@ export async function deleteTransactionCascade({
   await supabase.from("transaction_documents").delete().in("transaction_id", allIds);
 
   // 9) Audit log entries
-  if (txData) {
+  const groupReason =
+    rootIds.length > 1
+      ? `${auditReason ? auditReason + " · " : ""}Grupo fatura (${rootIds.length} linhas IVA)`
+      : auditReason ?? null;
+
+  for (const tx of rootTxs ?? []) {
     await supabase.from("transaction_audit_log").insert({
-      transaction_id: transactionId,
+      transaction_id: tx.id,
       changed_by: callerName,
       field_name: "Eliminação",
-      old_value: `${txData.description ?? "—"} — ${txData.amount ?? 0} €`,
-      new_value: auditReason ?? null,
+      old_value: `${tx.description ?? "—"} — ${tx.amount ?? 0} €`,
+      new_value: groupReason,
     });
   }
-  if (childTxs && childTxs.length > 0) {
-    for (const child of childTxs) {
-      await supabase.from("transaction_audit_log").insert({
-        transaction_id: child.id,
-        changed_by: callerName,
-        field_name: "Eliminação",
-        old_value: `Eliminada em cascata com Master`,
-        new_value: auditReason ?? null,
-      });
-    }
+  for (const child of childTxs ?? []) {
+    await supabase.from("transaction_audit_log").insert({
+      transaction_id: child.id,
+      changed_by: callerName,
+      field_name: "Eliminação",
+      old_value: `Eliminada em cascata com Master`,
+      new_value: groupReason,
+    });
   }
 
   // 10) Delete children explicitly (safety; DB cascade also handles this)
   await supabase
     .from("transactions")
     .delete()
-    .eq("parent_transaction_id", transactionId);
+    .in("parent_transaction_id", rootIds);
 
-  // 11) Delete parent
+  // 11) Delete root transactions
   const { error } = await supabase
     .from("transactions")
     .delete()
-    .eq("id", transactionId);
+    .in("id", rootIds);
   if (error) throw error;
 
-  // 12) System audit
-  await logAudit({
-    entity_type: "transaction",
-    entity_id: transactionId,
-    action: "delete",
-    changed_by: callerName,
-    old_data: txData,
-  });
+  // 12) System audit (one entry per root)
+  for (const tx of rootTxs ?? []) {
+    await logAudit({
+      entity_type: "transaction",
+      entity_id: tx.id,
+      action: "delete",
+      changed_by: callerName,
+      old_data: tx,
+      metadata: rootIds.length > 1 ? { invoice_group_size: rootIds.length } : null,
+    });
+  }
+
+  // Silence unused-variable warning when only one root
+  void primaryTx;
 }
+
