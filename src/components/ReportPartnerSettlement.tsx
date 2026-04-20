@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { expandOverheadToSplits } from "@/lib/overhead-proration";
 
 export default function ReportPartnerSettlement() {
   const { data: partners = [], isLoading } = useQuery({
@@ -50,18 +51,34 @@ export default function ReportPartnerSettlement() {
     },
   });
 
+  // Eventos: necessários para proração Master→Splits do overhead
+  const { data: events = [] } = useQuery({
+    queryKey: ["settlement-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, parent_event_id");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Rateios de Overhead — somam-se às despesas do evento APENAS para o cálculo do acerto com sócios.
-  const { data: overheads = [] } = useQuery({
+  // Proração Master→Splits (÷N): overhead lançado num Master vira fatia virtual em cada split,
+  // para que cada sócio (que pode ser diferente por cidade) absorva a sua quota.
+  const { data: overheadsRaw = [] } = useQuery({
     queryKey: ["settlement-overheads"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("event_id, amount")
+        .select("id, event_id, amount")
         .eq("is_overhead", true);
       if (error) throw error;
       return data;
     },
   });
+  const overheads = useMemo(
+    () => expandOverheadToSplits(overheadsRaw as any, events as any),
+    [overheadsRaw, events],
+  );
 
   interface SettlementRow {
     partnerId: string;
