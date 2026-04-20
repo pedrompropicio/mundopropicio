@@ -2607,9 +2607,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
       <SplitByIvaModal
         open={showSplitByIvaModal}
-        onClose={() => setShowSplitByIvaModal(false)}
+        onClose={() => {
+          setShowSplitByIvaModal(false);
+          setAiPrefilledLines(null);
+        }}
         initialBase={parseFloat(form.amount) || undefined}
         initialRate={form.iva_rate}
+        prefilledLines={aiPrefilledLines ?? undefined}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
             ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
@@ -2618,6 +2622,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         onConfirm={(lines) => {
           setPendingIvaSplit(lines);
           setShowSplitByIvaModal(false);
+          setAiPrefilledLines(null);
           // Reflete o total no campo amount apenas como referência visual (somatório das bases).
           const totalBase = lines.reduce((s, l) => s + l.base, 0);
           setForm((f) => ({ ...f, amount: String(totalBase) }));
