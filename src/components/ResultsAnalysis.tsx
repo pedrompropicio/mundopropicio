@@ -392,7 +392,7 @@ export function ResultsAnalysis() {
       const cur = tourEarliestDate.get(key);
       if (!cur || date.localeCompare(cur) < 0) tourEarliestDate.set(key, date);
     };
-    completed.forEach((e) => trackTour(e.id, (e as any).parentEventId ?? null, e.date));
+    completed.forEach((e) => trackTour(e.id, e.parentEventId ?? null, e.date));
     active.forEach((e) => trackTour(e.id, e.parentEventId ?? null, e.date));
 
     const tourSort = (a: { id: string; date: string; parentEventId?: string | null }, b: { id: string; date: string; parentEventId?: string | null }) => {
@@ -406,7 +406,7 @@ export function ResultsAnalysis() {
       return a.date.localeCompare(b.date);
     };
 
-    completed.sort((a: any, b: any) => tourSort(a, b));
+    completed.sort(tourSort);
     active.sort(tourSort);
 
     const yearTotals = {
