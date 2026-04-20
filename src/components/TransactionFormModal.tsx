@@ -140,6 +140,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // VAT split: when set, proceedWithCreate creates N sibling transactions sharing invoice_ref.
   const [showSplitByIvaModal, setShowSplitByIvaModal] = useState(false);
   const [pendingIvaSplit, setPendingIvaSplit] = useState<IvaSplitLine[] | null>(null);
+  // AI invoice extraction (auto-fills amount + iva_rate, opens split modal if multi-rate).
+  const [extractingInvoice, setExtractingInvoice] = useState(false);
+  const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
