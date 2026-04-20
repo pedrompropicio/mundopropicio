@@ -45,6 +45,8 @@ interface TransactionForm {
   payment_method: PaymentMethod;
   payment_entity: string;
   payment_reference: string;
+  /** Hard-link entre linhas da mesma fatura com várias taxas de IVA. Não exposto no UI. */
+  invoice_group_id?: string | null;
 }
 
 const emptyForm: TransactionForm = {
