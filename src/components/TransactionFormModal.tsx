@@ -2485,6 +2485,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         masterDescription={masterDetection.getMasterForecastForCategory(form.category_id)?.description ?? ""}
         onConfirm={handleReinforcementConfirm}
       />
+
+      <SplitByIvaModal
+        open={showSplitByIvaModal}
+        onClose={() => setShowSplitByIvaModal(false)}
+        initialBase={parseFloat(form.amount) || undefined}
+        initialRate={form.iva_rate}
+        expectedTotal={
+          (parseFloat(form.amount) || 0) > 0
+            ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
+            : undefined
+        }
+        onConfirm={(lines) => {
+          setPendingIvaSplit(lines);
+          setShowSplitByIvaModal(false);
+          // Reflete o total no campo amount apenas como referência visual (somatório das bases).
+          const totalBase = lines.reduce((s, l) => s + l.base, 0);
+          setForm((f) => ({ ...f, amount: String(totalBase) }));
+          toast({
+            title: "Divisão por IVA pronta",
+            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura.`,
+          });
+        }}
+      />
     </div>
   );
 }
