@@ -2452,6 +2452,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               <p className="font-medium">
                 {item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
                 {item.description}
+                {item.is_overhead && canSeeOverhead && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title="Rateio de Overhead — não impacta resultado da empresa, mas entra no acerto com sócios. Visível apenas para admin/manager."
+                  >
+                    Overhead
+                  </span>
+                )}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
               {hasMatchingTx && (
