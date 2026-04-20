@@ -516,6 +516,10 @@ export default function DatabaseBackups() {
           closing-cost-documents, import-reports).
         </p>
       </div>
+
+      {selectiveTarget && (
+        <SelectiveRestoreModal fileName={selectiveTarget} onClose={() => setSelectiveTarget(null)} />
+      )}
     </div>
   );
 }
