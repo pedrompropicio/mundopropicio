@@ -2065,6 +2065,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           <ComparisonTable data={comparisonData} />
         </TabsContent>
       </Tabs>
+      </Tabs>
 
       {editApprovedForecast && (
         <ForecastEditModal
