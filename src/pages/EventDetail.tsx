@@ -750,6 +750,10 @@ export default function EventDetail() {
         <EventEditModal event={event} onClose={() => setShowEditModal(false)} />
       )}
 
+      {editingSubEvent && (
+        <EventEditModal event={editingSubEvent} onClose={() => setEditingSubEvent(null)} />
+      )}
+
       {/* Main tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
