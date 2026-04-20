@@ -154,6 +154,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
+  // Detect if this transaction was paid by a partner
+  const { data: partnerPaidLink } = useQuery({
+    queryKey: ["partner-paid-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("id, partner_id, paid_date, event_partners(suppliers(name), percentage)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isPaidByPartner = !!partnerPaidLink;
+  const [partnerPaidDate, setPartnerPaidDate] = useState<string>("");
+  useEffect(() => {
+    if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
+  }, [partnerPaidLink?.paid_date]);
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
@@ -192,7 +211,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
-        ...paymentFields,
+        ...(isPaidByPartner ? {} : paymentFields),
+        ...(isPaidByPartner ? { account_id: null, payment_date: partnerPaidDate || form.date } : {}),
       } : {
         description: form.description,
         amount: parseFloat(form.amount),
@@ -200,15 +220,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         event_id: form.event_id,
         category_id: form.category_id || null,
         supplier_id: form.supplier_id || null,
-        account_id: form.account_id || null,
+        account_id: isPaidByPartner ? null : (form.account_id || null),
         specification: transaction.type === "expense" ? (form.specification || null) : null,
         date: form.date,
         due_date: form.due_date || null,
-        ...(isAdmin && isPaid ? { payment_date: form.payment_date || null } : {}),
+        ...(isPaidByPartner
+          ? { payment_date: partnerPaidDate || form.date }
+          : (isAdmin && isPaid ? { payment_date: form.payment_date || null } : {})),
         is_transitory: form.is_transitory,
         exclude_from_result: form.exclude_from_result,
         invoice_ref: form.invoice_ref.trim() || null,
-        ...paymentFields,
+        ...(isPaidByPartner ? {} : paymentFields),
         currency,
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
         fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
@@ -239,10 +261,18 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      // Sync partner_paid_expenses.paid_date if it changed
+      if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
+        await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
+      }
+
       return { data, snapshot, changesCount: changes.length };
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-link", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       onClose();
       if (result?.snapshot && user) {
         const { recordUndo } = await import("@/lib/undo");
@@ -598,8 +628,27 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº serão agrupadas</p>
           </div>
 
-          {/* Método de Pagamento — editável a qualquer tempo */}
-          {(() => {
+          {/* Pago por Sócio — bloco informativo + edição de data */}
+          {isPaidByPartner && (
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400">
+                🤝 Pago por Sócio: {(partnerPaidLink as any)?.event_partners?.suppliers?.name ?? "—"}
+                {(partnerPaidLink as any)?.event_partners?.percentage != null && (
+                  <span className="text-xs opacity-70">({(partnerPaidLink as any).event_partners.percentage}%)</span>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou</label>
+                <DatePicker value={partnerPaidDate} onChange={setPartnerPaidDate} />
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Despesa liquidada via sócio — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
+              </p>
+            </div>
+          )}
+
+          {/* Método de Pagamento — escondido quando pago por sócio */}
+          {!isPaidByPartner && (() => {
             const selectedCat = categories.find((c: any) => c.id === form.category_id);
             const isStateCat = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
             const methods = [
@@ -632,7 +681,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             );
           })()}
 
-          {form.payment_method === "service_payment" && (
+          {!isPaidByPartner && form.payment_method === "service_payment" && (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Entidade</label>
@@ -651,7 +700,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {form.payment_method === "state_payment" && (
+          {!isPaidByPartner && form.payment_method === "state_payment" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Referência de Pagamento</label>
               <input type="text" value={form.payment_reference}
@@ -661,7 +710,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!paidLocked && !isExpense && (
+          {!paidLocked && !isExpense && !isPaidByPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
               <SearchableSelect
@@ -689,7 +738,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
-          {isAdmin && isPaid && (
+          {isAdmin && isPaid && !isPaidByPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Data de Pagamento</label>
               <DatePicker value={form.payment_date} onChange={(d) => setForm({ ...form, payment_date: d })} />
