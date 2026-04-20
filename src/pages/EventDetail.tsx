@@ -105,6 +105,7 @@ export default function EventDetail() {
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
+  const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
     queryFn: async () => {
@@ -685,11 +686,10 @@ export default function EventDetail() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditSubNameValue(sub.name);
-                      setEditingSubName(sub.id);
+                      setEditingSubEvent(sub);
                     }}
                     className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 bg-muted border border-border text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Renomear"
+                    title="Editar data, sala e nome"
                   >
                     <Pencil className="h-2.5 w-2.5" />
                   </button>
@@ -748,6 +748,10 @@ export default function EventDetail() {
 
       {showEditModal && (
         <EventEditModal event={event} onClose={() => setShowEditModal(false)} />
+      )}
+
+      {editingSubEvent && (
+        <EventEditModal event={editingSubEvent} onClose={() => setEditingSubEvent(null)} />
       )}
 
       {/* Main tabs */}
