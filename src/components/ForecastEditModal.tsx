@@ -35,9 +35,12 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   );
   const [eurAmount, setEurAmount] = useState<number>(Number(forecast.amount) || 0);
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
+  const [isOverhead, setIsOverhead] = useState<boolean>(!!forecast.is_overhead);
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
+  const canSeeOverhead = isAdmin || isManager;
+  const isExpenseType = forecast.type === "expense";
 
   const { data: loadedCategories = [] } = useQuery({
     queryKey: ["account_categories"],
@@ -128,6 +131,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       if (newIvaRate !== Number(forecast.iva_rate)) {
         changes.push({ field_name: "Taxa IVA", old_value: `${forecast.iva_rate}%`, new_value: `${newIvaRate}%` });
       }
+      const newOverhead = isExpenseType && canSeeOverhead ? !!isOverhead : !!forecast.is_overhead;
+      if (newOverhead !== !!forecast.is_overhead) {
+        changes.push({ field_name: "Rateio de Overhead", old_value: forecast.is_overhead ? "Sim" : "Não", new_value: newOverhead ? "Sim" : "Não" });
+      }
 
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
@@ -143,6 +150,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         original_amount: forecast.original_amount,
         fx_rate: forecast.fx_rate,
         fx_rate_source: forecast.fx_rate_source,
+        is_overhead: !!forecast.is_overhead,
+        exclude_from_result: !!forecast.exclude_from_result,
       };
 
       // Update forecast
@@ -156,6 +165,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         original_amount: newOriginal,
         fx_rate: newFxRate,
         fx_rate_source: newFxRateSource,
+        is_overhead: newOverhead,
+        exclude_from_result: newOverhead,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
@@ -283,6 +294,26 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
             </p>
           )}
         </div>
+
+        {/* Overhead allocation toggle (admin/manager + expenses only) */}
+        {isExpenseType && canSeeOverhead && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isOverhead}
+                onChange={(e) => setIsOverhead(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border accent-warning"
+              />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-warning uppercase tracking-wider">Rateio de Overhead</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Custo estrutural rateado neste evento (assessoria, jurídico, escritório). Aparece no BP/DRE para sócios como linha normal, mas <strong>não impacta o resultado da empresa</strong> — apenas o acerto com sócios. Visível apenas para admin/manager.
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
 
         {/* Observation */}
         <div>

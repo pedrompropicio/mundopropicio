@@ -43,6 +43,7 @@ interface InlineForm {
   category_id: string;
   notes: string;
   specification: string;
+  is_overhead: boolean;
 }
 
 const emptyInline: InlineForm = {
@@ -53,6 +54,7 @@ const emptyInline: InlineForm = {
   category_id: "",
   notes: "",
   specification: "",
+  is_overhead: false,
 };
 
 interface Props {
@@ -607,6 +609,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         category_id: form.category_id || null,
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
+        // Overhead allocations: not part of company result; partner-side only
+        is_overhead: form.type === "expense" ? !!form.is_overhead : false,
+        exclude_from_result: form.type === "expense" ? !!form.is_overhead : false,
       };
       // Auto-approve forecasts on completed (historical) events
       if (!id && isCompletedEvent) {
@@ -1172,6 +1177,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       category_id: f.category_id || "",
       notes: f.notes || "",
       specification: f.specification || "",
+      is_overhead: !!f.is_overhead,
     });
     setEditingId(f.id);
     setAddingType(null);
@@ -1366,7 +1372,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
         </td>
         <td className="py-1.5 text-right">
-          <div className="flex justify-end gap-1">
+          <div className="flex justify-end items-center gap-1">
+            {isExpenseType && canEditBP && (
+              <button
+                type="button"
+                onClick={() => setInlineForm({ ...inlineForm, is_overhead: !inlineForm.is_overhead })}
+                className={`rounded px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                  inlineForm.is_overhead
+                    ? "bg-warning/20 text-warning hover:bg-warning/30"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+                }`}
+                title={inlineForm.is_overhead ? "Rateio de Overhead — não impacta resultado da empresa" : "Marcar como Rateio de Overhead (admin/manager)"}
+              >
+                Overhead
+              </button>
+            )}
             <button
               onClick={handleInlineSave}
               disabled={saveMutation.isPending}
@@ -2184,6 +2204,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   /** Open the per-row attachments modal for managing links + native files. */
   onOpenAttachments?: (forecast: any) => void;
 }) {
+  const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
+  const canSeeOverhead = isAdminAuth || isManagerAuth;
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
@@ -2430,6 +2452,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               <p className="font-medium">
                 {item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
                 {item.description}
+                {item.is_overhead && canSeeOverhead && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title="Rateio de Overhead — não impacta resultado da empresa, mas entra no acerto com sócios. Visível apenas para admin/manager."
+                  >
+                    Overhead
+                  </span>
+                )}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
               {hasMatchingTx && (
