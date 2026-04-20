@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
 
     const { data: event, error: eventError } = await adminClient
       .from("events")
-      .select("id, name, date, status")
+      .select("id, name, date, status, parent_event_id, event_type")
       .eq("id", event_id)
       .single();
 
@@ -164,20 +164,33 @@ Deno.serve(async (req) => {
     // Track xlsx rows already used for matching to avoid duplicates
     const usedXlsxIdx = new Set<number>();
 
-    function findXlsxMatch(forecastDescription: string, forecastBase: number): { idx: number; row: XlsxRowInput } | null {
+    // Detect Master event (event_type='master' OR has children — used to enable ½× fallback for shared costs)
+    const isMaster = event.event_type === "master" || event.parent_event_id === null;
+    const { data: childEvents } = isMaster
+      ? await adminClient.from("events").select("id").eq("parent_event_id", event_id)
+      : { data: null };
+    const hasChildren = (childEvents?.length ?? 0) > 0;
+    const enableHalfFallback = isMaster && hasChildren;
+
+    function findXlsxMatch(forecastDescription: string, forecastBase: number): { idx: number; row: XlsxRowInput; mode: "1x" | "0.5x" } | null {
       if (xlsxRows.length === 0) return null;
-      let best: { idx: number; sim: number } | null = null;
-      for (let i = 0; i < xlsxRows.length; i++) {
-        if (usedXlsxIdx.has(i)) continue;
-        const r = xlsxRows[i];
-        if (Math.abs(Number(r.baseAmount) - forecastBase) > 0.01) continue;
-        const sim = stringSimilarity(r.description, forecastDescription);
-        if (sim < 0.8) continue;
-        if (!best || sim > best.sim) best = { idx: i, sim };
+      // Try full base first; if Master with children, also try half base (shared cost split between sub-events)
+      const candidates: Array<{ base: number; mode: "1x" | "0.5x" }> = [{ base: forecastBase, mode: "1x" }];
+      if (enableHalfFallback) candidates.push({ base: Math.round((forecastBase / 2) * 100) / 100, mode: "0.5x" });
+      let best: { idx: number; sim: number; mode: "1x" | "0.5x" } | null = null;
+      for (const cand of candidates) {
+        for (let i = 0; i < xlsxRows.length; i++) {
+          if (usedXlsxIdx.has(i)) continue;
+          const r = xlsxRows[i];
+          if (Math.abs(Number(r.baseAmount) - cand.base) > 0.01) continue;
+          const sim = stringSimilarity(r.description, forecastDescription);
+          if (sim < 0.8) continue;
+          if (!best || sim > best.sim) best = { idx: i, sim, mode: cand.mode };
+        }
       }
       if (!best) return null;
       usedXlsxIdx.add(best.idx);
-      return { idx: best.idx, row: xlsxRows[best.idx] };
+      return { idx: best.idx, row: xlsxRows[best.idx], mode: best.mode };
     }
 
     for (const forecast of forecasts) {
