@@ -6,6 +6,48 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ----- helpers -----
+function norm(s: string): string {
+  return (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+// Dice coefficient (mesma técnica do modal de implantação)
+function stringSimilarity(a: string, b: string): number {
+  const na = norm(a);
+  const nb = norm(b);
+  if (na === nb) return 1;
+  if (na.length < 2 || nb.length < 2) return 0;
+  const bigrams = (s: string) => {
+    const set: Record<string, number> = {};
+    for (let i = 0; i < s.length - 1; i++) {
+      const bi = s.substring(i, i + 2);
+      set[bi] = (set[bi] || 0) + 1;
+    }
+    return set;
+  };
+  const bg1 = bigrams(na);
+  const bg2 = bigrams(nb);
+  let intersection = 0;
+  for (const bi in bg1) {
+    if (bg2[bi]) intersection += Math.min(bg1[bi], bg2[bi]);
+  }
+  return (2 * intersection) / (na.length - 1 + nb.length - 1);
+}
+
+const PAID_TOKENS = ["pago", "liquidado", "ok", "✓"];
+function isPaidStatus(raw: any): boolean {
+  const n = norm(String(raw ?? ""));
+  if (!n) return false;
+  return PAID_TOKENS.some((tok) => n === tok || n.includes(tok));
+}
+
+interface XlsxRowInput {
+  description: string;
+  baseAmount: number;
+  ivaRate?: number;
+  status?: string; // raw column F
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,7 +79,6 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check caller is admin
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
@@ -51,7 +92,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { event_id } = await req.json();
+    const body = await req.json();
+    const event_id: string | undefined = body?.event_id;
+    const xlsxRows: XlsxRowInput[] = Array.isArray(body?.xlsxRows) ? body.xlsxRows : [];
     if (!event_id) {
       return new Response(JSON.stringify({ error: "event_id é obrigatório" }), {
         status: 400,
@@ -59,7 +102,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get event info
     const { data: event, error: eventError } = await adminClient
       .from("events")
       .select("id, name, date, status")
@@ -80,7 +122,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find the "Eventos Históricos" account
     const { data: histAccount } = await adminClient
       .from("financial_accounts")
       .select("id")
@@ -94,7 +135,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get all approved forecasts without a linked transaction
     const { data: forecasts, error: forecastError } = await adminClient
       .from("event_forecasts")
       .select("*")
@@ -116,16 +156,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    let created = 0;
+    let createdPaid = 0;
+    let createdApproved = 0;
+    let matched = 0;
     const errors: string[] = [];
 
+    // Track xlsx rows already used for matching to avoid duplicates
+    const usedXlsxIdx = new Set<number>();
+
+    function findXlsxMatch(forecastDescription: string, forecastBase: number): { idx: number; row: XlsxRowInput } | null {
+      if (xlsxRows.length === 0) return null;
+      let best: { idx: number; sim: number } | null = null;
+      for (let i = 0; i < xlsxRows.length; i++) {
+        if (usedXlsxIdx.has(i)) continue;
+        const r = xlsxRows[i];
+        if (Math.abs(Number(r.baseAmount) - forecastBase) > 0.01) continue;
+        const sim = stringSimilarity(r.description, forecastDescription);
+        if (sim < 0.8) continue;
+        if (!best || sim > best.sim) best = { idx: i, sim };
+      }
+      if (!best) return null;
+      usedXlsxIdx.add(best.idx);
+      return { idx: best.idx, row: xlsxRows[best.idx] };
+    }
+
     for (const forecast of forecasts) {
-      // Calculate total with IVA
       const baseAmount = Number(forecast.amount);
       const ivaRate = Number(forecast.iva_rate);
       const totalWithIva = Math.round(baseAmount * (1 + ivaRate / 100) * 100) / 100;
 
-      const transactionPayload = {
+      // Match with xlsx (if provided)
+      const match = findXlsxMatch(String(forecast.description), baseAmount);
+      const shouldLiquidate = match ? isPaidStatus(match.row.status) : false;
+      if (match) matched++;
+
+      const txStatus = shouldLiquidate ? "paid" : "approved";
+
+      const transactionPayload: Record<string, unknown> = {
         description: forecast.description,
         type: forecast.type,
         amount: totalWithIva,
@@ -134,11 +201,16 @@ Deno.serve(async (req) => {
         category_id: forecast.category_id,
         specification: forecast.specification || null,
         date: event.date,
-        status: "paid",
-        paid_amount: totalWithIva,
-        payment_date: event.date,
-        account_id: histAccount.id,
+        status: txStatus,
       };
+
+      if (shouldLiquidate) {
+        transactionPayload.paid_amount = totalWithIva;
+        transactionPayload.payment_date = event.date;
+        transactionPayload.account_id = histAccount.id;
+      } else {
+        transactionPayload.paid_amount = 0;
+      }
 
       const { data: newTx, error: txError } = await adminClient
         .from("transactions")
@@ -151,7 +223,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Link forecast to transaction
       const { error: linkError } = await adminClient
         .from("event_forecasts")
         .update({ transaction_id: newTx.id })
@@ -161,7 +232,7 @@ Deno.serve(async (req) => {
         errors.push(`Erro ao vincular previsão "${forecast.description}": ${linkError.message}`);
       }
 
-      // Propagate forecast.attachment_refs into transaction_documents (skip duplicates)
+      // Propagate forecast.attachment_refs into transaction_documents
       const refs = Array.isArray((forecast as any).attachment_refs)
         ? ((forecast as any).attachment_refs as Array<{ url?: string }>)
         : [];
@@ -196,15 +267,26 @@ Deno.serve(async (req) => {
         }
       }
 
-      created++;
+      if (shouldLiquidate) createdPaid++;
+      else createdApproved++;
     }
 
     return new Response(
-      JSON.stringify({ success: true, created, total: forecasts.length, errors }),
+      JSON.stringify({
+        success: true,
+        created: createdPaid + createdApproved,
+        createdPaid,
+        createdApproved,
+        matched,
+        unmatched: forecasts.length - matched,
+        total: forecasts.length,
+        xlsxProvided: xlsxRows.length,
+        errors,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err?.message ?? String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
