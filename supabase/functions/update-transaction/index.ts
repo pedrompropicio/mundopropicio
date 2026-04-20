@@ -220,6 +220,56 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Propagate shared fields to invoice-group siblings (fatura com várias taxas de IVA).
+    // Apenas campos que fazem sentido replicar — base/IVA/descrição/valor ficam INDIVIDUAIS por irmã.
+    if (transaction.invoice_group_id) {
+      const invoiceSharedFields = [
+        "event_id",
+        "category_id",
+        "supplier_id",
+        "account_id",
+        "specification",
+        "date",
+        "due_date",
+        "invoice_ref",
+        "payment_method",
+        "payment_entity",
+        "payment_reference",
+        "is_transitory",
+        "exclude_from_result",
+      ];
+      const siblingUpdates: Record<string, any> = {};
+      for (const field of invoiceSharedFields) {
+        if (field in sanitizedUpdates) {
+          siblingUpdates[field] = sanitizedUpdates[field];
+        }
+      }
+      if (Object.keys(siblingUpdates).length > 0) {
+        const { data: siblings } = await adminClient
+          .from("transactions")
+          .select("id")
+          .eq("invoice_group_id", transaction.invoice_group_id)
+          .neq("id", transaction_id);
+        const siblingIds = (siblings ?? []).map((s: any) => s.id);
+        if (siblingIds.length > 0) {
+          await adminClient
+            .from("transactions")
+            .update(siblingUpdates)
+            .in("id", siblingIds);
+
+          // Audit log on each sibling
+          const auditOnSiblings = siblingIds.map((sid: string) => ({
+            transaction_id: sid,
+            changed_by: callerName,
+            field_name: "Propagação grupo-fatura",
+            old_value: null,
+            new_value: `Atualizado em conjunto com transação ${transaction_id}`,
+          }));
+          await adminClient.from("transaction_audit_log").insert(auditOnSiblings);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, transaction_id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
