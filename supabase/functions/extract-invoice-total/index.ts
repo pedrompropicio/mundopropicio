@@ -11,6 +11,17 @@ interface ReqBody {
   mimeType?: string;
 }
 
+interface VatBreakdownRow {
+  /** IVA rate as integer percentage: 0, 6, 13, 23. */
+  rate: number;
+  /** Sum of bases (excl. VAT) at this rate. */
+  base: number;
+  /** VAT amount at this rate. */
+  iva: number;
+  /** Total incl. VAT at this rate (base + iva). */
+  total: number;
+}
+
 interface ExtractResult {
   total: number | null;
   currency: string | null;
@@ -23,6 +34,8 @@ interface ExtractResult {
   document_type: string | null;
   /** Concise free-text description of the services/products billed (used for category matching). */
   service_description: string | null;
+  /** Subtotals per VAT rate (footer "Resumo do IVA / Base por taxa"). Empty when single-rate. */
+  vat_breakdown: VatBreakdownRow[];
   raw?: string;
   error?: string;
 }
@@ -43,7 +56,7 @@ Deno.serve(async (req) => {
     const mime = body.mimeType || "application/pdf";
 
     const systemPrompt =
-      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type; (5) a SHORT description (max ~150 chars, Portuguese) summarising the SERVICES OR PRODUCTS being billed/contracted (e.g. 'Aluguer de som e luz para palco principal', 'Cachê artístico DJ', 'Hospedagem 3 noites hotel X', 'Catering camarim 30 pax'). Use null when truly absent.";
+      "You analyze any financial/event document: invoice (fatura/nota fiscal), pro forma, quote/proposal (orçamento/proposta), payment receipt (recibo/comprovante de pagamento), bank transfer proof (comprovativo de transferência), contract (contrato). Extract: (1) the most relevant MONETARY AMOUNT for the document — for invoices/proformas/receipts use GRAND TOTAL incl. VAT ('Total a pagar', 'Valor Total'); for transfer proofs use the transferred amount ('Montante', 'Valor transferido'); for proposals/quotes use the proposed total; for contracts use the contracted fee/cachet (cachê, honorários, valor do contrato). (2) any names that identify WHO/WHAT it refers to (event names, artist/band names, client names, project names, show names, tour names — comma-separated, verbatim); (3) the document/contract/transfer date; (4) the document type; (5) a SHORT description (max ~150 chars, Portuguese) summarising the SERVICES OR PRODUCTS being billed/contracted (e.g. 'Aluguer de som e luz para palco principal', 'Cachê artístico DJ', 'Hospedagem 3 noites hotel X', 'Catering camarim 30 pax'); (6) the VAT BREAKDOWN footer (Portuguese invoices always show 'Resumo do IVA' / 'Base tributável' / 'Taxa' / 'IVA' / 'Total' summarised by rate at the bottom). For EACH VAT rate present (0, 6, 13, 23) report: rate (integer %), base (sum of bases excl. VAT at that rate), iva (VAT amount at that rate), total (base + iva). If the document only has a single rate, return ONE row anyway. If no VAT info is visible (e.g. transfer proof, contract without breakdown), return an empty array. Use null for amounts when truly absent.";
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -108,12 +121,27 @@ Deno.serve(async (req) => {
                     type: ["string", "null"],
                     description: "Short PT-PT description of the services/products being billed or contracted (max ~150 chars). E.g. 'Aluguer de som e luz', 'Cachê artístico', 'Hospedagem hotel'. Null if unreadable.",
                   },
+                  vat_breakdown: {
+                    type: "array",
+                    description: "Subtotals per VAT rate from the document footer ('Resumo do IVA'/'Base por taxa'). One row per distinct rate present (0/6/13/23). Empty array if no VAT info visible.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        rate: { type: "number", description: "VAT rate as integer percent: 0, 6, 13 or 23." },
+                        base: { type: "number", description: "Sum of bases (excl. VAT) at this rate. Dot decimal." },
+                        iva: { type: "number", description: "VAT amount at this rate." },
+                        total: { type: "number", description: "base + iva at this rate." },
+                      },
+                      required: ["rate", "base", "iva", "total"],
+                      additionalProperties: false,
+                    },
+                  },
                   notes: {
                     type: "string",
                     description: "Brief reason — e.g. 'contrato Maiara e Maraisa, cachê 50000€' or 'comprovativo TRF 1234.56€'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "vat_breakdown", "notes"],
                 additionalProperties: false,
               },
             },
@@ -135,16 +163,38 @@ Deno.serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "No tool call returned" } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, vat_breakdown: [], error: "No tool call returned" } satisfies ExtractResult);
     }
     let parsed: any;
     try {
       parsed = JSON.parse(argsStr);
     } catch {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, vat_breakdown: [], error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
     }
 
     const validTypes = ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other"];
+    const allowedRates = [0, 6, 13, 23];
+    const rawBreakdown = Array.isArray(parsed.vat_breakdown) ? parsed.vat_breakdown : [];
+    const vat_breakdown: VatBreakdownRow[] = rawBreakdown
+      .map((r: any) => {
+        const rate = Math.round(Number(r?.rate));
+        const base = Number(r?.base);
+        const iva = Number(r?.iva);
+        const total = Number(r?.total);
+        if (!allowedRates.includes(rate)) return null;
+        if (![base, iva, total].every((n) => Number.isFinite(n))) return null;
+        return { rate, base: Math.round(base * 100) / 100, iva: Math.round(iva * 100) / 100, total: Math.round(total * 100) / 100 };
+      })
+      .filter((r: VatBreakdownRow | null): r is VatBreakdownRow => r !== null)
+      // dedupe by rate, keep largest base if duplicated
+      .reduce((acc: VatBreakdownRow[], row: VatBreakdownRow) => {
+        const existing = acc.find((x) => x.rate === row.rate);
+        if (!existing) acc.push(row);
+        else if (row.base > existing.base) Object.assign(existing, row);
+        return acc;
+      }, [])
+      .sort((a: VatBreakdownRow, b: VatBreakdownRow) => a.rate - b.rate);
+
     const out: ExtractResult = {
       total: typeof parsed.total === "number" && Number.isFinite(parsed.total) ? parsed.total : null,
       currency: typeof parsed.currency === "string" ? parsed.currency.toUpperCase() : null,
@@ -153,6 +203,7 @@ Deno.serve(async (req) => {
       document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
       document_type: typeof parsed.document_type === "string" && validTypes.includes(parsed.document_type) ? parsed.document_type : null,
       service_description: typeof parsed.service_description === "string" && parsed.service_description.trim() ? parsed.service_description.trim().slice(0, 200) : null,
+      vat_breakdown,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };
     return json(out);

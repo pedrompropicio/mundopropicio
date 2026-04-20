@@ -1,0 +1,306 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Sparkles, Plus, Trash2, FileText, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
+import type { IvaRate } from "@/lib/mock-data";
+
+export interface IvaSplitLine {
+  /** Base (sem IVA) em EUR */
+  base: number;
+  /** Taxa de IVA inteira: 0/6/13/23 */
+  iva_rate: IvaRate;
+  /** Descrição extra opcional para acrescentar à descrição principal (ex.: "(IVA 13%)") */
+  suffix?: string;
+}
+
+interface SplitByIvaModalProps {
+  open: boolean;
+  onClose: () => void;
+  /** Confirma a divisão. Recebe N linhas (≥2). O caller cria as transações. */
+  onConfirm: (lines: IvaSplitLine[]) => void;
+  /** Total esperado da fatura (incl. IVA). Mostra alerta se as linhas não fecham. */
+  expectedTotal?: number;
+  /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
+  initialBase?: number;
+  initialRate?: IvaRate;
+}
+
+const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
+
+const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
+
+export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initialBase, initialRate }: SplitByIvaModalProps) {
+  const [lines, setLines] = useState<IvaSplitLine[]>(() => [
+    { base: initialBase ?? 0, iva_rate: initialRate ?? 13, suffix: `IVA ${initialRate ?? 13}%` },
+    blankLine(23),
+  ]);
+  const [extracting, setExtracting] = useState(false);
+  const [extractedNote, setExtractedNote] = useState<string | null>(null);
+
+  // Reset lines whenever the modal re-opens
+  useEffect(() => {
+    if (open) {
+      setLines([
+        { base: initialBase ?? 0, iva_rate: initialRate ?? 13, suffix: `IVA ${initialRate ?? 13}%` },
+        blankLine(23),
+      ]);
+      setExtractedNote(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const totals = useMemo(() => {
+    const baseSum = lines.reduce((s, l) => s + (Number(l.base) || 0), 0);
+    const ivaSum = lines.reduce((s, l) => s + calcIvaAmount(Number(l.base) || 0, l.iva_rate), 0);
+    const grandTotal = roundCents(baseSum + ivaSum);
+    const diff = expectedTotal != null ? roundCents(grandTotal - expectedTotal) : 0;
+    return { baseSum: roundCents(baseSum), ivaSum: roundCents(ivaSum), grandTotal, diff };
+  }, [lines, expectedTotal]);
+
+  const updateLine = (idx: number, patch: Partial<IvaSplitLine>) => {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  };
+
+  const addLine = () => setLines((prev) => [...prev, blankLine(prev.some((l) => l.iva_rate === 23) ? 6 : 23)]);
+  const removeLine = (idx: number) => setLines((prev) => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== idx)));
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast({ title: "Ficheiro grande", description: "Limite 15MB.", variant: "destructive" });
+      return;
+    }
+    setExtracting(true);
+    setExtractedNote(null);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const comma = result.indexOf(",");
+          resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
+        body: { fileBase64, fileName: file.name, mimeType: file.type || "application/pdf" },
+      });
+      if (error) throw error;
+      const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(data?.vat_breakdown)
+        ? data.vat_breakdown
+        : [];
+      if (breakdown.length === 0) {
+        toast({
+          title: "Sem rodapé de IVA detetado",
+          description: "Não foi possível ler subtotais por taxa. Preenche manualmente.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Mapeia para linhas
+      const mapped: IvaSplitLine[] = breakdown
+        .filter((r) => RATE_OPTIONS.includes(r.rate as IvaRate))
+        .map((r) => ({
+          base: roundCents(Number(r.base) || 0),
+          iva_rate: r.rate as IvaRate,
+          suffix: `IVA ${r.rate}%`,
+        }));
+      if (mapped.length === 0) {
+        toast({ title: "Taxas inválidas", description: "Subtotais não correspondem a taxas portuguesas.", variant: "destructive" });
+        return;
+      }
+      setLines(mapped.length >= 2 ? mapped : [...mapped, blankLine(mapped[0].iva_rate === 23 ? 13 : 23)]);
+      setExtractedNote(
+        `Extraído da fatura: ${mapped.map((l) => `${l.base.toFixed(2)}€ a ${l.iva_rate}%`).join(" · ")}`,
+      );
+      toast({ title: "Subtotais lidos", description: `${mapped.length} taxa(s) detetada(s).` });
+    } catch (e) {
+      console.error("split-iva extract", e);
+      toast({
+        title: "Erro a ler fatura",
+        description: e instanceof Error ? e.message : "Tenta preencher manualmente.",
+        variant: "destructive",
+      });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const canConfirm =
+    lines.length >= 2 &&
+    lines.every((l) => Number(l.base) > 0) &&
+    new Set(lines.map((l) => l.iva_rate)).size === lines.length; // sem taxas duplicadas
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Dividir lançamento por taxa de IVA</DialogTitle>
+          <DialogDescription>
+            Cria várias transações vinculadas pelo mesmo Nº fatura — uma por taxa de IVA. Anexa o PDF para preencher
+            automaticamente, ou insere os valores à mão.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Upload PDF */}
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+          <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
+            <FileText className="h-4 w-4" />
+            <span>Anexar PDF da fatura para extrair subtotais por IVA</span>
+            <input
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              disabled={extracting}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+                e.target.value = "";
+              }}
+            />
+            <span
+              className={cn(
+                "ml-auto inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground",
+                extracting && "opacity-60",
+              )}
+            >
+              {extracting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              {extracting ? "A ler…" : "Escolher PDF"}
+            </span>
+          </Label>
+          {extractedNote && <p className="mt-2 text-[11px] text-muted-foreground">{extractedNote}</p>}
+        </div>
+
+        {/* Linhas */}
+        <div className="space-y-2">
+          {lines.map((line, idx) => {
+            const ivaValue = calcIvaAmount(Number(line.base) || 0, line.iva_rate);
+            const total = calcTotalWithIva(Number(line.base) || 0, line.iva_rate);
+            return (
+              <div
+                key={idx}
+                className="grid grid-cols-[1fr_110px_140px_auto] items-end gap-2 rounded-lg border border-border bg-card p-2"
+              >
+                <div>
+                  <Label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Base s/ IVA (EUR)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={line.base || ""}
+                    onChange={(e) => updateLine(idx, { base: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Taxa</Label>
+                  <select
+                    value={line.iva_rate}
+                    onChange={(e) =>
+                      updateLine(idx, {
+                        iva_rate: Number(e.target.value) as IvaRate,
+                        suffix: `IVA ${e.target.value}%`,
+                      })
+                    }
+                    className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    {RATE_OPTIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="text-right text-xs font-mono leading-tight">
+                  <div className="text-muted-foreground">+ IVA {ivaValue.toFixed(2)}€</div>
+                  <div className="font-semibold">= {total.toFixed(2)}€</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeLine(idx)}
+                  disabled={lines.length <= 2}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                  aria-label="Remover linha"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={addLine}
+            disabled={lines.length >= 4}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted disabled:opacity-50"
+          >
+            <Plus className="h-3 w-3" /> Adicionar taxa
+          </button>
+        </div>
+
+        {/* Resumo */}
+        <div className="rounded-lg border border-border bg-secondary/40 p-3 text-xs font-mono">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Σ Bases</span>
+            <span>{totals.baseSum.toFixed(2)}€</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Σ IVA</span>
+            <span>{totals.ivaSum.toFixed(2)}€</span>
+          </div>
+          <div className="mt-1 flex justify-between border-t border-border pt-1 font-semibold">
+            <span>Total c/ IVA</span>
+            <span>{totals.grandTotal.toFixed(2)}€</span>
+          </div>
+          {expectedTotal != null && expectedTotal > 0 && (
+            <div
+              className={cn(
+                "mt-1 flex items-center justify-between text-[11px]",
+                Math.abs(totals.diff) <= 0.02 ? "text-success" : "text-destructive",
+              )}
+            >
+              <span className="flex items-center gap-1">
+                {Math.abs(totals.diff) > 0.02 && <AlertTriangle className="h-3 w-3" />}
+                vs. total esperado ({expectedTotal.toFixed(2)}€)
+              </span>
+              <span>
+                {totals.diff === 0 ? "✓ fecha" : `${totals.diff > 0 ? "+" : ""}${totals.diff.toFixed(2)}€`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} type="button">
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            disabled={!canConfirm}
+            onClick={() =>
+              onConfirm(
+                lines.map((l) => ({
+                  base: roundCents(Number(l.base) || 0),
+                  iva_rate: l.iva_rate,
+                  suffix: l.suffix || `IVA ${l.iva_rate}%`,
+                })),
+              )
+            }
+          >
+            Aplicar {lines.length} linhas
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

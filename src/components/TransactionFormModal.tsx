@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
@@ -21,6 +21,7 @@ import helpTexts from "@/lib/help-texts";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
+import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -134,6 +135,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
   const [showReinforcementDialog, setShowReinforcementDialog] = useState(false);
   const [reinforcementChoice, setReinforcementChoice] = useState<"local" | "master" | null>(null);
+  // VAT split: when set, proceedWithCreate creates N sibling transactions sharing invoice_ref.
+  const [showSplitByIvaModal, setShowSplitByIvaModal] = useState(false);
+  const [pendingIvaSplit, setPendingIvaSplit] = useState<IvaSplitLine[] | null>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
@@ -1070,9 +1074,39 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const rootFlags = getRootFlags(form.category_id);
 
-  const proceedWithCreate = () => {
+  const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
+    // Multi-IVA split path: create N sibling transactions sharing invoice_ref.
+    if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
+      const sharedInvoiceRef =
+        form.invoice_ref.trim() ||
+        `auto-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      try {
+        for (const line of pendingIvaSplit) {
+          const desc = line.suffix
+            ? `${form.description} (${line.suffix})`
+            : form.description;
+          await createMutation.mutateAsync({
+            ...form,
+            description: desc,
+            amount: String(line.base),
+            iva_rate: line.iva_rate,
+            invoice_ref: sharedInvoiceRef,
+          });
+        }
+        toast({
+          title: "Transações criadas",
+          description: `${pendingIvaSplit.length} linhas vinculadas pelo Nº fatura ${sharedInvoiceRef}.`,
+        });
+        setPendingIvaSplit(null);
+        onClose();
+      } catch (e) {
+        // mutation onError already toasts; nothing else to do
+        console.error("multi-iva submit", e);
+      }
+      return;
+    }
     createMutation.mutate(form);
   };
 
@@ -1875,14 +1909,38 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               />
             )}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+                {form.type === "expense" && !isSplit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSplitByIvaModal(true)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80"
+                    title="Fatura com várias taxas de IVA — cria várias transações ligadas pelo mesmo Nº fatura"
+                  >
+                    <Receipt className="h-3 w-3" />
+                    Dividir por IVA{pendingIvaSplit ? ` (${pendingIvaSplit.length})` : ""}
+                  </button>
+                )}
+              </div>
               <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                disabled={!!pendingIvaSplit}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60">
                 <option value={23}>23% - Normal</option>
                 <option value={13}>13% - Intermédia</option>
                 <option value={6}>6% - Reduzida</option>
                 <option value={0}>0% - Isento</option>
               </select>
+              {pendingIvaSplit && (
+                <div className="mt-1 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">
+                  <span>
+                    ✓ Vão ser criadas {pendingIvaSplit.length} transações: {pendingIvaSplit.map((l) => `${l.base.toFixed(2)}€@${l.iva_rate}%`).join(" · ")}
+                  </span>
+                  <button type="button" onClick={() => setPendingIvaSplit(null)} className="text-[10px] font-medium underline">
+                    cancelar
+                  </button>
+                </div>
+              )}
             </div>
             {/* IVA breakdown */}
             {(() => {
@@ -2426,6 +2484,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         categoryName={categories.find((c: any) => c.id === form.category_id)?.name ?? ""}
         masterDescription={masterDetection.getMasterForecastForCategory(form.category_id)?.description ?? ""}
         onConfirm={handleReinforcementConfirm}
+      />
+
+      <SplitByIvaModal
+        open={showSplitByIvaModal}
+        onClose={() => setShowSplitByIvaModal(false)}
+        initialBase={parseFloat(form.amount) || undefined}
+        initialRate={form.iva_rate}
+        expectedTotal={
+          (parseFloat(form.amount) || 0) > 0
+            ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
+            : undefined
+        }
+        onConfirm={(lines) => {
+          setPendingIvaSplit(lines);
+          setShowSplitByIvaModal(false);
+          // Reflete o total no campo amount apenas como referência visual (somatório das bases).
+          const totalBase = lines.reduce((s, l) => s + l.base, 0);
+          setForm((f) => ({ ...f, amount: String(totalBase) }));
+          toast({
+            title: "Divisão por IVA pronta",
+            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura.`,
+          });
+        }}
       />
     </div>
   );
