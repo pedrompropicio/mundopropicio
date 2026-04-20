@@ -15,6 +15,7 @@ interface CompletedResult {
   id: string;
   name: string;
   date: string;
+  parentEventId?: string | null;
   totalIncome: number;
   totalExpense: number;
   margin: number;
@@ -30,6 +31,7 @@ interface ActiveProjection {
   id: string;
   name: string;
   date: string;
+  parentEventId?: string | null;
   // Planned 100%
   bpIncome100: number;
   bpExpense: number;
@@ -320,6 +322,7 @@ export function ResultsAnalysis() {
           id: e.id,
           name: e.name,
           date: e.date,
+          parentEventId: e.parent_event_id ?? null,
           totalIncome: income,
           totalExpense: expense,
           margin,
@@ -359,6 +362,7 @@ export function ResultsAnalysis() {
           id: e.id,
           name: e.name,
           date: e.date,
+          parentEventId: e.parent_event_id ?? null,
           bpIncome100,
           bpExpense,
           margin100,
@@ -379,8 +383,31 @@ export function ResultsAnalysis() {
       }
     });
 
-    completed.sort((a, b) => a.date.localeCompare(b.date));
-    active.sort((a, b) => a.date.localeCompare(b.date));
+    // Agrupa por turnê (parent_event_id) e ordena cronologicamente.
+    // A chave da turnê usa a data mais antiga dos seus sub-eventos para
+    // posicionar a turnê inteira; dentro da turnê, ordena por data ascendente.
+    const tourEarliestDate = new Map<string, string>();
+    const trackTour = (eventId: string, parentId: string | null, date: string) => {
+      const key = parentId ?? eventId;
+      const cur = tourEarliestDate.get(key);
+      if (!cur || date.localeCompare(cur) < 0) tourEarliestDate.set(key, date);
+    };
+    completed.forEach((e) => trackTour(e.id, e.parentEventId ?? null, e.date));
+    active.forEach((e) => trackTour(e.id, e.parentEventId ?? null, e.date));
+
+    const tourSort = (a: { id: string; date: string; parentEventId?: string | null }, b: { id: string; date: string; parentEventId?: string | null }) => {
+      const aKey = a.parentEventId ?? a.id;
+      const bKey = b.parentEventId ?? b.id;
+      const aTour = tourEarliestDate.get(aKey) ?? a.date;
+      const bTour = tourEarliestDate.get(bKey) ?? b.date;
+      const tourCmp = aTour.localeCompare(bTour);
+      if (tourCmp !== 0) return tourCmp;
+      // mesma turnê → cronológico
+      return a.date.localeCompare(b.date);
+    };
+
+    completed.sort(tourSort);
+    active.sort(tourSort);
 
     const yearTotals = {
       income: completed.reduce((s, e) => s + e.totalIncome, 0),
