@@ -174,8 +174,9 @@ function buildPL(
     overrideByCatName[catName].notes.push(t.pl_override_note);
   });
 
-  const fInc = forecasts.filter((f) => f.type === "income");
-  const fExp = forecasts.filter((f) => f.type === "expense");
+  // Rateios de overhead (is_overhead) são tratados em secção separada — não impactam o resultado da empresa.
+  const fInc = forecasts.filter((f) => f.type === "income" && !f.is_overhead);
+  const fExp = forecasts.filter((f) => f.type === "expense" && !f.is_overhead);
   const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
