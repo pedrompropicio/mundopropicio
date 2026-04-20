@@ -155,7 +155,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return Array.from(new Set(ids));
   }, [eventId, childEventIds, includeSubsInBP]);
 
-  const { data: forecasts = [], isLoading } = useQuery({
+  const { data: forecastsRaw = [], isLoading } = useQuery({
     queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP],
     queryFn: async () => {
       const query = supabase
@@ -169,6 +169,44 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       return data;
     },
   });
+
+  // Overhead via Master: quando este evento é um Split, busca os overheads do Master e
+  // adiciona uma fatia virtual (÷N splits) para esta cidade. Read-only, badge "via Master".
+  const { data: masterOverheadSlice = [] } = useQuery({
+    queryKey: ["bp_overhead_via_master", parentEventId, eventId],
+    queryFn: async () => {
+      if (!parentEventId) return [] as any[];
+      // Conta splits do Master para calcular ÷N
+      const { data: siblings, error: sErr } = await supabase
+        .from("events")
+        .select("id")
+        .eq("parent_event_id", parentEventId);
+      if (sErr) throw sErr;
+      const n = (siblings ?? []).length || 1;
+      const { data: oh, error: ohErr } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name, type)")
+        .eq("event_id", parentEventId)
+        .eq("is_overhead", true);
+      if (ohErr) throw ohErr;
+      return (oh ?? []).map((o: any) => ({
+        ...o,
+        id: `${o.id}::split::${eventId}`,
+        event_id: eventId,
+        amount: Number(o.amount) / n,
+        formula_value: Number(o.amount) / n,
+        _overhead_via_master: true,
+        _master_event_id: parentEventId,
+        _readonly: true,
+      }));
+    },
+    enabled: !!parentEventId,
+  });
+
+  const forecasts = useMemo(
+    () => [...(forecastsRaw as any[]), ...(masterOverheadSlice as any[])],
+    [forecastsRaw, masterOverheadSlice],
+  );
 
   // Fetch event partners (sócios) — for child events, fetch from parent
   const partnersSourceId = parentEventId || eventId;
