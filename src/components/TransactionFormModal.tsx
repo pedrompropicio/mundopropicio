@@ -935,9 +935,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           };
         });
 
-        // Parent is approved only if ALL children are approved
+        // Parent is approved only if ALL children are approved.
+        // Pago por Sócio: parent fica imediatamente liquidado.
         const allChildrenApproved = childInserts.every(c => c.status === "approved");
-        const parentStatus = allChildrenApproved ? "approved" : "pending";
+        const parentStatus = isPaidByPartner ? "paid" : (allChildrenApproved ? "approved" : "pending");
+        const parentPaidAmount = isPaidByPartner ? totalAmount : 0;
+        const parentPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : null;
 
         // 2. Create parent transaction (no event)
         const parentAccountId = isPaidByPartner ? null : (data.account_id || null);
@@ -955,7 +958,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
           status: parentStatus,
-          paid_amount: 0,
+          paid_amount: parentPaidAmount,
+          payment_date: parentPaymentDate,
            split_percentage: null,
            parent_transaction_id: null,
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
@@ -993,7 +997,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             event_id: splitMasterEventId,
             partner_id: paidByPartnerId,
             transaction_id: parentId,
-          });
+            paid_date: partnerPaidDate || data.date,
+          } as any);
         }
       } else {
         // --- SINGLE TRANSACTION ---
