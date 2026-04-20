@@ -105,7 +105,7 @@ export function DatePicker({
         onChange={handleInputChange}
         onBlur={handleInputBlur}
         maxLength={10}
-        className="flex-1 h-10"
+        className="flex-1 h-10 min-w-[7.5rem] tabular-nums"
       />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
