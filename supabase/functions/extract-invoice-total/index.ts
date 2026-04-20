@@ -121,12 +121,27 @@ Deno.serve(async (req) => {
                     type: ["string", "null"],
                     description: "Short PT-PT description of the services/products being billed or contracted (max ~150 chars). E.g. 'Aluguer de som e luz', 'Cachê artístico', 'Hospedagem hotel'. Null if unreadable.",
                   },
+                  vat_breakdown: {
+                    type: "array",
+                    description: "Subtotals per VAT rate from the document footer ('Resumo do IVA'/'Base por taxa'). One row per distinct rate present (0/6/13/23). Empty array if no VAT info visible.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        rate: { type: "number", description: "VAT rate as integer percent: 0, 6, 13 or 23." },
+                        base: { type: "number", description: "Sum of bases (excl. VAT) at this rate. Dot decimal." },
+                        iva: { type: "number", description: "VAT amount at this rate." },
+                        total: { type: "number", description: "base + iva at this rate." },
+                      },
+                      required: ["rate", "base", "iva", "total"],
+                      additionalProperties: false,
+                    },
+                  },
                   notes: {
                     type: "string",
                     description: "Brief reason — e.g. 'contrato Maiara e Maraisa, cachê 50000€' or 'comprovativo TRF 1234.56€'.",
                   },
                 },
-                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "notes"],
+                required: ["total", "currency", "confidence", "mentioned_names", "document_date", "document_type", "service_description", "vat_breakdown", "notes"],
                 additionalProperties: false,
               },
             },
