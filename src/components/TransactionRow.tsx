@@ -348,7 +348,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {partnerPaidInfo && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-0.5 rounded border border-accent/50 bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground cursor-help">
+                      <span className="inline-flex items-center gap-0.5 rounded border border-indigo-500/40 bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-300 cursor-help">
                         <UserCheck className="h-2.5 w-2.5" />
                         Sócio
                       </span>
@@ -553,8 +553,8 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {/* Payment/Receipt: only after approved, not completed, not linked to reimbursement note */}
-                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && (
+                {/* Payment/Receipt: only after approved, not completed, not linked to reimbursement note, not paid by partner (settled via partner accounting) */}
+                {!eventCompleted && balance > 0 && (computedStatus === "approved" || computedStatus === "overdue") && !t.is_reimbursement && !partnerPaidInfo && (
                   <button onClick={() => onPayment(t.id)} className="rounded-lg p-1.5 text-success hover:bg-success/15 transition-colors" title={isExpense ? "Registar pagamento" : "Registar recebimento"}>
                     <CreditCard className="h-3.5 w-3.5" />
                   </button>
