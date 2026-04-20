@@ -295,6 +295,26 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
           )}
         </div>
 
+        {/* Overhead allocation toggle (admin/manager + expenses only) */}
+        {isExpenseType && canSeeOverhead && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isOverhead}
+                onChange={(e) => setIsOverhead(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border accent-warning"
+              />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-warning uppercase tracking-wider">Rateio de Overhead</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Custo estrutural rateado neste evento (assessoria, jurídico, escritório). Aparece no BP/DRE para sócios como linha normal, mas <strong>não impacta o resultado da empresa</strong> — apenas o acerto com sócios. Visível apenas para admin/manager.
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
+
         {/* Observation */}
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Observação / Justificação *</label>
