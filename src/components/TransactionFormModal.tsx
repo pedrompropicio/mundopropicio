@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
@@ -140,7 +140,94 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // VAT split: when set, proceedWithCreate creates N sibling transactions sharing invoice_ref.
   const [showSplitByIvaModal, setShowSplitByIvaModal] = useState(false);
   const [pendingIvaSplit, setPendingIvaSplit] = useState<IvaSplitLine[] | null>(null);
+  // AI invoice extraction (auto-fills amount + iva_rate, opens split modal if multi-rate).
+  const [extractingInvoice, setExtractingInvoice] = useState(false);
+  const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
   const queryClient = useQueryClient();
+
+  /**
+   * Lê uma fatura (PDF/imagem) via edge function `extract-invoice-total` e
+   * preenche o formulário automaticamente. Se detetar 2+ taxas de IVA,
+   * abre o SplitByIvaModal já populado para confirmação rápida.
+   */
+  const handleExtractInvoice = async (file: File) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast({ title: "Ficheiro grande", description: "Limite 15MB.", variant: "destructive" });
+      return;
+    }
+    setExtractingInvoice(true);
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const comma = result.indexOf(",");
+          resolve(comma >= 0 ? result.slice(comma + 1) : result);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
+        body: { fileBase64, fileName: file.name, mimeType: file.type || "application/pdf" },
+      });
+      if (error) throw error;
+      const allowed: IvaRate[] = [0, 6, 13, 23];
+      const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(
+        (data as any)?.vat_breakdown,
+      )
+        ? (data as any).vat_breakdown
+        : [];
+      const validLines: IvaSplitLine[] = breakdown
+        .filter((r) => allowed.includes(r.rate as IvaRate) && Number(r.base) > 0)
+        .map((r) => ({
+          base: Math.round(Number(r.base) * 100) / 100,
+          iva_rate: r.rate as IvaRate,
+          suffix: `IVA ${r.rate}%`,
+        }));
+
+      if (validLines.length >= 2) {
+        setAiPrefilledLines(validLines);
+        setShowSplitByIvaModal(true);
+        toast({
+          title: "Fatura com IVA misto detetada",
+          description: `${validLines.length} taxas: ${validLines.map((l) => `${l.base.toFixed(2)}€@${l.iva_rate}%`).join(" · ")}. Confirma para criar transações vinculadas.`,
+        });
+      } else if (validLines.length === 1) {
+        const only = validLines[0];
+        setForm((f) => ({ ...f, amount: String(only.base), iva_rate: only.iva_rate }));
+        toast({
+          title: "Fatura lida",
+          description: `Base ${only.base.toFixed(2)}€ a ${only.iva_rate}% preenchida automaticamente.`,
+        });
+      } else if (typeof (data as any)?.total === "number" && (data as any).total > 0) {
+        const total = Number((data as any).total);
+        const rate = form.iva_rate;
+        const base = Math.round((total / (1 + rate / 100)) * 100) / 100;
+        setForm((f) => ({ ...f, amount: String(base) }));
+        toast({
+          title: "Total lido (sem rodapé de IVA)",
+          description: `Total ${total.toFixed(2)}€ · base ${base.toFixed(2)}€ a ${rate}% (taxa atual). Confirma a taxa.`,
+        });
+      } else {
+        toast({
+          title: "Nada extraído",
+          description: "Não foi possível ler valores. Preenche manualmente.",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      console.error("extract-invoice", e);
+      toast({
+        title: "Erro a ler fatura",
+        description: e instanceof Error ? e.message : "Tenta de novo ou preenche manualmente.",
+        variant: "destructive",
+      });
+    } finally {
+      setExtractingInvoice(false);
+    }
+  };
+
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-active"],
@@ -1915,20 +2002,46 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               />
             )}
             <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                {form.type === "expense" && !isSplit && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSplitByIvaModal(true)}
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80"
-                    title="Fatura com várias taxas de IVA — cria várias transações ligadas pelo mesmo Nº fatura"
-                  >
-                    <Receipt className="h-3 w-3" />
-                    Dividir por IVA{pendingIvaSplit ? ` (${pendingIvaSplit.length})` : ""}
-                  </button>
-                )}
-              </div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+                  {form.type === "expense" && !isSplit && (
+                    <div className="flex items-center gap-1">
+                      <label
+                        className={cn(
+                          "inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80",
+                          extractingInvoice && "pointer-events-none opacity-60",
+                        )}
+                        title="Anexar PDF/imagem da fatura — IA preenche valor + IVA. Se a fatura tiver várias taxas, abre Dividir por IVA já pré-preenchido."
+                      >
+                        {extractingInvoice ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        {extractingInvoice ? "A ler…" : "Ler fatura (IA)"}
+                        <input
+                          type="file"
+                          accept="application/pdf,image/*"
+                          className="hidden"
+                          disabled={extractingInvoice}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleExtractInvoice(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiPrefilledLines(null);
+                          setShowSplitByIvaModal(true);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80"
+                        title="Fatura com várias taxas de IVA — cria várias transações ligadas pelo mesmo Nº fatura"
+                      >
+                        <Receipt className="h-3 w-3" />
+                        Dividir por IVA{pendingIvaSplit ? ` (${pendingIvaSplit.length})` : ""}
+                      </button>
+                    </div>
+                  )}
+                </div>
               <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
                 disabled={!!pendingIvaSplit}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60">
@@ -2494,9 +2607,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
       <SplitByIvaModal
         open={showSplitByIvaModal}
-        onClose={() => setShowSplitByIvaModal(false)}
+        onClose={() => {
+          setShowSplitByIvaModal(false);
+          setAiPrefilledLines(null);
+        }}
         initialBase={parseFloat(form.amount) || undefined}
         initialRate={form.iva_rate}
+        prefilledLines={aiPrefilledLines ?? undefined}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
             ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
@@ -2505,6 +2622,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         onConfirm={(lines) => {
           setPendingIvaSplit(lines);
           setShowSplitByIvaModal(false);
+          setAiPrefilledLines(null);
           // Reflete o total no campo amount apenas como referência visual (somatório das bases).
           const totalBase = lines.reduce((s, l) => s + l.base, 0);
           setForm((f) => ({ ...f, amount: String(totalBase) }));
