@@ -668,7 +668,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                 </p>
                               </div>
                               <span className="font-mono text-sm font-semibold whitespace-nowrap">
-                                {formatCurrency(Number(t.amount))}
+                                {formatCurrency(txnGross(t))}
                               </span>
                             </li>
                           );
