@@ -43,6 +43,7 @@ interface InlineForm {
   category_id: string;
   notes: string;
   specification: string;
+  is_overhead: boolean;
 }
 
 const emptyInline: InlineForm = {
@@ -53,6 +54,7 @@ const emptyInline: InlineForm = {
   category_id: "",
   notes: "",
   specification: "",
+  is_overhead: false,
 };
 
 interface Props {
