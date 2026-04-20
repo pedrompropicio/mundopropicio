@@ -609,6 +609,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         category_id: form.category_id || null,
         notes: form.notes || null,
         specification: form.type === "expense" ? (form.specification || null) : null,
+        // Overhead allocations: not part of company result; partner-side only
+        is_overhead: form.type === "expense" ? !!form.is_overhead : false,
+        exclude_from_result: form.type === "expense" ? !!form.is_overhead : false,
       };
       // Auto-approve forecasts on completed (historical) events
       if (!id && isCompletedEvent) {
