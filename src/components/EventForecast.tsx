@@ -425,7 +425,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: cacheConfigIds.length > 0,
   });
 
-  // Fetch parent event's expense forecasts for proration display on sub-events
+  // Fetch parent event's expense forecasts for proration display on sub-events.
+  // Excludes is_overhead=true: overheads have their own dedicated slicing via
+  // masterOverheadSlice (_overhead_via_master). Including them here would
+  // duplicate the line in the split BP (one as _prorated, one as via Master).
   const { data: parentForecasts = [] } = useQuery({
     queryKey: ["parent_event_forecasts", parentEventId],
     queryFn: async () => {
@@ -434,6 +437,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
+        .eq("is_overhead", false)
         .is("cache_config_id", null)
         .order("created_at");
       if (error) throw error;
