@@ -1136,6 +1136,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
                     )}
                     <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                    <CopyLine label="Email" value={tx?.suppliers?.email} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
                     )}
@@ -1165,10 +1166,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                               : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
                           }`}
-                          title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
+                          title={manuallyMarked ? "Desmarcar pagamento" : "Marcar como pago (apenas visual)"}
                         >
                           <Banknote className="h-3.5 w-3.5" />
-                          {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
+                          {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
                     </div>
