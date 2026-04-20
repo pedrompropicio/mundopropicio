@@ -1,12 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import { moveToTrash } from "@/lib/trash";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import { expandTransactionIdsByInvoiceGroup } from "@/lib/invoice-group";
 
 interface DeleteCascadeParams {
   transactionId: string;
   user: any;
   /** Optional reason recorded in the audit log (e.g. "Eliminada via BP") */
   auditReason?: string;
+  /**
+   * Quando true (default), se a transação pertencer a um grupo de fatura (invoice_group_id),
+   * todas as irmãs também são eliminadas em cascata. Define como false para eliminar
+   * APENAS a transação fornecida (raro — normalmente quebra a integridade da fatura).
+   */
+  cascadeInvoiceGroup?: boolean;
 }
 
 /**
