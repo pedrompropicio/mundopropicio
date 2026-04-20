@@ -1677,14 +1677,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "approved") && (
+                    {isAdmin && incomeForecasts.some((f) => selectedIds.has(f.id) && isEligibleForBulkTx(f)) && (
                       <button
                         onClick={handleBulkCreateTx}
                         disabled={bulkCreateTxMutation.isPending}
                         className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary bg-primary/15 hover:bg-primary/25 transition-colors disabled:opacity-50"
+                        title="Cria 1 transação por linha aprovada sem TX. Adicionais devem ser criadas pelo modal de Transações."
                       >
                         <FileText className="h-3.5 w-3.5" />
-                        {bulkCreateTxMutation.isPending ? "A criar…" : `Gerar Transações (${incomeForecasts.filter((f) => selectedIds.has(f.id) && f.status === "approved").length})`}
+                        {bulkCreateTxMutation.isPending ? "A criar…" : `Gerar Transações (${incomeForecasts.filter((f) => selectedIds.has(f.id) && isEligibleForBulkTx(f)).length})`}
                       </button>
                     )}
                     {canApprove && incomeForecasts.some((f) => selectedIds.has(f.id) && f.status === "draft") && (
