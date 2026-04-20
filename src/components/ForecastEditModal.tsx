@@ -131,6 +131,10 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
       if (newIvaRate !== Number(forecast.iva_rate)) {
         changes.push({ field_name: "Taxa IVA", old_value: `${forecast.iva_rate}%`, new_value: `${newIvaRate}%` });
       }
+      const newOverhead = isExpenseType && canSeeOverhead ? !!isOverhead : !!forecast.is_overhead;
+      if (newOverhead !== !!forecast.is_overhead) {
+        changes.push({ field_name: "Rateio de Overhead", old_value: forecast.is_overhead ? "Sim" : "Não", new_value: newOverhead ? "Sim" : "Não" });
+      }
 
       if (changes.length === 0) throw new Error("Nenhuma alteração detectada.");
       if (!observation.trim()) throw new Error("A observação é obrigatória para alterações em previsões aprovadas.");
@@ -146,6 +150,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         original_amount: forecast.original_amount,
         fx_rate: forecast.fx_rate,
         fx_rate_source: forecast.fx_rate_source,
+        is_overhead: !!forecast.is_overhead,
+        exclude_from_result: !!forecast.exclude_from_result,
       };
 
       // Update forecast
@@ -159,6 +165,8 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
         original_amount: newOriginal,
         fx_rate: newFxRate,
         fx_rate_source: newFxRateSource,
+        is_overhead: newOverhead,
+        exclude_from_result: newOverhead,
       };
       const { error: updateError } = await supabase
         .from("event_forecasts")
