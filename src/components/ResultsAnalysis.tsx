@@ -15,6 +15,7 @@ interface CompletedResult {
   id: string;
   name: string;
   date: string;
+  parentEventId?: string | null;
   totalIncome: number;
   totalExpense: number;
   margin: number;
@@ -30,6 +31,7 @@ interface ActiveProjection {
   id: string;
   name: string;
   date: string;
+  parentEventId?: string | null;
   // Planned 100%
   bpIncome100: number;
   bpExpense: number;
