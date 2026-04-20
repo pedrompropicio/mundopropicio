@@ -1372,7 +1372,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           {formatCurrency((parseFloat(inlineForm.amount) || 0) * (1 + (parseInt(inlineForm.iva_rate) || 0) / 100))}
         </td>
         <td className="py-1.5 text-right">
-          <div className="flex justify-end gap-1">
+          <div className="flex justify-end items-center gap-1">
+            {isExpenseType && canEditBP && (
+              <button
+                type="button"
+                onClick={() => setInlineForm({ ...inlineForm, is_overhead: !inlineForm.is_overhead })}
+                className={`rounded px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                  inlineForm.is_overhead
+                    ? "bg-warning/20 text-warning hover:bg-warning/30"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+                }`}
+                title={inlineForm.is_overhead ? "Rateio de Overhead — não impacta resultado da empresa" : "Marcar como Rateio de Overhead (admin/manager)"}
+              >
+                Overhead
+              </button>
+            )}
             <button
               onClick={handleInlineSave}
               disabled={saveMutation.isPending}
