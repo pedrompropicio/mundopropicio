@@ -1137,7 +1137,6 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     )}
                     <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
                     <CopyLine label="Email Fornecedor" value={tx?.suppliers?.email} />
-                    <CopyLine label="Criado por" value={list?.created_by} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
                     )}
@@ -1174,6 +1173,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         </button>
                       )}
                     </div>
+                    <CopyLine label="Criado por" value={list?.created_by} />
                   </div>
                 </div>
               </div>
