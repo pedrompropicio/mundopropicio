@@ -22,6 +22,7 @@ import {
 import { Navigate, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import SelectiveRestoreModal from "@/components/SelectiveRestoreModal";
 
 export default function DatabaseBackups() {
   const { isAdmin } = useAuth();
