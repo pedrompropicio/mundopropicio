@@ -1174,6 +1174,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       category_id: f.category_id || "",
       notes: f.notes || "",
       specification: f.specification || "",
+      is_overhead: !!f.is_overhead,
     });
     setEditingId(f.id);
     setAddingType(null);
