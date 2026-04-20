@@ -1909,14 +1909,38 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               />
             )}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+                {form.type === "expense" && !isSplit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSplitByIvaModal(true)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80"
+                    title="Fatura com várias taxas de IVA — cria várias transações ligadas pelo mesmo Nº fatura"
+                  >
+                    <Receipt className="h-3 w-3" />
+                    Dividir por IVA{pendingIvaSplit ? ` (${pendingIvaSplit.length})` : ""}
+                  </button>
+                )}
+              </div>
               <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                disabled={!!pendingIvaSplit}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60">
                 <option value={23}>23% - Normal</option>
                 <option value={13}>13% - Intermédia</option>
                 <option value={6}>6% - Reduzida</option>
                 <option value={0}>0% - Isento</option>
               </select>
+              {pendingIvaSplit && (
+                <div className="mt-1 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">
+                  <span>
+                    ✓ Vão ser criadas {pendingIvaSplit.length} transações: {pendingIvaSplit.map((l) => `${l.base.toFixed(2)}€@${l.iva_rate}%`).join(" · ")}
+                  </span>
+                  <button type="button" onClick={() => setPendingIvaSplit(null)} className="text-[10px] font-medium underline">
+                    cancelar
+                  </button>
+                </div>
+              )}
             </div>
             {/* IVA breakdown */}
             {(() => {
