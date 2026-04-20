@@ -98,32 +98,34 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller: service role key, anon key (cron), or admin user
+    // Auth: accept service-role / anon (cron) JWT, otherwise require admin user
     const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     const token = authHeader?.replace(/^Bearer\s+/i, "").trim() ?? "";
-    const isServiceRole = token === serviceRoleKey;
-    const isCronCall = token === anonKey;
-    console.log("[database-backup] auth check", { hasToken: !!token, isServiceRole, isCronCall });
 
-    if (!isServiceRole && !isCronCall) {
-      // Must be a user JWT – verify admin role
-      const anonClient = createClient(supabaseUrl, anonKey);
-      const {
-        data: { user },
-        error: authErr,
-      } = await anonClient.auth.getUser(token);
+    let role: string | null = null;
+    let userId: string | null = null;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+      role = payload?.role ?? null;
+      userId = payload?.sub ?? null;
+    } catch {
+      // ignore – not a JWT
+    }
+    console.log("[database-backup] auth", { hasToken: !!token, role, hasUserId: !!userId });
 
-      if (authErr || !user) {
+    const isMachine = role === "service_role" || role === "anon";
+
+    if (!isMachine) {
+      if (!userId) {
         return new Response(JSON.stringify({ error: "Não autorizado" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
       const { data: roleData, error: roleError } = await adminClient
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("role", "admin")
         .maybeSingle();
 
