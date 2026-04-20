@@ -1080,11 +1080,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
-    // Multi-IVA split path: create N sibling transactions sharing invoice_ref.
+    // Multi-IVA split path: create N sibling transactions sharing invoice_ref + invoice_group_id.
     if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
       const sharedInvoiceRef =
         form.invoice_ref.trim() ||
         `auto-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const { newInvoiceGroupId } = await import("@/lib/invoice-group");
+      const sharedGroupId = newInvoiceGroupId();
       try {
         for (const line of pendingIvaSplit) {
           const desc = line.suffix
@@ -1096,11 +1098,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             amount: String(line.base),
             iva_rate: line.iva_rate,
             invoice_ref: sharedInvoiceRef,
+            invoice_group_id: sharedGroupId,
           });
         }
         toast({
           title: "Transações criadas",
-          description: `${pendingIvaSplit.length} linhas vinculadas pelo Nº fatura ${sharedInvoiceRef}.`,
+          description: `${pendingIvaSplit.length} linhas vinculadas pelo Nº fatura ${sharedInvoiceRef}. Eliminar, liquidar ou aprovar uma propaga às outras.`,
         });
         setPendingIvaSplit(null);
         onClose();
