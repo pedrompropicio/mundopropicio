@@ -2947,6 +2947,58 @@ function SummaryCard({ label, forecast, actual, icon, isProfit }: {
 
 /* ── Comparison ── */
 
+// Pure helper: returns transactions that match a single BP line.
+// Same logic used by ComparisonRowItem hover/expand and by the bulk
+// "Gerar Transações" button to enforce "1 auto-generated tx per BP line".
+function findMatchingTransactionsForForecast(
+  forecast: any,
+  eventTransactions: any[],
+  allForecasts: any[],
+): any[] {
+  if (!eventTransactions) return [];
+  if (forecast.transaction_id) {
+    const direct = eventTransactions.filter((t: any) => t.id === forecast.transaction_id);
+    if (direct.length > 0) return direct;
+  }
+  const scoped = eventTransactions.filter(
+    (t: any) => t.event_id === forecast.event_id || t.event_id === null,
+  );
+  if (!forecast.category_id) return [];
+  const sameCat = scoped.filter(
+    (t: any) => t.category_id === forecast.category_id && t.type === forecast.type,
+  );
+  const sameCatForecasts = (allForecasts ?? []).filter(
+    (f: any) => f.category_id === forecast.category_id && f.type === forecast.type && f.event_id === forecast.event_id,
+  );
+  if (sameCatForecasts.length <= 1) return sameCat;
+  const tokenize = (s: string) =>
+    String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 3);
+  const score = (fd: string, td: string) => {
+    const f = String(fd ?? "").toLowerCase().trim();
+    const t = String(td ?? "").toLowerCase().trim();
+    if (!f && !t) return 0;
+    if (f === t) return 1000;
+    if (!f || !t) return 0;
+    const fT = new Set(tokenize(f));
+    const tT = new Set(tokenize(t));
+    if (fT.size === 0 || tT.size === 0) return 0;
+    let shared = 0;
+    for (const tok of tT) if (fT.has(tok)) shared += 1;
+    if (shared === 0) return 0;
+    return shared * 100 + (shared / fT.size) * 10 - Math.abs(f.length - t.length) / 10000;
+  };
+  return sameCat.filter((t: any) => {
+    const my = score(forecast.description, t.description);
+    if (my <= 0) return false;
+    const bestOther = sameCatForecasts.reduce((max: number, f: any) => {
+      if (f.id === forecast.id) return max;
+      const s = score(f.description, t.description);
+      return s > max ? s : max;
+    }, 0);
+    return my > bestOther;
+  });
+}
+
 interface ComparisonRow {
   categoryCode: string;
   categoryName: string;
