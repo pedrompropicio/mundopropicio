@@ -34,5 +34,10 @@ Helper `expandOverheadToSplits(overheads, events)` em `src/lib/overhead-proratio
 ### Critério de proração
 - Default: **igual entre splits** (÷N). Custos não-volumétricos como assessoria/jurídico não escalam com receita; partilha equitativa é o critério mais previsível.
 
+### Conflito com BP existente (mesma categoria)
+- Política: **somar** — overhead acresce ao BP da categoria. Não substitui, não consome saldo.
+- Ex.: BP "Jurídico €2.000" + overhead "Jurídico €500" → categoria totaliza €2.500 no DRE/Real.
+- O formulário em `EventClosingCosts` mostra **aviso (warning, não bloqueio)** quando a categoria escolhida já tem linhas no BP do próprio evento e/ou no BP do Master da turnê (query `bp-categories-for-overhead-check`). Utilizador confirma e prossegue.
+
 ### Anexos
 Bucket `closing-cost-documents` reutilizado (mantém anexos antigos pré-migração).

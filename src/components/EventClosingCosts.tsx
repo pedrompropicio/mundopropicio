@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown } from "lucide-react";
+import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -62,7 +62,45 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
   });
 
+  // Descobre se este evento é split de uma turnê (tem parent_event_id)
+  const { data: eventInfo } = useQuery({
+    queryKey: ["event-parent-info", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, parent_event_id").eq("id", eventId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // BP existente (local + Master, se houver) — para detetar conflito de categoria
+  const { data: existingBpCategoryIds = [] } = useQuery({
+    queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id],
+    enabled: !!eventInfo,
+    queryFn: async () => {
+      const ids = [eventId];
+      if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("category_id, event_id")
+        .in("event_id", ids)
+        .eq("is_overhead", false)
+        .not("category_id", "is", null);
+      if (error) throw error;
+      return (data || []).map((r: any) => ({ category_id: r.category_id, scope: r.event_id === eventId ? "local" : "master" }));
+    },
+  });
+
   const filteredCategories = categories.filter((c: any) => c.type === type);
+
+  // Avisos de conflito quando a categoria escolhida já existe no BP
+  const categoryConflict = (() => {
+    if (!categoryId) return null;
+    const matches = existingBpCategoryIds.filter((r: any) => r.category_id === categoryId);
+    if (matches.length === 0) return null;
+    const hasLocal = matches.some((r: any) => r.scope === "local");
+    const hasMaster = matches.some((r: any) => r.scope === "master");
+    return { hasLocal, hasMaster };
+  })();
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -265,6 +303,15 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <span>Base: {formatCurrency(parseFloat(amount) || 0)}</span>
               <span>IVA: {formatCurrency(calcIvaAmount(parseFloat(amount) || 0, parseInt(ivaRate, 10) || 0))}</span>
               <span className="font-semibold text-foreground">Total: {formatCurrency(calcTotalWithIva(parseFloat(amount) || 0, parseInt(ivaRate, 10) || 0))}</span>
+            </div>
+          )}
+          {categoryConflict && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-warning" />
+              <div className="space-y-0.5">
+                <p className="font-medium text-foreground">Esta categoria já existe no BP {categoryConflict.hasMaster && categoryConflict.hasLocal ? "deste evento e do Master da turnê" : categoryConflict.hasMaster ? "do Master da turnê" : "deste evento"}.</p>
+                <p className="text-muted-foreground">O overhead será <strong>somado</strong> ao valor já planeado da categoria. Confirma que pretendes acrescentar esta linha em vez de editar a existente.</p>
+              </div>
             </div>
           )}
           <div className="space-y-1.5">
