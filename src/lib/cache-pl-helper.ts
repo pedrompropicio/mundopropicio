@@ -153,7 +153,8 @@ export function calculateCacheLinesForPL(
       const pct = resolvePercentageFromTiers(config, occupancyPct ?? 100);
       const calcRaw = Math.max(0, baseForCalc * (pct / 100));
       const minGuaranteed = Number(config.minimum_guaranteed) || 0;
-      calculated = Math.round(Math.max(minGuaranteed, calcRaw));
+      // Preserva cêntimos (Art.º 18 CIVA): arredondamento ao cêntimo, não ao euro
+      calculated = Math.round(Math.max(minGuaranteed, calcRaw) * 100) / 100;
       cacheType = "variable";
     }
 

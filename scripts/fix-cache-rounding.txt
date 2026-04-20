@@ -1,0 +1,61 @@
+-- ============================================================================
+-- CORREÇÃO DE ARREDONDAMENTO DE CACHÊS VARIÁVEIS (remoção do Math.round)
+-- ============================================================================
+-- Contexto: src/lib/cache-pl-helper.ts antes arredondava cachês variáveis ao
+-- euro inteiro. Agora preserva cêntimos. Este script identifica e força a
+-- re-sincronização das linhas de BP e transações geradas a partir delas.
+--
+-- IMPORTANTE: O cálculo variável depende de tiers + ocupação + receita de
+-- bilhetes (lógica TypeScript). O SQL não consegue recalcular sozinho —
+-- a aplicação faz isso ao abrir o evento (useSyncCacheForecasts).
+--
+-- Execute em 3 passos:
+-- ============================================================================
+
+-- PASSO 1: Listar BPs de cachê variável afetados (não finalizados, sem ajuste)
+SELECT
+  e.name AS evento,
+  ef.id AS forecast_id,
+  ef.description,
+  ef.amount AS valor_atual,
+  ecc.id AS cache_config_id
+FROM event_forecasts ef
+JOIN event_cache_configs ecc ON ecc.id = ef.cache_config_id
+JOIN events e ON e.id = ef.event_id
+WHERE ecc.cache_type = 'variable'
+  AND ecc.adjusted_amount IS NULL
+  AND (ecc.is_finalized = false OR ecc.real_amount IS NULL)
+  AND ef.amount = ROUND(ef.amount)  -- só os que estão como inteiro (suspeitos)
+ORDER BY e.date DESC;
+
+-- PASSO 2: Forçar re-sincronização incrementando updated_at do cache_config
+-- (a app re-sincroniza ao detectar mudança)
+UPDATE event_cache_configs
+SET updated_at = now()
+WHERE cache_type = 'variable'
+  AND adjusted_amount IS NULL
+  AND (is_finalized = false OR real_amount IS NULL);
+
+-- PASSO 3 (manual): Abrir cada evento afetado no UI para que
+-- useSyncCacheForecasts recalcule e atualize event_forecasts.amount
+-- e propague para transactions vinculadas (via transaction_id).
+
+-- ----------------------------------------------------------------------------
+-- ALTERNATIVA: Para transações JÁ GERADAS a partir de previsões variáveis,
+-- alinhar o amount da transação com o amount atualizado do BP:
+-- ----------------------------------------------------------------------------
+UPDATE transactions t
+SET amount = ROUND(ef.amount * (1 + t.iva_rate / 100.0) * 100) / 100,
+    updated_at = now()
+FROM event_forecasts ef
+JOIN event_cache_configs ecc ON ecc.id = ef.cache_config_id
+WHERE ef.transaction_id = t.id
+  AND ecc.cache_type = 'variable'
+  AND ecc.adjusted_amount IS NULL
+  AND (ecc.is_finalized = false OR ecc.real_amount IS NULL)
+  AND t.status IN ('approved', 'pending')  -- nunca tocar em pagas
+  AND t.paid_amount = 0;
+
+-- ============================================================================
+-- FIM
+-- ============================================================================
