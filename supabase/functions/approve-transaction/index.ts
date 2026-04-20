@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
 
     const approvableTx = transactions.filter((t) => t.status === "pending" || t.status === "overdue");
     const skippedTx = transactions.filter((t) => t.status !== "pending" && t.status !== "overdue");
-    const missingIds = uniqueIds.filter((id) => !transactions.some((t) => t.id === id));
+    const missingIds = expandedIds.filter((id) => !transactions.some((t) => t.id === id));
     const approvedIds = approvableTx.map((t) => t.id);
     const skippedIds = [...skippedTx.map((t) => t.id), ...missingIds];
     const callerName =
