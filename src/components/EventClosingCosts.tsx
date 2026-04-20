@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -17,6 +17,12 @@ interface Props {
   eventStatus: string;
 }
 
+/**
+ * Rateios de Overhead — custos partilhados da empresa (assessoria, jurídico,
+ * equipa de estrutura) rateados em eventos com sócios. Persistidos em
+ * event_forecasts com is_overhead=true. Não geram transação. Não impactam
+ * resultado da empresa, mas entram no acerto com sócios.
+ */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const isEventLocked = eventStatus === "completed";
@@ -29,12 +35,13 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
-    queryKey: ["event-closing-costs", eventId],
+    queryKey: ["event-overhead-forecasts", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_closing_costs")
+        .from("event_forecasts")
         .select("*, account_categories(code, name)")
         .eq("event_id", eventId)
+        .eq("is_overhead", true)
         .order("created_at");
       if (error) throw error;
       return data;
@@ -54,23 +61,44 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const amt = parseFloat(amount) || 0;
       const payload = {
         event_id: eventId,
         description,
-        amount: parseFloat(amount) || 0,
+        amount: amt,
         category_id: categoryId || null,
         notes: notes || null,
+        type: "expense",
+        is_overhead: true,
+        exclude_from_result: true,
+        status: "approved",
+        iva_rate: 0,
+        formula_type: "fixed",
+        formula_value: amt,
       };
       let costId = editingId;
       if (editingId) {
-        const { error } = await supabase.from("event_closing_costs").update(payload).eq("id", editingId);
+        const { error } = await supabase
+          .from("event_forecasts")
+          .update({
+            description,
+            amount: amt,
+            category_id: categoryId || null,
+            notes: notes || null,
+            formula_value: amt,
+          })
+          .eq("id", editingId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("event_closing_costs").insert(payload).select("id").single();
+        const { data, error } = await supabase
+          .from("event_forecasts")
+          .insert(payload)
+          .select("id")
+          .single();
         if (error) throw error;
         costId = data.id;
       }
-      // Upload pending files
+      // Upload pending files (mantemos o bucket existente para preservar anexos antigos)
       if (costId && pendingFiles.length > 0) {
         for (const file of pendingFiles) {
           await supabase.storage.from("closing-cost-documents").upload(`${costId}/${file.name}`, file, { upsert: true });
@@ -78,11 +106,14 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event-closing-costs", eventId] });
-      toast({ title: editingId ? "Custo atualizado" : "Custo adicionado" });
+      queryClient.invalidateQueries({ queryKey: ["event-overhead-forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event-forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["closing-costs-all"] });
+      queryClient.invalidateQueries({ queryKey: ["ra_closing_costs"] });
+      toast({ title: editingId ? "Rateio atualizado" : "Rateio adicionado" });
       resetForm();
     },
-    onError: () => toast({ title: "Erro ao guardar", variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Erro ao guardar", description: e?.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -91,12 +122,15 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       if (docs && docs.length > 0) {
         await supabase.storage.from("closing-cost-documents").remove(docs.map((d) => `${id}/${d.name}`));
       }
-      const { error } = await supabase.from("event_closing_costs").delete().eq("id", id);
+      const { error } = await supabase.from("event_forecasts").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event-closing-costs", eventId] });
-      toast({ title: "Custo removido" });
+      queryClient.invalidateQueries({ queryKey: ["event-overhead-forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event-forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["closing-costs-all"] });
+      queryClient.invalidateQueries({ queryKey: ["ra_closing_costs"] });
+      toast({ title: "Rateio removido" });
     },
   });
 
@@ -136,9 +170,9 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Custos de Fecho <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Rateios de Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Custos internos que não geram transações bancárias (rateio de equipa, assessoria, etc.)
+            Rateios de custos fixos da empresa (assessoria, jurídico, equipa de estrutura). Aparecem em BP e DRE numa secção separada e contribuem no acerto com sócios — <strong>não impactam o resultado da empresa</strong>.
           </p>
         </div>
         {!isEventLocked && !showForm && (
@@ -148,12 +182,19 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         )}
       </div>
 
+      <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+        <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+        <span>
+          Estas linhas aparecem em <strong>BP</strong> e <strong>DRE</strong> com o badge <em>Overhead</em>, mas não compõem o resultado da empresa (já foram pagas noutros momentos). São contabilizadas no <strong>Acerto com Sócios</strong> proporcionalmente à sua percentagem.
+        </span>
+      </div>
+
       {showForm && (
         <div className="glass rounded-xl p-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Descrição *</Label>
-              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Rateio equipa de produção" />
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Rateio assessoria de imprensa" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Valor (€) *</Label>
@@ -175,7 +216,6 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais" />
             </div>
           </div>
-          {/* File attachment in form */}
           <div className="space-y-1.5">
             <Label className="text-xs">Anexos</Label>
             <div className="flex items-center gap-2 flex-wrap">
@@ -210,7 +250,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       {isLoading ? (
         <p className="text-sm text-muted-foreground text-center py-4">A carregar…</p>
       ) : costs.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-6">Nenhum custo de fecho registado.</p>
+        <p className="text-sm text-muted-foreground text-center py-6">Nenhum rateio de overhead registado.</p>
       ) : (
         <div className="glass rounded-xl overflow-hidden">
           <Table>
@@ -229,12 +269,12 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
                   cost={c}
                   isEventLocked={isEventLocked}
                   onEdit={() => startEdit(c)}
-                  onDelete={() => { if (window.confirm("Remover este custo?")) deleteMutation.mutate(c.id); }}
+                  onDelete={() => { if (window.confirm("Remover este rateio?")) deleteMutation.mutate(c.id); }}
                   onFileUpload={(file) => handleFileUpload(c.id, file)}
                 />
               ))}
               <TableRow className="border-t-2 border-border bg-muted/30">
-                <TableCell colSpan={2} className="font-bold text-sm">TOTAL CUSTOS DE FECHO</TableCell>
+                <TableCell colSpan={2} className="font-bold text-sm">TOTAL RATEIOS DE OVERHEAD</TableCell>
                 <TableCell className="text-right font-mono font-bold text-warning">{formatCurrency(totalCosts)}</TableCell>
                 <TableCell />
               </TableRow>
