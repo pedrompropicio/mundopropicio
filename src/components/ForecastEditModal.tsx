@@ -35,9 +35,12 @@ export function ForecastEditModal({ forecast, categories: externalCategories, on
   );
   const [eurAmount, setEurAmount] = useState<number>(Number(forecast.amount) || 0);
   const [ivaRate, setIvaRate] = useState(String(forecast.iva_rate));
+  const [isOverhead, setIsOverhead] = useState<boolean>(!!forecast.is_overhead);
   const [observation, setObservation] = useState("");
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
+  const canSeeOverhead = isAdmin || isManager;
+  const isExpenseType = forecast.type === "expense";
 
   const { data: loadedCategories = [] } = useQuery({
     queryKey: ["account_categories"],
