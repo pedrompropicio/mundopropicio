@@ -2204,6 +2204,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   /** Open the per-row attachments modal for managing links + native files. */
   onOpenAttachments?: (forecast: any) => void;
 }) {
+  const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
+  const canSeeOverhead = isAdminAuth || isManagerAuth;
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
