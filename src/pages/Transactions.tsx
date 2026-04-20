@@ -418,6 +418,13 @@ export default function Transactions() {
     .filter(matchesEventFilter)
     .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
     .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
+    .filter((t: any) => {
+      if (selectedPartnerIds.size === 0) return true;
+      const partners = partnerPaidMap.get(t.id);
+      if (!partners) return false;
+      for (const pid of selectedPartnerIds) if (partners.has(pid)) return true;
+      return false;
+    })
     .filter((t) => {
       if (t.status === "paid") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
@@ -535,6 +542,13 @@ export default function Transactions() {
       .filter(matchesEventFilter)
       .filter((t) => selectedAccountIds.size === 0 || (t.account_id && selectedAccountIds.has(t.account_id)))
       .filter((t) => selectedSupplierIds.size === 0 || (t.supplier_id && selectedSupplierIds.has(t.supplier_id)))
+      .filter((t: any) => {
+        if (selectedPartnerIds.size === 0) return true;
+        const partners = partnerPaidMap.get(t.id);
+        if (!partners) return false;
+        for (const pid of selectedPartnerIds) if (partners.has(pid)) return true;
+        return false;
+      })
       .filter((t) => {
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
@@ -865,6 +879,7 @@ export default function Transactions() {
             (selectedEventIds.size > 0 ? 1 : 0) +
             (selectedAccountIds.size > 0 ? 1 : 0) +
             (selectedSupplierIds.size > 0 ? 1 : 0) +
+            (selectedPartnerIds.size > 0 ? 1 : 0) +
             (onlyPending ? 1 : 0) +
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
@@ -1114,6 +1129,8 @@ export default function Transactions() {
         setSelectedAccountIds={setSelectedAccountIds}
         selectedSupplierIds={selectedSupplierIds}
         setSelectedSupplierIds={setSelectedSupplierIds}
+        selectedPartnerIds={selectedPartnerIds}
+        setSelectedPartnerIds={setSelectedPartnerIds}
         viewMode={viewMode}
         onlyPending={onlyPending}
         setOnlyPending={setOnlyPending}
@@ -1128,6 +1145,7 @@ export default function Transactions() {
           setSelectedEventIds(new Set());
           setSelectedAccountIds(new Set());
           setSelectedSupplierIds(new Set());
+          setSelectedPartnerIds(new Set());
           setOnlyPending(false);
           setOnlyNoDueDate(false);
           setOnlyGrouped(false);

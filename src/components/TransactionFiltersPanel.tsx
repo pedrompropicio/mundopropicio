@@ -21,6 +21,9 @@ interface FilterPanelProps {
   // Suppliers
   selectedSupplierIds: Set<string>;
   setSelectedSupplierIds: (s: Set<string>) => void;
+  // Partners (sócios) — filter by who paid the expense
+  selectedPartnerIds: Set<string>;
+  setSelectedPartnerIds: (s: Set<string>) => void;
   // Toggles
   viewMode: "open" | "paid";
   onlyPending: boolean;
@@ -114,6 +117,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     selectedEventIds, setSelectedEventIds,
     selectedAccountIds, setSelectedAccountIds,
     selectedSupplierIds, setSelectedSupplierIds,
+    selectedPartnerIds, setSelectedPartnerIds,
     viewMode,
     onlyPending, setOnlyPending,
     onlyNoDueDate, setOnlyNoDueDate,
@@ -156,6 +160,41 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     },
     enabled: open,
   });
+
+  const { data: partners = [] } = useQuery({
+    queryKey: ["event-partners-distinct-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, suppliers(name)")
+        .order("created_at");
+      if (error) throw error;
+      // Dedup by supplier name (mesmo sócio em vários eventos = várias rows)
+      const byName = new Map<string, { id: string; name: string }>();
+      (data ?? []).forEach((row: any) => {
+        const name = row.suppliers?.name ?? "Sócio";
+        if (!byName.has(name)) byName.set(name, { id: row.id, name });
+      });
+      // Mas precisamos de TODOS os partner.id para o mesmo sócio — agrupamos por nome
+      const grouped = new Map<string, { ids: string[]; name: string }>();
+      (data ?? []).forEach((row: any) => {
+        const name = row.suppliers?.name ?? "Sócio";
+        const g = grouped.get(name) ?? { ids: [], name };
+        g.ids.push(row.id);
+        grouped.set(name, g);
+      });
+      return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name, "pt"));
+    },
+    enabled: open,
+  });
+
+  const togglePartner = (ids: string[]) => {
+    const next = new Set(selectedPartnerIds);
+    const allSelected = ids.every((id) => next.has(id));
+    if (allSelected) ids.forEach((id) => next.delete(id));
+    else ids.forEach((id) => next.add(id));
+    setSelectedPartnerIds(next);
+  };
 
   const toggle = (set: Set<string>, id: string, setter: (s: Set<string>) => void) => {
     const next = new Set(set);
