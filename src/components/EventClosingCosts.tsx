@@ -305,6 +305,15 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <span className="font-semibold text-foreground">Total: {formatCurrency(calcTotalWithIva(parseFloat(amount) || 0, parseInt(ivaRate, 10) || 0))}</span>
             </div>
           )}
+          {categoryConflict && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-warning" />
+              <div className="space-y-0.5">
+                <p className="font-medium text-foreground">Esta categoria já existe no BP {categoryConflict.hasMaster && categoryConflict.hasLocal ? "deste evento e do Master da turnê" : categoryConflict.hasMaster ? "do Master da turnê" : "deste evento"}.</p>
+                <p className="text-muted-foreground">O overhead será <strong>somado</strong> ao valor já planeado da categoria. Confirma que pretendes acrescentar esta linha em vez de editar a existente.</p>
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Anexos</Label>
             <div className="flex items-center gap-2 flex-wrap">
