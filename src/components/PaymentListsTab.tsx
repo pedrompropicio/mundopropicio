@@ -658,16 +658,18 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 /* ─── Copy Line Helper ─── */
-function CopyLine({ label, value, mono, bold }: { label: string; value: string; mono?: boolean; bold?: boolean }) {
+function CopyLine({ label, value, mono, bold, hideIfEmpty = true }: { label: string; value: string | null | undefined; mono?: boolean; bold?: boolean; hideIfEmpty?: boolean }) {
+  const trimmed = (value ?? "").toString().trim();
+  if (hideIfEmpty && (!trimmed || trimmed === "-")) return null;
   const handleCopy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      toast({ title: "Copiado!", description: `${label}: ${value}` });
+    navigator.clipboard.writeText(trimmed).then(() => {
+      toast({ title: "Copiado!", description: `${label}: ${trimmed}` });
     });
   };
   return (
     <p className="flex items-center gap-1.5 group">
       <span className="font-medium text-muted-foreground">{label}:</span>
-      <span className={`${mono ? "font-mono text-xs" : ""} ${bold ? "font-semibold" : ""}`}>{value}</span>
+      <span className={`${mono ? "font-mono text-xs" : ""} ${bold ? "font-semibold" : ""}`}>{trimmed}</span>
       <button
         onClick={handleCopy}
         className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 text-muted-foreground hover:text-foreground"
@@ -732,8 +734,9 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, iban), account_categories(code, name, parent_id))")
-        .eq("payment_list_id", listId);
+        .select("*, transactions(*, events(name), suppliers(name, iban, email), account_categories(code, name, parent_id))")
+        .eq("payment_list_id", listId)
+        .order("created_at", { ascending: true });
       if (error) throw error;
       const filtered = (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
 
@@ -1133,6 +1136,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
                     )}
                     <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                    <CopyLine label="Email" value={tx?.suppliers?.email} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
                     )}
@@ -1162,10 +1166,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                               : "border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60"
                           }`}
-                          title={manuallyMarked ? "Desmarcar transferência" : "Marcar como transferido (apenas visual)"}
+                          title={manuallyMarked ? "Desmarcar pagamento" : "Marcar como pago (apenas visual)"}
                         >
                           <Banknote className="h-3.5 w-3.5" />
-                          {manuallyMarked ? "Transferido ✓" : "Marcar transferido"}
+                          {manuallyMarked ? "Pago ✓" : "Marcar como Pago"}
                         </button>
                       )}
                     </div>
