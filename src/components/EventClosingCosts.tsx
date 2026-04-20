@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
+import { calcIvaAmount, calcTotalWithIva } from "@/lib/iva";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info } from "lucide-react";
+import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -20,16 +21,19 @@ interface Props {
 /**
  * Rateios de Overhead — custos partilhados da empresa (assessoria, jurídico,
  * equipa de estrutura) rateados em eventos com sócios. Persistidos em
- * event_forecasts com is_overhead=true. Não geram transação. Não impactam
- * resultado da empresa, mas entram no acerto com sócios.
+ * event_forecasts com is_overhead=true e status=approved (já nascem aprovados,
+ * não geram transação). Aparecem inline no BP com badge "Overhead" (read-only)
+ * e em cidades/splits com fatia ÷N como "via Master".
  */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const isEventLocked = eventStatus === "completed";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [type, setType] = useState<"expense" | "income">("expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [ivaRate, setIvaRate] = useState<string>("23");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -39,9 +43,10 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name)")
+        .select("*, account_categories(code, name, type)")
         .eq("event_id", eventId)
         .eq("is_overhead", true)
+        .order("type")
         .order("created_at");
       if (error) throw error;
       return data;
@@ -57,22 +62,23 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
   });
 
-  const expenseCategories = categories.filter((c: any) => c.type === "expense");
+  const filteredCategories = categories.filter((c: any) => c.type === type);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const amt = parseFloat(amount) || 0;
+      const iva = parseInt(ivaRate, 10) || 0;
       const payload = {
         event_id: eventId,
         description,
         amount: amt,
         category_id: categoryId || null,
         notes: notes || null,
-        type: "expense",
+        type,
         is_overhead: true,
         exclude_from_result: true,
         status: "approved",
-        iva_rate: 0,
+        iva_rate: iva,
         formula_type: "fixed",
         formula_value: amt,
       };
@@ -85,6 +91,8 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             amount: amt,
             category_id: categoryId || null,
             notes: notes || null,
+            type,
+            iva_rate: iva,
             formula_value: amt,
           })
           .eq("id", editingId);
@@ -98,7 +106,6 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         if (error) throw error;
         costId = data.id;
       }
-      // Upload pending files (mantemos o bucket existente para preservar anexos antigos)
       if (costId && pendingFiles.length > 0) {
         for (const file of pendingFiles) {
           await supabase.storage.from("closing-cost-documents").upload(`${costId}/${file.name}`, file, { upsert: true });
@@ -107,10 +114,11 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event-overhead-forecasts", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event-forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["bp_overhead_via_master"] });
       queryClient.invalidateQueries({ queryKey: ["closing-costs-all"] });
       queryClient.invalidateQueries({ queryKey: ["ra_closing_costs"] });
-      toast({ title: editingId ? "Rateio atualizado" : "Rateio adicionado" });
+      toast({ title: editingId ? "Linha de overhead atualizada" : "Linha de overhead adicionada" });
       resetForm();
     },
     onError: (e: any) => toast({ title: "Erro ao guardar", description: e?.message, variant: "destructive" }),
@@ -127,10 +135,11 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event-overhead-forecasts", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event-forecasts", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+      queryClient.invalidateQueries({ queryKey: ["bp_overhead_via_master"] });
       queryClient.invalidateQueries({ queryKey: ["closing-costs-all"] });
       queryClient.invalidateQueries({ queryKey: ["ra_closing_costs"] });
-      toast({ title: "Rateio removido" });
+      toast({ title: "Linha de overhead removida" });
     },
   });
 
@@ -148,8 +157,10 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   function resetForm() {
     setShowForm(false);
     setEditingId(null);
+    setType("expense");
     setDescription("");
     setAmount("");
+    setIvaRate("23");
     setCategoryId("");
     setNotes("");
     setPendingFiles([]);
@@ -157,22 +168,31 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   function startEdit(cost: any) {
     setEditingId(cost.id);
+    setType((cost.type as "expense" | "income") || "expense");
     setDescription(cost.description);
     setAmount(String(cost.amount));
+    setIvaRate(String(cost.iva_rate ?? 0));
     setCategoryId(cost.category_id || "");
     setNotes(cost.notes || "");
     setShowForm(true);
   }
 
-  const totalCosts = costs.reduce((s: number, c: any) => s + Number(c.amount), 0);
+  const expenseCosts = costs.filter((c: any) => c.type === "expense");
+  const incomeCosts = costs.filter((c: any) => c.type === "income");
+  const totalExpenseBase = expenseCosts.reduce((s: number, c: any) => s + Number(c.amount), 0);
+  const totalIncomeBase = incomeCosts.reduce((s: number, c: any) => s + Number(c.amount), 0);
+  const totalExpenseGross = expenseCosts.reduce((s: number, c: any) => s + calcTotalWithIva(Number(c.amount), Number(c.iva_rate)), 0);
+  const totalIncomeGross = incomeCosts.reduce((s: number, c: any) => s + calcTotalWithIva(Number(c.amount), Number(c.iva_rate)), 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">Rateios de Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            Rateios de Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} />
+          </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Rateios de custos fixos da empresa (assessoria, jurídico, equipa de estrutura). Aparecem em BP e DRE numa secção separada e contribuem no acerto com sócios — <strong>não impactam o resultado da empresa</strong>.
+            Custos fixos da empresa (assessoria, jurídico, escritório) rateados ao evento. Aparecem inline no BP com badge <em>Overhead</em>, <strong>não impactam o resultado da empresa</strong> e contribuem proporcionalmente no acerto com sócios.
           </p>
         </div>
         {!isEventLocked && !showForm && (
@@ -185,27 +205,51 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
         <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
         <span>
-          Estas linhas aparecem em <strong>BP</strong> e <strong>DRE</strong> com o badge <em>Overhead</em>, mas não compõem o resultado da empresa (já foram pagas noutros momentos). São contabilizadas no <strong>Acerto com Sócios</strong> proporcionalmente à sua percentagem.
+          As linhas aqui criadas <strong>já nascem aprovadas</strong> e <strong>não geram transação</strong>. Aparecem em <strong>BP</strong> e <strong>DRE</strong> com badge <em>Overhead</em>, mas são excluídas do resultado da empresa. Em turnês, são distribuídas igualmente (÷N) pelos sub-eventos como "via Master".
         </span>
       </div>
 
       {showForm && (
         <div className="glass rounded-xl p-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-1.5">
+              <Label className="text-xs">Tipo *</Label>
+              <select
+                value={type}
+                onChange={(e) => { setType(e.target.value as any); setCategoryId(""); }}
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="expense">Despesa</option>
+                <option value="income">Receita</option>
+              </select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Descrição *</Label>
               <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Rateio assessoria de imprensa" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Valor (€) *</Label>
+              <Label className="text-xs">Valor s/ IVA (€) *</Label>
               <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">IVA (%)</Label>
+              <select
+                value={ivaRate}
+                onChange={(e) => setIvaRate(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="23">23%</option>
+                <option value="13">13%</option>
+                <option value="6">6%</option>
+                <option value="0">0%</option>
+              </select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Categoria</Label>
               <SearchableSelect
-                options={expenseCategories.map((c: any) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
+                options={filteredCategories.map((c: any) => ({ value: c.id, label: `${c.code} ${c.name}` }))}
                 value={categoryId}
                 onValueChange={setCategoryId}
                 placeholder="Selecionar categoria…"
@@ -216,6 +260,13 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais" />
             </div>
           </div>
+          {amount && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 font-mono">
+              <span>Base: {formatCurrency(parseFloat(amount) || 0)}</span>
+              <span>IVA: {formatCurrency(calcIvaAmount(parseFloat(amount) || 0, parseInt(ivaRate, 10) || 0))}</span>
+              <span className="font-semibold text-foreground">Total: {formatCurrency(calcTotalWithIva(parseFloat(amount) || 0, parseInt(ivaRate, 10) || 0))}</span>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Anexos</Label>
             <div className="flex items-center gap-2 flex-wrap">
@@ -250,44 +301,103 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       {isLoading ? (
         <p className="text-sm text-muted-foreground text-center py-4">A carregar…</p>
       ) : costs.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-6">Nenhum rateio de overhead registado.</p>
+        <p className="text-sm text-muted-foreground text-center py-6">Nenhuma linha de overhead registada.</p>
       ) : (
-        <div className="glass rounded-xl overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-[80px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {costs.map((c: any) => (
-                <ClosingCostRow
-                  key={c.id}
-                  cost={c}
-                  isEventLocked={isEventLocked}
-                  onEdit={() => startEdit(c)}
-                  onDelete={() => { if (window.confirm("Remover este rateio?")) deleteMutation.mutate(c.id); }}
-                  onFileUpload={(file) => handleFileUpload(c.id, file)}
-                />
-              ))}
-              <TableRow className="border-t-2 border-border bg-muted/30">
-                <TableCell colSpan={2} className="font-bold text-sm">TOTAL RATEIOS DE OVERHEAD</TableCell>
-                <TableCell className="text-right font-mono font-bold text-warning">{formatCurrency(totalCosts)}</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableBody>
-          </Table>
+        <div className="space-y-4">
+          {expenseCosts.length > 0 && (
+            <OverheadTable
+              title="Despesas Overhead"
+              icon={<TrendingDown className="h-3.5 w-3.5 text-destructive" />}
+              costs={expenseCosts}
+              totalBase={totalExpenseBase}
+              totalGross={totalExpenseGross}
+              colorClass="text-destructive"
+              isEventLocked={isEventLocked}
+              onEdit={startEdit}
+              onDelete={(id) => { if (window.confirm("Remover esta linha?")) deleteMutation.mutate(id); }}
+              onFileUpload={handleFileUpload}
+            />
+          )}
+          {incomeCosts.length > 0 && (
+            <OverheadTable
+              title="Receitas Overhead"
+              icon={<TrendingUp className="h-3.5 w-3.5 text-success" />}
+              costs={incomeCosts}
+              totalBase={totalIncomeBase}
+              totalGross={totalIncomeGross}
+              colorClass="text-success"
+              isEventLocked={isEventLocked}
+              onEdit={startEdit}
+              onDelete={(id) => { if (window.confirm("Remover esta linha?")) deleteMutation.mutate(id); }}
+              onFileUpload={handleFileUpload}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function ClosingCostRow({ cost, isEventLocked, onEdit, onDelete, onFileUpload }: {
+function OverheadTable({
+  title, icon, costs, totalBase, totalGross, colorClass, isEventLocked, onEdit, onDelete, onFileUpload,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  costs: any[];
+  totalBase: number;
+  totalGross: number;
+  colorClass: string;
+  isEventLocked: boolean;
+  onEdit: (cost: any) => void;
+  onDelete: (id: string) => void;
+  onFileUpload: (costId: string, file: File) => void;
+}) {
+  return (
+    <div className="glass rounded-xl overflow-hidden">
+      <div className="px-4 py-2 border-b border-border/50 bg-muted/20 flex items-center gap-2">
+        {icon}
+        <span className="text-xs font-semibold uppercase tracking-wider">{title}</span>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Descrição</TableHead>
+            <TableHead>Categoria</TableHead>
+            <TableHead className="text-right">IVA %</TableHead>
+            <TableHead className="text-right">Base</TableHead>
+            <TableHead className="text-right">IVA (€)</TableHead>
+            <TableHead className="text-right">Total c/ IVA</TableHead>
+            <TableHead className="w-[80px]" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {costs.map((c: any) => (
+            <ClosingCostRow
+              key={c.id}
+              cost={c}
+              colorClass={colorClass}
+              isEventLocked={isEventLocked}
+              onEdit={() => onEdit(c)}
+              onDelete={() => onDelete(c.id)}
+              onFileUpload={(file) => onFileUpload(c.id, file)}
+            />
+          ))}
+          <TableRow className="border-t-2 border-border bg-muted/30">
+            <TableCell colSpan={3} className="font-bold text-sm">TOTAL</TableCell>
+            <TableCell className={`text-right font-mono font-bold ${colorClass}`}>{formatCurrency(totalBase)}</TableCell>
+            <TableCell className="text-right font-mono font-bold text-muted-foreground">{formatCurrency(totalGross - totalBase)}</TableCell>
+            <TableCell className={`text-right font-mono font-bold ${colorClass}`}>{formatCurrency(totalGross)}</TableCell>
+            <TableCell />
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function ClosingCostRow({ cost, colorClass, isEventLocked, onEdit, onDelete, onFileUpload }: {
   cost: any;
+  colorClass: string;
   isEventLocked: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -306,6 +416,11 @@ function ClosingCostRow({ cost, isEventLocked, onEdit, onDelete, onFileUpload }:
     const { data } = await supabase.storage.from("closing-cost-documents").createSignedUrl(`${cost.id}/${name}`, 3600);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }
+
+  const base = Number(cost.amount);
+  const ivaRate = Number(cost.iva_rate || 0);
+  const ivaAmt = calcIvaAmount(base, ivaRate);
+  const totalGross = calcTotalWithIva(base, ivaRate);
 
   return (
     <TableRow>
@@ -326,7 +441,10 @@ function ClosingCostRow({ cost, isEventLocked, onEdit, onDelete, onFileUpload }:
       <TableCell className="text-sm text-muted-foreground">
         {cost.account_categories ? `${cost.account_categories.code} ${cost.account_categories.name}` : "—"}
       </TableCell>
-      <TableCell className="text-right font-mono text-warning">{formatCurrency(Number(cost.amount))}</TableCell>
+      <TableCell className="text-right font-mono text-xs text-muted-foreground">{ivaRate}%</TableCell>
+      <TableCell className={`text-right font-mono ${colorClass}`}>{formatCurrency(base)}</TableCell>
+      <TableCell className="text-right font-mono text-xs text-muted-foreground">{formatCurrency(ivaAmt)}</TableCell>
+      <TableCell className={`text-right font-mono font-semibold ${colorClass}`}>{formatCurrency(totalGross)}</TableCell>
       <TableCell>
         {!isEventLocked && (
           <div className="flex gap-1">
