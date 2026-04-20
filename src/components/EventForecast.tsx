@@ -2500,6 +2500,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     Overhead
                   </span>
                 )}
+                {item._overhead_via_master && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title="Fatia proporcional (÷N splits) de um Rateio de Overhead lançado no evento Master. Read-only — edite no Master."
+                  >
+                    via Master
+                  </span>
+                )}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
               {hasMatchingTx && (
