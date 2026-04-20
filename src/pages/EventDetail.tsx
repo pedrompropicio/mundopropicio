@@ -105,6 +105,7 @@ export default function EventDetail() {
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
+  const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
     queryFn: async () => {
