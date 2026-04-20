@@ -375,6 +375,71 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
             .eq("id", child.id);
         }
       }
+
+      // Propagate to invoice-group siblings (fatura com várias taxas de IVA).
+      // Cada irmã é liquidada PELO SEU PRÓPRIO total (base + IVA), na mesma data e conta.
+      // Cria também o registo individual em transaction_payments para a irmã.
+      if ((transaction as any).invoice_group_id) {
+        const { data: siblings } = await (supabase as any)
+          .from("transactions")
+          .select("*")
+          .eq("invoice_group_id", (transaction as any).invoice_group_id)
+          .neq("id", transaction.id);
+        const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+        for (const sib of siblings ?? []) {
+          if (sib.status === "paid") continue;
+          const sibTotal = calcWithIva(Number(sib.amount), Number(sib.iva_rate ?? 0));
+          const sibCurrentPaid = Number(sib.paid_amount ?? 0);
+          const sibRemaining = Math.max(0, +(sibTotal - sibCurrentPaid).toFixed(2));
+          if (sibRemaining <= 0) continue;
+          const sibNewPaid = Math.round((sibCurrentPaid + sibRemaining) * 100) / 100;
+          const sibStatus = isFullyPaid(sibNewPaid, Number(sib.amount), Number(sib.iva_rate ?? 0))
+            ? "paid"
+            : "approved";
+          await (supabase as any)
+            .from("transactions")
+            .update({
+              paid_amount: sibNewPaid,
+              status: sibStatus,
+              payment_date: format(paymentDate, "yyyy-MM-dd"),
+              account_id: accountId || sib.account_id || null,
+              payment_method: paymentMethod,
+              payment_entity:
+                paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
+              payment_reference:
+                paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+            })
+            .eq("id", sib.id);
+
+          // Individual payment record on the sibling
+          await (supabase as any).from("transaction_payments").insert({
+            transaction_id: sib.id,
+            amount: sibRemaining,
+            payment_date: format(paymentDate, "yyyy-MM-dd"),
+            account_id: accountId || sib.account_id || null,
+            payment_method: paymentMethod,
+            payment_entity:
+              paymentMethod === "service_payment" ? paymentEntity.trim() || null : null,
+            payment_reference:
+              paymentMethod !== "transfer" ? paymentReference.trim() || null : null,
+            invoice_ref: invoiceRef.trim() || sib.invoice_ref || null,
+            withholding_amount: 0,
+            credit_amount: 0,
+            notes: `Liquidado em conjunto com transação ${transaction.id} (grupo fatura)`,
+            created_by: callerName,
+          });
+
+          // Audit on sibling
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: sib.id,
+            changed_by: callerName,
+            field_name: "Liquidação grupo-fatura",
+            old_value: `${sibCurrentPaid.toFixed(2)} €`,
+            new_value: `${sibNewPaid.toFixed(2)} € — em conjunto com transação ${transaction.id}`,
+          });
+        }
+      }
+
       return { undoSnapshot, isFullPayment: newPaid >= amount - 0.05 };
     },
     onSuccess: async (result) => {

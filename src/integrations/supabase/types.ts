@@ -746,6 +746,7 @@ export type Database = {
           fx_rate: number | null
           fx_rate_source: string | null
           id: string
+          invoice_group_id: string | null
           is_transitory: boolean
           iva_rate: number
           master_forecast_id: string | null
@@ -774,6 +775,7 @@ export type Database = {
           fx_rate?: number | null
           fx_rate_source?: string | null
           id?: string
+          invoice_group_id?: string | null
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
@@ -802,6 +804,7 @@ export type Database = {
           fx_rate?: number | null
           fx_rate_source?: string | null
           id?: string
+          invoice_group_id?: string | null
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
@@ -2659,6 +2662,7 @@ export type Database = {
           fx_rate: number | null
           fx_rate_source: string | null
           id: string
+          invoice_group_id: string | null
           invoice_ref: string | null
           is_hidden: boolean
           is_reimbursement: boolean
@@ -2697,6 +2701,7 @@ export type Database = {
           fx_rate?: number | null
           fx_rate_source?: string | null
           id?: string
+          invoice_group_id?: string | null
           invoice_ref?: string | null
           is_hidden?: boolean
           is_reimbursement?: boolean
@@ -2735,6 +2740,7 @@ export type Database = {
           fx_rate?: number | null
           fx_rate_source?: string | null
           id?: string
+          invoice_group_id?: string | null
           invoice_ref?: string | null
           is_hidden?: boolean
           is_reimbursement?: boolean

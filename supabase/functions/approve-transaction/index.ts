@@ -74,10 +74,36 @@ Deno.serve(async (req) => {
     }
 
     const uniqueIds = [...new Set(transaction_ids.filter((id) => typeof id === "string" && id.length > 0))];
+
+    // Expand to invoice-group siblings (faturas com várias taxas de IVA)
+    let expandedIds = [...uniqueIds];
+    {
+      const { data: groupRows } = await adminClient
+        .from("transactions")
+        .select("id, invoice_group_id")
+        .in("id", uniqueIds);
+      const groupKeys = [
+        ...new Set(
+          (groupRows ?? [])
+            .map((r: any) => r.invoice_group_id)
+            .filter((g: any) => !!g),
+        ),
+      ];
+      if (groupKeys.length > 0) {
+        const { data: siblings } = await adminClient
+          .from("transactions")
+          .select("id")
+          .in("invoice_group_id", groupKeys);
+        const set = new Set<string>(expandedIds);
+        for (const s of siblings ?? []) set.add(s.id);
+        expandedIds = [...set];
+      }
+    }
+
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
       .select("id, status, type, event_id, amount")
-      .in("id", uniqueIds);
+      .in("id", expandedIds);
 
     if (fetchError) {
       return new Response(JSON.stringify({ error: fetchError.message }), {
@@ -92,8 +118,8 @@ Deno.serve(async (req) => {
           success: true,
           approved_count: 0,
           approved_ids: [],
-          skipped_count: uniqueIds.length,
-          skipped_ids: uniqueIds,
+          skipped_count: expandedIds.length,
+          skipped_ids: expandedIds,
           message: "Nenhuma transação encontrada para aprovar.",
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -102,7 +128,7 @@ Deno.serve(async (req) => {
 
     const approvableTx = transactions.filter((t) => t.status === "pending" || t.status === "overdue");
     const skippedTx = transactions.filter((t) => t.status !== "pending" && t.status !== "overdue");
-    const missingIds = uniqueIds.filter((id) => !transactions.some((t) => t.id === id));
+    const missingIds = expandedIds.filter((id) => !transactions.some((t) => t.id === id));
     const approvedIds = approvableTx.map((t) => t.id);
     const skippedIds = [...skippedTx.map((t) => t.id), ...missingIds];
     const callerName =
