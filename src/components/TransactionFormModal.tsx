@@ -2305,7 +2305,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       const next = !isPaidByPartner;
                       setIsPaidByPartner(next);
                       setPaidByPartnerId("");
-                      if (next) { setForm({ ...form, account_id: "" }); }
+                      if (next) {
+                        setForm({ ...form, account_id: "" });
+                        // Default: data em que o sócio pagou = data da despesa
+                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
+                      } else {
+                        setPartnerPaidDate("");
+                      }
                     }}
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                       isPaidByPartner
@@ -2313,7 +2319,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         : "bg-secondary text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    🤝 {isPaidByPartner ? "Pago por Sócio" : "Pago por Sócio"}
+                    🤝 Pago por Sócio
                     <HelpTooltip text={helpTexts.paidByPartnerToggle} size={12} />
                   </button>
                 )}
@@ -2403,20 +2409,29 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </div>
               )}
               {isPaidByPartner && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
-                  <SearchableSelect
-                    options={eventPartners.map((p: any) => ({
-                      value: p.id,
-                      label: `${p.suppliers?.name} (${p.percentage}%)`,
-                    }))}
-                    value={paidByPartnerId}
-                    onValueChange={setPaidByPartnerId}
-                    placeholder="Selecionar sócio…"
-                    searchPlaceholder="Pesquisar…"
-                  />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Despesa paga diretamente pelo sócio — sem conta financeira da empresa
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio que pagou *</label>
+                    <SearchableSelect
+                      options={eventPartners.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.suppliers?.name} (${p.percentage}%)`,
+                      }))}
+                      value={paidByPartnerId}
+                      onValueChange={setPaidByPartnerId}
+                      placeholder="Selecionar sócio…"
+                      searchPlaceholder="Pesquisar…"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
+                    <DatePicker
+                      value={partnerPaidDate}
+                      onChange={(v) => setPartnerPaidDate(v)}
+                    />
+                  </div>
+                  <p className="sm:col-span-2 text-[10px] text-muted-foreground">
+                    Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
                   </p>
                 </div>
               )}
@@ -2435,8 +2450,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             <p className="mt-0.5 text-[10px] text-muted-foreground">Transações com o mesmo nº de fatura serão agrupadas automaticamente</p>
           </div>
 
-          {/* Método de Pagamento */}
-          {form.type === "expense" && (() => {
+          {/* Método de Pagamento — escondido quando pago por sócio (não há pagamento da empresa) */}
+          {form.type === "expense" && !isPaidByPartner && (() => {
             const selectedCat = categories.find((c: any) => c.id === form.category_id);
             const isStateCategory = selectedCat?.code?.startsWith("10.4") || selectedCat?.code?.startsWith("10.5");
             const methods = [
