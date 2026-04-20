@@ -279,7 +279,8 @@ export default function ReportDRE() {
 
   // Rateios de Overhead — guardados em event_forecasts com is_overhead=true.
   // Mapeados para o shape antigo de closing_costs para retro-compatibilidade.
-  const { data: closingCosts = [] } = useQuery({
+  // Aplica proração Master→Splits: overhead em Master gera fatias virtuais (÷N) em cada split.
+  const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -291,6 +292,10 @@ export default function ReportDRE() {
     },
     enabled: showPartnerView,
   });
+  const closingCosts = useMemo(
+    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
+    [closingCostsRaw, events],
+  );
 
   const { data: partnerExtras = [] } = useQuery({
     queryKey: ["partner-extras-all"],

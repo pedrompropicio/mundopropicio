@@ -70,7 +70,7 @@ export default function ReportDREEmpresarial() {
     },
   });
 
-  const { data: closingCosts = [] } = useQuery({
+  const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -81,6 +81,11 @@ export default function ReportDREEmpresarial() {
       return data;
     },
   });
+  // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
+  const closingCosts = useMemo(
+    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
+    [closingCostsRaw, events],
+  );
 
   const lookup = useMemo(() => buildCategoryLookup(categories), [categories]);
 

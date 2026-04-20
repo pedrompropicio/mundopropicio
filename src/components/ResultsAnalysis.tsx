@@ -142,17 +142,22 @@ export function ResultsAnalysis() {
     },
   });
 
-  const { data: closingCosts = [] } = useQuery({
+  const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["ra_closing_costs"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("event_id, amount")
+        .select("id, event_id, amount")
         .eq("is_overhead", true);
       if (error) throw error;
       return data;
     },
   });
+  // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
+  const closingCosts = useMemo(
+    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
+    [closingCostsRaw, events],
+  );
 
   const { completed, active, yearTotals } = useMemo(() => {
     // ── Build sub-event children index per Master event ──
