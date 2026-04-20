@@ -217,15 +217,21 @@ export function parseTicketlineZoneXlsx(data: ArrayBuffer): ZoneReportResult {
     const tipo = String(tipoVal).trim();
     if (!tipo) continue;
 
-    const preco = Number(precoVal) || 0;
+    const precoTabela = Number(precoVal) || 0;
     const qtTotal = Number(cell(ws, totalQtCol, r)) || 0;
     const qtVendida = Number(cell(ws, vendasQtCol, r)) || 0;
     const valVendido = Number(cell(ws, vendasValCol, r)) || 0;
 
+    // FIX #2: Use effective unit price (valor_vendido / quantidade_vendida) instead of "P.UN." (list price).
+    // List price ignores discounts/promos applied at sale, causing rounding errors and lot mismatches.
+    const precoEfetivo = qtVendida > 0
+      ? Math.round((valVendido / qtVendida) * 100) / 100
+      : precoTabela;
+
     rows.push({
       zona: currentZona,
       tipo_bilhete: tipo,
-      preco_unitario: preco,
+      preco_unitario: precoEfetivo,
       quantidade_total: qtTotal,
       quantidade_vendida: qtVendida,
       valor_vendido: valVendido,
