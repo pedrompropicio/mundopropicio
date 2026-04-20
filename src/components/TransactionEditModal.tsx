@@ -154,6 +154,25 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
 
+  // Detect if this transaction was paid by a partner
+  const { data: partnerPaidLink } = useQuery({
+    queryKey: ["partner-paid-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("id, partner_id, paid_date, event_partners(suppliers(name), percentage)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isPaidByPartner = !!partnerPaidLink;
+  const [partnerPaidDate, setPartnerPaidDate] = useState<string>("");
+  useEffect(() => {
+    if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
+  }, [partnerPaidLink?.paid_date]);
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
