@@ -920,10 +920,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     bulkCreateTxMutation.mutate(items);
   };
 
+  const [historicalModalOpen, setHistoricalModalOpen] = useState(false);
+
   const generateHistoricalMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (xlsxRows: XlsxRowForGeneration[] | null) => {
       const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
-        body: { event_id: eventId },
+        body: { event_id: eventId, xlsxRows: xlsxRows ?? [] },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -933,7 +935,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast({ title: `${data.created} transação(ões) gerada(s) com sucesso!`, description: data.errors?.length > 0 ? `${data.errors.length} erro(s) parciais` : undefined });
+      const parts: string[] = [];
+      if (data.createdPaid > 0) parts.push(`${data.createdPaid} liquidada(s)`);
+      if (data.createdApproved > 0) parts.push(`${data.createdApproved} aprovada(s)`);
+      if (data.xlsxProvided > 0) parts.push(`${data.matched}/${data.total} match`);
+      if (data.errors?.length > 0) parts.push(`${data.errors.length} erro(s)`);
+      toast({
+        title: `${data.created} transação(ões) gerada(s)`,
+        description: parts.join(" · ") || undefined,
+      });
+      setHistoricalModalOpen(false);
     },
     onError: (err: any) => {
       toast({ title: "Erro ao gerar transações", description: err.message, variant: "destructive" });
@@ -946,8 +957,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       toast({ title: "Nenhuma previsão aprovada sem transação vinculada", variant: "destructive" });
       return;
     }
-    if (!window.confirm(`Isto irá criar ${approvedWithoutTx.length} transação(ões) na conta "Histórico / Ajuste" com estado Pago. Continuar?`)) return;
-    generateHistoricalMutation.mutate();
+    setHistoricalModalOpen(true);
   };
 
   /**
