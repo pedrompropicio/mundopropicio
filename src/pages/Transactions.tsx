@@ -56,6 +56,7 @@ export default function Transactions() {
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<string>>(new Set());
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -115,6 +116,24 @@ export default function Transactions() {
       const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  // Map: transaction_id -> Set<partner_id> (for "Pago por sócio" filter)
+  const { data: partnerPaidMap = new Map<string, Set<string>>() } = useQuery({
+    queryKey: ["partner-paid-expenses-map"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("transaction_id, partner_id");
+      if (error) throw error;
+      const map = new Map<string, Set<string>>();
+      (data ?? []).forEach((row: any) => {
+        const set = map.get(row.transaction_id) ?? new Set<string>();
+        set.add(row.partner_id);
+        map.set(row.transaction_id, set);
+      });
+      return map;
     },
   });
 
