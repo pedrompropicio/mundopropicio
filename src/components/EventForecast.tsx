@@ -958,19 +958,39 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
+  // A BP line is "eligible to auto-generate a TX" only when it does not yet
+  // have one. Rule: 1 auto-generated TX per BP line — additional TXs for the
+  // same category must be created from the Transactions modal.
+  const isEligibleForBulkTx = useCallback(
+    (f: any) =>
+      f.status === "approved" &&
+      !f.transaction_id &&
+      findMatchingTransactionsForForecast(f, transactions, forecasts).length === 0,
+    [transactions, forecasts],
+  );
+
   const handleBulkCreateTx = () => {
-    // Filter selected approved items that don't already have matching transactions
-    const items = forecasts.filter((f) => {
-      if (!selectedIds.has(f.id) || f.status !== "approved") return false;
-      // Check if already has transaction for this category
-      const hasTx = transactions.some((t: any) => t.category_id === f.category_id && t.type === f.type);
-      return !hasTx;
-    });
+    const items = forecasts.filter((f) => selectedIds.has(f.id) && isEligibleForBulkTx(f));
+    const skipped = forecasts.filter(
+      (f) => selectedIds.has(f.id) && f.status === "approved" && !isEligibleForBulkTx(f),
+    ).length;
     if (items.length === 0) {
-      toast({ title: "Nenhuma linha selecionada sem transação", variant: "destructive" });
+      toast({
+        title: "Nenhuma linha elegível",
+        description: skipped > 0
+          ? `${skipped} linha(s) já têm transação gerada — crie novas pelo modal de Transações.`
+          : "Selecione linhas aprovadas sem transação.",
+        variant: "destructive",
+      });
       return;
     }
     bulkCreateTxMutation.mutate(items);
+    if (skipped > 0) {
+      toast({
+        title: `${skipped} linha(s) ignorada(s)`,
+        description: "Já têm transação gerada — use o modal de Transações para criar adicionais.",
+      });
+    }
   };
 
   const [historicalModalOpen, setHistoricalModalOpen] = useState(false);
