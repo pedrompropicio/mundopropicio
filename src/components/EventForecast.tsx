@@ -2956,6 +2956,7 @@ interface ComparisonRow {
   forecast: number;
   actual: number;
   variance: number;
+  transactions: any[];
 }
 
 function buildComparison(forecasts: any[], transactions: any[], categories: any[]): ComparisonRow[] {
@@ -2971,18 +2972,23 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
   forecasts.forEach((f) => {
     const key = getKey(f.type, f.category_id);
     const cat = getCatInfo(f.category_id);
-    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, groupName: cat.groupName, groupCode: cat.groupCode, type: f.type, forecast: 0, actual: 0, variance: 0 };
+    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, groupName: cat.groupName, groupCode: cat.groupCode, type: f.type, forecast: 0, actual: 0, variance: 0, transactions: [] };
     map[key].forecast += Number(f.amount);
   });
   transactions.forEach((t) => {
     const key = getKey(t.type, t.category_id);
     const cat = getCatInfo(t.category_id);
-    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, groupName: cat.groupName, groupCode: cat.groupCode, type: t.type, forecast: 0, actual: 0, variance: 0 };
+    if (!map[key]) map[key] = { categoryCode: cat.code, categoryName: cat.name, groupName: cat.groupName, groupCode: cat.groupCode, type: t.type, forecast: 0, actual: 0, variance: 0, transactions: [] };
     map[key].actual += Number(t.amount);
+    map[key].transactions.push(t);
   });
 
   return Object.values(map)
-    .map((r) => ({ ...r, variance: r.actual - r.forecast }))
+    .map((r) => ({
+      ...r,
+      variance: r.actual - r.forecast,
+      transactions: r.transactions.slice().sort((a, b) => String(a.date ?? "").localeCompare(String(b.date ?? ""))),
+    }))
     .sort((a, b) => {
       if (a.type !== b.type) return a.type === "income" ? -1 : 1;
       return compareHierarchicalCodes(a.groupCode, b.groupCode) || compareHierarchicalCodes(a.categoryCode, b.categoryCode);
@@ -2999,16 +3005,17 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
 
   // Group rows by L2 parent
   const groupRows = (rows: ComparisonRow[]) => {
-    const groups: { groupName: string; rows: ComparisonRow[]; totalF: number; totalA: number }[] = [];
+    const groups: { groupName: string; rows: ComparisonRow[]; totalF: number; totalA: number; txCount: number }[] = [];
     const gMap: Record<string, typeof groups[0]> = {};
     rows.forEach((r) => {
       if (!gMap[r.groupName]) {
-        gMap[r.groupName] = { groupName: r.groupName, rows: [], totalF: 0, totalA: 0 };
+        gMap[r.groupName] = { groupName: r.groupName, rows: [], totalF: 0, totalA: 0, txCount: 0 };
         groups.push(gMap[r.groupName]);
       }
       gMap[r.groupName].rows.push(r);
       gMap[r.groupName].totalF += r.forecast;
       gMap[r.groupName].totalA += r.actual;
+      gMap[r.groupName].txCount += r.transactions.length;
     });
     return groups;
   };
@@ -3016,16 +3023,43 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   const incomeGroups = groupRows(incomeRows);
   const expenseGroups = groupRows(expenseRows);
 
+  // Expansion state: groups (L2) and rows (L3) — independent toggles
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleGroup = (name: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+  const toggleRow = (key: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   if (data.length === 0) return <p className="py-8 text-center text-muted-foreground">Adicione previsões e transações para ver a comparação.</p>;
 
   const renderGroupedRows = (groups: ReturnType<typeof groupRows>, isIncome?: boolean) => {
     return groups.map((group) => {
       const showHeader = groups.length > 1 || (group.rows.length > 1 || group.rows[0]?.categoryName !== group.groupName);
+      const groupOpen = expandedGroups.has(group.groupName);
       return (
         <React.Fragment key={group.groupName}>
           {showHeader && (
-            <tr className="bg-secondary/10 border-t border-border/30">
-              <td className="py-1.5 pl-2 text-xs font-semibold">{group.groupName}</td>
+            <tr className="bg-secondary/10 border-t border-border/30 cursor-pointer hover:bg-secondary/20" onClick={() => toggleGroup(group.groupName)}>
+              <td className="py-1.5 pl-2 text-xs font-semibold">
+                <span className="inline-flex items-center gap-1">
+                  {groupOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  {group.groupName}
+                  {group.txCount > 0 && (
+                    <span className="text-[10px] font-normal text-muted-foreground">({group.txCount} tx)</span>
+                  )}
+                </span>
+              </td>
               <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(group.totalF)}</td>
               <td className="py-1.5 text-right font-mono text-xs font-semibold">{formatCurrency(group.totalA)}</td>
               <td className={`py-1.5 text-right font-mono text-xs font-semibold ${isIncome ? (group.totalA - group.totalF >= 0 ? "text-success" : "text-destructive") : (group.totalA - group.totalF <= 0 ? "text-success" : "text-destructive")}`}>
@@ -3034,7 +3068,50 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
               <td />
             </tr>
           )}
-          {group.rows.map((r) => <ComparisonRowItem key={`${r.type}-${r.categoryCode}`} row={r} isIncome={isIncome} indented={showHeader} />)}
+          {(!showHeader || groupOpen) && group.rows.map((r) => {
+            const rowKey = `${r.type}-${r.categoryCode}`;
+            const rowOpen = expandedRows.has(rowKey);
+            const canExpand = r.transactions.length > 0;
+            return (
+              <React.Fragment key={rowKey}>
+                <ComparisonRowItem
+                  row={r}
+                  isIncome={isIncome}
+                  indented={showHeader}
+                  expanded={rowOpen}
+                  canExpand={canExpand}
+                  onToggle={() => canExpand && toggleRow(rowKey)}
+                />
+                {rowOpen && r.transactions.map((tx) => {
+                  const ivaRate = Number(tx.iva_rate ?? 0);
+                  const base = Number(tx.amount);
+                  const gross = base * (1 + ivaRate / 100);
+                  const isPaid = tx.status === "paid";
+                  const dateStr = tx.date ? format(new Date(tx.date + "T00:00:00"), "dd/MM/yyyy") : "—";
+                  return (
+                    <tr key={tx.id} className="border-b border-border/10 bg-muted/20 text-xs">
+                      <td className={`py-1.5 ${showHeader ? "pl-12" : "pl-8"}`}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-muted-foreground tabular-nums">{dateStr}</span>
+                          <span className="truncate">{tx.description}</span>
+                          {isPaid ? (
+                            <span className="rounded-full bg-success/15 text-success px-1.5 py-0.5 text-[9px] font-semibold uppercase">Pago</span>
+                          ) : (
+                            <span className="rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase">{tx.status === "approved" ? "A pagar" : tx.status}</span>
+                          )}
+                        </span>
+                      </td>
+                      <td />
+                      <td className="py-1.5 text-right font-mono text-muted-foreground">{formatCurrency(base)}</td>
+                      <td className="py-1.5 text-right font-mono text-[10px] text-muted-foreground" colSpan={2}>
+                        {ivaRate > 0 ? `c/IVA ${formatCurrency(gross)}` : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
         </React.Fragment>
       );
     });
@@ -3094,12 +3171,21 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
   );
 }
 
-function ComparisonRowItem({ row, isIncome, indented }: { row: ComparisonRow; isIncome?: boolean; indented?: boolean }) {
+function ComparisonRowItem({ row, isIncome, indented, expanded, canExpand, onToggle }: { row: ComparisonRow; isIncome?: boolean; indented?: boolean; expanded?: boolean; canExpand?: boolean; onToggle?: () => void }) {
   const variancePct = row.forecast > 0 ? (row.variance / row.forecast) * 100 : 0;
   const isPositive = isIncome ? row.variance >= 0 : row.variance <= 0;
   return (
-    <tr className="border-b border-border/20">
-      <td className={`py-2 pr-3 ${indented ? "pl-4" : ""}`}><span className="text-xs text-muted-foreground mr-1.5">{row.categoryCode}</span>{row.categoryName}</td>
+    <tr className={`border-b border-border/20 ${canExpand ? "cursor-pointer hover:bg-muted/30" : ""}`} onClick={canExpand ? onToggle : undefined}>
+      <td className={`py-2 pr-3 ${indented ? "pl-4" : ""}`}>
+        <span className="inline-flex items-center gap-1">
+          {canExpand ? (expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />) : <span className="inline-block w-3" />}
+          <span className="text-xs text-muted-foreground mr-1.5">{row.categoryCode}</span>
+          {row.categoryName}
+          {row.transactions.length > 0 && (
+            <span className="text-[10px] text-muted-foreground ml-1">({row.transactions.length} tx)</span>
+          )}
+        </span>
+      </td>
       <td className="py-2 text-right font-mono">{formatCurrency(row.forecast)}</td>
       <td className="py-2 text-right font-mono">{formatCurrency(row.actual)}</td>
       <td className={`py-2 text-right font-mono ${isPositive ? "text-success" : "text-destructive"}`}>{row.variance >= 0 ? "+" : ""}{formatCurrency(row.variance)}</td>
