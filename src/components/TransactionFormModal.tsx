@@ -2002,20 +2002,46 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               />
             )}
             <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
-                {form.type === "expense" && !isSplit && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSplitByIvaModal(true)}
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80"
-                    title="Fatura com várias taxas de IVA — cria várias transações ligadas pelo mesmo Nº fatura"
-                  >
-                    <Receipt className="h-3 w-3" />
-                    Dividir por IVA{pendingIvaSplit ? ` (${pendingIvaSplit.length})` : ""}
-                  </button>
-                )}
-              </div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label className="block text-xs font-medium text-muted-foreground">Taxa IVA</label>
+                  {form.type === "expense" && !isSplit && (
+                    <div className="flex items-center gap-1">
+                      <label
+                        className={cn(
+                          "inline-flex cursor-pointer items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80",
+                          extractingInvoice && "pointer-events-none opacity-60",
+                        )}
+                        title="Anexar PDF/imagem da fatura — IA preenche valor + IVA. Se a fatura tiver várias taxas, abre Dividir por IVA já pré-preenchido."
+                      >
+                        {extractingInvoice ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        {extractingInvoice ? "A ler…" : "Ler fatura (IA)"}
+                        <input
+                          type="file"
+                          accept="application/pdf,image/*"
+                          className="hidden"
+                          disabled={extractingInvoice}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleExtractInvoice(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiPrefilledLines(null);
+                          setShowSplitByIvaModal(true);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80"
+                        title="Fatura com várias taxas de IVA — cria várias transações ligadas pelo mesmo Nº fatura"
+                      >
+                        <Receipt className="h-3 w-3" />
+                        Dividir por IVA{pendingIvaSplit ? ` (${pendingIvaSplit.length})` : ""}
+                      </button>
+                    </div>
+                  )}
+                </div>
               <select value={form.iva_rate} onChange={(e) => setForm({ ...form, iva_rate: Number(e.target.value) as IvaRate })}
                 disabled={!!pendingIvaSplit}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60">
