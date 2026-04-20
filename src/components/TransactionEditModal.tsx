@@ -708,7 +708,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {!paidLocked && !isExpense && (
+          {!paidLocked && !isExpense && !isPaidByPartner && (
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Conta Destino *</label>
               <SearchableSelect
