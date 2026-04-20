@@ -135,6 +135,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [disambiguationForecast, setDisambiguationForecast] = useState<any>(null);
   const [showReinforcementDialog, setShowReinforcementDialog] = useState(false);
   const [reinforcementChoice, setReinforcementChoice] = useState<"local" | "master" | null>(null);
+  // VAT split: when set, proceedWithCreate creates N sibling transactions sharing invoice_ref.
+  const [showSplitByIvaModal, setShowSplitByIvaModal] = useState(false);
+  const [pendingIvaSplit, setPendingIvaSplit] = useState<IvaSplitLine[] | null>(null);
   const queryClient = useQueryClient();
 
   const { data: events = [] } = useQuery({
