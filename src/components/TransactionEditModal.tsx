@@ -271,6 +271,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-link", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       onClose();
       if (result?.snapshot && user) {
         const { recordUndo } = await import("@/lib/undo");
