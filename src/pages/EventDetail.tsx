@@ -686,11 +686,10 @@ export default function EventDetail() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditSubNameValue(sub.name);
-                      setEditingSubName(sub.id);
+                      setEditingSubEvent(sub);
                     }}
                     className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 bg-muted border border-border text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Renomear"
+                    title="Editar data, sala e nome"
                   >
                     <Pencil className="h-2.5 w-2.5" />
                   </button>
