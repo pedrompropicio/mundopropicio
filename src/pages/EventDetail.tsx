@@ -764,6 +764,7 @@ export default function EventDetail() {
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
+          {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-expenses" className="flex items-center gap-1">Desp. Sócios <HelpTooltip text={helpTexts.partnerExpenses} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-settlement" className="flex items-center gap-1">Fecho Parceiros <HelpTooltip text={helpTexts.partnerSettlement} size={13} /></TabsTrigger>}
         </TabsList>
