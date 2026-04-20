@@ -2082,6 +2082,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         parentEventId={parentEventId}
       />
 
+      <GenerateHistoricalModal
+        open={historicalModalOpen}
+        onOpenChange={setHistoricalModalOpen}
+        approvedCount={forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length}
+        isGenerating={generateHistoricalMutation.isPending}
+        onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
+      />
+
       <PromoteToMasterModal
         open={showPromoteModal}
         onOpenChange={setShowPromoteModal}
