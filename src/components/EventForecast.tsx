@@ -1554,6 +1554,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Open the BP × Transactions report pre-filtered to this event,
+                so users can audit per-line execution without leaving context. */}
+            <button
+              onClick={() => navigate(`/relatorios/bp-vs-transacoes?eventId=${eventId}`)}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+              title="Abrir o relatório BP × Transações já filtrado por este evento"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              BP × Transações
+            </button>
             {isAdmin && approvedWithoutTxCount > 0 && (eventStatus === "completed" || eventStatus === "active") && (
               <button
                 onClick={handleGenerateHistorical}
@@ -2514,6 +2524,18 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     title="Fatia proporcional (÷N splits) de um Rateio de Overhead lançado no evento Master. Read-only — edite no Master."
                   >
                     via Master
+                  </span>
+                )}
+                {/* "Sem TX" badge — flags approved BP lines that still have no
+                    linked transaction (neither direct transaction_id nor a
+                    description-matched one in this event). Helps users find
+                    pending executions at a glance. */}
+                {isApproved && !item.transaction_id && !hasMatchingTx && !item._overhead_via_master && (
+                  <span
+                    className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title="Linha aprovada sem transação real associada — ainda por executar."
+                  >
+                    <AlertTriangle className="h-2.5 w-2.5" /> Sem TX
                   </span>
                 )}
               </p>
