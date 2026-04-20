@@ -29,6 +29,11 @@ interface SplitByIvaModalProps {
   /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
   initialBase?: number;
   initialRate?: IvaRate;
+  /**
+   * Linhas já pré-extraídas (ex.: vindas de extract-invoice-total). Se fornecido,
+   * o modal abre já populado com estas linhas em vez do par padrão.
+   */
+  prefilledLines?: IvaSplitLine[];
 }
 
 const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
