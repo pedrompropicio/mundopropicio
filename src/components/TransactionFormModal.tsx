@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
-import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark } from "lucide-react";
+import { X, Plus, AlertTriangle, ChevronDown, ChevronRight, Split, Building, FileText, Landmark, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
@@ -21,6 +21,7 @@ import helpTexts from "@/lib/help-texts";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
+import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
