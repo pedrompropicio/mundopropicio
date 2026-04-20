@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_ticket_sales_imported_row ON public.ticket_sales (zone_id, COALESCE(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), sale_date, unit_price, financial_account_id) WHERE source = 'import';

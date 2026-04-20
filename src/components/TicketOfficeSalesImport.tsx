@@ -247,8 +247,10 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
             const result = parseTicketlineZoneXlsx(ev.target?.result as ArrayBuffer);
 
             // Convert zone rows to parsedRows format for the review step
+            // FIX #3: Removed price >= 1.00 filter — it dropped complimentary/symbolic tickets
+            // (sessions like Mágicos 21h had 0€ courtesy seats excluded). Now we only require qty > 0.
             const matched = result.rows
-              .filter(r => r.preco_unitario >= 1.00 && r.quantidade_vendida > 0)
+              .filter(r => r.quantidade_vendida > 0)
               .map(r => ({
                 date: result.header.session_date || new Date().toISOString().slice(0, 10),
                 event_name: result.header.event_name,
@@ -446,18 +448,24 @@ export function TicketOfficeSalesImport({ open, onClose }: Props) {
       }
 
       // Step 2: Insert new rows
+      // FIX #1: Persist `total_value` from XLSX so reports use the exact revenue from the source file
+      // instead of recomputing as quantity*unit_price (which loses cents on weighted prices).
       const toInsert = importableRows.map((r) => {
         let lotId = r.matched_lot_id || null;
         if (r.status === "new_lot" && r.matched_zone_id) {
           const key = `${r.matched_zone_id}_${r.unit_price}`;
           lotId = createdLots.get(key) || null;
         }
+        const totalValue = (r as any).total_value;
         return {
           zone_id: r.matched_zone_id!,
           lot_id: lotId,
           sale_date: r.date,
           quantity: r.quantity,
           unit_price: r.unit_price,
+          total_value: typeof totalValue === "number"
+            ? totalValue
+            : Math.round(r.quantity * r.unit_price * 100) / 100,
           financial_account_id: selectedOfficeId,
           notes: `Importação ${fileName}`,
           source: "import" as const,
