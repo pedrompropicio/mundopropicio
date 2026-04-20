@@ -40,22 +40,37 @@ const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initialBase, initialRate }: SplitByIvaModalProps) {
-  const [lines, setLines] = useState<IvaSplitLine[]>(() => [
-    { base: initialBase ?? 0, iva_rate: initialRate ?? 13, suffix: `IVA ${initialRate ?? 13}%` },
-    blankLine(23),
-  ]);
+export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initialBase, initialRate, prefilledLines }: SplitByIvaModalProps) {
+  const [lines, setLines] = useState<IvaSplitLine[]>(() =>
+    prefilledLines && prefilledLines.length >= 2
+      ? prefilledLines
+      : [
+          { base: initialBase ?? 0, iva_rate: initialRate ?? 13, suffix: `IVA ${initialRate ?? 13}%` },
+          blankLine(23),
+        ],
+  );
   const [extracting, setExtracting] = useState(false);
-  const [extractedNote, setExtractedNote] = useState<string | null>(null);
+  const [extractedNote, setExtractedNote] = useState<string | null>(
+    prefilledLines && prefilledLines.length >= 2
+      ? `Pré-preenchido a partir da fatura: ${prefilledLines.map((l) => `${l.base.toFixed(2)}€ a ${l.iva_rate}%`).join(" · ")}`
+      : null,
+  );
 
   // Reset lines whenever the modal re-opens
   useEffect(() => {
     if (open) {
-      setLines([
-        { base: initialBase ?? 0, iva_rate: initialRate ?? 13, suffix: `IVA ${initialRate ?? 13}%` },
-        blankLine(23),
-      ]);
-      setExtractedNote(null);
+      if (prefilledLines && prefilledLines.length >= 2) {
+        setLines(prefilledLines);
+        setExtractedNote(
+          `Pré-preenchido a partir da fatura: ${prefilledLines.map((l) => `${l.base.toFixed(2)}€ a ${l.iva_rate}%`).join(" · ")}`,
+        );
+      } else {
+        setLines([
+          { base: initialBase ?? 0, iva_rate: initialRate ?? 13, suffix: `IVA ${initialRate ?? 13}%` },
+          blankLine(23),
+        ]);
+        setExtractedNote(null);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
