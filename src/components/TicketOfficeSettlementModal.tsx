@@ -281,10 +281,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     [pendingAdvances]
   );
 
+  const txnGross = (t: any) => Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
+
   const totalDeductions = useMemo(() => {
     return eligibleTxns
       .filter((t: any) => selectedTxnIds.has(t.id))
-      .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
+      .reduce((acc: number, t: any) => acc + txnGross(t), 0);
   }, [eligibleTxns, selectedTxnIds]);
 
   const netCalculated = grossRevenue - totalDeductions - totalAdvances;
