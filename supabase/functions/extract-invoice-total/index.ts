@@ -163,16 +163,38 @@ Deno.serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
     if (!argsStr) {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "No tool call returned" } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, vat_breakdown: [], error: "No tool call returned" } satisfies ExtractResult);
     }
     let parsed: any;
     try {
       parsed = JSON.parse(argsStr);
     } catch {
-      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
+      return json({ total: null, currency: null, confidence: "low", mentioned_names: null, document_date: null, document_type: null, service_description: null, vat_breakdown: [], error: "Invalid JSON from model", raw: argsStr } satisfies ExtractResult);
     }
 
     const validTypes = ["invoice", "proforma", "quote", "receipt", "transfer", "contract", "other"];
+    const allowedRates = [0, 6, 13, 23];
+    const rawBreakdown = Array.isArray(parsed.vat_breakdown) ? parsed.vat_breakdown : [];
+    const vat_breakdown: VatBreakdownRow[] = rawBreakdown
+      .map((r: any) => {
+        const rate = Math.round(Number(r?.rate));
+        const base = Number(r?.base);
+        const iva = Number(r?.iva);
+        const total = Number(r?.total);
+        if (!allowedRates.includes(rate)) return null;
+        if (![base, iva, total].every((n) => Number.isFinite(n))) return null;
+        return { rate, base: Math.round(base * 100) / 100, iva: Math.round(iva * 100) / 100, total: Math.round(total * 100) / 100 };
+      })
+      .filter((r: VatBreakdownRow | null): r is VatBreakdownRow => r !== null)
+      // dedupe by rate, keep largest base if duplicated
+      .reduce((acc: VatBreakdownRow[], row: VatBreakdownRow) => {
+        const existing = acc.find((x) => x.rate === row.rate);
+        if (!existing) acc.push(row);
+        else if (row.base > existing.base) Object.assign(existing, row);
+        return acc;
+      }, [])
+      .sort((a: VatBreakdownRow, b: VatBreakdownRow) => a.rate - b.rate);
+
     const out: ExtractResult = {
       total: typeof parsed.total === "number" && Number.isFinite(parsed.total) ? parsed.total : null,
       currency: typeof parsed.currency === "string" ? parsed.currency.toUpperCase() : null,
@@ -181,6 +203,7 @@ Deno.serve(async (req) => {
       document_date: typeof parsed.document_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.document_date) ? parsed.document_date : null,
       document_type: typeof parsed.document_type === "string" && validTypes.includes(parsed.document_type) ? parsed.document_type : null,
       service_description: typeof parsed.service_description === "string" && parsed.service_description.trim() ? parsed.service_description.trim().slice(0, 200) : null,
+      vat_breakdown,
       raw: typeof parsed.notes === "string" ? parsed.notes : undefined,
     };
     return json(out);
