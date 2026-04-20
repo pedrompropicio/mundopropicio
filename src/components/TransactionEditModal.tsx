@@ -261,6 +261,12 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      // Sync partner_paid_expenses.paid_date if it changed
+      if (isPaidByPartner && partnerPaidLink?.id && partnerPaidDate && partnerPaidDate !== partnerPaidLink.paid_date) {
+        await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
+      }
+
       return { data, snapshot, changesCount: changes.length };
     },
     onSuccess: async (result) => {
