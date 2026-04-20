@@ -183,7 +183,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     enabled: !!eventId,
     queryFn: async () => {
       const settlementFilter = `settlement_id.is.null,settlement_id.eq.${existingSettlement?.id ?? "00000000-0000-0000-0000-000000000000"}`;
-      const cols = "id, description, amount, paid_amount, status, account_id, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers(name), account_categories(name, code)";
+      const cols = "id, description, amount, iva_rate, paid_amount, status, account_id, supplier_id, category_id, event_id, settlement_id, parent_transaction_id, split_amount, split_percentage, suppliers(name), account_categories(name, code)";
 
       // 1) Direct expenses for this event (Splits also live here with parent_transaction_id set)
       const { data: direct } = await (supabase as any)
@@ -281,10 +281,12 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     [pendingAdvances]
   );
 
+  const txnGross = (t: any) => Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
+
   const totalDeductions = useMemo(() => {
     return eligibleTxns
       .filter((t: any) => selectedTxnIds.has(t.id))
-      .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
+      .reduce((acc: number, t: any) => acc + txnGross(t), 0);
   }, [eligibleTxns, selectedTxnIds]);
 
   const netCalculated = grossRevenue - totalDeductions - totalAdvances;
@@ -397,7 +399,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                 status: "paid",
                 payment_date: settlementDate,
                 account_id: officeId,
-                paid_amount: Number(t.amount),
+                paid_amount: txnGross(t),
               })
               .eq("id", t.id);
           }
@@ -666,7 +668,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                                 </p>
                               </div>
                               <span className="font-mono text-sm font-semibold whitespace-nowrap">
-                                {formatCurrency(Number(t.amount))}
+                                {formatCurrency(txnGross(t))}
                               </span>
                             </li>
                           );
