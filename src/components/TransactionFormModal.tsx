@@ -1014,6 +1014,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const autoApproved = hasForecastMatch && hasApprovedBPLine && fitsWithinBudget;
 
         const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
+        // Pago por Sócio: já fica liquidado, sem conta financeira da empresa.
+        // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
+        const partnerStatus = isPaidByPartner ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending"));
+        const partnerPaidAmount = isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0);
+        const partnerPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null);
 
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description,
@@ -1028,9 +1033,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           pl_override_note: data.pl_override_note.trim() || null,
           date: data.date,
           due_date: parseDueDateForDb(data.due_date),
-          status: autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending"),
-          paid_amount: autoMarkPaid ? parseFloat(data.amount) : 0,
-          payment_date: autoMarkPaid ? data.date : null,
+          status: partnerStatus,
+          paid_amount: partnerPaidAmount,
+          payment_date: partnerPaymentDate,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
           is_transitory: isTransitory,
@@ -1088,13 +1093,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
-        // Auto-link to partner if paid by partner
+        // Auto-link to partner if paid by partner (com data em que o sócio pagou)
         if (isPaidByPartner && paidByPartnerId && insertedTx?.id && data.event_id) {
           await supabase.from("partner_paid_expenses").insert({
             event_id: data.event_id,
             partner_id: paidByPartnerId,
             transaction_id: insertedTx.id,
-          });
+            paid_date: partnerPaidDate || data.date,
+          } as any);
         }
 
         // Auto-link to reimbursement note
