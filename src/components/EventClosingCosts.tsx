@@ -62,7 +62,45 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
   });
 
+  // Descobre se este evento é split de uma turnê (tem parent_event_id)
+  const { data: eventInfo } = useQuery({
+    queryKey: ["event-parent-info", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, parent_event_id").eq("id", eventId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // BP existente (local + Master, se houver) — para detetar conflito de categoria
+  const { data: existingBpCategoryIds = [] } = useQuery({
+    queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id],
+    enabled: !!eventInfo,
+    queryFn: async () => {
+      const ids = [eventId];
+      if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("category_id, event_id")
+        .in("event_id", ids)
+        .eq("is_overhead", false)
+        .not("category_id", "is", null);
+      if (error) throw error;
+      return (data || []).map((r: any) => ({ category_id: r.category_id, scope: r.event_id === eventId ? "local" : "master" }));
+    },
+  });
+
   const filteredCategories = categories.filter((c: any) => c.type === type);
+
+  // Avisos de conflito quando a categoria escolhida já existe no BP
+  const categoryConflict = (() => {
+    if (!categoryId) return null;
+    const matches = existingBpCategoryIds.filter((r: any) => r.category_id === categoryId);
+    if (matches.length === 0) return null;
+    const hasLocal = matches.some((r: any) => r.scope === "local");
+    const hasMaster = matches.some((r: any) => r.scope === "master");
+    return { hasLocal, hasMaster };
+  })();
 
   const saveMutation = useMutation({
     mutationFn: async () => {
