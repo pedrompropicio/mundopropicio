@@ -17,3 +17,11 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = false
   [functions.send-push-notification]
     verify_jwt = false
+  [functions.database-backup]
+    verify_jwt = false
+  [functions.database-restore]
+    verify_jwt = false
+  [functions.selective-restore]
+    verify_jwt = false
+  [functions.surgical-restore]
+    verify_jwt = false
