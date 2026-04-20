@@ -14,6 +14,7 @@ import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
+import { EventFecho } from "@/components/EventFecho";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
@@ -1004,6 +1005,17 @@ export default function EventDetail() {
         <TabsContent value="closing-costs">
           <EventClosingCosts eventId={selectedSubEvent || event.id} eventStatus={event.status} />
         </TabsContent>
+
+        {(isAdmin || isManager) && (
+          <TabsContent value="fecho">
+            <EventFecho
+              eventId={selectedSubEvent || event.id}
+              eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
+              childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : []}
+              parentEventId={selectedSubEvent ? event.id : event.parent_event_id}
+            />
+          </TabsContent>
+        )}
 
         {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partner-expenses">
