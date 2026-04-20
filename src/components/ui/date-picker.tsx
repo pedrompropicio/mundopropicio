@@ -79,7 +79,15 @@ export function DatePicker({
   };
 
   const handleInputBlur = () => {
-    // On blur, reset to current valid value if input is invalid
+    // On blur: if we have a complete valid date, propagate it (safety net)
+    if (inputValue.length === 10) {
+      const parsed = parse(inputValue, "dd/MM/yyyy", new Date());
+      if (isValid(parsed) && parsed.getFullYear() >= 1900 && parsed.getFullYear() <= 2100) {
+        onChange(format(parsed, "yyyy-MM-dd"));
+        return;
+      }
+    }
+    // Otherwise reset to current valid value if input is invalid/incomplete
     if (inputValue.length > 0 && inputValue.length < 10) {
       setInputValue(dateObj ? format(dateObj, "dd/MM/yyyy") : "");
     }
@@ -97,7 +105,7 @@ export function DatePicker({
         onChange={handleInputChange}
         onBlur={handleInputBlur}
         maxLength={10}
-        className="flex-1 h-10"
+        className="flex-1 h-10 min-w-[7.5rem] tabular-nums"
       />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
