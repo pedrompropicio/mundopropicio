@@ -1074,9 +1074,39 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const rootFlags = getRootFlags(form.category_id);
 
-  const proceedWithCreate = () => {
+  const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
+    // Multi-IVA split path: create N sibling transactions sharing invoice_ref.
+    if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
+      const sharedInvoiceRef =
+        form.invoice_ref.trim() ||
+        `auto-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      try {
+        for (const line of pendingIvaSplit) {
+          const desc = line.suffix
+            ? `${form.description} (${line.suffix})`
+            : form.description;
+          await createMutation.mutateAsync({
+            ...form,
+            description: desc,
+            amount: String(line.base),
+            iva_rate: line.iva_rate,
+            invoice_ref: sharedInvoiceRef,
+          });
+        }
+        toast({
+          title: "Transações criadas",
+          description: `${pendingIvaSplit.length} linhas vinculadas pelo Nº fatura ${sharedInvoiceRef}.`,
+        });
+        setPendingIvaSplit(null);
+        onClose();
+      } catch (e) {
+        // mutation onError already toasts; nothing else to do
+        console.error("multi-iva submit", e);
+      }
+      return;
+    }
     createMutation.mutate(form);
   };
 
