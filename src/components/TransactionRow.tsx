@@ -46,19 +46,30 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
     staleTime: 60_000,
   });
 
-  const refDocs = docs.filter((d) => d.file_url.startsWith("ref://"));
-  const realDocs = docs.filter((d) => !d.file_url.startsWith("ref://"));
-  const hasPendingRef = refDocs.length > 0 && realDocs.length === 0;
-  const hasRealDocs = realDocs.length > 0;
-  const count = realDocs.length;
+  // Links externos (Drive, Dropbox, etc.) contam como anexo válido — só são "pendência"
+  // os refs internos não-http (ex.: ref://placeholder, ref://manual) que indicam falta de upload.
+  const isExternalLink = (url: string) => /^ref:\/\/https?:\/\//i.test(url);
+  const isPendingRef = (url: string) => url.startsWith("ref://") && !isExternalLink(url);
+
+  const pendingRefs = docs.filter((d) => isPendingRef(d.file_url));
+  const validDocs = docs.filter((d) => !isPendingRef(d.file_url)); // uploads + links externos
+  const hasPending = pendingRefs.length > 0 && validDocs.length === 0;
+  const hasValidDocs = validDocs.length > 0;
+  const count = validDocs.length;
+
+  const title = hasValidDocs
+    ? `${count} anexo${count === 1 ? "" : "s"} (uploads + links)`
+    : hasPending
+      ? "Anexo pendente"
+      : "Documentos";
 
   return (
-    <button onClick={onClick} className="relative rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title="Documentos">
+    <button onClick={onClick} className="relative rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" title={title}>
       <Paperclip className="h-3.5 w-3.5" />
-      {hasPendingRef && (
+      {hasPending && (
         <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-warning text-[7px] font-bold text-warning-foreground">!</span>
       )}
-      {hasRealDocs && !hasPendingRef && (
+      {hasValidDocs && (
         <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-success text-[7px] font-bold text-success-foreground">{count > 9 ? "+" : count}</span>
       )}
     </button>
