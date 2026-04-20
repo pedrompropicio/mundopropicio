@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -270,7 +271,7 @@ export default function ReportDREBrasil() {
     },
   });
 
-  const { data: closingCosts = [] } = useQuery({
+  const { data: closingCostsRaw = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -281,6 +282,11 @@ export default function ReportDREBrasil() {
       return data;
     },
   });
+  // Proração Master→Splits virtual (÷N) — ver src/lib/overhead-proration.ts
+  const closingCosts = useMemo(
+    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
+    [closingCostsRaw, events],
+  );
 
   const { data: partnerExtras = [] } = useQuery({
     queryKey: ["partner-extras-all"],

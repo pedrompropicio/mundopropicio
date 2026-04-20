@@ -155,7 +155,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return Array.from(new Set(ids));
   }, [eventId, childEventIds, includeSubsInBP]);
 
-  const { data: forecasts = [], isLoading } = useQuery({
+  const { data: forecastsRaw = [], isLoading } = useQuery({
     queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP],
     queryFn: async () => {
       const query = supabase
@@ -169,6 +169,44 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       return data;
     },
   });
+
+  // Overhead via Master: quando este evento é um Split, busca os overheads do Master e
+  // adiciona uma fatia virtual (÷N splits) para esta cidade. Read-only, badge "via Master".
+  const { data: masterOverheadSlice = [] } = useQuery({
+    queryKey: ["bp_overhead_via_master", parentEventId, eventId],
+    queryFn: async () => {
+      if (!parentEventId) return [] as any[];
+      // Conta splits do Master para calcular ÷N
+      const { data: siblings, error: sErr } = await supabase
+        .from("events")
+        .select("id")
+        .eq("parent_event_id", parentEventId);
+      if (sErr) throw sErr;
+      const n = (siblings ?? []).length || 1;
+      const { data: oh, error: ohErr } = await supabase
+        .from("event_forecasts")
+        .select("*, account_categories(code, name, type)")
+        .eq("event_id", parentEventId)
+        .eq("is_overhead", true);
+      if (ohErr) throw ohErr;
+      return (oh ?? []).map((o: any) => ({
+        ...o,
+        id: `${o.id}::split::${eventId}`,
+        event_id: eventId,
+        amount: Number(o.amount) / n,
+        formula_value: Number(o.amount) / n,
+        _overhead_via_master: true,
+        _master_event_id: parentEventId,
+        _readonly: true,
+      }));
+    },
+    enabled: !!parentEventId,
+  });
+
+  const forecasts = useMemo(
+    () => [...(forecastsRaw as any[]), ...(masterOverheadSlice as any[])],
+    [forecastsRaw, masterOverheadSlice],
+  );
 
   // Fetch event partners (sócios) — for child events, fetch from parent
   const partnersSourceId = parentEventId || eventId;
@@ -1879,7 +1917,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               </tr>
                             )}
                             {group.items.map((f) => (
-                              f._prorated ? (
+                              f._overhead_via_master ? (
+                                <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                              ) : f._prorated ? (
                                 <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
@@ -2458,6 +2498,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     title="Rateio de Overhead — não impacta resultado da empresa, mas entra no acerto com sócios. Visível apenas para admin/manager."
                   >
                     Overhead
+                  </span>
+                )}
+                {item._overhead_via_master && (
+                  <span
+                    className="ml-2 inline-flex items-center rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
+                    title="Fatia proporcional (÷N splits) de um Rateio de Overhead lançado no evento Master. Read-only — edite no Master."
+                  >
+                    via Master
                   </span>
                 )}
               </p>
