@@ -1917,7 +1917,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                               </tr>
                             )}
                             {group.items.map((f) => (
-                              f._prorated ? (
+                              f._overhead_via_master ? (
+                                <ForecastRow key={`oh-master-${f.id}`} item={f} colorClass="text-warning/70" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
+                              ) : f._prorated ? (
                                 <ForecastRow key={`prorated-${f.id}`} item={f} colorClass="text-warning/60" isExpense onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} isAdmin={false} isApproving={false} readOnly indented={showGroupHeader} eventTransactions={transactions} allForecasts={forecasts} />
                               ) : editingId === f.id ? (
                                 <tr key={f.id} className="bg-primary/5" onKeyDown={handleInlineKeyDown}>
