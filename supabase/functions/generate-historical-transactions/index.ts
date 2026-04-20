@@ -115,8 +115,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (event.status !== "completed") {
-      return new Response(JSON.stringify({ error: "Apenas eventos concluídos permitem gerar transações históricas" }), {
+    if (event.status !== "completed" && event.status !== "active") {
+      return new Response(JSON.stringify({ error: "Apenas eventos ativos ou concluídos permitem gerar transações históricas" }), {
         status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
