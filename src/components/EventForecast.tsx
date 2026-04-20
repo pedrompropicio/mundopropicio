@@ -33,6 +33,7 @@ import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
+import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
 
 interface InlineForm {
   type: string;
