@@ -128,6 +128,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [splitExpanded, setSplitExpanded] = useState(false);
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
+  const [partnerPaidDate, setPartnerPaidDate] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
@@ -1277,6 +1278,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     if (isPaidByPartner && !paidByPartnerId) {
       toast({ title: "Selecione o sócio que pagou a despesa", variant: "destructive" });
+      return;
+    }
+    if (isPaidByPartner && !partnerPaidDate) {
+      toast({ title: "Indique a data em que o sócio pagou", variant: "destructive" });
       return;
     }
 
