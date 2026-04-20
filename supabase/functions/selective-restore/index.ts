@@ -224,22 +224,23 @@ Deno.serve(async (req) => {
     // Auth: must be admin user (no cron access for restore)
     const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     const token = authHeader?.replace(/^Bearer\s+/i, "").trim() ?? "";
-    if (!token || token === anonKey) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (token !== serviceRoleKey) {
-      const anonClient = createClient(supabaseUrl, anonKey);
-      const { data: { user }, error: authErr } = await anonClient.auth.getUser(token);
-      if (authErr || !user) {
+
+    let role: string | null = null;
+    let userId: string | null = null;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+      role = payload?.role ?? null;
+      userId = payload?.sub ?? null;
+    } catch { /* not a JWT */ }
+
+    if (role !== "service_role") {
+      if (!userId) {
         return new Response(JSON.stringify({ error: "Não autorizado" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const { data: roleData } = await adminClient
-        .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Apenas administradores podem restaurar" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
