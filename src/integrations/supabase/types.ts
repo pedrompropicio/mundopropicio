@@ -747,6 +747,7 @@ export type Database = {
           fx_rate_source: string | null
           id: string
           invoice_group_id: string | null
+          is_overhead: boolean
           is_transitory: boolean
           iva_rate: number
           master_forecast_id: string | null
@@ -776,6 +777,7 @@ export type Database = {
           fx_rate_source?: string | null
           id?: string
           invoice_group_id?: string | null
+          is_overhead?: boolean
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
@@ -805,6 +807,7 @@ export type Database = {
           fx_rate_source?: string | null
           id?: string
           invoice_group_id?: string | null
+          is_overhead?: boolean
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null

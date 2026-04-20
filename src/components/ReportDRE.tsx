@@ -277,10 +277,15 @@ export default function ReportDRE() {
     },
   });
 
+  // Rateios de Overhead — guardados em event_forecasts com is_overhead=true.
+  // Mapeados para o shape antigo de closing_costs para retro-compatibilidade.
   const { data: closingCosts = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_closing_costs").select("*, account_categories(code, name)");
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, amount, description, category_id, account_categories(code, name)")
+        .eq("is_overhead", true);
       if (error) throw error;
       return data;
     },

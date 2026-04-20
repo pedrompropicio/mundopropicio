@@ -174,8 +174,9 @@ function buildPL(
     overrideByCatName[catName].notes.push(t.pl_override_note);
   });
 
-  const fInc = forecasts.filter((f) => f.type === "income");
-  const fExp = forecasts.filter((f) => f.type === "expense");
+  // Rateios de overhead (is_overhead) são tratados em secção separada — não impactam o resultado da empresa.
+  const fInc = forecasts.filter((f) => f.type === "income" && !f.is_overhead);
+  const fExp = forecasts.filter((f) => f.type === "expense" && !f.is_overhead);
   const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
@@ -585,8 +586,8 @@ export default function ReportPL() {
 
   const eventSummaries = activeEvents.map((e) => {
     const { evtF, evtT } = getEffectiveData(e.id);
-    const fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExp = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fInc = evtF.filter((f: any) => f.type === "income" && !f.is_overhead).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fExp = evtF.filter((f: any) => f.type === "expense" && !f.is_overhead).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income" && !t.is_transitory && !t.exclude_from_result).reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result).reduce((s: number, t: any) => s + Number(t.amount), 0);
     const ticketEventIds = getTicketEventIds(e.id);

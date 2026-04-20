@@ -73,7 +73,10 @@ export default function ReportDREEmpresarial() {
   const { data: closingCosts = [] } = useQuery({
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_closing_costs").select("*");
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, amount, description, category_id")
+        .eq("is_overhead", true);
       if (error) throw error;
       return data;
     },
