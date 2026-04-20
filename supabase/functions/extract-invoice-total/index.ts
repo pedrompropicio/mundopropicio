@@ -11,6 +11,17 @@ interface ReqBody {
   mimeType?: string;
 }
 
+interface VatBreakdownRow {
+  /** IVA rate as integer percentage: 0, 6, 13, 23. */
+  rate: number;
+  /** Sum of bases (excl. VAT) at this rate. */
+  base: number;
+  /** VAT amount at this rate. */
+  iva: number;
+  /** Total incl. VAT at this rate (base + iva). */
+  total: number;
+}
+
 interface ExtractResult {
   total: number | null;
   currency: string | null;
@@ -23,6 +34,8 @@ interface ExtractResult {
   document_type: string | null;
   /** Concise free-text description of the services/products billed (used for category matching). */
   service_description: string | null;
+  /** Subtotals per VAT rate (footer "Resumo do IVA / Base por taxa"). Empty when single-rate. */
+  vat_breakdown: VatBreakdownRow[];
   raw?: string;
   error?: string;
 }
