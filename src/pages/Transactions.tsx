@@ -32,6 +32,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import BPViewerModal from "@/components/BPViewerModal";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
@@ -71,6 +72,7 @@ export default function Transactions() {
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [showBPViewer, setShowBPViewer] = useState(false);
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
@@ -855,6 +857,14 @@ export default function Transactions() {
             <ArrowRightLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Transferência</span>
             <HelpTooltip text={helpTexts.transferBetweenAccounts} size={13} />
+          </button>
+          <button
+            onClick={() => setShowBPViewer(true)}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+            title="Consultar Business Plan (Previsões e Previsão vs Real)"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Consultar BP</span>
           </button>
           {(isAdmin || isManager || hasPermission("manage_ticket_offices")) && (
             <TicketOfficeSettlementLauncher />
