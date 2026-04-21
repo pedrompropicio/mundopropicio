@@ -11,7 +11,7 @@
  */
 
 export const HOUSE_PARTNER_ID = "__house_mundo_propicio__";
-export const HOUSE_PARTNER_NAME = "Mundo Propício";
+export const HOUSE_PARTNER_NAME = "MUNDO PROPÍCIO";
 
 export interface HousePartnerLike {
   id: string;

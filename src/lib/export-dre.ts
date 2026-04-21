@@ -162,7 +162,7 @@ export function buildDREForExport(
     const retained = brasilMode ? (totalIncEx - totalExpInc) - totalDistribution : resEx - totalDistribution;
     const housePct = Math.max(0, 100 - partners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
     lines.push({
-      label: `Mundo Propício (${housePct.toFixed(1)}%)`,
+      label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
@@ -641,7 +641,7 @@ export function exportDREToPDF(
       doc.rect(marginLeft, y - 1, contentWidth, 7, "F");
       doc.setFont("helvetica", "italic");
       doc.setFontSize(8);
-      doc.text(`  Mundo Propício (${tourHousePct.toFixed(1)}%)`, sumColX[0] + 2, y + 4);
+      doc.text(`  MUNDO PROPÍCIO (${tourHousePct.toFixed(1)}%)`, sumColX[0] + 2, y + 4);
       doc.setTextColor(200, 150, 0);
       doc.text(fmtVal(retained), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
