@@ -828,10 +828,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       const direction = s.settlement > 0
-        ? `→ MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
+        ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
         : s.settlement < 0
-          ? `→ Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
-          : "→ Sem saldo pendente";
+          ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
+          : "-> Sem saldo pendente";
       doc.text(direction, margin, y);
       y += 8;
     }
