@@ -133,6 +133,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
   const [isPartnerExtra, setIsPartnerExtra] = useState(false);
   const [partnerExtraId, setPartnerExtraId] = useState("");
+  // Split parcial: quando preenchido (>0 e < amount total), apenas X€ da fatura é extra do sócio.
+  // Cria transação principal pelo total (entra DRE/BP) + transação irmã transitória pelo parcial,
+  // ligadas pelo mesmo invoice_group_id. A irmã vincula-se a partner_advance_expenses.
+  const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
