@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { HOUSE_PARTNER_ID, HOUSE_PARTNER_NAME, computeHousePercentage } from "@/lib/house-partner";
 
 export default function ReportPartnerSettlement() {
   const { data: partners = [], isLoading } = useQuery({
@@ -95,42 +96,72 @@ export default function ReportPartnerSettlement() {
   }
 
   const settlementData: SettlementRow[] = useMemo(() => {
-    return partners.map((p) => {
-      const ev = p.events as any;
-      if (!ev) return null;
-      const supplierName = (p.suppliers as any)?.name ?? "Desconhecido";
+    // Group partners by event so we can inject Mundo Propício per evento
+    const partnersByEvent: Record<string, any[]> = {};
+    partners.forEach((p) => {
+      if (!p.event_id) return;
+      if (!partnersByEvent[p.event_id]) partnersByEvent[p.event_id] = [];
+      partnersByEvent[p.event_id].push(p);
+    });
 
-      const evTxs = transactions.filter((t) => t.event_id === p.event_id && !t.is_transitory && !t.exclude_from_result);
+    const rows: SettlementRow[] = [];
+    Object.entries(partnersByEvent).forEach(([evId, evPartners]) => {
+      const sample = evPartners[0];
+      const ev = sample.events as any;
+      if (!ev) return;
+
+      const evTxs = transactions.filter((t) => t.event_id === evId && !t.is_transitory && !t.exclude_from_result);
       const revenue = evTxs.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
       const expense = evTxs.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
-      // Overhead deste evento entra como despesa adicional para o sócio
       const overhead = overheads
-        .filter((o: any) => o.event_id === p.event_id)
+        .filter((o: any) => o.event_id === evId)
         .reduce((s: number, o: any) => s + Number(o.amount), 0);
       const result = revenue - expense - overhead;
 
-      const partnerShare = result * (p.percentage / 100);
-      const partnerExtras = extras.filter((e) => e.partner_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
-      const partnerPaid = paidExpenses
-        .filter((pe) => pe.partner_id === p.id)
-        .reduce((s, pe) => s + Number((pe.transactions as any)?.amount ?? 0), 0);
+      // External partners
+      evPartners.forEach((p) => {
+        const supplierName = (p.suppliers as any)?.name ?? "Desconhecido";
+        const partnerShare = result * (p.percentage / 100);
+        const partnerExtras = extras.filter((e) => e.partner_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
+        const partnerPaid = paidExpenses
+          .filter((pe) => pe.partner_id === p.id)
+          .reduce((s, pe) => s + Number((pe.transactions as any)?.amount ?? 0), 0);
+        rows.push({
+          partnerId: p.id,
+          partnerName: supplierName,
+          eventName: ev.name,
+          eventStatus: ev.status,
+          percentage: p.percentage,
+          result,
+          overhead,
+          partnerShare,
+          extras: partnerExtras,
+          paidExpenses: partnerPaid,
+          settlement: partnerShare - partnerExtras + partnerPaid,
+        });
+      });
 
-      const settlement = partnerShare - partnerExtras + partnerPaid;
+      // Mundo Propício (casa) — quota residual
+      const housePct = computeHousePercentage(evPartners.map((p) => ({ percentage: p.percentage })));
+      if (housePct != null) {
+        const houseShare = result * (housePct / 100);
+        rows.push({
+          partnerId: `${HOUSE_PARTNER_ID}-${evId}`,
+          partnerName: HOUSE_PARTNER_NAME,
+          eventName: ev.name,
+          eventStatus: ev.status,
+          percentage: housePct,
+          result,
+          overhead,
+          partnerShare: houseShare,
+          extras: 0,
+          paidExpenses: 0,
+          settlement: houseShare,
+        });
+      }
+    });
 
-      return {
-        partnerId: p.id,
-        partnerName: supplierName,
-        eventName: ev.name,
-        eventStatus: ev.status,
-        percentage: p.percentage,
-        result,
-        overhead,
-        partnerShare,
-        extras: partnerExtras,
-        paidExpenses: partnerPaid,
-        settlement,
-      } as SettlementRow;
-    }).filter(Boolean) as SettlementRow[];
+    return rows;
   }, [partners, transactions, extras, paidExpenses, overheads]);
 
   const totals = settlementData.reduce(
