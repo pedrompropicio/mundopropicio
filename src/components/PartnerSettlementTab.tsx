@@ -851,8 +851,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y += 5;
 
       // Larguras explícitas
-      const expCol1 = 130; // L1/L2 descrição
-      const expColC = 22;  // contagem
+      const expCol1 = 118; // L1/L2 descrição
+      const expColC = 34;  // contagem (cabe "Lançamentos")
       const expColV = (tableWidth - expCol1 - expColC) / 2;
 
       // Agrupar L2 por L1
@@ -958,20 +958,26 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
       ]],
       margin: { left: margin, right: margin },
+      tableWidth,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [41, 41, 41] },
       footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: {
-        0: { halign: "left" },
-        1: { halign: "center" },
-        2: { halign: "right" },
-        3: { halign: "right" },
-        4: { halign: "right" },
-        5: { halign: "right" },
-      },
+      columnStyles: (() => {
+        const colPct = 18;
+        const colSocio = 40;
+        const colVal = (tableWidth - colSocio - colPct) / 4;
+        return {
+          0: { cellWidth: colSocio, halign: "left" },
+          1: { cellWidth: colPct, halign: "center" },
+          2: { cellWidth: colVal, halign: "right" },
+          3: { cellWidth: colVal, halign: "right" },
+          4: { cellWidth: colVal, halign: "right" },
+          5: { cellWidth: colVal, halign: "right" },
+        };
+      })(),
       didParseCell: (data) => {
         // Alinha o cabeçalho às mesmas posições das células do corpo
-        if (data.section === "head") {
+        if (data.section === "head" || data.section === "foot") {
           if (data.column.index === 0) data.cell.styles.halign = "left";
           else if (data.column.index === 1) data.cell.styles.halign = "center";
           else data.cell.styles.halign = "right";
