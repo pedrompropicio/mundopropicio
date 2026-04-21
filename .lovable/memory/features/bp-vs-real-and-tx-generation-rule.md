@@ -21,11 +21,13 @@ Antes de chamar `buildComparison`, o `EventForecast.tsx` filtra dois arrays para
 - Apenas `status in ("approved","paid")` (pendentes não inflam o Real).
 - Exclui `is_transitory` e `exclude_from_result`.
 - **Master sem toggle Master+Subs**: ignora TX de filhos (`t.event_id && t.event_id !== eventId`). Multi-event masters (`event_id === null`) continuam a aparecer.
+- **Simetria por categoria (2026-04, decisão Mágicos)**: o Real só soma TX cuja `category_id` **existe no BP approved** do próprio evento sendo visto (`bpCategoryIds`). TX sem categoria ficam fora. Master compara só contas do BP Master; Sub só do BP local. Sem isto, despesas locais de subs entravam no Real do Master mesmo sem terem sido orçadas nele e geravam variações enormes em contas que o Master nunca planeou.
 
 ### Por que estas regras
 No projecto Mágicos a vista estava confusa porque:
 1. Real incluía pendentes e transitórias (cauções) → totais inflados.
 2. Master mostrava TX dos subs no Real mas Previsto só era do Master se toggle OFF → assimetria visual.
 3. Overhead Master rateado aparecia também no Sub via `_overhead_via_master`, fazendo dupla contagem visual.
+4. Real do Master somava TX de categorias que existiam só no BP do Sub (ex: "Locação de Espaço", "Camarins") → variação absurda.
 
-A vista agora é **estrita e simétrica**: o que se vê no Previsto e no Real cobre o mesmo conjunto de eventos e o mesmo critério de "real económico aprovado".
+A vista agora é **estrita e simétrica**: o que se vê no Previsto e no Real cobre o mesmo conjunto de eventos **e o mesmo conjunto de categorias do BP**.
