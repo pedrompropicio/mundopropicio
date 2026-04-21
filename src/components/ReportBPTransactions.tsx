@@ -216,12 +216,19 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       (f: any) =>
         relevantEventIds.includes(f.event_id) &&
         f.type === "expense" &&
-        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved")
+        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved") &&
+        // Em sub-eventos, opcionalmente exclui linhas vindas de rateio Master
+        (!isSubEvent || includeMasterApportionment || !f.master_forecast_id)
     );
 
     // Filter transactions for this event (expenses only, approved or paid)
     const eventTransactions: TransactionWithMeta[] = transactions
-      .filter((t: any) => relevantEventIds.includes(t.event_id) && t.type === "expense")
+      .filter(
+        (t: any) =>
+          relevantEventIds.includes(t.event_id) &&
+          t.type === "expense" &&
+          (!isSubEvent || includeMasterApportionment || !t.parent_transaction_id)
+      )
       .map((t: any) => {
         const pp = partnerPaidMap[t.id];
         const ri = reimbursementMap[t.id];
