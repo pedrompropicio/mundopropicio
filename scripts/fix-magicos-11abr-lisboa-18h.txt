@@ -1,0 +1,141 @@
+BEGIN;
+-- Sessão 11/04 18h (2026-04-11) — Henry&Klaus Lisboa, BOL
+DELETE FROM public.ticket_sales WHERE zone_id IN (SELECT id FROM public.event_ticket_zones WHERE session_id='9f9fbf42-b78e-4f4a-8e81-94521f4dd360');
+DELETE FROM public.event_ticket_lots WHERE zone_id IN (SELECT id FROM public.event_ticket_zones WHERE session_id='9f9fbf42-b78e-4f4a-8e81-94521f4dd360');
+DELETE FROM public.event_ticket_zones WHERE session_id='9f9fbf42-b78e-4f4a-8e81-94521f4dd360';
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Cadeiras Orquestra', 70) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 40.0, 6, 70 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 70, 40.0, 2800.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 2ª Frente Imp 6 pax', 99) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 29.9091, 6, 99 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 99, 29.9091, 2961.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 2ª Frente Par 6 pax', 90) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 30.0, 6, 90 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 90, 30.0, 2700.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 2ª Lado Par 5 pax', 12) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 25.0, 6, 12 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 12, 25.0, 300.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 2ª Lado Imp 5 pax', 6) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 25.0, 6, 6 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 6, 25.0, 150.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 1ª Frente Par 6 pax', 36) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 36.0, 6, 36 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 36, 36.0, 1296.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 1ª Lado Par 5 pax', 17) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 34.0, 6, 17 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 17, 34.0, 578.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 1ª Lado Imp 5 pax', 33) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 34.0, 6, 33 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 33, 34.0, 1122.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Camarotes 1ª Frente Imp 6 pax', 89) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 36.0, 6, 89 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 89, 36.0, 3204.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', '1ª Plateia', 402) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 37.9575, 6, 402 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 402, 37.9575, 15258.90, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', '2ª Plateia', 422) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 34.8424, 6, 422 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 422, 34.8424, 14703.50, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Balcão Central Imp', 205) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 35.0, 6, 205 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 205, 35.0, 7175.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Balcão Central Par', 227) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 34.9075, 6, 227 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 227, 34.9075, 7924.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Balcão Imp Visib Reduzida', 13) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 30.0, 6, 13 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 13, 30.0, 390.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+WITH new_zone AS (
+  INSERT INTO public.event_ticket_zones (event_id, session_id, name, total_capacity)
+  VALUES ('7d1dccec-c3e4-4ac6-81b8-5deb993046c7', '9f9fbf42-b78e-4f4a-8e81-94521f4dd360', 'Balcão Par Visib Reduzida', 10) RETURNING id
+), new_lot AS (
+  INSERT INTO public.event_ticket_lots (zone_id, name, lot_type, price, iva_rate, quantity)
+  SELECT id, 'Mapa Total 11/04', 'regular', 30.0, 6, 10 FROM new_zone RETURNING id, zone_id
+)
+INSERT INTO public.ticket_sales (zone_id, lot_id, sale_date, quantity, unit_price, total_value, financial_account_id, source)
+SELECT zone_id, id, '2026-04-11', 10, 30.0, 300.00, 'af31f462-1a02-4d11-b2f8-987487dc9829', 'import' FROM new_lot;
+COMMIT;
