@@ -325,6 +325,34 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         y = (doc as any).lastAutoTable.finalY + 6;
       }
 
+      // Partner advances detail (Extras do Sócio)
+      if (s.partnerExtras.length > 0) {
+        if (y > 170) { doc.addPage(); y = 16; }
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "italic");
+        doc.text("Detalhe dos extras do sócio (pagas pela empresa, abatidas):", margin, y);
+        y += 4;
+
+        autoTable(doc, {
+          startY: y,
+          head: [["Descrição", "Categoria", "Data", "Valor"]],
+          body: s.partnerExtras.map(e => [
+            e.description,
+            e.category,
+            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+            `−${formatCurrency(e.amount)}`,
+          ]),
+          foot: [["Total a abater", "", "", `−${formatCurrency(s.totalPartnerExtras)}`]],
+          margin: { left: margin + 4, right: margin },
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [120, 60, 60] },
+          footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
+          columnStyles: { 3: { halign: "right" } },
+        });
+
+        y = (doc as any).lastAutoTable.finalY + 6;
+      }
+
       // Settlement direction
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
