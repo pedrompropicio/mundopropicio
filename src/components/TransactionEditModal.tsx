@@ -173,6 +173,36 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
   }, [partnerPaidLink?.paid_date]);
 
+  // Detect if this transaction is an Extra do Sócio (despesa a abater do sócio no fecho)
+  const { data: partnerExtraLink } = useQuery({
+    queryKey: ["partner-extra-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("id, partner_id, event_id, event_partners(suppliers(name), percentage)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isPartnerExtra = !!partnerExtraLink;
+
+  // Partners for the event (used to convert/change Extra)
+  const { data: eventPartnersForExtra = [] } = useQuery({
+    queryKey: ["event-partners-edit", form.event_id],
+    queryFn: async () => {
+      if (!form.event_id) return [];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers(name)")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!form.event_id,
+  });
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
