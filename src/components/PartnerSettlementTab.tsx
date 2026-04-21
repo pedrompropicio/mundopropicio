@@ -644,8 +644,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text("3. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
-      // Helper para agregar e renderizar mini-tabela
-      const renderSummary = (
+      // Larguras explícitas para a tabela de bilheteira
+      const tbCol1 = 130; // descrição (cidade/dia/sessão)
+      const tbColQ = 22;
+      const tbColV = (tableWidth - tbCol1 - tbColQ) / 2;
+
+      const fmtRow = (label: string, qty: number, gross: number, net: number) => [
+        label, qty.toString(), formatCurrency(gross), formatCurrency(net),
+      ];
+
+      // Helper para agregar e renderizar mini-tabela genérica (modos session/day/zone/lot)
+      const renderSimple = (
         title: string,
         firstColLabel: string,
         groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
@@ -660,23 +669,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         autoTable(doc, {
           startY: y,
           head: [[firstColLabel, "Qtd.", "Total c/IVA", "Total s/IVA"]],
-          body: groups.map((g) => [
-            g.key,
-            g.quantity.toString(),
-            formatCurrency(g.totalGross),
-            formatCurrency(g.totalNet),
-          ]),
-          foot: [[
+          body: groups.map((g) => fmtRow(g.key, g.quantity, g.totalGross, g.totalNet)),
+          foot: [fmtRow(
             "TOTAL",
-            groups.reduce((s, g) => s + g.quantity, 0).toString(),
-            formatCurrency(groups.reduce((s, g) => s + g.totalGross, 0)),
-            formatCurrency(groups.reduce((s, g) => s + g.totalNet, 0)),
-          ]],
+            groups.reduce((s, g) => s + g.quantity, 0),
+            groups.reduce((s, g) => s + g.totalGross, 0),
+            groups.reduce((s, g) => s + g.totalNet, 0),
+          )],
           margin: { left: margin, right: margin },
+          tableWidth,
           styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [41, 41, 41] },
-          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-          columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+          headStyles: { fillColor: [41, 41, 41], halign: "right" },
+          footStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+          columnStyles: {
+            0: { cellWidth: tbCol1, halign: "left" },
+            1: { cellWidth: tbColQ, halign: "right" },
+            2: { cellWidth: tbColV, halign: "right" },
+            3: { cellWidth: tbColV, halign: "right" },
+          },
         });
         y = (doc as any).lastAutoTable.finalY + 6;
       };
@@ -696,27 +706,112 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       // Renderiza apenas o agrupamento escolhido pelo utilizador
       switch (ticketGroupMode) {
         case "sub_date_session": {
-          const groups = groupBy((r) => {
-            const parts = [r.subEventName, r.dayLabel, r.sessionLabel].filter((p) => p && p !== "—");
-            return parts.join(" | ") || "—";
+          // Agrupar por Cidade > Dia > Sessão com subtotais
+          // Estrutura: { cidade: { dia: { sessão: agg } } }
+          const tree: Record<string, Record<string, Record<string, { quantity: number; totalGross: number; totalNet: number }>>> = {};
+          ticketBreakdown.forEach((r) => {
+            const city = r.cityName || "—";
+            const day = r.dayLabel || "—";
+            const sess = r.sessionLabel || "—";
+            tree[city] = tree[city] || {};
+            tree[city][day] = tree[city][day] || {};
+            tree[city][day][sess] = tree[city][day][sess] || { quantity: 0, totalGross: 0, totalNet: 0 };
+            const a = tree[city][day][sess];
+            a.quantity += r.quantity;
+            a.totalGross += r.totalGross;
+            a.totalNet += r.totalNet;
           });
-          renderSummary("Por Subevento / Data / Sessao", "Subevento / Data / Sessao", groups);
+
+          const body: any[] = [];
+          let grandQty = 0, grandGross = 0, grandNet = 0;
+
+          const sortedCities = Object.keys(tree).sort();
+          sortedCities.forEach((city) => {
+            let cityQty = 0, cityGross = 0, cityNet = 0;
+            const sortedDays = Object.keys(tree[city]).sort((a, b) => {
+              // dd/MM/yyyy → ordenar cronologicamente
+              const pa = a.split("/"); const pb = b.split("/");
+              const da = pa.length === 3 ? `${pa[2]}-${pa[1]}-${pa[0]}` : a;
+              const db = pb.length === 3 ? `${pb[2]}-${pb[1]}-${pb[0]}` : b;
+              return da.localeCompare(db);
+            });
+            sortedDays.forEach((day) => {
+              let dayQty = 0, dayGross = 0, dayNet = 0;
+              const sortedSess = Object.keys(tree[city][day]).sort();
+              sortedSess.forEach((sess) => {
+                const a = tree[city][day][sess];
+                body.push({
+                  row: fmtRow(`    ${sess}`, a.quantity, a.totalGross, a.totalNet),
+                  style: "detail",
+                });
+                dayQty += a.quantity; dayGross += a.totalGross; dayNet += a.totalNet;
+              });
+              body.push({
+                row: fmtRow(`  Subtotal ${day}`, dayQty, dayGross, dayNet),
+                style: "subday",
+              });
+              cityQty += dayQty; cityGross += dayGross; cityNet += dayNet;
+            });
+            body.push({
+              row: fmtRow(`Subtotal ${city}`, cityQty, cityGross, cityNet),
+              style: "subcity",
+            });
+            grandQty += cityQty; grandGross += cityGross; grandNet += cityNet;
+          });
+
+          ensureSpace(20 + body.length * 5);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(60);
+          doc.text("Por Cidade / Data / Sessao", margin, y);
+          y += 3;
+
+          autoTable(doc, {
+            startY: y,
+            head: [["Cidade / Data / Sessao", "Qtd.", "Total c/IVA", "Total s/IVA"]],
+            body: body.map((b) => b.row),
+            foot: [fmtRow("TOTAL GERAL", grandQty, grandGross, grandNet)],
+            margin: { left: margin, right: margin },
+            tableWidth,
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fillColor: [41, 41, 41], halign: "right" },
+            footStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+            columnStyles: {
+              0: { cellWidth: tbCol1, halign: "left" },
+              1: { cellWidth: tbColQ, halign: "right" },
+              2: { cellWidth: tbColV, halign: "right" },
+              3: { cellWidth: tbColV, halign: "right" },
+            },
+            didParseCell: (data) => {
+              if (data.section !== "body") return;
+              const meta = body[data.row.index];
+              if (!meta) return;
+              if (meta.style === "subcity") {
+                data.cell.styles.fontStyle = "bold";
+                data.cell.styles.fillColor = [220, 220, 220];
+              } else if (meta.style === "subday") {
+                data.cell.styles.fontStyle = "bold";
+                data.cell.styles.fillColor = [240, 240, 240];
+              }
+            },
+          });
+          y = (doc as any).lastAutoTable.finalY + 6;
           break;
         }
         case "session": {
-          renderSummary("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
+          renderSimple("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
           break;
         }
         case "day": {
-          renderSummary("Por Dia", "Dia", groupBy((r) => r.dayLabel));
+          renderSimple("Por Dia", "Dia", groupBy((r) => r.dayLabel));
           break;
         }
         case "zone": {
-          renderSummary("Por Zona", "Zona", groupBy((r) => r.zoneName));
+          renderSimple("Por Zona", "Zona", groupBy((r) => r.zoneName));
           break;
         }
         case "lot": {
-          renderSummary("Por Lote", "Lote", groupBy((r) => r.lotName));
+          renderSimple("Por Lote", "Lote", groupBy((r) => r.lotName));
           break;
         }
       }
