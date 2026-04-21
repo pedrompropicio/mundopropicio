@@ -1643,7 +1643,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             >
               <BarChart3 className="h-3.5 w-3.5" />
               BP × Transações
-            </button>
+            </a>
             {isAdmin && approvedWithoutTxCount > 0 && (eventStatus === "completed" || eventStatus === "active") && (
               <button
                 onClick={handleGenerateHistorical}
