@@ -148,6 +148,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         iva_rate: iva,
         formula_type: "fixed",
         formula_value: amt,
+        master_forecast_id: bpForecastId || null,
       };
       let costId = editingId;
       if (editingId) {
@@ -161,6 +162,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             type,
             iva_rate: iva,
             formula_value: amt,
+            master_forecast_id: bpForecastId || null,
           })
           .eq("id", editingId);
         if (error) throw error;
