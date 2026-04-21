@@ -353,7 +353,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, isSubEvent, includeMasterApportionment]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
