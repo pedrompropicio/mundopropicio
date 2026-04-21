@@ -129,6 +129,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
   const [partnerPaidDate, setPartnerPaidDate] = useState("");
+  // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
+  // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
+  const [isPartnerExtra, setIsPartnerExtra] = useState(false);
+  const [partnerExtraId, setPartnerExtraId] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
