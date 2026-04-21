@@ -253,24 +253,7 @@ function Section({ title, groups, emptyText }: { title: string; groups: any[]; e
             </TableHeader>
             <TableBody>
               {groups.map((g) => (
-                <>
-                  <TableRow key={`g-${g.code}`} className="bg-muted/40 font-semibold">
-                    <TableCell>{g.code} — {g.name}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">—</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(g.total)}</TableCell>
-                  </TableRow>
-                  {g.cats.map((c: any) => (
-                    <TableRow key={`c-${g.code}-${c.code}`}>
-                      <TableCell className="pl-6 text-sm">
-                        <span className="text-muted-foreground">[{c.code}]</span> {c.name}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary" className="font-mono">{c.lines.length}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(c.amount)}</TableCell>
-                    </TableRow>
-                  ))}
-                </>
+                <GroupRows key={g.code} group={g} />
               ))}
             </TableBody>
           </Table>
