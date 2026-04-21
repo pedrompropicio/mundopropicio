@@ -295,6 +295,28 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     [pendingAdvances]
   );
 
+  // Faturas/despesas do evento candidatas a receber o abatimento da venda retida pela sala.
+  // Mostra qualquer despesa do evento (qualquer fornecedor) com saldo em aberto.
+  const { data: invoiceCandidates = [] } = useQuery({
+    queryKey: ["settlement_venue_invoice_candidates", eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("transactions")
+        .select("id, description, amount, iva_rate, paid_amount, status, suppliers(name), account_categories(name, code)")
+        .eq("event_id", eventId)
+        .eq("type", "expense")
+        .in("status", ["pending", "approved", "paid"])
+        .order("created_at", { ascending: false });
+      const list = (data || []).map((t: any) => {
+        const total = Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
+        const paid = Number(t.paid_amount || 0);
+        return { ...t, _total: total, _open: Math.max(0, total - paid) };
+      });
+      return list.filter((t: any) => t._open > 0.005 || t.id === venueRetainedInvoiceId);
+    },
+  });
+
   const txnGross = (t: any) => Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
 
   const totalDeductions = useMemo(() => {
@@ -303,7 +325,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       .reduce((acc: number, t: any) => acc + txnGross(t), 0);
   }, [eligibleTxns, selectedTxnIds]);
 
-  const netCalculated = grossRevenue - totalDeductions - totalAdvances;
+  const venueRetainedNum = Number(venueRetainedAmount || 0);
+  const selectedInvoice = useMemo(
+    () => invoiceCandidates.find((t: any) => t.id === venueRetainedInvoiceId),
+    [invoiceCandidates, venueRetainedInvoiceId]
+  );
+  const venueRetainedExceedsInvoice =
+    !!selectedInvoice && venueRetainedNum > 0 && venueRetainedNum > Number(selectedInvoice._open) + 0.005;
+
+  const netCalculated = grossRevenue - totalDeductions - totalAdvances - venueRetainedNum;
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
 
