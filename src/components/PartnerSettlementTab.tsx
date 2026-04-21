@@ -152,8 +152,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, account_categories(name, code)")
+        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, category_id, account_categories(name, code, parent_id)")
         .in("event_id", allEventIds);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Plano de contas completo (para resolver raiz da hierarquia)
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ["all-account-categories-settlement"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("id, name, code, parent_id");
       if (error) throw error;
       return data;
     },
