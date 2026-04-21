@@ -1632,7 +1632,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
             {/* Open the BP × Transactions report pre-filtered to this event,
                 so users can audit per-line execution without leaving context. */}
             <button
-              onClick={() => navigate(`/relatorios/bp-vs-transacoes?eventId=${eventId}`)}
+              onClick={() => navigate(`/relatorios/bp-transacoes?eventId=${eventId}`)}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
               title="Abrir o relatório BP × Transações já filtrado por este evento"
             >
@@ -1720,10 +1720,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <span className="text-xs text-warning font-medium">Rascunhos p/ aprovar</span>
                       </div>
                     )}
-                    {isAdmin && incomeForecasts.some((f) => f.status === "approved") && (
+                    {isAdmin && incomeForecasts.some((f) => isEligibleForBulkTx(f)) && (
                       <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-2 py-1">
                         <Checkbox
-                          checked={incomeForecasts.filter((f) => f.status === "approved").every((f) => selectedIds.has(f.id))}
+                          checked={(() => { const e = incomeForecasts.filter((f) => isEligibleForBulkTx(f)); return e.length > 0 && e.every((f) => selectedIds.has(f.id)); })()}
                           onCheckedChange={() => toggleSelectAllApproved("income")}
                           className="h-3.5 w-3.5 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
@@ -1893,10 +1893,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <span className="text-xs text-warning font-medium">Rascunhos p/ aprovar</span>
                       </div>
                     )}
-                    {isAdmin && expenseForecasts.some((f) => f.status === "approved" && !f.cache_config_id) && (
+                    {isAdmin && expenseForecasts.some((f) => !f.cache_config_id && isEligibleForBulkTx(f)) && (
                       <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-2 py-1">
                         <Checkbox
-                          checked={expenseForecasts.filter((f) => f.status === "approved" && !f.cache_config_id).every((f) => selectedIds.has(f.id))}
+                          checked={(() => { const e = expenseForecasts.filter((f) => !f.cache_config_id && isEligibleForBulkTx(f)); return e.length > 0 && e.every((f) => selectedIds.has(f.id)); })()}
                           onCheckedChange={() => toggleSelectAllApproved("expense")}
                           className="h-3.5 w-3.5 border-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
