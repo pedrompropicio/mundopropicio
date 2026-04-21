@@ -355,6 +355,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     if (hasAdjustment && !adjustmentNotes.trim()) {
       return toast.error("Justifique o ajuste manual do líquido");
     }
+    if (venueRetainedExceedsInvoice) {
+      return toast.error("Valor retido excede o saldo da fatura escolhida");
+    }
     const transferAmt = transferAmount ? Number(transferAmount) : 0;
     if (transferAmt > 0 && !transferAccountId) {
       return toast.error("Selecione a conta destino da transferência");
@@ -389,6 +392,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         document_url: docUrl,
         document_name: docName,
         notes: notes || null,
+        venue_retained_amount: venueRetainedNum,
+        venue_retained_invoice_id: venueRetainedNum > 0 && venueRetainedInvoiceId ? venueRetainedInvoiceId : null,
+        venue_retained_notes: venueRetainedNum > 0 ? (venueRetainedNotes || null) : null,
         status: confirm ? "confirmed" : "draft",
       };
       if (confirm) {
