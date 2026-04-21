@@ -379,12 +379,18 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {t.is_transitory && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-0.5 rounded border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-purple-600 dark:text-purple-400 cursor-help">
-                        🔄 Transitória
+                      <span className={`inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-semibold cursor-help ${
+                        isPartnerExtra
+                          ? "border-warning/40 bg-warning/10 text-warning"
+                          : "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                      }`}>
+                        {isPartnerExtra ? "🧳 Extra Sócio" : "🔄 Transitória"}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs text-xs">
-                      <p>Transação transitória (caução/depósito) — não impacta o resultado do evento.</p>
+                      <p>{isPartnerExtra
+                        ? "Despesa paga pela empresa, descontada do sócio no fecho do evento. Não impacta DRE/BP."
+                        : "Transação transitória (caução/depósito) — não impacta o resultado do evento."}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
