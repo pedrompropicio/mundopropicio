@@ -1,6 +1,6 @@
 ---
 name: Overhead allocations
-description: Rateios de overhead em event_forecasts (is_overhead=true) com proração virtual Master→Splits (÷N igualitário); aparecem em BP/DRE com badge "Overhead" (admin/manager) e "via Master" nos splits; exclude_from_result=true (não impactam empresa); somam ao acerto de sócios proporcionalmente em cada split
+description: Rateios de overhead em event_forecasts (is_overhead=true) com proração virtual Master→Splits (÷N igualitário); aparecem em BP/DRE com badge "Overhead" (admin/manager) e "via Master" nos splits; exclude_from_result=true (não impactam empresa); somam ao acerto de sócios proporcionalmente em cada split; toggles "Com/Sem Overhead" em Previsão vs Real, DRE, DRE Brasil e Análise de Resultados
 type: feature
 ---
 
@@ -33,11 +33,25 @@ Helper `expandOverheadToSplits(overheads, events)` em `src/lib/overhead-proratio
 1. **`ReportPartnerSettlement`**: cada sócio de cada cidade absorve a fatia que lhe cabe (essencial — sócios podem ser diferentes por cidade)
 2. **`ReportDRE`** (vista sócio com `showPartnerView`): split mostra fatia, Master continua a mostrar total
 3. **`ReportDREBrasil` / `ReportDREEmpresarial`**: idem
-4. **`ResultsAnalysis`**: Planeado/Real do split inclui a fatia
+4. **`ResultsAnalysis`**: Planeado/Real do split inclui a fatia (gateado pelo toggle local)
 5. **`EventForecast` (BP do Split)**: query separada `bp_overhead_via_master` busca overheads do Master e adiciona fatia virtual ao array `forecasts`. Renderiza com `readOnly=true` e badge `via Master` (primary, sempre visível). Não permite editar/eliminar.
 
 ### Critério de proração
 - Default: **igual entre splits** (÷N). Custos não-volumétricos como assessoria/jurídico não escalam com receita; partilha equitativa é o critério mais previsível.
+
+## Toggles "Com / Sem Overhead" nos relatórios (decisão 2026-04)
+Para resolver a ambiguidade entre "Vista Empresa" (overhead fora, coerente com DRE) e "Vista Sócio" (overhead dentro, coerente com Acerto), todos os relatórios relevantes têm um seletor com 2 opções:
+
+| Relatório | Componente | Default | Mecanismo |
+|---|---|---|---|
+| **Previsão vs Real** (BP do evento) | `EventForecast.tsx` → `includeOverheadInComparison` | OFF (Sem overhead) | Quando ON, `comparisonForecasts` inclui linhas `is_overhead=true` do próprio evento + fatia `_overhead_via_master` no split. Coluna Real fica €0 nessas linhas (overhead não gera TX) — útil para auditar planeamento |
+| **DRE** | `ReportDRE.tsx` → `showPartnerView` | OFF (Vista Empresa) | Switch "Vista Sócio (com Overhead)" — gate em `closingCosts` |
+| **DRE Brasil** | `ReportDREBrasil.tsx` → `showPartnerView` | OFF (Vista Empresa) | Idem |
+| **Análise de Resultados** | `ResultsAnalysis.tsx` → `includeOverhead` | OFF (Vista Empresa) | Quando ON, `closingMap` é populado e soma ao `bpExpense` / `realExpense` de Planeado 100% / 80% / Real Atual |
+| **Acerto com Sócios** | `ReportPartnerSettlement.tsx` | sempre ON | Por natureza é sempre vista do sócio |
+| **DRE Empresarial** | `ReportDREEmpresarial.tsx` | sempre considera overhead em secção separada | Não é toggle, mas não duplica |
+
+**Justificação**: o overhead é por design "informativo" para a empresa (já foi pago noutros momentos) e "computado" para o sócio (reduz o resultado dele). O toggle deixa o utilizador escolher a perspetiva sem misturar.
 
 ### Conflito com BP existente (mesma categoria)
 - Política: **somar** — overhead acresce ao BP da categoria. Não substitui, não consome saldo.
