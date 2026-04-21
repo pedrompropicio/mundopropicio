@@ -30,6 +30,7 @@ interface DRELine {
   isPartnerExtra?: boolean;
   isPartnerNet?: boolean;
   isHouse?: boolean;
+}
 
 function calcAmountWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
