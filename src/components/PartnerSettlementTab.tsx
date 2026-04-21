@@ -509,12 +509,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text(`Relatório de Fecho — ${eventName}`, margin, y);
-    y += 6;
+    y += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
-    doc.text(`Base: ${getPartnerCalcBasisLabel(calcBasis)}`, pageW - margin, y, { align: "right" });
+    y += 4;
+    doc.text(`Base de cálculo: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -522,7 +523,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("1. Resumo Financeiro", margin, y);
-    y += 4;
+    y += 5;
 
     autoTable(doc, {
       startY: y,
