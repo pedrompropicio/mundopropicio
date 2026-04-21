@@ -64,7 +64,10 @@ interface CityBreakdown {
 }
 
 interface CategoryExpenseRow {
-  category: string;
+  l1Code: string;
+  l1Name: string;
+  l2Code: string;
+  l2Name: string;
   amountNet: number;
   amountGross: number;
   count: number;
@@ -75,7 +78,9 @@ interface TicketBreakdownRow {
   lotName: string;
   sessionLabel: string; // "DD/MM" ou "DD/MM HH:MM" ou "—"
   dayLabel: string;     // "DD/MM/YYYY"
-  subEventName: string; // Nome do sub-evento (ou nome do próprio evento se não for turnê)
+  subEventName: string; // Nome do sub-evento
+  cityName: string;     // Nome da cidade (ou nome do evento se não tiver cidade)
+  eventId: string;      // ID do sub-evento (para cruzar com cityBreakdown)
   quantity: number;
   unitPrice: number;
   totalGross: number;
@@ -227,7 +232,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Ticket sales detalhadas (zone+lot) com sessão e dia
+  // Ticket sales detalhadas (zone+lot) com sessão, dia, cidade e sub-evento
   const { data: ticketBreakdown = [] } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
@@ -242,7 +247,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .in("event_id", allEventIds),
         supabase
           .from("events")
-          .select("id, name")
+          .select("id, name, cities(name)")
           .in("id", allEventIds),
       ]);
       const zones = zonesRes.data || [];
@@ -283,12 +288,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const lbl = sess.label && sess.label !== "default" ? sess.label : "";
           sessionLabel = [d, t, lbl].filter(Boolean).join(" ") || "—";
         }
+        const cityName = (ev?.cities as any)?.name || ev?.name || eventName;
         return {
           zoneName: z?.name || "—",
           lotName: l.name || "—",
           sessionLabel,
           dayLabel,
           subEventName: ev?.name || eventName,
+          cityName,
+          eventId: ev?.id || "",
           quantity: agg.quantity,
           unitPrice: Number(l.price || 0),
           totalGross: agg.gross,
@@ -353,6 +361,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const resultBase = revenueBase - expenseBase;
 
   // ---- City breakdown (para turnês) ----
+  // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions
+  // Despesas = transactions de despesa do sub-evento (com e sem IVA)
   const cityBreakdown: CityBreakdown[] = isTour
     ? subEvents
         .filter((se: any) => se.id !== eventId)
@@ -360,8 +370,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const evtTx = validTx.filter((t: any) => t.event_id === se.id);
           const inc = evtTx.filter((t: any) => t.type === "income");
           const exp = evtTx.filter((t: any) => t.type === "expense");
-          const revenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
-          const revenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
+          const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          // Receita de bilheteira do sub-evento (somar ticketBreakdown filtrado)
+          const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
+          const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
+          const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
+          const revenueNet = tbNet + txRevenueNet;
+          const revenueGross = tbGross + txRevenueGross;
           const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
           const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
           return {
@@ -376,32 +392,57 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         })
     : [];
 
-  // ---- Despesas agrupadas pela categoria RAIZ (nível 1 do Plano de Contas) ----
+  // ---- Despesas agrupadas pelos níveis 1 e 2 do Plano de Contas ----
+  // Resolve cadeia de pais até obter L1 (raiz) e L2 (nível imediatamente abaixo da raiz).
   const expenseByCategory: CategoryExpenseRow[] = (() => {
     const catById: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
     (allCategories as any[]).forEach((c) => { catById[c.id] = c; });
-    const findRoot = (catId: string | null | undefined): { name: string; code: string } | null => {
+    // Devolve [L1, L2] — onde L2 pode ser igual a L1 se a categoria estiver no nível raiz.
+    const findL1L2 = (catId: string | null | undefined): { l1: any; l2: any } | null => {
       if (!catId) return null;
+      const chain: any[] = [];
       let cur = catById[catId];
       const guard = new Set<string>();
-      while (cur && cur.parent_id && !guard.has(cur.id)) {
+      while (cur && !guard.has(cur.id)) {
         guard.add(cur.id);
+        chain.push(cur);
+        if (!cur.parent_id) break;
         const parent = catById[cur.parent_id];
         if (!parent) break;
         cur = parent;
       }
-      return cur ? { name: cur.name, code: cur.code } : null;
+      // chain está ordenada do nível mais profundo até à raiz; inverter para ter raiz primeiro
+      chain.reverse();
+      const l1 = chain[0];
+      const l2 = chain[1] || chain[0];
+      return l1 ? { l1, l2 } : null;
     };
     const map: Record<string, CategoryExpenseRow> = {};
     expenseTransactions.forEach((t: any) => {
-      const root = findRoot(t.category_id);
-      const label = root ? `${root.code} ${root.name}` : "Sem categoria";
-      if (!map[label]) map[label] = { category: label, amountNet: 0, amountGross: 0, count: 0 };
-      map[label].amountNet += Number(t.amount);
-      map[label].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
-      map[label].count += 1;
+      const lv = findL1L2(t.category_id);
+      const l1 = lv?.l1;
+      const l2 = lv?.l2;
+      const key = l1 && l2 ? `${l1.code}|${l2.code}` : "sem-categoria";
+      if (!map[key]) {
+        map[key] = {
+          l1Code: l1?.code || "",
+          l1Name: l1?.name || "Sem categoria",
+          l2Code: l2?.code || "",
+          l2Name: l2?.name || "Sem categoria",
+          amountNet: 0,
+          amountGross: 0,
+          count: 0,
+        };
+      }
+      map[key].amountNet += Number(t.amount);
+      map[key].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
+      map[key].count += 1;
     });
-    return Object.values(map).sort((a, b) => b.amountNet - a.amountNet);
+    return Object.values(map).sort((a, b) => {
+      const c1 = a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true });
+      if (c1 !== 0) return c1;
+      return a.l2Code.localeCompare(b.l2Code, undefined, { numeric: true });
+    });
   })();
 
   // ---- Box-office settlements rows ----
@@ -526,6 +567,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 8;
 
     // ===== 1. RESUMO FINANCEIRO =====
+    // Larguras explícitas para garantir alinhamento dos totais com os cabeçalhos.
+    const tableWidth = pageW - margin * 2;
+    const labelColW = 90;
+    const valueColW = (tableWidth - labelColW) / 2;
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("1. Resumo Financeiro", margin, y);
@@ -537,12 +583,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       body: [
         ["Receita", formatCurrency(totalRevenueNet), formatCurrency(totalRevenueGross)],
         ["Despesas", formatCurrency(totalExpensesNet), formatCurrency(totalExpensesGross)],
-        ["Resultado (base de cálculo)", formatCurrency(resultBase), ""],
+        ["Resultado", formatCurrency(totalRevenueNet - totalExpensesNet), formatCurrency(totalRevenueGross - totalExpensesGross)],
       ],
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [41, 41, 41] },
-      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+      tableWidth,
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [41, 41, 41], halign: "right" },
+      columnStyles: {
+        0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
+        1: { cellWidth: valueColW, halign: "right" },
+        2: { cellWidth: valueColW, halign: "right" },
+      },
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -553,25 +604,33 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFont("helvetica", "bold");
       doc.text("2. Quebra por Cidade", margin, y);
       y += 5;
+      const cityCol1 = 60;
+      const cityValW = (tableWidth - cityCol1) / 3;
       autoTable(doc, {
         startY: y,
-        head: [["Cidade", "Receita s/IVA", "Despesa s/IVA", "Resultado"]],
+        head: [["Cidade", "Receita s/IVA", "Despesa c/IVA", "Resultado"]],
         body: cityBreakdown.map((c) => [
           c.cityName,
           formatCurrency(c.revenueNet),
-          formatCurrency(c.expensesNet),
-          formatCurrency(c.resultNet),
+          formatCurrency(c.expensesGross),
+          formatCurrency(c.revenueNet - c.expensesGross),
         ]),
         foot: [["TOTAL",
           formatCurrency(cityBreakdown.reduce((s, c) => s + c.revenueNet, 0)),
-          formatCurrency(cityBreakdown.reduce((s, c) => s + c.expensesNet, 0)),
-          formatCurrency(cityBreakdown.reduce((s, c) => s + c.resultNet, 0)),
+          formatCurrency(cityBreakdown.reduce((s, c) => s + c.expensesGross, 0)),
+          formatCurrency(cityBreakdown.reduce((s, c) => s + (c.revenueNet - c.expensesGross), 0)),
         ]],
         margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+        columnStyles: {
+          0: { cellWidth: cityCol1, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: cityValW, halign: "right" },
+          2: { cellWidth: cityValW, halign: "right" },
+          3: { cellWidth: cityValW, halign: "right" },
+        },
       });
       y = (doc as any).lastAutoTable.finalY + 8;
     }
@@ -585,8 +644,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text("3. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
-      // Helper para agregar e renderizar mini-tabela
-      const renderSummary = (
+      // Larguras explícitas para a tabela de bilheteira
+      const tbCol1 = 130; // descrição (cidade/dia/sessão)
+      const tbColQ = 22;
+      const tbColV = (tableWidth - tbCol1 - tbColQ) / 2;
+
+      const fmtRow = (label: string, qty: number, gross: number, net: number) => [
+        label, qty.toString(), formatCurrency(gross), formatCurrency(net),
+      ];
+
+      // Helper para agregar e renderizar mini-tabela genérica (modos session/day/zone/lot)
+      const renderSimple = (
         title: string,
         firstColLabel: string,
         groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
@@ -601,23 +669,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         autoTable(doc, {
           startY: y,
           head: [[firstColLabel, "Qtd.", "Total c/IVA", "Total s/IVA"]],
-          body: groups.map((g) => [
-            g.key,
-            g.quantity.toString(),
-            formatCurrency(g.totalGross),
-            formatCurrency(g.totalNet),
-          ]),
-          foot: [[
+          body: groups.map((g) => fmtRow(g.key, g.quantity, g.totalGross, g.totalNet)),
+          foot: [fmtRow(
             "TOTAL",
-            groups.reduce((s, g) => s + g.quantity, 0).toString(),
-            formatCurrency(groups.reduce((s, g) => s + g.totalGross, 0)),
-            formatCurrency(groups.reduce((s, g) => s + g.totalNet, 0)),
-          ]],
+            groups.reduce((s, g) => s + g.quantity, 0),
+            groups.reduce((s, g) => s + g.totalGross, 0),
+            groups.reduce((s, g) => s + g.totalNet, 0),
+          )],
           margin: { left: margin, right: margin },
+          tableWidth,
           styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [41, 41, 41] },
-          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-          columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+          headStyles: { fillColor: [41, 41, 41], halign: "right" },
+          footStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+          columnStyles: {
+            0: { cellWidth: tbCol1, halign: "left" },
+            1: { cellWidth: tbColQ, halign: "right" },
+            2: { cellWidth: tbColV, halign: "right" },
+            3: { cellWidth: tbColV, halign: "right" },
+          },
         });
         y = (doc as any).lastAutoTable.finalY + 6;
       };
@@ -637,27 +706,112 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       // Renderiza apenas o agrupamento escolhido pelo utilizador
       switch (ticketGroupMode) {
         case "sub_date_session": {
-          const groups = groupBy((r) => {
-            const parts = [r.subEventName, r.dayLabel, r.sessionLabel].filter((p) => p && p !== "—");
-            return parts.join(" | ") || "—";
+          // Agrupar por Cidade > Dia > Sessão com subtotais
+          // Estrutura: { cidade: { dia: { sessão: agg } } }
+          const tree: Record<string, Record<string, Record<string, { quantity: number; totalGross: number; totalNet: number }>>> = {};
+          ticketBreakdown.forEach((r) => {
+            const city = r.cityName || "—";
+            const day = r.dayLabel || "—";
+            const sess = r.sessionLabel || "—";
+            tree[city] = tree[city] || {};
+            tree[city][day] = tree[city][day] || {};
+            tree[city][day][sess] = tree[city][day][sess] || { quantity: 0, totalGross: 0, totalNet: 0 };
+            const a = tree[city][day][sess];
+            a.quantity += r.quantity;
+            a.totalGross += r.totalGross;
+            a.totalNet += r.totalNet;
           });
-          renderSummary("Por Subevento / Data / Sessao", "Subevento / Data / Sessao", groups);
+
+          const body: any[] = [];
+          let grandQty = 0, grandGross = 0, grandNet = 0;
+
+          const sortedCities = Object.keys(tree).sort();
+          sortedCities.forEach((city) => {
+            let cityQty = 0, cityGross = 0, cityNet = 0;
+            const sortedDays = Object.keys(tree[city]).sort((a, b) => {
+              // dd/MM/yyyy → ordenar cronologicamente
+              const pa = a.split("/"); const pb = b.split("/");
+              const da = pa.length === 3 ? `${pa[2]}-${pa[1]}-${pa[0]}` : a;
+              const db = pb.length === 3 ? `${pb[2]}-${pb[1]}-${pb[0]}` : b;
+              return da.localeCompare(db);
+            });
+            sortedDays.forEach((day) => {
+              let dayQty = 0, dayGross = 0, dayNet = 0;
+              const sortedSess = Object.keys(tree[city][day]).sort();
+              sortedSess.forEach((sess) => {
+                const a = tree[city][day][sess];
+                body.push({
+                  row: fmtRow(`    ${sess}`, a.quantity, a.totalGross, a.totalNet),
+                  style: "detail",
+                });
+                dayQty += a.quantity; dayGross += a.totalGross; dayNet += a.totalNet;
+              });
+              body.push({
+                row: fmtRow(`  Subtotal ${day}`, dayQty, dayGross, dayNet),
+                style: "subday",
+              });
+              cityQty += dayQty; cityGross += dayGross; cityNet += dayNet;
+            });
+            body.push({
+              row: fmtRow(`Subtotal ${city}`, cityQty, cityGross, cityNet),
+              style: "subcity",
+            });
+            grandQty += cityQty; grandGross += cityGross; grandNet += cityNet;
+          });
+
+          ensureSpace(20 + body.length * 5);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(60);
+          doc.text("Por Cidade / Data / Sessao", margin, y);
+          y += 3;
+
+          autoTable(doc, {
+            startY: y,
+            head: [["Cidade / Data / Sessao", "Qtd.", "Total c/IVA", "Total s/IVA"]],
+            body: body.map((b) => b.row),
+            foot: [fmtRow("TOTAL GERAL", grandQty, grandGross, grandNet)],
+            margin: { left: margin, right: margin },
+            tableWidth,
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fillColor: [41, 41, 41], halign: "right" },
+            footStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+            columnStyles: {
+              0: { cellWidth: tbCol1, halign: "left" },
+              1: { cellWidth: tbColQ, halign: "right" },
+              2: { cellWidth: tbColV, halign: "right" },
+              3: { cellWidth: tbColV, halign: "right" },
+            },
+            didParseCell: (data) => {
+              if (data.section !== "body") return;
+              const meta = body[data.row.index];
+              if (!meta) return;
+              if (meta.style === "subcity") {
+                data.cell.styles.fontStyle = "bold";
+                data.cell.styles.fillColor = [220, 220, 220];
+              } else if (meta.style === "subday") {
+                data.cell.styles.fontStyle = "bold";
+                data.cell.styles.fillColor = [240, 240, 240];
+              }
+            },
+          });
+          y = (doc as any).lastAutoTable.finalY + 6;
           break;
         }
         case "session": {
-          renderSummary("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
+          renderSimple("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
           break;
         }
         case "day": {
-          renderSummary("Por Dia", "Dia", groupBy((r) => r.dayLabel));
+          renderSimple("Por Dia", "Dia", groupBy((r) => r.dayLabel));
           break;
         }
         case "zone": {
-          renderSummary("Por Zona", "Zona", groupBy((r) => r.zoneName));
+          renderSimple("Por Zona", "Zona", groupBy((r) => r.zoneName));
           break;
         }
         case "lot": {
-          renderSummary("Por Lote", "Lote", groupBy((r) => r.lotName));
+          renderSimple("Por Lote", "Lote", groupBy((r) => r.lotName));
           break;
         }
       }
@@ -688,32 +842,94 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 5. DESPESAS POR CATEGORIA =====
+    // ===== 5. DESPESAS POR CATEGORIA (L1 + L2 com subtotais por L1) =====
     if (expenseByCategory.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("5. Despesas por Categoria", margin, y);
       y += 5;
+
+      // Larguras explícitas
+      const expCol1 = 130; // L1/L2 descrição
+      const expColC = 22;  // contagem
+      const expColV = (tableWidth - expCol1 - expColC) / 2;
+
+      // Agrupar L2 por L1
+      const byL1: Record<string, { l1Code: string; l1Name: string; rows: CategoryExpenseRow[] }> = {};
+      expenseByCategory.forEach((r) => {
+        const k = r.l1Code || "_";
+        if (!byL1[k]) byL1[k] = { l1Code: r.l1Code, l1Name: r.l1Name, rows: [] };
+        byL1[k].rows.push(r);
+      });
+
+      const body: { row: any[]; style: "l1" | "l2" }[] = [];
+      let grandCount = 0, grandNet = 0, grandGross = 0;
+
+      Object.values(byL1)
+        .sort((a, b) => a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true }))
+        .forEach((g) => {
+          // Linha L1 (cabeçalho do grupo) com subtotais
+          const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
+          const l1Net = g.rows.reduce((s, r) => s + r.amountNet, 0);
+          const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
+          body.push({
+            row: [
+              `${g.l1Code} ${g.l1Name}`.trim(),
+              l1Count.toString(),
+              formatCurrency(l1Net),
+              formatCurrency(l1Gross),
+            ],
+            style: "l1",
+          });
+          // Linhas L2 (filhas indentadas)
+          g.rows.forEach((r) => {
+            // Se L2 == L1 (categoria sem filho), não duplicar — já apresentada no L1
+            if (r.l2Code === r.l1Code && r.l2Name === r.l1Name) return;
+            body.push({
+              row: [
+                `    ${r.l2Code} ${r.l2Name}`.trim(),
+                r.count.toString(),
+                formatCurrency(r.amountNet),
+                formatCurrency(r.amountGross),
+              ],
+              style: "l2",
+            });
+          });
+          grandCount += l1Count;
+          grandNet += l1Net;
+          grandGross += l1Gross;
+        });
+
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Lançamentos", "s/IVA", "c/IVA"]],
-        body: expenseByCategory.slice(0, 20).map((r) => [
-          r.category,
-          r.count.toString(),
-          formatCurrency(r.amountNet),
-          formatCurrency(r.amountGross),
-        ]),
+        body: body.map((b) => b.row),
         foot: [["TOTAL",
-          expenseByCategory.reduce((s, r) => s + r.count, 0).toString(),
-          formatCurrency(expenseByCategory.reduce((s, r) => s + r.amountNet, 0)),
-          formatCurrency(expenseByCategory.reduce((s, r) => s + r.amountGross, 0)),
+          grandCount.toString(),
+          formatCurrency(grandNet),
+          formatCurrency(grandGross),
         ]],
         margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        footStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+        columnStyles: {
+          0: { cellWidth: expCol1, halign: "left" },
+          1: { cellWidth: expColC, halign: "right" },
+          2: { cellWidth: expColV, halign: "right" },
+          3: { cellWidth: expColV, halign: "right" },
+        },
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const meta = body[data.row.index];
+          if (!meta) return;
+          if (meta.style === "l1") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [230, 230, 230];
+          }
+        },
       });
       y = (doc as any).lastAutoTable.finalY + 8;
     }
@@ -903,19 +1119,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <TableRow>
                 <TableHead>Cidade</TableHead>
                 <TableHead className="text-right">Receita s/IVA</TableHead>
-                <TableHead className="text-right">Despesa s/IVA</TableHead>
+                <TableHead className="text-right">Despesa c/IVA</TableHead>
                 <TableHead className="text-right">Resultado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cityBreakdown.map((c) => (
-                <TableRow key={c.eventId}>
-                  <TableCell>{c.cityName}</TableCell>
-                  <TableCell className="text-right font-mono text-success">{formatCurrency(c.revenueNet)}</TableCell>
-                  <TableCell className="text-right font-mono text-destructive">{formatCurrency(c.expensesNet)}</TableCell>
-                  <TableCell className={`text-right font-mono font-bold ${c.resultNet >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(c.resultNet)}</TableCell>
-                </TableRow>
-              ))}
+              {cityBreakdown.map((c) => {
+                const result = c.revenueNet - c.expensesGross;
+                return (
+                  <TableRow key={c.eventId}>
+                    <TableCell>{c.cityName}</TableCell>
+                    <TableCell className="text-right font-mono text-success">{formatCurrency(c.revenueNet)}</TableCell>
+                    <TableCell className="text-right font-mono text-destructive">{formatCurrency(c.expensesGross)}</TableCell>
+                    <TableCell className={`text-right font-mono font-bold ${result >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(result)}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
