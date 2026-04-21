@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, UserCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,8 +25,36 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
+  const [paidDate, setPaidDate] = useState(() => new Date().toISOString().slice(0, 10));
 
-  // Event partners
+  // Sub-events of this Master (if any) — for tour/multi-day
+  const { data: subEventIds = [] } = useQuery({
+    queryKey: ["sub-event-ids", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id")
+        .eq("parent_event_id", eventId);
+      if (error) throw error;
+      return (data ?? []).map((e: any) => e.id);
+    },
+  });
+
+  // Tree of events (master + subs) with names — for the tx list label
+  const { data: eventNamesMap = new Map<string, string>() } = useQuery({
+    queryKey: ["event-tree-names", eventId, subEventIds.join(",")],
+    queryFn: async () => {
+      const ids = [eventId, ...subEventIds];
+      const { data, error } = await supabase.from("events").select("id, name").in("id", ids);
+      if (error) throw error;
+      const m = new Map<string, string>();
+      (data ?? []).forEach((e: any) => m.set(e.id, e.name));
+      return m;
+    },
+    enabled: subEventIds !== undefined,
+  });
+
+  // Event partners (only Master holds the partners)
   const { data: partners = [] } = useQuery({
     queryKey: ["event-partners", eventId],
     queryFn: async () => {
@@ -40,58 +68,76 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
     },
   });
 
-  // Already-linked expenses
+  // Already-linked expenses across the whole tree
+  const allTreeIds = [eventId, ...subEventIds];
   const { data: paidExpenses = [] } = useQuery({
-    queryKey: ["partner-paid-expenses", eventId],
+    queryKey: ["partner-paid-expenses-tree", eventId, subEventIds.join(",")],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(suppliers(name)), transactions(description, amount, date, status, category_id, account_categories(name))")
-        .eq("event_id", eventId)
+        .select("*, event_partners(suppliers(name)), transactions(description, amount, date, status, event_id, category_id, account_categories(name))")
+        .in("event_id", allTreeIds)
         .order("created_at");
       if (error) throw error;
       return data;
     },
+    enabled: allTreeIds.length > 0,
   });
 
-  // Event transactions (expenses) available to link
+  // Available transactions: Master + every sub-event
   const { data: availableTransactions = [] } = useQuery({
-    queryKey: ["partner-paid-available-tx", eventId],
+    queryKey: ["partner-paid-available-tx-tree", eventId, subEventIds.join(",")],
     queryFn: async () => {
-      // Get already-linked transaction IDs
       const { data: linked } = await supabase
         .from("partner_paid_expenses")
         .select("transaction_id")
-        .eq("event_id", eventId);
-      const linkedIds = (linked || []).map((l: any) => l.transaction_id);
+        .in("event_id", allTreeIds);
+      const linkedIds = new Set((linked || []).map((l: any) => l.transaction_id));
 
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, date, account_categories(name)")
-        .eq("event_id", eventId)
+        .select("id, description, amount, date, event_id, account_categories(name)")
+        .in("event_id", allTreeIds)
         .eq("type", "expense")
         .order("date", { ascending: false });
       if (error) throw error;
-      return (data || []).filter((t: any) => !linkedIds.includes(t.id));
+      return (data || []).filter((t: any) => !linkedIds.has(t.id));
     },
-    enabled: showForm,
+    enabled: showForm && allTreeIds.length > 0,
   });
 
   const addMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartnerId || !selectedTransactionId) throw new Error("Selecione sócio e despesa");
-      const { error } = await supabase.from("partner_paid_expenses").insert({
-        event_id: eventId,
+      if (!paidDate) throw new Error("Indique a data de pagamento pelo sócio");
+
+      // Discover the actual event_id of the chosen transaction (may be Master or a sub)
+      const tx = availableTransactions.find((t: any) => t.id === selectedTransactionId);
+      const txEventId = tx?.event_id ?? eventId;
+
+      // 1) Create the link
+      const { error: linkErr } = await supabase.from("partner_paid_expenses").insert({
+        event_id: txEventId,
         partner_id: selectedPartnerId,
         transaction_id: selectedTransactionId,
+        paid_date: paidDate,
       });
-      if (error) throw error;
+      if (linkErr) throw linkErr;
+
+      // 2) Mark transaction as paid on paid_date
+      const { error: txErr } = await supabase
+        .from("transactions")
+        .update({ status: "paid", payment_date: paidDate })
+        .eq("id", selectedTransactionId);
+      if (txErr) throw txErr;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["partner-paid-available-tx", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-available-tx-tree", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       setSelectedTransactionId("");
-      toast({ title: "Despesa vinculada ao sócio" });
+      toast({ title: "Despesa vinculada e marcada como paga" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
   });
@@ -102,8 +148,9 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["partner-paid-available-tx", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-tree", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-available-tx-tree", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
       toast({ title: "Vinculação removida" });
     },
   });
@@ -139,7 +186,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
       {/* Add form */}
       {showForm && canEdit && (
         <div className="glass rounded-xl p-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Sócio</label>
               <SearchableSelect
@@ -150,27 +197,45 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
                 searchPlaceholder="Pesquisar…"
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Despesa</label>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Despesa <span className="text-muted-foreground/70">({availableTransactions.length} disponíveis)</span>
+              </label>
               <SearchableSelect
-                options={availableTransactions.map((t: any) => ({
-                  value: t.id,
-                  label: `${t.description} — ${formatCurrency(Number(t.amount))}${t.account_categories?.name ? ` (${t.account_categories.name})` : ""}`,
-                }))}
+                options={availableTransactions.map((t: any) => {
+                  const evName = eventNamesMap.get?.(t.event_id);
+                  const evTag = evName && t.event_id !== eventId ? ` · ${evName}` : "";
+                  const cat = t.account_categories?.name ? ` (${t.account_categories.name})` : "";
+                  return {
+                    value: t.id,
+                    label: `${t.description}${evTag} — ${formatCurrency(Number(t.amount))}${cat}`,
+                  };
+                })}
                 value={selectedTransactionId}
                 onValueChange={setSelectedTransactionId}
                 placeholder="Selecionar despesa…"
-                searchPlaceholder="Pesquisar…"
+                searchPlaceholder="Pesquisar por descrição, evento ou categoria…"
               />
             </div>
           </div>
-          <Button
-            size="sm"
-            onClick={() => addMutation.mutate()}
-            disabled={!selectedPartnerId || !selectedTransactionId || addMutation.isPending}
-          >
-            Vincular
-          </Button>
+          <div className="grid gap-3 sm:grid-cols-3 items-end">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Data do pagamento pelo sócio</label>
+              <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2 flex items-end">
+              <Button
+                size="sm"
+                onClick={() => addMutation.mutate()}
+                disabled={!selectedPartnerId || !selectedTransactionId || !paidDate || addMutation.isPending}
+              >
+                Vincular e marcar como paga
+              </Button>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            A despesa permanece no evento original e continua a contar no resultado. O sócio é creditado pelo valor no Fecho de Parceiros.
+          </p>
         </div>
       )}
 
@@ -194,6 +259,7 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Descrição</TableHead>
+                    <TableHead>Evento</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -203,9 +269,11 @@ export function PartnerPaidExpensesPanel({ eventId, eventStatus }: Props) {
                 <TableBody>
                   {expenses.map((pe: any) => {
                     const tx = pe.transactions;
+                    const evName = tx?.event_id ? eventNamesMap.get?.(tx.event_id) : undefined;
                     return (
                       <TableRow key={pe.id}>
                         <TableCell className="text-sm">{tx?.description || "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{evName || "—"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{tx?.account_categories?.name || "—"}</TableCell>
                         <TableCell className="text-xs font-mono">{tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : ""}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
