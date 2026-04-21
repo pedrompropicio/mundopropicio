@@ -202,9 +202,14 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
 
     const lookup = buildCategoryLookup(categories as CategoryNode[]);
 
-    // Filter forecasts for this event (expenses only)
+    // Filter forecasts for this event (expenses only). Por defeito apenas
+    // `approved`, alinhando com a vista Previsão vs Real e o DRE. Toggle
+    // "Incluir rascunhos" deixa-nos auditar também linhas em `draft`.
     const eventForecasts = forecasts.filter(
-      (f: any) => relevantEventIds.includes(f.event_id) && f.type === "expense"
+      (f: any) =>
+        relevantEventIds.includes(f.event_id) &&
+        f.type === "expense" &&
+        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved")
     );
 
     // Filter transactions for this event (expenses only, approved or paid)
