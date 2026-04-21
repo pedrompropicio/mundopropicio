@@ -67,6 +67,11 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   // When OFF (default), Previsto soma apenas BP `approved` (alinha com a vista
   // Previsão vs Real do evento). Quando ON, inclui também rascunhos (`draft`).
   const [includeDrafts, setIncludeDrafts] = useState(false);
+  // Quando o evento selecionado é um sub-evento de turnê, este toggle controla
+  // se as linhas oriundas de rateio Master (BP com master_forecast_id ou
+  // transações com parent_transaction_id) entram no relatório. Por defeito
+  // incluídas, para preservar a vista atual.
+  const [includeMasterApportionment, setIncludeMasterApportionment] = useState(true);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
@@ -187,6 +192,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
 
   // Get relevant event IDs (including child events for tours)
   const selectedEvent = events.find((e: any) => e.id === selectedEventId);
+  const isSubEvent = !!selectedEvent?.parent_event_id;
   const relevantEventIds = useMemo(() => {
     if (!selectedEventId) return [];
     const childIds = events
@@ -210,12 +216,19 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       (f: any) =>
         relevantEventIds.includes(f.event_id) &&
         f.type === "expense" &&
-        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved")
+        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved") &&
+        // Em sub-eventos, opcionalmente exclui linhas vindas de rateio Master
+        (!isSubEvent || includeMasterApportionment || !f.master_forecast_id)
     );
 
     // Filter transactions for this event (expenses only, approved or paid)
     const eventTransactions: TransactionWithMeta[] = transactions
-      .filter((t: any) => relevantEventIds.includes(t.event_id) && t.type === "expense")
+      .filter(
+        (t: any) =>
+          relevantEventIds.includes(t.event_id) &&
+          t.type === "expense" &&
+          (!isSubEvent || includeMasterApportionment || !t.parent_transaction_id)
+      )
       .map((t: any) => {
         const pp = partnerPaidMap[t.id];
         const ri = reimbursementMap[t.id];
@@ -340,7 +353,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, isSubEvent, includeMasterApportionment]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
@@ -491,6 +504,17 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
               />
               Incluir rascunhos do BP
             </label>
+            {isSubEvent && (
+              <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeMasterApportionment}
+                  onChange={(e) => setIncludeMasterApportionment(e.target.checked)}
+                  className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                />
+                Incluir rateios Master
+              </label>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="ml-2 gap-1.5">
