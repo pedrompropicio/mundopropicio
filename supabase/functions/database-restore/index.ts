@@ -98,7 +98,62 @@ Deno.serve(async (req) => {
         orphan_children_to_clear: ORPHAN_CHILD_TABLES_TO_CLEAR,
       });
     }
-    if (mode !== "restore") return jsonErr("mode deve ser 'preview' ou 'restore'", 400);
+
+    if (mode === "debug") {
+      // Diagnóstico: identifica linhas problemáticas sem alterar nada
+      const ef = tables.event_forecasts || [];
+      const efIds = new Set(ef.map((r: any) => r.id));
+      const efTxIds = new Set(ef.map((r: any) => r.transaction_id).filter(Boolean));
+
+      // Carregar IDs de transactions atuais (Live)
+      const liveTxIds = new Set<string>();
+      let from = 0;
+      while (true) {
+        const { data } = await admin.from("transactions").select("id").range(from, from + 999);
+        if (!data || data.length === 0) break;
+        data.forEach((r: any) => liveTxIds.add(r.id));
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+      const efBad = ef.filter((r: any) => r.transaction_id && !liveTxIds.has(r.transaction_id));
+
+      const fal = tables.forecast_audit_log || [];
+      const falBad = fal.filter((r: any) => r.forecast_id && !efIds.has(r.forecast_id));
+
+      const ts = tables.ticket_sales || [];
+      const seen = new Map<string, any[]>();
+      for (const r of ts) {
+        if (r.source !== "import") continue;
+        const key = [r.zone_id, r.lot_id ?? "00000000-0000-0000-0000-000000000000", r.sale_date, r.unit_price, r.financial_account_id].join("|");
+        if (!seen.has(key)) seen.set(key, []);
+        seen.get(key)!.push(r);
+      }
+      const dupGroups = [...seen.entries()].filter(([, v]) => v.length > 1);
+
+      return jsonOk({
+        mode: "debug",
+        event_forecasts: {
+          total: ef.length,
+          with_tx: efTxIds.size,
+          live_tx_count: liveTxIds.size,
+          bad_count: efBad.length,
+          bad_sample: efBad.slice(0, 8).map((r: any) => ({ id: r.id, transaction_id: r.transaction_id, description: r.description, event_id: r.event_id })),
+        },
+        forecast_audit_log: {
+          total: fal.length,
+          bad_count: falBad.length,
+          bad_sample: falBad.slice(0, 5).map((r: any) => ({ id: r.id, forecast_id: r.forecast_id })),
+        },
+        ticket_sales: {
+          total: ts.length,
+          duplicate_groups: dupGroups.length,
+          duplicate_total_extras: dupGroups.reduce((s, [, v]) => s + v.length - 1, 0),
+          duplicate_sample: dupGroups.slice(0, 5).map(([k, v]) => ({ key: k, count: v.length, ids: v.map((r: any) => r.id) })),
+        },
+      });
+    }
+
+    if (mode !== "restore") return jsonErr("mode deve ser 'preview', 'debug' ou 'restore'", 400);
 
     const results: Record<string, { deleted: string; inserted: number; skipped_cols?: string[]; error?: string }> = {};
 
