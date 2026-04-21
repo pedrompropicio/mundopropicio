@@ -10,6 +10,15 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { calcTotalWithIva } from "@/lib/iva";
+import {
+  getPartnerCalcBasisLabel,
+  getPartnerExpenseBase,
+  getPartnerRevenueBase,
+  ignoresOperationalExpenses,
+  normalizePartnerCalcBasis,
+  usesGrossExpenseAmounts,
+} from "@/lib/partner-calc-basis";
 
 interface Props {
   eventId: string;
@@ -133,21 +142,26 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
 
   const totalRevenueNet = hasTicketSales
     ? ticketRevenueNet
-    : incomeTransactions.reduce((s: number, t: any) => s + Number(t.amount) / (1 + Number(t.iva_rate) / 100), 0);
+    : incomeTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
   const totalRevenueGross = hasTicketSales
     ? ticketRevenueGross
-    : incomeTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
+    : incomeTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
-  const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount) / (1 + Number(t.iva_rate) / 100), 0);
-  const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
-  const calcBasis = event?.partner_calc_basis || "net";
+  const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
+  const revenueBase = getPartnerRevenueBase(totalRevenueNet);
+  const expenseBase = getPartnerExpenseBase(calcBasis, totalExpensesNet, totalExpensesGross);
+  const resultBase = revenueBase - expenseBase;
 
   // Build settlements
   const settlements: PartnerSettlement[] = partners.map((p: any) => {
-    const revenue = calcBasis === "net" ? totalRevenueNet : totalRevenueGross;
-    const expenses = p.expense_includes_iva ? totalExpensesGross : totalExpensesNet;
-    const result = revenue - expenses;
+    const revenue = revenueBase;
+    const expenses = ignoresOperationalExpenses(calcBasis)
+      ? 0
+      : (p.expense_includes_iva || usesGrossExpenseAmounts(calcBasis) ? totalExpensesGross : totalExpensesNet);
+    const result = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
     const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = result * (effectivePercentage / 100);
 
@@ -155,7 +169,9 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       .filter((pe: any) => pe.partner_id === p.id)
       .map((pe: any) => ({
         description: pe.transactions?.description || "—",
-        amount: Number(pe.transactions?.amount || 0),
+        amount: usesGrossExpenseAmounts(calcBasis)
+          ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+          : Number(pe.transactions?.amount || 0),
         date: pe.transactions?.date || "",
         category: pe.transactions?.account_categories?.name || "—",
       }));
@@ -197,7 +213,7 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Data: ${format(new Date(), "dd/MM/yyyy")}`, margin, y);
-    doc.text(`Base de cálculo: ${calcBasis === "net" ? "Sem IVA" : "Com IVA"}`, pageW / 2, y);
+     doc.text(`Base de cálculo: ${getPartnerCalcBasisLabel(calcBasis)}`, pageW / 2, y);
     y += 8;
 
     // Summary table
@@ -206,9 +222,9 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       head: [["", "Receita", "Despesas", "Resultado"]],
       body: [[
         "Evento",
-        formatCurrency(calcBasis === "net" ? totalRevenueNet : totalRevenueGross),
-        formatCurrency(calcBasis === "net" ? totalExpensesNet : totalExpensesGross),
-        formatCurrency((calcBasis === "net" ? totalRevenueNet : totalRevenueGross) - (calcBasis === "net" ? totalExpensesNet : totalExpensesGross)),
+         formatCurrency(revenueBase),
+         formatCurrency(expenseBase),
+         formatCurrency(resultBase),
       ]],
       margin: { left: margin, right: margin },
       styles: { fontSize: 9 },
@@ -303,17 +319,17 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       <div className="glass rounded-xl p-4">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita ({calcBasis === "net" ? "s/IVA" : "c/IVA"})</p>
-            <p className="text-xl font-bold font-mono text-success">{formatCurrency(calcBasis === "net" ? totalRevenueNet : totalRevenueGross)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita (s/IVA)</p>
+            <p className="text-xl font-bold font-mono text-success">{formatCurrency(revenueBase)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas</p>
-            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(calcBasis === "net" ? totalExpensesNet : totalExpensesGross)}</p>
+            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(expenseBase)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Resultado</p>
-            <p className={`text-xl font-bold font-mono ${(calcBasis === "net" ? totalRevenueNet - totalExpensesNet : totalRevenueGross - totalExpensesGross) >= 0 ? "text-success" : "text-destructive"}`}>
-              {formatCurrency((calcBasis === "net" ? totalRevenueNet - totalExpensesNet : totalRevenueGross - totalExpensesGross))}
+            <p className={`text-xl font-bold font-mono ${resultBase >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(resultBase)}
             </p>
           </div>
         </div>
