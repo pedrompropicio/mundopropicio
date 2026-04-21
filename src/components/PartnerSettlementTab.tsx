@@ -371,44 +371,33 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         })
     : [];
 
-  // ---- Top despesas por categoria ----
+  // ---- Despesas agrupadas pela categoria RAIZ (nível 1 do Plano de Contas) ----
   const expenseByCategory: CategoryExpenseRow[] = (() => {
+    const catById: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
+    (allCategories as any[]).forEach((c) => { catById[c.id] = c; });
+    const findRoot = (catId: string | null | undefined): { name: string; code: string } | null => {
+      if (!catId) return null;
+      let cur = catById[catId];
+      const guard = new Set<string>();
+      while (cur && cur.parent_id && !guard.has(cur.id)) {
+        guard.add(cur.id);
+        const parent = catById[cur.parent_id];
+        if (!parent) break;
+        cur = parent;
+      }
+      return cur ? { name: cur.name, code: cur.code } : null;
+    };
     const map: Record<string, CategoryExpenseRow> = {};
     expenseTransactions.forEach((t: any) => {
-      const cat = t.account_categories?.name || "Sem categoria";
-      if (!map[cat]) map[cat] = { category: cat, amountNet: 0, amountGross: 0, count: 0 };
-      map[cat].amountNet += Number(t.amount);
-      map[cat].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
-      map[cat].count += 1;
+      const root = findRoot(t.category_id);
+      const label = root ? `${root.code} ${root.name}` : "Sem categoria";
+      if (!map[label]) map[label] = { category: label, amountNet: 0, amountGross: 0, count: 0 };
+      map[label].amountNet += Number(t.amount);
+      map[label].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
+      map[label].count += 1;
     });
     return Object.values(map).sort((a, b) => b.amountNet - a.amountNet);
   })();
-
-  // ---- BP × Real ----
-  const bpDeviation: BpDeviationRow[] = (() => {
-    const map: Record<string, { planned: number; real: number }> = {};
-    forecasts.forEach((f: any) => {
-      if (f.type !== "expense") return;
-      const cat = f.account_categories?.name || "Sem categoria";
-      if (!map[cat]) map[cat] = { planned: 0, real: 0 };
-      map[cat].planned += Number(f.amount);
-    });
-    expenseTransactions.forEach((t: any) => {
-      const cat = t.account_categories?.name || "Sem categoria";
-      if (!map[cat]) map[cat] = { planned: 0, real: 0 };
-      map[cat].real += Number(t.amount);
-    });
-    return Object.entries(map)
-      .map(([category, v]) => {
-        const deviation = v.real - v.planned;
-        const deviationPct = v.planned > 0 ? (deviation / v.planned) * 100 : (v.real > 0 ? 100 : 0);
-        return { category, planned: v.planned, real: v.real, deviation, deviationPct };
-      })
-      .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation));
-  })();
-
-  const totalPlanned = bpDeviation.reduce((s, r) => s + r.planned, 0);
-  const totalReal = bpDeviation.reduce((s, r) => s + r.real, 0);
 
   // ---- Box-office settlements rows ----
   const boxOfficeRows: BoxOfficeSettlementRow[] = (boxOfficeSettlements as any[]).map((s) => ({
