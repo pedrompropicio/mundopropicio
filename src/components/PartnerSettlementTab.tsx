@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, UserCheck, TrendingUp, TrendingDown, ArrowRightLeft, Building2 } from "lucide-react";
+import { Download, UserCheck, TrendingUp, TrendingDown, ArrowRightLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -422,7 +422,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const effectivePercentage = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = result * (effectivePercentage / 100);
 
-    // House nunca tem "pagas pelo sócio" nem "extras" — é a casa que paga tudo.
+    // Mundo Propício (empresa gestora) não tem "pagas pelo sócio" nem "extras" — é a empresa que paga tudo.
     const partnerExpenses = isHouse
       ? []
       : paidExpenses
@@ -679,7 +679,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       startY: y,
       head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (−)", "Saldo Final"]],
       body: settlements.map((s) => [
-        s.partnerName + (s.isHouse ? " (Casa)" : ""),
+        s.partnerName,
         `${s.effectivePercentage}%`,
         formatCurrency(s.partnerShare),
         formatCurrency(s.totalPaidByPartner),
@@ -707,8 +707,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
-      const houseTag = s.isHouse ? " — Casa (Mundo Propício)" : "";
-      doc.text(`${s.partnerName}${houseTag} (${pctLabel})`, margin, y);
+      doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
       y += 5;
 
       const summaryRows = [
@@ -972,7 +971,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
             {s.isHouse && (
               <p className="text-xs text-muted-foreground italic">
-                Mundo Propício é a casa: detém a quota residual do resultado e absorve eventuais perdas. Não acumula extras nem despesas pagas por sócio.
+                Mundo Propício é a empresa que gere o evento — detém a quota residual do resultado e absorve eventuais perdas. Não acumula extras nem despesas pagas por sócio.
               </p>
             )}
             {!s.isHouse && s.paidExpenses.length === 0 && s.partnerExtras.length === 0 && (
