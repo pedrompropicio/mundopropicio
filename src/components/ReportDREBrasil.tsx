@@ -555,11 +555,11 @@ export default function ReportDREBrasil() {
       <div className="glass rounded-xl p-4 flex items-center gap-3">
         <Switch id="partner-view-brasil" checked={showPartnerView} onCheckedChange={setShowPartnerView} />
         <Label htmlFor="partner-view-brasil" className="text-sm cursor-pointer flex items-center gap-1.5">
-          <Eye className="h-3.5 w-3.5" /> Visão Sócio
+          <Eye className="h-3.5 w-3.5" /> Vista Sócio (com Overhead)
         </Label>
-        {showPartnerView && (
-          <span className="text-xs text-muted-foreground ml-2">Inclui custos de fecho no resultado</span>
-        )}
+        <span className="text-xs text-muted-foreground ml-2">
+          {showPartnerView ? "Inclui rateios de overhead e extras no resultado" : "Vista Empresa: sem overhead"}
+        </span>
       </div>
 
       <div className="flex items-center justify-end gap-2">

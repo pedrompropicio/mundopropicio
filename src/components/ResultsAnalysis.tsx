@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +74,7 @@ function SourceBadge({ source }: { source: string }) {
 
 export function ResultsAnalysis() {
   const currentYear = new Date().getFullYear();
+  const [includeOverhead, setIncludeOverhead] = useState<boolean>(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["ra_events"],
@@ -236,11 +237,13 @@ export function ResultsAnalysis() {
       target[eid].set(key, (target[eid].get(key) ?? 0) + net);
     });
 
-    // ── Closing costs per event ──
+    // ── Closing costs (overhead) per event — só entram quando toggle ON (Vista Sócio) ──
     const closingMap: Record<string, number> = {};
-    closingCosts.forEach((cc: any) => {
-      closingMap[cc.event_id] = (closingMap[cc.event_id] || 0) + Number(cc.amount);
-    });
+    if (includeOverhead) {
+      closingCosts.forEach((cc: any) => {
+        closingMap[cc.event_id] = (closingMap[cc.event_id] || 0) + Number(cc.amount);
+      });
+    }
 
     const partnerMap: Record<string, { totalPct: number; items: any[] }> = {};
     partners.forEach((p: any) => {
@@ -424,7 +427,7 @@ export function ResultsAnalysis() {
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, currentYear]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, currentYear, includeOverhead]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -516,17 +519,29 @@ export function ResultsAnalysis() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Análise de Resultados {currentYear}
           </h2>
         </div>
-        <Button variant="outline" size="sm" onClick={generatePdf}>
-          <Download className="h-4 w-4 mr-1" />
-          PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Overhead</span>
+          <select
+            value={includeOverhead ? "with" : "without"}
+            onChange={(e) => setIncludeOverhead(e.target.value === "with")}
+            className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            title="Incluir/excluir rateios de overhead nos resultados"
+          >
+            <option value="without">Sem overhead (Vista Empresa)</option>
+            <option value="with">Com overhead (Vista Sócio)</option>
+          </select>
+          <Button variant="outline" size="sm" onClick={generatePdf}>
+            <Download className="h-4 w-4 mr-1" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       {/* --- COMPLETED --- */}
