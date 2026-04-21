@@ -596,7 +596,7 @@ export default function Transactions() {
       periodGroup: sortByDueDate(inPeriod),
       noDateGroup: sortByDueDate(noDate),
     };
-  }, [baseFiltered, duePeriod, rangeFrom, rangeTo, periodDateField, onlyNoDueDate]);
+  }, [baseFiltered, duePeriod, rangeFrom, rangeTo, periodDateField, onlyNoDueDate, sortMode]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
 
