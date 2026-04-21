@@ -392,32 +392,57 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         })
     : [];
 
-  // ---- Despesas agrupadas pela categoria RAIZ (nível 1 do Plano de Contas) ----
+  // ---- Despesas agrupadas pelos níveis 1 e 2 do Plano de Contas ----
+  // Resolve cadeia de pais até obter L1 (raiz) e L2 (nível imediatamente abaixo da raiz).
   const expenseByCategory: CategoryExpenseRow[] = (() => {
     const catById: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
     (allCategories as any[]).forEach((c) => { catById[c.id] = c; });
-    const findRoot = (catId: string | null | undefined): { name: string; code: string } | null => {
+    // Devolve [L1, L2] — onde L2 pode ser igual a L1 se a categoria estiver no nível raiz.
+    const findL1L2 = (catId: string | null | undefined): { l1: any; l2: any } | null => {
       if (!catId) return null;
+      const chain: any[] = [];
       let cur = catById[catId];
       const guard = new Set<string>();
-      while (cur && cur.parent_id && !guard.has(cur.id)) {
+      while (cur && !guard.has(cur.id)) {
         guard.add(cur.id);
+        chain.push(cur);
+        if (!cur.parent_id) break;
         const parent = catById[cur.parent_id];
         if (!parent) break;
         cur = parent;
       }
-      return cur ? { name: cur.name, code: cur.code } : null;
+      // chain está ordenada do nível mais profundo até à raiz; inverter para ter raiz primeiro
+      chain.reverse();
+      const l1 = chain[0];
+      const l2 = chain[1] || chain[0];
+      return l1 ? { l1, l2 } : null;
     };
     const map: Record<string, CategoryExpenseRow> = {};
     expenseTransactions.forEach((t: any) => {
-      const root = findRoot(t.category_id);
-      const label = root ? `${root.code} ${root.name}` : "Sem categoria";
-      if (!map[label]) map[label] = { category: label, amountNet: 0, amountGross: 0, count: 0 };
-      map[label].amountNet += Number(t.amount);
-      map[label].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
-      map[label].count += 1;
+      const lv = findL1L2(t.category_id);
+      const l1 = lv?.l1;
+      const l2 = lv?.l2;
+      const key = l1 && l2 ? `${l1.code}|${l2.code}` : "sem-categoria";
+      if (!map[key]) {
+        map[key] = {
+          l1Code: l1?.code || "",
+          l1Name: l1?.name || "Sem categoria",
+          l2Code: l2?.code || "",
+          l2Name: l2?.name || "Sem categoria",
+          amountNet: 0,
+          amountGross: 0,
+          count: 0,
+        };
+      }
+      map[key].amountNet += Number(t.amount);
+      map[key].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
+      map[key].count += 1;
     });
-    return Object.values(map).sort((a, b) => b.amountNet - a.amountNet);
+    return Object.values(map).sort((a, b) => {
+      const c1 = a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true });
+      if (c1 !== 0) return c1;
+      return a.l2Code.localeCompare(b.l2Code, undefined, { numeric: true });
+    });
   })();
 
   // ---- Box-office settlements rows ----
