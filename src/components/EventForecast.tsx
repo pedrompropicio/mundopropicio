@@ -997,8 +997,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const generateHistoricalMutation = useMutation({
     mutationFn: async (xlsxRows: XlsxRowForGeneration[] | null) => {
+      const eligibleIds = forecasts.filter((f) => isEligibleForBulkTx(f)).map((f) => f.id);
       const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
-        body: { event_id: eventId, xlsxRows: xlsxRows ?? [] },
+        body: { event_id: eventId, xlsxRows: xlsxRows ?? [], eligible_forecast_ids: eligibleIds },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -1025,9 +1026,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   });
 
   const handleGenerateHistorical = () => {
-    const approvedWithoutTx = forecasts.filter((f) => f.status === "approved" && !f.transaction_id);
-    if (approvedWithoutTx.length === 0) {
-      toast({ title: "Nenhuma previsão aprovada sem transação vinculada", variant: "destructive" });
+    if (eligibleForHistoricalGen.length === 0) {
+      toast({ title: "Nenhuma previsão elegível (sem transação e sem match por categoria)", variant: "destructive" });
       return;
     }
     setHistoricalModalOpen(true);
@@ -1172,7 +1172,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }
   };
 
-  const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
+  // Mesma regra do bulk: 1 TX auto por linha BP — exclui linhas que já têm
+  // transação direta OU match por categoria/similaridade.
+  const eligibleForHistoricalGen = forecasts.filter((f) => isEligibleForBulkTx(f));
+  const approvedWithoutTxCount = eligibleForHistoricalGen.length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -2236,7 +2239,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       <GenerateHistoricalModal
         open={historicalModalOpen}
         onOpenChange={setHistoricalModalOpen}
-        approvedCount={forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length}
+        approvedCount={eligibleForHistoricalGen.length}
         isGenerating={generateHistoricalMutation.isPending}
         onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
       />
