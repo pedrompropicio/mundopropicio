@@ -6,275 +6,222 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Ordered by dependency (parents first, children last)
+const ORPHAN_CHILD_TABLES_TO_CLEAR = [
+  "event_forecast_partners",
+  "event_cache_city_settlements",
+  "event_cache_tiers",
+  "event_ticket_office_advances",
+  "ticket_office_settlements",
+  "transaction_payments",
+  "supplier_credit_usages",
+  "supplier_credits",
+  "trash",
+  "undo_actions",
+  "user_activity_log",
+  "push_subscriptions",
+  "event_implementations",
+];
+
+const SINGLETON_INT_PK = new Set(["email_send_state"]);
+
 const RESTORE_ORDER = [
-  "cities",
-  "venues",
-  "venue_reservations",
-  "account_categories",
-  "role_permissions",
-  "profiles",
-  "user_roles",
-  "user_permissions",
-  "financial_accounts",
-  "financial_account_access",
-  "suppliers",
-  "supplier_documents",
-  
-  "events",
-  "event_dates",
-  "event_sessions",
-  "event_ticket_zones",
-  "event_ticket_lots",
-  "event_cache_configs",
-  "event_cache_deductions",
-  "event_cache_extras",
+  "cities", "venues", "venue_reservations",
+  "account_categories", "role_permissions",
+  "profiles", "user_roles", "user_permissions",
+  "financial_accounts", "financial_account_access",
+  "suppliers", "supplier_documents",
+  "events", "event_dates", "event_sessions",
+  "event_ticket_zones", "event_ticket_lots",
+  "event_cache_configs", "event_cache_deductions", "event_cache_extras",
   "event_closing_costs",
-  "event_forecasts",
-  "event_partners",
-  "event_partner_extras",
+  "event_forecasts", "event_partners", "event_partner_extras",
   "event_ticket_office_assignments",
-  "ticket_sales",
-  "ticket_import_logs",
-  "transactions",
-  "transaction_documents",
-  "transaction_audit_log",
-  "partner_paid_expenses",
-  "partner_event_access",
-  "payment_lists",
-  "payment_list_items",
-  "quotations",
-  "recurring_transactions",
-  "reimbursement_notes",
-  "reimbursement_note_items",
-  "accounting_exports",
-  "system_audit_log",
-  "forecast_audit_log",
+  "ticket_sales", "ticket_import_logs",
+  "transactions", "transaction_documents", "transaction_audit_log",
+  "partner_paid_expenses", "partner_event_access",
+  "payment_lists", "payment_list_items",
+  "quotations", "recurring_transactions",
+  "reimbursement_notes", "reimbursement_note_items",
+  "accounting_exports", "system_audit_log", "forecast_audit_log",
   "login_attempts",
-  "email_send_log",
-  "email_send_state",
-  "email_unsubscribe_tokens",
+  "email_send_log", "email_send_state", "email_unsubscribe_tokens",
   "suppressed_emails",
 ];
 
-// Delete in reverse order (children first)
 const DELETE_ORDER = [...RESTORE_ORDER].reverse();
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Auth: accept service-role / anon JWT, otherwise require admin user
-    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
-    const token = authHeader?.replace(/^Bearer\s+/i, "").trim() ?? "";
-
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     let role: string | null = null;
     let userId: string | null = null;
     try {
       const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
       role = payload?.role ?? null;
       userId = payload?.sub ?? null;
-    } catch {
-      // ignore – not a JWT
-    }
-    console.log("[database-restore] auth", { hasToken: !!token, role, hasUserId: !!userId });
+    } catch {}
 
     const isMachine = role === "service_role" || role === "anon";
-
     if (!isMachine) {
-      if (!userId) {
-        return new Response(JSON.stringify({ error: "Não autorizado" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { data: roleData, error: roleError } = await adminClient
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (roleError) {
-        return new Response(JSON.stringify({ error: `Erro ao validar permissões: ${roleError.message}` }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (!roleData) {
-        return new Response(JSON.stringify({ error: "Apenas administradores podem restaurar backups" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (!userId) return jsonErr("Não autorizado", 401);
+      const { data: roleRow } = await admin
+        .from("user_roles").select("role")
+        .eq("user_id", userId).eq("role", "admin").maybeSingle();
+      if (!roleRow) return jsonErr("Apenas administradores podem restaurar backups", 403);
     }
 
-    const body = await req.json();
-    const { backup_file, mode } = body;
+    const { backup_file, mode } = await req.json();
+    if (!backup_file) return jsonErr("backup_file é obrigatório", 400);
 
-    if (!backup_file) {
-      return new Response(JSON.stringify({ error: "Nome do ficheiro de backup é obrigatório" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { data: file, error: dlErr } = await admin.storage
+      .from("database-backups").download(backup_file);
+    if (dlErr || !file) return jsonErr(`Erro ao descarregar backup: ${dlErr?.message}`, 400);
 
-    // Download backup file from storage
-    const { data: fileData, error: downloadErr } = await adminClient.storage
-      .from("database-backups")
-      .download(backup_file);
-
-    if (downloadErr || !fileData) {
-      return new Response(JSON.stringify({ error: `Erro ao descarregar backup: ${downloadErr?.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const backupJson = JSON.parse(await fileData.text());
+    const backupJson = JSON.parse(await file.text());
     const tables = backupJson.tables;
+    if (!tables) return jsonErr("Backup inválido: campo 'tables' ausente", 400);
 
-    if (!tables) {
-      return new Response(JSON.stringify({ error: "Formato de backup inválido: campo 'tables' não encontrado" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Mode: "preview" just returns counts, "restore" does the actual restore
     if (mode === "preview") {
-      const preview: Record<string, { backup_rows: number }> = {};
-      for (const table of RESTORE_ORDER) {
-        if (tables[table]) {
-          preview[table] = { backup_rows: tables[table].length };
-        }
-      }
-      return new Response(
-        JSON.stringify({
-          success: true,
-          mode: "preview",
-          backup_date: backupJson.created_at,
-          version: backupJson.version ?? 1,
-          tables: preview,
-          storage_manifest: backupJson.storage_manifest
-            ? Object.fromEntries(
-                Object.entries(backupJson.storage_manifest).map(([k, v]: [string, any]) => [k, v.length])
-              )
-            : null,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (mode !== "restore") {
-      return new Response(JSON.stringify({ error: "Mode deve ser 'preview' ou 'restore'" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const preview: Record<string, number> = {};
+      for (const t of RESTORE_ORDER) if (tables[t]) preview[t] = tables[t].length;
+      return jsonOk({
+        mode: "preview",
+        backup_date: backupJson.created_at,
+        tables: preview,
+        orphan_children_to_clear: ORPHAN_CHILD_TABLES_TO_CLEAR,
       });
     }
+    if (mode !== "restore") return jsonErr("mode deve ser 'preview' ou 'restore'", 400);
 
-    // === RESTORE MODE ===
-    const results: Record<string, { deleted: boolean; inserted: number; error?: string }> = {};
+    const results: Record<string, { deleted: string; inserted: number; skipped_cols?: string[]; error?: string }> = {};
 
-    // Step 1: Delete all data in reverse dependency order
-    for (const table of DELETE_ORDER) {
-      if (!tables[table]) continue;
+    for (const t of ORPHAN_CHILD_TABLES_TO_CLEAR) {
       try {
-        // Use a broad delete: delete where id is not null (all rows)
-        const { error: delErr } = await adminClient
-          .from(table)
-          .delete()
-          .neq("id", "00000000-0000-0000-0000-000000000000");
-        
-        if (delErr) {
-          // Some tables may use different PKs; try with created_at
-          const { error: delErr2 } = await adminClient
-            .from(table)
-            .delete()
-            .gte("created_at", "1900-01-01");
-          if (delErr2) {
-            results[table] = { deleted: false, inserted: 0, error: `delete: ${delErr2.message}` };
-            continue;
+        const { error } = await admin.from(t).delete().gte("created_at", "1900-01-01");
+        if (error) {
+          const { error: e2 } = await admin.from(t).delete().not("id", "is", null);
+          results[`__orphan_${t}`] = { deleted: e2 ? "fail" : "all", inserted: 0, error: e2?.message };
+        } else {
+          results[`__orphan_${t}`] = { deleted: "all", inserted: 0 };
+        }
+      } catch (e) {
+        results[`__orphan_${t}`] = { deleted: "fail", inserted: 0, error: String(e) };
+      }
+    }
+
+    for (const t of DELETE_ORDER) {
+      if (!tables[t]) continue;
+      try {
+        let error: any = null;
+        if (SINGLETON_INT_PK.has(t)) {
+          const { error: e } = await admin.from(t).delete().gte("id", -2147483648);
+          error = e;
+        } else {
+          const { error: e } = await admin.from(t).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+          error = e;
+          if (error) {
+            const { error: e2 } = await admin.from(t).delete().gte("created_at", "1900-01-01");
+            error = e2;
           }
         }
-        results[table] = { deleted: true, inserted: 0 };
+        results[t] = { deleted: error ? "fail" : "all", inserted: 0, error: error?.message };
       } catch (e) {
-        results[table] = { deleted: false, inserted: 0, error: `delete: ${e instanceof Error ? e.message : "unknown"}` };
+        results[t] = { deleted: "fail", inserted: 0, error: String(e) };
       }
     }
 
-    // Step 2: Insert data in dependency order
-    for (const table of RESTORE_ORDER) {
-      const rows = tables[table];
+    const liveCols = await fetchLiveColumns(admin, RESTORE_ORDER);
+
+    for (const t of RESTORE_ORDER) {
+      const rows = tables[t];
       if (!rows || rows.length === 0) {
-        if (!results[table]) results[table] = { deleted: true, inserted: 0 };
+        if (!results[t]) results[t] = { deleted: "n/a", inserted: 0 };
         continue;
       }
+      const cols = liveCols[t];
+      const { cleanRows, skipped } = cols
+        ? stripUnknownCols(rows, cols)
+        : { cleanRows: rows, skipped: [] as string[] };
 
-      try {
-        // Insert in batches of 500
-        let inserted = 0;
-        const batchSize = 500;
-        for (let i = 0; i < rows.length; i += batchSize) {
-          const batch = rows.slice(i, i + batchSize);
-          const { error: insertErr } = await adminClient
-            .from(table)
-            .upsert(batch, { onConflict: "id", ignoreDuplicates: false });
-          if (insertErr) {
-            results[table] = {
-              ...results[table],
-              inserted,
-              error: `insert batch ${Math.floor(i / batchSize)}: ${insertErr.message}`,
-            };
-            break;
-          }
-          inserted += batch.length;
+      let inserted = 0;
+      const batchSize = 500;
+      let lastErr: string | undefined;
+      for (let i = 0; i < cleanRows.length; i += batchSize) {
+        const batch = cleanRows.slice(i, i + batchSize);
+        const { error } = await admin.from(t).upsert(batch, { onConflict: "id", ignoreDuplicates: false });
+        if (error) {
+          lastErr = `batch ${Math.floor(i / batchSize)}: ${error.message}`;
+          break;
         }
-        if (results[table]) {
-          results[table].inserted = inserted;
-        } else {
-          results[table] = { deleted: true, inserted };
-        }
-      } catch (e) {
-        results[table] = {
-          ...(results[table] || { deleted: false }),
-          inserted: 0,
-          error: `insert: ${e instanceof Error ? e.message : "unknown"}`,
-        };
+        inserted += batch.length;
       }
+      results[t] = {
+        ...(results[t] ?? { deleted: "n/a", inserted: 0 }),
+        inserted,
+        skipped_cols: skipped.length ? skipped : undefined,
+        error: lastErr ?? results[t]?.error,
+      };
     }
 
-    const totalErrors = Object.values(results).filter((r) => r.error).length;
-
-    return new Response(
-      JSON.stringify({
-        success: totalErrors === 0,
-        mode: "restore",
-        backup_file,
-        backup_date: backupJson.created_at,
-        results,
-        total_tables: Object.keys(results).length,
-        tables_with_errors: totalErrors,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const errors = Object.entries(results).filter(([, r]) => r.error);
+    return jsonOk({
+      success: errors.length === 0,
+      mode: "restore",
+      backup_file,
+      backup_date: backupJson.created_at,
+      total_tables: Object.keys(results).length,
+      tables_with_errors: errors.length,
+      results,
+    });
   } catch (err) {
-    console.error("Restore error:", err);
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Erro desconhecido" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    console.error("[database-restore] fatal", err);
+    return jsonErr(err instanceof Error ? err.message : "Erro desconhecido", 500);
   }
 });
+
+function jsonOk(body: any) {
+  return new Response(JSON.stringify(body), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function jsonErr(error: string, status: number) {
+  return new Response(JSON.stringify({ error }), {
+    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function fetchLiveColumns(admin: any, tableNames: string[]) {
+  const out: Record<string, Set<string>> = {};
+  for (const t of tableNames) {
+    try {
+      const { data, error } = await admin.from(t).select("*").limit(1);
+      if (!error && data) {
+        const cols = new Set<string>();
+        if (data.length > 0) Object.keys(data[0]).forEach((k) => cols.add(k));
+        if (cols.size > 0) out[t] = cols;
+      }
+    } catch {}
+  }
+  return out;
+}
+
+function stripUnknownCols(rows: any[], allowed: Set<string>) {
+  const skipped = new Set<string>();
+  const cleanRows = rows.map((r) => {
+    const o: any = {};
+    for (const k of Object.keys(r)) {
+      if (allowed.has(k)) o[k] = r[k];
+      else skipped.add(k);
+    }
+    return o;
+  });
+  return { cleanRows, skipped: Array.from(skipped) };
+}
