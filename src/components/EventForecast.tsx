@@ -1172,7 +1172,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     }
   };
 
-  const approvedWithoutTxCount = forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length;
+  // Mesma regra do bulk: 1 TX auto por linha BP — exclui linhas que já têm
+  // transação direta OU match por categoria/similaridade.
+  const eligibleForHistoricalGen = forecasts.filter((f) => isEligibleForBulkTx(f));
+  const approvedWithoutTxCount = eligibleForHistoricalGen.length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
