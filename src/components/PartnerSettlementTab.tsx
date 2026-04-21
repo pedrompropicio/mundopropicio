@@ -169,7 +169,9 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
       .filter((pe: any) => pe.partner_id === p.id)
       .map((pe: any) => ({
         description: pe.transactions?.description || "—",
-        amount: Number(pe.transactions?.amount || 0),
+        amount: usesGrossExpenseAmounts(calcBasis)
+          ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+          : Number(pe.transactions?.amount || 0),
         date: pe.transactions?.date || "",
         category: pe.transactions?.account_categories?.name || "—",
       }));
