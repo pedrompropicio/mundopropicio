@@ -533,6 +533,17 @@ function ClosingCostRow({ cost, colorClass, isEventLocked, onEdit, onDelete, onF
       <TableCell>
         <p className="text-sm font-medium">{cost.description}</p>
         {cost.notes && <p className="text-xs text-muted-foreground">{cost.notes}</p>}
+        {cost.master ? (
+          <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
+            <Link2 className="h-2.5 w-2.5" />
+            BP: {cost.master.account_categories ? `${cost.master.account_categories.code} · ` : ""}{cost.master.description}
+          </div>
+        ) : (
+          <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-warning/10 text-warning px-1.5 py-0.5 text-[10px] font-medium">
+            <Unlink className="h-2.5 w-2.5" />
+            Sem previsão no BP
+          </div>
+        )}
         {docs.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {docs.map((doc: any) => (
