@@ -331,6 +331,32 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais" />
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              Vincular a linha do BP de Overhead
+              <span className="text-[10px] font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <SearchableSelect
+              options={[
+                { value: "", label: "— Sem vínculo (despesa sem previsão) —" },
+                ...linkableForecasts.map((f: any) => ({
+                  value: f.id,
+                  label: `${f.scope === "master" ? "[Master] " : ""}${f.account_categories ? `${f.account_categories.code} · ` : ""}${f.description} — ${formatCurrency(Number(f.amount))}`,
+                })),
+              ]}
+              value={bpForecastId}
+              onValueChange={setBpForecastId}
+              placeholder={linkableForecasts.length === 0 ? "Sem previsões de overhead no BP" : "Selecionar previsão do BP de overhead…"}
+            />
+            {!bpForecastId && (
+              <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 px-2.5 py-1.5 text-[11px]">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-warning" />
+                <span className="text-muted-foreground">
+                  Esta despesa <strong>não está vinculada</strong> a uma previsão do BP de overhead. Será tratada como despesa sem planeamento.
+                </span>
+              </div>
+            )}
+          </div>
           {amount && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 font-mono">
               <span>Base: {formatCurrency(parseFloat(amount) || 0)}</span>
