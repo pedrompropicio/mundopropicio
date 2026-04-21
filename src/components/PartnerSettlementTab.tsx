@@ -227,7 +227,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Ticket sales detalhadas (zone+lot) com sessão e dia
+  // Ticket sales detalhadas (zone+lot) com sessão, dia, cidade e sub-evento
   const { data: ticketBreakdown = [] } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
@@ -242,7 +242,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .in("event_id", allEventIds),
         supabase
           .from("events")
-          .select("id, name")
+          .select("id, name, cities(name)")
           .in("id", allEventIds),
       ]);
       const zones = zonesRes.data || [];
@@ -283,12 +283,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const lbl = sess.label && sess.label !== "default" ? sess.label : "";
           sessionLabel = [d, t, lbl].filter(Boolean).join(" ") || "—";
         }
+        const cityName = (ev?.cities as any)?.name || ev?.name || eventName;
         return {
           zoneName: z?.name || "—",
           lotName: l.name || "—",
           sessionLabel,
           dayLabel,
           subEventName: ev?.name || eventName,
+          cityName,
+          eventId: ev?.id || "",
           quantity: agg.quantity,
           unitPrice: Number(l.price || 0),
           totalGross: agg.gross,
