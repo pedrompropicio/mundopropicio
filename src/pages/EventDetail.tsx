@@ -1026,7 +1026,11 @@ export default function EventDetail() {
 
         {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partner-settlement">
-            <PartnerSettlementTab eventId={event.id} eventName={event.name} />
+            <PartnerSettlementTab
+              eventId={event.id}
+              eventName={event.name}
+              childEventIds={isMultiEvent ? subEvents.map((s: any) => s.id) : []}
+            />
           </TabsContent>
         )}
 
