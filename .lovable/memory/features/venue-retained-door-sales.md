@@ -13,8 +13,11 @@ Algumas salas/recintos vendem bilhetes "na porta" no dia do evento e ficam com e
 Campos em `ticket_office_settlements`:
 - `venue_retained_amount` (numeric) — valor retido pela sala
 - `venue_retained_invoice_id` (uuid → transactions) — fatura de despesa do evento que recebe o abatimento (opcional)
-- `venue_retained_payment_id` (uuid → transaction_payments) — id do pagamento parcial criado na confirmação
+- `venue_retained_payment_id` (uuid → transaction_payments) — id do pagamento parcial criado na confirmação (compensação)
 - `venue_retained_notes` (text) — observações livres
+- `venue_invoice_remainder_paid` (boolean) — se a bilheteira liquidou o saldo restante da mesma fatura
+- `venue_invoice_remainder_amount` (numeric) — valor do saldo restante pago pela bilheteira
+- `venue_invoice_remainder_payment_id` (uuid → transaction_payments) — id desse 2.º pagamento (transfer/account_id=officeId)
 
 ## UI
 
