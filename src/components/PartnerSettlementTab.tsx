@@ -515,14 +515,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // ===== HEADER =====
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(`Relatório de Fecho — ${eventName}`, margin, y);
+    doc.text(`Relatorio de Fecho - ${eventName}`, margin, y);
     y += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
-    y += 4;
-    doc.text(`Base de cálculo: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
+    doc.setTextColor(0);
+    y += 8;
     doc.setTextColor(0);
     y += 8;
 
