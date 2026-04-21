@@ -17,6 +17,7 @@ interface TransactionLine {
   is_reimbursement: boolean;
   reimbursementCode?: string;
   pl_override_note: string | null;
+  isOutOfBP?: boolean;
 }
 
 interface CategoryLine {
