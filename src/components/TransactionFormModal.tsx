@@ -1047,7 +1047,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_date: partnerPaymentDate,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
-          is_transitory: isTransitory,
+          is_transitory: isTransitory || isPartnerExtra,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: data.invoice_group_id ?? null,
@@ -1109,6 +1109,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             partner_id: paidByPartnerId,
             transaction_id: insertedTx.id,
             paid_date: partnerPaidDate || data.date,
+          } as any);
+        }
+
+        // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
+        if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
+          await supabase.from("partner_advance_expenses").insert({
+            event_id: data.event_id,
+            partner_id: partnerExtraId,
+            transaction_id: insertedTx.id,
           } as any);
         }
 
@@ -1297,6 +1306,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     if (isPaidByPartner && !partnerPaidDate) {
       toast({ title: "Indique a data em que o sócio pagou", variant: "destructive" });
+      return;
+    }
+    if (isPartnerExtra && !partnerExtraId) {
+      toast({ title: "Selecione o sócio para o Extra", variant: "destructive" });
+      return;
+    }
+    if (isPartnerExtra && !form.event_id && !(isSplit && splitMasterEventId)) {
+      toast({ title: "Extra do Sócio exige um evento associado", variant: "destructive" });
       return;
     }
 
