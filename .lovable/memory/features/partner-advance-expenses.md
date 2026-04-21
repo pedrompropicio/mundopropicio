@@ -28,7 +28,7 @@ type: feature
 
 ## Split parcial (apenas parte da fatura é extra)
 Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é despesa normal da empresa):
-- **Na criação** (`TransactionFormModal`): dentro do bloco "Extra do Sócio", campo "Apenas parte da fatura é extra (€)"
+- **Na criação** (`TransactionFormModal`): dentro do bloco "Extra do Sócio", campo "Apenas parte da fatura é extra (€)" — sempre visível enquanto não estiver em Split multi-evento; fica desativado até o utilizador preencher o Valor (€) da fatura
 - **Na edição** (`TransactionEditModal`): toggle "Apenas parte da fatura é extra do sócio" no bloco "Converter em Extra do Sócio"
 - Vazio = fatura inteira é extra (principal fica `is_transitory=true`)
 - Preenchido com valor `> 0 && < total`: principal fica **NORMAL** (entra DRE/BP) com valor TOTAL; cria transação **irmã transitória** com valor parcial, ambas com **mesmo `invoice_group_id`** (gerado se necessário). A irmã é a que vai a `partner_advance_expenses`. A descrição da irmã é `"<descrição> — extra sócio (parcial)"`.
