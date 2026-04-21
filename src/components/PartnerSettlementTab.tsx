@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, UserCheck, TrendingUp, TrendingDown, ArrowRightLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { format } from "date-fns";
@@ -12,7 +14,6 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva } from "@/lib/iva";
 import {
-  getPartnerCalcBasisLabel,
   getPartnerExpenseBase,
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
@@ -74,6 +75,7 @@ interface TicketBreakdownRow {
   lotName: string;
   sessionLabel: string; // "DD/MM" ou "DD/MM HH:MM" ou "—"
   dayLabel: string;     // "DD/MM/YYYY"
+  subEventName: string; // Nome do sub-evento (ou nome do próprio evento se não for turnê)
   quantity: number;
   unitPrice: number;
   totalGross: number;
@@ -95,6 +97,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allEventIds = [eventId, ...(childEventIds || [])];
   const allEventIdsKey = allEventIds.join(",");
   const isTour = (childEventIds?.length ?? 0) > 0;
+
+  // Modo de agrupamento da secção 3 (Bilheteira) — default: subevento + data + sessão
+  type TicketGroupMode = "sub_date_session" | "session" | "day" | "zone" | "lot";
+  const [ticketGroupMode, setTicketGroupMode] = useState<TicketGroupMode>("sub_date_session");
 
   // Event info (master + cities)
   const { data: event } = useQuery({
@@ -225,7 +231,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const { data: ticketBreakdown = [] } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
-      const [zonesRes, sessionsRes] = await Promise.all([
+      const [zonesRes, sessionsRes, eventsRes] = await Promise.all([
         supabase
           .from("event_ticket_zones")
           .select("id, name, event_id, session_id")
@@ -234,9 +240,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .from("event_sessions")
           .select("id, label, date, start_time, event_id")
           .in("event_id", allEventIds),
+        supabase
+          .from("events")
+          .select("id, name")
+          .in("id", allEventIds),
       ]);
       const zones = zonesRes.data || [];
       const sessions = sessionsRes.data || [];
+      const eventsList = eventsRes.data || [];
       if (zones.length === 0) return [];
       const zoneIds = zones.map((z: any) => z.id);
       const { data: lots } = await supabase
@@ -260,6 +271,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       return lots.map((l: any) => {
         const z = zones.find((zz: any) => zz.id === l.zone_id);
         const sess = sessions.find((ss: any) => ss.id === z?.session_id);
+        const ev = eventsList.find((e: any) => e.id === z?.event_id);
         const agg = byLot[l.id] || { quantity: 0, gross: 0 };
         const ivaRate = Number(l.iva_rate || 0);
         const totalNet = agg.gross / (1 + ivaRate / 100);
@@ -276,6 +288,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           lotName: l.name || "—",
           sessionLabel,
           dayLabel,
+          subEventName: ev?.name || eventName,
           quantity: agg.quantity,
           unitPrice: Number(l.price || 0),
           totalGross: agg.gross,
@@ -501,14 +514,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // ===== HEADER =====
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(`Relatório de Fecho — ${eventName}`, margin, y);
+    doc.text(`Relatorio de Fecho - ${eventName}`, margin, y);
     y += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
-    y += 4;
-    doc.text(`Base de cálculo: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
+    doc.setTextColor(0);
+    y += 8;
     doc.setTextColor(0);
     y += 8;
 
@@ -563,18 +576,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. BILHETEIRA — RESUMOS =====
+    // ===== 3. BILHETEIRA - RESUMOS =====
     if (ticketBreakdown.length > 0) {
       ensureSpace(30);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("3. Bilheteira — Totais Vendidos", margin, y);
+      doc.text("3. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
       // Helper para agregar e renderizar mini-tabela
       const renderSummary = (
         title: string,
+        firstColLabel: string,
         groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
       ) => {
         if (groups.length === 0) return;
@@ -586,7 +600,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         y += 3;
         autoTable(doc, {
           startY: y,
-          head: [[title.replace("Por ", ""), "Qtd.", "Total c/IVA", "Total s/IVA"]],
+          head: [[firstColLabel, "Qtd.", "Total c/IVA", "Total s/IVA"]],
           body: groups.map((g) => [
             g.key,
             g.quantity.toString(),
@@ -620,19 +634,33 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
       };
 
-      const byDay = groupBy((r) => r.dayLabel);
-      const bySession = groupBy((r) => r.sessionLabel);
-      const byZone = groupBy((r) => r.zoneName);
-      const byLot = groupBy((r) => r.lotName);
-
-      // Só mostra "Por Dia" se houver mais de um dia
-      if (byDay.length > 1) renderSummary("Por Dia", byDay);
-      // Só mostra "Por Sessão" se houver sessões úteis (mais de 1 ou diferente do dia)
-      if (bySession.length > 1 || (bySession.length === 1 && bySession[0].key !== "—")) {
-        renderSummary("Por Sessão", bySession);
+      // Renderiza apenas o agrupamento escolhido pelo utilizador
+      switch (ticketGroupMode) {
+        case "sub_date_session": {
+          const groups = groupBy((r) => {
+            const parts = [r.subEventName, r.dayLabel, r.sessionLabel].filter((p) => p && p !== "—");
+            return parts.join(" | ") || "—";
+          });
+          renderSummary("Por Subevento / Data / Sessao", "Subevento / Data / Sessao", groups);
+          break;
+        }
+        case "session": {
+          renderSummary("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
+          break;
+        }
+        case "day": {
+          renderSummary("Por Dia", "Dia", groupBy((r) => r.dayLabel));
+          break;
+        }
+        case "zone": {
+          renderSummary("Por Zona", "Zona", groupBy((r) => r.zoneName));
+          break;
+        }
+        case "lot": {
+          renderSummary("Por Lote", "Lote", groupBy((r) => r.lotName));
+          break;
+        }
       }
-      renderSummary("Por Zona", byZone);
-      renderSummary("Por Lote", byLot);
     }
 
     // ===== 4. FECHO DE BILHETEIRA =====
@@ -698,19 +726,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     autoTable(doc, {
       startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (−)", "Saldo Final"]],
+      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Saldo Final"]],
       body: settlements.map((s) => [
         s.partnerName,
         `${s.effectivePercentage}%`,
         formatCurrency(s.partnerShare),
         formatCurrency(s.totalPaidByPartner),
-        `−${formatCurrency(s.totalPartnerExtras)}`,
+        `-${formatCurrency(s.totalPartnerExtras)}`,
         formatCurrency(s.settlement),
       ]),
       foot: [["TOTAL", "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        `−${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
         formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
       ]],
       margin: { left: margin, right: margin },
@@ -735,7 +763,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       const summaryRows = [
         ["Participação no resultado", formatCurrency(s.partnerShare)],
         ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
-        ["Extras do sócio (−)", `−${formatCurrency(s.totalPartnerExtras)}`],
+        ["Extras do sócio (-)", `-${formatCurrency(s.totalPartnerExtras)}`],
         ["Saldo do encontro de contas", formatCurrency(s.settlement)],
       ];
       autoTable(doc, {
@@ -784,9 +812,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           body: s.partnerExtras.map(e => [
             e.description, e.category,
             e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            `−${formatCurrency(e.amount)}`,
+            `-${formatCurrency(e.amount)}`,
           ]),
-          foot: [["Total a abater", "", "", `−${formatCurrency(s.totalPartnerExtras)}`]],
+          foot: [["Total a abater", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
           margin: { left: margin + 4, right: margin },
           styles: { fontSize: 8 },
           headStyles: { fillColor: [120, 60, 60] },
@@ -799,10 +827,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       const direction = s.settlement > 0
-        ? `→ MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
+        ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
         : s.settlement < 0
-          ? `→ Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
-          : "→ Sem saldo pendente";
+          ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
+          : "-> Sem saldo pendente";
       doc.text(direction, margin, y);
       y += 8;
     }
@@ -827,9 +855,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <ArrowRightLeft className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
-        <Button size="sm" variant="outline" onClick={exportPdf}>
-          <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={ticketGroupMode} onValueChange={(v) => setTicketGroupMode(v as TicketGroupMode)}>
+            <SelectTrigger className="h-8 w-[260px] text-xs">
+              <SelectValue placeholder="Agrupamento de bilheteira" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sub_date_session">Bilheteira: Subevento / Data / Sessão</SelectItem>
+              <SelectItem value="session">Bilheteira: Por Sessão</SelectItem>
+              <SelectItem value="day">Bilheteira: Por Dia</SelectItem>
+              <SelectItem value="zone">Bilheteira: Por Zona</SelectItem>
+              <SelectItem value="lot">Bilheteira: Por Lote</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Global summary */}
