@@ -95,6 +95,9 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const event_id: string | undefined = body?.event_id;
     const xlsxRows: XlsxRowInput[] = Array.isArray(body?.xlsxRows) ? body.xlsxRows : [];
+    const eligibleForecastIds: string[] | null = Array.isArray(body?.eligible_forecast_ids)
+      ? body.eligible_forecast_ids.filter((x: unknown) => typeof x === "string")
+      : null;
     if (!event_id) {
       return new Response(JSON.stringify({ error: "event_id é obrigatório" }), {
         status: 400,
