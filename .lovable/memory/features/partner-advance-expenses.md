@@ -1,6 +1,6 @@
 ---
 name: Partner Advance Expenses (Extras do Sócio)
-description: Despesas pagas pela empresa que devem ser descontadas do sócio no fecho — transitórias, vínculo obrigatório a evento, abatem do payout
+description: Despesas pagas pela empresa que devem ser descontadas do sócio no fecho — transitórias, vínculo obrigatório a evento, abatem do payout. Suporta split parcial (apenas X€ da fatura é extra) via transação irmã transitória.
 type: feature
 ---
 
@@ -25,6 +25,15 @@ type: feature
 1. **Criação direta** (`TransactionFormModal`): toggle "🧳 Extra do Sócio" + selector de sócio do evento
 2. **Conversão posterior** (`TransactionEditModal`): bloco para marcar/desmarcar despesa existente como Extra do Sócio
 3. **Desmembramento parcial**: via Split existente (selecionar "Sócio" como destino) ou modal dedicado "Desmembrar para sócio"
+
+## Split parcial (apenas parte da fatura é extra)
+Quando uma fatura tem **só uma parcela** que é extra do sócio (e o resto é despesa normal da empresa):
+- No `TransactionFormModal`, dentro do bloco "Extra do Sócio", aparece campo "Apenas parte da fatura é extra (€)"
+- Vazio = fatura inteira é extra (comportamento original: principal fica `is_transitory=true`)
+- Preenchido com valor `> 0 && < total`: principal fica **NORMAL** (entra DRE/BP) com valor TOTAL; cria transação **irmã transitória** com valor parcial, ambas com **mesmo `invoice_group_id`** (gerado se necessário). A irmã é a que vai a `partner_advance_expenses`. A descrição da irmã é `"<descrição> — extra sócio (parcial)"`.
+- Disponível apenas em modo simples (sem split multi-evento)
+- Validação: parcial deve ser `> 0` e `< amount`
+- Liquidação: a fatura é paga 1× pelo total (transação principal). A irmã fica `status='paid'` desde a criação mas como `is_transitory=true` não consome saldo.
 
 ## Fecho do Sócio (`PartnerSettlementTab`)
 Fórmula:
