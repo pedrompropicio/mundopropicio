@@ -931,7 +931,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             split_percentage: entry.percentage,
             split_amount: isAbsoluteMode ? childAmount : null,
             parent_transaction_id: "", // placeholder, set after parent insert
-            is_transitory: isTransitory,
+            is_transitory: isTransitory || isPartnerExtra,
             exclude_from_result: isExcludeFromResult,
             payment_method: data.payment_method || "transfer",
             payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
