@@ -91,7 +91,35 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
   });
 
+  // Linhas de previsão de Overhead disponíveis no BP (deste evento + Master, se houver)
+  // para vincular a despesa overhead a uma linha de planeamento existente.
+  const { data: bpOverheadForecasts = [] } = useQuery({
+    queryKey: ["bp-overhead-forecasts-for-link", eventId, eventInfo?.parent_event_id],
+    enabled: !!eventInfo,
+    queryFn: async () => {
+      const ids = [eventId];
+      if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, description, amount, iva_rate, account_categories(code, name)")
+        .in("event_id", ids)
+        .eq("is_overhead", true)
+        .order("type")
+        .order("description");
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        ...r,
+        scope: r.event_id === eventId ? "local" : "master",
+      }));
+    },
+  });
+
   const filteredCategories = categories.filter((c: any) => c.type === type);
+
+  // Previsões filtradas pelo tipo selecionado e que NÃO sejam a própria linha em edição
+  const linkableForecasts = bpOverheadForecasts.filter(
+    (f: any) => f.type === type && f.id !== editingId,
+  );
 
   // Avisos de conflito quando a categoria escolhida já existe no BP
   const categoryConflict = (() => {
