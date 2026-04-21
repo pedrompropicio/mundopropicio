@@ -35,6 +35,7 @@ interface TransactionWithMeta {
   supplierName?: string;
   isPartnerPaid?: boolean;
   partnerName?: string;
+  isOutOfBP?: boolean;
 }
 
 interface CategoryGroup {
