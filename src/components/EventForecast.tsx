@@ -2299,11 +2299,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], nativeDocCount = 0, onOpenAttachments }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], nativeDocCount = 0, onOpenAttachments }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
   isSelected?: boolean; onToggleSelect?: (id: string) => void;
+  /** When false on an approved row, hide the bulk-select checkbox (line already has TX or matches one). */
+  isEligibleForGen?: boolean;
   indented?: boolean; readOnly?: boolean; onEditApproved?: (item: any) => void;
   canEditApproved?: boolean; eventTransactions?: any[];
   assignedPartnerIds?: string[]; eventPartners?: { id: string; name: string; percentage: number }[];
