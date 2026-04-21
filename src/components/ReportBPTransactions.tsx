@@ -240,6 +240,13 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       forecastByCategory[catId] = (forecastByCategory[catId] ?? 0) + Number(f.amount);
     });
 
+    // Categorias que existem no BP approved (do evento) — usado para marcar
+    // transações cuja categoria não foi orçada como "Fora do BP".
+    const bpCategoryIds = new Set(Object.keys(forecastByCategory));
+    eventTransactions.forEach((t) => {
+      (t as any).isOutOfBP = !!t.category_id && !bpCategoryIds.has(t.category_id);
+    });
+
     // Group transactions by category
     const transByCategory: Record<string, TransactionWithMeta[]> = {};
     normalTransactions.forEach((t) => {
