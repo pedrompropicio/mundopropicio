@@ -997,7 +997,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const generateHistoricalMutation = useMutation({
     mutationFn: async (xlsxRows: XlsxRowForGeneration[] | null) => {
-      const eligibleIds = eligibleForHistoricalGen.map((f) => f.id);
+      const eligibleIds = forecasts.filter((f) => isEligibleForBulkTx(f)).map((f) => f.id);
       const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
         body: { event_id: eventId, xlsxRows: xlsxRows ?? [], eligible_forecast_ids: eligibleIds },
       });
