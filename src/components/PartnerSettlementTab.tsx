@@ -577,18 +577,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. BILHETEIRA — RESUMOS =====
+    // ===== 3. BILHETEIRA - RESUMOS =====
     if (ticketBreakdown.length > 0) {
       ensureSpace(30);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("3. Bilheteira — Totais Vendidos", margin, y);
+      doc.text("3. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
       // Helper para agregar e renderizar mini-tabela
       const renderSummary = (
         title: string,
+        firstColLabel: string,
         groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
       ) => {
         if (groups.length === 0) return;
@@ -600,7 +601,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         y += 3;
         autoTable(doc, {
           startY: y,
-          head: [[title.replace("Por ", ""), "Qtd.", "Total c/IVA", "Total s/IVA"]],
+          head: [[firstColLabel, "Qtd.", "Total c/IVA", "Total s/IVA"]],
           body: groups.map((g) => [
             g.key,
             g.quantity.toString(),
@@ -634,19 +635,33 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
       };
 
-      const byDay = groupBy((r) => r.dayLabel);
-      const bySession = groupBy((r) => r.sessionLabel);
-      const byZone = groupBy((r) => r.zoneName);
-      const byLot = groupBy((r) => r.lotName);
-
-      // Só mostra "Por Dia" se houver mais de um dia
-      if (byDay.length > 1) renderSummary("Por Dia", byDay);
-      // Só mostra "Por Sessão" se houver sessões úteis (mais de 1 ou diferente do dia)
-      if (bySession.length > 1 || (bySession.length === 1 && bySession[0].key !== "—")) {
-        renderSummary("Por Sessão", bySession);
+      // Renderiza apenas o agrupamento escolhido pelo utilizador
+      switch (ticketGroupMode) {
+        case "sub_date_session": {
+          const groups = groupBy((r) => {
+            const parts = [r.subEventName, r.dayLabel, r.sessionLabel].filter((p) => p && p !== "—");
+            return parts.join(" | ") || "—";
+          });
+          renderSummary("Por Subevento / Data / Sessao", "Subevento / Data / Sessao", groups);
+          break;
+        }
+        case "session": {
+          renderSummary("Por Sessao", "Sessao", groupBy((r) => r.sessionLabel));
+          break;
+        }
+        case "day": {
+          renderSummary("Por Dia", "Dia", groupBy((r) => r.dayLabel));
+          break;
+        }
+        case "zone": {
+          renderSummary("Por Zona", "Zona", groupBy((r) => r.zoneName));
+          break;
+        }
+        case "lot": {
+          renderSummary("Por Lote", "Lote", groupBy((r) => r.lotName));
+          break;
+        }
       }
-      renderSummary("Por Zona", byZone);
-      renderSummary("Por Lote", byLot);
     }
 
     // ===== 4. FECHO DE BILHETEIRA =====
