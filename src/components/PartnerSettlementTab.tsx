@@ -698,43 +698,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 6. CONCILIAÇÃO BP × REAL =====
-    if (bpDeviation.length > 0) {
-      ensureSpace(40);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("6. Conciliação BP × Real (Despesas)", margin, y);
-      y += 5;
-      autoTable(doc, {
-        startY: y,
-        head: [["Categoria", "Planeado (BP)", "Real", "Desvio", "Desvio %"]],
-        body: bpDeviation.slice(0, 25).map((r) => [
-          r.category,
-          formatCurrency(r.planned),
-          formatCurrency(r.real),
-          (r.deviation >= 0 ? "+" : "") + formatCurrency(r.deviation),
-          (r.deviationPct >= 0 ? "+" : "") + r.deviationPct.toFixed(1) + "%",
-        ]),
-        foot: [["TOTAL",
-          formatCurrency(totalPlanned),
-          formatCurrency(totalReal),
-          (totalReal - totalPlanned >= 0 ? "+" : "") + formatCurrency(totalReal - totalPlanned),
-          totalPlanned > 0 ? ((totalReal - totalPlanned) / totalPlanned * 100).toFixed(1) + "%" : "—",
-        ]],
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // ===== 7. DISTRIBUIÇÃO AOS SÓCIOS =====
+    // ===== 6. DISTRIBUIÇÃO AOS SÓCIOS =====
     ensureSpace(50);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("7. Distribuição aos Sócios", margin, y);
+    doc.text("6. Distribuição aos Sócios", margin, y);
     y += 5;
     autoTable(doc, {
       startY: y,
