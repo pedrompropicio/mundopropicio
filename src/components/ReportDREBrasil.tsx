@@ -193,7 +193,7 @@ function buildDREBrasil(
     const retained = consistentBase - totalDistribution;
     const housePct = Math.max(0, 100 - partners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
     lines.push({
-      label: `Mundo Propício (${housePct.toFixed(1)}%)`,
+      label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
@@ -586,7 +586,7 @@ export default function ReportDREBrasil() {
         </div>
         {hasGlobalPartners && (
           <div className="glass rounded-xl p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Mundo Propício</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado MUNDO PROPÍCIO</p>
             <p className={`mt-1 text-lg font-bold ${globalRetained >= 0 ? "text-success" : "text-destructive"}`}>
               {formatCurrency(globalRetained)}
             </p>
@@ -629,7 +629,7 @@ export default function ReportDREBrasil() {
                   </span>
                   {evt.hasPartners && evt.retainedEx !== null && (
                     <span className={`font-mono text-xs ${evt.retainedEx >= 0 ? "text-success/70" : "text-destructive/70"}`}>
-                      (Mundo Propício: {formatCurrency(evt.retainedEx)})
+                      (MUNDO PROPÍCIO: {formatCurrency(evt.retainedEx)})
                     </span>
                   )}
                 </div>
@@ -763,7 +763,7 @@ export default function ReportDREBrasil() {
                   const housePct = Math.max(0, 100 - tourPartners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
                   return (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground italic">Mundo Propício ({housePct.toFixed(1)}%)</span>
+                      <span className="text-muted-foreground italic">MUNDO PROPÍCIO ({housePct.toFixed(1)}%)</span>
                       <span className="font-mono text-amber-500">{formatCurrency(tourRetained)}</span>
                     </div>
                   );
