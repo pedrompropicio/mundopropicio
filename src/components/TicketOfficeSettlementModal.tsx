@@ -77,6 +77,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       );
       setVenueRetainedInvoiceId(existingSettlement.venue_retained_invoice_id ?? "");
       setVenueRetainedNotes(existingSettlement.venue_retained_notes ?? "");
+      setPayInvoiceRemainder(!!existingSettlement.venue_invoice_remainder_paid);
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Detect credit status from existing transfer transaction
       (async () => {
