@@ -193,6 +193,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   // Get relevant event IDs (including child events for tours)
   const selectedEvent = events.find((e: any) => e.id === selectedEventId);
   const isSubEvent = !!selectedEvent?.parent_event_id;
+  const parentEventId: string | null = selectedEvent?.parent_event_id ?? null;
   const relevantEventIds = useMemo(() => {
     if (!selectedEventId) return [];
     const childIds = events
@@ -200,6 +201,12 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       .map((e: any) => e.id);
     return [selectedEventId, ...childIds];
   }, [selectedEventId, events]);
+
+  // Quantos sub-eventos tem o Master (para calcular a proporção do rateio)
+  const masterSplitsCount = useMemo(() => {
+    if (!parentEventId) return 0;
+    return events.filter((e: any) => e.parent_event_id === parentEventId).length;
+  }, [parentEventId, events]);
 
   // Filter and enrich data for selected event
   const { groupedData, outOfBPTransactions, totalForecast, totalActual } = useMemo(() => {
@@ -212,35 +219,89 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     // Filter forecasts for this event (expenses only). Por defeito apenas
     // `approved`, alinhando com a vista Previsão vs Real e o DRE. Toggle
     // "Incluir rascunhos" deixa-nos auditar também linhas em `draft`.
-    const eventForecasts = forecasts.filter(
+    const statusOk = (s: string) =>
+      includeDrafts ? (s === "approved" || s === "draft") : s === "approved";
+
+    // Linhas locais ao(s) evento(s) selecionado(s).
+    // Em sub-eventos, removemos as linhas que já são fatias de rateio Master
+    // (master_forecast_id presente) — elas serão substituídas por uma fatia
+    // virtual proporcional vinda diretamente do BP do Master quando o toggle
+    // "Incluir rateios Master" estiver ON.
+    const localForecasts = forecasts.filter(
       (f: any) =>
         relevantEventIds.includes(f.event_id) &&
         f.type === "expense" &&
-        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved") &&
-        // Em sub-eventos, opcionalmente exclui linhas vindas de rateio Master
-        (!isSubEvent || includeMasterApportionment || !f.master_forecast_id)
+        statusOk(f.status) &&
+        (!isSubEvent || !f.master_forecast_id)
     );
 
-    // Filter transactions for this event (expenses only, approved or paid)
-    const eventTransactions: TransactionWithMeta[] = transactions
-      .filter(
-        (t: any) =>
-          relevantEventIds.includes(t.event_id) &&
-          t.type === "expense" &&
-          (!isSubEvent || includeMasterApportionment || !t.parent_transaction_id)
-      )
-      .map((t: any) => {
-        const pp = partnerPaidMap[t.id];
-        const ri = reimbursementMap[t.id];
-        return {
-          ...t,
-          supplierName: t.suppliers?.name ?? null,
-          isPartnerPaid: !!pp,
-          partnerName: pp?.partnerName,
-          reimbursementCode: ri?.code,
-          reimbursementEmployee: ri?.employeeName,
-        };
+    // Quando ON e o evento é um sub-evento, traz BP do Master e rateia ÷N.
+    const masterForecastSlices: any[] = [];
+    if (isSubEvent && includeMasterApportionment && parentEventId && masterSplitsCount > 0) {
+      const masterForecasts = forecasts.filter(
+        (f: any) =>
+          f.event_id === parentEventId &&
+          f.type === "expense" &&
+          statusOk(f.status)
+      );
+      masterForecasts.forEach((f: any) => {
+        masterForecastSlices.push({
+          ...f,
+          id: `${f.id}::split::${selectedEventId}`,
+          event_id: selectedEventId,
+          amount: Number(f.amount) / masterSplitsCount,
+          _from_master: true,
+          _master_event_id: parentEventId,
+          _split_share: 1 / masterSplitsCount,
+        });
       });
+    }
+
+    const eventForecasts = [...localForecasts, ...masterForecastSlices];
+
+    // Filter transactions for this event (expenses only, approved or paid).
+    // Em sub-eventos, removemos as fatias de rateio (parent_transaction_id)
+    // que serão substituídas por proporção a partir das transações do Master.
+    const localTxRaw = transactions.filter(
+      (t: any) =>
+        relevantEventIds.includes(t.event_id) &&
+        t.type === "expense" &&
+        (!isSubEvent || !t.parent_transaction_id)
+    );
+
+    // Transações Master (event_id === parentEventId) rateadas ÷N quando ON.
+    const masterTxSlices: any[] = [];
+    if (isSubEvent && includeMasterApportionment && parentEventId && masterSplitsCount > 0) {
+      const masterTxs = transactions.filter(
+        (t: any) =>
+          t.event_id === parentEventId &&
+          t.type === "expense"
+      );
+      masterTxs.forEach((t: any) => {
+        masterTxSlices.push({
+          ...t,
+          id: `${t.id}::split::${selectedEventId}`,
+          event_id: selectedEventId,
+          amount: Number(t.amount) / masterSplitsCount,
+          _from_master: true,
+          _master_event_id: parentEventId,
+          _split_share: 1 / masterSplitsCount,
+        });
+      });
+    }
+
+    const eventTransactions: TransactionWithMeta[] = [...localTxRaw, ...masterTxSlices].map((t: any) => {
+      const pp = partnerPaidMap[t.id] ?? (t._from_master ? partnerPaidMap[t.id.split("::")[0]] : undefined);
+      const ri = reimbursementMap[t.id] ?? (t._from_master ? reimbursementMap[t.id.split("::")[0]] : undefined);
+      return {
+        ...t,
+        supplierName: t.suppliers?.name ?? null,
+        isPartnerPaid: !!pp,
+        partnerName: pp?.partnerName,
+        reimbursementCode: ri?.code,
+        reimbursementEmployee: ri?.employeeName,
+      };
+    });
 
     // Separate "Fora do BP" transactions
     const normalTransactions = eventTransactions.filter((t) => !t.pl_override_note);
@@ -353,7 +414,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, isSubEvent, includeMasterApportionment]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
@@ -437,6 +498,19 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   Categoria não foi orçada no BP approved deste evento.
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {(t as any)._from_master && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 border-primary/40 text-primary">
+                    via Master ÷{masterSplitsCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Linha do Master rateada proporcionalmente
+                  ({(((t as any)._split_share ?? 0) * 100).toFixed(1)}%) para este sub-evento.
                 </TooltipContent>
               </Tooltip>
             )}
