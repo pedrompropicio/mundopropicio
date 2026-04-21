@@ -68,6 +68,13 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setNotes(existingSettlement.notes ?? "");
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
+      setVenueRetainedAmount(
+        existingSettlement.venue_retained_amount && Number(existingSettlement.venue_retained_amount) > 0
+          ? String(existingSettlement.venue_retained_amount)
+          : ""
+      );
+      setVenueRetainedInvoiceId(existingSettlement.venue_retained_invoice_id ?? "");
+      setVenueRetainedNotes(existingSettlement.venue_retained_notes ?? "");
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Detect credit status from existing transfer transaction
       (async () => {
@@ -106,6 +113,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setSettlementDate(new Date().toISOString().slice(0, 10));
       setCreditStatus("credited");
       setExpectedCreditDate("");
+      setVenueRetainedAmount("");
+      setVenueRetainedInvoiceId("");
+      setVenueRetainedNotes("");
     }
   }, [open, existingSettlement, defaultEventId]);
 
