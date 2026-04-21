@@ -103,6 +103,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
+  // Partner advance expenses (Extras do Sócio — pagas pela empresa, abatidas no fecho)
+  const { data: partnerAdvances = [] } = useQuery({
+    queryKey: ["partner-advance-expenses", allEventIdsKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, account_categories(name))")
+        .in("event_id", allEventIds)
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Ticket sales revenue
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["event-ticket-sales-settlement", allEventIdsKey],
