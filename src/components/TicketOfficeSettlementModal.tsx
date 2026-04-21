@@ -406,8 +406,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         document_name: docName,
         notes: notes || null,
         venue_retained_amount: venueRetainedNum,
-        venue_retained_invoice_id: venueRetainedNum > 0 && venueRetainedInvoiceId ? venueRetainedInvoiceId : null,
+        venue_retained_invoice_id: (venueRetainedNum > 0 || remainderApplied) && venueRetainedInvoiceId ? venueRetainedInvoiceId : null,
         venue_retained_notes: venueRetainedNum > 0 ? (venueRetainedNotes || null) : null,
+        venue_invoice_remainder_paid: remainderApplied,
+        venue_invoice_remainder_amount: remainderApplied ? invoiceRemainder : 0,
         status: confirm ? "confirmed" : "draft",
       };
       if (confirm) {
