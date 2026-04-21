@@ -201,9 +201,26 @@ Deno.serve(async (req) => {
         continue;
       }
       const cols = liveCols[t];
-      const { cleanRows, skipped } = cols
+      let { cleanRows, skipped } = cols
         ? stripUnknownCols(rows, cols)
         : { cleanRows: rows, skipped: [] as string[] };
+
+      // Dedup específico para ticket_sales — constraint uniq_ticket_sales_imported_row
+      // foi adicionada após o backup; precisamos remover duplicados antes do upsert.
+      let dedupRemoved = 0;
+      if (t === "ticket_sales") {
+        const seen = new Set<string>();
+        const deduped: any[] = [];
+        for (const r of cleanRows) {
+          if (r.source === "import") {
+            const key = [r.zone_id, r.lot_id ?? "00000000-0000-0000-0000-000000000000", r.sale_date, r.unit_price, r.financial_account_id].join("|");
+            if (seen.has(key)) { dedupRemoved++; continue; }
+            seen.add(key);
+          }
+          deduped.push(r);
+        }
+        cleanRows = deduped;
+      }
 
       let inserted = 0;
       const batchSize = 500;
@@ -221,6 +238,7 @@ Deno.serve(async (req) => {
         ...(results[t] ?? { deleted: "n/a", inserted: 0 }),
         inserted,
         skipped_cols: skipped.length ? skipped : undefined,
+        ...(dedupRemoved > 0 ? { dedup_removed: dedupRemoved } as any : {}),
         error: lastErr ?? results[t]?.error,
       };
     }
