@@ -237,11 +237,13 @@ export function ResultsAnalysis() {
       target[eid].set(key, (target[eid].get(key) ?? 0) + net);
     });
 
-    // ── Closing costs per event ──
+    // ── Closing costs (overhead) per event — só entram quando toggle ON (Vista Sócio) ──
     const closingMap: Record<string, number> = {};
-    closingCosts.forEach((cc: any) => {
-      closingMap[cc.event_id] = (closingMap[cc.event_id] || 0) + Number(cc.amount);
-    });
+    if (includeOverhead) {
+      closingCosts.forEach((cc: any) => {
+        closingMap[cc.event_id] = (closingMap[cc.event_id] || 0) + Number(cc.amount);
+      });
+    }
 
     const partnerMap: Record<string, { totalPct: number; items: any[] }> = {};
     partners.forEach((p: any) => {
