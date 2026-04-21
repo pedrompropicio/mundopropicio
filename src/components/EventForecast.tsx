@@ -1631,19 +1631,21 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           <div className="flex items-center gap-2">
             {/* Open the BP × Transactions report pre-filtered to this event,
                 so users can audit per-line execution without leaving context. */}
-            {/* Open in a new tab so the user keeps the BP context, and so we
-                bypass any stale client-side route table from older bundles
-                (full document load always picks the freshest index.html). */}
-            <a
-              href={`/relatorios/bp-transacoes?eventId=${eventId}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            {/* Navigate internally and pass origin via state so the report
+                shows a "Voltar" button back to this BP page. */}
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/relatorios/bp-transacoes?eventId=${eventId}`, {
+                  state: { from: window.location.pathname + window.location.search, fromLabel: "BP do Evento" },
+                })
+              }
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              title="Abrir o relatório BP × Transações já filtrado por este evento (em nova aba)"
+              title="Abrir o relatório BP × Transações já filtrado por este evento"
             >
               <BarChart3 className="h-3.5 w-3.5" />
               BP × Transações
-            </a>
+            </button>
             {isAdmin && approvedWithoutTxCount > 0 && (eventStatus === "completed" || eventStatus === "active") && (
               <button
                 onClick={handleGenerateHistorical}
