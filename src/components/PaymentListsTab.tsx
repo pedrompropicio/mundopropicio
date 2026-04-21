@@ -752,17 +752,39 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     e.preventDefault();
   }, [position]);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    dragging.current = true;
+    startPos.current = { x: t.clientX - position.x, y: t.clientY - position.y };
+  }, [position]);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragging.current) return;
       setPosition({ x: e.clientX - startPos.current.x, y: e.clientY - startPos.current.y });
     };
     const handleMouseUp = () => { dragging.current = false; };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!dragging.current) return;
+      const t = e.touches[0];
+      if (!t) return;
+      // Prevent the page (behind the modal) from scrolling while dragging
+      if (e.cancelable) e.preventDefault();
+      setPosition({ x: t.clientX - startPos.current.x, y: t.clientY - startPos.current.y });
+    };
+    const handleTouchEnd = () => { dragging.current = false; };
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+    window.addEventListener("touchcancel", handleTouchEnd);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchEnd);
     };
   }, []);
 
@@ -1046,19 +1068,33 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4" onClick={onClose}>
       <div
-        className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 absolute"
-        style={{ left: `calc(50% - 28rem + ${position.x}px)`, top: `calc(5vh + ${position.y}px)`, margin: "0 auto" }}
+        className="glass w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 absolute left-2 right-2 sm:left-auto sm:right-auto"
+        style={{
+          // Desktop: center the modal then apply drag offset.
+          // Mobile: left/right are pinned via classes (left-2 right-2); only apply the drag offsets.
+          transform: `translate(${position.x}px, ${position.y}px)`,
+          top: `calc(env(safe-area-inset-top, 0px) + 2vh)`,
+          ...(typeof window !== "undefined" && window.innerWidth >= 640
+            ? { left: "calc(50% - 28rem)" }
+            : {}),
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing select-none"
+          className="flex items-center justify-between mb-4 cursor-grab active:cursor-grabbing select-none touch-none"
           onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
         >
-          <div>
-            <h2 className="text-xl font-bold">{list?.title ?? "Lista de Pagamentos"}</h2>
-            <p className="text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
+          <div className="flex items-start gap-2 min-w-0">
+            {/* Drag affordance — visible on mobile so users know they can move it */}
+            <span className="mt-1 hidden sm:inline-block h-5 w-1 rounded-full bg-muted-foreground/30 shrink-0" aria-hidden />
+            <span className="mt-1 sm:hidden inline-block h-1 w-8 rounded-full bg-muted-foreground/40 shrink-0" aria-hidden />
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold truncate">{list?.title ?? "Lista de Pagamentos"}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">{list?.payment_date ? formatDate(list.payment_date) : ""}</p>
+            </div>
           </div>
           {isApproved && (
             <div className="flex gap-2 flex-wrap">
