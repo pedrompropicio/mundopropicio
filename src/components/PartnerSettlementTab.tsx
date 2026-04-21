@@ -75,7 +75,9 @@ interface TicketBreakdownRow {
   lotName: string;
   sessionLabel: string; // "DD/MM" ou "DD/MM HH:MM" ou "—"
   dayLabel: string;     // "DD/MM/YYYY"
-  subEventName: string; // Nome do sub-evento (ou nome do próprio evento se não for turnê)
+  subEventName: string; // Nome do sub-evento
+  cityName: string;     // Nome da cidade (ou nome do evento se não tiver cidade)
+  eventId: string;      // ID do sub-evento (para cruzar com cityBreakdown)
   quantity: number;
   unitPrice: number;
   totalGross: number;
