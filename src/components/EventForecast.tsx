@@ -2239,7 +2239,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       <GenerateHistoricalModal
         open={historicalModalOpen}
         onOpenChange={setHistoricalModalOpen}
-        approvedCount={forecasts.filter((f) => f.status === "approved" && !f.transaction_id).length}
+        approvedCount={eligibleForHistoricalGen.length}
         isGenerating={generateHistoricalMutation.isPending}
         onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
       />
