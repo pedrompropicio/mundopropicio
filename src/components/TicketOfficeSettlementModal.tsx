@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { sumTicketSalesRevenue } from "@/lib/ticket-sales-revenue";
 import { TransactionFormModal } from "@/components/TransactionFormModal";
 import { QuickAdvanceModal } from "@/components/QuickAdvanceModal";
+import { computeSettlement } from "@/lib/ticket-office-settlement-calc";
 
 interface Props {
   open: boolean;
