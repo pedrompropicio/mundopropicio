@@ -501,6 +501,19 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                 </TooltipContent>
               </Tooltip>
             )}
+            {(t as any)._from_master && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 border-primary/40 text-primary">
+                    via Master ÷{masterSplitsCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Linha do Master rateada proporcionalmente
+                  ({(((t as any)._split_share ?? 0) * 100).toFixed(1)}%) para este sub-evento.
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </TableCell>
         <TableCell className="text-xs text-muted-foreground">{t.supplierName ?? "—"}</TableCell>
