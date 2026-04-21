@@ -600,7 +600,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <DocsBadgeButton transactionId={t.id} onClick={() => onDocs(t.id)} />
                 {/* Secondary actions menu */}
                 {(() => {
-                  const showDelete = !eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue")));
+                  const showDelete = !eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
                   const showViewPayments = onViewPayments && paidAmount > 0;
                   const showHide = isAdmin && onToggleHidden;
                   const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
