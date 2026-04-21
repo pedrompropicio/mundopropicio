@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen } from "lucide-react";
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
@@ -32,6 +32,7 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import BPViewerModal from "@/components/BPViewerModal";
 
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
@@ -71,6 +72,7 @@ export default function Transactions() {
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [showBPViewer, setShowBPViewer] = useState(false);
   const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
@@ -856,6 +858,14 @@ export default function Transactions() {
             <span className="hidden sm:inline">Transferência</span>
             <HelpTooltip text={helpTexts.transferBetweenAccounts} size={13} />
           </button>
+          <button
+            onClick={() => setShowBPViewer(true)}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+            title="Consultar Business Plan (Previsões e Previsão vs Real)"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Consultar BP</span>
+          </button>
           {(isAdmin || isManager || hasPermission("manage_ticket_offices")) && (
             <TicketOfficeSettlementLauncher />
           )}
@@ -873,6 +883,8 @@ export default function Transactions() {
       {showTransfer && (
         <TransferFormModal onClose={() => setShowTransfer(false)} />
       )}
+
+      <BPViewerModal open={showBPViewer} onClose={() => setShowBPViewer(false)} />
 
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
