@@ -459,9 +459,18 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
           </SelectContent>
         </Select>
         {selectedEventId && (
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <button onClick={expandAll} className="text-xs text-primary hover:underline">Expandir tudo</button>
             <button onClick={collapseAll} className="text-xs text-primary hover:underline">Colapsar tudo</button>
+            <label className="ml-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeDrafts}
+                onChange={(e) => setIncludeDrafts(e.target.checked)}
+                className="h-3.5 w-3.5 cursor-pointer accent-primary"
+              />
+              Incluir rascunhos do BP
+            </label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="ml-2 gap-1.5">
