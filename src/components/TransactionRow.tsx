@@ -93,6 +93,24 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   // Only consider as potential parent split if no parent and no event
   const mightBeParentSplit = !t.parent_transaction_id && !t.event_id && t.split_percentage === null;
 
+  // Detecta se esta transação transitória é, na verdade, um "Extra do Sócio"
+  // (vinculada via partner_advance_expenses). Nesse caso o badge deve ser "Extra Sócio"
+  // em vez de "Transitória".
+  const { data: isPartnerExtra = false } = useQuery({
+    queryKey: ["tx-is-partner-extra", t.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("id")
+        .eq("transaction_id", t.id)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!t.is_transitory,
+    staleTime: 60_000,
+  });
+
   const { data: movements = [] } = useQuery({
     queryKey: ["transaction-movements", t.id],
     queryFn: async () => {
