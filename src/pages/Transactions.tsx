@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ } from "lucide-react";
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
