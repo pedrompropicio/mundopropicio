@@ -492,6 +492,92 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         }
       }
 
+      // Venda à porta retida pela sala — criar / reverter pagamento parcial na fatura escolhida
+      const prevRetainedPaymentId = existingSettlement?.venue_retained_payment_id ?? null;
+      const prevRetainedInvoiceId = existingSettlement?.venue_retained_invoice_id ?? null;
+      const prevRetainedAmount = Number(existingSettlement?.venue_retained_amount || 0);
+
+      // Se havia pagamento anterior e (confirmou diferente / passou a draft / mudou fatura / removeu valor),
+      // reverter o pagamento anterior e re-somar o saldo pago da fatura.
+      const needsRevertPrev =
+        prevRetainedPaymentId &&
+        (
+          !confirm ||
+          !venueRetainedInvoiceId ||
+          venueRetainedInvoiceId !== prevRetainedInvoiceId ||
+          Math.abs(venueRetainedNum - prevRetainedAmount) > 0.005
+        );
+      if (needsRevertPrev) {
+        await (supabase as any).from("transaction_payments").delete().eq("id", prevRetainedPaymentId);
+        if (prevRetainedInvoiceId) {
+          const { data: prevTxn } = await (supabase as any)
+            .from("transactions")
+            .select("amount, iva_rate, paid_amount")
+            .eq("id", prevRetainedInvoiceId)
+            .single();
+          if (prevTxn) {
+            const newPaid = Math.max(0, Number(prevTxn.paid_amount || 0) - prevRetainedAmount);
+            const total = Number(prevTxn.amount || 0) * (1 + Number(prevTxn.iva_rate || 0) / 100);
+            await (supabase as any)
+              .from("transactions")
+              .update({
+                paid_amount: newPaid,
+                status: newPaid >= total - 0.005 ? "paid" : "approved",
+                payment_date: newPaid >= total - 0.005 ? settlementDate : null,
+              })
+              .eq("id", prevRetainedInvoiceId);
+          }
+        }
+        await (supabase as any)
+          .from("ticket_office_settlements")
+          .update({ venue_retained_payment_id: null })
+          .eq("id", settlementId);
+      }
+
+      // Criar novo pagamento parcial se há valor + fatura e estamos a confirmar
+      if (
+        confirm &&
+        venueRetainedNum > 0 &&
+        venueRetainedInvoiceId &&
+        (needsRevertPrev || !prevRetainedPaymentId)
+      ) {
+        const { data: invTxn } = await (supabase as any)
+          .from("transactions")
+          .select("amount, iva_rate, paid_amount")
+          .eq("id", venueRetainedInvoiceId)
+          .single();
+        const { data: pay, error: payErr } = await (supabase as any)
+          .from("transaction_payments")
+          .insert({
+            transaction_id: venueRetainedInvoiceId,
+            amount: venueRetainedNum,
+            payment_date: settlementDate,
+            payment_method: "compensation",
+            account_id: null,
+            notes: `Compensação por venda à porta retida pela sala (fecho ${officeName})${venueRetainedNotes ? ` — ${venueRetainedNotes}` : ""}`,
+            created_by: getAuditUser(user),
+          })
+          .select("id")
+          .single();
+        if (payErr) throw payErr;
+        if (invTxn) {
+          const newPaid = Number(invTxn.paid_amount || 0) + venueRetainedNum;
+          const total = Number(invTxn.amount || 0) * (1 + Number(invTxn.iva_rate || 0) / 100);
+          await (supabase as any)
+            .from("transactions")
+            .update({
+              paid_amount: newPaid,
+              status: newPaid >= total - 0.005 ? "paid" : "approved",
+              payment_date: newPaid >= total - 0.005 ? settlementDate : null,
+            })
+            .eq("id", venueRetainedInvoiceId);
+        }
+        await (supabase as any)
+          .from("ticket_office_settlements")
+          .update({ venue_retained_payment_id: pay.id })
+          .eq("id", settlementId);
+      }
+
       // Link advances to settlement (or unlink when reverting to draft)
       if (pendingAdvances.length > 0) {
         const advanceIds = pendingAdvances.map((a: any) => a.id);
