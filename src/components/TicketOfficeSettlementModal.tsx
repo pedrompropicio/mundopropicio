@@ -51,6 +51,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [creditStatus, setCreditStatus] = useState<"credited" | "pending">("credited");
   const [expectedCreditDate, setExpectedCreditDate] = useState<string>("");
+  // Venda à porta retida pela sala (abate ao aluguer/fatura escolhida)
+  const [venueRetainedAmount, setVenueRetainedAmount] = useState<string>("");
+  const [venueRetainedInvoiceId, setVenueRetainedInvoiceId] = useState<string>("");
+  const [venueRetainedNotes, setVenueRetainedNotes] = useState<string>("");
 
   // Reset/load when opening
   useEffect(() => {
