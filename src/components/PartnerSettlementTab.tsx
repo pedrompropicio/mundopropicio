@@ -569,37 +569,76 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. BILHETEIRA DETALHADA =====
+    // ===== 3. BILHETEIRA — RESUMOS =====
     if (ticketBreakdown.length > 0) {
-      ensureSpace(40);
+      ensureSpace(30);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("3. Bilheteira", margin, y);
-      y += 4;
-      autoTable(doc, {
-        startY: y,
-        head: [["Zona", "Lote", "Qtd.", "Preço", "Total c/IVA", "Total s/IVA"]],
-        body: ticketBreakdown.map((r) => [
-          r.zoneName,
-          r.lotName,
-          r.quantity.toString(),
-          formatCurrency(r.unitPrice),
-          formatCurrency(r.totalGross),
-          formatCurrency(r.totalNet),
-        ]),
-        foot: [["", "TOTAL",
-          ticketBreakdown.reduce((s, r) => s + r.quantity, 0).toString(),
-          "",
-          formatCurrency(ticketBreakdown.reduce((s, r) => s + r.totalGross, 0)),
-          formatCurrency(ticketBreakdown.reduce((s, r) => s + r.totalNet, 0)),
-        ]],
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      doc.setTextColor(0);
+      doc.text("3. Bilheteira — Totais Vendidos", margin, y);
+      y += 6;
+
+      // Helper para agregar e renderizar mini-tabela
+      const renderSummary = (
+        title: string,
+        groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
+      ) => {
+        if (groups.length === 0) return;
+        ensureSpace(20 + groups.length * 5);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(60);
+        doc.text(title, margin, y);
+        y += 3;
+        autoTable(doc, {
+          startY: y,
+          head: [[title.replace("Por ", ""), "Qtd.", "Total c/IVA", "Total s/IVA"]],
+          body: groups.map((g) => [
+            g.key,
+            g.quantity.toString(),
+            formatCurrency(g.totalGross),
+            formatCurrency(g.totalNet),
+          ]),
+          foot: [[
+            "TOTAL",
+            groups.reduce((s, g) => s + g.quantity, 0).toString(),
+            formatCurrency(groups.reduce((s, g) => s + g.totalGross, 0)),
+            formatCurrency(groups.reduce((s, g) => s + g.totalNet, 0)),
+          ]],
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: [41, 41, 41] },
+          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+          columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        });
+        y = (doc as any).lastAutoTable.finalY + 6;
+      };
+
+      const groupBy = (keyFn: (r: TicketBreakdownRow) => string) => {
+        const map: Record<string, { key: string; quantity: number; totalGross: number; totalNet: number }> = {};
+        ticketBreakdown.forEach((r) => {
+          const k = keyFn(r);
+          if (!map[k]) map[k] = { key: k, quantity: 0, totalGross: 0, totalNet: 0 };
+          map[k].quantity += r.quantity;
+          map[k].totalGross += r.totalGross;
+          map[k].totalNet += r.totalNet;
+        });
+        return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
+      };
+
+      const byDay = groupBy((r) => r.dayLabel);
+      const bySession = groupBy((r) => r.sessionLabel);
+      const byZone = groupBy((r) => r.zoneName);
+      const byLot = groupBy((r) => r.lotName);
+
+      // Só mostra "Por Dia" se houver mais de um dia
+      if (byDay.length > 1) renderSummary("Por Dia", byDay);
+      // Só mostra "Por Sessão" se houver sessões úteis (mais de 1 ou diferente do dia)
+      if (bySession.length > 1 || (bySession.length === 1 && bySession[0].key !== "—")) {
+        renderSummary("Por Sessão", bySession);
+      }
+      renderSummary("Por Zona", byZone);
+      renderSummary("Por Lote", byLot);
     }
 
     // ===== 4. FECHO DE BILHETEIRA =====
