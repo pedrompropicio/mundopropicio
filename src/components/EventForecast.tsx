@@ -104,13 +104,19 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
   const queryClient = useQueryClient();
-  const { isAdmin, isManager, user, hasPermission } = useAuth();
+  const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
+  // forceReadOnly disables all admin/manager UI affordances so the same
+  // component can render as a pure consultation view (used by BPViewerModal
+  // inside Transactions). It does not change DB permissions — it only hides
+  // edit/approve/delete actions in the UI.
+  const isAdmin = forceReadOnly ? false : rawIsAdmin;
+  const isManager = forceReadOnly ? false : rawIsManager;
   const isEventLocked = eventStatus === "completed";
-  const canApprove = (isAdmin || isManager) && !isEventLocked;
-  const canEditBP = (isAdmin || isManager) && !isEventLocked;
-  const canDeleteBP = isAdmin; // Admin can delete BP lines regardless of event status
+  const canApprove = !forceReadOnly && (rawIsAdmin || rawIsManager) && !isEventLocked;
+  const canEditBP = !forceReadOnly && (rawIsAdmin || rawIsManager) && !isEventLocked;
+  const canDeleteBP = !forceReadOnly && rawIsAdmin; // Admin can delete BP lines regardless of event status
   const canEditApprovedBP = canEditBP; // Admin/Manager can always edit approved BP lines
-  const isEditor = !isAdmin && !isManager && hasPermission("manage_events");
+  const isEditor = !forceReadOnly && !rawIsAdmin && !rawIsManager && hasPermission("manage_events");
   const canEditBPPartial = isEditor && !isEventLocked; // Editor can edit category + description only
 
   useEffect(() => {
