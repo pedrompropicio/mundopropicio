@@ -1140,11 +1140,48 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
         if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
-          await supabase.from("partner_advance_expenses").insert({
-            event_id: data.event_id,
-            partner_id: partnerExtraId,
-            transaction_id: insertedTx.id,
-          } as any);
+          if (isPartnerExtraPartial) {
+            // Split parcial: cria transação irmã transitória com o valor parcial,
+            // partilhando o invoice_group_id da fatura. É essa irmã que vai a partner_advance_expenses.
+            const { data: siblingTx, error: siblingErr } = await supabase
+              .from("transactions")
+              .insert({
+                description: `${data.description} — extra sócio (parcial)`,
+                type: data.type,
+                amount: partnerExtraPartialNum,
+                iva_rate: data.iva_rate,
+                event_id: data.event_id,
+                category_id: data.category_id || null,
+                supplier_id: data.supplier_id || null,
+                account_id: null,
+                date: data.date,
+                due_date: parseDueDateForDb(data.due_date),
+                status: "paid",
+                paid_amount: partnerExtraPartialNum,
+                payment_date: data.date,
+                is_transitory: true,
+                exclude_from_result: false,
+                invoice_ref: data.invoice_ref.trim() || null,
+                invoice_group_id: sharedInvoiceGroupId,
+                payment_method: "transfer",
+                currency,
+              } as any)
+              .select("id")
+              .single();
+            if (siblingErr) throw siblingErr;
+            await supabase.from("partner_advance_expenses").insert({
+              event_id: data.event_id,
+              partner_id: partnerExtraId,
+              transaction_id: siblingTx!.id,
+              notes: `Parcela do sócio na fatura "${data.description}" (total ${totalAmtNum.toFixed(2)} €)`,
+            } as any);
+          } else {
+            await supabase.from("partner_advance_expenses").insert({
+              event_id: data.event_id,
+              partner_id: partnerExtraId,
+              transaction_id: insertedTx.id,
+            } as any);
+          }
         }
 
         // Auto-link to reimbursement note
