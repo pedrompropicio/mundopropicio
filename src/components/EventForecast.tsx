@@ -2154,6 +2154,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         </TabsContent>
 
         <TabsContent value="comparison">
+          <div className="mb-3 flex items-center justify-end gap-2">
+            <span className="text-xs text-muted-foreground">Overhead</span>
+            <select
+              value={includeOverheadInComparison ? "with" : "without"}
+              onChange={(e) => setIncludeOverheadInComparison(e.target.value === "with")}
+              className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              title="Incluir/excluir linhas marcadas como Overhead na comparação Previsto vs Real"
+            >
+              <option value="without">Sem overhead (Vista Empresa)</option>
+              <option value="with">Com overhead (Vista Sócio)</option>
+            </select>
+          </div>
           <ComparisonTable data={comparisonData} />
         </TabsContent>
       </Tabs>
