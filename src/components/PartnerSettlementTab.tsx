@@ -228,7 +228,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const { data: ticketBreakdown = [] } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
-      const [zonesRes, sessionsRes] = await Promise.all([
+      const [zonesRes, sessionsRes, eventsRes] = await Promise.all([
         supabase
           .from("event_ticket_zones")
           .select("id, name, event_id, session_id")
@@ -237,9 +237,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           .from("event_sessions")
           .select("id, label, date, start_time, event_id")
           .in("event_id", allEventIds),
+        supabase
+          .from("events")
+          .select("id, name")
+          .in("id", allEventIds),
       ]);
       const zones = zonesRes.data || [];
       const sessions = sessionsRes.data || [];
+      const eventsList = eventsRes.data || [];
       if (zones.length === 0) return [];
       const zoneIds = zones.map((z: any) => z.id);
       const { data: lots } = await supabase
@@ -263,6 +268,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       return lots.map((l: any) => {
         const z = zones.find((zz: any) => zz.id === l.zone_id);
         const sess = sessions.find((ss: any) => ss.id === z?.session_id);
+        const ev = eventsList.find((e: any) => e.id === z?.event_id);
         const agg = byLot[l.id] || { quantity: 0, gross: 0 };
         const ivaRate = Number(l.iva_rate || 0);
         const totalNet = agg.gross / (1 + ivaRate / 100);
@@ -279,6 +285,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           lotName: l.name || "—",
           sessionLabel,
           dayLabel,
+          subEventName: ev?.name || eventName,
           quantity: agg.quantity,
           unitPrice: Number(l.price || 0),
           totalGross: agg.gross,
