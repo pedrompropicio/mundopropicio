@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ } from "lucide-react";
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
@@ -71,6 +71,7 @@ export default function Transactions() {
   const [deleteWarnings, setDeleteWarnings] = useState<string[]>([]);
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [sortMode, setSortMode] = useState<"due_date" | "category">("due_date");
   const queryClient = useQueryClient();
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const canApprove = isAdmin || isManager;
@@ -383,6 +384,25 @@ export default function Transactions() {
 
   const sortByDueDate = <T extends { due_date: string | null; date: string; created_at: string }>(items: T[]) => {
     return [...items].sort((a: any, b: any) => {
+      if (sortMode === "category") {
+        // 1) Categoria (por código hierárquico)
+        const aCatCode = a.account_categories?.code ?? "";
+        const bCatCode = b.account_categories?.code ?? "";
+        if (aCatCode !== bCatCode) return aCatCode.localeCompare(bCatCode, undefined, { numeric: true });
+        // 2) Data de Vencimento
+        const aPrimary = a.due_date ?? a.date;
+        const bPrimary = b.due_date ?? b.date;
+        if (aPrimary !== bPrimary) return aPrimary.localeCompare(bPrimary);
+        // 3) Evento
+        const aEvent = a.events?.name ?? "";
+        const bEvent = b.events?.name ?? "";
+        if (aEvent !== bEvent) return aEvent.localeCompare(bEvent, "pt", { sensitivity: "base" });
+        // 4) Fornecedor
+        const aSupp = a.suppliers?.name ?? "";
+        const bSupp = b.suppliers?.name ?? "";
+        return aSupp.localeCompare(bSupp, "pt", { sensitivity: "base" });
+      }
+      // sortMode === "due_date"
       // 1) Data de Vencimento (mais próxima primeiro)
       const aPrimary = a.due_date ?? a.date;
       const bPrimary = b.due_date ?? b.date;
@@ -416,16 +436,45 @@ export default function Transactions() {
     return set;
   }, [transactions]);
 
-  // Search helper
+  // Search helper — pesquisa abrangente em todos os campos textuais relevantes.
+  // Suporta múltiplos termos separados por espaço (todos têm de bater — AND).
+  const normalize = (v: any): string => {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "number") return String(v);
+    return String(v).toLowerCase();
+  };
   const matchesSearch = (t: any) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      t.description?.toLowerCase().includes(term) ||
-      t.specification?.toLowerCase().includes(term) ||
-      (t.events as any)?.name?.toLowerCase().includes(term) ||
-      (t.suppliers as any)?.name?.toLowerCase().includes(term)
-    );
+    const raw = searchTerm.trim();
+    if (!raw) return true;
+    const tokens = raw.toLowerCase().split(/\s+/).filter(Boolean);
+    // Constrói um "haystack" único com todos os campos pesquisáveis
+    const cat = t.account_categories ?? {};
+    const haystack = [
+      t.description,
+      t.specification,
+      t.notes,
+      t.invoice_ref,
+      t.payment_method,
+      t.payment_reference,
+      t.currency,
+      t.tax_doc_number,
+      t.amount,
+      t.paid_amount,
+      t.iva_rate,
+      t.date,
+      t.due_date,
+      t.payment_date,
+      t.status,
+      t.type,
+      (t.events as any)?.name,
+      (t.suppliers as any)?.name,
+      (t.financial_accounts as any)?.name,
+      cat.code,
+      cat.name,
+    ]
+      .map(normalize)
+      .join(" \u0001 ");
+    return tokens.every((tok) => haystack.includes(tok));
   };
 
   // Base filter (type, event, account, open only, search, hidden)
@@ -547,7 +596,7 @@ export default function Transactions() {
       periodGroup: sortByDueDate(inPeriod),
       noDateGroup: sortByDueDate(noDate),
     };
-  }, [baseFiltered, duePeriod, rangeFrom, rangeTo, periodDateField, onlyNoDueDate]);
+  }, [baseFiltered, duePeriod, rangeFrom, rangeTo, periodDateField, onlyNoDueDate, sortMode]);
 
   const filtered = [...overdueGroup, ...periodGroup, ...noDateGroup];
 
@@ -612,6 +661,25 @@ export default function Transactions() {
       return paymentDate >= periodStart && paymentDate <= periodEnd;
     });
     return [...result].sort((a: any, b: any) => {
+      if (sortMode === "category") {
+        // 1) Categoria (por código hierárquico)
+        const aCatCode = a.account_categories?.code ?? "";
+        const bCatCode = b.account_categories?.code ?? "";
+        if (aCatCode !== bCatCode) return aCatCode.localeCompare(bCatCode, undefined, { numeric: true });
+        // 2) Data de Pagamento (mais recente primeiro)
+        const aDate = (a.payment_date ?? a.date ?? "").slice(0, 10);
+        const bDate = (b.payment_date ?? b.date ?? "").slice(0, 10);
+        if (aDate !== bDate) return bDate.localeCompare(aDate);
+        // 3) Evento
+        const aEvent = a.events?.name ?? "";
+        const bEvent = b.events?.name ?? "";
+        if (aEvent !== bEvent) return aEvent.localeCompare(bEvent, "pt", { sensitivity: "base" });
+        // 4) Fornecedor
+        const aSupp = a.suppliers?.name ?? "";
+        const bSupp = b.suppliers?.name ?? "";
+        return aSupp.localeCompare(bSupp, "pt", { sensitivity: "base" });
+      }
+      // sortMode === "due_date" → no histórico, ordenar pela Data de Pagamento (mais recente)
       // 1) Data de Pagamento (mais recente primeiro) — normalizar para YYYY-MM-DD
       const aDate = (a.payment_date ?? a.date ?? "").slice(0, 10);
       const bDate = (b.payment_date ?? b.date ?? "").slice(0, 10);
@@ -633,7 +701,7 @@ export default function Transactions() {
       const bInv = b.invoice_ref ?? "";
       return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
@@ -764,7 +832,7 @@ export default function Transactions() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pesquisar…"
+              placeholder="Pesquisar tudo…"
               className="w-44 rounded-lg border border-border bg-background pl-8 pr-7 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
             />
             {searchTerm && (
@@ -917,6 +985,43 @@ export default function Transactions() {
             </Button>
           );
         })()}
+
+        {/* Sort selector */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button
+              variant={sortMode === "category" ? "default" : "outline"}
+              size="sm"
+              className="text-[13px] font-normal h-8 px-3"
+              title="Ordenação"
+            >
+              <ArrowDownAZ className="mr-1.5 h-3.5 w-3.5" />
+              {sortMode === "category" ? "Categoria" : viewMode === "paid" ? "Data Pgto" : "Vencimento"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex flex-col">
+              <button
+                onClick={() => setSortMode("due_date")}
+                className={cn(
+                  "rounded px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
+                  sortMode === "due_date" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                )}
+              >
+                {viewMode === "paid" ? "Data de Pagamento" : "Data de Vencimento"}
+              </button>
+              <button
+                onClick={() => setSortMode("category")}
+                className={cn(
+                  "rounded px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
+                  sortMode === "category" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                )}
+              >
+                Categoria (código)
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
