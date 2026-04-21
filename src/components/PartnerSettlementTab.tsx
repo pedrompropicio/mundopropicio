@@ -69,14 +69,6 @@ interface CategoryExpenseRow {
   count: number;
 }
 
-interface BpDeviationRow {
-  category: string;
-  planned: number;
-  real: number;
-  deviation: number;
-  deviationPct: number;
-}
-
 interface TicketBreakdownRow {
   zoneName: string;
   lotName: string;
@@ -152,8 +144,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, account_categories(name, code)")
+        .select("id, description, amount, iva_rate, type, date, status, event_id, is_transitory, exclude_from_result, category_id, account_categories(name, code, parent_id)")
         .in("event_id", allEventIds);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Plano de contas completo (para resolver raiz da hierarquia)
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ["all-account-categories-settlement"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_categories")
+        .select("id, name, code, parent_id");
       if (error) throw error;
       return data;
     },
@@ -359,44 +363,33 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         })
     : [];
 
-  // ---- Top despesas por categoria ----
+  // ---- Despesas agrupadas pela categoria RAIZ (nível 1 do Plano de Contas) ----
   const expenseByCategory: CategoryExpenseRow[] = (() => {
+    const catById: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
+    (allCategories as any[]).forEach((c) => { catById[c.id] = c; });
+    const findRoot = (catId: string | null | undefined): { name: string; code: string } | null => {
+      if (!catId) return null;
+      let cur = catById[catId];
+      const guard = new Set<string>();
+      while (cur && cur.parent_id && !guard.has(cur.id)) {
+        guard.add(cur.id);
+        const parent = catById[cur.parent_id];
+        if (!parent) break;
+        cur = parent;
+      }
+      return cur ? { name: cur.name, code: cur.code } : null;
+    };
     const map: Record<string, CategoryExpenseRow> = {};
     expenseTransactions.forEach((t: any) => {
-      const cat = t.account_categories?.name || "Sem categoria";
-      if (!map[cat]) map[cat] = { category: cat, amountNet: 0, amountGross: 0, count: 0 };
-      map[cat].amountNet += Number(t.amount);
-      map[cat].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
-      map[cat].count += 1;
+      const root = findRoot(t.category_id);
+      const label = root ? `${root.code} ${root.name}` : "Sem categoria";
+      if (!map[label]) map[label] = { category: label, amountNet: 0, amountGross: 0, count: 0 };
+      map[label].amountNet += Number(t.amount);
+      map[label].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
+      map[label].count += 1;
     });
     return Object.values(map).sort((a, b) => b.amountNet - a.amountNet);
   })();
-
-  // ---- BP × Real ----
-  const bpDeviation: BpDeviationRow[] = (() => {
-    const map: Record<string, { planned: number; real: number }> = {};
-    forecasts.forEach((f: any) => {
-      if (f.type !== "expense") return;
-      const cat = f.account_categories?.name || "Sem categoria";
-      if (!map[cat]) map[cat] = { planned: 0, real: 0 };
-      map[cat].planned += Number(f.amount);
-    });
-    expenseTransactions.forEach((t: any) => {
-      const cat = t.account_categories?.name || "Sem categoria";
-      if (!map[cat]) map[cat] = { planned: 0, real: 0 };
-      map[cat].real += Number(t.amount);
-    });
-    return Object.entries(map)
-      .map(([category, v]) => {
-        const deviation = v.real - v.planned;
-        const deviationPct = v.planned > 0 ? (deviation / v.planned) * 100 : (v.real > 0 ? 100 : 0);
-        return { category, planned: v.planned, real: v.real, deviation, deviationPct };
-      })
-      .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation));
-  })();
-
-  const totalPlanned = bpDeviation.reduce((s, r) => s + r.planned, 0);
-  const totalReal = bpDeviation.reduce((s, r) => s + r.real, 0);
 
   // ---- Box-office settlements rows ----
   const boxOfficeRows: BoxOfficeSettlementRow[] = (boxOfficeSettlements as any[]).map((s) => ({
@@ -697,43 +690,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 6. CONCILIAÇÃO BP × REAL =====
-    if (bpDeviation.length > 0) {
-      ensureSpace(40);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("6. Conciliação BP × Real (Despesas)", margin, y);
-      y += 5;
-      autoTable(doc, {
-        startY: y,
-        head: [["Categoria", "Planeado (BP)", "Real", "Desvio", "Desvio %"]],
-        body: bpDeviation.slice(0, 25).map((r) => [
-          r.category,
-          formatCurrency(r.planned),
-          formatCurrency(r.real),
-          (r.deviation >= 0 ? "+" : "") + formatCurrency(r.deviation),
-          (r.deviationPct >= 0 ? "+" : "") + r.deviationPct.toFixed(1) + "%",
-        ]),
-        foot: [["TOTAL",
-          formatCurrency(totalPlanned),
-          formatCurrency(totalReal),
-          (totalReal - totalPlanned >= 0 ? "+" : "") + formatCurrency(totalReal - totalPlanned),
-          totalPlanned > 0 ? ((totalReal - totalPlanned) / totalPlanned * 100).toFixed(1) + "%" : "—",
-        ]],
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
-    }
-
-    // ===== 7. DISTRIBUIÇÃO AOS SÓCIOS =====
+    // ===== 6. DISTRIBUIÇÃO AOS SÓCIOS =====
     ensureSpace(50);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("7. Distribuição aos Sócios", margin, y);
+    doc.text("6. Distribuição aos Sócios", margin, y);
     y += 5;
     autoTable(doc, {
       startY: y,
@@ -760,7 +721,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // ===== 8. DETALHES POR SÓCIO =====
+    // ===== 7. DETALHES POR SÓCIO =====
     for (const s of settlements) {
       ensureSpace(30);
 
