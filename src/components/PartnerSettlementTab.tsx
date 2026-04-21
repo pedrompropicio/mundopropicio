@@ -282,7 +282,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       // Partner summary
       const summaryRows = [
         ["Participação no resultado", formatCurrency(s.partnerShare)],
-        ["Despesas pagas pelo sócio", formatCurrency(s.totalPaidByPartner)],
+        ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
+        ["Extras do sócio (−)", `−${formatCurrency(s.totalPartnerExtras)}`],
         ["Saldo do encontro de contas", formatCurrency(s.settlement)],
       ];
 
