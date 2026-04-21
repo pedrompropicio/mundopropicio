@@ -1345,6 +1345,25 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[TxFormModal] handleSubmit called", {
+      is_reimbursement: form.is_reimbursement,
+      reimbursement_note_id: form.reimbursement_note_id,
+      event_id: form.event_id,
+      category_id: form.category_id,
+      description: form.description,
+      amount: form.amount,
+      isSplit,
+      isParentMultiDay,
+      showProrationConfirm,
+      showDuplicateConfirm,
+      showReinforcementDialog,
+      pendingIvaSplit: !!pendingIvaSplit,
+      hasPLRestriction,
+      effectiveEventId,
+      allowedCategoryIds_count: allowedCategoryIds.length,
+      plOverride,
+      reinforcementChoice,
+    });
     if (!form.description || !form.amount) {
       toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
       return;
