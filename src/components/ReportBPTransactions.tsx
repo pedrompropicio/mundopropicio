@@ -504,6 +504,17 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
               />
               Incluir rascunhos do BP
             </label>
+            {isSubEvent && (
+              <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeMasterApportionment}
+                  onChange={(e) => setIncludeMasterApportionment(e.target.checked)}
+                  className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                />
+                Incluir rateios Master
+              </label>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="ml-2 gap-1.5">
