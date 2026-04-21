@@ -41,6 +41,8 @@ interface PartnerSettlement {
   partnerShare: number;
   paidExpenses: { description: string; amount: number; date: string; category: string }[];
   totalPaidByPartner: number;
+  partnerExtras: { description: string; amount: number; date: string; category: string }[];
+  totalPartnerExtras: number;
   settlement: number; // positive = company pays partner, negative = partner pays company
 }
 
