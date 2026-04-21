@@ -1,0 +1,36 @@
+-- =========================================================
+-- RESTORE DO BACKUP DE ONTEM (LIVE) — backup-2026-04-20T18-28-57.json
+-- Correr em: Cloud → Database → SQL Editor (com Live selecionado)
+-- =========================================================
+
+-- PASSO 1 — PREVIEW (mostra contagens por tabela; não altera nada)
+-- Copia o request_id devolvido e abre depois "SELECT * FROM net._http_response WHERE id = <request_id>;"
+SELECT net.http_post(
+  url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/database-restore',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key' LIMIT 1)
+  ),
+  body := '{"backup_file":"backup-2026-04-20T18-28-57.json","mode":"preview"}'::jsonb,
+  timeout_milliseconds := 120000
+) AS preview_request_id;
+
+-- Esperar 5–10 s e ver resposta:
+-- SELECT id, status_code, content FROM net._http_response ORDER BY id DESC LIMIT 5;
+
+-- =========================================================
+-- PASSO 2 — RESTORE TOTAL (apaga e recoloca os dados)
+-- ** SÓ correr depois de validares o preview **
+-- =========================================================
+SELECT net.http_post(
+  url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/database-restore',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key' LIMIT 1)
+  ),
+  body := '{"backup_file":"backup-2026-04-20T18-28-57.json","mode":"restore"}'::jsonb,
+  timeout_milliseconds := 600000
+) AS restore_request_id;
+
+-- Verificar resultado (pode demorar 1–3 min):
+-- SELECT id, status_code, content FROM net._http_response ORDER BY id DESC LIMIT 5;
