@@ -260,22 +260,39 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const eventForecasts = [...localForecasts, ...masterForecastSlices];
 
     // Filter transactions for this event (expenses only, approved or paid).
-    // Em sub-eventos, removemos as fatias de rateio (parent_transaction_id)
-    // que serão substituídas por proporção a partir das transações do Master.
-    const localTxRaw = transactions.filter(
-      (t: any) =>
-        relevantEventIds.includes(t.event_id) &&
-        t.type === "expense" &&
-        (!isSubEvent || !t.parent_transaction_id)
-    );
+    //
+    // Sub-evento com toggle "Incluir rateios Master" ON: queremos incluir TODO
+    // o realizado que pertence economicamente a este sub-evento, simétrico ao
+    // Previsto:
+    //  (a) TX locais lançadas direto no sub-evento (event_id === selectedEventId,
+    //      sem parent_transaction_id) — sempre.
+    //  (b) Fatias reais que o sistema de rateio multi-evento já criou no
+    //      sub-evento via parent_transaction_id — mantemos (são o split correto,
+    //      que pode não ser ÷N: pode ser proporcional ou manual).
+    //  (c) TX lançadas direto no Master (event_id === parentEventId) — estas
+    //      ainda não foram propagadas em fatias, então rateamos virtualmente ÷N.
+    //
+    // Sub-evento com toggle OFF: só (a) — tira-se (b) e (c).
+    // Master/standalone: tudo o que tem event_id === selectedEventId (lógica
+    // original via relevantEventIds).
+    const localTxRaw = transactions.filter((t: any) => {
+      if (t.type !== "expense") return false;
+      if (!relevantEventIds.includes(t.event_id)) return false;
+      if (isSubEvent && t.parent_transaction_id && !includeMasterApportionment) {
+        // Toggle OFF: descarta fatias de rateio Master
+        return false;
+      }
+      return true;
+    });
 
-    // Transações Master (event_id === parentEventId) rateadas ÷N quando ON.
+    // (c) TX lançadas direto no Master, rateadas ÷N quando ON e estamos num sub.
     const masterTxSlices: any[] = [];
     if (isSubEvent && includeMasterApportionment && parentEventId && masterSplitsCount > 0) {
       const masterTxs = transactions.filter(
         (t: any) =>
           t.event_id === parentEventId &&
-          t.type === "expense"
+          t.type === "expense" &&
+          !t.parent_transaction_id
       );
       masterTxs.forEach((t: any) => {
         masterTxSlices.push({
