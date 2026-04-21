@@ -80,6 +80,8 @@ interface BpDeviationRow {
 interface TicketBreakdownRow {
   zoneName: string;
   lotName: string;
+  sessionLabel: string; // "DD/MM" ou "DD/MM HH:MM" ou "—"
+  dayLabel: string;     // "DD/MM/YYYY"
   quantity: number;
   unitPrice: number;
   totalGross: number;
@@ -215,15 +217,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Ticket sales detalhadas (zone+lot)
+  // Ticket sales detalhadas (zone+lot) com sessão e dia
   const { data: ticketBreakdown = [] } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
-      const { data: zones } = await supabase
-        .from("event_ticket_zones")
-        .select("id, name, event_id")
-        .in("event_id", allEventIds);
-      if (!zones || zones.length === 0) return [];
+      const [zonesRes, sessionsRes] = await Promise.all([
+        supabase
+          .from("event_ticket_zones")
+          .select("id, name, event_id, session_id")
+          .in("event_id", allEventIds),
+        supabase
+          .from("event_sessions")
+          .select("id, label, date, start_time, event_id")
+          .in("event_id", allEventIds),
+      ]);
+      const zones = zonesRes.data || [];
+      const sessions = sessionsRes.data || [];
+      if (zones.length === 0) return [];
       const zoneIds = zones.map((z: any) => z.id);
       const { data: lots } = await supabase
         .from("event_ticket_lots")
@@ -235,7 +245,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lotIds);
-      // Aggregate by lot
       const byLot: Record<string, { quantity: number; gross: number }> = {};
       (sales || []).forEach((s: any) => {
         const key = s.lot_id;
@@ -246,12 +255,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       });
       return lots.map((l: any) => {
         const z = zones.find((zz: any) => zz.id === l.zone_id);
+        const sess = sessions.find((ss: any) => ss.id === z?.session_id);
         const agg = byLot[l.id] || { quantity: 0, gross: 0 };
         const ivaRate = Number(l.iva_rate || 0);
         const totalNet = agg.gross / (1 + ivaRate / 100);
+        const dayLabel = sess?.date ? format(new Date(sess.date), "dd/MM/yyyy") : "—";
+        let sessionLabel = "—";
+        if (sess) {
+          const d = sess.date ? format(new Date(sess.date), "dd/MM") : "";
+          const t = sess.start_time ? String(sess.start_time).slice(0, 5) : "";
+          const lbl = sess.label && sess.label !== "default" ? sess.label : "";
+          sessionLabel = [d, t, lbl].filter(Boolean).join(" ") || "—";
+        }
         return {
           zoneName: z?.name || "—",
           lotName: l.name || "—",
+          sessionLabel,
+          dayLabel,
           quantity: agg.quantity,
           unitPrice: Number(l.price || 0),
           totalGross: agg.gross,
@@ -489,12 +509,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text(`Relatório de Fecho — ${eventName}`, margin, y);
-    y += 6;
+    y += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`Emitido em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, margin, y);
-    doc.text(`Base: ${getPartnerCalcBasisLabel(calcBasis)}`, pageW - margin, y, { align: "right" });
+    y += 4;
+    doc.text(`Base de cálculo: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -502,7 +523,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("1. Resumo Financeiro", margin, y);
-    y += 4;
+    y += 5;
 
     autoTable(doc, {
       startY: y,
@@ -525,7 +546,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("2. Quebra por Cidade", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Cidade", "Receita s/IVA", "Despesa s/IVA", "Resultado"]],
@@ -549,37 +570,76 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. BILHETEIRA DETALHADA =====
+    // ===== 3. BILHETEIRA — RESUMOS =====
     if (ticketBreakdown.length > 0) {
-      ensureSpace(40);
+      ensureSpace(30);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("3. Bilheteira", margin, y);
-      y += 4;
-      autoTable(doc, {
-        startY: y,
-        head: [["Zona", "Lote", "Qtd.", "Preço", "Total c/IVA", "Total s/IVA"]],
-        body: ticketBreakdown.map((r) => [
-          r.zoneName,
-          r.lotName,
-          r.quantity.toString(),
-          formatCurrency(r.unitPrice),
-          formatCurrency(r.totalGross),
-          formatCurrency(r.totalNet),
-        ]),
-        foot: [["", "TOTAL",
-          ticketBreakdown.reduce((s, r) => s + r.quantity, 0).toString(),
-          "",
-          formatCurrency(ticketBreakdown.reduce((s, r) => s + r.totalGross, 0)),
-          formatCurrency(ticketBreakdown.reduce((s, r) => s + r.totalNet, 0)),
-        ]],
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
-      });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      doc.setTextColor(0);
+      doc.text("3. Bilheteira — Totais Vendidos", margin, y);
+      y += 6;
+
+      // Helper para agregar e renderizar mini-tabela
+      const renderSummary = (
+        title: string,
+        groups: { key: string; quantity: number; totalGross: number; totalNet: number }[]
+      ) => {
+        if (groups.length === 0) return;
+        ensureSpace(20 + groups.length * 5);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(60);
+        doc.text(title, margin, y);
+        y += 3;
+        autoTable(doc, {
+          startY: y,
+          head: [[title.replace("Por ", ""), "Qtd.", "Total c/IVA", "Total s/IVA"]],
+          body: groups.map((g) => [
+            g.key,
+            g.quantity.toString(),
+            formatCurrency(g.totalGross),
+            formatCurrency(g.totalNet),
+          ]),
+          foot: [[
+            "TOTAL",
+            groups.reduce((s, g) => s + g.quantity, 0).toString(),
+            formatCurrency(groups.reduce((s, g) => s + g.totalGross, 0)),
+            formatCurrency(groups.reduce((s, g) => s + g.totalNet, 0)),
+          ]],
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: [41, 41, 41] },
+          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+          columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        });
+        y = (doc as any).lastAutoTable.finalY + 6;
+      };
+
+      const groupBy = (keyFn: (r: TicketBreakdownRow) => string) => {
+        const map: Record<string, { key: string; quantity: number; totalGross: number; totalNet: number }> = {};
+        ticketBreakdown.forEach((r) => {
+          const k = keyFn(r);
+          if (!map[k]) map[k] = { key: k, quantity: 0, totalGross: 0, totalNet: 0 };
+          map[k].quantity += r.quantity;
+          map[k].totalGross += r.totalGross;
+          map[k].totalNet += r.totalNet;
+        });
+        return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
+      };
+
+      const byDay = groupBy((r) => r.dayLabel);
+      const bySession = groupBy((r) => r.sessionLabel);
+      const byZone = groupBy((r) => r.zoneName);
+      const byLot = groupBy((r) => r.lotName);
+
+      // Só mostra "Por Dia" se houver mais de um dia
+      if (byDay.length > 1) renderSummary("Por Dia", byDay);
+      // Só mostra "Por Sessão" se houver sessões úteis (mais de 1 ou diferente do dia)
+      if (bySession.length > 1 || (bySession.length === 1 && bySession[0].key !== "—")) {
+        renderSummary("Por Sessão", bySession);
+      }
+      renderSummary("Por Zona", byZone);
+      renderSummary("Por Lote", byLot);
     }
 
     // ===== 4. FECHO DE BILHETEIRA =====
@@ -588,7 +648,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("4. Fecho de Bilheteiras / Recintos", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Bilheteira", "Vendas Brutas", "Deduções", "Líquido Recebido", "Estado"]],
@@ -613,7 +673,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("5. Despesas por Categoria", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Lançamentos", "s/IVA", "c/IVA"]],
@@ -643,7 +703,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("6. Conciliação BP × Real (Despesas)", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Planeado (BP)", "Real", "Desvio", "Desvio %"]],
@@ -674,7 +734,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("7. Distribuição aos Sócios", margin, y);
-    y += 4;
+    y += 5;
     autoTable(doc, {
       startY: y,
       head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (−)", "Saldo Final"]],
@@ -731,7 +791,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
         doc.text("Despesas pagas pelo sócio:", margin, y);
-        y += 3;
+        y += 4;
         autoTable(doc, {
           startY: y,
           head: [["Descrição", "Categoria", "Data", "Valor"]],
@@ -755,7 +815,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
         doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
-        y += 3;
+        y += 4;
         autoTable(doc, {
           startY: y,
           head: [["Descrição", "Categoria", "Data", "Valor"]],
