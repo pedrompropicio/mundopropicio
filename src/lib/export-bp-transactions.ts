@@ -71,7 +71,8 @@ function tagLabel(t: TransactionLine): string {
   const tags: string[] = [];
   if (t.isPartnerPaid) tags.push("Sócio");
   if (t.is_reimbursement) tags.push(`Reembolso${t.reimbursementCode ? ` (${t.reimbursementCode})` : ""}`);
-  if (t.pl_override_note) tags.push("Fora do BP");
+  if (t.pl_override_note) tags.push("Bypass BP");
+  if (t.isOutOfBP && !t.pl_override_note) tags.push("Fora do BP");
   return tags.length > 0 ? ` [${tags.join(", ")}]` : "";
 }
 
