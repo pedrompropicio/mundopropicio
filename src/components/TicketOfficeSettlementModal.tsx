@@ -119,6 +119,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setVenueRetainedAmount("");
       setVenueRetainedInvoiceId("");
       setVenueRetainedNotes("");
+      setPayInvoiceRemainder(false);
     }
   }, [open, existingSettlement, defaultEventId]);
 
