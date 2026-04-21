@@ -173,6 +173,36 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     if (partnerPaidLink?.paid_date) setPartnerPaidDate(partnerPaidLink.paid_date);
   }, [partnerPaidLink?.paid_date]);
 
+  // Detect if this transaction is an Extra do Sócio (despesa a abater do sócio no fecho)
+  const { data: partnerExtraLink } = useQuery({
+    queryKey: ["partner-extra-link", transaction.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("id, partner_id, event_id, event_partners(suppliers(name), percentage)")
+        .eq("transaction_id", transaction.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const isPartnerExtra = !!partnerExtraLink;
+
+  // Partners for the event (used to convert/change Extra)
+  const { data: eventPartnersForExtra = [] } = useQuery({
+    queryKey: ["event-partners-edit", form.event_id],
+    queryFn: async () => {
+      if (!form.event_id) return [];
+      const { data, error } = await supabase
+        .from("event_partners")
+        .select("id, percentage, suppliers(name)")
+        .eq("event_id", form.event_id);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!form.event_id,
+  });
+
   const editMutation = useMutation({
     mutationFn: async () => {
       const changes: { field_name: string; old_value: string; new_value: string }[] = [];
@@ -644,6 +674,70 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <p className="text-[10px] text-muted-foreground">
                 Despesa liquidada via sócio — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
               </p>
+            </div>
+          )}
+
+          {/* Extra do Sócio — bloco informativo + ações */}
+          {isPartnerExtra && (
+            <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
+                🧳 Extra do Sócio: {(partnerExtraLink as any)?.event_partners?.suppliers?.name ?? "—"}
+                {(partnerExtraLink as any)?.event_partners?.percentage != null && (
+                  <span className="text-xs opacity-70">({(partnerExtraLink as any).event_partners.percentage}%)</span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE.
+              </p>
+              {(isAdmin || isManager) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm("Reverter Extra do Sócio? A despesa volta a ser uma despesa normal do evento.")) return;
+                    await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
+                    await supabase.from("transactions").update({ is_transitory: false }).eq("id", transaction.id);
+                    queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
+                    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                    queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
+                    toast({ title: "Extra do Sócio revertido" });
+                    onClose();
+                  }}
+                  className="text-xs text-destructive hover:underline"
+                >
+                  Reverter para despesa normal
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Converter para Extra do Sócio — disponível em despesas normais com sócios no evento */}
+          {!isPartnerExtra && !isPaidByPartner && transaction.type === "expense" && form.event_id && eventPartnersForExtra.length > 0 && (isAdmin || isManager) && (
+            <div className="rounded-lg border border-dashed border-orange-500/30 p-3 space-y-2">
+              <p className="text-xs font-medium">🧳 Converter em Extra do Sócio</p>
+              <SearchableSelect
+                options={eventPartnersForExtra.map((p: any) => ({
+                  value: p.id,
+                  label: `${p.suppliers?.name} (${p.percentage}%)`,
+                }))}
+                value=""
+                onValueChange={async (partnerId) => {
+                  if (!partnerId) return;
+                  if (!confirm("Converter esta despesa em Extra do Sócio? Será marcada como transitória e descontada do sócio no fecho.")) return;
+                  await supabase.from("partner_advance_expenses").insert({
+                    event_id: form.event_id,
+                    partner_id: partnerId,
+                    transaction_id: transaction.id,
+                  } as any);
+                  await supabase.from("transactions").update({ is_transitory: true, exclude_from_result: false }).eq("id", transaction.id);
+                  queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
+                  queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                  queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
+                  toast({ title: "Convertido em Extra do Sócio" });
+                  onClose();
+                }}
+                placeholder="Escolher sócio para abater…"
+                searchPlaceholder="Pesquisar sócio…"
+              />
             </div>
           )}
 

@@ -123,6 +123,10 @@ export async function deleteTransactionCascade({
     .delete()
     .in("transaction_id", allIds);
   await supabase
+    .from("partner_advance_expenses")
+    .delete()
+    .in("transaction_id", allIds);
+  await supabase
     .from("supplier_credit_usages")
     .delete()
     .in("transaction_id", allIds);

@@ -129,6 +129,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [isPaidByPartner, setIsPaidByPartner] = useState(false);
   const [paidByPartnerId, setPaidByPartnerId] = useState("");
   const [partnerPaidDate, setPartnerPaidDate] = useState("");
+  // Extra do Sócio: despesa paga pela empresa que será descontada do sócio no fecho.
+  // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
+  const [isPartnerExtra, setIsPartnerExtra] = useState(false);
+  const [partnerExtraId, setPartnerExtraId] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
@@ -927,7 +931,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             split_percentage: entry.percentage,
             split_amount: isAbsoluteMode ? childAmount : null,
             parent_transaction_id: "", // placeholder, set after parent insert
-            is_transitory: isTransitory,
+            is_transitory: isTransitory || isPartnerExtra,
             exclude_from_result: isExcludeFromResult,
             payment_method: data.payment_method || "transfer",
             payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
@@ -963,7 +967,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
            split_percentage: null,
            parent_transaction_id: null,
            split_mode: isAbsoluteMode ? "absolute" : "percentage",
-           is_transitory: isTransitory,
+           is_transitory: isTransitory || isPartnerExtra,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
           payment_method: data.payment_method || "transfer",
@@ -998,6 +1002,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             partner_id: paidByPartnerId,
             transaction_id: parentId,
             paid_date: partnerPaidDate || data.date,
+          } as any);
+        }
+        // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
+        if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
+          await supabase.from("partner_advance_expenses").insert({
+            event_id: splitMasterEventId,
+            partner_id: partnerExtraId,
+            transaction_id: parentId,
           } as any);
         }
       } else {
@@ -1043,7 +1055,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_date: partnerPaymentDate,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
-          is_transitory: isTransitory,
+          is_transitory: isTransitory || isPartnerExtra,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
           invoice_group_id: data.invoice_group_id ?? null,
@@ -1105,6 +1117,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             partner_id: paidByPartnerId,
             transaction_id: insertedTx.id,
             paid_date: partnerPaidDate || data.date,
+          } as any);
+        }
+
+        // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
+        if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
+          await supabase.from("partner_advance_expenses").insert({
+            event_id: data.event_id,
+            partner_id: partnerExtraId,
+            transaction_id: insertedTx.id,
           } as any);
         }
 
@@ -1293,6 +1314,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     if (isPaidByPartner && !partnerPaidDate) {
       toast({ title: "Indique a data em que o sócio pagou", variant: "destructive" });
+      return;
+    }
+    if (isPartnerExtra && !partnerExtraId) {
+      toast({ title: "Selecione o sócio para o Extra", variant: "destructive" });
+      return;
+    }
+    if (isPartnerExtra && !form.event_id && !(isSplit && splitMasterEventId)) {
+      toast({ title: "Extra do Sócio exige um evento associado", variant: "destructive" });
       return;
     }
 
@@ -2285,7 +2314,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   onClick={() => {
                     const next = !form.is_reimbursement;
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", reimbursement_note_id: "", account_id: next ? "" : form.account_id });
-                    if (next) { setIsPaidByPartner(false); setPaidByPartnerId(""); setShowNewReimbursementNote(false); setNewReimbursementEmployeeName(""); }
+                    if (next) {
+                      setIsPaidByPartner(false); setPaidByPartnerId("");
+                      setIsPartnerExtra(false); setPartnerExtraId("");
+                      setShowNewReimbursementNote(false); setNewReimbursementEmployeeName("");
+                    }
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     form.is_reimbursement
@@ -2298,7 +2331,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </button>
 
                 {/* Paid by partner toggle — when event (or split Master) has partners */}
-                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && (
+                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && !isPartnerExtra && (
                   <button
                     type="button"
                     onClick={() => {
@@ -2307,7 +2340,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setPaidByPartnerId("");
                       if (next) {
                         setForm({ ...form, account_id: "" });
-                        // Default: data em que o sócio pagou = data da despesa
                         setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
                       } else {
                         setPartnerPaidDate("");
@@ -2324,8 +2356,28 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </button>
                 )}
 
+                {/* Extra do Sócio toggle — despesa paga pela empresa que será descontada do sócio no fecho */}
+                {(form.event_id || (isSplit && splitMasterEventId)) && eventPartners.length > 0 && !form.is_reimbursement && !isPaidByPartner && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isPartnerExtra;
+                      setIsPartnerExtra(next);
+                      setPartnerExtraId("");
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      isPartnerExtra
+                        ? "bg-orange-500/15 text-orange-600 dark:text-orange-400 ring-1 ring-orange-500/30"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    🧳 Extra do Sócio
+                    <HelpTooltip text="Despesa paga pela empresa (ex: hotel, voos) que será descontada do sócio no fecho. Não entra no DRE." size={12} />
+                  </button>
+                )}
+
                 {/* Transitory toggle — admin/manager only */}
-                {(authIsAdmin || authIsManager) && (
+                {(authIsAdmin || authIsManager) && !isPartnerExtra && (
                 <button
                   type="button"
                   onClick={() => { setIsTransitory(!isTransitory); if (!isTransitory) setIsExcludeFromResult(false); }}
@@ -2341,7 +2393,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 )}
 
                 {/* Exclude from result toggle — admin/manager only, mutually exclusive with transitory */}
-                {(authIsAdmin || authIsManager) && !isTransitory && (
+                {(authIsAdmin || authIsManager) && !isTransitory && !isPartnerExtra && (
                 <button
                   type="button"
                   onClick={() => setIsExcludeFromResult(!isExcludeFromResult)}
@@ -2432,6 +2484,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </div>
                   <p className="sm:col-span-2 text-[10px] text-muted-foreground">
                     Despesa fica imediatamente liquidada — sem conta financeira da empresa nem método de pagamento. Entra no acerto com o sócio.
+                  </p>
+                </div>
+              )}
+              {isPartnerExtra && (
+                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio a abater *</label>
+                    <SearchableSelect
+                      options={eventPartners.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.suppliers?.name} (${p.percentage}%)`,
+                      }))}
+                      value={partnerExtraId}
+                      onValueChange={setPartnerExtraId}
+                      placeholder="Selecionar sócio…"
+                      searchPlaceholder="Pesquisar…"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP.
                   </p>
                 </div>
               )}

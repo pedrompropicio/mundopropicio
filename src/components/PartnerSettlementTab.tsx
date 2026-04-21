@@ -41,6 +41,8 @@ interface PartnerSettlement {
   partnerShare: number;
   paidExpenses: { description: string; amount: number; date: string; category: string }[];
   totalPaidByPartner: number;
+  partnerExtras: { description: string; amount: number; date: string; category: string }[];
+  totalPartnerExtras: number;
   settlement: number; // positive = company pays partner, negative = partner pays company
 }
 
@@ -184,10 +186,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }));
     const totalPaidByPartner = partnerExpenses.reduce((s, e) => s + e.amount, 0);
 
-    // Settlement: positive = company owes partner
-    // If profit: partner receives partnerShare + totalPaidByPartner
-    // If loss: partner owes |partnerShare| but already paid totalPaidByPartner, so settlement = partnerShare + totalPaidByPartner
-    const settlement = partnerShare + totalPaidByPartner;
+    // Extras do Sócio (despesas pagas pela empresa, abatidas do sócio no fecho)
+    const extrasForPartner = partnerAdvances
+      .filter((pe: any) => pe.partner_id === p.id)
+      .map((pe: any) => ({
+        description: pe.transactions?.description || "—",
+        amount: usesGrossExpenseAmounts(calcBasis)
+          ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+          : Number(pe.transactions?.amount || 0),
+        date: pe.transactions?.date || "",
+        category: pe.transactions?.account_categories?.name || "—",
+      }));
+    const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
+
+    // Settlement: partnerShare + paidByPartner − extrasDoSócio
+    const settlement = partnerShare + totalPaidByPartner - totalPartnerExtras;
 
     return {
       partnerId: p.id,
@@ -203,6 +216,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       partnerShare,
       paidExpenses: partnerExpenses,
       totalPaidByPartner,
+      partnerExtras: extrasForPartner,
+      totalPartnerExtras,
       settlement,
     };
   });

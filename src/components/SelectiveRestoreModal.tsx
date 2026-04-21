@@ -22,7 +22,7 @@ const TABLES = [
   "event_ticket_office_assignments", "event_ticket_office_advances",
   "ticket_sales", "ticket_import_logs",
   "transactions", "transaction_documents", "transaction_audit_log", "transaction_payments",
-  "partner_paid_expenses", "partner_event_access",
+  "partner_paid_expenses", "partner_advance_expenses", "partner_event_access",
   "payment_lists", "payment_list_items", "quotations", "recurring_transactions",
   "reimbursement_notes", "reimbursement_note_items",
   "suppliers", "supplier_documents",
