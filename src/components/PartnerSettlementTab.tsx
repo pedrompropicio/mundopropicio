@@ -80,6 +80,8 @@ interface BpDeviationRow {
 interface TicketBreakdownRow {
   zoneName: string;
   lotName: string;
+  sessionLabel: string; // "DD/MM" ou "DD/MM HH:MM" ou "—"
+  dayLabel: string;     // "DD/MM/YYYY"
   quantity: number;
   unitPrice: number;
   totalGross: number;
@@ -215,15 +217,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
-  // Ticket sales detalhadas (zone+lot)
+  // Ticket sales detalhadas (zone+lot) com sessão e dia
   const { data: ticketBreakdown = [] } = useQuery({
     queryKey: ["event-ticket-breakdown-settlement", allEventIdsKey],
     queryFn: async () => {
-      const { data: zones } = await supabase
-        .from("event_ticket_zones")
-        .select("id, name, event_id")
-        .in("event_id", allEventIds);
-      if (!zones || zones.length === 0) return [];
+      const [zonesRes, sessionsRes] = await Promise.all([
+        supabase
+          .from("event_ticket_zones")
+          .select("id, name, event_id, session_id")
+          .in("event_id", allEventIds),
+        supabase
+          .from("event_sessions")
+          .select("id, label, date, start_time, event_id")
+          .in("event_id", allEventIds),
+      ]);
+      const zones = zonesRes.data || [];
+      const sessions = sessionsRes.data || [];
+      if (zones.length === 0) return [];
       const zoneIds = zones.map((z: any) => z.id);
       const { data: lots } = await supabase
         .from("event_ticket_lots")
@@ -235,7 +245,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         .from("ticket_sales")
         .select("lot_id, quantity, unit_price, total_value")
         .in("lot_id", lotIds);
-      // Aggregate by lot
       const byLot: Record<string, { quantity: number; gross: number }> = {};
       (sales || []).forEach((s: any) => {
         const key = s.lot_id;
@@ -246,12 +255,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       });
       return lots.map((l: any) => {
         const z = zones.find((zz: any) => zz.id === l.zone_id);
+        const sess = sessions.find((ss: any) => ss.id === z?.session_id);
         const agg = byLot[l.id] || { quantity: 0, gross: 0 };
         const ivaRate = Number(l.iva_rate || 0);
         const totalNet = agg.gross / (1 + ivaRate / 100);
+        const dayLabel = sess?.date ? format(new Date(sess.date), "dd/MM/yyyy") : "—";
+        let sessionLabel = "—";
+        if (sess) {
+          const d = sess.date ? format(new Date(sess.date), "dd/MM") : "";
+          const t = sess.start_time ? String(sess.start_time).slice(0, 5) : "";
+          const lbl = sess.label && sess.label !== "default" ? sess.label : "";
+          sessionLabel = [d, t, lbl].filter(Boolean).join(" ") || "—";
+        }
         return {
           zoneName: z?.name || "—",
           lotName: l.name || "—",
+          sessionLabel,
+          dayLabel,
           quantity: agg.quantity,
           unitPrice: Number(l.price || 0),
           totalGross: agg.gross,
