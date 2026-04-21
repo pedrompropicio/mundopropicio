@@ -11,6 +11,13 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import {
+  getPartnerCalcBasisLabel,
+  getPartnerExpenseBase,
+  getPartnerRevenueBase,
+  normalizePartnerCalcBasis,
+  usesGrossExpenseAmounts,
+} from "@/lib/partner-calc-basis";
 
 interface Props {
   eventId: string;
@@ -178,7 +185,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ============= Cálculos =============
-  const calcBasis = eventInfo?.partner_calc_basis || "net"; // net = s/IVA, gross = c/IVA
+  const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
 
   // Receita: ticket sales se houver, senão income transactions
   const incomeTx = transactions.filter((t: any) => t.type === "income");
@@ -195,8 +202,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const expenseGross = expenseTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
 
-  const revenue = calcBasis === "net" ? revenueNet : revenueGross;
-  const expensesOp = calcBasis === "net" ? expenseNet : expenseGross;
+  const revenue = getPartnerRevenueBase(revenueNet);
+  const expensesOp = getPartnerExpenseBase(calcBasis, expenseNet, expenseGross);
   const resultWithoutOverhead = revenue - expensesOp;
 
   // Overheads (próprios + via master)
@@ -208,8 +215,8 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadExpenseGross = overheadExpense.reduce((s, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
   const overheadExpenseNet = overheadExpense.reduce((s, o: any) => s + Number(o.amount), 0);
 
-  const overheadIncomeFinal = calcBasis === "net" ? overheadIncomeNet : overheadIncomeGross;
-  const overheadExpenseFinal = calcBasis === "net" ? overheadExpenseNet : overheadExpenseGross;
+  const overheadIncomeFinal = overheadIncomeNet;
+  const overheadExpenseFinal = usesGrossExpenseAmounts(calcBasis) ? overheadExpenseGross : overheadExpenseNet;
   const overheadNet = overheadIncomeFinal - overheadExpenseFinal;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
@@ -225,7 +232,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       .reduce((s: number, pe: any) => {
         const t = pe.transactions;
         if (!t) return s;
-        const amt = calcBasis === "net" ? Number(t.amount) : calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
+        const amt = usesGrossExpenseAmounts(calcBasis)
+          ? calcTotalWithIva(Number(t.amount), Number(t.iva_rate))
+          : Number(t.amount);
         return s + amt;
       }, 0);
 
@@ -264,7 +273,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: ${calcBasis === "net" ? "s/ IVA" : "c/ IVA"}`, margin, y);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -395,7 +404,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
           <FileBarChart2 className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-bold">Fecho do Evento</h3>
           <Badge variant="outline" className="text-[10px]">
-            Base: {calcBasis === "net" ? "s/ IVA" : "c/ IVA"}
+            Base: {getPartnerCalcBasisLabel(calcBasis)}
           </Badge>
         </div>
         <Button size="sm" variant="outline" onClick={exportPdf}>
