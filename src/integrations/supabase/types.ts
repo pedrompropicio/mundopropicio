@@ -1475,6 +1475,58 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_advance_expenses: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          notes: string | null
+          partner_id: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          partner_id: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          partner_id?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_advance_expenses_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_advance_expenses_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "event_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_advance_expenses_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_event_access: {
         Row: {
           created_at: string
