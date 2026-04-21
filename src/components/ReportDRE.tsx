@@ -443,29 +443,36 @@ export default function ReportDRE() {
   const globalResultEx = globalIncEx - globalExpEx;
   const globalResultInc = globalIncInc - globalExpInc;
 
+  // Distribuição global aos sócios (excluindo a Mundo Propício, que tem o seu
+  // próprio agregado abaixo). A Mundo Propício é a sócia principal/proprietária
+  // do sistema — recebe a quota residual de cada evento.
   const globalPartnerShares: Record<string, { name: string; total: number }> = {};
-  let globalTotalDistribution = 0;
-  let globalRetainedSum = 0;
-  let hasAnyRetained = false;
+  let globalHouseSum = 0;
+  let globalHousePctAcc = 0;
+  let globalHousePctEvents = 0;
   eventSummaries.forEach((evt) => {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
     const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
     dre.filter((l) => l.isDistribution).forEach((l) => {
+      if (l.isHouse) {
+        globalHouseSum += l.amountExIva;
+        const m = l.label.match(/\(([\d.]+)%\)/);
+        if (m) {
+          globalHousePctAcc += Number(m[1]);
+          globalHousePctEvents += 1;
+        }
+        return;
+      }
       const key = l.label.trim();
       if (!globalPartnerShares[key]) globalPartnerShares[key] = { name: key, total: 0 };
       globalPartnerShares[key].total += l.amountExIva;
-      globalTotalDistribution += l.amountExIva;
     });
-    const retainedLine = dre.find((l) => l.isRetained);
-    if (retainedLine) {
-      globalRetainedSum += retainedLine.amountExIva;
-      hasAnyRetained = true;
-    }
   });
-  const hasGlobalPartners = Object.keys(globalPartnerShares).length > 0;
-  const globalRetained = hasAnyRetained ? globalRetainedSum : globalResultEx - globalTotalDistribution;
+  const hasGlobalPartners = Object.keys(globalPartnerShares).length > 0 || globalHouseSum !== 0;
+  const globalRetained = globalHouseSum;
+  const globalHouseAvgPct = globalHousePctEvents > 0 ? globalHousePctAcc / globalHousePctEvents : null;
 
   const toggle = (id: string) => setExpandedEvent((prev) => (prev === id ? null : id));
 
