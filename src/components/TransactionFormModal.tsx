@@ -1041,6 +1041,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const partnerPaidAmount = isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0);
         const partnerPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null);
 
+        // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
+        // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
+        const totalAmtNum = parseFloat(data.amount) || 0;
+        const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
+        const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
+        const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
+        // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
+        let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
+        if (isPartnerExtraPartial && !sharedInvoiceGroupId) {
+          sharedInvoiceGroupId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+            ? (crypto as any).randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
+
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description,
           type: data.type,
@@ -1059,10 +1073,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_date: partnerPaymentDate,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
-          is_transitory: isTransitory || isPartnerExtra,
+          is_transitory: principalIsTransitory,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
-          invoice_group_id: data.invoice_group_id ?? null,
+          invoice_group_id: sharedInvoiceGroupId,
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
