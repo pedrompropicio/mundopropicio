@@ -729,7 +729,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // ===== 8. DETALHES POR SÓCIO =====
+    // ===== 7. DETALHES POR SÓCIO =====
     for (const s of settlements) {
       ensureSpace(30);
 
