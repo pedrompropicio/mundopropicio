@@ -594,7 +594,7 @@ export default function ReportDRE() {
         </div>
         {hasGlobalPartners && (
           <div className="glass rounded-xl p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado MP</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Mundo Propício</p>
             <p className={`mt-1 text-lg font-bold ${globalRetained >= 0 ? "text-success" : "text-destructive"}`}>
               {formatCurrency(globalRetained)}
             </p>
@@ -637,7 +637,7 @@ export default function ReportDRE() {
                   </span>
                   {evt.hasPartners && evt.retainedEx !== null && (
                     <span className={`font-mono text-xs ${evt.retainedEx >= 0 ? "text-success/70" : "text-destructive/70"}`}>
-                      (MP: {formatCurrency(evt.retainedEx)})
+                      (Mundo Propício: {formatCurrency(evt.retainedEx)})
                     </span>
                   )}
                 </div>

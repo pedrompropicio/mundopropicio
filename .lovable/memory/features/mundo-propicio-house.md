@@ -6,7 +6,7 @@ type: feature
 
 # Mundo Propício (Empresa Gestora)
 
-**Conceito**: a Mundo Propício é a empresa realizadora/gestora de todos os eventos da plataforma. Por defeito é sócia de 100% de cada evento. Quando se cadastram sócios externos em `event_partners`, a sua quota passa a ser `100 − Σ(externos)`. NÃO é uma "casa/sala/venue" — é a empresa que gere o negócio.
+**Conceito**: a Mundo Propício é a empresa realizadora e **sócia principal** de todos os eventos. Por defeito é sócia de 100%; quando se cadastram sócios externos (sócios secundários) em `event_partners`, a sua quota passa a ser `100 − Σ(secundários)`. **NÃO usar terminologia de "retém/absorve/casa/sala/venue"** — é a sócia principal, ponto.
 
 ## Implementação
 - `src/lib/house-partner.ts`: helper `computeHousePercentage`, constantes `HOUSE_PARTNER_ID` e `HOUSE_PARTNER_NAME`

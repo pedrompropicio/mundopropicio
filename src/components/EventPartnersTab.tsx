@@ -369,7 +369,7 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
 
         {totalPercentage > 0 && totalPercentage < 100 && (
           <p className="text-xs text-muted-foreground">
-            Mundo Propício retém {(100 - totalPercentage).toFixed(1)}% do resultado.
+            Mundo Propício é a sócia principal com {(100 - totalPercentage).toFixed(1)}% do resultado.
           </p>
         )}
       </div>
