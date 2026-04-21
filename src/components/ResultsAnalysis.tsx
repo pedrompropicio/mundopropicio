@@ -519,17 +519,29 @@ export function ResultsAnalysis() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Análise de Resultados {currentYear}
           </h2>
         </div>
-        <Button variant="outline" size="sm" onClick={generatePdf}>
-          <Download className="h-4 w-4 mr-1" />
-          PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Overhead</span>
+          <select
+            value={includeOverhead ? "with" : "without"}
+            onChange={(e) => setIncludeOverhead(e.target.value === "with")}
+            className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            title="Incluir/excluir rateios de overhead nos resultados"
+          >
+            <option value="without">Sem overhead (Vista Empresa)</option>
+            <option value="with">Com overhead (Vista Sócio)</option>
+          </select>
+          <Button variant="outline" size="sm" onClick={generatePdf}>
+            <Download className="h-4 w-4 mr-1" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       {/* --- COMPLETED --- */}
