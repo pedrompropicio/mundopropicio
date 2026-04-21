@@ -68,15 +68,19 @@ export default function DatabaseBackups() {
     }
   };
 
-  const { data: backups = [], isLoading } = useQuery({
+  const { data: backups = [], isLoading, refetch: refetchBackups, isFetching } = useQuery({
     queryKey: ["database-backups"],
     queryFn: async () => {
       const { data, error } = await supabase.storage
         .from("database-backups")
-        .list("", { sortBy: { column: "created_at", order: "desc" } });
+        .list("", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
       if (error) throw error;
       return data.filter((f) => f.name.endsWith(".json"));
     },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const createBackupMutation = useMutation({
@@ -200,14 +204,28 @@ export default function DatabaseBackups() {
           </h1>
           <p className="text-sm text-muted-foreground">Cópias de segurança da base de dados e ficheiros</p>
         </div>
-        <button
-          onClick={() => createBackupMutation.mutate()}
-          disabled={creating}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-          {creating ? "A criar backup…" : "Criar Backup"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["database-backups"] });
+              refetchBackups();
+            }}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-2.5 text-sm font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
+            title="Recarregar lista do servidor"
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            Atualizar
+          </button>
+          <button
+            onClick={() => createBackupMutation.mutate()}
+            disabled={creating}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            {creating ? "A criar backup…" : "Criar Backup"}
+          </button>
+        </div>
       </div>
 
       {/* Surgical Restore for Maiara e Maraisa */}
