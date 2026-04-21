@@ -1119,19 +1119,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <TableRow>
                 <TableHead>Cidade</TableHead>
                 <TableHead className="text-right">Receita s/IVA</TableHead>
-                <TableHead className="text-right">Despesa s/IVA</TableHead>
+                <TableHead className="text-right">Despesa c/IVA</TableHead>
                 <TableHead className="text-right">Resultado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cityBreakdown.map((c) => (
-                <TableRow key={c.eventId}>
-                  <TableCell>{c.cityName}</TableCell>
-                  <TableCell className="text-right font-mono text-success">{formatCurrency(c.revenueNet)}</TableCell>
-                  <TableCell className="text-right font-mono text-destructive">{formatCurrency(c.expensesNet)}</TableCell>
-                  <TableCell className={`text-right font-mono font-bold ${c.resultNet >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(c.resultNet)}</TableCell>
-                </TableRow>
-              ))}
+              {cityBreakdown.map((c) => {
+                const result = c.revenueNet - c.expensesGross;
+                return (
+                  <TableRow key={c.eventId}>
+                    <TableCell>{c.cityName}</TableCell>
+                    <TableCell className="text-right font-mono text-success">{formatCurrency(c.revenueNet)}</TableCell>
+                    <TableCell className="text-right font-mono text-destructive">{formatCurrency(c.expensesGross)}</TableCell>
+                    <TableCell className={`text-right font-mono font-bold ${result >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(result)}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
