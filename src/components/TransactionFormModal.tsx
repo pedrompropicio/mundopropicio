@@ -2472,6 +2472,35 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   <HelpTooltip text={helpTexts.excludeFromResultToggle} size={12} />
                 </button>
                 )}
+
+                {/* Limpar marcações: repõe todos os toggles do bloco ao estado inicial */}
+                {(form.is_reimbursement || isPaidByPartner || isPartnerExtra || isTransitory || isExcludeFromResult) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({
+                        ...prev,
+                        is_reimbursement: false,
+                        reimbursement_to: "",
+                        reimbursement_note_id: "",
+                      }));
+                      setIsPaidByPartner(false);
+                      setPaidByPartnerId("");
+                      setPartnerPaidDate("");
+                      setIsPartnerExtra(false);
+                      setPartnerExtraId("");
+                      setPartnerExtraPartialAmount("");
+                      setIsTransitory(false);
+                      setIsExcludeFromResult(false);
+                      setShowNewReimbursementNote(false);
+                      setNewReimbursementEmployeeName("");
+                    }}
+                    className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                    title="Remove todas as marcações especiais (Reembolso, Pago por Sócio, Extra do Sócio, Transitória, Fora do Resultado)"
+                  >
+                    ✕ Limpar marcações
+                  </button>
+                )}
               </div>
               {form.is_reimbursement && (
                 <div className="space-y-2">
@@ -2572,21 +2601,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         searchPlaceholder="Pesquisar…"
                       />
                     </div>
-                    {!isSplit && totalAmt > 0 && (
+                    {!isSplit && (
                       <div>
                         <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
                           Apenas parte da fatura é extra (€)
-                          <HelpTooltip text={`Deixe vazio se a fatura inteira (${totalAmt.toFixed(2)} €) é extra do sócio. Preencha um valor menor que o total para abater apenas essa parcela do sócio — a fatura é registada pelo total e entra normalmente no DRE/BP; a parcela do sócio vai como transação irmã transitória vinculada à mesma fatura.`} size={12} />
+                          <HelpTooltip text={`Deixe vazio se a fatura inteira é extra do sócio. Preencha um valor menor que o total da fatura para abater apenas essa parcela — a fatura é registada pelo total e entra normalmente no DRE/BP; a parcela do sócio vai como transação irmã transitória vinculada à mesma fatura.`} size={12} />
                         </label>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          max={totalAmt}
+                          max={totalAmt > 0 ? totalAmt : undefined}
                           value={partnerExtraPartialAmount}
                           onChange={(e) => setPartnerExtraPartialAmount(e.target.value)}
-                          placeholder={`Vazio = fatura inteira (${totalAmt.toFixed(2)} €)`}
-                          className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                          disabled={totalAmt <= 0}
+                          placeholder={
+                            totalAmt > 0
+                              ? `Vazio = fatura inteira (${totalAmt.toFixed(2)} €)`
+                              : "Preenche o Valor (€) da fatura primeiro"
+                          }
+                          className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                             partialInvalid
                               ? "border-destructive bg-destructive/5 focus:ring-destructive/40"
                               : "border-border bg-background focus:ring-primary/50"
