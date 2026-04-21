@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ import helpTexts from "@/lib/help-texts";
 import SelectiveRestoreModal from "@/components/SelectiveRestoreModal";
 
 export default function DatabaseBackups() {
+  const AUTO_REFRESH_INTERVAL_MS = 60_000;
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -81,7 +82,30 @@ export default function DatabaseBackups() {
     gcTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+    refetchInterval: AUTO_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
+
+  useEffect(() => {
+    const refreshBackups = () => {
+      queryClient.invalidateQueries({ queryKey: ["database-backups"] });
+      void refetchBackups();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshBackups();
+      }
+    };
+
+    window.addEventListener("pageshow", refreshBackups);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pageshow", refreshBackups);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [queryClient, refetchBackups]);
 
   const createBackupMutation = useMutation({
     mutationFn: async () => {
