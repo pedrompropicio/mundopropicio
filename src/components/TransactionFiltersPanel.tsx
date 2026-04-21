@@ -162,20 +162,16 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
   });
 
   const { data: partners = [] } = useQuery({
-    queryKey: ["event-partners-distinct-list"],
+    queryKey: ["event-partners-open-events-list"],
     queryFn: async () => {
+      // Apenas sócios de eventos em aberto (não concluídos)
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, suppliers(name)")
+        .select("id, suppliers(name), events!inner(status)")
+        .neq("events.status", "completed")
         .order("created_at");
       if (error) throw error;
-      // Dedup by supplier name (mesmo sócio em vários eventos = várias rows)
-      const byName = new Map<string, { id: string; name: string }>();
-      (data ?? []).forEach((row: any) => {
-        const name = row.suppliers?.name ?? "Sócio";
-        if (!byName.has(name)) byName.set(name, { id: row.id, name });
-      });
-      // Mas precisamos de TODOS os partner.id para o mesmo sócio — agrupamos por nome
+      // Agrupa por nome do sócio (mesmo sócio em vários eventos = várias partner_ids)
       const grouped = new Map<string, { ids: string[]; name: string }>();
       (data ?? []).forEach((row: any) => {
         const name = row.suppliers?.name ?? "Sócio";
@@ -296,6 +292,61 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                 onToggleAll={() => toggleAll(accounts as any, selectedAccountIds, setSelectedAccountIds)}
                 searchPlaceholder="Procurar conta…"
               />
+            </section>
+
+            {/* Pago por Sócio (eventos em aberto) */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Pago por Sócio <span className="normal-case text-[10px] text-muted-foreground/70">(eventos em aberto)</span>
+              </h3>
+              {partners.length === 0 ? (
+                <p className="text-xs text-muted-foreground px-2 py-3 rounded-md border border-border/50 text-center">
+                  Sem sócios em eventos abertos.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        const allIds = partners.flatMap((p: any) => p.ids);
+                        const allSelected = allIds.every((id) => selectedPartnerIds.has(id));
+                        if (allSelected) setSelectedPartnerIds(new Set());
+                        else setSelectedPartnerIds(new Set(allIds));
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {partners.flatMap((p: any) => p.ids).every((id) => selectedPartnerIds.has(id)) && partners.length > 0 ? "Desmarcar todos" : "Selecionar todos"}
+                    </button>
+                    {selectedPartnerIds.size > 0 && (
+                      <span className="text-xs text-muted-foreground">{selectedPartnerIds.size} selecionado(s)</span>
+                    )}
+                  </div>
+                  <ScrollArea className="h-56 rounded-md border border-border/50">
+                    <div className="p-1">
+                      {partners.map((p: any) => {
+                        const isSelected = p.ids.every((id: string) => selectedPartnerIds.has(id));
+                        const isPartial = !isSelected && p.ids.some((id: string) => selectedPartnerIds.has(id));
+                        return (
+                          <div
+                            key={p.name}
+                            onClick={() => togglePartner(p.ids)}
+                            className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={isSelected ? true : isPartial ? "indeterminate" : false}
+                              onCheckedChange={() => togglePartner(p.ids)}
+                            />
+                            <span className="truncate flex-1">{p.name}</span>
+                            <span className="shrink-0 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+                              Sócio
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
             </section>
           </div>
 
