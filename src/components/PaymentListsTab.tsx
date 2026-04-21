@@ -1287,6 +1287,17 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80">Fechar</button>
         </div>
       </div>
+
+      {docsTx && (
+        <TransactionDocumentsModal
+          transactionId={docsTx.id}
+          transactionDescription={docsTx.description}
+          onClose={() => {
+            setDocsTx(null);
+            queryClient.invalidateQueries({ queryKey: ["transaction_documents_summary", docsTx.id] });
+          }}
+        />
+      )}
     </div>
   );
 }
