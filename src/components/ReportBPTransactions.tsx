@@ -35,6 +35,7 @@ interface TransactionWithMeta {
   supplierName?: string;
   isPartnerPaid?: boolean;
   partnerName?: string;
+  isOutOfBP?: boolean;
 }
 
 interface CategoryGroup {
@@ -240,6 +241,13 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       forecastByCategory[catId] = (forecastByCategory[catId] ?? 0) + Number(f.amount);
     });
 
+    // Categorias que existem no BP approved (do evento) — usado para marcar
+    // transações cuja categoria não foi orçada como "Fora do BP".
+    const bpCategoryIds = new Set(Object.keys(forecastByCategory));
+    eventTransactions.forEach((t) => {
+      (t as any).isOutOfBP = !!t.category_id && !bpCategoryIds.has(t.category_id);
+    });
+
     // Group transactions by category
     const transByCategory: Record<string, TransactionWithMeta[]> = {};
     normalTransactions.forEach((t) => {
@@ -401,10 +409,22 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
               <Tooltip>
                 <TooltipTrigger>
                   <Badge variant="outline" className="text-[10px] text-warning border-warning gap-0.5 px-1 py-0">
-                    <AlertTriangle className="h-3 w-3" /> Fora do BP
+                    <AlertTriangle className="h-3 w-3" /> Bypass BP
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">{t.pl_override_note}</TooltipContent>
+              </Tooltip>
+            )}
+            {t.isOutOfBP && !t.pl_override_note && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Badge variant="outline" className="text-[10px] text-warning border-warning gap-0.5 px-1 py-0">
+                    <AlertTriangle className="h-3 w-3" /> Fora do BP
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Categoria não foi orçada no BP approved deste evento.
+                </TooltipContent>
               </Tooltip>
             )}
           </div>
