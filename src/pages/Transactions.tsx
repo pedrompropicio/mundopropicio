@@ -884,6 +884,8 @@ export default function Transactions() {
         <TransferFormModal onClose={() => setShowTransfer(false)} />
       )}
 
+      <BPViewerModal open={showBPViewer} onClose={() => setShowBPViewer(false)} />
+
       {showBatchPayment && batchPaymentTransactions.length > 0 && (
         <BatchPaymentModal
           transactions={batchPaymentTransactions}
