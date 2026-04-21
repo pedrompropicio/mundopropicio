@@ -1015,6 +1015,24 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         Sem fatura selecionada: o valor abate o líquido mas terá de fazer o pagamento parcial manualmente depois.
                       </p>
                     )}
+                    {selectedInvoice && invoiceRemainder > 0.005 && !venueRetainedExceedsInvoice && (
+                      <label className="flex items-start gap-2 rounded-md border border-purple-500/40 bg-background p-2 cursor-pointer">
+                        <Checkbox
+                          checked={payInvoiceRemainder}
+                          onCheckedChange={(v) => setPayInvoiceRemainder(!!v)}
+                          disabled={!canEdit}
+                          className="mt-0.5"
+                        />
+                        <div className="text-xs flex-1">
+                          <p className="font-semibold">
+                            Liquidar o saldo restante ({formatCurrency(invoiceRemainder)}) pela bilheteira
+                          </p>
+                          <p className="text-muted-foreground">
+                            Abate este valor adicional do repasse para o promotor e fecha a fatura. A bilheteira fica registada como pagadora do saldo.
+                          </p>
+                        </div>
+                      </label>
+                    )}
                   </div>
                 </section>
 
