@@ -1374,6 +1374,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // 2) Real: apenas TX `approved` ou `paid`; exclui transitórias e marcadas exclude_from_result.
   // 3) Overhead Master→Splits: a fatia virtual NÃO entra aqui (overhead vive só no Master).
   // 4) Perímetro Real: ignora TX de sub-eventos quando se vê o Master sem o toggle Master+Subs.
+  // 5) **Simetria por categoria**: o Real só soma TX cuja categoria existe no BP approved
+  //    do próprio evento sendo visto (Master compara só contas do BP Master; Sub só do BP local).
+  //    Sem isto, despesas locais de subs entrariam no Real do Master mesmo sem terem sido
+  //    orçadas nele, criando variações enormes em contas que o Master nunca planeou.
   const comparisonForecasts = useMemo(() => {
     return (forecasts as any[]).filter((f) => {
       if (f._overhead_via_master) return false; // overhead só no Master
@@ -1385,6 +1389,17 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       return true;
     });
   }, [forecasts, includeSubsInBP, parentEventId, eventId]);
+
+  // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
+  // Usado para restringir o Real às mesmas contas previstas.
+  const bpCategoryIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of comparisonForecasts) {
+      if (f.category_id) set.add(f.category_id);
+    }
+    return set;
+  }, [comparisonForecasts]);
+
   const comparisonTransactions = useMemo(() => {
     return (transactions as any[]).filter((t) => {
       if (!(t.status === "approved" || t.status === "paid")) return false;
@@ -1392,9 +1407,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (t.exclude_from_result) return false;
       // Master sem toggle: só TX deste Master (event_id === eventId) ou multi-event masters (event_id null)
       if (!includeSubsInBP && parentEventId === null && t.event_id && t.event_id !== eventId) return false;
+      // Simetria por categoria: só TX cuja categoria foi orçada no BP deste evento.
+      // TX sem categoria ficam fora (não há linha BP para comparar).
+      if (!t.category_id || !bpCategoryIds.has(t.category_id)) return false;
       return true;
     });
-  }, [transactions, includeSubsInBP, parentEventId, eventId]);
+  }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
 
   const draftCount = forecasts.filter((f) => f.status === "draft").length;
