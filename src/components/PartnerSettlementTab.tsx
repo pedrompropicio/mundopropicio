@@ -567,6 +567,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 8;
 
     // ===== 1. RESUMO FINANCEIRO =====
+    // Larguras explícitas para garantir alinhamento dos totais com os cabeçalhos.
+    const tableWidth = pageW - margin * 2;
+    const labelColW = 90;
+    const valueColW = (tableWidth - labelColW) / 2;
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("1. Resumo Financeiro", margin, y);
@@ -578,12 +583,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       body: [
         ["Receita", formatCurrency(totalRevenueNet), formatCurrency(totalRevenueGross)],
         ["Despesas", formatCurrency(totalExpensesNet), formatCurrency(totalExpensesGross)],
-        ["Resultado (base de cálculo)", formatCurrency(resultBase), ""],
+        ["Resultado", formatCurrency(totalRevenueNet - totalExpensesNet), formatCurrency(totalRevenueGross - totalExpensesGross)],
       ],
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [41, 41, 41] },
-      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+      tableWidth,
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [41, 41, 41], halign: "right" },
+      columnStyles: {
+        0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
+        1: { cellWidth: valueColW, halign: "right" },
+        2: { cellWidth: valueColW, halign: "right" },
+      },
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -594,25 +604,33 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFont("helvetica", "bold");
       doc.text("2. Quebra por Cidade", margin, y);
       y += 5;
+      const cityCol1 = 60;
+      const cityValW = (tableWidth - cityCol1) / 3;
       autoTable(doc, {
         startY: y,
-        head: [["Cidade", "Receita s/IVA", "Despesa s/IVA", "Resultado"]],
+        head: [["Cidade", "Receita s/IVA", "Despesa c/IVA", "Resultado"]],
         body: cityBreakdown.map((c) => [
           c.cityName,
           formatCurrency(c.revenueNet),
-          formatCurrency(c.expensesNet),
-          formatCurrency(c.resultNet),
+          formatCurrency(c.expensesGross),
+          formatCurrency(c.revenueNet - c.expensesGross),
         ]),
         foot: [["TOTAL",
           formatCurrency(cityBreakdown.reduce((s, c) => s + c.revenueNet, 0)),
-          formatCurrency(cityBreakdown.reduce((s, c) => s + c.expensesNet, 0)),
-          formatCurrency(cityBreakdown.reduce((s, c) => s + c.resultNet, 0)),
+          formatCurrency(cityBreakdown.reduce((s, c) => s + c.expensesGross, 0)),
+          formatCurrency(cityBreakdown.reduce((s, c) => s + (c.revenueNet - c.expensesGross), 0)),
         ]],
         margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+        columnStyles: {
+          0: { cellWidth: cityCol1, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: cityValW, halign: "right" },
+          2: { cellWidth: cityValW, halign: "right" },
+          3: { cellWidth: cityValW, halign: "right" },
+        },
       });
       y = (doc as any).lastAutoTable.finalY + 8;
     }
