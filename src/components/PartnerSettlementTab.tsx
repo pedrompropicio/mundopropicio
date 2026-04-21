@@ -813,9 +813,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           body: s.partnerExtras.map(e => [
             e.description, e.category,
             e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            `−${formatCurrency(e.amount)}`,
+            `-${formatCurrency(e.amount)}`,
           ]),
-          foot: [["Total a abater", "", "", `−${formatCurrency(s.totalPartnerExtras)}`]],
+          foot: [["Total a abater", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
           margin: { left: margin + 4, right: margin },
           styles: { fontSize: 8 },
           headStyles: { fillColor: [120, 60, 60] },
