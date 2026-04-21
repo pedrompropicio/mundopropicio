@@ -68,15 +68,19 @@ export default function DatabaseBackups() {
     }
   };
 
-  const { data: backups = [], isLoading } = useQuery({
+  const { data: backups = [], isLoading, refetch: refetchBackups, isFetching } = useQuery({
     queryKey: ["database-backups"],
     queryFn: async () => {
       const { data, error } = await supabase.storage
         .from("database-backups")
-        .list("", { sortBy: { column: "created_at", order: "desc" } });
+        .list("", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
       if (error) throw error;
       return data.filter((f) => f.name.endsWith(".json"));
     },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const createBackupMutation = useMutation({
