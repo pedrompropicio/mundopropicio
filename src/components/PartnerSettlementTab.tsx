@@ -14,7 +14,6 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva } from "@/lib/iva";
 import {
-  getPartnerCalcBasisLabel,
   getPartnerExpenseBase,
   getPartnerRevenueBase,
   ignoresOperationalExpenses,
