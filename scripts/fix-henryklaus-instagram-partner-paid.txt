@@ -1,0 +1,2 @@
+UPDATE transactions SET status='paid', payment_date='2026-04-20' WHERE id='9a4c7eed-6259-48b6-97fa-d0f9b6c51c54';
+UPDATE partner_paid_expenses SET paid_date='2026-04-20' WHERE transaction_id='9a4c7eed-6259-48b6-97fa-d0f9b6c51c54';
