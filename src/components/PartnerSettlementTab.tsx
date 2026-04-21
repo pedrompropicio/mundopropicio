@@ -23,6 +23,8 @@ import {
 interface Props {
   eventId: string;
   eventName: string;
+  /** IDs dos sub-eventos quando este é um Master de turnê (vazio em evento simples). */
+  childEventIds?: string[];
 }
 
 interface PartnerSettlement {
@@ -42,7 +44,12 @@ interface PartnerSettlement {
   settlement: number; // positive = company pays partner, negative = partner pays company
 }
 
-export function PartnerSettlementTab({ eventId, eventName }: Props) {
+export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Props) {
+  // Quando estamos no Master de uma turnê, o encontro de contas tem de
+  // consolidar receitas/despesas/bilheteira de TODOS os eventos (Master +
+  // sub-eventos). Em evento simples este array fica só com o próprio id.
+  const allEventIds = [eventId, ...(childEventIds || [])];
+  const allEventIdsKey = allEventIds.join(",");
   // Event info
   const { data: event } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -69,12 +76,12 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
 
   // Event transactions
   const { data: transactions = [] } = useQuery({
-    queryKey: ["event-transactions-settlement", eventId],
+    queryKey: ["event-transactions-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, type, date, status")
-        .eq("event_id", eventId);
+        .in("event_id", allEventIds);
       if (error) throw error;
       return data;
     },
@@ -82,12 +89,12 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
 
   // Partner paid expenses
   const { data: paidExpenses = [] } = useQuery({
-    queryKey: ["partner-paid-expenses", eventId],
+    queryKey: ["partner-paid-expenses", allEventIdsKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
         .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, account_categories(name))")
-        .eq("event_id", eventId)
+        .in("event_id", allEventIds)
         .order("created_at");
       if (error) throw error;
       return data;
@@ -96,12 +103,12 @@ export function PartnerSettlementTab({ eventId, eventName }: Props) {
 
   // Ticket sales revenue
   const { data: ticketSales = [] } = useQuery({
-    queryKey: ["event-ticket-sales-settlement", eventId],
+    queryKey: ["event-ticket-sales-settlement", allEventIdsKey],
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
         .select("id")
-        .eq("event_id", eventId);
+        .in("event_id", allEventIds);
       if (!zones || zones.length === 0) return [];
       const zoneIds = zones.map(z => z.id);
       const { data: lots } = await supabase
