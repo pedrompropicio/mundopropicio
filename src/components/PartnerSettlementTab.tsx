@@ -99,6 +99,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const allEventIdsKey = allEventIds.join(",");
   const isTour = (childEventIds?.length ?? 0) > 0;
 
+  // Modo de agrupamento da secção 3 (Bilheteira) — default: subevento + data + sessão
+  type TicketGroupMode = "sub_date_session" | "session" | "day" | "zone" | "lot";
+  const [ticketGroupMode, setTicketGroupMode] = useState<TicketGroupMode>("sub_date_session");
+
   // Event info (master + cities)
   const { data: event } = useQuery({
     queryKey: ["event-detail", eventId],
