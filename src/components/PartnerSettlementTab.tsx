@@ -69,14 +69,6 @@ interface CategoryExpenseRow {
   count: number;
 }
 
-interface BpDeviationRow {
-  category: string;
-  planned: number;
-  real: number;
-  deviation: number;
-  deviationPct: number;
-}
-
 interface TicketBreakdownRow {
   zoneName: string;
   lotName: string;
