@@ -358,6 +358,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const resultBase = revenueBase - expenseBase;
 
   // ---- City breakdown (para turnês) ----
+  // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions
+  // Despesas = transactions de despesa do sub-evento (com e sem IVA)
   const cityBreakdown: CityBreakdown[] = isTour
     ? subEvents
         .filter((se: any) => se.id !== eventId)
@@ -365,8 +367,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const evtTx = validTx.filter((t: any) => t.event_id === se.id);
           const inc = evtTx.filter((t: any) => t.type === "income");
           const exp = evtTx.filter((t: any) => t.type === "expense");
-          const revenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
-          const revenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
+          const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          // Receita de bilheteira do sub-evento (somar ticketBreakdown filtrado)
+          const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
+          const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
+          const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
+          const revenueNet = tbNet + txRevenueNet;
+          const revenueGross = tbGross + txRevenueGross;
           const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
           const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
           return {
