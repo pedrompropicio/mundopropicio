@@ -63,6 +63,9 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId ?? "");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  // When OFF (default), Previsto soma apenas BP `approved` (alinha com a vista
+  // Previsão vs Real do evento). Quando ON, inclui também rascunhos (`draft`).
+  const [includeDrafts, setIncludeDrafts] = useState(false);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
