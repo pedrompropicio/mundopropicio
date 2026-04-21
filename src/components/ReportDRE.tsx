@@ -790,12 +790,15 @@ export default function ReportDRE() {
                     <span className="font-mono text-amber-500">{formatCurrency(p.share)}</span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between text-sm border-t border-accent/40 pt-2">
-                  <span className="font-bold">RESULTADO MUNDO PROPÍCIO</span>
-                  <span className={`font-mono font-bold ${tourRetained >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatCurrency(tourRetained)}
-                  </span>
-                </div>
+                {(() => {
+                  const housePct = Math.max(0, 100 - tourPartners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
+                  return (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground italic">Mundo Propício ({housePct.toFixed(1)}%)</span>
+                      <span className="font-mono text-amber-500">{formatCurrency(tourRetained)}</span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
