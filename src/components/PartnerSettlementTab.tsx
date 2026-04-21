@@ -876,11 +876,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <div className="flex items-center gap-2">
               {s.settlement > 0 ? (
                 <Badge className="bg-success/15 text-success text-xs">
-                  <TrendingUp className="h-3 w-3 mr-1" /> {s.isHouse ? "Mundo Propício retém" : "Empresa paga"} {formatCurrency(s.settlement)}
+                  <TrendingUp className="h-3 w-3 mr-1" /> {s.isHouse ? "Resultado" : "Empresa paga"} {formatCurrency(s.settlement)}
                 </Badge>
               ) : s.settlement < 0 ? (
                 <Badge className="bg-destructive/15 text-destructive text-xs">
-                  <TrendingDown className="h-3 w-3 mr-1" /> {s.isHouse ? "Mundo Propício absorve" : "Sócio paga"} {formatCurrency(Math.abs(s.settlement))}
+                  <TrendingDown className="h-3 w-3 mr-1" /> {s.isHouse ? "Prejuízo" : "Sócio paga"} {formatCurrency(Math.abs(s.settlement))}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-xs">Sem saldo</Badge>
@@ -970,7 +970,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
             {s.isHouse && (
               <p className="text-xs text-muted-foreground italic">
-                Mundo Propício é a empresa que gere o evento — detém a quota residual do resultado e absorve eventuais perdas. Não acumula extras nem despesas pagas por sócio.
+                Mundo Propício é a sócia principal e realizadora do evento. Os outros sócios cadastrados são sócios secundários. Não acumula extras nem despesas pagas por sócio.
               </p>
             )}
             {!s.isHouse && s.paidExpenses.length === 0 && s.partnerExtras.length === 0 && (
