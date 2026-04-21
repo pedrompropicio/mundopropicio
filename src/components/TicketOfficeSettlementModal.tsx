@@ -760,13 +760,88 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </section>
                 )}
 
-                {/* STEP 4 — Net */}
+                {/* STEP — Venda à porta retida pela sala (abate fatura) */}
                 <section className="space-y-2">
-                  <StepHeader n={pendingAdvances.length > 0 ? 5 : 4} icon={<Calculator className="h-4 w-4" />} title="Líquido a receber" done={stepDone.net} />
+                  <StepHeader
+                    n={pendingAdvances.length > 0 ? 5 : 4}
+                    icon={<Banknote className="h-4 w-4" />}
+                    title="Venda à porta retida pela sala (opcional)"
+                    badge={venueRetainedNum > 0 ? formatCurrency(venueRetainedNum) : undefined}
+                  />
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Use este campo quando a <strong>sala/recinto</strong> vendeu bilhetes à porta e fica com esse valor para abater do aluguer (ou outra fatura), repassando-vos só a diferença. O valor é abatido do líquido a transferir e cria automaticamente um pagamento parcial na fatura escolhida.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor retido (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={venueRetainedAmount}
+                          onChange={(e) => setVenueRetainedAmount(e.target.value)}
+                          placeholder="0,00"
+                          disabled={!canEdit}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fatura a abater</Label>
+                        <select
+                          value={venueRetainedInvoiceId}
+                          onChange={(e) => setVenueRetainedInvoiceId(e.target.value)}
+                          disabled={!canEdit || venueRetainedNum <= 0}
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+                        >
+                          <option value="">— Sem fatura (apenas registo) —</option>
+                          {invoiceCandidates.map((t: any) => (
+                            <option key={t.id} value={t.id}>
+                              {t.suppliers?.name ? `${t.suppliers.name} · ` : ""}
+                              {t.description}
+                              {" — em aberto "}
+                              {formatCurrency(Number(t._open))}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {venueRetainedNum > 0 && (
+                      <Textarea
+                        rows={2}
+                        value={venueRetainedNotes}
+                        onChange={(e) => setVenueRetainedNotes(e.target.value)}
+                        placeholder="Notas (ex.: 47 bilhetes vendidos na bilheteira da sala)"
+                        disabled={!canEdit}
+                      />
+                    )}
+                    {venueRetainedExceedsInvoice && (
+                      <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs">
+                        <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                        <span>O valor retido excede o saldo em aberto da fatura selecionada ({formatCurrency(Number(selectedInvoice?._open || 0))}). Reduza o valor ou escolha "Sem fatura".</span>
+                      </div>
+                    )}
+                    {venueRetainedNum > 0 && !venueRetainedInvoiceId && (
+                      <p className="text-[11px] text-amber-500">
+                        Sem fatura selecionada: o valor abate o líquido mas terá de fazer o pagamento parcial manualmente depois.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                {/* STEP — Net */}
+                <section className="space-y-2">
+                  <StepHeader
+                    n={(pendingAdvances.length > 0 ? 1 : 0) + 5}
+                    icon={<Calculator className="h-4 w-4" />}
+                    title="Líquido a receber"
+                    done={stepDone.net}
+                  />
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">
-                        Bruto − Deduções{totalAdvances > 0 ? " − Adiantamentos" : ""}
+                        Bruto − Deduções
+                        {totalAdvances > 0 ? " − Adiantamentos" : ""}
+                        {venueRetainedNum > 0 ? " − Retido pela sala" : ""}
                       </span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
