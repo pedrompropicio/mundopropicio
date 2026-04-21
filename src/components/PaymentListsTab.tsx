@@ -9,11 +9,64 @@ import { calcWithIva } from "@/lib/utils";
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail,
+  Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+
+/**
+ * Small attachments button used in the payment-list item rows.
+ * Shows a badge with the number of valid attachments (uploads + external links)
+ * or a warning marker for "ref://" placeholders.
+ */
+function PaymentDocsButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
+  const { data: docs = [] } = useQuery({
+    queryKey: ["transaction_documents_summary", transactionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("id, file_url")
+        .eq("transaction_id", transactionId);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const isExternalLink = (url: string) => /^ref:\/\/https?:\/\//i.test(url);
+  const isPendingRef = (url: string) => url.startsWith("ref://") && !isExternalLink(url);
+  const pendingRefs = docs.filter((d: any) => isPendingRef(d.file_url));
+  const validDocs = docs.filter((d: any) => !isPendingRef(d.file_url));
+  const hasPending = pendingRefs.length > 0 && validDocs.length === 0;
+  const count = validDocs.length;
+
+  const title = count > 0
+    ? `${count} anexo${count === 1 ? "" : "s"} (ver na conta)`
+    : hasPending
+      ? "Anexo pendente — clique para gerir"
+      : "Sem anexos — clique para adicionar";
+
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="relative flex items-center gap-1.5 text-xs rounded-md px-2.5 py-1 border border-border/50 bg-muted/30 text-muted-foreground hover:bg-muted/60 transition-colors"
+      title={title}
+    >
+      <Paperclip className="h-3.5 w-3.5" />
+      Anexos
+      {count > 0 && (
+        <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-success/20 px-1 text-[10px] font-semibold text-success">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+      {hasPending && count === 0 && (
+        <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-warning/20 text-[10px] font-bold text-warning">!</span>
+      )}
+    </button>
+  );
+}
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -687,6 +740,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const { user } = useAuth();
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
+  const [docsTx, setDocsTx] = useState<{ id: string; description: string } | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragging = useRef(false);
@@ -1158,6 +1212,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     <div className="flex items-center gap-4 flex-wrap">
                       {isPaid && (
                         <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
+                      )}
+                      {tx?.id && (
+                        <PaymentDocsButton
+                          transactionId={tx.id}
+                          onClick={() => setDocsTx({ id: tx.id, description: tx.description ?? "Transação" })}
+                        />
                       )}
                       {!isPaid && (
                         <button
