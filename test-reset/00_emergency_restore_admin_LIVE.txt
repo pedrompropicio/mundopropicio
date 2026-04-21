@@ -1,0 +1,17 @@
+-- ============================================================
+-- EMERGÊNCIA: Restaurar role admin no LIVE (Produção)
+-- Correr em: Cloud → Database → SQL Editor (com Live selecionado)
+-- ============================================================
+-- Após correr isto, faz logout/login na app e vai a /backups
+-- para restaurar o backup completo de 2026-04-20T18-28.
+-- ============================================================
+
+INSERT INTO public.user_roles (user_id, role)
+SELECT id, 'admin'::app_role FROM auth.users
+ON CONFLICT (user_id, role) DO NOTHING;
+
+-- Verificação
+SELECT u.email, ur.role
+FROM auth.users u
+LEFT JOIN public.user_roles ur ON ur.user_id = u.id
+ORDER BY u.created_at;
