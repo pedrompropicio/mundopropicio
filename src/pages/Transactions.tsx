@@ -120,23 +120,29 @@ export default function Transactions() {
   });
 
   // Map: transaction_id -> Set<supplier_id> (for "Pago por sócio" filter — agrupa por identidade real do sócio)
+  // staleTime: 0 + refetchOnMount: 'always' garante que o filtro reflete sempre o estado atual da DB
+  // (evita falsos positivos por cache desatualizado quando PPE são criados/removidos noutros ecrãs).
   const { data: partnerPaidMap = new Map<string, Set<string>>() } = useQuery({
     queryKey: ["partner-paid-expenses-map-by-supplier"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("transaction_id, event_partners!inner(supplier_id)");
+        .select("transaction_id, event_partners!inner(supplier_id)")
+        .limit(10000);
       if (error) throw error;
       const map = new Map<string, Set<string>>();
       (data ?? []).forEach((row: any) => {
         const supplierId = row.event_partners?.supplier_id;
-        if (!supplierId) return;
+        if (!supplierId || !row.transaction_id) return;
         const set = map.get(row.transaction_id) ?? new Set<string>();
         set.add(supplierId);
         map.set(row.transaction_id, set);
       });
       return map;
     },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const toggleAccount = (id: string) => {
