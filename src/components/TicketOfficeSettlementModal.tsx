@@ -55,6 +55,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [venueRetainedAmount, setVenueRetainedAmount] = useState<string>("");
   const [venueRetainedInvoiceId, setVenueRetainedInvoiceId] = useState<string>("");
   const [venueRetainedNotes, setVenueRetainedNotes] = useState<string>("");
+  // Liquidar saldo restante da fatura escolhida pela bilheteira (abate do repasse)
+  const [payInvoiceRemainder, setPayInvoiceRemainder] = useState<boolean>(false);
 
   // Reset/load when opening
   useEffect(() => {
