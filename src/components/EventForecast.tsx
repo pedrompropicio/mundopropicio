@@ -2549,7 +2549,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                 />
                 <span className="inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">Rascunho</span>
               </div>
-            ) : isApproved && isAdmin && onToggleSelect ? (
+            ) : isApproved && isAdmin && onToggleSelect && isEligibleForGen ? (
               <div className="flex items-center gap-1.5">
                 <Checkbox
                   checked={isSelected}
