@@ -162,20 +162,16 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
   });
 
   const { data: partners = [] } = useQuery({
-    queryKey: ["event-partners-distinct-list"],
+    queryKey: ["event-partners-open-events-list"],
     queryFn: async () => {
+      // Apenas sócios de eventos em aberto (não concluídos)
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, suppliers(name)")
+        .select("id, suppliers(name), events!inner(status)")
+        .neq("events.status", "completed")
         .order("created_at");
       if (error) throw error;
-      // Dedup by supplier name (mesmo sócio em vários eventos = várias rows)
-      const byName = new Map<string, { id: string; name: string }>();
-      (data ?? []).forEach((row: any) => {
-        const name = row.suppliers?.name ?? "Sócio";
-        if (!byName.has(name)) byName.set(name, { id: row.id, name });
-      });
-      // Mas precisamos de TODOS os partner.id para o mesmo sócio — agrupamos por nome
+      // Agrupa por nome do sócio (mesmo sócio em vários eventos = várias partner_ids)
       const grouped = new Map<string, { ids: string[]; name: string }>();
       (data ?? []).forEach((row: any) => {
         const name = row.suppliers?.name ?? "Sócio";
