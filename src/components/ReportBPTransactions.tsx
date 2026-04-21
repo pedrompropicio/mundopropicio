@@ -192,6 +192,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
 
   // Get relevant event IDs (including child events for tours)
   const selectedEvent = events.find((e: any) => e.id === selectedEventId);
+  const isSubEvent = !!selectedEvent?.parent_event_id;
   const relevantEventIds = useMemo(() => {
     if (!selectedEventId) return [];
     const childIds = events
