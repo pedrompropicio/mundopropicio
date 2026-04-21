@@ -1328,6 +1328,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       toast({ title: "Extra do Sócio exige um evento associado", variant: "destructive" });
       return;
     }
+    // Validação do split parcial: se preenchido, tem de ser > 0 e < total
+    if (isPartnerExtra && !isSplit && partnerExtraPartialAmount.trim() !== "") {
+      const totalAmt = parseFloat(form.amount) || 0;
+      const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
+      if (partialAmt <= 0 || partialAmt >= totalAmt) {
+        toast({ title: "Valor parcial do extra inválido", description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} €). Deixe vazio para abater a fatura inteira.`, variant: "destructive" });
+        return;
+      }
+    }
 
     // Split validation
     if (isSplit) {
@@ -2320,7 +2329,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", reimbursement_note_id: "", account_id: next ? "" : form.account_id });
                     if (next) {
                       setIsPaidByPartner(false); setPaidByPartnerId("");
-                      setIsPartnerExtra(false); setPartnerExtraId("");
+                      setIsPartnerExtra(false); setPartnerExtraId(""); setPartnerExtraPartialAmount("");
                       setShowNewReimbursementNote(false); setNewReimbursementEmployeeName("");
                     }
                   }}
@@ -2368,6 +2377,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       const next = !isPartnerExtra;
                       setIsPartnerExtra(next);
                       setPartnerExtraId("");
+                      setPartnerExtraPartialAmount("");
                     }}
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                       isPartnerExtra
@@ -2491,26 +2501,61 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </p>
                 </div>
               )}
-              {isPartnerExtra && (
-                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio a abater *</label>
-                    <SearchableSelect
-                      options={eventPartners.map((p: any) => ({
-                        value: p.id,
-                        label: `${p.suppliers?.name} (${p.percentage}%)`,
-                      }))}
-                      value={partnerExtraId}
-                      onValueChange={setPartnerExtraId}
-                      placeholder="Selecionar sócio…"
-                      searchPlaceholder="Pesquisar…"
-                    />
+              {isPartnerExtra && (() => {
+                const totalAmt = parseFloat(form.amount) || 0;
+                const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
+                const isPartial = partialAmt > 0 && partialAmt < totalAmt;
+                const partialInvalid = partnerExtraPartialAmount.trim() !== "" && (partialAmt <= 0 || partialAmt >= totalAmt);
+                return (
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio a abater *</label>
+                      <SearchableSelect
+                        options={eventPartners.map((p: any) => ({
+                          value: p.id,
+                          label: `${p.suppliers?.name} (${p.percentage}%)`,
+                        }))}
+                        value={partnerExtraId}
+                        onValueChange={setPartnerExtraId}
+                        placeholder="Selecionar sócio…"
+                        searchPlaceholder="Pesquisar…"
+                      />
+                    </div>
+                    {!isSplit && totalAmt > 0 && (
+                      <div>
+                        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          Apenas parte da fatura é extra (€)
+                          <HelpTooltip text={`Deixe vazio se a fatura inteira (${totalAmt.toFixed(2)} €) é extra do sócio. Preencha um valor menor que o total para abater apenas essa parcela do sócio — a fatura é registada pelo total e entra normalmente no DRE/BP; a parcela do sócio vai como transação irmã transitória vinculada à mesma fatura.`} size={12} />
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={totalAmt}
+                          value={partnerExtraPartialAmount}
+                          onChange={(e) => setPartnerExtraPartialAmount(e.target.value)}
+                          placeholder={`Vazio = fatura inteira (${totalAmt.toFixed(2)} €)`}
+                          className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                            partialInvalid
+                              ? "border-destructive bg-destructive/5 focus:ring-destructive/40"
+                              : "border-border bg-background focus:ring-primary/50"
+                          }`}
+                        />
+                        {partialInvalid && (
+                          <p className="mt-1 text-[10px] text-destructive">
+                            O valor parcial deve ser maior que 0 e menor que o total da fatura ({totalAmt.toFixed(2)} €).
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      {isPartial
+                        ? `🧳 Fatura registada por ${totalAmt.toFixed(2)} € (entra DRE/BP). ${partialAmt.toFixed(2)} € serão descontados do sócio no fecho via transação irmã transitória vinculada à mesma fatura.`
+                        : "🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP."}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP.
-                  </p>
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
 
