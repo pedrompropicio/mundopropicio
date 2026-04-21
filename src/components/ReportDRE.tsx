@@ -194,15 +194,22 @@ function buildDRE(
 
       totalDistribution += share;
     });
-    // Mundo Propício — renderizada como sócio (mesma fonte/corpo dos restantes)
+    // Mundo Propício — sócia principal/proprietária do sistema, recebe a quota
+    // residual `100 − Σ(externos do evento)`. IMPORTANTE: usar `eventPartners`
+    // (parceiros DESTE evento) e não `partners` (lista global de todos os eventos),
+    // senão o cálculo soma percentagens de eventos que não têm nada a ver.
     const retained = resEx - totalDistribution;
-    const housePct = Math.max(0, 100 - partners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
+    const housePct = Math.max(
+      0,
+      100 - eventPartners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0),
+    );
     lines.push({
       label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
       isDistribution: true,
+      isHouse: true,
       indent: true,
     });
   }
