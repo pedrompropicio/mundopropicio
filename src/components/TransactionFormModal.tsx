@@ -1229,6 +1229,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     onSuccess: (newTxId) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-check"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
       queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
