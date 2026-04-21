@@ -138,12 +138,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: forecasts, error: forecastError } = await adminClient
+    let forecastsQuery = adminClient
       .from("event_forecasts")
       .select("*")
       .eq("event_id", event_id)
       .eq("status", "approved")
       .is("transaction_id", null);
+
+    // Strict rule (matches client bulk logic): only forecasts pre-validated by
+    // the caller as having no matching real transaction. If the caller does
+    // not pass the list, fall back to the legacy behaviour for compatibility.
+    if (eligibleForecastIds && eligibleForecastIds.length > 0) {
+      forecastsQuery = forecastsQuery.in("id", eligibleForecastIds);
+    }
+
+    const { data: forecasts, error: forecastError } = await forecastsQuery;
 
     if (forecastError) {
       return new Response(JSON.stringify({ error: forecastError.message }), {
@@ -153,7 +162,7 @@ Deno.serve(async (req) => {
     }
 
     if (!forecasts || forecasts.length === 0) {
-      return new Response(JSON.stringify({ error: "Nenhuma previsão aprovada sem transação vinculada encontrada" }), {
+      return new Response(JSON.stringify({ error: "Nenhuma previsão elegível encontrada (sem transação e sem match por categoria)" }), {
         status: 422,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
