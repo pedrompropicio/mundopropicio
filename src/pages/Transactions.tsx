@@ -319,6 +319,16 @@ export default function Transactions() {
   // Check for dependent records before deleting
   const checkDependencies = async (id: string) => {
     const warnings: string[] = [];
+    const { data: tx } = await supabase
+      .from("transactions")
+      .select("status, paid_amount")
+      .eq("id", id)
+      .maybeSingle();
+    if (tx?.status === "paid" || Number(tx?.paid_amount ?? 0) > 0) {
+      warnings.push(
+        `⚠️ Transação já liquidada (${Number(tx?.paid_amount ?? 0).toFixed(2)} €) — todos os pagamentos registados serão também eliminados. Esta ação NÃO repõe o saldo da conta financeira automaticamente.`,
+      );
+    }
     const { data: payItems } = await supabase.from("payment_list_items").select("id, payment_list_id").eq("transaction_id", id);
     if (payItems && payItems.length > 0) {
       warnings.push(`Presente em ${payItems.length} lista(s) de pagamento — será removida da(s) lista(s)`);
