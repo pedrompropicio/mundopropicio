@@ -160,8 +160,9 @@ export function buildDREForExport(
     // In Brasil mode, retained = resultGrossExp - totalDistribution
     // In standard mode, retained = resEx - totalDistribution (MP benefits from real net result)
     const retained = brasilMode ? (totalIncEx - totalExpInc) - totalDistribution : resEx - totalDistribution;
+    const housePct = Math.max(0, 100 - partners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
     lines.push({
-      label: "RESULTADO MP GESTÃO EVENTOS",
+      label: `Mundo Propício (${housePct.toFixed(1)}%)`,
       amountExIva: retained,
       ivaAmount: 0,
       amountIncIva: retained,
