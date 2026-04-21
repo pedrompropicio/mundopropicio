@@ -661,6 +661,25 @@ export default function Transactions() {
       return paymentDate >= periodStart && paymentDate <= periodEnd;
     });
     return [...result].sort((a: any, b: any) => {
+      if (sortMode === "category") {
+        // 1) Categoria (por código hierárquico)
+        const aCatCode = a.account_categories?.code ?? "";
+        const bCatCode = b.account_categories?.code ?? "";
+        if (aCatCode !== bCatCode) return aCatCode.localeCompare(bCatCode, undefined, { numeric: true });
+        // 2) Data de Pagamento (mais recente primeiro)
+        const aDate = (a.payment_date ?? a.date ?? "").slice(0, 10);
+        const bDate = (b.payment_date ?? b.date ?? "").slice(0, 10);
+        if (aDate !== bDate) return bDate.localeCompare(aDate);
+        // 3) Evento
+        const aEvent = a.events?.name ?? "";
+        const bEvent = b.events?.name ?? "";
+        if (aEvent !== bEvent) return aEvent.localeCompare(bEvent, "pt", { sensitivity: "base" });
+        // 4) Fornecedor
+        const aSupp = a.suppliers?.name ?? "";
+        const bSupp = b.suppliers?.name ?? "";
+        return aSupp.localeCompare(bSupp, "pt", { sensitivity: "base" });
+      }
+      // sortMode === "due_date" → no histórico, ordenar pela Data de Pagamento (mais recente)
       // 1) Data de Pagamento (mais recente primeiro) — normalizar para YYYY-MM-DD
       const aDate = (a.payment_date ?? a.date ?? "").slice(0, 10);
       const bDate = (b.payment_date ?? b.date ?? "").slice(0, 10);
@@ -682,7 +701,7 @@ export default function Transactions() {
       const bInv = b.invoice_ref ?? "";
       return aInv.localeCompare(bInv, undefined, { numeric: true });
     });
-  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs]);
+  }, [transactions, filter, selectedEventIds, selectedAccountIds, selectedSupplierIds, paidPeriod, paidRangeFrom, paidRangeTo, showHidden, onlyGrouped, groupedInvoiceRefs, sortMode, searchTerm, selectedPartnerIds, partnerPaidMap]);
 
   // Pending transactions in current filtered view
   const pendingInView = filtered.filter((t) => t.status === "pending");
