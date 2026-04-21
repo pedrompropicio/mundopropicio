@@ -842,32 +842,94 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 5. DESPESAS POR CATEGORIA =====
+    // ===== 5. DESPESAS POR CATEGORIA (L1 + L2 com subtotais por L1) =====
     if (expenseByCategory.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("5. Despesas por Categoria", margin, y);
       y += 5;
+
+      // Larguras explícitas
+      const expCol1 = 130; // L1/L2 descrição
+      const expColC = 22;  // contagem
+      const expColV = (tableWidth - expCol1 - expColC) / 2;
+
+      // Agrupar L2 por L1
+      const byL1: Record<string, { l1Code: string; l1Name: string; rows: CategoryExpenseRow[] }> = {};
+      expenseByCategory.forEach((r) => {
+        const k = r.l1Code || "_";
+        if (!byL1[k]) byL1[k] = { l1Code: r.l1Code, l1Name: r.l1Name, rows: [] };
+        byL1[k].rows.push(r);
+      });
+
+      const body: { row: any[]; style: "l1" | "l2" }[] = [];
+      let grandCount = 0, grandNet = 0, grandGross = 0;
+
+      Object.values(byL1)
+        .sort((a, b) => a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true }))
+        .forEach((g) => {
+          // Linha L1 (cabeçalho do grupo) com subtotais
+          const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
+          const l1Net = g.rows.reduce((s, r) => s + r.amountNet, 0);
+          const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
+          body.push({
+            row: [
+              `${g.l1Code} ${g.l1Name}`.trim(),
+              l1Count.toString(),
+              formatCurrency(l1Net),
+              formatCurrency(l1Gross),
+            ],
+            style: "l1",
+          });
+          // Linhas L2 (filhas indentadas)
+          g.rows.forEach((r) => {
+            // Se L2 == L1 (categoria sem filho), não duplicar — já apresentada no L1
+            if (r.l2Code === r.l1Code && r.l2Name === r.l1Name) return;
+            body.push({
+              row: [
+                `    ${r.l2Code} ${r.l2Name}`.trim(),
+                r.count.toString(),
+                formatCurrency(r.amountNet),
+                formatCurrency(r.amountGross),
+              ],
+              style: "l2",
+            });
+          });
+          grandCount += l1Count;
+          grandNet += l1Net;
+          grandGross += l1Gross;
+        });
+
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Lançamentos", "s/IVA", "c/IVA"]],
-        body: expenseByCategory.slice(0, 20).map((r) => [
-          r.category,
-          r.count.toString(),
-          formatCurrency(r.amountNet),
-          formatCurrency(r.amountGross),
-        ]),
+        body: body.map((b) => b.row),
         foot: [["TOTAL",
-          expenseByCategory.reduce((s, r) => s + r.count, 0).toString(),
-          formatCurrency(expenseByCategory.reduce((s, r) => s + r.amountNet, 0)),
-          formatCurrency(expenseByCategory.reduce((s, r) => s + r.amountGross, 0)),
+          grandCount.toString(),
+          formatCurrency(grandNet),
+          formatCurrency(grandGross),
         ]],
         margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [41, 41, 41] },
-        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+        tableWidth,
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        footStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0], fontStyle: "bold", halign: "right" },
+        columnStyles: {
+          0: { cellWidth: expCol1, halign: "left" },
+          1: { cellWidth: expColC, halign: "right" },
+          2: { cellWidth: expColV, halign: "right" },
+          3: { cellWidth: expColV, halign: "right" },
+        },
+        didParseCell: (data) => {
+          if (data.section !== "body") return;
+          const meta = body[data.row.index];
+          if (!meta) return;
+          if (meta.style === "l1") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [230, 230, 230];
+          }
+        },
       });
       y = (doc as any).lastAutoTable.finalY + 8;
     }
