@@ -74,6 +74,7 @@ function SourceBadge({ source }: { source: string }) {
 
 export function ResultsAnalysis() {
   const currentYear = new Date().getFullYear();
+  const [includeOverhead, setIncludeOverhead] = useState<boolean>(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["ra_events"],
