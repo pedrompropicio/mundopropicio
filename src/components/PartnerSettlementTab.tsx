@@ -961,7 +961,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       styles: { fontSize: 9 },
       headStyles: { fillColor: [41, 41, 41] },
       footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
+      columnStyles: {
+        0: { halign: "left" },
+        1: { halign: "center" },
+        2: { halign: "right" },
+        3: { halign: "right" },
+        4: { halign: "right" },
+        5: { halign: "right" },
+      },
+      didParseCell: (data) => {
+        // Alinha o cabeçalho às mesmas posições das células do corpo
+        if (data.section === "head") {
+          if (data.column.index === 0) data.cell.styles.halign = "left";
+          else if (data.column.index === 1) data.cell.styles.halign = "center";
+          else data.cell.styles.halign = "right";
+        }
+      },
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
