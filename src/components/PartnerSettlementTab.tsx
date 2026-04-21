@@ -727,19 +727,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     autoTable(doc, {
       startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (−)", "Saldo Final"]],
+      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Saldo Final"]],
       body: settlements.map((s) => [
         s.partnerName,
         `${s.effectivePercentage}%`,
         formatCurrency(s.partnerShare),
         formatCurrency(s.totalPaidByPartner),
-        `−${formatCurrency(s.totalPartnerExtras)}`,
+        `-${formatCurrency(s.totalPartnerExtras)}`,
         formatCurrency(s.settlement),
       ]),
       foot: [["TOTAL", "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        `−${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
         formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
       ]],
       margin: { left: margin, right: margin },
