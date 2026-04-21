@@ -232,6 +232,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setIvaRate("23");
     setCategoryId("");
     setNotes("");
+    setBpForecastId("");
     setPendingFiles([]);
   }
 
@@ -243,6 +244,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setIvaRate(String(cost.iva_rate ?? 0));
     setCategoryId(cost.category_id || "");
     setNotes(cost.notes || "");
+    setBpForecastId(cost.master_forecast_id || "");
     setShowForm(true);
   }
 
