@@ -722,7 +722,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // ===== 7. DETALHES POR SÓCIO =====
-    for (const s of settlements) {
+    // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
+    for (const s of settlements.filter((x: any) => !x.isHouse)) {
       ensureSpace(30);
 
       doc.setFontSize(11);
@@ -798,9 +799,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       const direction = s.settlement > 0
-        ? `→ Empresa deve pagar ${formatCurrency(s.settlement)} ao sócio`
+        ? `→ MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
         : s.settlement < 0
-          ? `→ Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à empresa`
+          ? `→ Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
           : "→ Sem saldo pendente";
       doc.text(direction, margin, y);
       y += 8;
