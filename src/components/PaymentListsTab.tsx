@@ -1148,13 +1148,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     {bpCheck.exceeds && (
                       <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
                     )}
+                    {paid > 0 && !isPaid && (
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
+                        <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
+                      </div>
+                    )}
+                    <CopyLine label="Criado por" value={list?.created_by} />
                     <div className="flex items-center gap-4 flex-wrap">
-                      {paid > 0 && !isPaid && (
-                        <>
-                          <p className="text-xs text-muted-foreground">Pago: {formatCurrency(paid * (1 + ivaRate / 100))}</p>
-                          <p className="text-sm font-semibold text-warning">Saldo a pagar: {formatCurrency(withIva - paid * (1 + ivaRate / 100))}</p>
-                        </>
-                      )}
                       {isPaid && (
                         <Badge variant="default" className="bg-success/15 text-success border-0">Pago</Badge>
                       )}
@@ -1173,7 +1174,6 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         </button>
                       )}
                     </div>
-                    <CopyLine label="Criado por" value={list?.created_by} />
                   </div>
                 </div>
               </div>
