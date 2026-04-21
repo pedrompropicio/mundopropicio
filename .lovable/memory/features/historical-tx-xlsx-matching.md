@@ -5,9 +5,23 @@ type: feature
 ---
 
 ## Fluxo
-1. Em `EventDetail > BP`, botão "Gerar Transações (N)" aparece para admin quando o evento tem status `completed` e há previsões `approved` sem `transaction_id`.
-2. Abre `GenerateHistoricalModal` (em vez de `window.confirm`) com upload **opcional** do XLSX original do BP.
-3. Se carregar XLSX: usa `parseXlsxPL` (lib existente) e envia para edge `generate-historical-transactions` o array `xlsxRows` `[{description, baseAmount, ivaRate, status}]` onde `status` é o **valor bruto da coluna F**.
+1. Em `EventDetail > BP`, botão "Gerar Transações (N)" aparece para admin quando o evento tem status `active` ou `completed` e há previsões **elegíveis** (regra única, ver abaixo).
+2. Abre `GenerateHistoricalModal` com upload **opcional** do XLSX original do BP.
+3. Se carregar XLSX: usa `parseXlsxPL` e envia para edge `generate-historical-transactions` o array `xlsxRows` `[{description, baseAmount, ivaRate, status}]` (status = valor bruto da coluna F) **+** `eligible_forecast_ids: string[]` calculado no cliente.
+
+## Regra única de elegibilidade (`isEligibleForBulkTx`)
+Tanto o botão histórico do header quanto o "Gerar Transações" do bulk (Receitas/Despesas) usam o **mesmo predicado**:
+```
+f.status === "approved"
+&& !f.transaction_id
+&& findMatchingTransactionsForForecast(f, transactions, forecasts).length === 0
+```
+A função de matching verifica:
+1. Vínculo direto (`transaction_id = f.id`)
+2. Categoria L3 com apenas 1 forecast → todas as TXs dessa categoria casam
+3. Token-based winner-takes-all entre múltiplas linhas BP da mesma categoria
+
+A edge function aplica `.in("id", eligible_forecast_ids)` quando recebido (fallback compatível: comportamento antigo se não enviado).
 
 ## Lógica de matching (edge function)
 - Reutiliza a técnica do modal de implantação: **Dice coefficient ≥ 0.8** sobre descrições normalizadas (NFD, lowercase, sem acentos) **+** `Math.abs(baseAmount diff) ≤ 0.01€`.
