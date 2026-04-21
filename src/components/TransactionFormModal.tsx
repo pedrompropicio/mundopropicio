@@ -2487,6 +2487,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </p>
                 </div>
               )}
+              {isPartnerExtra && (
+                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio a abater *</label>
+                    <SearchableSelect
+                      options={eventPartners.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.suppliers?.name} (${p.percentage}%)`,
+                      }))}
+                      value={partnerExtraId}
+                      onValueChange={setPartnerExtraId}
+                      placeholder="Selecionar sócio…"
+                      searchPlaceholder="Pesquisar…"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
