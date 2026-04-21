@@ -970,7 +970,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
             {s.isHouse && (
               <p className="text-xs text-muted-foreground italic">
-                Mundo Propício é a sócia principal e realizadora do evento. Os outros sócios cadastrados são sócios secundários. Não acumula extras nem despesas pagas por sócio.
+                Não acumula extras nem despesas pagas por sócio.
               </p>
             )}
             {!s.isHouse && s.paidExpenses.length === 0 && s.partnerExtras.length === 0 && (
