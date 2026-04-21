@@ -103,6 +103,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
+  // Partner advance expenses (Extras do Sócio — pagas pela empresa, abatidas no fecho)
+  const { data: partnerAdvances = [] } = useQuery({
+    queryKey: ["partner-advance-expenses", allEventIdsKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, account_categories(name))")
+        .in("event_id", allEventIds)
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Ticket sales revenue
   const { data: ticketSales = [] } = useQuery({
     queryKey: ["event-ticket-sales-settlement", allEventIdsKey],
@@ -268,7 +282,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       // Partner summary
       const summaryRows = [
         ["Participação no resultado", formatCurrency(s.partnerShare)],
-        ["Despesas pagas pelo sócio", formatCurrency(s.totalPaidByPartner)],
+        ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
+        ["Extras do sócio (−)", `−${formatCurrency(s.totalPartnerExtras)}`],
         ["Saldo do encontro de contas", formatCurrency(s.settlement)],
       ];
 
@@ -304,6 +319,34 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           styles: { fontSize: 8 },
           headStyles: { fillColor: [80, 80, 80] },
           footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+          columnStyles: { 3: { halign: "right" } },
+        });
+
+        y = (doc as any).lastAutoTable.finalY + 6;
+      }
+
+      // Partner advances detail (Extras do Sócio)
+      if (s.partnerExtras.length > 0) {
+        if (y > 170) { doc.addPage(); y = 16; }
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "italic");
+        doc.text("Detalhe dos extras do sócio (pagas pela empresa, abatidas):", margin, y);
+        y += 4;
+
+        autoTable(doc, {
+          startY: y,
+          head: [["Descrição", "Categoria", "Data", "Valor"]],
+          body: s.partnerExtras.map(e => [
+            e.description,
+            e.category,
+            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+            `−${formatCurrency(e.amount)}`,
+          ]),
+          foot: [["Total a abater", "", "", `−${formatCurrency(s.totalPartnerExtras)}`]],
+          margin: { left: margin + 4, right: margin },
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [120, 60, 60] },
+          footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
           columnStyles: { 3: { halign: "right" } },
         });
 
@@ -390,14 +433,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           <div className="p-4 space-y-3">
             {/* Summary row */}
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
+            <div className="grid gap-3 sm:grid-cols-4 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Despesas pagas pelo sócio</span>
-                <p className="font-mono font-bold">{formatCurrency(s.totalPaidByPartner)}</p>
+                <span className="text-xs text-muted-foreground">Pagas pelo sócio (+)</span>
+                <p className="font-mono font-bold text-success">{formatCurrency(s.totalPaidByPartner)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Extras do sócio (−)</span>
+                <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalPartnerExtras)}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Saldo final</span>
@@ -436,8 +483,39 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
             )}
 
-            {s.paidExpenses.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">Sem despesas pagas por este sócio registadas.</p>
+            {/* Partner advances detail (Extras do Sócio) */}
+            {s.partnerExtras.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">🧳 Extras do sócio (pagas pela empresa, abatidas no fecho):</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {s.partnerExtras.map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
+                        <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive">−{formatCurrency(e.amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="border-t-2 border-border bg-muted/30">
+                      <TableCell colSpan={3} className="font-bold text-xs">Total a abater</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-destructive">−{formatCurrency(s.totalPartnerExtras)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {s.paidExpenses.length === 0 && s.partnerExtras.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">Sem despesas pagas por este sócio nem extras registados.</p>
             )}
           </div>
         </div>
