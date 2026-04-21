@@ -2582,7 +2582,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     linked transaction (neither direct transaction_id nor a
                     description-matched one in this event). Helps users find
                     pending executions at a glance. */}
-                {isApproved && !item.transaction_id && !hasMatchingTx && !item._overhead_via_master && (
+                {isApproved && !item.transaction_id && !hasMatchingTx && !item._overhead_via_master && !item._prorated && !item._readonly && (
                   <span
                     className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
                     title="Linha aprovada sem transação real associada — ainda por executar."
