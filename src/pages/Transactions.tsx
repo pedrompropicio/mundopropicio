@@ -1207,6 +1207,11 @@ export default function Transactions() {
           const label = names.length <= 2 ? names.join(", ") : `${names.length} fornecedores`;
           chips.push({ key: "suppliers", label: `Fornecedor: ${label}`, onRemove: () => setSelectedSupplierIds(new Set()) });
         }
+        if (selectedPartnerIds.size > 0) {
+          const names = suppliersList.filter((s: any) => selectedPartnerIds.has(s.id)).map((s: any) => s.name);
+          const label = names.length > 0 && names.length <= 2 ? names.join(", ") : `${selectedPartnerIds.size} sócio(s)`;
+          chips.push({ key: "partners", label: `Pago por sócio: ${label}`, onRemove: () => setSelectedPartnerIds(new Set()) });
+        }
         if (onlyPending) chips.push({ key: "pending", label: "Aprovação pendente", onRemove: () => setOnlyPending(false) });
         if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
         if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
