@@ -856,9 +856,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <ArrowRightLeft className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
-        <Button size="sm" variant="outline" onClick={exportPdf}>
-          <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={ticketGroupMode} onValueChange={(v) => setTicketGroupMode(v as TicketGroupMode)}>
+            <SelectTrigger className="h-8 w-[260px] text-xs">
+              <SelectValue placeholder="Agrupamento de bilheteira" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sub_date_session">Bilheteira: Subevento / Data / Sessão</SelectItem>
+              <SelectItem value="session">Bilheteira: Por Sessão</SelectItem>
+              <SelectItem value="day">Bilheteira: Por Dia</SelectItem>
+              <SelectItem value="zone">Bilheteira: Por Zona</SelectItem>
+              <SelectItem value="lot">Bilheteira: Por Lote</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Global summary */}
