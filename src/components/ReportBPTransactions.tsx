@@ -67,6 +67,11 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   // When OFF (default), Previsto soma apenas BP `approved` (alinha com a vista
   // Previsão vs Real do evento). Quando ON, inclui também rascunhos (`draft`).
   const [includeDrafts, setIncludeDrafts] = useState(false);
+  // Quando o evento selecionado é um sub-evento de turnê, este toggle controla
+  // se as linhas oriundas de rateio Master (BP com master_forecast_id ou
+  // transações com parent_transaction_id) entram no relatório. Por defeito
+  // incluídas, para preservar a vista atual.
+  const [includeMasterApportionment, setIncludeMasterApportionment] = useState(true);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
