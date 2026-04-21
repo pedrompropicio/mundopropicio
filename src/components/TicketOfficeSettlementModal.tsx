@@ -1050,6 +1050,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         Bruto − Deduções
                         {totalAdvances > 0 ? " − Adiantamentos" : ""}
                         {venueRetainedNum > 0 ? " − Retido pela sala" : ""}
+                        {remainderApplied ? " − Saldo fatura" : ""}
                       </span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
