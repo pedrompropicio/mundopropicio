@@ -162,33 +162,30 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
   });
 
   const { data: partners = [] } = useQuery({
-    queryKey: ["event-partners-open-events-list"],
+    queryKey: ["partners-distinct-open-events"],
     queryFn: async () => {
-      // Apenas sócios de eventos em aberto (não concluídos)
+      // Apenas sócios (suppliers) presentes em eventos em aberto (não concluídos)
       const { data, error } = await supabase
         .from("event_partners")
-        .select("id, suppliers(name), events!inner(status)")
-        .neq("events.status", "completed")
-        .order("created_at");
+        .select("supplier_id, suppliers(name), events!inner(status)")
+        .neq("events.status", "completed");
       if (error) throw error;
-      // Agrupa por nome do sócio (mesmo sócio em vários eventos = várias partner_ids)
-      const grouped = new Map<string, { ids: string[]; name: string }>();
+      // Distinct por supplier_id (cada sócio aparece uma vez, mesmo que esteja em vários eventos)
+      const seen = new Map<string, { supplierId: string; name: string }>();
       (data ?? []).forEach((row: any) => {
-        const name = row.suppliers?.name ?? "Sócio";
-        const g = grouped.get(name) ?? { ids: [], name };
-        g.ids.push(row.id);
-        grouped.set(name, g);
+        if (!row.supplier_id) return;
+        if (seen.has(row.supplier_id)) return;
+        seen.set(row.supplier_id, { supplierId: row.supplier_id, name: row.suppliers?.name ?? "Sócio" });
       });
-      return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name, "pt"));
+      return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name, "pt"));
     },
     enabled: open,
   });
 
-  const togglePartner = (ids: string[]) => {
+  const togglePartnerSupplier = (supplierId: string) => {
     const next = new Set(selectedPartnerIds);
-    const allSelected = ids.every((id) => next.has(id));
-    if (allSelected) ids.forEach((id) => next.delete(id));
-    else ids.forEach((id) => next.add(id));
+    if (next.has(supplierId)) next.delete(supplierId);
+    else next.add(supplierId);
     setSelectedPartnerIds(next);
   };
 
@@ -308,14 +305,14 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                   <div className="flex items-center justify-between">
                     <button
                       onClick={() => {
-                        const allIds = partners.flatMap((p: any) => p.ids);
+                        const allIds = partners.map((p: any) => p.supplierId);
                         const allSelected = allIds.every((id) => selectedPartnerIds.has(id));
                         if (allSelected) setSelectedPartnerIds(new Set());
                         else setSelectedPartnerIds(new Set(allIds));
                       }}
                       className="text-xs text-primary hover:underline"
                     >
-                      {partners.flatMap((p: any) => p.ids).every((id) => selectedPartnerIds.has(id)) && partners.length > 0 ? "Desmarcar todos" : "Selecionar todos"}
+                      {partners.map((p: any) => p.supplierId).every((id) => selectedPartnerIds.has(id)) && partners.length > 0 ? "Desmarcar todos" : "Selecionar todos"}
                     </button>
                     {selectedPartnerIds.size > 0 && (
                       <span className="text-xs text-muted-foreground">{selectedPartnerIds.size} selecionado(s)</span>
@@ -324,17 +321,16 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                   <ScrollArea className="h-56 rounded-md border border-border/50">
                     <div className="p-1">
                       {partners.map((p: any) => {
-                        const isSelected = p.ids.every((id: string) => selectedPartnerIds.has(id));
-                        const isPartial = !isSelected && p.ids.some((id: string) => selectedPartnerIds.has(id));
+                        const isSelected = selectedPartnerIds.has(p.supplierId);
                         return (
                           <div
-                            key={p.name}
-                            onClick={() => togglePartner(p.ids)}
+                            key={p.supplierId}
+                            onClick={() => togglePartnerSupplier(p.supplierId)}
                             className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
                           >
                             <Checkbox
-                              checked={isSelected ? true : isPartial ? "indeterminate" : false}
-                              onCheckedChange={() => togglePartner(p.ids)}
+                              checked={isSelected}
+                              onCheckedChange={() => togglePartnerSupplier(p.supplierId)}
                             />
                             <span className="truncate flex-1">{p.name}</span>
                             <span className="shrink-0 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">

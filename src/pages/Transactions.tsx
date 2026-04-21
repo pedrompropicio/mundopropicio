@@ -119,18 +119,20 @@ export default function Transactions() {
     },
   });
 
-  // Map: transaction_id -> Set<partner_id> (for "Pago por sócio" filter)
+  // Map: transaction_id -> Set<supplier_id> (for "Pago por sócio" filter — agrupa por identidade real do sócio)
   const { data: partnerPaidMap = new Map<string, Set<string>>() } = useQuery({
-    queryKey: ["partner-paid-expenses-map"],
+    queryKey: ["partner-paid-expenses-map-by-supplier"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("transaction_id, partner_id");
+        .select("transaction_id, event_partners!inner(supplier_id)");
       if (error) throw error;
       const map = new Map<string, Set<string>>();
       (data ?? []).forEach((row: any) => {
+        const supplierId = row.event_partners?.supplier_id;
+        if (!supplierId) return;
         const set = map.get(row.transaction_id) ?? new Set<string>();
-        set.add(row.partner_id);
+        set.add(supplierId);
         map.set(row.transaction_id, set);
       });
       return map;
