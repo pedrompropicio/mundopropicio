@@ -815,7 +815,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
         doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
-        y += 3;
+        y += 4;
         autoTable(doc, {
           startY: y,
           head: [["Descrição", "Categoria", "Data", "Valor"]],
