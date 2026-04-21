@@ -832,7 +832,7 @@ export default function Transactions() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pesquisar…"
+              placeholder="Pesquisar tudo…"
               className="w-44 rounded-lg border border-border bg-background pl-8 pr-7 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
             />
             {searchTerm && (
