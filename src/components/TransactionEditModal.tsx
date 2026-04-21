@@ -358,6 +358,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-link", transaction.id] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["partner-paid-check", transaction.id] });
       onClose();
       if (result?.snapshot && user) {
         const { recordUndo } = await import("@/lib/undo");
