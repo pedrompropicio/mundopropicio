@@ -193,6 +193,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   // Get relevant event IDs (including child events for tours)
   const selectedEvent = events.find((e: any) => e.id === selectedEventId);
   const isSubEvent = !!selectedEvent?.parent_event_id;
+  const parentEventId: string | null = selectedEvent?.parent_event_id ?? null;
   const relevantEventIds = useMemo(() => {
     if (!selectedEventId) return [];
     const childIds = events
@@ -200,6 +201,12 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       .map((e: any) => e.id);
     return [selectedEventId, ...childIds];
   }, [selectedEventId, events]);
+
+  // Quantos sub-eventos tem o Master (para calcular a proporção do rateio)
+  const masterSplitsCount = useMemo(() => {
+    if (!parentEventId) return 0;
+    return events.filter((e: any) => e.parent_event_id === parentEventId).length;
+  }, [parentEventId, events]);
 
   // Filter and enrich data for selected event
   const { groupedData, outOfBPTransactions, totalForecast, totalActual } = useMemo(() => {
