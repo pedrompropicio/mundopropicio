@@ -986,6 +986,43 @@ export default function Transactions() {
           );
         })()}
 
+        {/* Sort selector */}
+        <Popover modal={false}>
+          <PopoverTrigger asChild>
+            <Button
+              variant={sortMode === "category" ? "default" : "outline"}
+              size="sm"
+              className="text-[13px] font-normal h-8 px-3"
+              title="Ordenação"
+            >
+              <ArrowDownAZ className="mr-1.5 h-3.5 w-3.5" />
+              {sortMode === "category" ? "Categoria" : viewMode === "paid" ? "Data Pgto" : "Vencimento"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <div className="flex flex-col">
+              <button
+                onClick={() => setSortMode("due_date")}
+                className={cn(
+                  "rounded px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
+                  sortMode === "due_date" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                )}
+              >
+                {viewMode === "paid" ? "Data de Pagamento" : "Data de Vencimento"}
+              </button>
+              <button
+                onClick={() => setSortMode("category")}
+                className={cn(
+                  "rounded px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
+                  sortMode === "category" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                )}
+              >
+                Categoria (código)
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
           <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
