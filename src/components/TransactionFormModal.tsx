@@ -1004,6 +1004,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             paid_date: partnerPaidDate || data.date,
           } as any);
         }
+        // 4b. Extra do Sócio em rateio Master — vincula ao evento Master
+        if (isPartnerExtra && partnerExtraId && splitMasterEventId) {
+          await supabase.from("partner_advance_expenses").insert({
+            event_id: splitMasterEventId,
+            partner_id: partnerExtraId,
+            transaction_id: parentId,
+          } as any);
+        }
       } else {
         // --- SINGLE TRANSACTION ---
         // Auto-aprovação: a categoria tem linha(s) do BP APROVADAS para este tipo,
