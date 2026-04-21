@@ -862,9 +862,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         <div key={s.partnerId} className="glass rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50 bg-muted/30 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {s.isHouse ? <Building2 className="h-4 w-4 text-primary" /> : <UserCheck className="h-4 w-4 text-primary" />}
+              <UserCheck className="h-4 w-4 text-primary" />
               <span className="font-semibold">{s.partnerName}</span>
-              {s.isHouse && <Badge variant="secondary" className="text-xs">Casa</Badge>}
               <Badge variant="outline" className="text-xs">
                 {s.lossPercentage != null
                   ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo`
@@ -877,11 +876,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <div className="flex items-center gap-2">
               {s.settlement > 0 ? (
                 <Badge className="bg-success/15 text-success text-xs">
-                  <TrendingUp className="h-3 w-3 mr-1" /> {s.isHouse ? "Casa retém" : "Empresa paga"} {formatCurrency(s.settlement)}
+                  <TrendingUp className="h-3 w-3 mr-1" /> {s.isHouse ? "Mundo Propício retém" : "Empresa paga"} {formatCurrency(s.settlement)}
                 </Badge>
               ) : s.settlement < 0 ? (
                 <Badge className="bg-destructive/15 text-destructive text-xs">
-                  <TrendingDown className="h-3 w-3 mr-1" /> {s.isHouse ? "Casa absorve" : "Sócio paga"} {formatCurrency(Math.abs(s.settlement))}
+                  <TrendingDown className="h-3 w-3 mr-1" /> {s.isHouse ? "Mundo Propício absorve" : "Sócio paga"} {formatCurrency(Math.abs(s.settlement))}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-xs">Sem saldo</Badge>
