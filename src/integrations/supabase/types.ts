@@ -2400,6 +2400,10 @@ export type Database = {
           transfer_account_id: string | null
           transfer_transaction_id: string | null
           updated_at: string
+          venue_retained_amount: number
+          venue_retained_invoice_id: string | null
+          venue_retained_notes: string | null
+          venue_retained_payment_id: string | null
         }
         Insert: {
           adjustment_notes?: string | null
@@ -2426,6 +2430,10 @@ export type Database = {
           transfer_account_id?: string | null
           transfer_transaction_id?: string | null
           updated_at?: string
+          venue_retained_amount?: number
+          venue_retained_invoice_id?: string | null
+          venue_retained_notes?: string | null
+          venue_retained_payment_id?: string | null
         }
         Update: {
           adjustment_notes?: string | null
@@ -2452,6 +2460,10 @@ export type Database = {
           transfer_account_id?: string | null
           transfer_transaction_id?: string | null
           updated_at?: string
+          venue_retained_amount?: number
+          venue_retained_invoice_id?: string | null
+          venue_retained_notes?: string | null
+          venue_retained_payment_id?: string | null
         }
         Relationships: [
           {
@@ -2480,6 +2492,20 @@ export type Database = {
             columns: ["transfer_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_settlements_venue_retained_invoice_id_fkey"
+            columns: ["venue_retained_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_office_settlements_venue_retained_payment_id_fkey"
+            columns: ["venue_retained_payment_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_payments"
             referencedColumns: ["id"]
           },
         ]

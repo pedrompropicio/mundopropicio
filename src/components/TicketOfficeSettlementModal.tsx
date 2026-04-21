@@ -51,6 +51,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [settlementDate, setSettlementDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [creditStatus, setCreditStatus] = useState<"credited" | "pending">("credited");
   const [expectedCreditDate, setExpectedCreditDate] = useState<string>("");
+  // Venda à porta retida pela sala (abate ao aluguer/fatura escolhida)
+  const [venueRetainedAmount, setVenueRetainedAmount] = useState<string>("");
+  const [venueRetainedInvoiceId, setVenueRetainedInvoiceId] = useState<string>("");
+  const [venueRetainedNotes, setVenueRetainedNotes] = useState<string>("");
 
   // Reset/load when opening
   useEffect(() => {
@@ -64,6 +68,13 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setNotes(existingSettlement.notes ?? "");
       setExistingDocUrl(existingSettlement.document_url ?? null);
       setExistingDocName(existingSettlement.document_name ?? null);
+      setVenueRetainedAmount(
+        existingSettlement.venue_retained_amount && Number(existingSettlement.venue_retained_amount) > 0
+          ? String(existingSettlement.venue_retained_amount)
+          : ""
+      );
+      setVenueRetainedInvoiceId(existingSettlement.venue_retained_invoice_id ?? "");
+      setVenueRetainedNotes(existingSettlement.venue_retained_notes ?? "");
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Detect credit status from existing transfer transaction
       (async () => {
@@ -102,6 +113,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setSettlementDate(new Date().toISOString().slice(0, 10));
       setCreditStatus("credited");
       setExpectedCreditDate("");
+      setVenueRetainedAmount("");
+      setVenueRetainedInvoiceId("");
+      setVenueRetainedNotes("");
     }
   }, [open, existingSettlement, defaultEventId]);
 
@@ -281,6 +295,28 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     [pendingAdvances]
   );
 
+  // Faturas/despesas do evento candidatas a receber o abatimento da venda retida pela sala.
+  // Mostra qualquer despesa do evento (qualquer fornecedor) com saldo em aberto.
+  const { data: invoiceCandidates = [] } = useQuery({
+    queryKey: ["settlement_venue_invoice_candidates", eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("transactions")
+        .select("id, description, amount, iva_rate, paid_amount, status, suppliers(name), account_categories(name, code)")
+        .eq("event_id", eventId)
+        .eq("type", "expense")
+        .in("status", ["pending", "approved", "paid"])
+        .order("created_at", { ascending: false });
+      const list = (data || []).map((t: any) => {
+        const total = Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
+        const paid = Number(t.paid_amount || 0);
+        return { ...t, _total: total, _open: Math.max(0, total - paid) };
+      });
+      return list.filter((t: any) => t._open > 0.005 || t.id === venueRetainedInvoiceId);
+    },
+  });
+
   const txnGross = (t: any) => Number(t.amount || 0) * (1 + Number(t.iva_rate || 0) / 100);
 
   const totalDeductions = useMemo(() => {
@@ -289,7 +325,15 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       .reduce((acc: number, t: any) => acc + txnGross(t), 0);
   }, [eligibleTxns, selectedTxnIds]);
 
-  const netCalculated = grossRevenue - totalDeductions - totalAdvances;
+  const venueRetainedNum = Number(venueRetainedAmount || 0);
+  const selectedInvoice = useMemo(
+    () => invoiceCandidates.find((t: any) => t.id === venueRetainedInvoiceId),
+    [invoiceCandidates, venueRetainedInvoiceId]
+  );
+  const venueRetainedExceedsInvoice =
+    !!selectedInvoice && venueRetainedNum > 0 && venueRetainedNum > Number(selectedInvoice._open) + 0.005;
+
+  const netCalculated = grossRevenue - totalDeductions - totalAdvances - venueRetainedNum;
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
 
@@ -310,6 +354,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     }
     if (hasAdjustment && !adjustmentNotes.trim()) {
       return toast.error("Justifique o ajuste manual do líquido");
+    }
+    if (venueRetainedExceedsInvoice) {
+      return toast.error("Valor retido excede o saldo da fatura escolhida");
     }
     const transferAmt = transferAmount ? Number(transferAmount) : 0;
     if (transferAmt > 0 && !transferAccountId) {
@@ -345,6 +392,9 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         document_url: docUrl,
         document_name: docName,
         notes: notes || null,
+        venue_retained_amount: venueRetainedNum,
+        venue_retained_invoice_id: venueRetainedNum > 0 && venueRetainedInvoiceId ? venueRetainedInvoiceId : null,
+        venue_retained_notes: venueRetainedNum > 0 ? (venueRetainedNotes || null) : null,
         status: confirm ? "confirmed" : "draft",
       };
       if (confirm) {
@@ -440,6 +490,92 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
             .update({ transfer_transaction_id: transferTxn.id })
             .eq("id", settlementId);
         }
+      }
+
+      // Venda à porta retida pela sala — criar / reverter pagamento parcial na fatura escolhida
+      const prevRetainedPaymentId = existingSettlement?.venue_retained_payment_id ?? null;
+      const prevRetainedInvoiceId = existingSettlement?.venue_retained_invoice_id ?? null;
+      const prevRetainedAmount = Number(existingSettlement?.venue_retained_amount || 0);
+
+      // Se havia pagamento anterior e (confirmou diferente / passou a draft / mudou fatura / removeu valor),
+      // reverter o pagamento anterior e re-somar o saldo pago da fatura.
+      const needsRevertPrev =
+        prevRetainedPaymentId &&
+        (
+          !confirm ||
+          !venueRetainedInvoiceId ||
+          venueRetainedInvoiceId !== prevRetainedInvoiceId ||
+          Math.abs(venueRetainedNum - prevRetainedAmount) > 0.005
+        );
+      if (needsRevertPrev) {
+        await (supabase as any).from("transaction_payments").delete().eq("id", prevRetainedPaymentId);
+        if (prevRetainedInvoiceId) {
+          const { data: prevTxn } = await (supabase as any)
+            .from("transactions")
+            .select("amount, iva_rate, paid_amount")
+            .eq("id", prevRetainedInvoiceId)
+            .single();
+          if (prevTxn) {
+            const newPaid = Math.max(0, Number(prevTxn.paid_amount || 0) - prevRetainedAmount);
+            const total = Number(prevTxn.amount || 0) * (1 + Number(prevTxn.iva_rate || 0) / 100);
+            await (supabase as any)
+              .from("transactions")
+              .update({
+                paid_amount: newPaid,
+                status: newPaid >= total - 0.005 ? "paid" : "approved",
+                payment_date: newPaid >= total - 0.005 ? settlementDate : null,
+              })
+              .eq("id", prevRetainedInvoiceId);
+          }
+        }
+        await (supabase as any)
+          .from("ticket_office_settlements")
+          .update({ venue_retained_payment_id: null })
+          .eq("id", settlementId);
+      }
+
+      // Criar novo pagamento parcial se há valor + fatura e estamos a confirmar
+      if (
+        confirm &&
+        venueRetainedNum > 0 &&
+        venueRetainedInvoiceId &&
+        (needsRevertPrev || !prevRetainedPaymentId)
+      ) {
+        const { data: invTxn } = await (supabase as any)
+          .from("transactions")
+          .select("amount, iva_rate, paid_amount")
+          .eq("id", venueRetainedInvoiceId)
+          .single();
+        const { data: pay, error: payErr } = await (supabase as any)
+          .from("transaction_payments")
+          .insert({
+            transaction_id: venueRetainedInvoiceId,
+            amount: venueRetainedNum,
+            payment_date: settlementDate,
+            payment_method: "compensation",
+            account_id: null,
+            notes: `Compensação por venda à porta retida pela sala (fecho ${officeName})${venueRetainedNotes ? ` — ${venueRetainedNotes}` : ""}`,
+            created_by: getAuditUser(user),
+          })
+          .select("id")
+          .single();
+        if (payErr) throw payErr;
+        if (invTxn) {
+          const newPaid = Number(invTxn.paid_amount || 0) + venueRetainedNum;
+          const total = Number(invTxn.amount || 0) * (1 + Number(invTxn.iva_rate || 0) / 100);
+          await (supabase as any)
+            .from("transactions")
+            .update({
+              paid_amount: newPaid,
+              status: newPaid >= total - 0.005 ? "paid" : "approved",
+              payment_date: newPaid >= total - 0.005 ? settlementDate : null,
+            })
+            .eq("id", venueRetainedInvoiceId);
+        }
+        await (supabase as any)
+          .from("ticket_office_settlements")
+          .update({ venue_retained_payment_id: pay.id })
+          .eq("id", settlementId);
       }
 
       // Link advances to settlement (or unlink when reverting to draft)
@@ -716,13 +852,88 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                   </section>
                 )}
 
-                {/* STEP 4 — Net */}
+                {/* STEP — Venda à porta retida pela sala (abate fatura) */}
                 <section className="space-y-2">
-                  <StepHeader n={pendingAdvances.length > 0 ? 5 : 4} icon={<Calculator className="h-4 w-4" />} title="Líquido a receber" done={stepDone.net} />
+                  <StepHeader
+                    n={pendingAdvances.length > 0 ? 5 : 4}
+                    icon={<Banknote className="h-4 w-4" />}
+                    title="Venda à porta retida pela sala (opcional)"
+                    badge={venueRetainedNum > 0 ? formatCurrency(venueRetainedNum) : undefined}
+                  />
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Use este campo quando a <strong>sala/recinto</strong> vendeu bilhetes à porta e fica com esse valor para abater do aluguer (ou outra fatura), repassando-vos só a diferença. O valor é abatido do líquido a transferir e cria automaticamente um pagamento parcial na fatura escolhida.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor retido (€)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={venueRetainedAmount}
+                          onChange={(e) => setVenueRetainedAmount(e.target.value)}
+                          placeholder="0,00"
+                          disabled={!canEdit}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fatura a abater</Label>
+                        <select
+                          value={venueRetainedInvoiceId}
+                          onChange={(e) => setVenueRetainedInvoiceId(e.target.value)}
+                          disabled={!canEdit || venueRetainedNum <= 0}
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+                        >
+                          <option value="">— Sem fatura (apenas registo) —</option>
+                          {invoiceCandidates.map((t: any) => (
+                            <option key={t.id} value={t.id}>
+                              {t.suppliers?.name ? `${t.suppliers.name} · ` : ""}
+                              {t.description}
+                              {" — em aberto "}
+                              {formatCurrency(Number(t._open))}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {venueRetainedNum > 0 && (
+                      <Textarea
+                        rows={2}
+                        value={venueRetainedNotes}
+                        onChange={(e) => setVenueRetainedNotes(e.target.value)}
+                        placeholder="Notas (ex.: 47 bilhetes vendidos na bilheteira da sala)"
+                        disabled={!canEdit}
+                      />
+                    )}
+                    {venueRetainedExceedsInvoice && (
+                      <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs">
+                        <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                        <span>O valor retido excede o saldo em aberto da fatura selecionada ({formatCurrency(Number(selectedInvoice?._open || 0))}). Reduza o valor ou escolha "Sem fatura".</span>
+                      </div>
+                    )}
+                    {venueRetainedNum > 0 && !venueRetainedInvoiceId && (
+                      <p className="text-[11px] text-amber-500">
+                        Sem fatura selecionada: o valor abate o líquido mas terá de fazer o pagamento parcial manualmente depois.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                {/* STEP — Net */}
+                <section className="space-y-2">
+                  <StepHeader
+                    n={(pendingAdvances.length > 0 ? 1 : 0) + 5}
+                    icon={<Calculator className="h-4 w-4" />}
+                    title="Líquido a receber"
+                    done={stepDone.net}
+                  />
                   <div className="rounded-lg border border-border p-4 space-y-3">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">
-                        Bruto − Deduções{totalAdvances > 0 ? " − Adiantamentos" : ""}
+                        Bruto − Deduções
+                        {totalAdvances > 0 ? " − Adiantamentos" : ""}
+                        {venueRetainedNum > 0 ? " − Retido pela sala" : ""}
                       </span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>
