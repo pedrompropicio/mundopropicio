@@ -188,6 +188,54 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   });
   const isPartnerExtra = !!partnerExtraLink;
 
+  // Estado do evento (para bloqueio em "Concluído" para não-admins)
+  const { data: eventInfo } = useQuery({
+    queryKey: ["event-status-edit", form.event_id],
+    queryFn: async () => {
+      if (!form.event_id) return null;
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, status")
+        .eq("id", form.event_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.event_id,
+  });
+  const eventCompleted = eventInfo?.status === "completed";
+  const canEditPartnerExtra = isAdmin || (!eventCompleted && isManager);
+
+  // Detecta se EXISTE irmã transitória vinculada à mesma fatura (split parcial criado na origem).
+  // Quando existe, "Reverter" = eliminar irmã + apagar partner_advance_expenses dela; a principal
+  // já está NORMAL pelo total.
+  const invoiceGroupId = transaction.invoice_group_id ?? null;
+  const { data: extraSibling } = useQuery({
+    queryKey: ["partner-extra-sibling", transaction.id, invoiceGroupId],
+    queryFn: async () => {
+      if (!invoiceGroupId) return null;
+      const { data: siblings, error } = await supabase
+        .from("transactions")
+        .select("id, amount, is_transitory")
+        .eq("invoice_group_id", invoiceGroupId)
+        .neq("id", transaction.id);
+      if (error) throw error;
+      if (!siblings?.length) return null;
+      const ids = siblings.map((s: any) => s.id);
+      const { data: links } = await supabase
+        .from("partner_advance_expenses")
+        .select("id, transaction_id, partner_id, event_partners(suppliers(name))")
+        .in("transaction_id", ids);
+      if (!links?.length) return null;
+      const link = links[0] as any;
+      const sib = siblings.find((s: any) => s.id === link.transaction_id);
+      return sib ? { ...sib, link } : null;
+    },
+    enabled: !!invoiceGroupId,
+  });
+  // "principalDeSplitParcial" = esta tx é a principal (NORMAL) e existe irmã transitória do sócio
+  const isPrincipalOfPartialSplit = !isPartnerExtra && !!extraSibling;
+
   // Partners for the event (used to convert/change Extra)
   const { data: eventPartnersForExtra = [] } = useQuery({
     queryKey: ["event-partners-edit", form.event_id],
@@ -202,6 +250,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
     enabled: !!form.event_id,
   });
+
+  // UI state — conversão e reversão parciais
+  const [convertPartnerId, setConvertPartnerId] = useState<string>("");
+  const [convertIsPartial, setConvertIsPartial] = useState(false);
+  const [convertPartialAmount, setConvertPartialAmount] = useState("");
+  const [revertIsPartial, setRevertIsPartial] = useState(false);
+  const [revertPartialAmount, setRevertPartialAmount] = useState("");
 
   const editMutation = useMutation({
     mutationFn: async () => {
