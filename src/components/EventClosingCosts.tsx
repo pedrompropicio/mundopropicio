@@ -36,6 +36,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [ivaRate, setIvaRate] = useState<string>("23");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [bpForecastId, setBpForecastId] = useState<string>("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
@@ -43,7 +44,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), master:master_forecast_id(id, description, amount, account_categories(code, name))")
         .eq("event_id", eventId)
         .eq("is_overhead", true)
         .order("type")
