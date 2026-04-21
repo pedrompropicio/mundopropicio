@@ -65,9 +65,15 @@ interface Props {
   expenseOnly?: boolean;
   parentEventId?: string;
   eventStatus?: string;
+  /**
+   * When true, all editing/approval/deletion controls are hidden regardless
+   * of the user's role. Used by the BP shortcut inside Transactions, where
+   * the modal is meant for consultation only (admins included).
+   */
+  forceReadOnly?: boolean;
 }
 
-export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus }: Props) {
+export function EventForecast({ eventId, eventDate, eventName, childEventIds, expenseOnly, parentEventId, eventStatus, forceReadOnly }: Props) {
   const navigate = useNavigate();
   const [addingType, setAddingType] = useState<"income" | "expense" | null>(null);
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
