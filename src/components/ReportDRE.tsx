@@ -619,6 +619,11 @@ export default function ReportDRE() {
                   {p.name}: {formatCurrency(p.total)}
                 </p>
               ))}
+              {globalHouseSum !== 0 && (
+                <p className="text-xs text-amber-500 truncate font-semibold">
+                  MUNDO PROPÍCIO{globalHouseAvgPct !== null ? ` (${globalHouseAvgPct.toFixed(1)}%)` : ""}: {formatCurrency(globalHouseSum)}
+                </p>
+              )}
             </div>
           </div>
         )}
