@@ -284,14 +284,25 @@ export function TicketOfficeSettlementsPanel({ officeId, officeName }: Props) {
                   </div>
                 </div>
 
-                {Number(s.venue_retained_amount || 0) > 0 && (
+                {(Number(s.venue_retained_amount || 0) > 0 || s.venue_invoice_remainder_paid) && (
                   <div className="rounded-md border border-purple-500/30 bg-purple-500/5 p-2 text-xs flex items-start gap-2">
                     <Banknote className="h-3.5 w-3.5 text-purple-400 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <span className="font-semibold text-purple-400">Retido pela sala: </span>
-                      <span className="font-mono">{formatCurrency(Number(s.venue_retained_amount))}</span>
-                      {s.venue_retained_invoice_id && (
-                        <span className="text-muted-foreground"> — abatido em fatura</span>
+                    <div className="flex-1 space-y-0.5">
+                      {Number(s.venue_retained_amount || 0) > 0 && (
+                        <div>
+                          <span className="font-semibold text-purple-400">Retido pela sala: </span>
+                          <span className="font-mono">{formatCurrency(Number(s.venue_retained_amount))}</span>
+                          {s.venue_retained_invoice_id && (
+                            <span className="text-muted-foreground"> — abatido em fatura</span>
+                          )}
+                        </div>
+                      )}
+                      {s.venue_invoice_remainder_paid && Number(s.venue_invoice_remainder_amount || 0) > 0 && (
+                        <div>
+                          <span className="font-semibold text-purple-400">Saldo restante pago pela bilheteira: </span>
+                          <span className="font-mono">{formatCurrency(Number(s.venue_invoice_remainder_amount))}</span>
+                          <span className="text-muted-foreground"> — fatura quitada</span>
+                        </div>
                       )}
                       {s.venue_retained_notes && (
                         <p className="text-muted-foreground italic mt-0.5">{s.venue_retained_notes}</p>

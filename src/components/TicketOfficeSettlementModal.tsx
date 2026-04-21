@@ -55,6 +55,8 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const [venueRetainedAmount, setVenueRetainedAmount] = useState<string>("");
   const [venueRetainedInvoiceId, setVenueRetainedInvoiceId] = useState<string>("");
   const [venueRetainedNotes, setVenueRetainedNotes] = useState<string>("");
+  // Liquidar saldo restante da fatura escolhida pela bilheteira (abate do repasse)
+  const [payInvoiceRemainder, setPayInvoiceRemainder] = useState<boolean>(false);
 
   // Reset/load when opening
   useEffect(() => {
@@ -75,6 +77,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       );
       setVenueRetainedInvoiceId(existingSettlement.venue_retained_invoice_id ?? "");
       setVenueRetainedNotes(existingSettlement.venue_retained_notes ?? "");
+      setPayInvoiceRemainder(!!existingSettlement.venue_invoice_remainder_paid);
       setSettlementDate(existingSettlement.settlement_date ?? new Date().toISOString().slice(0, 10));
       // Detect credit status from existing transfer transaction
       (async () => {
@@ -116,6 +119,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       setVenueRetainedAmount("");
       setVenueRetainedInvoiceId("");
       setVenueRetainedNotes("");
+      setPayInvoiceRemainder(false);
     }
   }, [open, existingSettlement, defaultEventId]);
 
@@ -333,7 +337,16 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
   const venueRetainedExceedsInvoice =
     !!selectedInvoice && venueRetainedNum > 0 && venueRetainedNum > Number(selectedInvoice._open) + 0.005;
 
-  const netCalculated = grossRevenue - totalDeductions - totalAdvances - venueRetainedNum;
+  // Saldo restante da fatura (após abater venda retida) que pode ser pago pela bilheteira
+  const invoiceRemainder = useMemo(() => {
+    if (!selectedInvoice) return 0;
+    const open = Number(selectedInvoice._open || 0);
+    return Math.max(0, open - venueRetainedNum);
+  }, [selectedInvoice, venueRetainedNum]);
+  const remainderApplied = payInvoiceRemainder && !!selectedInvoice && invoiceRemainder > 0.005;
+
+  const netCalculated =
+    grossRevenue - totalDeductions - totalAdvances - venueRetainedNum - (remainderApplied ? invoiceRemainder : 0);
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
 
@@ -393,8 +406,10 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
         document_name: docName,
         notes: notes || null,
         venue_retained_amount: venueRetainedNum,
-        venue_retained_invoice_id: venueRetainedNum > 0 && venueRetainedInvoiceId ? venueRetainedInvoiceId : null,
+        venue_retained_invoice_id: (venueRetainedNum > 0 || remainderApplied) && venueRetainedInvoiceId ? venueRetainedInvoiceId : null,
         venue_retained_notes: venueRetainedNum > 0 ? (venueRetainedNotes || null) : null,
+        venue_invoice_remainder_paid: remainderApplied,
+        venue_invoice_remainder_amount: remainderApplied ? invoiceRemainder : 0,
         status: confirm ? "confirmed" : "draft",
       };
       if (confirm) {
@@ -578,7 +593,90 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
           .eq("id", settlementId);
       }
 
-      // Link advances to settlement (or unlink when reverting to draft)
+      // Saldo restante da fatura pago pela bilheteira (abate do repasse) — criar / reverter
+      const prevRemainderPaymentId = existingSettlement?.venue_invoice_remainder_payment_id ?? null;
+      const prevRemainderAmount = Number(existingSettlement?.venue_invoice_remainder_amount || 0);
+      const prevRemainderInvoiceId = existingSettlement?.venue_retained_invoice_id ?? null;
+
+      const needsRevertRemainder =
+        prevRemainderPaymentId &&
+        (
+          !confirm ||
+          !remainderApplied ||
+          !venueRetainedInvoiceId ||
+          venueRetainedInvoiceId !== prevRemainderInvoiceId ||
+          Math.abs(invoiceRemainder - prevRemainderAmount) > 0.005
+        );
+      if (needsRevertRemainder) {
+        await (supabase as any).from("transaction_payments").delete().eq("id", prevRemainderPaymentId);
+        if (prevRemainderInvoiceId) {
+          const { data: prevTxn } = await (supabase as any)
+            .from("transactions")
+            .select("amount, iva_rate, paid_amount")
+            .eq("id", prevRemainderInvoiceId)
+            .single();
+          if (prevTxn) {
+            const newPaid = Math.max(0, Number(prevTxn.paid_amount || 0) - prevRemainderAmount);
+            const total = Number(prevTxn.amount || 0) * (1 + Number(prevTxn.iva_rate || 0) / 100);
+            await (supabase as any)
+              .from("transactions")
+              .update({
+                paid_amount: newPaid,
+                status: newPaid >= total - 0.005 ? "paid" : "approved",
+                payment_date: newPaid >= total - 0.005 ? settlementDate : null,
+              })
+              .eq("id", prevRemainderInvoiceId);
+          }
+        }
+        await (supabase as any)
+          .from("ticket_office_settlements")
+          .update({ venue_invoice_remainder_payment_id: null })
+          .eq("id", settlementId);
+      }
+
+      if (
+        confirm &&
+        remainderApplied &&
+        venueRetainedInvoiceId &&
+        (needsRevertRemainder || !prevRemainderPaymentId)
+      ) {
+        const { data: invTxn } = await (supabase as any)
+          .from("transactions")
+          .select("amount, iva_rate, paid_amount")
+          .eq("id", venueRetainedInvoiceId)
+          .single();
+        const { data: pay, error: payErr } = await (supabase as any)
+          .from("transaction_payments")
+          .insert({
+            transaction_id: venueRetainedInvoiceId,
+            amount: invoiceRemainder,
+            payment_date: settlementDate,
+            payment_method: "transfer",
+            account_id: officeId,
+            notes: `Saldo restante liquidado pela bilheteira ${officeName} (fecho do evento)`,
+            created_by: getAuditUser(user),
+          })
+          .select("id")
+          .single();
+        if (payErr) throw payErr;
+        if (invTxn) {
+          const newPaid = Number(invTxn.paid_amount || 0) + invoiceRemainder;
+          const total = Number(invTxn.amount || 0) * (1 + Number(invTxn.iva_rate || 0) / 100);
+          await (supabase as any)
+            .from("transactions")
+            .update({
+              paid_amount: newPaid,
+              status: newPaid >= total - 0.005 ? "paid" : "approved",
+              payment_date: newPaid >= total - 0.005 ? settlementDate : null,
+            })
+            .eq("id", venueRetainedInvoiceId);
+        }
+        await (supabase as any)
+          .from("ticket_office_settlements")
+          .update({ venue_invoice_remainder_payment_id: pay.id })
+          .eq("id", settlementId);
+      }
+
       if (pendingAdvances.length > 0) {
         const advanceIds = pendingAdvances.map((a: any) => a.id);
         await (supabase as any)
@@ -917,6 +1015,24 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         Sem fatura selecionada: o valor abate o líquido mas terá de fazer o pagamento parcial manualmente depois.
                       </p>
                     )}
+                    {selectedInvoice && invoiceRemainder > 0.005 && !venueRetainedExceedsInvoice && (
+                      <label className="flex items-start gap-2 rounded-md border border-purple-500/40 bg-background p-2 cursor-pointer">
+                        <Checkbox
+                          checked={payInvoiceRemainder}
+                          onCheckedChange={(v) => setPayInvoiceRemainder(!!v)}
+                          disabled={!canEdit}
+                          className="mt-0.5"
+                        />
+                        <div className="text-xs flex-1">
+                          <p className="font-semibold">
+                            Liquidar o saldo restante ({formatCurrency(invoiceRemainder)}) pela bilheteira
+                          </p>
+                          <p className="text-muted-foreground">
+                            Abate este valor adicional do repasse para o promotor e fecha a fatura. A bilheteira fica registada como pagadora do saldo.
+                          </p>
+                        </div>
+                      </label>
+                    )}
                   </div>
                 </section>
 
@@ -934,6 +1050,7 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
                         Bruto − Deduções
                         {totalAdvances > 0 ? " − Adiantamentos" : ""}
                         {venueRetainedNum > 0 ? " − Retido pela sala" : ""}
+                        {remainderApplied ? " − Saldo fatura" : ""}
                       </span>
                       <span className="font-mono font-semibold">{formatCurrency(netCalculated)}</span>
                     </div>

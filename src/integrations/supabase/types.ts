@@ -2400,6 +2400,9 @@ export type Database = {
           transfer_account_id: string | null
           transfer_transaction_id: string | null
           updated_at: string
+          venue_invoice_remainder_amount: number
+          venue_invoice_remainder_paid: boolean
+          venue_invoice_remainder_payment_id: string | null
           venue_retained_amount: number
           venue_retained_invoice_id: string | null
           venue_retained_notes: string | null
@@ -2430,6 +2433,9 @@ export type Database = {
           transfer_account_id?: string | null
           transfer_transaction_id?: string | null
           updated_at?: string
+          venue_invoice_remainder_amount?: number
+          venue_invoice_remainder_paid?: boolean
+          venue_invoice_remainder_payment_id?: string | null
           venue_retained_amount?: number
           venue_retained_invoice_id?: string | null
           venue_retained_notes?: string | null
@@ -2460,6 +2466,9 @@ export type Database = {
           transfer_account_id?: string | null
           transfer_transaction_id?: string | null
           updated_at?: string
+          venue_invoice_remainder_amount?: number
+          venue_invoice_remainder_paid?: boolean
+          venue_invoice_remainder_payment_id?: string | null
           venue_retained_amount?: number
           venue_retained_invoice_id?: string | null
           venue_retained_notes?: string | null

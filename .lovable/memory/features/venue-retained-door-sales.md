@@ -13,8 +13,11 @@ Algumas salas/recintos vendem bilhetes "na porta" no dia do evento e ficam com e
 Campos em `ticket_office_settlements`:
 - `venue_retained_amount` (numeric) — valor retido pela sala
 - `venue_retained_invoice_id` (uuid → transactions) — fatura de despesa do evento que recebe o abatimento (opcional)
-- `venue_retained_payment_id` (uuid → transaction_payments) — id do pagamento parcial criado na confirmação
+- `venue_retained_payment_id` (uuid → transaction_payments) — id do pagamento parcial criado na confirmação (compensação)
 - `venue_retained_notes` (text) — observações livres
+- `venue_invoice_remainder_paid` (boolean) — se a bilheteira liquidou o saldo restante da mesma fatura
+- `venue_invoice_remainder_amount` (numeric) — valor do saldo restante pago pela bilheteira
+- `venue_invoice_remainder_payment_id` (uuid → transaction_payments) — id desse 2.º pagamento (transfer/account_id=officeId)
 
 ## UI
 
@@ -24,14 +27,16 @@ Secção dedicada no `TicketOfficeSettlementModal` entre "Adiantamentos" e "Líq
 - Notas opcionais
 - Validação: bloqueia confirmação se valor retido > saldo em aberto da fatura
 
-O valor é abatido em `netCalculated`: `Bruto − Deduções − Adiantamentos − Retido pela sala`.
+O valor é abatido em `netCalculated`: `Bruto − Deduções − Adiantamentos − Retido pela sala − Saldo restante (se opt-in)`.
+
+Quando há fatura selecionada e ainda existe saldo em aberto após o abatimento da retenção, surge uma checkbox **"Liquidar o saldo restante (€X) pela bilheteira"**. Marcando-a, esse valor é também abatido do repasse e cria-se um 2.º pagamento na fatura (do tipo `transfer`, `account_id=officeId`), fechando a fatura. Esta é a regra normal: a sala deduz a venda à porta + recebe o restante da bilheteira → promotor recebe só o líquido após esses dois abates.
 
 ## Fluxo na confirmação
 
 Ao confirmar o fecho:
-1. Insere uma linha em `transaction_payments` ligada à `venue_retained_invoice_id` com `payment_method='compensation'`, `account_id=null` e `amount=venue_retained_amount`. Notas referenciam o nome da bilheteira.
-2. Atualiza a fatura: `paid_amount += venue_retained_amount`. Se ficar quitada, marca `status='paid'` e `payment_date=settlement_date`.
-3. Guarda o id do pagamento em `venue_retained_payment_id` para reversão futura.
+1. **Pagamento 1 (compensação)**: Insere `transaction_payments` na fatura com `payment_method='compensation'`, `account_id=null`, `amount=venue_retained_amount`. Guarda id em `venue_retained_payment_id`.
+2. **Pagamento 2 (saldo restante, opcional)**: Se a checkbox estiver ativa, insere outra linha em `transaction_payments` com `payment_method='transfer'`, `account_id=officeId`, `amount=invoiceRemainder`. Guarda id em `venue_invoice_remainder_payment_id`. Marca `venue_invoice_remainder_paid=true`.
+3. Atualiza a fatura: `paid_amount += (retido + restante)`. Se quitada, marca `status='paid'` e `payment_date=settlement_date`.
 
 ## Edição / reversão
 
