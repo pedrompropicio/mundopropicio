@@ -334,19 +334,21 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
     () => invoiceCandidates.find((t: any) => t.id === venueRetainedInvoiceId),
     [invoiceCandidates, venueRetainedInvoiceId]
   );
-  const venueRetainedExceedsInvoice =
-    !!selectedInvoice && venueRetainedNum > 0 && venueRetainedNum > Number(selectedInvoice._open) + 0.005;
 
-  // Saldo restante da fatura (após abater venda retida) que pode ser pago pela bilheteira
-  const invoiceRemainder = useMemo(() => {
-    if (!selectedInvoice) return 0;
-    const open = Number(selectedInvoice._open || 0);
-    return Math.max(0, open - venueRetainedNum);
-  }, [selectedInvoice, venueRetainedNum]);
-  const remainderApplied = payInvoiceRemainder && !!selectedInvoice && invoiceRemainder > 0.005;
+  const settlementCalc = useMemo(
+    () =>
+      computeSettlement({
+        grossRevenue,
+        totalDeductions,
+        totalAdvances,
+        venueRetainedAmount: venueRetainedNum,
+        selectedInvoiceOpen: selectedInvoice ? Number(selectedInvoice._open || 0) : null,
+        payInvoiceRemainder,
+      }),
+    [grossRevenue, totalDeductions, totalAdvances, venueRetainedNum, selectedInvoice, payInvoiceRemainder]
+  );
+  const { invoiceRemainder, remainderApplied, netCalculated, venueRetainedExceedsInvoice } = settlementCalc;
 
-  const netCalculated =
-    grossRevenue - totalDeductions - totalAdvances - venueRetainedNum - (remainderApplied ? invoiceRemainder : 0);
   const netFinal = adjustedNet !== "" ? Number(adjustedNet) : netCalculated;
   const hasAdjustment = adjustedNet !== "" && Math.abs(Number(adjustedNet) - netCalculated) > 0.01;
 
