@@ -1373,7 +1373,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Comparison view (Previsão vs Real) — regras estritas:
   // 1) Previsto: apenas linhas BP `approved` (rascunhos/rejeitadas não contam).
   // 2) Real: apenas TX `approved` ou `paid`; exclui transitórias e marcadas exclude_from_result.
-  // 3) Overhead Master→Splits: a fatia virtual NÃO entra aqui (overhead vive só no Master).
+  // 3) Overhead Master→Splits:
+  //    - Toggle OFF (default): overhead fica fora (Vista Empresa). exclude_from_result filtra.
+  //    - Toggle ON (Vista Sócio/com overhead): inclui linhas `is_overhead=true` do próprio evento
+  //      e a fatia virtual `_overhead_via_master` no split. Como overhead não gera TX, a coluna
+  //      Real desses lançamentos fica €0 — útil para auditar planeado vs cumprido do overhead.
   // 4) Perímetro Real: ignora TX de sub-eventos quando se vê o Master sem o toggle Master+Subs.
   // 5) **Simetria por categoria**: o Real só soma TX cuja categoria existe no BP approved
   //    do próprio evento sendo visto (Master compara só contas do BP Master; Sub só do BP local).
@@ -1381,15 +1385,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   //    orçadas nele, criando variações enormes em contas que o Master nunca planeou.
   const comparisonForecasts = useMemo(() => {
     return (forecasts as any[]).filter((f) => {
-      if (f._overhead_via_master) return false; // overhead só no Master
+      // Overhead handling: depende do toggle. _overhead_via_master é a fatia virtual no split.
+      const isOverheadLine = !!f.is_overhead || !!f._overhead_via_master;
+      if (isOverheadLine && !includeOverheadInComparison) return false;
       if (f.status !== "approved") return false;
-      if (f.exclude_from_result) return false;
+      // exclude_from_result normalmente filtra overhead; saltamos esse filtro quando incluímos overhead
+      if (f.exclude_from_result && !isOverheadLine) return false;
       if (f.is_transitory) return false;
       // Quando vê-se só o Master (toggle OFF), exclui forecasts de filhos por segurança
       if (!includeSubsInBP && parentEventId === null && f.event_id !== eventId) return false;
       return true;
     });
-  }, [forecasts, includeSubsInBP, parentEventId, eventId]);
+  }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison]);
 
   // Conjunto de category_id que existem no BP do evento sendo visto (após filtros acima).
   // Usado para restringir o Real às mesmas contas previstas.
