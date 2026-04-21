@@ -997,8 +997,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   const generateHistoricalMutation = useMutation({
     mutationFn: async (xlsxRows: XlsxRowForGeneration[] | null) => {
+      const eligibleIds = eligibleForHistoricalGen.map((f) => f.id);
       const { data, error } = await supabase.functions.invoke("generate-historical-transactions", {
-        body: { event_id: eventId, xlsxRows: xlsxRows ?? [] },
+        body: { event_id: eventId, xlsxRows: xlsxRows ?? [], eligible_forecast_ids: eligibleIds },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -1025,9 +1026,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   });
 
   const handleGenerateHistorical = () => {
-    const approvedWithoutTx = forecasts.filter((f) => f.status === "approved" && !f.transaction_id);
-    if (approvedWithoutTx.length === 0) {
-      toast({ title: "Nenhuma previsão aprovada sem transação vinculada", variant: "destructive" });
+    if (eligibleForHistoricalGen.length === 0) {
+      toast({ title: "Nenhuma previsão elegível (sem transação e sem match por categoria)", variant: "destructive" });
       return;
     }
     setHistoricalModalOpen(true);
