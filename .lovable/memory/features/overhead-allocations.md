@@ -13,6 +13,11 @@ Linhas de overhead (assessoria de imprensa, jurídico, equipa de escritório) s�
 
 A flag substitui a antiga tabela `event_closing_costs` (deprecated, retida 2 semanas).
 
+## Vínculo opcional a previsão do BP de Overhead
+- No formulário do separador Overhead (`EventClosingCosts`), seletor opcional **"Vincular a linha do BP de Overhead"** lista previsões `is_overhead=true` do próprio evento + Master (filtradas pelo tipo). O vínculo persiste em `master_forecast_id`.
+- Quando vazio: badge **"Sem previsão no BP"** (warning) na linha + aviso inline no formulário. Quando preenchido: badge **"BP: <categoria> · <descrição>"** (primary).
+- Permite registar overheads sem planeamento prévio mantendo a vinculação ao BP de Overhead quando esta existe.
+
 ## Marcação no BP
 - Checkbox **"Overhead"** no formulário inline e no `ForecastEditModal`, visível só para admin/manager
 - Badge `Overhead` (warning) nas linhas, visível só para admin/manager — sócio vê linha como despesa normal

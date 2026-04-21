@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown, AlertTriangle, Link2, Unlink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
@@ -36,6 +36,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [ivaRate, setIvaRate] = useState<string>("23");
   const [categoryId, setCategoryId] = useState("");
   const [notes, setNotes] = useState("");
+  const [bpForecastId, setBpForecastId] = useState<string>("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
@@ -43,7 +44,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("*, account_categories(code, name, type)")
+        .select("*, account_categories(code, name, type), master:master_forecast_id(id, description, amount, account_categories(code, name))")
         .eq("event_id", eventId)
         .eq("is_overhead", true)
         .order("type")
@@ -90,7 +91,35 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     },
   });
 
+  // Linhas de previsão de Overhead disponíveis no BP (deste evento + Master, se houver)
+  // para vincular a despesa overhead a uma linha de planeamento existente.
+  const { data: bpOverheadForecasts = [] } = useQuery({
+    queryKey: ["bp-overhead-forecasts-for-link", eventId, eventInfo?.parent_event_id],
+    enabled: !!eventInfo,
+    queryFn: async () => {
+      const ids = [eventId];
+      if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, type, description, amount, iva_rate, account_categories(code, name)")
+        .in("event_id", ids)
+        .eq("is_overhead", true)
+        .order("type")
+        .order("description");
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        ...r,
+        scope: r.event_id === eventId ? "local" : "master",
+      }));
+    },
+  });
+
   const filteredCategories = categories.filter((c: any) => c.type === type);
+
+  // Previsões filtradas pelo tipo selecionado e que NÃO sejam a própria linha em edição
+  const linkableForecasts = bpOverheadForecasts.filter(
+    (f: any) => f.type === type && f.id !== editingId,
+  );
 
   // Avisos de conflito quando a categoria escolhida já existe no BP
   const categoryConflict = (() => {
@@ -119,6 +148,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         iva_rate: iva,
         formula_type: "fixed",
         formula_value: amt,
+        master_forecast_id: bpForecastId || null,
       };
       let costId = editingId;
       if (editingId) {
@@ -132,6 +162,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
             type,
             iva_rate: iva,
             formula_value: amt,
+            master_forecast_id: bpForecastId || null,
           })
           .eq("id", editingId);
         if (error) throw error;
@@ -201,6 +232,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setIvaRate("23");
     setCategoryId("");
     setNotes("");
+    setBpForecastId("");
     setPendingFiles([]);
   }
 
@@ -212,6 +244,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     setIvaRate(String(cost.iva_rate ?? 0));
     setCategoryId(cost.category_id || "");
     setNotes(cost.notes || "");
+    setBpForecastId(cost.master_forecast_id || "");
     setShowForm(true);
   }
 
@@ -297,6 +330,32 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
               <Label className="text-xs">Notas</Label>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Observações opcionais" />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1.5">
+              Vincular a linha do BP de Overhead
+              <span className="text-[10px] font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <SearchableSelect
+              options={[
+                { value: "", label: "— Sem vínculo (despesa sem previsão) —" },
+                ...linkableForecasts.map((f: any) => ({
+                  value: f.id,
+                  label: `${f.scope === "master" ? "[Master] " : ""}${f.account_categories ? `${f.account_categories.code} · ` : ""}${f.description} — ${formatCurrency(Number(f.amount))}`,
+                })),
+              ]}
+              value={bpForecastId}
+              onValueChange={setBpForecastId}
+              placeholder={linkableForecasts.length === 0 ? "Sem previsões de overhead no BP" : "Selecionar previsão do BP de overhead…"}
+            />
+            {!bpForecastId && (
+              <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 px-2.5 py-1.5 text-[11px]">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-warning" />
+                <span className="text-muted-foreground">
+                  Esta despesa <strong>não está vinculada</strong> a uma previsão do BP de overhead. Será tratada como despesa sem planeamento.
+                </span>
+              </div>
+            )}
           </div>
           {amount && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 font-mono">
@@ -474,6 +533,17 @@ function ClosingCostRow({ cost, colorClass, isEventLocked, onEdit, onDelete, onF
       <TableCell>
         <p className="text-sm font-medium">{cost.description}</p>
         {cost.notes && <p className="text-xs text-muted-foreground">{cost.notes}</p>}
+        {cost.master ? (
+          <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium">
+            <Link2 className="h-2.5 w-2.5" />
+            BP: {cost.master.account_categories ? `${cost.master.account_categories.code} · ` : ""}{cost.master.description}
+          </div>
+        ) : (
+          <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-warning/10 text-warning px-1.5 py-0.5 text-[10px] font-medium">
+            <Unlink className="h-2.5 w-2.5" />
+            Sem previsão no BP
+          </div>
+        )}
         {docs.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {docs.map((doc: any) => (
