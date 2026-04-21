@@ -732,7 +732,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
             </div>
           )}
 
-          {/* Extra do Sócio — bloco informativo + ações */}
+          {/* Extra do Sócio — bloco informativo + ações (reverter total ou parcial) */}
           {isPartnerExtra && (
             <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
@@ -744,29 +744,138 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               <p className="text-[10px] text-muted-foreground">
                 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE.
               </p>
-              {(isAdmin || isManager) && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!confirm("Reverter Extra do Sócio? A despesa volta a ser uma despesa normal do evento.")) return;
-                    await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
-                    await supabase.from("transactions").update({ is_transitory: false }).eq("id", transaction.id);
-                    queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
-                    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-                    queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
-                    toast({ title: "Extra do Sócio revertido" });
-                    onClose();
-                  }}
-                  className="text-xs text-destructive hover:underline"
-                >
-                  Reverter para despesa normal
-                </button>
+
+              {canEditPartnerExtra && (
+                <div className="space-y-2 pt-1">
+                  {/* Toggle: reversão total OU parcial */}
+                  <label className="flex items-center gap-2 text-xs">
+                    <Switch checked={revertIsPartial} onCheckedChange={(v) => { setRevertIsPartial(v); setRevertPartialAmount(""); }} />
+                    <span>Reverter apenas parte para o evento</span>
+                    <HelpTooltip
+                      size={12}
+                      text="Vazio = reverter o total (a despesa volta a ser despesa normal do evento). Ativo = reduzir o valor que fica com o sócio e criar uma nova transação NORMAL para o evento pelo valor revertido."
+                    />
+                  </label>
+
+                  {revertIsPartial && (
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                        Valor a reverter para o evento (€)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={Number(transaction.amount)}
+                        value={revertPartialAmount}
+                        onChange={(e) => setRevertPartialAmount(e.target.value)}
+                        placeholder={`máx ${Number(transaction.amount).toFixed(2)}`}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        O valor do Extra do Sócio passa a {Math.max(0, Number(transaction.amount) - (parseFloat(revertPartialAmount) || 0)).toFixed(2)} € e cria-se uma transação NORMAL pelo valor indicado, no mesmo evento/fornecedor/categoria/fatura.
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (revertIsPartial) {
+                        const partial = parseFloat(revertPartialAmount) || 0;
+                        const total = Number(transaction.amount);
+                        if (partial <= 0 || partial >= total) {
+                          toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${(total - 0.01).toFixed(2)} €.`, variant: "destructive" });
+                          return;
+                        }
+                        if (!confirm(`Reverter ${partial.toFixed(2)} € para despesa normal do evento? O Extra do Sócio passa a ${(total - partial).toFixed(2)} €.`)) return;
+                        // 1) Reduz a transitória do sócio
+                        const newExtraAmount = +(total - partial).toFixed(2);
+                        const { error: updErr } = await supabase
+                          .from("transactions")
+                          .update({ amount: newExtraAmount })
+                          .eq("id", transaction.id);
+                        if (updErr) { toast({ title: "Erro a atualizar", description: updErr.message, variant: "destructive" }); return; }
+                        // 2) Garante invoice_group_id partilhado
+                        let groupId = transaction.invoice_group_id ?? null;
+                        if (!groupId) {
+                          groupId = crypto.randomUUID();
+                          await supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id);
+                        }
+                        // 3) Cria a nova transação NORMAL pelo valor revertido
+                        const { error: insErr } = await supabase.from("transactions").insert({
+                          type: transaction.type,
+                          description: `${transaction.description} — revertido do sócio`,
+                          amount: partial,
+                          iva_rate: transaction.iva_rate,
+                          event_id: transaction.event_id,
+                          category_id: transaction.category_id,
+                          supplier_id: transaction.supplier_id,
+                          account_id: transaction.account_id,
+                          date: transaction.date,
+                          due_date: transaction.due_date,
+                          invoice_ref: transaction.invoice_ref,
+                          invoice_group_id: groupId,
+                          status: "pending",
+                          is_transitory: false,
+                          exclude_from_result: false,
+                          currency: transaction.currency ?? "EUR",
+                        } as any);
+                        if (insErr) { toast({ title: "Erro a criar despesa", description: insErr.message, variant: "destructive" }); return; }
+                        toast({ title: "Reversão parcial concluída", description: `${partial.toFixed(2)} € voltaram para o evento.` });
+                      } else {
+                        if (!confirm("Reverter Extra do Sócio na totalidade? A despesa volta a ser uma despesa normal do evento.")) return;
+                        await supabase.from("partner_advance_expenses").delete().eq("transaction_id", transaction.id);
+                        await supabase.from("transactions").update({ is_transitory: false }).eq("id", transaction.id);
+                        toast({ title: "Extra do Sócio revertido" });
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
+                      queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
+                      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                      queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
+                      onClose();
+                    }}
+                    className="text-xs text-destructive hover:underline"
+                  >
+                    {revertIsPartial ? "Reverter parcialmente" : "Reverter para despesa normal"}
+                  </button>
+                </div>
               )}
             </div>
           )}
 
-          {/* Converter para Extra do Sócio — disponível em despesas normais com sócios no evento */}
-          {!isPartnerExtra && !isPaidByPartner && transaction.type === "expense" && form.event_id && eventPartnersForExtra.length > 0 && (isAdmin || isManager) && (
+          {/* Principal de split parcial — atalho para reverter o split (eliminar a irmã do sócio) */}
+          {isPrincipalOfPartialSplit && canEditPartnerExtra && (
+            <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
+              <div className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                🧳 Esta fatura tem {Number(extraSibling?.amount ?? 0).toFixed(2)} € marcados como Extra do Sócio
+                {extraSibling?.link?.event_partners?.suppliers?.name ? ` (${extraSibling.link.event_partners.suppliers.name})` : ""}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                A fatura está registada pelo total nesta transação (entra DRE/BP) e existe uma transação irmã transitória que abate do sócio no fecho.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!extraSibling?.id) return;
+                  if (!confirm("Eliminar o Extra do Sócio desta fatura? A fatura volta a ser 100% despesa do evento.")) return;
+                  await supabase.from("partner_advance_expenses").delete().eq("transaction_id", extraSibling.id);
+                  await supabase.from("transactions").delete().eq("id", extraSibling.id);
+                  queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
+                  queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                  queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
+                  toast({ title: "Extra do Sócio removido", description: "A fatura volta a ser despesa do evento." });
+                  onClose();
+                }}
+                className="text-xs text-destructive hover:underline"
+              >
+                Remover Extra do Sócio desta fatura
+              </button>
+            </div>
+          )}
+
+          {/* Converter para Extra do Sócio — total ou parcial */}
+          {!isPartnerExtra && !isPrincipalOfPartialSplit && !isPaidByPartner && transaction.type === "expense" && form.event_id && eventPartnersForExtra.length > 0 && canEditPartnerExtra && (
             <div className="rounded-lg border border-dashed border-orange-500/30 p-3 space-y-2">
               <p className="text-xs font-medium">🧳 Converter em Extra do Sócio</p>
               <SearchableSelect
@@ -774,25 +883,115 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                   value: p.id,
                   label: `${p.suppliers?.name} (${p.percentage}%)`,
                 }))}
-                value=""
-                onValueChange={async (partnerId) => {
-                  if (!partnerId) return;
-                  if (!confirm("Converter esta despesa em Extra do Sócio? Será marcada como transitória e descontada do sócio no fecho.")) return;
-                  await supabase.from("partner_advance_expenses").insert({
-                    event_id: form.event_id,
-                    partner_id: partnerId,
-                    transaction_id: transaction.id,
-                  } as any);
-                  await supabase.from("transactions").update({ is_transitory: true, exclude_from_result: false }).eq("id", transaction.id);
-                  queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
-                  queryClient.invalidateQueries({ queryKey: ["transactions"] });
-                  queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
-                  toast({ title: "Convertido em Extra do Sócio" });
-                  onClose();
-                }}
+                value={convertPartnerId}
+                onValueChange={(v) => setConvertPartnerId(v)}
                 placeholder="Escolher sócio para abater…"
                 searchPlaceholder="Pesquisar sócio…"
               />
+
+              {convertPartnerId && (
+                <>
+                  <label className="flex items-center gap-2 text-xs">
+                    <Switch checked={convertIsPartial} onCheckedChange={(v) => { setConvertIsPartial(v); setConvertPartialAmount(""); }} />
+                    <span>Apenas parte da fatura é extra do sócio</span>
+                    <HelpTooltip
+                      size={12}
+                      text={`Vazio = a fatura inteira (${Number(transaction.amount).toFixed(2)} €) vira Extra do Sócio (transitória). Ativo = a fatura mantém-se NORMAL pelo total e cria-se uma transação irmã transitória pelo valor parcial vinculada ao sócio.`}
+                    />
+                  </label>
+
+                  {convertIsPartial && (
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                        Valor que é extra do sócio (€)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={Number(transaction.amount)}
+                        value={convertPartialAmount}
+                        onChange={(e) => setConvertPartialAmount(e.target.value)}
+                        placeholder={`máx ${Number(transaction.amount).toFixed(2)}`}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        A fatura é registada por {Number(transaction.amount).toFixed(2)} € (entra DRE/BP). {(parseFloat(convertPartialAmount) || 0).toFixed(2)} € serão descontados do sócio no fecho via transação irmã transitória vinculada à mesma fatura.
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const total = Number(transaction.amount);
+                      if (convertIsPartial) {
+                        const partial = parseFloat(convertPartialAmount) || 0;
+                        if (partial <= 0 || partial >= total) {
+                          toast({ title: "Valor inválido", description: `Indica um valor entre 0,01 e ${(total - 0.01).toFixed(2)} €.`, variant: "destructive" });
+                          return;
+                        }
+                        if (!confirm(`Marcar ${partial.toFixed(2)} € como Extra do Sócio? A fatura mantém-se normal pelo total.`)) return;
+                        // 1) Garante invoice_group_id na principal
+                        let groupId = transaction.invoice_group_id ?? null;
+                        if (!groupId) {
+                          groupId = crypto.randomUUID();
+                          await supabase.from("transactions").update({ invoice_group_id: groupId }).eq("id", transaction.id);
+                        }
+                        // 2) Cria irmã transitória pelo valor parcial
+                        const { data: sibling, error: sErr } = await supabase
+                          .from("transactions")
+                          .insert({
+                            type: transaction.type,
+                            description: `${transaction.description} — extra sócio (parcial)`,
+                            amount: partial,
+                            iva_rate: transaction.iva_rate,
+                            event_id: transaction.event_id,
+                            category_id: transaction.category_id,
+                            supplier_id: transaction.supplier_id,
+                            account_id: transaction.account_id,
+                            date: transaction.date,
+                            due_date: transaction.due_date,
+                            invoice_ref: transaction.invoice_ref,
+                            invoice_group_id: groupId,
+                            status: "paid",
+                            payment_date: transaction.payment_date ?? transaction.date,
+                            is_transitory: true,
+                            exclude_from_result: false,
+                            currency: transaction.currency ?? "EUR",
+                          } as any)
+                          .select("id")
+                          .single();
+                        if (sErr || !sibling) { toast({ title: "Erro a criar irmã", description: sErr?.message, variant: "destructive" }); return; }
+                        // 3) Vincula a irmã ao partner_advance_expenses
+                        await supabase.from("partner_advance_expenses").insert({
+                          event_id: form.event_id,
+                          partner_id: convertPartnerId,
+                          transaction_id: sibling.id,
+                        } as any);
+                        toast({ title: "Split parcial criado", description: `${partial.toFixed(2)} € serão descontados do sócio no fecho.` });
+                      } else {
+                        if (!confirm("Converter esta despesa em Extra do Sócio? Será marcada como transitória e descontada do sócio no fecho.")) return;
+                        await supabase.from("partner_advance_expenses").insert({
+                          event_id: form.event_id,
+                          partner_id: convertPartnerId,
+                          transaction_id: transaction.id,
+                        } as any);
+                        await supabase.from("transactions").update({ is_transitory: true, exclude_from_result: false }).eq("id", transaction.id);
+                        toast({ title: "Convertido em Extra do Sócio" });
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["partner-extra-link", transaction.id] });
+                      queryClient.invalidateQueries({ queryKey: ["partner-extra-sibling"] });
+                      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+                      queryClient.invalidateQueries({ queryKey: ["partner-advance-expenses"] });
+                      onClose();
+                    }}
+                    className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-500/20 dark:text-orange-400"
+                  >
+                    {convertIsPartial ? "Criar split parcial" : "Converter para Extra do Sócio"}
+                  </button>
+                </>
+              )}
             </div>
           )}
 
