@@ -102,6 +102,7 @@ export default function BPViewerModal({ open, onClose }: Props) {
               eventStatus={(selectedEvent as any).status}
               parentEventId={(selectedEvent as any).parent_event_id ?? undefined}
               childEventIds={isMaster ? childEventIds : undefined}
+              forceReadOnly
             />
           ) : (
             <p className="py-12 text-center text-sm text-muted-foreground">
