@@ -64,7 +64,10 @@ interface CityBreakdown {
 }
 
 interface CategoryExpenseRow {
-  category: string;
+  l1Code: string;
+  l1Name: string;
+  l2Code: string;
+  l2Name: string;
   amountNet: number;
   amountGross: number;
   count: number;
