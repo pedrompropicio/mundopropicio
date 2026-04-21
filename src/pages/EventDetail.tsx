@@ -1,8 +1,8 @@
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { moveToTrash } from "@/lib/trash";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen, AlertTriangle } from "lucide-react";
@@ -100,13 +100,39 @@ export default function EventDetail() {
   const navigate = useNavigate();
   const { isAdmin, isManager, user } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
+  // URL-driven state so deep-links (e.g. returning from a report) restore the
+  // exact sub-event + active tab the user was on.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(searchParams.get("sub"));
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get("tab") || "overview");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; action: () => void; variant?: "destructive" | "default" } | null>(null);
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
+
+  // Reflect tab + sub-event into the URL so they survive navigations.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (selectedSubEvent) next.set("sub", selectedSubEvent); else next.delete("sub");
+    if (activeTab && activeTab !== "overview") next.set("tab", activeTab); else next.delete("tab");
+    const nextStr = next.toString();
+    if (nextStr !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSubEvent, activeTab]);
+
+  // Sync back if the URL changes externally (e.g. browser back from report).
+  useEffect(() => {
+    const urlSub = searchParams.get("sub");
+    const urlTab = searchParams.get("tab") || "overview";
+    if (urlSub !== selectedSubEvent) setSelectedSubEvent(urlSub);
+    if (urlTab !== activeTab) setActiveTab(urlTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const { data: event, isLoading: loadingEvent } = useQuery({
     queryKey: ["event_detail", id],
     queryFn: async () => {
@@ -756,7 +782,7 @@ export default function EventDetail() {
       )}
 
       {/* Main tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>

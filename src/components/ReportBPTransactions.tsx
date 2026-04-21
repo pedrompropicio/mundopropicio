@@ -63,6 +63,9 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const [selectedEventId, setSelectedEventId] = useState<string>(initialEventId ?? "");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  // When OFF (default), Previsto soma apenas BP `approved` (alinha com a vista
+  // Previsão vs Real do evento). Quando ON, inclui também rascunhos (`draft`).
+  const [includeDrafts, setIncludeDrafts] = useState(false);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
@@ -199,9 +202,14 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
 
     const lookup = buildCategoryLookup(categories as CategoryNode[]);
 
-    // Filter forecasts for this event (expenses only)
+    // Filter forecasts for this event (expenses only). Por defeito apenas
+    // `approved`, alinhando com a vista Previsão vs Real e o DRE. Toggle
+    // "Incluir rascunhos" deixa-nos auditar também linhas em `draft`.
     const eventForecasts = forecasts.filter(
-      (f: any) => relevantEventIds.includes(f.event_id) && f.type === "expense"
+      (f: any) =>
+        relevantEventIds.includes(f.event_id) &&
+        f.type === "expense" &&
+        (includeDrafts ? (f.status === "approved" || f.status === "draft") : f.status === "approved")
     );
 
     // Filter transactions for this event (expenses only, approved or paid)
@@ -324,7 +332,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
@@ -451,9 +459,18 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
           </SelectContent>
         </Select>
         {selectedEventId && (
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <button onClick={expandAll} className="text-xs text-primary hover:underline">Expandir tudo</button>
             <button onClick={collapseAll} className="text-xs text-primary hover:underline">Colapsar tudo</button>
+            <label className="ml-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeDrafts}
+                onChange={(e) => setIncludeDrafts(e.target.checked)}
+                className="h-3.5 w-3.5 cursor-pointer accent-primary"
+              />
+              Incluir rascunhos do BP
+            </label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="ml-2 gap-1.5">
