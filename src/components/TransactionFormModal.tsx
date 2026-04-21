@@ -133,6 +133,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // Espelho inverso de "Pago por Sócio" — fica is_transitory=true (sem impacto no DRE).
   const [isPartnerExtra, setIsPartnerExtra] = useState(false);
   const [partnerExtraId, setPartnerExtraId] = useState("");
+  // Split parcial: quando preenchido (>0 e < amount total), apenas X€ da fatura é extra do sócio.
+  // Cria transação principal pelo total (entra DRE/BP) + transação irmã transitória pelo parcial,
+  // ligadas pelo mesmo invoice_group_id. A irmã vincula-se a partner_advance_expenses.
+  const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
@@ -1037,6 +1041,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const partnerPaidAmount = isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0);
         const partnerPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null);
 
+        // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
+        // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
+        const totalAmtNum = parseFloat(data.amount) || 0;
+        const partnerExtraPartialNum = parseFloat(partnerExtraPartialAmount) || 0;
+        const isPartnerExtraPartial = isPartnerExtra && partnerExtraPartialNum > 0 && partnerExtraPartialNum < totalAmtNum;
+        const principalIsTransitory = isTransitory || (isPartnerExtra && !isPartnerExtraPartial);
+        // Garante invoice_group_id partilhado para amarrar as duas linhas (se já não vier um, gera um).
+        let sharedInvoiceGroupId: string | null = data.invoice_group_id ?? null;
+        if (isPartnerExtraPartial && !sharedInvoiceGroupId) {
+          sharedInvoiceGroupId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+            ? (crypto as any).randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
+
         const { data: insertedTx, error } = await supabase.from("transactions").insert({
           description: data.description,
           type: data.type,
@@ -1055,10 +1073,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_date: partnerPaymentDate,
           is_reimbursement: data.is_reimbursement,
           reimbursement_to: data.is_reimbursement ? (data.reimbursement_to.trim() || null) : null,
-          is_transitory: isTransitory || isPartnerExtra,
+          is_transitory: principalIsTransitory,
           exclude_from_result: isExcludeFromResult,
           invoice_ref: data.invoice_ref.trim() || null,
-          invoice_group_id: data.invoice_group_id ?? null,
+          invoice_group_id: sharedInvoiceGroupId,
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
@@ -1122,11 +1140,48 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
         // Auto-link as Extra do Sócio (despesa paga pela empresa, descontada do sócio no fecho)
         if (isPartnerExtra && partnerExtraId && insertedTx?.id && data.event_id) {
-          await supabase.from("partner_advance_expenses").insert({
-            event_id: data.event_id,
-            partner_id: partnerExtraId,
-            transaction_id: insertedTx.id,
-          } as any);
+          if (isPartnerExtraPartial) {
+            // Split parcial: cria transação irmã transitória com o valor parcial,
+            // partilhando o invoice_group_id da fatura. É essa irmã que vai a partner_advance_expenses.
+            const { data: siblingTx, error: siblingErr } = await supabase
+              .from("transactions")
+              .insert({
+                description: `${data.description} — extra sócio (parcial)`,
+                type: data.type,
+                amount: partnerExtraPartialNum,
+                iva_rate: data.iva_rate,
+                event_id: data.event_id,
+                category_id: data.category_id || null,
+                supplier_id: data.supplier_id || null,
+                account_id: null,
+                date: data.date,
+                due_date: parseDueDateForDb(data.due_date),
+                status: "paid",
+                paid_amount: partnerExtraPartialNum,
+                payment_date: data.date,
+                is_transitory: true,
+                exclude_from_result: false,
+                invoice_ref: data.invoice_ref.trim() || null,
+                invoice_group_id: sharedInvoiceGroupId,
+                payment_method: "transfer",
+                currency,
+              } as any)
+              .select("id")
+              .single();
+            if (siblingErr) throw siblingErr;
+            await supabase.from("partner_advance_expenses").insert({
+              event_id: data.event_id,
+              partner_id: partnerExtraId,
+              transaction_id: siblingTx!.id,
+              notes: `Parcela do sócio na fatura "${data.description}" (total ${totalAmtNum.toFixed(2)} €)`,
+            } as any);
+          } else {
+            await supabase.from("partner_advance_expenses").insert({
+              event_id: data.event_id,
+              partner_id: partnerExtraId,
+              transaction_id: insertedTx.id,
+            } as any);
+          }
         }
 
         // Auto-link to reimbursement note
@@ -1323,6 +1378,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     if (isPartnerExtra && !form.event_id && !(isSplit && splitMasterEventId)) {
       toast({ title: "Extra do Sócio exige um evento associado", variant: "destructive" });
       return;
+    }
+    // Validação do split parcial: se preenchido, tem de ser > 0 e < total
+    if (isPartnerExtra && !isSplit && partnerExtraPartialAmount.trim() !== "") {
+      const totalAmt = parseFloat(form.amount) || 0;
+      const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
+      if (partialAmt <= 0 || partialAmt >= totalAmt) {
+        toast({ title: "Valor parcial do extra inválido", description: `Tem de ser maior que 0 e menor que o total (${totalAmt.toFixed(2)} €). Deixe vazio para abater a fatura inteira.`, variant: "destructive" });
+        return;
+      }
     }
 
     // Split validation
@@ -2316,7 +2380,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     setForm({ ...form, is_reimbursement: next, reimbursement_to: "", reimbursement_note_id: "", account_id: next ? "" : form.account_id });
                     if (next) {
                       setIsPaidByPartner(false); setPaidByPartnerId("");
-                      setIsPartnerExtra(false); setPartnerExtraId("");
+                      setIsPartnerExtra(false); setPartnerExtraId(""); setPartnerExtraPartialAmount("");
                       setShowNewReimbursementNote(false); setNewReimbursementEmployeeName("");
                     }
                   }}
@@ -2364,6 +2428,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       const next = !isPartnerExtra;
                       setIsPartnerExtra(next);
                       setPartnerExtraId("");
+                      setPartnerExtraPartialAmount("");
                     }}
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                       isPartnerExtra
@@ -2487,26 +2552,61 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </p>
                 </div>
               )}
-              {isPartnerExtra && (
-                <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio a abater *</label>
-                    <SearchableSelect
-                      options={eventPartners.map((p: any) => ({
-                        value: p.id,
-                        label: `${p.suppliers?.name} (${p.percentage}%)`,
-                      }))}
-                      value={partnerExtraId}
-                      onValueChange={setPartnerExtraId}
-                      placeholder="Selecionar sócio…"
-                      searchPlaceholder="Pesquisar…"
-                    />
+              {isPartnerExtra && (() => {
+                const totalAmt = parseFloat(form.amount) || 0;
+                const partialAmt = parseFloat(partnerExtraPartialAmount) || 0;
+                const isPartial = partialAmt > 0 && partialAmt < totalAmt;
+                const partialInvalid = partnerExtraPartialAmount.trim() !== "" && (partialAmt <= 0 || partialAmt >= totalAmt);
+                return (
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 space-y-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Sócio a abater *</label>
+                      <SearchableSelect
+                        options={eventPartners.map((p: any) => ({
+                          value: p.id,
+                          label: `${p.suppliers?.name} (${p.percentage}%)`,
+                        }))}
+                        value={partnerExtraId}
+                        onValueChange={setPartnerExtraId}
+                        placeholder="Selecionar sócio…"
+                        searchPlaceholder="Pesquisar…"
+                      />
+                    </div>
+                    {!isSplit && totalAmt > 0 && (
+                      <div>
+                        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                          Apenas parte da fatura é extra (€)
+                          <HelpTooltip text={`Deixe vazio se a fatura inteira (${totalAmt.toFixed(2)} €) é extra do sócio. Preencha um valor menor que o total para abater apenas essa parcela do sócio — a fatura é registada pelo total e entra normalmente no DRE/BP; a parcela do sócio vai como transação irmã transitória vinculada à mesma fatura.`} size={12} />
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={totalAmt}
+                          value={partnerExtraPartialAmount}
+                          onChange={(e) => setPartnerExtraPartialAmount(e.target.value)}
+                          placeholder={`Vazio = fatura inteira (${totalAmt.toFixed(2)} €)`}
+                          className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                            partialInvalid
+                              ? "border-destructive bg-destructive/5 focus:ring-destructive/40"
+                              : "border-border bg-background focus:ring-primary/50"
+                          }`}
+                        />
+                        {partialInvalid && (
+                          <p className="mt-1 text-[10px] text-destructive">
+                            O valor parcial deve ser maior que 0 e menor que o total da fatura ({totalAmt.toFixed(2)} €).
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      {isPartial
+                        ? `🧳 Fatura registada por ${totalAmt.toFixed(2)} € (entra DRE/BP). ${partialAmt.toFixed(2)} € serão descontados do sócio no fecho via transação irmã transitória vinculada à mesma fatura.`
+                        : "🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP."}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    🧳 Despesa paga pela empresa, descontada do sócio no fecho. Marcada como transitória — não entra no DRE nem consome BP.
-                  </p>
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
 
