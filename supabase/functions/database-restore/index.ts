@@ -6,47 +6,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Tabelas filhas / órfãs que dependem de pais e devem ser limpas ANTES.
+// Como agora o backup inclui quase tudo, esta lista cobre apenas tabelas
+// que possam ter sido criadas APÓS o snapshot e que não constem do JSON.
 const ORPHAN_CHILD_TABLES_TO_CLEAR = [
-  "event_forecast_partners",
-  "event_cache_city_settlements",
-  "event_cache_tiers",
-  "event_ticket_office_advances",
-  "ticket_office_settlements",
-  "transaction_payments",
-  "supplier_credit_usages",
-  "supplier_credits",
-  "trash",
-  "undo_actions",
-  "user_activity_log",
-  "push_subscriptions",
-  "event_implementations",
+  "event_cache_payments", // pode não constar de backups antigos
 ];
 
 const SINGLETON_INT_PK = new Set(["email_send_state"]);
 
+// Ordem de inserção — pais primeiro, filhos depois
 const RESTORE_ORDER = [
   "cities", "venues", "venue_reservations",
   "account_categories", "role_permissions",
   "profiles", "user_roles", "user_permissions",
+  "partner_event_access", "push_subscriptions",
   "financial_accounts", "financial_account_access",
   "suppliers", "supplier_documents",
+  "supplier_credits",
   "events", "event_dates", "event_sessions",
+  "event_implementations",
   "event_ticket_zones", "event_ticket_lots",
   "event_cache_configs", "event_cache_deductions", "event_cache_extras",
+  "event_cache_tiers", "event_cache_city_settlements", "event_cache_payments",
   "event_closing_costs",
   "event_partners", "event_partner_extras",
-  "event_ticket_office_assignments",
+  "event_ticket_office_assignments", "event_ticket_office_advances",
+  "ticket_office_settlements",
   "ticket_sales", "ticket_import_logs",
   // transactions DEVE vir antes de event_forecasts (FK event_forecasts.transaction_id -> transactions.id)
   "transactions", "transaction_documents", "transaction_audit_log",
-  "event_forecasts",
-  "partner_paid_expenses", "partner_event_access",
+  "transaction_payments",
+  "supplier_credit_usages",
+  "event_forecasts", "event_forecast_partners",
+  "bp_orphan_attachments",
+  "partner_paid_expenses", "partner_advance_expenses",
   "payment_lists", "payment_list_items",
   "quotations", "recurring_transactions",
   "reimbursement_notes", "reimbursement_note_items",
   "accounting_exports", "system_audit_log",
   // forecast_audit_log depende de event_forecasts
   "forecast_audit_log",
+  "user_activity_log",
+  "trash", "undo_actions",
   "login_attempts",
   "email_send_log", "email_send_state", "email_unsubscribe_tokens",
   "suppressed_emails",

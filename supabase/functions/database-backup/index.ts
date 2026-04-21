@@ -6,54 +6,55 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Lista COMPLETA de tabelas a salvar — sincronizada com o schema Live
+// (62 tabelas, validada via information_schema em 2026-04-21)
 const TABLES_TO_BACKUP = [
-  "events",
-  "event_dates",
-  "event_sessions",
-  "event_forecasts",
-  "event_cache_configs",
-  "event_cache_deductions",
-  "event_cache_extras",
-  "event_closing_costs",
-  "event_ticket_zones",
-  "event_ticket_lots",
-  "event_ticket_office_assignments",
-  "event_partners",
-  "event_partner_extras",
-  "ticket_sales",
-  
-  "ticket_import_logs",
-  "transactions",
-  "transaction_documents",
-  "transaction_audit_log",
-  "account_categories",
-  "accounting_exports",
-  "suppliers",
-  "supplier_documents",
-  "financial_accounts",
-  "financial_account_access",
-  "payment_lists",
-  "payment_list_items",
-  "quotations",
-  "recurring_transactions",
-  "reimbursement_notes",
-  "reimbursement_note_items",
-  "partner_paid_expenses",
-  "partner_event_access",
-  "cities",
-  "venues",
-  "venue_reservations",
-  "system_audit_log",
-  "forecast_audit_log",
-  "profiles",
-  "user_roles",
-  "user_permissions",
+  // Catálogos / config
+  "account_categories", "cities", "venues", "venue_reservations",
   "role_permissions",
+  // Utilizadores
+  "profiles", "user_roles", "user_permissions",
+  "partner_event_access", "push_subscriptions",
+  // Contas financeiras
+  "financial_accounts", "financial_account_access",
+  // Fornecedores
+  "suppliers", "supplier_documents",
+  "supplier_credits", "supplier_credit_usages",
+  // Eventos
+  "events", "event_dates", "event_sessions",
+  "event_implementations",
+  "event_ticket_zones", "event_ticket_lots",
+  "event_ticket_office_assignments", "event_ticket_office_advances",
+  "ticket_office_settlements",
+  "event_partners", "event_partner_extras",
+  // Cachês
+  "event_cache_configs", "event_cache_deductions", "event_cache_extras",
+  "event_cache_tiers", "event_cache_city_settlements", "event_cache_payments",
+  // Fechos
+  "event_closing_costs",
+  // Business Plan
+  "event_forecasts", "event_forecast_partners",
+  "bp_orphan_attachments",
+  // Bilheteira
+  "ticket_sales", "ticket_import_logs",
+  // Transações
+  "transactions", "transaction_documents", "transaction_audit_log",
+  "transaction_payments",
+  "partner_paid_expenses", "partner_advance_expenses",
+  // Listas de pagamento / quotações / recorrências
+  "payment_lists", "payment_list_items",
+  "quotations", "recurring_transactions",
+  // Reembolsos
+  "reimbursement_notes", "reimbursement_note_items",
+  // Contabilidade / auditoria
+  "accounting_exports",
+  "system_audit_log", "forecast_audit_log", "user_activity_log",
+  "trash", "undo_actions",
+  // Segurança
   "login_attempts",
-  "email_send_log",
-  "email_send_state",
-  "email_unsubscribe_tokens",
-  "suppressed_emails",
+  // Emails
+  "email_send_log", "email_send_state",
+  "email_unsubscribe_tokens", "suppressed_emails",
 ];
 
 const STORAGE_BUCKETS = [

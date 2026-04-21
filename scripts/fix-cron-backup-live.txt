@@ -1,15 +1,36 @@
--- Corrigir cron job daily-database-backup no ambiente LIVE
--- Estava apontando para a URL do projeto Test (ukpuhoynrqobqtzdbysp)
--- Atualiza para a URL correta do projeto Live (sfohvvlqccmmebvjgibx)
+-- =========================================================
+-- CORRIGIR CRON DO BACKUP DIÁRIO EM LIVE
+-- Onde correr: Cloud → Database → SQL Editor (com LIVE selecionado)
+-- =========================================================
+-- Problema: o cron 'daily-database-backup' em Live estava a chamar a URL
+-- do projeto TEST (ukpuhoynrqobqtzdbysp), pelo que NUNCA foi gerado um
+-- backup automático em Live. Os últimos backups (20/04 e 06/04) foram
+-- manuais. Este script aponta o cron para a URL correta de Live.
+-- =========================================================
 
+-- 1) Remover agendamento antigo (errado)
 SELECT cron.unschedule('daily-database-backup');
 
-SELECT cron.schedule('daily-database-backup','0 3 * * *',$$ SELECT net.http_post(url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/database-backup', headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2h2dmxxY2NtbWVidmpnaWJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjUyNzgsImV4cCI6MjA4OTMwMTI3OH0.Js56uldkgHZ0kkOUZmpXI2Ker0Av0u7LJrHZ6rxSRd0"}'::jsonb, body := '{}'::jsonb) AS request_id; $$);
+-- 2) Reagendar para 03:00 UTC com a URL correta de LIVE (sfohvvlqccmmebvjgibx)
+SELECT cron.schedule(
+  'daily-database-backup',
+  '0 3 * * *',
+  $$ SELECT net.http_post(
+    url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/database-backup',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2h2dmxxY2NtbWVidmpnaWJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjUyNzgsImV4cCI6MjA4OTMwMTI3OH0.Js56uldkgHZ0kkOUZmpXI2Ker0Av0u7LJrHZ6rxSRd0"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id; $$
+);
 
--- Verificar
+-- 3) Verificar
 SELECT jobid, jobname, schedule, command FROM cron.job WHERE jobname = 'daily-database-backup';
 
--- Opcional: gerar backup imediato no Live para já ter o do dia
+-- =========================================================
+-- 4) (OPCIONAL — RECOMENDADO) gerar IMEDIATAMENTE um backup
+--    com a nova lista completa de 62 tabelas.
+--    Esperar ~30s e depois consultar:
+--    SELECT id, status_code, content FROM net._http_response ORDER BY id DESC LIMIT 3;
+-- =========================================================
 SELECT net.http_post(
   url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/database-backup',
   headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2h2dmxxY2NtbWVidmpnaWJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjUyNzgsImV4cCI6MjA4OTMwMTI3OH0.Js56uldkgHZ0kkOUZmpXI2Ker0Av0u7LJrHZ6rxSRd0"}'::jsonb,
