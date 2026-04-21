@@ -633,19 +633,19 @@ export function exportDREToPDF(
         y += 7;
       });
 
-      // Retained result
+      // Mundo Propício — renderizado como sócio (mesma fonte/corpo, sem destaque)
       const retained = brasilMode ? tourConsistentBase - tourTotalDist : tourResultEx - tourTotalDist;
-      checkNewPage(10);
-      doc.setFillColor(220, 235, 255);
-      doc.rect(marginLeft, y - 1, contentWidth, 8, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text("RESULTADO MP GESTÃO EVENTOS", sumColX[0] + 2, y + 5);
-      const retColor = retained >= 0 ? [34, 139, 34] : [200, 50, 50];
-      doc.setTextColor(retColor[0], retColor[1], retColor[2]);
-      doc.text(fmtVal(retained), sumColX[3] + sumColWidths[3] - 2, y + 5, { align: "right" });
+      const tourHousePct = Math.max(0, 100 - tourPartners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
+      checkNewPage(7);
+      doc.setFillColor(245, 248, 255);
+      doc.rect(marginLeft, y - 1, contentWidth, 7, "F");
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.text(`  Mundo Propício (${tourHousePct.toFixed(1)}%)`, sumColX[0] + 2, y + 4);
+      doc.setTextColor(200, 150, 0);
+      doc.text(fmtVal(retained), sumColX[3] + sumColWidths[3] - 2, y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
-      y += 10;
+      y += 7;
     }
   });
 
