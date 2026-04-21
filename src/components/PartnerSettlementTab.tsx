@@ -546,7 +546,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("2. Quebra por Cidade", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Cidade", "Receita s/IVA", "Despesa s/IVA", "Resultado"]],
@@ -648,7 +648,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("4. Fecho de Bilheteiras / Recintos", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Bilheteira", "Vendas Brutas", "Deduções", "Líquido Recebido", "Estado"]],
@@ -673,7 +673,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("5. Despesas por Categoria", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Lançamentos", "s/IVA", "c/IVA"]],
@@ -703,7 +703,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("6. Conciliação BP × Real (Despesas)", margin, y);
-      y += 4;
+      y += 5;
       autoTable(doc, {
         startY: y,
         head: [["Categoria", "Planeado (BP)", "Real", "Desvio", "Desvio %"]],
@@ -734,7 +734,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("7. Distribuição aos Sócios", margin, y);
-    y += 4;
+    y += 5;
     autoTable(doc, {
       startY: y,
       head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (−)", "Saldo Final"]],
