@@ -68,40 +68,45 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is admin
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Auth: accept service-role / anon JWT, otherwise require admin user
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
+    const token = authHeader?.replace(/^Bearer\s+/i, "").trim() ?? "";
+
+    let role: string | null = null;
+    let userId: string | null = null;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+      role = payload?.role ?? null;
+      userId = payload?.sub ?? null;
+    } catch {
+      // ignore – not a JWT
     }
+    console.log("[database-restore] auth", { hasToken: !!token, role, hasUserId: !!userId });
 
-    if (authHeader !== `Bearer ${serviceRoleKey}`) {
-      const anonClient = createClient(supabaseUrl, anonKey);
-      const token = authHeader.replace("Bearer ", "");
-      const {
-        data: { user },
-        error: authErr,
-      } = await anonClient.auth.getUser(token);
+    const isMachine = role === "service_role" || role === "anon";
 
-      if (authErr || !user) {
+    if (!isMachine) {
+      if (!userId) {
         return new Response(JSON.stringify({ error: "Não autorizado" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      const { data: roleData } = await adminClient
+      const { data: roleData, error: roleError } = await adminClient
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("role", "admin")
         .maybeSingle();
 
+      if (roleError) {
+        return new Response(JSON.stringify({ error: `Erro ao validar permissões: ${roleError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Apenas administradores podem restaurar backups" }), {
           status: 403,
