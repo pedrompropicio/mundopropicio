@@ -975,13 +975,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           });
           y = (doc as any).lastAutoTable.finalY + 1.5;
 
-          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0) {
+          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) {
             autoTable(doc, {
               startY: y,
               head: [["4. Liquidez e pendências de caixa", "Valor"]],
               body: [
                 ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
                 ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
+                ["Prejuízo absorvido provisoriamente por cauções ainda retidas", formatCurrency(s.transitoryOffset)],
+                ["Aporte necessário para fechar a conta", formatCurrency(s.equityContribution)],
                 ["Cauções / transitórias a devolver ao pagador", formatCurrency(s.transitoryCredit)],
                 ["Saldo total após devoluções", formatCurrency(s.settlement)],
               ],
@@ -1098,6 +1100,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             doc.setTextColor(0, 100, 120);
             const liqNote = `   + ${formatCurrency(s.resultPendingByCash)} da quota do resultado fica pendente porque esse caixa do evento foi desencaixado para cobrir caucoes/transitorias ainda nao devolvidas.`;
             doc.text(liqNote, margin, y);
+            doc.setTextColor(0);
+            y += 4;
+          }
+          if (s.equityContribution > 0) {
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(140, 40, 40);
+            const aporteNote = `   + ${formatCurrency(s.equityContribution)} precisa entrar como aporte proporcional ao equity para fechar o prejuizo apos considerar as caucoes ainda retidas.`;
+            doc.text(aporteNote, margin, y);
             doc.setTextColor(0);
             y += 4;
           }
@@ -1750,15 +1761,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
             <div className="flex items-center gap-2">
-              {s.transitoryCredit > 0 || s.resultPendingByCash > 0 ? (
+              {s.transitoryCredit > 0 || s.resultPendingByCash > 0 || s.equityContribution > 0 || s.transitoryOffset > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <Badge className={`text-xs ${s.operationalSettlement >= 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
                     {s.operationalSettlement >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                     Operacional {formatCurrency(Math.abs(s.operationalSettlement))}
                   </Badge>
                   <Badge variant="outline" className="text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
-                    + Pendente {formatCurrency(s.resultPendingByCash + s.transitoryCredit)}
+                    + Pendente {formatCurrency(s.resultPendingByCash + s.transitoryCredit + s.transitoryOffset)}
                   </Badge>
+                  {s.equityContribution > 0 && (
+                    <Badge className="text-xs bg-destructive/15 text-destructive">
+                      Aporte {formatCurrency(s.equityContribution)}
+                    </Badge>
+                  )}
                 </div>
               ) : s.settlement > 0 ? (
                 <Badge className="bg-success/15 text-success text-xs">
@@ -1775,7 +1791,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-7 text-sm">
+            <div className="grid gap-3 sm:grid-cols-8 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
@@ -1798,18 +1814,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
               <div>
                 <span className="text-xs text-muted-foreground" title="Quota do resultado sem liquidez + cauções/transitórias pendentes">Pendente de caixa</span>
-                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.resultPendingByCash + s.transitoryCredit)}</p>
+                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.resultPendingByCash + s.transitoryCredit + s.transitoryOffset)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Aporte proporcional ao equity necessário para fechar o prejuízo">Aporte necessário</span>
+                <p className="font-mono font-bold text-destructive">{formatCurrency(s.equityContribution)}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground" title="Saldo total, incluindo pendências de caixa e devoluções futuras">Saldo total</span>
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
-            {(s.resultPendingByCash > 0 || s.transitoryCredit > 0) && (
+            {(s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
                 ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> No item 4, o fecho mostra separadamente
-                {" "}{formatCurrency(s.resultPendingByCash)} do resultado ainda sem liquidez por desencaixe de caixa e {formatCurrency(s.transitoryCredit)} de
-                cauções/transitórias ainda pendentes de devolução.
+                {" "}{formatCurrency(s.resultPendingByCash)} do resultado ainda sem liquidez por desencaixe de caixa, {formatCurrency(s.transitoryCredit)} de
+                cauções/transitórias ainda pendentes de devolução, {formatCurrency(s.transitoryOffset)} de prejuízo temporariamente coberto por essas cauções e {formatCurrency(s.equityContribution)} de aporte proporcional ao equity.
               </p>
             )}
 
