@@ -1405,19 +1405,6 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const proratedExpenseBase = filteredProratedParentExpenses.reduce((s: number, f: any) => s + Number(f.amount), 0);
   const proratedExpenseIva = filteredProratedParentExpenses.reduce((s: number, f: any) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
 
-  const totalForecastIncomeBase = incomeForecasts.reduce((s, f) => s + Number(f.amount), 0) + ticketRevenue;
-  const totalForecastIncomeIva = incomeForecasts.reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0) + ticketRevenueIva;
-  const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
-  const totalForecastExpenseBaseNoCache = expenseForecasts.reduce((s, f) => s + Number(f.amount), 0);
-  const totalForecastExpenseBase = totalForecastExpenseBaseNoCache + filteredCacheAmount + proratedExpenseBase;
-  const totalForecastExpenseIva = expenseForecasts.reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0) + proratedExpenseIva;
-  const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
-  const forecastProfit = totalForecastIncome - totalForecastExpense;
-
-  const totalActualIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0) + ticketActualRevenue;
-  const totalActualExpense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
-  const actualProfit = totalActualIncome - totalActualExpense;
-
   // Comparison view (Previsão vs Real) — regras estritas:
   // 1) Previsto: apenas linhas BP `approved` (rascunhos/rejeitadas não contam).
   // 2) Real: apenas TX `approved` ou `paid`; exclui transitórias e marcadas exclude_from_result.
@@ -1470,6 +1457,32 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     });
   }, [transactions, includeSubsInBP, parentEventId, eventId, bpCategoryIds]);
   const comparisonData = buildComparison(comparisonForecasts, comparisonTransactions, categories);
+
+  // Alinha os cards do BP ao mesmo perímetro estrito da vista "Previsão vs Real",
+  // evitando que a visão Master mostre nos cards linhas/tx fora do escopo comparável.
+  const totalForecastIncomeBase = comparisonForecasts
+    .filter((f) => f.type === "income")
+    .reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastIncomeIva = comparisonForecasts
+    .filter((f) => f.type === "income")
+    .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
+  const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
+  const totalForecastExpenseBase = comparisonForecasts
+    .filter((f) => f.type === "expense")
+    .reduce((s, f) => s + Number(f.amount), 0);
+  const totalForecastExpenseIva = comparisonForecasts
+    .filter((f) => f.type === "expense")
+    .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
+  const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
+  const forecastProfit = totalForecastIncome - totalForecastExpense;
+
+  const totalActualIncome = comparisonTransactions
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const totalActualExpense = comparisonTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const actualProfit = totalActualIncome - totalActualExpense;
 
   const draftCount = forecasts.filter((f) => f.status === "draft").length;
   const approvedCount = forecasts.filter((f) => f.status === "approved").length;
