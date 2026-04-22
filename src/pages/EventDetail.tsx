@@ -283,7 +283,7 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
-  // Fetch ticket sales revenue for the event(s)
+  // Fetch ticket sales revenue for the event(s) in net terms (s/IVA)
   const { data: ticketSalesRevenue = 0 } = useQuery({
     queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
     queryFn: async () => {
@@ -298,10 +298,12 @@ export default function EventDetail() {
       // Get lots for those zones
       const { data: lots } = await supabase
         .from("event_ticket_lots")
-        .select("id")
+        .select("id, iva_rate")
         .in("zone_id", zoneIds);
 
       if (!lots || lots.length === 0) return 0;
+
+      const lotIvaMap = new Map(lots.map((lot: any) => [lot.id, Number(lot.iva_rate || 0)]));
 
       // Get all ticket sales
       const { data: sales } = await supabase
@@ -311,8 +313,13 @@ export default function EventDetail() {
 
       if (!sales || sales.length === 0) return 0;
 
-      // Calculate gross revenue from ticket sales (uses exact total_value when available)
-      return sales.reduce((sum, s: any) => sum + (s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price)), 0);
+      // Calculate net revenue from ticket sales (s/IVA), using exact imported totals when available
+      return sales.reduce((sum, s: any) => {
+        const gross = s.total_value != null ? Number(s.total_value) : Number(s.quantity || 0) * Number(s.unit_price || 0);
+        const ivaRate = lotIvaMap.get(s.lot_id) ?? 0;
+        const net = ivaRate > 0 ? gross / (1 + ivaRate / 100) : gross;
+        return sum + net;
+      }, 0);
     },
     enabled: !!id,
   });
