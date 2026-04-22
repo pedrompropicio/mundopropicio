@@ -657,6 +657,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPartnerExtras,
       transitoryCredit: 0, // calculado abaixo
       transitoryItems,
+      operationalSettlement: 0, // calculado abaixo
       settlement: 0,        // recalculado abaixo
     };
   });
@@ -671,7 +672,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
       s.transitoryCredit = Math.max(0, gross);
     }
-    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + s.transitoryCredit;
+    // Acerto operacional: caixa real do evento (sem cauções pendentes).
+    // É o valor que pode efectivamente ser pago/cobrado agora.
+    s.operationalSettlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras;
+    // Saldo final: inclui cauções pendentes — só liquidável quando voltarem.
+    s.settlement = s.operationalSettlement + s.transitoryCredit;
   });
 
   function exportPdf() {
