@@ -15,6 +15,7 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva } from "@/lib/iva";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import { expandMasterAdoptedExpensesToSplits } from "@/lib/master-adopted-expense-proration";
 import {
   getPartnerExpenseBase,
   getPartnerRevenueBase,
@@ -230,7 +231,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-          .select("event_id, type, amount, iva_rate, status, is_overhead, account_categories(name, code)")
+          .select("id, event_id, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, account_categories(name, code)")
         .in("event_id", allEventIds)
         .eq("status", "approved");
       if (error) throw error;
@@ -241,6 +242,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const overheads = useMemo(
     () => expandOverheadToSplits((forecasts as any[]).filter((f: any) => f.is_overhead) as any, subEvents as any),
     [forecasts, subEvents],
+  );
+
+  const adoptedMasterExpenseSlices = useMemo(
+    () => expandMasterAdoptedExpensesToSplits({
+      events: subEvents as any,
+      forecasts: forecasts as any,
+      transactions: (transactions as any[]).filter((t: any) => t.type === "expense"),
+    }),
+    [forecasts, subEvents, transactions],
   );
 
   // Box-office settlements (fecho de bilheteira)
@@ -370,7 +380,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
   const validTx = transactions.filter((t: any) => !t.is_transitory && !t.exclude_from_result && (t.status === "approved" || t.status === "paid"));
   const incomeTransactions = validTx.filter((t: any) => t.type === "income");
-  const expenseTransactions = validTx.filter((t: any) => t.type === "expense");
+  const adoptedMasterSourceIds = new Set(
+    adoptedMasterExpenseSlices.map((slice: any) => slice._master_transaction_id).filter(Boolean),
+  );
+  const expenseTransactions = [
+    ...validTx.filter((t: any) => t.type === "expense" && !adoptedMasterSourceIds.has(t.id)),
+    ...adoptedMasterExpenseSlices,
+  ];
 
   const totalRevenueNet = hasTicketSales
     ? ticketRevenueNet
