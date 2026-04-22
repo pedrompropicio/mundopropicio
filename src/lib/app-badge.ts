@@ -17,12 +17,14 @@ function supportsBadge(): boolean {
 export async function setBadge(count: number): Promise<void> {
   if (!supportsBadge()) return;
   try {
+    const nav = navigator as Navigator & {
+      setAppBadge?: (n?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
     if (count <= 0) {
-      // @ts-expect-error - clearAppBadge typings missing in some TS versions
-      await navigator.clearAppBadge();
+      await nav.clearAppBadge?.();
     } else {
-      // @ts-expect-error - setAppBadge typings missing in some TS versions
-      await navigator.setAppBadge(count);
+      await nav.setAppBadge?.(count);
     }
   } catch {
     /* silent — badge is best-effort */
