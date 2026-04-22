@@ -772,13 +772,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const labelColW = 130;
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
+    const revenueIva = Math.max(0, totalRevenueGross - totalRevenueNet);
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
     const externalSettlements = settlements.filter((s) => !s.isHouse);
     const houseSettlement = settlements.find((s) => s.isHouse);
     const totalPaidByPartners = externalSettlements.reduce((sum, s) => sum + s.totalPaidByPartner, 0);
     const companyPaidOperationalCosts = Math.max(0, totalExpensesGross - totalPaidByPartners);
     const retainedCash = houseSettlement?.transitoryCredit || 0;
-    const cashBeforeReserve = Math.max(0, totalRevenueGross - companyPaidOperationalCosts);
+    const distributableRevenueCash = Math.max(0, totalRevenueGross - revenueIva);
+    const cashBeforeReserve = Math.max(0, distributableRevenueCash - companyPaidOperationalCosts);
     const cashAvailableForDistribution = Math.max(0, cashBeforeReserve - retainedCash);
 
     doc.setFontSize(11);
@@ -1503,6 +1505,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         head: [["Passo de liquidez", "Valor"]],
         body: [
           ["Receita bruta efetivamente recebida nas vendas", formatCurrency(totalRevenueGross)],
+          ["(-) IVA da receita bruta", formatCurrency(revenueIva)],
           ["(-) Despesas operacionais pagas pela Mundo Propício / empresa", formatCurrency(companyPaidOperationalCosts)],
           ["Caixa disponível antes das retenções transitórias", formatCurrency(cashBeforeReserve)],
           ["(-) Cauções / transitórias ainda retidas e sem disponibilidade", formatCurrency(retainedCash)],
