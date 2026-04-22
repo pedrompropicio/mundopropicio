@@ -918,12 +918,34 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 1: { cellWidth: w },
                 2: { cellWidth: w },
                 3: { cellWidth: w, fontStyle: "bold" },
-                4: { cellWidth: w, textColor: [0, 100, 120] },
+                4: { cellWidth: w, fontStyle: "bold" },
                 5: { cellWidth: w, fontStyle: "bold" },
               };
             })(),
           });
           y = (doc as any).lastAutoTable.finalY + 1.5;
+
+          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0) {
+            autoTable(doc, {
+              startY: y,
+              head: [["4. Liquidez e pendências de caixa", "Valor"]],
+              body: [
+                ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
+                ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
+                ["Cauções / transitórias a devolver ao pagador", formatCurrency(s.transitoryCredit)],
+                ["Saldo total após devoluções", formatCurrency(s.settlement)],
+              ],
+              margin: { left: margin, right: margin },
+              tableWidth,
+              styles: { fontSize: 7.5, cellPadding: 1.6 },
+              headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
+              columnStyles: {
+                0: { halign: "left" },
+                1: { halign: "right", fontStyle: "bold" },
+              },
+            });
+            y = (doc as any).lastAutoTable.finalY + 1.5;
+          }
 
           if (s.paidExpenses.length > 0) {
             doc.setFontSize(7.5);
