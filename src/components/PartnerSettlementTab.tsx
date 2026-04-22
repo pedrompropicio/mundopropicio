@@ -1243,7 +1243,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-5 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
@@ -1251,6 +1251,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <div>
                 <span className="text-xs text-muted-foreground">Pagas pelo sócio (+)</span>
                 <p className="font-mono font-bold text-success">{formatCurrency(s.totalPaidByPartner)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas pelo sócio ainda não devolvidas">Cauções pendentes (+)</span>
+                <p className="font-mono font-bold text-success">{formatCurrency(s.transitoryCredit)}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Extras do sócio (−)</span>
