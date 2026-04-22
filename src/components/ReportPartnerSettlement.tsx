@@ -138,9 +138,11 @@ export default function ReportPartnerSettlement() {
       extras: acc.extras + d.extras,
       paidExpenses: acc.paidExpenses + d.paidExpenses,
       transitoryCredit: acc.transitoryCredit + d.transitoryCredit,
+      resultPendingByCash: acc.resultPendingByCash + d.resultPendingByCash,
+      equityContribution: acc.equityContribution + d.equityContribution,
       settlement: acc.settlement + d.settlement,
     }),
-    { partnerShare: 0, extras: 0, paidExpenses: 0, transitoryCredit: 0, settlement: 0 }
+    { partnerShare: 0, extras: 0, paidExpenses: 0, transitoryCredit: 0, resultPendingByCash: 0, equityContribution: 0, settlement: 0 }
   );
 
   const isLoading = isLoadingPartners || isLoadingTransactions || isLoadingPaidExpenses || isLoadingPartnerAdvances || isLoadingEvents || isLoadingForecasts || isLoadingTicketSales;
@@ -149,7 +151,7 @@ export default function ReportPartnerSettlement() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Total Quota-Parte</p>
           <p className="text-lg font-bold font-mono">{formatCurrency(totals.partnerShare)}</p>
@@ -165,6 +167,14 @@ export default function ReportPartnerSettlement() {
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Cauções Pendentes</p>
           <p className="text-lg font-bold font-mono text-accent">{formatCurrency(totals.transitoryCredit)}</p>
+        </div>
+        <div className="glass rounded-xl p-3 text-center">
+          <p className="text-xs text-muted-foreground">Pend. por Equity</p>
+          <p className="text-lg font-bold font-mono text-warning">{formatCurrency(totals.resultPendingByCash)}</p>
+        </div>
+        <div className="glass rounded-xl p-3 text-center">
+          <p className="text-xs text-muted-foreground">Aportes Necessários</p>
+          <p className="text-lg font-bold font-mono text-destructive">{formatCurrency(totals.equityContribution)}</p>
         </div>
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Acerto Total</p>
@@ -185,12 +195,14 @@ export default function ReportPartnerSettlement() {
               <TableHead className="text-right">Extras</TableHead>
               <TableHead className="text-right">Desp. Pagas</TableHead>
               <TableHead className="text-right">Cauções (+)</TableHead>
+              <TableHead className="text-right">Pend. Equity</TableHead>
+              <TableHead className="text-right">Aporte</TableHead>
               <TableHead className="text-right">Acerto</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {settlementData.length === 0 ? (
-              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
+              <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
             ) : settlementData.map((d: any) => (
               <TableRow key={d.rowId}>
                 <TableCell className="font-medium">{d.partnerName}</TableCell>
@@ -204,7 +216,9 @@ export default function ReportPartnerSettlement() {
                 <TableCell className="text-right font-mono">{formatCurrency(d.partnerShare)}</TableCell>
                 <TableCell className="text-right font-mono text-warning">{formatCurrency(d.extras)}</TableCell>
                 <TableCell className="text-right font-mono text-success">{formatCurrency(d.paidExpenses)}</TableCell>
-                 <TableCell className="text-right font-mono text-accent">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
+                <TableCell className="text-right font-mono text-accent">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
+                <TableCell className="text-right font-mono text-warning">{d.resultPendingByCash > 0 ? formatCurrency(d.resultPendingByCash) : "—"}</TableCell>
+                <TableCell className="text-right font-mono text-destructive">{d.equityContribution > 0 ? formatCurrency(d.equityContribution) : "—"}</TableCell>
                 <TableCell className={`text-right font-mono font-semibold ${d.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(d.settlement)}</TableCell>
               </TableRow>
             ))}
