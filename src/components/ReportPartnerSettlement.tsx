@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buildPartnerSettlementReportData } from "@/lib/partner-settlement-report";
 
 export default function ReportPartnerSettlement() {
-  const { data: partners = [], isLoading } = useQuery({
+  const { data: partners = [], isLoading: isLoadingPartners } = useQuery({
     queryKey: ["settlement-partners"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -21,7 +21,7 @@ export default function ReportPartnerSettlement() {
 
   // IMPORTANTE: trazer is_transitory para conseguir calcular o crédito transitório
   // (cauções pagas e ainda não devolvidas) — alinhado com PartnerSettlementTab.
-  const { data: transactions = [] } = useQuery({
+  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
     queryKey: ["settlement-txs"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -33,7 +33,7 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const { data: paidExpenses = [] } = useQuery({
+  const { data: paidExpenses = [], isLoading: isLoadingPaidExpenses } = useQuery({
     queryKey: ["settlement-paid-expenses"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -44,7 +44,7 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const { data: partnerAdvances = [] } = useQuery({
+  const { data: partnerAdvances = [], isLoading: isLoadingPartnerAdvances } = useQuery({
     queryKey: ["settlement-partner-advances"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -55,7 +55,7 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
     queryKey: ["settlement-events"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("id, name, status, parent_event_id, partner_calc_basis");
@@ -64,7 +64,7 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: forecasts = [], isLoading: isLoadingForecasts } = useQuery({
     queryKey: ["settlement-overheads"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -77,7 +77,7 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const { data: ticketSales = [] } = useQuery({
+  const { data: ticketSales = [], isLoading: isLoadingTicketSales } = useQuery({
     queryKey: ["settlement-ticket-sales"],
     queryFn: async () => {
       const { data: zones, error: zonesError } = await supabase
@@ -143,6 +143,8 @@ export default function ReportPartnerSettlement() {
     { partnerShare: 0, extras: 0, paidExpenses: 0, transitoryCredit: 0, settlement: 0 }
   );
 
+  const isLoading = isLoadingPartners || isLoadingTransactions || isLoadingPaidExpenses || isLoadingPartnerAdvances || isLoadingEvents || isLoadingForecasts || isLoadingTicketSales;
+
   if (isLoading) return <p className="py-8 text-center text-muted-foreground">A carregar…</p>;
 
   return (
@@ -162,7 +164,7 @@ export default function ReportPartnerSettlement() {
         </div>
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Cauções Pendentes</p>
-          <p className="text-lg font-bold font-mono text-cyan-600 dark:text-cyan-400">{formatCurrency(totals.transitoryCredit)}</p>
+          <p className="text-lg font-bold font-mono text-accent">{formatCurrency(totals.transitoryCredit)}</p>
         </div>
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Acerto Total</p>
@@ -202,7 +204,7 @@ export default function ReportPartnerSettlement() {
                 <TableCell className="text-right font-mono">{formatCurrency(d.partnerShare)}</TableCell>
                 <TableCell className="text-right font-mono text-warning">{formatCurrency(d.extras)}</TableCell>
                 <TableCell className="text-right font-mono text-success">{formatCurrency(d.paidExpenses)}</TableCell>
-                <TableCell className="text-right font-mono text-cyan-600 dark:text-cyan-400">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
+                 <TableCell className="text-right font-mono text-accent">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
                 <TableCell className={`text-right font-mono font-semibold ${d.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(d.settlement)}</TableCell>
               </TableRow>
             ))}
