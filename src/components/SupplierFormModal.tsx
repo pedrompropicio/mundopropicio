@@ -41,9 +41,11 @@ interface SupplierFormModalProps {
   onCreated?: (id: string) => void;
   editingSupplier?: any;
   defaultIsPartner?: boolean;
+  overlayClassName?: string;
+  contentClassName?: string;
 }
 
-export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner }: SupplierFormModalProps) {
+export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner, overlayClassName, contentClassName }: SupplierFormModalProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isEditing = !!editingSupplier;
