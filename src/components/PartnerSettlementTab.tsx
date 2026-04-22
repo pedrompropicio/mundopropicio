@@ -53,7 +53,12 @@ interface PartnerSettlement {
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
   transitoryItems: { description: string; amount: number; date: string; category: string; sign: 1 | -1 }[];
-  settlement: number; // positive = company pays partner, negative = partner pays company
+  /** Acerto operacional — SEM cauções pendentes. É o valor que efectivamente pode/deve ser
+   *  transaccionado entre empresa e sócio com base no caixa real do evento. */
+  operationalSettlement: number;
+  /** Saldo total incluindo cauções pendentes. Só é honrado quando as cauções voltam.
+   *  positive = empresa paga sócio, negative = sócio paga empresa */
+  settlement: number;
 }
 
 interface CityBreakdown {
@@ -652,6 +657,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPartnerExtras,
       transitoryCredit: 0, // calculado abaixo
       transitoryItems,
+      operationalSettlement: 0, // calculado abaixo
       settlement: 0,        // recalculado abaixo
     };
   });
@@ -666,7 +672,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
       s.transitoryCredit = Math.max(0, gross);
     }
-    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + s.transitoryCredit;
+    // Acerto operacional: caixa real do evento (sem cauções pendentes).
+    // É o valor que pode efectivamente ser pago/cobrado agora.
+    s.operationalSettlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras;
+    // Saldo final: inclui cauções pendentes — só liquidável quando voltarem.
+    s.settlement = s.operationalSettlement + s.transitoryCredit;
   });
 
   function exportPdf() {
@@ -700,6 +710,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const labelColW = 130;
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
+    const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
+    const totalTransitoryHouse = settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
+    const totalTransitoryExt = settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -723,7 +736,40 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         1: { cellWidth: valueColW, halign: "right" },
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = (doc as any).lastAutoTable.finalY + 4;
+
+    // Bloco de cauções pendentes — explicita exposição de caixa fora do resultado
+    if (totalTransitoryAll > 0) {
+      ensureSpace(28);
+      autoTable(doc, {
+        startY: y,
+        head: [["🛡️ Cauções pendentes (fora do resultado — caixa retido)", "Valor"]],
+        body: [
+          ["Pagas pela Mundo Propício (caixa da empresa)", formatCurrency(totalTransitoryHouse)],
+          ["Pagas por sócios externos", formatCurrency(totalTransitoryExt)],
+          ["Total caixa retido (recuperável)", formatCurrency(totalTransitoryAll)],
+        ],
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [20, 80, 100] },
+        headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: labelColW, halign: "left" },
+          1: { cellWidth: valueColW, halign: "right", fontStyle: "bold" },
+        },
+      });
+      y = (doc as any).lastAutoTable.finalY + 2;
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(80);
+      const note = "Estes valores nao sao receita do evento — sao caucoes/transitorias retidas (ex: no venue) que voltam ao caixa quando devolvidas. No acerto entre socios sao creditados a quem desembolsou, mas so sao efectivamente liquidaveis apos o retorno.";
+      const lines = doc.splitTextToSize(note, tableWidth);
+      doc.text(lines, margin, y);
+      y += lines.length * 3 + 3;
+      doc.setTextColor(0);
+    } else {
+      y += 2;
+    }
 
     // ===== 2. QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
@@ -771,40 +817,43 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     autoTable(doc, {
       startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo Final"]],
+      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
       body: settlements.map((s) => [
         s.partnerName,
         `${s.effectivePercentage}%`,
         formatCurrency(s.partnerShare),
         formatCurrency(s.totalPaidByPartner),
-        formatCurrency(s.transitoryCredit),
         `-${formatCurrency(s.totalPartnerExtras)}`,
+        formatCurrency(s.operationalSettlement),
+        formatCurrency(s.transitoryCredit),
         formatCurrency(s.settlement),
       ]),
       foot: [["TOTAL", "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
         `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        formatCurrency(settlements.reduce((s, x) => s + x.operationalSettlement, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
       ]],
       margin: { left: margin, right: margin },
       tableWidth,
-      styles: { fontSize: 9 },
+      styles: { fontSize: 8.5 },
       headStyles: { fillColor: [41, 41, 41] },
       footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
       columnStyles: (() => {
-        const colPct = 16;
-        const colSocio = 38;
-        const colVal = (tableWidth - colSocio - colPct) / 5;
+        const colPct = 14;
+        const colSocio = 34;
+        const colVal = (tableWidth - colSocio - colPct) / 6;
         return {
           0: { cellWidth: colSocio, halign: "left" },
           1: { cellWidth: colPct, halign: "center" },
           2: { cellWidth: colVal, halign: "right" },
           3: { cellWidth: colVal, halign: "right" },
           4: { cellWidth: colVal, halign: "right" },
-          5: { cellWidth: colVal, halign: "right" },
-          6: { cellWidth: colVal, halign: "right" },
+          5: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
+          6: { cellWidth: colVal, halign: "right", textColor: [0, 100, 120] },
+          7: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
         };
       })(),
       didParseCell: (data) => {
@@ -815,7 +864,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = (doc as any).lastAutoTable.finalY + 3;
+    if (settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0) {
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(80);
+      const note2 = "Operacional = caixa real liquidavel agora (Quota + Pagas - Extras). Saldo c/ Caucoes = inclui caucoes pendentes, so liquidavel apos retorno.";
+      const lines2 = doc.splitTextToSize(note2, tableWidth);
+      doc.text(lines2, margin, y);
+      y += lines2.length * 3 + 3;
+      doc.setTextColor(0);
+    } else {
+      y += 3;
+    }
 
     // ===== 4. DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
@@ -837,15 +898,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
           y += 3;
 
-          // Resumo numa única linha — 5 colunas
+          // Resumo numa única linha — 6 colunas (com Acerto Operacional separado)
           autoTable(doc, {
             startY: y,
-            head: [["Quota", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo"]],
+            head: [["Quota", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
             body: [[
               formatCurrency(s.partnerShare),
               formatCurrency(s.totalPaidByPartner),
-              formatCurrency(s.transitoryCredit),
               `-${formatCurrency(s.totalPartnerExtras)}`,
+              formatCurrency(s.operationalSettlement),
+              formatCurrency(s.transitoryCredit),
               formatCurrency(s.settlement),
             ]],
             margin: { left: margin, right: margin },
@@ -853,8 +915,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             styles: { fontSize: 8, cellPadding: 1.8, halign: "right" },
             headStyles: { fillColor: [60, 60, 60], halign: "right" },
             columnStyles: (() => {
-              const w = tableWidth / 5;
-              return { 0: { cellWidth: w }, 1: { cellWidth: w }, 2: { cellWidth: w }, 3: { cellWidth: w }, 4: { cellWidth: w, fontStyle: "bold" } };
+              const w = tableWidth / 6;
+              return {
+                0: { cellWidth: w },
+                1: { cellWidth: w },
+                2: { cellWidth: w },
+                3: { cellWidth: w, fontStyle: "bold" },
+                4: { cellWidth: w, textColor: [0, 100, 120] },
+                5: { cellWidth: w, fontStyle: "bold" },
+              };
             })(),
           });
           y = (doc as any).lastAutoTable.finalY + 1.5;
@@ -911,13 +980,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          const direction = s.settlement > 0
-            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
-            : s.settlement < 0
-              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
-              : "-> Sem saldo pendente";
-          doc.text(direction, margin, y);
-          y += 5;
+          // Direcção do acerto OPERACIONAL (caixa real liquidável agora — sem cauções)
+          const opDirection = s.operationalSettlement > 0
+            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.operationalSettlement)} ao sócio (acerto operacional, liquidável agora)`
+            : s.operationalSettlement < 0
+              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO (acerto operacional, liquidável agora)`
+              : "-> Sem saldo operacional pendente";
+          doc.text(opDirection, margin, y);
+          y += 4;
+          // Cauções pendentes — só liquidáveis após retorno
+          if (s.transitoryCredit > 0) {
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(0, 100, 120);
+            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes pagas pelo socio — a creditar quando devolvidas (saldo total c/ caucoes: ${formatCurrency(s.settlement)})`;
+            doc.text(cauNote, margin, y);
+            doc.setTextColor(0);
+            y += 4;
+          }
+          y += 2;
         }
       }
     }
@@ -1303,7 +1384,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       </div>
 
       {/* Global summary — Receita s/IVA, Despesa c/IVA (premissa do relatório de fecho) */}
-      <div className="glass rounded-xl p-4">
+      <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita (s/IVA)</p>
@@ -1320,6 +1401,38 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </p>
           </div>
         </div>
+        {/* Exposição de caixa — cauções pendentes (não compõem resultado, mas afectam a liquidez) */}
+        {settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0 && (
+          <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
+            <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mb-2">
+              🛡️ Cauções pendentes (fora do resultado)
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Pagas pela Mundo Propício</p>
+                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pagas por sócios externos</p>
+                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total caixa retido</p>
+                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0))}
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+              Estes valores <strong>não são receita do evento</strong> — são cauções/transitórias ainda retidas (ex: no venue) que voltam ao caixa quando devolvidas.
+              No acerto entre sócios, são creditados a quem desembolsou, mas só podem ser efectivamente liquidados após o retorno.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* City breakdown for tours */}
@@ -1369,7 +1482,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
             <div className="flex items-center gap-2">
-              {s.settlement > 0 ? (
+              {s.transitoryCredit > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <Badge className={`text-xs ${s.operationalSettlement >= 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
+                    {s.operationalSettlement >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                    Operacional {formatCurrency(Math.abs(s.operationalSettlement))}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
+                    + Caução {formatCurrency(s.transitoryCredit)}
+                  </Badge>
+                </div>
+              ) : s.settlement > 0 ? (
                 <Badge className="bg-success/15 text-success text-xs">
                   <TrendingUp className="h-3 w-3 mr-1" /> {s.isHouse ? "Resultado" : "Empresa paga"} {formatCurrency(s.settlement)}
                 </Badge>
@@ -1384,7 +1507,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-5 text-sm">
+            <div className="grid gap-3 sm:grid-cols-6 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
@@ -1394,18 +1517,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <p className="font-mono font-bold text-success">{formatCurrency(s.totalPaidByPartner)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas pelo sócio ainda não devolvidas">Cauções pendentes (+)</span>
-                <p className="font-mono font-bold text-success">{formatCurrency(s.transitoryCredit)}</p>
-              </div>
-              <div>
                 <span className="text-xs text-muted-foreground">Extras do sócio (−)</span>
                 <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalPartnerExtras)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Saldo final</span>
+                <span className="text-xs text-muted-foreground" title="Caixa real liquidável agora — sem cauções">Acerto operacional</span>
+                <p className={`font-mono font-bold text-lg ${s.operationalSettlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.operationalSettlement)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas ainda não devolvidas">Cauções pendentes (+)</span>
+                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.transitoryCredit)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Saldo total contando cauções (só liquidável após retorno)">Saldo c/ cauções</span>
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
+            {s.transitoryCredit > 0 && (
+              <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
+                ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> Os {formatCurrency(s.transitoryCredit)} de cauções
+                {s.isHouse ? " da Mundo Propício" : " do sócio"} só entram no acerto após retorno (ex: devolução do venue).
+              </p>
+            )}
 
             {s.paidExpenses.length > 0 && (
               <div>
