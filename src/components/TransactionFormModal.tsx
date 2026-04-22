@@ -893,7 +893,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
       let createdTxId: string | null = null;
-      if (isSplit && splitEntries.length >= 2) {
+      // Cauções/Transitórias NUNCA são rateadas entre sub-eventos: ficam sempre
+      // como lançamento único no evento Master. (Não compõem resultado, logo o
+      // rateio por cidade não tem propósito contabilístico.)
+      // Se o utilizador estiver no modo "split" (auto ou manual) e marcar caução,
+      // forçamos a transação a ser gravada apenas no Master.
+      if (isTransitory && isSplit && splitMasterEventId) {
+        data = { ...data, event_id: splitMasterEventId };
+      }
+      if (isSplit && splitEntries.length >= 2 && !isTransitory) {
         // --- SPLIT TRANSACTION ---
         const totalAmount = parseFloat(data.amount);
         const isAbsoluteMode = splitInputMode === "absolute";
@@ -1396,8 +1404,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
-    // Split validation
-    if (isSplit) {
+    // Split validation — bypassed para Caução/Transitória, que sempre vai
+    // como lançamento único no Master, ignorando o rateio.
+    if (isSplit && !isTransitory) {
       if (splitCategoryBlockReason) {
         toast({ title: "Categoria bloqueada para rateio", description: splitCategoryBlockReason, variant: "destructive" });
         return;
@@ -1419,7 +1428,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
         return;
       }
-    } else {
+    } else if (!isSplit) {
       if (rootFlags.event_required && !form.event_id && !splitMasterEventId) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
@@ -1677,6 +1686,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {/* Split config panel — shown when split is active */}
           {isSplit && (
             <>
+              {/* Aviso: caução/transitória nunca rateia — vai para o Master */}
+              {isTransitory && splitMasterEventId && (
+                <div className="rounded-lg border border-cyan-500/40 bg-cyan-500/5 p-3 text-xs text-cyan-700 dark:text-cyan-300 leading-relaxed">
+                  🛡️ <strong>Caução / Transitória sem rateio:</strong> esta despesa será gravada como
+                  lançamento único no evento Master ({events.find((e: any) => e.id === splitMasterEventId)?.name ?? "—"}),
+                  sem dividir entre as cidades. Cauções não compõem o resultado de cada sub-evento e por isso
+                  não fazem rateio — entram apenas no fecho final.
+                </div>
+              )}
               {/* When auto-configured from tour, show collapsed summary */}
               {splitAutoConfigured && !splitExpanded ? (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
@@ -2837,7 +2855,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           </div>
 
           {!showProrationConfirm && !showDuplicateConfirm && (
-            <button type="submit" disabled={createMutation.isPending || !!(isSplit && splitCategoryBlockReason)}
+            <button type="submit" disabled={createMutation.isPending || !!(isSplit && !isTransitory && splitCategoryBlockReason)}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
               {createMutation.isPending ? "A guardar…" : "Criar Transação"}
             </button>
