@@ -93,8 +93,10 @@ export interface SettlementReportRow {
   paidExpenses: number;
   extras: number;
   transitoryCredit: number;
+  transitoryOffset: number;
   resultRepasseNow: number;
   resultPendingByCash: number;
+  equityContribution: number;
   operationalSettlement: number;
   settlement: number;
   isHouse: boolean;
@@ -266,31 +268,38 @@ export function buildPartnerSettlementReportData(input: {
         paidExpenses: paidExpensesTotal,
         extras: extrasTotal,
         transitoryCredit,
+        transitoryOffset: 0,
         resultRepasseNow: partnerShare,
         resultPendingByCash: 0,
+        equityContribution: 0,
         operationalSettlement: 0,
         settlement: 0,
         isHouse,
       } satisfies SettlementReportRow;
     });
 
-    const totalPositiveExternalShares = rows
-      .filter((row) => !row.isHouse && row.partnerShare > 0)
-      .reduce((sum, row) => sum + row.partnerShare, 0);
-    const blockedShareRatio = totalPositiveExternalShares > 0
-      ? Math.min(1, houseTransitoryCredit / totalPositiveExternalShares)
-      : 0;
+    const totalTransitoryCredit = rows.reduce((sum, row) => sum + row.transitoryCredit, 0);
+    const resultPositivePool = Math.max(resultBase, 0);
+    const resultLossPool = Math.max(-resultBase, 0);
+    const pendingPool = Math.min(totalTransitoryCredit, resultPositivePool);
+    const offsetPool = Math.min(totalTransitoryCredit, resultLossPool);
+    const contributionPool = Math.max(0, resultLossPool - totalTransitoryCredit);
 
     return rows.map((row) => {
-      const resultPendingByCash = row.isHouse || row.partnerShare <= 0
-        ? 0
-        : row.partnerShare * blockedShareRatio;
-      const resultRepasseNow = row.partnerShare - resultPendingByCash;
+      const equityRatio = row.effectivePercentage / 100;
+      const resultPendingByCash = resultBase > 0 ? pendingPool * equityRatio : 0;
+      const transitoryOffset = resultBase < 0 ? offsetPool * equityRatio : 0;
+      const equityContribution = resultBase < 0 ? contributionPool * equityRatio : 0;
+      const resultRepasseNow = resultBase >= 0
+        ? row.partnerShare - resultPendingByCash
+        : -equityContribution;
       const operationalSettlement = resultRepasseNow + row.paidExpenses - row.extras;
       return {
         ...row,
+        transitoryOffset,
         resultPendingByCash,
         resultRepasseNow,
+        equityContribution,
         operationalSettlement,
         settlement: operationalSettlement + resultPendingByCash + row.transitoryCredit,
       };
