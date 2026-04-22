@@ -1296,6 +1296,41 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
             )}
 
+            {s.transitoryItems.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                  🛡️ Cauções / transitórias pagas pelo sócio
+                  <span className="text-muted-foreground/70"> — entram no acerto até serem devolvidas (não impactam resultado)</span>
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {s.transitoryItems.map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
+                        <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
+                        <TableCell className={`text-right font-mono ${e.sign > 0 ? "text-success" : "text-destructive"}`}>
+                          {e.sign > 0 ? "+" : "−"}{formatCurrency(e.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="border-t-2 border-border bg-muted/30">
+                      <TableCell colSpan={3} className="font-bold text-xs">Crédito líquido (após devoluções)</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-success">{formatCurrency(s.transitoryCredit)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
             {s.partnerExtras.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">🧳 Extras do sócio (pagas pela empresa, abatidas no fecho):</p>
