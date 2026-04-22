@@ -1,8 +1,15 @@
+import { useEffect } from "react";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import PaymentListsTab from "@/components/PaymentListsTab";
+import { refreshBadgeFromDB } from "@/lib/app-badge";
 
 export default function ReportPaymentListsPage() {
+  // User is on the listing page → reconcile badge with current DB state.
+  useEffect(() => {
+    void refreshBadgeFromDB();
+  }, []);
+
   return (
     <div className="space-y-4">
       <div>
