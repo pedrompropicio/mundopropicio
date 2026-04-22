@@ -762,7 +762,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(80);
-      const note = "Estes valores nao sao receita do evento — sao caucoes/transitorias retidas (ex: no venue) que voltam ao caixa quando devolvidas. No acerto entre socios sao creditados a quem desembolsou, mas so sao efectivamente liquidaveis apos o retorno.";
+      const note = "Estes valores nao sao receita do evento — sao caucoes/transitorias temporariamente retidas por entidade terceira (ex: recinto/venue) e regressam ao caixa de quem desembolsou quando sao devolvidas. No acerto entre socios, entram como credito de quem pagou, mas so sao efectivamente liquidaveis apos esse retorno.";
       const lines = doc.splitTextToSize(note, tableWidth);
       doc.text(lines, margin, y);
       y += lines.length * 3 + 3;
@@ -1022,7 +1022,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(0, 100, 120);
-            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes pagas pelo socio — a creditar quando devolvidas (saldo total c/ caucoes: ${formatCurrency(s.settlement)})`;
+            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes pagas pelo socio — a creditar quando devolvidas pela entidade que reteve a caucao (saldo total c/ caucoes: ${formatCurrency(s.settlement)})`;
             doc.text(cauNote, margin, y);
             doc.setTextColor(0);
             y += 4;
@@ -1046,7 +1046,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
         doc.setTextColor(80);
-        const houseNote = "Caucoes/transitorias pagas com o caixa da empresa, ainda nao devolvidas. Nao compoem o resultado do evento — voltam ao caixa quando recuperadas (ex: devolucao do venue).";
+        const houseNote = "Caucoes/transitorias pagas com o caixa da empresa, ainda nao devolvidas. Nao compoem o resultado do evento — regressam ao caixa da Mundo Propicio quando a entidade terceira que as reteve fizer a devolucao (ex: recinto/venue).";
         const hLines = doc.splitTextToSize(houseNote, tableWidth);
         doc.text(hLines, margin, y);
         y += hLines.length * 3 + 2;
