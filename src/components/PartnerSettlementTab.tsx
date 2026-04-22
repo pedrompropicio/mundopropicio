@@ -1134,7 +1134,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
-      doc.text(`6. Despesas por Categoria ${lvlLabel}`, margin, y);
+      doc.text(`7. Despesas por Categoria ${lvlLabel}`, margin, y);
       y += 5;
 
       // Larguras explícitas (uma única coluna de valor c/IVA)
