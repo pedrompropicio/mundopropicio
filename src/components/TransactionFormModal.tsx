@@ -139,6 +139,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
+  // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
+  // - "__mp__" → transitória órfã (Mundo Propício recebe crédito automático no fecho)
+  // - partner_id → ativa isPaidByPartner com esse sócio
+  const [cautionShortcut, setCautionShortcut] = useState(false);
+  const [cautionPayer, setCautionPayer] = useState<string>(""); // "__mp__" | partner_id | ""
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
   const [newReimbursementEmployeeName, setNewReimbursementEmployeeName] = useState("");
   const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
