@@ -19,13 +19,14 @@ export interface MasterAdoptedExpenseTransactionLike {
   [key: string]: any;
 }
 
-export interface MasterAdoptedExpenseSlice<T extends MasterAdoptedExpenseTransactionLike = MasterAdoptedExpenseTransactionLike> extends T {
-  _adopted_via_master?: boolean;
-  _master_event_id?: string;
-  _master_transaction_id?: string;
-  _master_forecast_id?: string;
-  _split_share?: number;
-}
+export type MasterAdoptedExpenseSlice<T extends MasterAdoptedExpenseTransactionLike = MasterAdoptedExpenseTransactionLike> =
+  T & {
+    _adopted_via_master?: boolean;
+    _master_event_id?: string;
+    _master_transaction_id?: string;
+    _master_forecast_id?: string;
+    _split_share?: number;
+  };
 
 /**
  * Expande virtualmente despesas lançadas no Master quando existe adoção no BP
