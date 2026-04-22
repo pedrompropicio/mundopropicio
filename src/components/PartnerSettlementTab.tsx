@@ -50,6 +50,9 @@ interface PartnerSettlement {
   totalPaidByPartner: number;
   partnerExtras: { description: string; amount: number; date: string; category: string }[];
   totalPartnerExtras: number;
+  /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
+  transitoryCredit: number;
+  transitoryItems: { description: string; amount: number; date: string; category: string; sign: 1 | -1 }[];
   settlement: number; // positive = company pays partner, negative = partner pays company
 }
 
@@ -180,7 +183,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, account_categories(name))")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, account_categories(name))")
         .in("event_id", allEventIds)
         .order("created_at");
       if (error) throw error;
@@ -478,6 +481,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     );
   }
 
+  // ---- Crédito transitório por sócio (cauções pagas e ainda não devolvidas) ----
+  // Regra: para cada sócio, soma despesas transitórias pagas por ele e subtrai receitas
+  // transitórias recebidas por ele (ambas vindas de partner_paid_expenses). Devoluções
+  // transitórias que voltaram à conta da empresa (transitória income do evento NÃO vinculada
+  // a sócio) são prorateadas pelo crédito bruto positivo de cada sócio. Cap em 0.
+  // Nota: independente do calcBasis — caução é sempre amount líquido (não tem IVA real).
+  const transitoryTxsAll = transactions.filter((t: any) => t.is_transitory && (t.status === "approved" || t.status === "paid"));
+  const partnerLinkedTxIds = new Set((paidExpenses as any[]).map((pe) => pe.transaction_id));
+  const companyReturnsTransitory = transitoryTxsAll
+    .filter((t: any) => t.type === "income" && !partnerLinkedTxIds.has(t.id))
+    .reduce((s: number, t: any) => s + Number(t.amount), 0);
+
   // Build settlements
   const settlements: PartnerSettlement[] = allPartners.map((p: any) => {
     const isHouse = !!p.isHouse;
@@ -490,10 +505,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const partnerShare = result * (effectivePercentage / 100);
 
     // Mundo Propício (empresa gestora) não tem "pagas pelo sócio" nem "extras" — é a empresa que paga tudo.
+    // Filtra fora as transitórias — essas vão para a secção de crédito transitório (abaixo).
     const partnerExpenses = isHouse
       ? []
       : paidExpenses
-          .filter((pe: any) => pe.partner_id === p.id)
+          .filter((pe: any) => pe.partner_id === p.id && !pe.transactions?.is_transitory)
           .map((pe: any) => ({
             description: pe.transactions?.description || "—",
             amount: usesGrossExpenseAmounts(calcBasis)
@@ -518,7 +534,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
-    const settlement = partnerShare + totalPaidByPartner - totalPartnerExtras;
+    // Items transitórios vinculados a este sócio (despesas e devoluções diretas)
+    const transitoryItems = isHouse
+      ? []
+      : (paidExpenses as any[])
+          .filter((pe) => pe.partner_id === p.id && pe.transactions?.is_transitory)
+          .map((pe) => {
+            const sign: 1 | -1 = pe.transactions?.type === "expense" ? 1 : -1;
+            return {
+              description: pe.transactions?.description || "—",
+              amount: Number(pe.transactions?.amount || 0),
+              date: pe.transactions?.date || "",
+              category: pe.transactions?.account_categories?.name || "—",
+              sign,
+            };
+          });
 
     return {
       partnerId: p.id,
@@ -537,8 +567,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPaidByPartner,
       partnerExtras: extrasForPartner,
       totalPartnerExtras,
-      settlement,
+      transitoryCredit: 0, // calculado abaixo (precisa do total cross-partner)
+      transitoryItems,
+      settlement: 0,        // recalculado abaixo
     };
+  });
+
+  // Crédito bruto por sócio (despesa transitória paga – devolução direta para o sócio)
+  const grossTransitoryBySettlement = settlements.map((s) =>
+    s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0)
+  );
+  const totalPositiveGross = grossTransitoryBySettlement.reduce((s, v) => s + Math.max(0, v), 0);
+
+  settlements.forEach((s, i) => {
+    const gross = grossTransitoryBySettlement[i];
+    let credit = 0;
+    if (gross > 0) {
+      // Abate proporcional das devoluções transitórias que foram para a conta da empresa.
+      const share = totalPositiveGross > 0 ? (gross / totalPositiveGross) * companyReturnsTransitory : 0;
+      credit = Math.max(0, gross - share);
+    }
+    s.transitoryCredit = credit;
+    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + credit;
   });
 
   function exportPdf() {
@@ -1193,7 +1243,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-5 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
@@ -1201,6 +1251,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <div>
                 <span className="text-xs text-muted-foreground">Pagas pelo sócio (+)</span>
                 <p className="font-mono font-bold text-success">{formatCurrency(s.totalPaidByPartner)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas pelo sócio ainda não devolvidas">Cauções pendentes (+)</span>
+                <p className="font-mono font-bold text-success">{formatCurrency(s.transitoryCredit)}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Extras do sócio (−)</span>
@@ -1236,6 +1290,41 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     <TableRow className="border-t-2 border-border bg-muted/30">
                       <TableCell colSpan={3} className="font-bold text-xs">Total</TableCell>
                       <TableCell className="text-right font-mono font-bold">{formatCurrency(s.totalPaidByPartner)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {s.transitoryItems.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                  🛡️ Cauções / transitórias pagas pelo sócio
+                  <span className="text-muted-foreground/70"> — entram no acerto até serem devolvidas (não impactam resultado)</span>
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {s.transitoryItems.map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
+                        <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
+                        <TableCell className={`text-right font-mono ${e.sign > 0 ? "text-success" : "text-destructive"}`}>
+                          {e.sign > 0 ? "+" : "−"}{formatCurrency(e.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="border-t-2 border-border bg-muted/30">
+                      <TableCell colSpan={3} className="font-bold text-xs">Crédito líquido (após devoluções)</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-success">{formatCurrency(s.transitoryCredit)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
