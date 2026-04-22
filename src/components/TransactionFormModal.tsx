@@ -2516,7 +2516,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 )}
 
                 {/* Limpar marcações: repõe todos os toggles do bloco ao estado inicial */}
-                {(form.is_reimbursement || isPaidByPartner || isPartnerExtra || isTransitory || isExcludeFromResult) && (
+                {(form.is_reimbursement || isPaidByPartner || isPartnerExtra || isTransitory || isExcludeFromResult || cautionShortcut) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -2534,15 +2534,66 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setPartnerExtraPartialAmount("");
                       setIsTransitory(false);
                       setIsExcludeFromResult(false);
+                      setCautionShortcut(false);
+                      setCautionPayer("");
                       setShowNewReimbursementNote(false);
                       setNewReimbursementEmployeeName("");
                     }}
                     className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                    title="Remove todas as marcações especiais (Reembolso, Pago por Sócio, Extra do Sócio, Transitória, Fora do Resultado)"
+                    title="Remove todas as marcações especiais (Reembolso, Pago por Sócio, Extra do Sócio, Caução, Transitória, Fora do Resultado)"
                   >
                     ✕ Limpar marcações
                   </button>
                 )}
+              </div>
+
+              {/* Selector "Pago por" do shortcut Caução / Transitória */}
+              {cautionShortcut && (
+                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
+                  <label className="block text-xs font-medium text-muted-foreground">Pago por *</label>
+                  <SearchableSelect
+                    options={[
+                      { value: "__mp__", label: "Mundo Propício (caixa da empresa)" },
+                      ...((form.event_id || (isSplit && splitMasterEventId))
+                        ? eventPartners.map((p: any) => ({
+                            value: p.id,
+                            label: `${p.suppliers?.name} (${p.percentage}%)`,
+                          }))
+                        : []),
+                    ]}
+                    value={cautionPayer}
+                    onValueChange={(v) => {
+                      setCautionPayer(v);
+                      if (v === "__mp__" || !v) {
+                        setIsPaidByPartner(false);
+                        setPaidByPartnerId("");
+                        setPartnerPaidDate("");
+                      } else {
+                        setIsPaidByPartner(true);
+                        setPaidByPartnerId(v);
+                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
+                        setForm((prev) => ({ ...prev, account_id: "" }));
+                      }
+                    }}
+                    placeholder="Selecionar pagador…"
+                    searchPlaceholder="Pesquisar…"
+                  />
+                  {cautionPayer && cautionPayer !== "__mp__" && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
+                      <DatePicker
+                        value={partnerPaidDate}
+                        onChange={(v) => setPartnerPaidDate(v)}
+                      />
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    {cautionPayer === "__mp__" || !cautionPayer
+                      ? "Caução paga pela empresa — credita automaticamente Mundo Propício no acerto societário."
+                      : "Caução paga pelo sócio — entra no acerto societário a seu favor até ser devolvida."}
+                  </p>
+                </div>
+              )}
               </div>
               {form.is_reimbursement && (
                 <div className="space-y-2">
