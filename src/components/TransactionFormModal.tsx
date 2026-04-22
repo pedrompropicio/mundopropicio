@@ -893,7 +893,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
       let createdTxId: string | null = null;
-      if (isSplit && splitEntries.length >= 2) {
+      // Cauções/Transitórias NUNCA são rateadas entre sub-eventos: ficam sempre
+      // como lançamento único no evento Master. (Não compõem resultado, logo o
+      // rateio por cidade não tem propósito contabilístico.)
+      // Se o utilizador estiver no modo "split" (auto ou manual) e marcar caução,
+      // forçamos a transação a ser gravada apenas no Master.
+      if (isTransitory && isSplit && splitMasterEventId) {
+        data = { ...data, event_id: splitMasterEventId };
+      }
+      if (isSplit && splitEntries.length >= 2 && !isTransitory) {
         // --- SPLIT TRANSACTION ---
         const totalAmount = parseFloat(data.amount);
         const isAbsoluteMode = splitInputMode === "absolute";
