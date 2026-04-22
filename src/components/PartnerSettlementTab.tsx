@@ -111,6 +111,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Modo de agrupamento da secção 3 (Bilheteira) — default: subevento + data + sessão
   type TicketGroupMode = "sub_date_session" | "session" | "day" | "zone" | "lot";
   const [ticketGroupMode, setTicketGroupMode] = useState<TicketGroupMode>("sub_date_session");
+  // Nível do plano de contas a apresentar nas despesas por categoria
+  const [expenseCategoryLevel, setExpenseCategoryLevel] = useState<"l2" | "l3">("l2");
 
   // Event info (master + cities)
   const { data: event } = useQuery({
