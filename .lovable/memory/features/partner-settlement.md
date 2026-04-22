@@ -74,8 +74,9 @@ Para evitar leitura enganosa do tipo "MP deve pagar X ao sócio" quando parte de
 - PDF tabela "3. Distribuição": colunas Operacional + Cauções + Saldo c/ Cauções; PDF "4. Detalhes": direcção operacional ("liquidável agora") + linha de nota se há cauções
 
 ### Queries / UI
-- `paidExpenses` query traz `is_transitory, type, status` da tx vinculada
+- `paidExpenses` query traz `is_transitory, type, status, category_id, account_categories(id,name,code,parent_id)` da tx vinculada
 - `totalPaidByPartner` (afeta resultado) **exclui** transitórias; `transitoryItems` lista-as à parte
+- **Categoria no detalhe das cauções**: helper `buildCategoryPath(category_id)` resolve a cadeia de pais via `allCategories` e devolve "L1 > L2 > L3" (com códigos), exibido nas tabelas PDF "Cauções/transitórias pagas pelo sócio" e "4b. Cauções pagas pela Mundo Propício" — dá contexto contabilístico completo, não apenas o nome da folha
 - Fecho do Evento (DRE) continua intocado — transitórias só aparecem aqui no acerto
 
 ### Exemplos
