@@ -550,28 +550,36 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       ? []
       : paidExpenses
           .filter((pe: any) => pe.partner_id === p.id && !pe.transactions?.is_transitory)
-          .map((pe: any) => ({
-            description: pe.transactions?.description || "—",
-            amount: usesGrossExpenseAmounts(calcBasis)
-              ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
-              : Number(pe.transactions?.amount || 0),
-            date: pe.transactions?.date || "",
-            category: pe.transactions?.account_categories?.name || "—",
-          }));
+          .map((pe: any) => {
+            const txEvId = pe.transactions?.event_id || pe.event_id;
+            return {
+              description: pe.transactions?.description || "—",
+              amount: usesGrossExpenseAmounts(calcBasis)
+                ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+                : Number(pe.transactions?.amount || 0),
+              date: pe.transactions?.date || "",
+              category: pe.transactions?.account_categories?.name || "—",
+              cityLabel: cityLabelByEvent[txEvId] || "—",
+            };
+          });
     const totalPaidByPartner = partnerExpenses.reduce((s, e) => s + e.amount, 0);
 
     const extrasForPartner = isHouse
       ? []
       : partnerAdvances
           .filter((pe: any) => pe.partner_id === p.id)
-          .map((pe: any) => ({
-            description: pe.transactions?.description || "—",
-            amount: usesGrossExpenseAmounts(calcBasis)
-              ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
-              : Number(pe.transactions?.amount || 0),
-            date: pe.transactions?.date || "",
-            category: pe.transactions?.account_categories?.name || "—",
-          }));
+          .map((pe: any) => {
+            const txEvId = pe.transactions?.event_id || pe.event_id;
+            return {
+              description: pe.transactions?.description || "—",
+              amount: usesGrossExpenseAmounts(calcBasis)
+                ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+                : Number(pe.transactions?.amount || 0),
+              date: pe.transactions?.date || "",
+              category: pe.transactions?.account_categories?.name || "—",
+              cityLabel: cityLabelByEvent[txEvId] || "—",
+            };
+          });
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
     // Items transitórios:
