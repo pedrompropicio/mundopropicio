@@ -1124,142 +1124,118 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 6. DISTRIBUIÇÃO AOS SÓCIOS =====
-    ensureSpace(50);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("6. Distribuição aos Sócios", margin, y);
-    y += 5;
-    autoTable(doc, {
-      startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Saldo Final"]],
-      body: settlements.map((s) => [
-        s.partnerName,
-        `${s.effectivePercentage}%`,
-        formatCurrency(s.partnerShare),
-        formatCurrency(s.totalPaidByPartner),
-        `-${formatCurrency(s.totalPartnerExtras)}`,
-        formatCurrency(s.settlement),
-      ]),
-      foot: [["TOTAL", "100%",
-        formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
-        formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
-      ]],
-      margin: { left: margin, right: margin },
-      tableWidth,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [41, 41, 41] },
-      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: (() => {
-        const colPct = 18;
-        const colSocio = 40;
-        const colVal = (tableWidth - colSocio - colPct) / 4;
-        return {
-          0: { cellWidth: colSocio, halign: "left" },
-          1: { cellWidth: colPct, halign: "center" },
-          2: { cellWidth: colVal, halign: "right" },
-          3: { cellWidth: colVal, halign: "right" },
-          4: { cellWidth: colVal, halign: "right" },
-          5: { cellWidth: colVal, halign: "right" },
-        };
-      })(),
-      didParseCell: (data) => {
-        // Alinha o cabeçalho às mesmas posições das células do corpo
-        if (data.section === "head" || data.section === "foot") {
-          if (data.column.index === 0) data.cell.styles.halign = "left";
-          else if (data.column.index === 1) data.cell.styles.halign = "center";
-          else data.cell.styles.halign = "right";
-        }
-      },
-    });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
     // ===== 7. DETALHES POR SÓCIO =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
-    for (const s of settlements.filter((x: any) => !x.isHouse)) {
-      ensureSpace(30);
+    const externalSettlements = settlements.filter((x: any) => !x.isHouse);
+    if (externalSettlements.length > 0) {
+      // Calcula altura aproximada de cada bloco para decidir se deve quebrar página antes.
+      const estimateBlockHeight = (s: any) => {
+        const base = 30; // título + resumo
+        const paid = s.paidExpenses.length > 0 ? 12 + s.paidExpenses.length * 5 : 0;
+        const extras = s.partnerExtras.length > 0 ? 12 + s.partnerExtras.length * 5 : 0;
+        return base + paid + extras + 10;
+      };
 
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
-      doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
-      y += 5;
+      let firstSocio = true;
+      for (const s of externalSettlements) {
+        // O título "7. Detalhes por Sócio" só aparece uma vez, no topo do primeiro
+        if (firstSocio) {
+          ensureSpace(20);
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text("7. Detalhes por Sócio", margin, y);
+          y += 6;
+          firstSocio = false;
+        } else {
+          // Se o próximo sócio não cabe, força quebra
+          ensureSpace(estimateBlockHeight(s));
+        }
 
-      const summaryRows = [
-        ["Participação no resultado", formatCurrency(s.partnerShare)],
-        ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
-        ["Extras do sócio (-)", `-${formatCurrency(s.totalPartnerExtras)}`],
-        ["Saldo do encontro de contas", formatCurrency(s.settlement)],
-      ];
-      autoTable(doc, {
-        startY: y,
-        body: summaryRows,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right" } },
-        theme: "plain",
-      });
-      y = (doc as any).lastAutoTable.finalY + 4;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
+        doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
+        y += 5;
 
-      if (s.paidExpenses.length > 0) {
-        ensureSpace(20);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.text("Despesas pagas pelo sócio:", margin, y);
-        y += 4;
+        const summaryRows = [
+          ["Participação no resultado", formatCurrency(s.partnerShare)],
+          ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
+          ["Cauções/transitórias (+)", formatCurrency(s.transitoryCredit)],
+          ["Extras do sócio (-)", `-${formatCurrency(s.totalPartnerExtras)}`],
+          ["Saldo do encontro de contas", formatCurrency(s.settlement)],
+        ];
         autoTable(doc, {
           startY: y,
-          head: [["Descrição", "Categoria", "Data", "Valor"]],
-          body: s.paidExpenses.map(e => [
-            e.description, e.category,
-            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            formatCurrency(e.amount),
-          ]),
-          foot: [["Total", "", "", formatCurrency(s.totalPaidByPartner)]],
-          margin: { left: margin + 4, right: margin },
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [80, 80, 80] },
-          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-          columnStyles: { 3: { halign: "right" } },
+          body: summaryRows,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9 },
+          columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right" } },
+          theme: "plain",
         });
         y = (doc as any).lastAutoTable.finalY + 4;
-      }
 
-      if (s.partnerExtras.length > 0) {
-        ensureSpace(20);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
-        y += 4;
-        autoTable(doc, {
-          startY: y,
-          head: [["Descrição", "Categoria", "Data", "Valor"]],
-          body: s.partnerExtras.map(e => [
-            e.description, e.category,
-            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            `-${formatCurrency(e.amount)}`,
-          ]),
-          foot: [["Total a abater", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
-          margin: { left: margin + 4, right: margin },
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [120, 60, 60] },
-          footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
-          columnStyles: { 3: { halign: "right" } },
-        });
-        y = (doc as any).lastAutoTable.finalY + 4;
-      }
+        if (s.paidExpenses.length > 0) {
+          ensureSpace(20);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "italic");
+          doc.text("Despesas pagas pelo sócio:", margin, y);
+          y += 4;
+          autoTable(doc, {
+            startY: y,
+            head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+            body: s.paidExpenses.map(e => [
+              e.description,
+              e.cityLabel,
+              e.category,
+              e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+              formatCurrency(e.amount),
+            ]),
+            foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
+            margin: { left: margin + 4, right: margin },
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [80, 80, 80] },
+            footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+            columnStyles: { 4: { halign: "right" } },
+          });
+          y = (doc as any).lastAutoTable.finalY + 4;
+        }
 
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      const direction = s.settlement > 0
-        ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
-        : s.settlement < 0
-          ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
-          : "-> Sem saldo pendente";
-      doc.text(direction, margin, y);
-      y += 8;
+        if (s.partnerExtras.length > 0) {
+          ensureSpace(20);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "italic");
+          doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
+          y += 4;
+          autoTable(doc, {
+            startY: y,
+            head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+            body: s.partnerExtras.map(e => [
+              e.description,
+              e.cityLabel,
+              e.category,
+              e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+              `-${formatCurrency(e.amount)}`,
+            ]),
+            foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
+            margin: { left: margin + 4, right: margin },
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [120, 60, 60] },
+            footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
+            columnStyles: { 4: { halign: "right" } },
+          });
+          y = (doc as any).lastAutoTable.finalY + 4;
+        }
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        const direction = s.settlement > 0
+          ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
+          : s.settlement < 0
+            ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
+            : "-> Sem saldo pendente";
+        doc.text(direction, margin, y);
+        y += 8;
+      }
     }
 
     // Footer institucional
