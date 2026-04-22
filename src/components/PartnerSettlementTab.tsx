@@ -1258,7 +1258,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <ArrowRightLeft className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={ticketGroupMode} onValueChange={(v) => setTicketGroupMode(v as TicketGroupMode)}>
             <SelectTrigger className="h-8 w-[260px] text-xs">
               <SelectValue placeholder="Agrupamento de bilheteira" />
@@ -1269,6 +1269,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="day">Bilheteira: Por Dia</SelectItem>
               <SelectItem value="zone">Bilheteira: Por Zona</SelectItem>
               <SelectItem value="lot">Bilheteira: Por Lote</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={expenseCategoryLevel} onValueChange={(v) => setExpenseCategoryLevel(v as "l2" | "l3")}>
+            <SelectTrigger className="h-8 w-[200px] text-xs">
+              <SelectValue placeholder="Nível das despesas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="l2">Despesas: Nível 2 (grupo)</SelectItem>
+              <SelectItem value="l3">Despesas: Nível 3 (detalhe)</SelectItem>
             </SelectContent>
           </Select>
           <Button size="sm" variant="outline" onClick={exportPdf}>
