@@ -39,6 +39,19 @@ Ao criar `partner_paid_expenses`:
 ## Cauções / transitórias (is_transitory)
 Despesas com `is_transitory = true` (ex: caução de venue) **não compõem o resultado/DRE** mas entram no acerto societário como crédito até serem devolvidas.
 
+### NUNCA são rateadas entre sub-eventos (Master/Splits)
+Cauções/transitórias ficam **sempre como lançamento único no evento Master**. Como não compõem
+resultado por sub-evento, o rateio por cidade não tem propósito contabilístico e geraria filhos
+"fantasma" no acerto. Implementação em `TransactionFormModal.tsx → createMutation`:
+- Se `isTransitory && isSplit && splitMasterEventId` → força `data.event_id = splitMasterEventId`
+  e cai no caminho de transação simples (não cria parent + children).
+- A condição da branch split (`isSplit && splitEntries.length >= 2 && !isTransitory`) e a
+  validação pré-submit (`isSplit && !isTransitory`) garantem o bypass das regras de rateio.
+- UI mostra aviso cyan no painel de split: "🛡️ Caução / Transitória sem rateio: gravada como
+  lançamento único no evento Master (...)".
+- O vínculo `partner_paid_expenses` continua a ser criado normalmente, agora apontando ao Master
+  (via fluxo simples, linha ~1145), tanto para sócio quanto para Mundo Propício (órfã).
+
 ### Atalho "🛡️ Caução / Transitória" no lançamento (TransactionFormModal)
 Botão admin/manager que ativa `is_transitory=true` e abre selector **Pago por**:
 - **Mundo Propício (caixa da empresa)** — opção default. Transitória órfã (sem vínculo a sócio).
