@@ -685,18 +685,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Crédito transitório:
   //  • Mundo Propício: total das órfãs (já calculado, cap em 0)
   //  • Sócios externos: gross vinculado direto (despesas − devoluções), cap em 0
+  const totalPositiveExternalShares = settlements
+    .filter((s) => !s.isHouse && s.partnerShare > 0)
+    .reduce((acc, s) => acc + s.partnerShare, 0);
+  const blockedShareRatio = totalPositiveExternalShares > 0
+    ? Math.min(1, houseTransitoryCredit / totalPositiveExternalShares)
+    : 0;
+
   settlements.forEach((s) => {
     if (s.isHouse) {
       s.transitoryCredit = houseTransitoryCredit;
+      s.resultPendingByCash = 0;
+      s.resultRepasseNow = s.partnerShare;
     } else {
       const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
       s.transitoryCredit = Math.max(0, gross);
+      s.resultPendingByCash = s.partnerShare > 0 ? s.partnerShare * blockedShareRatio : 0;
+      s.resultRepasseNow = s.partnerShare - s.resultPendingByCash;
     }
-    // Acerto operacional: caixa real do evento (sem cauções pendentes).
-    // É o valor que pode efectivamente ser pago/cobrado agora.
-    s.operationalSettlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras;
-    // Saldo final: inclui cauções pendentes — só liquidável quando voltarem.
-    s.settlement = s.operationalSettlement + s.transitoryCredit;
+    // Acerto operacional = parte já líquida do resultado + pagas pelo sócio - extras.
+    s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
+    // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
+    s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
   });
 
   function exportPdf() {
