@@ -895,16 +895,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
           y += 3;
 
-          // Resumo numa única linha — 6 colunas (com Acerto Operacional separado)
+          // Resumo numa única linha — separa liquidez imediata da pendência de caixa
           autoTable(doc, {
             startY: y,
-            head: [["Quota", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
+            head: [["Quota", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional", "Saldo total"]],
             body: [[
               formatCurrency(s.partnerShare),
+              formatCurrency(s.resultRepasseNow),
               formatCurrency(s.totalPaidByPartner),
               `-${formatCurrency(s.totalPartnerExtras)}`,
               formatCurrency(s.operationalSettlement),
-              formatCurrency(s.transitoryCredit),
               formatCurrency(s.settlement),
             ]],
             margin: { left: margin, right: margin },
