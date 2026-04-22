@@ -1140,35 +1140,40 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           ensureSpace(estimateBlockHeight(s));
         }
 
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
         doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
-        y += 5;
+        y += 4;
 
-        const summaryRows = [
-          ["Participação no resultado", formatCurrency(s.partnerShare)],
-          ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
-          ["Cauções/transitórias (+)", formatCurrency(s.transitoryCredit)],
-          ["Extras do sócio (-)", `-${formatCurrency(s.totalPartnerExtras)}`],
-          ["Saldo do encontro de contas", formatCurrency(s.settlement)],
-        ];
+        // Resumo numa única linha — 5 colunas para poupar espaço vertical
         autoTable(doc, {
           startY: y,
-          body: summaryRows,
+          head: [["Quota", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo"]],
+          body: [[
+            formatCurrency(s.partnerShare),
+            formatCurrency(s.totalPaidByPartner),
+            formatCurrency(s.transitoryCredit),
+            `-${formatCurrency(s.totalPartnerExtras)}`,
+            formatCurrency(s.settlement),
+          ]],
           margin: { left: margin, right: margin },
-          styles: { fontSize: 9 },
-          columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right" } },
-          theme: "plain",
+          tableWidth,
+          styles: { fontSize: 8, cellPadding: 1.8, halign: "right" },
+          headStyles: { fillColor: [60, 60, 60], halign: "right" },
+          columnStyles: (() => {
+            const w = tableWidth / 5;
+            return { 0: { cellWidth: w }, 1: { cellWidth: w }, 2: { cellWidth: w }, 3: { cellWidth: w }, 4: { cellWidth: w, fontStyle: "bold" } };
+          })(),
         });
-        y = (doc as any).lastAutoTable.finalY + 4;
+        y = (doc as any).lastAutoTable.finalY + 3;
 
         if (s.paidExpenses.length > 0) {
-          ensureSpace(20);
-          doc.setFontSize(8);
+          ensureSpace(15);
+          doc.setFontSize(7.5);
           doc.setFont("helvetica", "italic");
           doc.text("Despesas pagas pelo sócio:", margin, y);
-          y += 4;
+          y += 3;
           autoTable(doc, {
             startY: y,
             head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
@@ -1181,20 +1186,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ]),
             foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
             margin: { left: margin + 4, right: margin },
-            styles: { fontSize: 8 },
+            styles: { fontSize: 7.5, cellPadding: 1.5 },
             headStyles: { fillColor: [80, 80, 80] },
             footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
             columnStyles: { 4: { halign: "right" } },
           });
-          y = (doc as any).lastAutoTable.finalY + 4;
+          y = (doc as any).lastAutoTable.finalY + 3;
         }
 
         if (s.partnerExtras.length > 0) {
-          ensureSpace(20);
-          doc.setFontSize(8);
+          ensureSpace(15);
+          doc.setFontSize(7.5);
           doc.setFont("helvetica", "italic");
           doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
-          y += 4;
+          y += 3;
           autoTable(doc, {
             startY: y,
             head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
@@ -1207,15 +1212,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ]),
             foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
             margin: { left: margin + 4, right: margin },
-            styles: { fontSize: 8 },
+            styles: { fontSize: 7.5, cellPadding: 1.5 },
             headStyles: { fillColor: [120, 60, 60] },
             footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
             columnStyles: { 4: { halign: "right" } },
           });
-          y = (doc as any).lastAutoTable.finalY + 4;
+          y = (doc as any).lastAutoTable.finalY + 3;
         }
 
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         const direction = s.settlement > 0
           ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
@@ -1223,7 +1228,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
             : "-> Sem saldo pendente";
         doc.text(direction, margin, y);
-        y += 8;
+        y += 6;
       }
     }
 
