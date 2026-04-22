@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { supplierSchema, validateForm } from "@/lib/validations";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
+import { cn } from "@/lib/utils";
 
 const supplierCategories = [
   "Som e Iluminação",
@@ -41,9 +42,11 @@ interface SupplierFormModalProps {
   onCreated?: (id: string) => void;
   editingSupplier?: any;
   defaultIsPartner?: boolean;
+  overlayClassName?: string;
+  contentClassName?: string;
 }
 
-export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner }: SupplierFormModalProps) {
+export function SupplierFormModal({ open, onOpenChange, onCreated, editingSupplier, defaultIsPartner, overlayClassName, contentClassName }: SupplierFormModalProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isEditing = !!editingSupplier;
@@ -152,7 +155,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent overlayClassName="z-[60]" className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[61]">
+      <DialogContent overlayClassName={overlayClassName ?? "z-[60]"} className={cn("max-h-[90vh] overflow-y-auto sm:max-w-lg", contentClassName ?? "z-[61]")}>
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>

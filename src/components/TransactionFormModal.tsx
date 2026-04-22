@@ -2386,6 +2386,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 open={showNewSupplier}
                 onOpenChange={setShowNewSupplier}
                 onCreated={(id) => setForm((prev) => ({ ...prev, supplier_id: id }))}
+                overlayClassName="z-[110]"
+                contentClassName="z-[111]"
               />
               {selectedSupplier && (
                 <div className="mt-2">
