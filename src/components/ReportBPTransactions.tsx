@@ -349,6 +349,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
 
     // Group forecasts by L2 category
     const forecastByCategory: Record<string, number> = {};
+    const overheadActualByCategory: Record<string, number> = {};
     const forecastDetailsByCategory: Record<string, CategoryLine["forecastDetails"]> = {};
     eventForecasts.forEach((f: any) => {
       const catId = f.category_id;
@@ -356,6 +357,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       forecastByCategory[catId] = (forecastByCategory[catId] ?? 0) + Number(f.amount);
 
       if (f.is_overhead) {
+        overheadActualByCategory[catId] = (overheadActualByCategory[catId] ?? 0) + Number(f.amount);
         if (!forecastDetailsByCategory[catId]) forecastDetailsByCategory[catId] = [];
         const sourceEventId = (f._from_master ? f._master_event_id : f.event_id) ?? f.event_id;
         forecastDetailsByCategory[catId].push({
@@ -401,7 +403,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       const catCode = catInfo?.code ?? "Z.Z";
       const forecast = forecastByCategory[catId] ?? 0;
       const catTrans = transByCategory[catId] ?? [];
-      const actual = catTrans.reduce((s, t) => s + Number(t.amount), 0);
+      const actual = catTrans.reduce((s, t) => s + Number(t.amount), 0) + (overheadActualByCategory[catId] ?? 0);
 
       if (!groupMap[groupName]) {
         groupMap[groupName] = {
@@ -620,10 +622,10 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">—</TableCell>
       <TableCell className="text-xs text-muted-foreground">BP</TableCell>
-      <TableCell className="text-right font-mono text-xs">{formatCurrency(detail.amount)}</TableCell>
-      <TableCell className="text-right font-mono text-xs text-muted-foreground">—</TableCell>
+        <TableCell className="text-right font-mono text-xs">{formatCurrency(detail.amount)}</TableCell>
+        <TableCell className="text-right font-mono text-xs">{formatCurrency(detail.amount)}</TableCell>
       <TableCell className="text-center">
-        <Badge variant="secondary" className="text-[10px]">Informativo</Badge>
+          <Badge variant="secondary" className="text-[10px]">Overhead</Badge>
       </TableCell>
     </TableRow>
   );
@@ -780,7 +782,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                               onClick={() => toggleCategory(cat.categoryId)}
                             >
                               <TableCell className="pl-8 flex items-center gap-2 font-medium text-sm">
-                                {cat.transactions.length > 0 ? (
+                                {cat.transactions.length > 0 || cat.forecastDetails.length > 0 ? (
                                   isCatExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
                                 ) : (
                                   <span className="w-3.5" />
