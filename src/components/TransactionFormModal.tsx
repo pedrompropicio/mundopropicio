@@ -1685,6 +1685,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {/* Split config panel — shown when split is active */}
           {isSplit && (
             <>
+              {/* Aviso: caução/transitória nunca rateia — vai para o Master */}
+              {isTransitory && splitMasterEventId && (
+                <div className="rounded-lg border border-cyan-500/40 bg-cyan-500/5 p-3 text-xs text-cyan-700 dark:text-cyan-300 leading-relaxed">
+                  🛡️ <strong>Caução / Transitória sem rateio:</strong> esta despesa será gravada como
+                  lançamento único no evento Master ({events.find((e: any) => e.id === splitMasterEventId)?.name ?? "—"}),
+                  sem dividir entre as cidades. Cauções não compõem o resultado de cada sub-evento e por isso
+                  não fazem rateio — entram apenas no fecho final.
+                </div>
+              )}
               {/* When auto-configured from tour, show collapsed summary */}
               {splitAutoConfigured && !splitExpanded ? (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
