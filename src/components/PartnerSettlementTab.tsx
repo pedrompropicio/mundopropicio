@@ -1411,7 +1411,17 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
             <div className="flex items-center gap-2">
-              {s.settlement > 0 ? (
+              {s.transitoryCredit > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <Badge className={`text-xs ${s.operationalSettlement >= 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
+                    {s.operationalSettlement >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                    Operacional {formatCurrency(Math.abs(s.operationalSettlement))}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
+                    + Caução {formatCurrency(s.transitoryCredit)}
+                  </Badge>
+                </div>
+              ) : s.settlement > 0 ? (
                 <Badge className="bg-success/15 text-success text-xs">
                   <TrendingUp className="h-3 w-3 mr-1" /> {s.isHouse ? "Resultado" : "Empresa paga"} {formatCurrency(s.settlement)}
                 </Badge>
@@ -1426,7 +1436,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-5 text-sm">
+            <div className="grid gap-3 sm:grid-cols-6 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
@@ -1436,18 +1446,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <p className="font-mono font-bold text-success">{formatCurrency(s.totalPaidByPartner)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas pelo sócio ainda não devolvidas">Cauções pendentes (+)</span>
-                <p className="font-mono font-bold text-success">{formatCurrency(s.transitoryCredit)}</p>
-              </div>
-              <div>
                 <span className="text-xs text-muted-foreground">Extras do sócio (−)</span>
                 <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalPartnerExtras)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Saldo final</span>
+                <span className="text-xs text-muted-foreground" title="Caixa real liquidável agora — sem cauções">Acerto operacional</span>
+                <p className={`font-mono font-bold text-lg ${s.operationalSettlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.operationalSettlement)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas ainda não devolvidas">Cauções pendentes (+)</span>
+                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.transitoryCredit)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Saldo total contando cauções (só liquidável após retorno)">Saldo c/ cauções</span>
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
+            {s.transitoryCredit > 0 && (
+              <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
+                ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> Os {formatCurrency(s.transitoryCredit)} de cauções
+                {s.isHouse ? " da Mundo Propício" : " do sócio"} só entram no acerto após retorno (ex: devolução do venue).
+              </p>
+            )}
 
             {s.paidExpenses.length > 0 && (
               <div>
