@@ -990,7 +990,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             y += 2.5;
             autoTable(doc, {
               startY: y,
-              head: [["Descrição", "Categoria", "Data", "Tipo", "Valor"]],
+              head: [["Descrição", "Categoria (Plano de Contas)", "Data", "Tipo", "Valor"]],
               body: s.transitoryItems.map((e) => [
                 e.description,
                 e.category,
@@ -1000,10 +1000,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ]),
               foot: [["Crédito líquido (após devoluções)", "", "", "", formatCurrency(s.transitoryCredit)]],
               margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7.5, cellPadding: 1.4 },
+              styles: { fontSize: 7.5, cellPadding: 1.4, overflow: "linebreak", valign: "top" },
               headStyles: { fillColor: [60, 130, 150] },
               footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
-              columnStyles: { 3: { halign: "center" }, 4: { halign: "right" } },
+              columnStyles: {
+                0: { cellWidth: 70 },               // Descrição (texto livre da transação)
+                1: { cellWidth: 75 },               // Categoria — caminho hierárquico completo
+                2: { cellWidth: 18, halign: "center" },
+                3: { cellWidth: 18, halign: "center" },
+                4: { halign: "right" },
+              },
             });
             y = (doc as any).lastAutoTable.finalY + 1.5;
           }
