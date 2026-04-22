@@ -741,8 +741,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
-    const totalTransitoryHouse = settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
-    const totalTransitoryExt = settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -768,38 +766,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     });
     y = (doc as any).lastAutoTable.finalY + 4;
 
-    // Bloco de cauções pendentes — explicita exposição de caixa fora do resultado
-    if (totalTransitoryAll > 0) {
-      ensureSpace(28);
-      autoTable(doc, {
-        startY: y,
-        head: [["🛡️ Cauções pendentes (fora do resultado — caixa retido)", "Valor"]],
-        body: [
-          ["Pagas pela Mundo Propício (caixa da empresa)", formatCurrency(totalTransitoryHouse)],
-          ["Pagas por sócios externos", formatCurrency(totalTransitoryExt)],
-          ["Total caixa retido (recuperável)", formatCurrency(totalTransitoryAll)],
-        ],
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [20, 80, 100] },
-        headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
-        columnStyles: {
-          0: { cellWidth: labelColW, halign: "left" },
-          1: { cellWidth: valueColW, halign: "right", fontStyle: "bold" },
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 2;
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(80);
-      const note = "Estes valores nao sao receita do evento — sao caucoes/transitorias temporariamente retidas por entidade terceira (ex: recinto/venue) e regressam ao caixa de quem desembolsou quando sao devolvidas. No acerto entre socios, entram como credito de quem pagou, mas so sao efectivamente liquidaveis apos esse retorno.";
-      const lines = doc.splitTextToSize(note, tableWidth);
-      doc.text(lines, margin, y);
-      y += lines.length * 3 + 3;
-      doc.setTextColor(0);
-    } else {
-      y += 2;
-    }
+    y += 2;
 
     // ===== 2. QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
@@ -899,7 +866,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(80);
-      const note2 = "Operacional = caixa real liquidavel agora (Quota + Pagas - Extras). Saldo c/ Caucoes = inclui caucoes pendentes, so liquidavel apos retorno.";
+      const note2 = "Operacional = quota do resultado com liquidez imediata + pagas - extras. O item 4 detalha o que ficou pendente por desencaixe de caixa em caucoes/transitorias e o que ainda depende de devolucao.";
       const lines2 = doc.splitTextToSize(note2, tableWidth);
       doc.text(lines2, margin, y);
       y += lines2.length * 3 + 3;
