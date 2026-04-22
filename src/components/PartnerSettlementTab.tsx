@@ -53,7 +53,12 @@ interface PartnerSettlement {
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
   transitoryItems: { description: string; amount: number; date: string; category: string; sign: 1 | -1 }[];
-  settlement: number; // positive = company pays partner, negative = partner pays company
+  /** Acerto operacional — SEM cauções pendentes. É o valor que efectivamente pode/deve ser
+   *  transaccionado entre empresa e sócio com base no caixa real do evento. */
+  operationalSettlement: number;
+  /** Saldo total incluindo cauções pendentes. Só é honrado quando as cauções voltam.
+   *  positive = empresa paga sócio, negative = sócio paga empresa */
+  settlement: number;
 }
 
 interface CityBreakdown {
