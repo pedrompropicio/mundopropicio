@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useGlobalModalScrollLock } from "@/hooks/useGlobalModalScrollLock";
@@ -87,7 +88,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedLayout() {
-  const { user, loading, isPartner, signOut } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, signOut } = useAuth();
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
@@ -101,6 +102,43 @@ function ProtectedLayout() {
       });
     }
   }, [loading, user, signOut]);
+
+  // App icon badge: count of payment lists awaiting approval (admins/managers only).
+  // Refresh on mount, on tab focus, and whenever payment_lists changes via realtime.
+  useEffect(() => {
+    if (loading || !user) return;
+    if (!isAdmin && !isManager) return;
+
+    let cancelled = false;
+    const run = async () => {
+      const { refreshBadgeFromDB } = await import("@/lib/app-badge");
+      if (cancelled) return;
+      void refreshBadgeFromDB();
+    };
+    void run();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void run();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    const channel = supabaseClient
+      .channel("badge-payment-lists")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_lists" },
+        () => void run(),
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      void supabaseClient.removeChannel(channel);
+    };
+  }, [loading, user, isAdmin, isManager]);
 
   if (loading) {
     return (

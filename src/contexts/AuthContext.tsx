@@ -183,6 +183,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((permission: string) => permissions.includes(permission), [permissions]);
 
   const signOut = async () => {
+    // Clear app icon badge on sign-out so the next user (or same user re-login)
+    // doesn't inherit a stale count.
+    try {
+      const { clearBadge } = await import("@/lib/app-badge");
+      await clearBadge();
+    } catch {
+      /* badge is best-effort */
+    }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

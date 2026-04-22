@@ -7,6 +7,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
+import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, ShieldCheck, ShieldX, FileSpreadsheet, FileText, Trash2, Eye, CheckSquare, Square, RotateCcw, MessageSquare, Send, Copy, AlertTriangle, Banknote, Mail, Paperclip,
@@ -283,14 +284,18 @@ export default function PaymentListsTab() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
       setRevisionListId(null);
+      // Devolução remove a lista de "pending_approval" → recalcular badge
+      const pending = await getPendingPaymentListsCount();
+      await refreshBadgeFromDB();
       // Notify creator that list was returned for revision
       sendPushToAdminsAndManagers(
         "Lista devolvida para revisão",
         `Uma lista de pagamento foi devolvida com observações`,
-        "/relatorios/listas-pagamento"
+        "/relatorios/listas-pagamento",
+        pending,
       );
       toast({ title: "Lista enviada para revisão." });
     },
@@ -304,12 +309,15 @@ export default function PaymentListsTab() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      const pending = await getPendingPaymentListsCount();
+      await refreshBadgeFromDB();
       sendPushToAdminsAndManagers(
         "Lista reenviada para aprovação",
         `Uma lista de pagamento foi reenviada para aprovação`,
-        "/relatorios/listas-pagamento"
+        "/relatorios/listas-pagamento",
+        pending,
       );
       toast({ title: "Lista reenviada para aprovação!" });
     },
@@ -555,10 +563,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
       if (itemsErr) throw itemsErr;
 
       if (!asDraft) {
+        const pending = await getPendingPaymentListsCount();
+        await refreshBadgeFromDB();
         sendPushToAdminsAndManagers(
           "Nova lista de pagamento",
           `"${title}" enviada para aprovação`,
-          "/relatorios/listas-pagamento"
+          "/relatorios/listas-pagamento",
+          pending,
         );
       }
 
@@ -1505,12 +1516,15 @@ function ApproveModal({
         .eq("id", listId);
       if (error) throw error;
 
+      const pending = await getPendingPaymentListsCount();
+      await refreshBadgeFromDB();
       sendPushToAdminsAndManagers(
         isPartial ? "Lista parcialmente aprovada" : "Lista de pagamento aprovada",
         isPartial
           ? `${selectedIds.size} de ${items.length} contas aprovadas`
           : "Uma lista de pagamento foi totalmente aprovada",
-        "/relatorios/listas-pagamento"
+        "/relatorios/listas-pagamento",
+        pending,
       );
 
       toast({
