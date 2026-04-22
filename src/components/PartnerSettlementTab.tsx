@@ -370,33 +370,66 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // ---- City breakdown (para turnês) ----
   // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions
   // Despesas = transactions de despesa do sub-evento (com e sem IVA)
+  // IMPORTANTE: incluir uma linha "Master / Geral" com as transações lançadas
+  // diretamente no Master (event_id === eventId) para que a soma bata com o
+  // Resumo Financeiro (totalRevenueNet / totalExpensesGross).
   const cityBreakdown: CityBreakdown[] = isTour
-    ? subEvents
-        .filter((se: any) => se.id !== eventId)
-        .map((se: any) => {
-          const evtTx = validTx.filter((t: any) => t.event_id === se.id);
-          const inc = evtTx.filter((t: any) => t.type === "income");
-          const exp = evtTx.filter((t: any) => t.type === "expense");
-          const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
-          const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-          // Receita de bilheteira do sub-evento (somar ticketBreakdown filtrado)
-          const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
-          const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
-          const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
-          const revenueNet = tbNet + txRevenueNet;
-          const revenueGross = tbGross + txRevenueGross;
-          const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
-          const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-          return {
-            eventId: se.id,
-            cityName: (se.cities as any)?.name || se.name,
-            revenueNet,
-            revenueGross,
-            expensesNet,
-            expensesGross,
-            resultNet: revenueNet - expensesNet,
-          };
-        })
+    ? (() => {
+        const rows: CityBreakdown[] = subEvents
+          .filter((se: any) => se.id !== eventId)
+          .map((se: any) => {
+            const evtTx = validTx.filter((t: any) => t.event_id === se.id);
+            const inc = evtTx.filter((t: any) => t.type === "income");
+            const exp = evtTx.filter((t: any) => t.type === "expense");
+            const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+            const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
+            const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
+            const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
+            const revenueNet = tbNet + txRevenueNet;
+            const revenueGross = tbGross + txRevenueGross;
+            const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+            return {
+              eventId: se.id,
+              cityName: (se.cities as any)?.name || se.name,
+              revenueNet,
+              revenueGross,
+              expensesNet,
+              expensesGross,
+              resultNet: revenueNet - expensesNet,
+            };
+          });
+
+        // Linha Master / Geral — transações lançadas diretamente no evento Master
+        // (não rateadas para sub-eventos). Tipicamente despesas comuns/transversais.
+        const masterTx = validTx.filter((t: any) => t.event_id === eventId);
+        const masterInc = masterTx.filter((t: any) => t.type === "income");
+        const masterExp = masterTx.filter((t: any) => t.type === "expense");
+        const masterTbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === eventId);
+        const masterRevenueNet =
+          masterInc.reduce((s: number, t: any) => s + Number(t.amount), 0) +
+          masterTbRows.reduce((s, r) => s + r.totalNet, 0);
+        const masterRevenueGross =
+          masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
+          masterTbRows.reduce((s, r) => s + r.totalGross, 0);
+        const masterExpensesNet = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0);
+        const masterExpensesGross = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+
+        if (masterRevenueGross > 0 || masterExpensesGross > 0) {
+          rows.push({
+            eventId,
+            cityName: "Master / Geral",
+            revenueNet: masterRevenueNet,
+            revenueGross: masterRevenueGross,
+            expensesNet: masterExpensesNet,
+            expensesGross: masterExpensesGross,
+            resultNet: masterRevenueNet - masterExpensesNet,
+          });
+        }
+
+        return rows;
+      })()
     : [];
 
   // ---- Despesas agrupadas pelos níveis 1, 2 e 3 do Plano de Contas ----
@@ -784,17 +817,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     });
     y = (doc as any).lastAutoTable.finalY + 6;
 
-    // ===== 7. DETALHES POR SÓCIO (na 1.ª página, logo após distribuição) =====
+    // ===== 4. DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
     {
-      const externalSettlementsP1 = settlements.filter((x: any) => !x.isHouse);
-      if (externalSettlementsP1.length > 0) {
+      const externalSettlementsP2 = settlements.filter((x: any) => !x.isHouse);
+      if (externalSettlementsP2.length > 0) {
+        doc.addPage();
+        y = 16;
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("7. Detalhes por Sócio", margin, y);
+        doc.text("4. Detalhes por Sócio", margin, y);
         y += 5;
 
-        for (const s of externalSettlementsP1) {
+        for (const s of externalSettlementsP2) {
+          ensureSpace(40);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
           const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
@@ -814,7 +850,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ]],
             margin: { left: margin, right: margin },
             tableWidth,
-            styles: { fontSize: 7.5, cellPadding: 1.4, halign: "right" },
+            styles: { fontSize: 8, cellPadding: 1.8, halign: "right" },
             headStyles: { fillColor: [60, 60, 60], halign: "right" },
             columnStyles: (() => {
               const w = tableWidth / 5;
@@ -824,7 +860,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           y = (doc as any).lastAutoTable.finalY + 1.5;
 
           if (s.paidExpenses.length > 0) {
-            doc.setFontSize(7);
+            doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.text("Despesas pagas pelo sócio:", margin, y);
             y += 2.5;
@@ -840,7 +876,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ]),
               foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
               margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7, cellPadding: 1.2 },
+              styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [80, 80, 80] },
               footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
               columnStyles: { 4: { halign: "right" } },
@@ -849,7 +885,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }
 
           if (s.partnerExtras.length > 0) {
-            doc.setFontSize(7);
+            doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
             y += 2.5;
@@ -865,7 +901,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ]),
               foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
               margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7, cellPadding: 1.2 },
+              styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [120, 60, 60] },
               footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
               columnStyles: { 4: { halign: "right" } },
@@ -881,19 +917,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
               : "-> Sem saldo pendente";
           doc.text(direction, margin, y);
-          y += 4;
+          y += 5;
         }
       }
     }
 
-    // ===== 4. BILHETEIRA - RESUMOS (nova página) =====
+    // ===== 5. BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
       doc.addPage();
       y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("4. Bilheteira - Totais Vendidos", margin, y);
+      doc.text("5. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
       // Larguras explícitas para a tabela de bilheteira (sem coluna s/IVA)
@@ -1071,7 +1107,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("5. Fecho de Bilheteiras / Recintos", margin, y);
+      doc.text("6. Fecho de Bilheteiras / Recintos", margin, y);
       y += 5;
       autoTable(doc, {
         startY: y,
@@ -1098,7 +1134,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
-      doc.text(`6. Despesas por Categoria ${lvlLabel}`, margin, y);
+      doc.text(`7. Despesas por Categoria ${lvlLabel}`, margin, y);
       y += 5;
 
       // Larguras explícitas (uma única coluna de valor c/IVA)
