@@ -898,15 +898,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
           y += 3;
 
-          // Resumo numa única linha — 5 colunas
+          // Resumo numa única linha — 6 colunas (com Acerto Operacional separado)
           autoTable(doc, {
             startY: y,
-            head: [["Quota", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo"]],
+            head: [["Quota", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
             body: [[
               formatCurrency(s.partnerShare),
               formatCurrency(s.totalPaidByPartner),
-              formatCurrency(s.transitoryCredit),
               `-${formatCurrency(s.totalPartnerExtras)}`,
+              formatCurrency(s.operationalSettlement),
+              formatCurrency(s.transitoryCredit),
               formatCurrency(s.settlement),
             ]],
             margin: { left: margin, right: margin },
@@ -914,8 +915,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             styles: { fontSize: 8, cellPadding: 1.8, halign: "right" },
             headStyles: { fillColor: [60, 60, 60], halign: "right" },
             columnStyles: (() => {
-              const w = tableWidth / 5;
-              return { 0: { cellWidth: w }, 1: { cellWidth: w }, 2: { cellWidth: w }, 3: { cellWidth: w }, 4: { cellWidth: w, fontStyle: "bold" } };
+              const w = tableWidth / 6;
+              return {
+                0: { cellWidth: w },
+                1: { cellWidth: w },
+                2: { cellWidth: w },
+                3: { cellWidth: w, fontStyle: "bold" },
+                4: { cellWidth: w, textColor: [0, 100, 120] },
+                5: { cellWidth: w, fontStyle: "bold" },
+              };
             })(),
           });
           y = (doc as any).lastAutoTable.finalY + 1.5;
