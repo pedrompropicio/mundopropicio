@@ -980,13 +980,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          const direction = s.settlement > 0
-            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
-            : s.settlement < 0
-              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
-              : "-> Sem saldo pendente";
-          doc.text(direction, margin, y);
-          y += 5;
+          // Direcção do acerto OPERACIONAL (caixa real liquidável agora — sem cauções)
+          const opDirection = s.operationalSettlement > 0
+            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.operationalSettlement)} ao sócio (acerto operacional, liquidável agora)`
+            : s.operationalSettlement < 0
+              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO (acerto operacional, liquidável agora)`
+              : "-> Sem saldo operacional pendente";
+          doc.text(opDirection, margin, y);
+          y += 4;
+          // Cauções pendentes — só liquidáveis após retorno
+          if (s.transitoryCredit > 0) {
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(0, 100, 120);
+            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes pagas pelo socio — a creditar quando devolvidas (saldo total c/ caucoes: ${formatCurrency(s.settlement)})`;
+            doc.text(cauNote, margin, y);
+            doc.setTextColor(0);
+            y += 4;
+          }
+          y += 2;
         }
       }
     }
