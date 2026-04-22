@@ -304,10 +304,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .in("event_id", allRelevantEventIds);
       if (error) throw error;
 
-      // For sub-events (parentEventId is set), don't fetch master transactions —
-      // they belong to the parent event's BP, not the sub-event's.
-      // Only fetch parent master transactions when viewing the master event itself.
-      if (parentEventId) return directTx ?? [];
+      // For sub-events, also fetch the Master transactions so projected/read-only
+      // BP lines inherited from the Master can reflect the real liquidation state
+      // (e.g. paid by partner on the Master). Matching remains scoped later so
+      // child-native BP lines do not accidentally bind to Master transactions.
+      if (parentEventId) {
+        const { data: masterTx, error: masterError } = await supabase
+          .from("transactions")
+          .select("*, account_categories(code, name, type)")
+          .eq("event_id", parentEventId);
+        if (masterError) throw masterError;
+
+        const existingIds = new Set((directTx ?? []).map((t: any) => t.id));
+        const merged = [...(directTx ?? [])];
+        for (const mt of (masterTx ?? [])) {
+          if (!existingIds.has(mt.id)) merged.push(mt);
+        }
+        return merged;
+      }
 
       // Also fetch multi-event parent transactions (event_id IS NULL)
       // that have child splits in our relevant events
@@ -531,6 +545,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         ...f,
         amount: share,
         _prorated: true,
+        _master_event_id: parentEventId,
         _originalAmount: original,
         _siblingCount: siblingCount,
         _siblingIndex: siblingIndex,
@@ -2441,8 +2456,9 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     
     // Scope transactions to the same event as the forecast (or null for master splits)
     // This prevents sub-event transactions from appearing under master forecasts
+    const allowedEventIds = new Set([item.event_id, null, item._master_event_id].filter(Boolean));
     const scopedTransactions = eventTransactions.filter(
-      (t: any) => t.event_id === item.event_id || t.event_id === null
+      (t: any) => allowedEventIds.has(t.event_id)
     );
     
     // Otherwise match by category + description similarity
