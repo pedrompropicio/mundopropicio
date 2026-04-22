@@ -1313,7 +1313,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       </div>
 
       {/* Global summary — Receita s/IVA, Despesa c/IVA (premissa do relatório de fecho) */}
-      <div className="glass rounded-xl p-4">
+      <div className="glass rounded-xl p-4 space-y-3">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita (s/IVA)</p>
@@ -1330,6 +1330,38 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </p>
           </div>
         </div>
+        {/* Exposição de caixa — cauções pendentes (não compõem resultado, mas afectam a liquidez) */}
+        {settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0 && (
+          <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
+            <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mb-2">
+              🛡️ Cauções pendentes (fora do resultado)
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Pagas pela Mundo Propício</p>
+                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pagas por sócios externos</p>
+                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total caixa retido</p>
+                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0))}
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+              Estes valores <strong>não são receita do evento</strong> — são cauções/transitórias ainda retidas (ex: no venue) que voltam ao caixa quando devolvidas.
+              No acerto entre sócios, são creditados a quem desembolsou, mas só podem ser efectivamente liquidados após o retorno.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* City breakdown for tours */}
