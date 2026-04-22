@@ -1349,7 +1349,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // If check fails, proceed anyway
     }
 
-    if (isParentMultiDay && !showProrationConfirm) {
+    // Caução / Transitória nunca é rateada — vai sempre direto ao Master sem confirmação
+    if (isParentMultiDay && !showProrationConfirm && !isTransitory) {
       setShowProrationConfirm(true);
       return;
     }
@@ -1478,7 +1479,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
     // Skip duplicate check if already confirmed
     if (showDuplicateConfirm) {
-      if (isParentMultiDay && !showProrationConfirm) {
+      if (isParentMultiDay && !showProrationConfirm && !isTransitory) {
         setShowProrationConfirm(true);
         return;
       }
@@ -2255,7 +2256,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 <button
                   type="button"
                   onClick={() => {
-                    if (isParentMultiDay) {
+                    if (isParentMultiDay && !isTransitory) {
                       setShowDuplicateConfirm(false);
                       setShowProrationConfirm(true);
                     } else {
@@ -2279,7 +2280,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           )}
 
           {/* Proration confirmation for multi_day parent */}
-          {showProrationConfirm && isParentMultiDay && (
+          {showProrationConfirm && isParentMultiDay && !isTransitory && (
             <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
