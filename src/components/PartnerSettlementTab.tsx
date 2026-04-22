@@ -1034,20 +1034,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          // Direcção do acerto OPERACIONAL (caixa real liquidável agora — sem cauções)
+          // Direcção do acerto OPERACIONAL (liquidável agora)
           const opDirection = s.operationalSettlement > 0
-            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.operationalSettlement)} ao sócio (acerto operacional, liquidável agora)`
+            ? `-> MUNDO PROPÍCIO já tem liquidez para repassar ${formatCurrency(s.operationalSettlement)} ao sócio agora`
             : s.operationalSettlement < 0
-              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO (acerto operacional, liquidável agora)`
+              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO agora`
               : "-> Sem saldo operacional pendente";
           doc.text(opDirection, margin, y);
           y += 4;
+          if (s.resultPendingByCash > 0) {
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(0, 100, 120);
+            const liqNote = `   + ${formatCurrency(s.resultPendingByCash)} da quota do resultado fica pendente porque esse caixa do evento foi desencaixado para cobrir caucoes/transitorias ainda nao devolvidas.`;
+            doc.text(liqNote, margin, y);
+            doc.setTextColor(0);
+            y += 4;
+          }
           // Cauções pendentes — só liquidáveis após retorno
           if (s.transitoryCredit > 0) {
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(0, 100, 120);
-            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes pagas pelo socio — a creditar quando devolvidas pela entidade que reteve a caucao (saldo total c/ caucoes: ${formatCurrency(s.settlement)})`;
+            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes/transitorias do proprio pagador continuam pendentes de devolucao pela entidade terceira que reteve o valor (saldo total apos devolucoes: ${formatCurrency(s.settlement)}).`;
             doc.text(cauNote, margin, y);
             doc.setTextColor(0);
             y += 4;
