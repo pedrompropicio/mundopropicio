@@ -399,13 +399,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         })
     : [];
 
-  // ---- Despesas agrupadas pelos níveis 1 e 2 do Plano de Contas ----
-  // Resolve cadeia de pais até obter L1 (raiz) e L2 (nível imediatamente abaixo da raiz).
+  // ---- Despesas agrupadas pelos níveis 1, 2 e 3 do Plano de Contas ----
+  // Resolve cadeia de pais até obter L1 (raiz), L2 (subnível) e L3 (folha).
   const expenseByCategory: CategoryExpenseRow[] = (() => {
     const catById: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
     (allCategories as any[]).forEach((c) => { catById[c.id] = c; });
-    // Devolve [L1, L2] — onde L2 pode ser igual a L1 se a categoria estiver no nível raiz.
-    const findL1L2 = (catId: string | null | undefined): { l1: any; l2: any } | null => {
+    // Devolve [L1, L2, L3] — onde L2/L3 podem coincidir com níveis superiores se a categoria for raiz/sub.
+    const findLevels = (catId: string | null | undefined): { l1: any; l2: any; l3: any } | null => {
       if (!catId) return null;
       const chain: any[] = [];
       let cur = catById[catId];
@@ -422,20 +422,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       chain.reverse();
       const l1 = chain[0];
       const l2 = chain[1] || chain[0];
-      return l1 ? { l1, l2 } : null;
+      const l3 = chain[2] || chain[1] || chain[0];
+      return l1 ? { l1, l2, l3 } : null;
     };
     const map: Record<string, CategoryExpenseRow> = {};
     expenseTransactions.forEach((t: any) => {
-      const lv = findL1L2(t.category_id);
+      const lv = findLevels(t.category_id);
       const l1 = lv?.l1;
       const l2 = lv?.l2;
-      const key = l1 && l2 ? `${l1.code}|${l2.code}` : "sem-categoria";
+      const l3 = lv?.l3;
+      const key = l1 && l2 && l3 ? `${l1.code}|${l2.code}|${l3.code}` : "sem-categoria";
       if (!map[key]) {
         map[key] = {
           l1Code: l1?.code || "",
           l1Name: l1?.name || "Sem categoria",
           l2Code: l2?.code || "",
           l2Name: l2?.name || "Sem categoria",
+          l3Code: l3?.code || "",
+          l3Name: l3?.name || "Sem categoria",
           amountNet: 0,
           amountGross: 0,
           count: 0,
@@ -448,8 +452,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     return Object.values(map).sort((a, b) => {
       const c1 = a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true });
       if (c1 !== 0) return c1;
-      return a.l2Code.localeCompare(b.l2Code, undefined, { numeric: true });
+      const c2 = a.l2Code.localeCompare(b.l2Code, undefined, { numeric: true });
+      if (c2 !== 0) return c2;
+      return a.l3Code.localeCompare(b.l3Code, undefined, { numeric: true });
     });
+  })();
+
+  // ---- Mapa eventId → label de cidade (para anotar despesas pagas por sócio) ----
+  // Despesas no Master (rateio) ficam com label "Rateio".
+  const cityLabelByEvent: Record<string, string> = (() => {
+    const map: Record<string, string> = {};
+    (subEvents as any[]).forEach((se) => {
+      if (se.id === eventId) {
+        // Master da turnê → "Rateio"; evento simples → cidade do próprio evento
+        map[se.id] = isTour ? "Rateio" : ((se.cities as any)?.name || se.name || "—");
+      } else {
+        map[se.id] = (se.cities as any)?.name || se.name || "—";
+      }
+    });
+    return map;
   })();
 
   // ---- Box-office settlements rows ----
