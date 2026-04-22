@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -147,7 +147,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, date, cities(name)")
+          .select("id, name, date, parent_event_id, cities(name)")
         .in("id", allEventIds)
         .order("date");
       if (error) throw error;
@@ -228,7 +228,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("event_id, type, amount, iva_rate, status, account_categories(name, code)")
+          .select("event_id, type, amount, iva_rate, status, is_overhead, account_categories(name, code)")
         .in("event_id", allEventIds)
         .eq("status", "approved");
       if (error) throw error;
