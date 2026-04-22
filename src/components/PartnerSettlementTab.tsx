@@ -1398,6 +1398,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descrição</TableHead>
+                      <TableHead>Cidade</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
@@ -1407,13 +1408,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     {s.paidExpenses.map((e, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.cityLabel}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
                         <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(e.amount)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="border-t-2 border-border bg-muted/30">
-                      <TableCell colSpan={3} className="font-bold text-xs">Total</TableCell>
+                      <TableCell colSpan={4} className="font-bold text-xs">Total</TableCell>
                       <TableCell className="text-right font-mono font-bold">{formatCurrency(s.totalPaidByPartner)}</TableCell>
                     </TableRow>
                   </TableBody>
@@ -1463,6 +1465,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descrição</TableHead>
+                      <TableHead>Cidade</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
@@ -1472,13 +1475,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     {s.partnerExtras.map((e, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.cityLabel}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
                         <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
                         <TableCell className="text-right font-mono text-destructive">−{formatCurrency(e.amount)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="border-t-2 border-border bg-muted/30">
-                      <TableCell colSpan={3} className="font-bold text-xs">Total a abater</TableCell>
+                      <TableCell colSpan={4} className="font-bold text-xs">Total a abater</TableCell>
                       <TableCell className="text-right font-mono font-bold text-destructive">−{formatCurrency(s.totalPartnerExtras)}</TableCell>
                     </TableRow>
                   </TableBody>
