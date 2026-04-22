@@ -1107,7 +1107,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("5. Fecho de Bilheteiras / Recintos", margin, y);
+      doc.text("6. Fecho de Bilheteiras / Recintos", margin, y);
       y += 5;
       autoTable(doc, {
         startY: y,
