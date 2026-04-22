@@ -481,6 +481,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     );
   }
 
+  // ---- Crédito transitório por sócio (cauções pagas e ainda não devolvidas) ----
+  // Regra: para cada sócio, soma despesas transitórias pagas por ele e subtrai receitas
+  // transitórias recebidas por ele (ambas vindas de partner_paid_expenses). Devoluções
+  // transitórias que voltaram à conta da empresa (transitória income do evento NÃO vinculada
+  // a sócio) são prorateadas pelo crédito bruto positivo de cada sócio. Cap em 0.
+  // Nota: independente do calcBasis — caução é sempre amount líquido (não tem IVA real).
+  const transitoryTxsAll = transactions.filter((t: any) => t.is_transitory && (t.status === "approved" || t.status === "paid"));
+  const partnerLinkedTxIds = new Set((paidExpenses as any[]).map((pe) => pe.transaction_id));
+  const companyReturnsTransitory = transitoryTxsAll
+    .filter((t: any) => t.type === "income" && !partnerLinkedTxIds.has(t.id))
+    .reduce((s: number, t: any) => s + Number(t.amount), 0);
+
   // Build settlements
   const settlements: PartnerSettlement[] = allPartners.map((p: any) => {
     const isHouse = !!p.isHouse;
@@ -493,10 +505,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const partnerShare = result * (effectivePercentage / 100);
 
     // Mundo Propício (empresa gestora) não tem "pagas pelo sócio" nem "extras" — é a empresa que paga tudo.
+    // Filtra fora as transitórias — essas vão para a secção de crédito transitório (abaixo).
     const partnerExpenses = isHouse
       ? []
       : paidExpenses
-          .filter((pe: any) => pe.partner_id === p.id)
+          .filter((pe: any) => pe.partner_id === p.id && !pe.transactions?.is_transitory)
           .map((pe: any) => ({
             description: pe.transactions?.description || "—",
             amount: usesGrossExpenseAmounts(calcBasis)
@@ -521,7 +534,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
-    const settlement = partnerShare + totalPaidByPartner - totalPartnerExtras;
+    // Items transitórios vinculados a este sócio (despesas e devoluções diretas)
+    const transitoryItems = isHouse
+      ? []
+      : (paidExpenses as any[])
+          .filter((pe) => pe.partner_id === p.id && pe.transactions?.is_transitory)
+          .map((pe) => {
+            const sign: 1 | -1 = pe.transactions?.type === "expense" ? 1 : -1;
+            return {
+              description: pe.transactions?.description || "—",
+              amount: Number(pe.transactions?.amount || 0),
+              date: pe.transactions?.date || "",
+              category: pe.transactions?.account_categories?.name || "—",
+              sign,
+            };
+          });
 
     return {
       partnerId: p.id,
@@ -540,8 +567,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPaidByPartner,
       partnerExtras: extrasForPartner,
       totalPartnerExtras,
-      settlement,
+      transitoryCredit: 0, // calculado abaixo (precisa do total cross-partner)
+      transitoryItems,
+      settlement: 0,        // recalculado abaixo
     };
+  });
+
+  // Crédito bruto por sócio (despesa transitória paga – devolução direta para o sócio)
+  const grossTransitoryBySettlement = settlements.map((s) =>
+    s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0)
+  );
+  const totalPositiveGross = grossTransitoryBySettlement.reduce((s, v) => s + Math.max(0, v), 0);
+
+  settlements.forEach((s, i) => {
+    const gross = grossTransitoryBySettlement[i];
+    let credit = 0;
+    if (gross > 0) {
+      // Abate proporcional das devoluções transitórias que foram para a conta da empresa.
+      const share = totalPositiveGross > 0 ? (gross / totalPositiveGross) * companyReturnsTransitory : 0;
+      credit = Math.max(0, gross - share);
+    }
+    s.transitoryCredit = credit;
+    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + credit;
   });
 
   function exportPdf() {
