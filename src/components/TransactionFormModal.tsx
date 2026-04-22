@@ -2504,21 +2504,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 </button>
                 )}
 
-                {/* Transitory toggle — admin/manager only (modo avançado, sem selector de pagador) */}
-                {(authIsAdmin || authIsManager) && !isPartnerExtra && !cautionShortcut && (
-                <button
-                  type="button"
-                  onClick={() => { setIsTransitory(!isTransitory); if (!isTransitory) setIsExcludeFromResult(false); }}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    isTransitory
-                      ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/30"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  🔄 {isTransitory ? "Transitória" : "Marcar como Transitória"}
-                  <HelpTooltip text={helpTexts.transitoryToggle} size={12} />
-                </button>
-                )}
+                {/* Botão antigo "🔄 Marcar como Transitória" removido — era duplicado do
+                    atalho "🛡️ Caução / Transitória" acima (ambos definem is_transitory=true).
+                    O atalho novo é mais rico: pede também quem desembolsou (MP ou sócio). */}
 
                 {/* Exclude from result toggle — admin/manager only, mutually exclusive with transitory */}
                 {(authIsAdmin || authIsManager) && !isTransitory && !isPartnerExtra && (

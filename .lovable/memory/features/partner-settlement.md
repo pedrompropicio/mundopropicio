@@ -57,7 +57,7 @@ Botão admin/manager que ativa `is_transitory=true` e abre selector **Pago por**
 - **Mundo Propício (caixa da empresa)** — opção default. Transitória órfã (sem vínculo a sócio).
 - **Sócio X** — ativa `isPaidByPartner=true` + `paidByPartnerId` + pede `partnerPaidDate`. Cria `partner_paid_expenses` com a tx vinculada.
 
-O toggle clássico "🔄 Marcar como Transitória" continua disponível em modo avançado (oculto quando o atalho está ativo).
+O antigo botão "🔄 Marcar como Transitória" foi **removido** — era duplicado (mesma flag `is_transitory`) e gerava confusão. O atalho "🛡️ Caução / Transitória" é a única entrada e cobre os dois casos (MP ou sócio).
 
 ### Cálculo no acerto (`PartnerSettlementTab`)
 1. **Sócio externo**: `transitoryCredit = max(0, Σ transitória.expense vinculadas − Σ transitória.income vinculadas)` (via `partner_paid_expenses`)
