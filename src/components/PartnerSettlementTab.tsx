@@ -549,9 +549,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
-    // Items transitórios vinculados a este sócio (despesas e devoluções diretas)
+    // Items transitórios:
+    //  • Sócio externo → linhas vinculadas em partner_paid_expenses (despesas e devoluções diretas)
+    //  • Mundo Propício → todas as transitórias órfãs do evento
     const transitoryItems = isHouse
-      ? []
+      ? houseTransitoryItems
       : (paidExpenses as any[])
           .filter((pe) => pe.partner_id === p.id && pe.transactions?.is_transitory)
           .map((pe) => {
@@ -582,28 +584,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPaidByPartner,
       partnerExtras: extrasForPartner,
       totalPartnerExtras,
-      transitoryCredit: 0, // calculado abaixo (precisa do total cross-partner)
+      transitoryCredit: 0, // calculado abaixo
       transitoryItems,
       settlement: 0,        // recalculado abaixo
     };
   });
 
-  // Crédito bruto por sócio (despesa transitória paga – devolução direta para o sócio)
-  const grossTransitoryBySettlement = settlements.map((s) =>
-    s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0)
-  );
-  const totalPositiveGross = grossTransitoryBySettlement.reduce((s, v) => s + Math.max(0, v), 0);
-
-  settlements.forEach((s, i) => {
-    const gross = grossTransitoryBySettlement[i];
-    let credit = 0;
-    if (gross > 0) {
-      // Abate proporcional das devoluções transitórias que foram para a conta da empresa.
-      const share = totalPositiveGross > 0 ? (gross / totalPositiveGross) * companyReturnsTransitory : 0;
-      credit = Math.max(0, gross - share);
+  // Crédito transitório:
+  //  • Mundo Propício: total das órfãs (já calculado, cap em 0)
+  //  • Sócios externos: gross vinculado direto (despesas − devoluções), cap em 0
+  settlements.forEach((s) => {
+    if (s.isHouse) {
+      s.transitoryCredit = houseTransitoryCredit;
+    } else {
+      const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
+      s.transitoryCredit = Math.max(0, gross);
     }
-    s.transitoryCredit = credit;
-    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + credit;
+    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + s.transitoryCredit;
   });
 
   function exportPdf() {
