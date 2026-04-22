@@ -20,12 +20,14 @@ export default function ReportPartnerSettlement() {
     },
   });
 
+  // IMPORTANTE: trazer is_transitory para conseguir calcular o crédito transitório
+  // (cauções pagas e ainda não devolvidas) — alinhado com PartnerSettlementTab.
   const { data: transactions = [] } = useQuery({
     queryKey: ["settlement-txs"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("event_id, type, amount, status, is_transitory, exclude_from_result")
+        .select("id, event_id, type, amount, status, is_transitory, exclude_from_result")
         .in("status", ["approved", "paid"]);
       if (error) throw error;
       return data;
@@ -41,12 +43,15 @@ export default function ReportPartnerSettlement() {
     },
   });
 
+  // Trazer também is_transitory + type da transação vinculada para distinguir
+  // despesas pagas pelo sócio (entram em "Desp. Pagas") de cauções vinculadas
+  // ao sócio (entram em "Crédito Transitório", cap em 0).
   const { data: paidExpenses = [] } = useQuery({
     queryKey: ["settlement-paid-expenses"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("partner_id, event_id, transaction_id, transactions(amount)");
+        .select("partner_id, event_id, transaction_id, transactions(amount, is_transitory, type)");
       if (error) throw error;
       return data;
     },
@@ -92,6 +97,7 @@ export default function ReportPartnerSettlement() {
     partnerShare: number;
     extras: number;
     paidExpenses: number;
+    transitoryCredit: number;
     settlement: number;
   }
 
@@ -110,6 +116,7 @@ export default function ReportPartnerSettlement() {
       const ev = sample.events as any;
       if (!ev) return;
 
+      // Resultado contabilístico do evento — exclui transitórias e exclude_from_result
       const evTxs = transactions.filter((t) => t.event_id === evId && !t.is_transitory && !t.exclude_from_result);
       const revenue = evTxs.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
       const expense = evTxs.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
@@ -118,14 +125,42 @@ export default function ReportPartnerSettlement() {
         .reduce((s: number, o: any) => s + Number(o.amount), 0);
       const result = revenue - expense - overhead;
 
+      // ── Crédito transitório (cauções pagas e ainda não devolvidas) ──
+      // Mundo Propício (casa): cauções ÓRFÃS (sem vínculo a sócio) — despesas − devoluções, cap em 0
+      // Sócios externos: cauções VINCULADAS via partner_paid_expenses — despesas − devoluções, cap em 0
+      const evTransitory = transactions.filter((t) => t.event_id === evId && t.is_transitory);
+      const partnerLinkedTxIdsEv = new Set(
+        paidExpenses.filter((pe) => pe.event_id === evId).map((pe) => pe.transaction_id),
+      );
+      const houseTransExp = evTransitory
+        .filter((t) => t.type === "expense" && !partnerLinkedTxIdsEv.has(t.id))
+        .reduce((s, t) => s + Number(t.amount), 0);
+      const houseTransInc = evTransitory
+        .filter((t) => t.type === "income" && !partnerLinkedTxIdsEv.has(t.id))
+        .reduce((s, t) => s + Number(t.amount), 0);
+      const houseTransitoryCredit = Math.max(0, houseTransExp - houseTransInc);
+
       // External partners
       evPartners.forEach((p) => {
         const supplierName = (p.suppliers as any)?.name ?? "Desconhecido";
         const partnerShare = result * (p.percentage / 100);
         const partnerExtras = extras.filter((e) => e.partner_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
+
+        // Despesas pagas pelo sócio EXCLUEM transitórias (essas vão para crédito transitório)
         const partnerPaid = paidExpenses
-          .filter((pe) => pe.partner_id === p.id)
+          .filter((pe) => pe.partner_id === p.id && !(pe.transactions as any)?.is_transitory)
           .reduce((s, pe) => s + Number((pe.transactions as any)?.amount ?? 0), 0);
+
+        // Crédito transitório vinculado ao sócio: despesas − devoluções, cap em 0
+        const partnerTransitoryGross = paidExpenses
+          .filter((pe) => pe.partner_id === p.id && (pe.transactions as any)?.is_transitory)
+          .reduce((s, pe) => {
+            const tx = pe.transactions as any;
+            const sign = tx?.type === "expense" ? 1 : -1;
+            return s + sign * Number(tx?.amount ?? 0);
+          }, 0);
+        const partnerTransitoryCredit = Math.max(0, partnerTransitoryGross);
+
         rows.push({
           partnerId: p.id,
           partnerName: supplierName,
@@ -137,11 +172,12 @@ export default function ReportPartnerSettlement() {
           partnerShare,
           extras: partnerExtras,
           paidExpenses: partnerPaid,
-          settlement: partnerShare - partnerExtras + partnerPaid,
+          transitoryCredit: partnerTransitoryCredit,
+          settlement: partnerShare - partnerExtras + partnerPaid + partnerTransitoryCredit,
         });
       });
 
-      // Mundo Propício (casa) — quota residual
+      // Mundo Propício (casa) — quota residual + crédito transitório das órfãs
       const housePct = computeHousePercentage(evPartners.map((p) => ({ percentage: p.percentage })));
       if (housePct != null) {
         const houseShare = result * (housePct / 100);
@@ -156,7 +192,8 @@ export default function ReportPartnerSettlement() {
           partnerShare: houseShare,
           extras: 0,
           paidExpenses: 0,
-          settlement: houseShare,
+          transitoryCredit: houseTransitoryCredit,
+          settlement: houseShare + houseTransitoryCredit,
         });
       }
     });
@@ -169,16 +206,17 @@ export default function ReportPartnerSettlement() {
       partnerShare: acc.partnerShare + d.partnerShare,
       extras: acc.extras + d.extras,
       paidExpenses: acc.paidExpenses + d.paidExpenses,
+      transitoryCredit: acc.transitoryCredit + d.transitoryCredit,
       settlement: acc.settlement + d.settlement,
     }),
-    { partnerShare: 0, extras: 0, paidExpenses: 0, settlement: 0 }
+    { partnerShare: 0, extras: 0, paidExpenses: 0, transitoryCredit: 0, settlement: 0 }
   );
 
   if (isLoading) return <p className="py-8 text-center text-muted-foreground">A carregar…</p>;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Total Quota-Parte</p>
           <p className="text-lg font-bold font-mono">{formatCurrency(totals.partnerShare)}</p>
@@ -190,6 +228,10 @@ export default function ReportPartnerSettlement() {
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Desp. Pagas Sócios</p>
           <p className="text-lg font-bold font-mono text-success">{formatCurrency(totals.paidExpenses)}</p>
+        </div>
+        <div className="glass rounded-xl p-3 text-center">
+          <p className="text-xs text-muted-foreground">Cauções Pendentes</p>
+          <p className="text-lg font-bold font-mono text-cyan-600 dark:text-cyan-400">{formatCurrency(totals.transitoryCredit)}</p>
         </div>
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Acerto Total</p>
@@ -209,12 +251,13 @@ export default function ReportPartnerSettlement() {
               <TableHead className="text-right">Quota-Parte</TableHead>
               <TableHead className="text-right">Extras</TableHead>
               <TableHead className="text-right">Desp. Pagas</TableHead>
+              <TableHead className="text-right">Cauções (+)</TableHead>
               <TableHead className="text-right">Acerto</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {settlementData.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
             ) : settlementData.map((d: any) => (
               <TableRow key={d.partnerId}>
                 <TableCell className="font-medium">{d.partnerName}</TableCell>
@@ -228,6 +271,7 @@ export default function ReportPartnerSettlement() {
                 <TableCell className="text-right font-mono">{formatCurrency(d.partnerShare)}</TableCell>
                 <TableCell className="text-right font-mono text-warning">{formatCurrency(d.extras)}</TableCell>
                 <TableCell className="text-right font-mono text-success">{formatCurrency(d.paidExpenses)}</TableCell>
+                <TableCell className="text-right font-mono text-cyan-600 dark:text-cyan-400">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
                 <TableCell className={`text-right font-mono font-semibold ${d.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(d.settlement)}</TableCell>
               </TableRow>
             ))}
