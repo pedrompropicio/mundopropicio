@@ -782,7 +782,109 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 6;
+
+    // ===== 7. DETALHES POR SÓCIO (na 1.ª página, logo após distribuição) =====
+    // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
+    {
+      const externalSettlementsP1 = settlements.filter((x: any) => !x.isHouse);
+      if (externalSettlementsP1.length > 0) {
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("7. Detalhes por Sócio", margin, y);
+        y += 5;
+
+        for (const s of externalSettlementsP1) {
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
+          doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
+          y += 3;
+
+          // Resumo numa única linha — 5 colunas
+          autoTable(doc, {
+            startY: y,
+            head: [["Quota", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo"]],
+            body: [[
+              formatCurrency(s.partnerShare),
+              formatCurrency(s.totalPaidByPartner),
+              formatCurrency(s.transitoryCredit),
+              `-${formatCurrency(s.totalPartnerExtras)}`,
+              formatCurrency(s.settlement),
+            ]],
+            margin: { left: margin, right: margin },
+            tableWidth,
+            styles: { fontSize: 7.5, cellPadding: 1.4, halign: "right" },
+            headStyles: { fillColor: [60, 60, 60], halign: "right" },
+            columnStyles: (() => {
+              const w = tableWidth / 5;
+              return { 0: { cellWidth: w }, 1: { cellWidth: w }, 2: { cellWidth: w }, 3: { cellWidth: w }, 4: { cellWidth: w, fontStyle: "bold" } };
+            })(),
+          });
+          y = (doc as any).lastAutoTable.finalY + 1.5;
+
+          if (s.paidExpenses.length > 0) {
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "italic");
+            doc.text("Despesas pagas pelo sócio:", margin, y);
+            y += 2.5;
+            autoTable(doc, {
+              startY: y,
+              head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+              body: s.paidExpenses.map(e => [
+                e.description,
+                e.cityLabel,
+                e.category,
+                e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+                formatCurrency(e.amount),
+              ]),
+              foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
+              margin: { left: margin + 4, right: margin },
+              styles: { fontSize: 7, cellPadding: 1.2 },
+              headStyles: { fillColor: [80, 80, 80] },
+              footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+              columnStyles: { 4: { halign: "right" } },
+            });
+            y = (doc as any).lastAutoTable.finalY + 1.5;
+          }
+
+          if (s.partnerExtras.length > 0) {
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "italic");
+            doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
+            y += 2.5;
+            autoTable(doc, {
+              startY: y,
+              head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+              body: s.partnerExtras.map(e => [
+                e.description,
+                e.cityLabel,
+                e.category,
+                e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+                `-${formatCurrency(e.amount)}`,
+              ]),
+              foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
+              margin: { left: margin + 4, right: margin },
+              styles: { fontSize: 7, cellPadding: 1.2 },
+              headStyles: { fillColor: [120, 60, 60] },
+              footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
+              columnStyles: { 4: { halign: "right" } },
+            });
+            y = (doc as any).lastAutoTable.finalY + 1.5;
+          }
+
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          const direction = s.settlement > 0
+            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
+            : s.settlement < 0
+              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
+              : "-> Sem saldo pendente";
+          doc.text(direction, margin, y);
+          y += 4;
+        }
+      }
+    }
 
     // ===== 4. BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
