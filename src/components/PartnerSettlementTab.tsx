@@ -1275,21 +1275,21 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         </div>
       </div>
 
-      {/* Global summary */}
+      {/* Global summary — Receita s/IVA, Despesa c/IVA (premissa do relatório de fecho) */}
       <div className="glass rounded-xl p-4">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Receita (s/IVA)</p>
-            <p className="text-xl font-bold font-mono text-success">{formatCurrency(revenueBase)}</p>
+            <p className="text-xl font-bold font-mono text-success">{formatCurrency(totalRevenueNet)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas</p>
-            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(expenseBase)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas (c/IVA)</p>
+            <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(totalExpensesGross)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Resultado</p>
-            <p className={`text-xl font-bold font-mono ${resultBase >= 0 ? "text-success" : "text-destructive"}`}>
-              {formatCurrency(resultBase)}
+            <p className={`text-xl font-bold font-mono ${(totalRevenueNet - totalExpensesGross) >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(totalRevenueNet - totalExpensesGross)}
             </p>
           </div>
         </div>
