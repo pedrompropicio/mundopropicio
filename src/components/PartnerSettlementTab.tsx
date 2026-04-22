@@ -817,17 +817,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     });
     y = (doc as any).lastAutoTable.finalY + 6;
 
-    // ===== 7. DETALHES POR SÓCIO (na 1.ª página, logo após distribuição) =====
+    // ===== 4. DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
     {
-      const externalSettlementsP1 = settlements.filter((x: any) => !x.isHouse);
-      if (externalSettlementsP1.length > 0) {
+      const externalSettlementsP2 = settlements.filter((x: any) => !x.isHouse);
+      if (externalSettlementsP2.length > 0) {
+        doc.addPage();
+        y = 16;
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("7. Detalhes por Sócio", margin, y);
+        doc.text("4. Detalhes por Sócio", margin, y);
         y += 5;
 
-        for (const s of externalSettlementsP1) {
+        for (const s of externalSettlementsP2) {
+          ensureSpace(40);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
           const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
@@ -847,7 +850,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ]],
             margin: { left: margin, right: margin },
             tableWidth,
-            styles: { fontSize: 7.5, cellPadding: 1.4, halign: "right" },
+            styles: { fontSize: 8, cellPadding: 1.8, halign: "right" },
             headStyles: { fillColor: [60, 60, 60], halign: "right" },
             columnStyles: (() => {
               const w = tableWidth / 5;
@@ -857,7 +860,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           y = (doc as any).lastAutoTable.finalY + 1.5;
 
           if (s.paidExpenses.length > 0) {
-            doc.setFontSize(7);
+            doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.text("Despesas pagas pelo sócio:", margin, y);
             y += 2.5;
@@ -873,7 +876,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ]),
               foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
               margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7, cellPadding: 1.2 },
+              styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [80, 80, 80] },
               footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
               columnStyles: { 4: { halign: "right" } },
@@ -882,7 +885,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }
 
           if (s.partnerExtras.length > 0) {
-            doc.setFontSize(7);
+            doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
             y += 2.5;
@@ -898,7 +901,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ]),
               foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
               margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7, cellPadding: 1.2 },
+              styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [120, 60, 60] },
               footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
               columnStyles: { 4: { halign: "right" } },
@@ -914,19 +917,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
               : "-> Sem saldo pendente";
           doc.text(direction, margin, y);
-          y += 4;
+          y += 5;
         }
       }
     }
 
-    // ===== 4. BILHETEIRA - RESUMOS (nova página) =====
+    // ===== 5. BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
       doc.addPage();
       y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("4. Bilheteira - Totais Vendidos", margin, y);
+      doc.text("5. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
       // Larguras explícitas para a tabela de bilheteira (sem coluna s/IVA)
