@@ -1587,6 +1587,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           6: { cellWidth: 21, halign: "right", fontStyle: "bold" },
           7: { cellWidth: 21, halign: "right", fontStyle: "bold" },
         },
+        didParseCell: (data) => {
+          if (data.column.index === 0) {
+            data.cell.styles.halign = "left";
+            return;
+          }
+
+          data.cell.styles.halign = "right";
+          data.cell.styles.font = "courier";
+
+          if (data.section === "head") {
+            data.cell.styles.fontStyle = "bold";
+          }
+        },
       });
       y = (doc as any).lastAutoTable.finalY + 4;
 
