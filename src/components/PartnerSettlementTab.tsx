@@ -999,10 +999,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text(`6. Despesas por Categoria ${lvlLabel}`, margin, y);
       y += 5;
 
-      // Larguras explícitas
-      const expCol1 = 118; // descrição (L1/L2/L3)
-      const expColC = 34;  // contagem (cabe "Lançamentos")
-      const expColV = (tableWidth - expCol1 - expColC) / 2;
+      // Larguras explícitas (uma única coluna de valor c/IVA)
+      const expCol1 = 160; // descrição (L1/L2/L3)
+      const expColC = 40;  // contagem (cabe "Lançamentos")
+      const expColV = tableWidth - expCol1 - expColC;
 
       // Agregação consoante o nível escolhido
       // L2: agrupa em L1 → L2 (atual)
