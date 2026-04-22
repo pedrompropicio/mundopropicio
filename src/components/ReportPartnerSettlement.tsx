@@ -4,11 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import { HOUSE_PARTNER_ID, HOUSE_PARTNER_NAME, computeHousePercentage } from "@/lib/house-partner";
+import { buildPartnerSettlementReportData } from "@/lib/partner-settlement-report";
 
 export default function ReportPartnerSettlement() {
-  const { data: partners = [], isLoading } = useQuery({
+  const { data: partners = [], isLoading: isLoadingPartners } = useQuery({
     queryKey: ["settlement-partners"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -22,7 +21,7 @@ export default function ReportPartnerSettlement() {
 
   // IMPORTANTE: trazer is_transitory para conseguir calcular o crédito transitório
   // (cauções pagas e ainda não devolvidas) — alinhado com PartnerSettlementTab.
-  const { data: transactions = [] } = useQuery({
+  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
     queryKey: ["settlement-txs"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -34,19 +33,7 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  const { data: extras = [] } = useQuery({
-    queryKey: ["settlement-extras"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("event_partner_extras").select("*");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Trazer também is_transitory + type da transação vinculada para distinguir
-  // despesas pagas pelo sócio (entram em "Desp. Pagas") de cauções vinculadas
-  // ao sócio (entram em "Crédito Transitório", cap em 0).
-  const { data: paidExpenses = [] } = useQuery({
+  const { data: paidExpenses = [], isLoading: isLoadingPaidExpenses } = useQuery({
     queryKey: ["settlement-paid-expenses"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -57,149 +44,93 @@ export default function ReportPartnerSettlement() {
     },
   });
 
-  // Eventos: necessários para proração Master→Splits do overhead
-  const { data: events = [] } = useQuery({
-    queryKey: ["settlement-events"],
+  const { data: partnerAdvances = [], isLoading: isLoadingPartnerAdvances } = useQuery({
+    queryKey: ["settlement-partner-advances"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, parent_event_id");
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("partner_id, event_id, transactions(amount, iva_rate)");
       if (error) throw error;
       return data;
     },
   });
 
-  // Rateios de Overhead — somam-se às despesas do evento APENAS para o cálculo do acerto com sócios.
-  // Proração Master→Splits (÷N): overhead lançado num Master vira fatia virtual em cada split,
-  // para que cada sócio (que pode ser diferente por cidade) absorva a sua quota.
-  const { data: overheadsRaw = [] } = useQuery({
+  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
+    queryKey: ["settlement-events"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("events").select("id, name, status, parent_event_id, partner_calc_basis");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: forecasts = [], isLoading: isLoadingForecasts } = useQuery({
     queryKey: ["settlement-overheads"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, amount")
-        .eq("is_overhead", true);
+        .select("event_id, amount, status, is_overhead")
+        .eq("is_overhead", true)
+        .eq("status", "approved");
       if (error) throw error;
       return data;
     },
   });
-  const overheads = useMemo(
-    () => expandOverheadToSplits(overheadsRaw as any, events as any),
-    [overheadsRaw, events],
-  );
 
-  interface SettlementRow {
-    partnerId: string;
-    partnerName: string;
-    eventName: string;
-    eventStatus: string;
-    percentage: number;
-    result: number;
-    overhead: number;
-    partnerShare: number;
-    extras: number;
-    paidExpenses: number;
-    transitoryCredit: number;
-    settlement: number;
-  }
+  const { data: ticketSales = [], isLoading: isLoadingTicketSales } = useQuery({
+    queryKey: ["settlement-ticket-sales"],
+    queryFn: async () => {
+      const { data: zones, error: zonesError } = await supabase
+        .from("event_ticket_zones")
+        .select("id, event_id");
+      if (zonesError) throw zonesError;
+      if (!zones || zones.length === 0) return [];
 
-  const settlementData: SettlementRow[] = useMemo(() => {
-    // Group partners by event so we can inject Mundo Propício per evento
-    const partnersByEvent: Record<string, any[]> = {};
-    partners.forEach((p) => {
-      if (!p.event_id) return;
-      if (!partnersByEvent[p.event_id]) partnersByEvent[p.event_id] = [];
-      partnersByEvent[p.event_id].push(p);
-    });
+      const zoneIds = zones.map((zone) => zone.id);
+      const { data: lots, error: lotsError } = await supabase
+        .from("event_ticket_lots")
+        .select("id, zone_id, iva_rate")
+        .in("zone_id", zoneIds);
+      if (lotsError) throw lotsError;
+      if (!lots || lots.length === 0) return [];
 
-    const rows: SettlementRow[] = [];
-    Object.entries(partnersByEvent).forEach(([evId, evPartners]) => {
-      const sample = evPartners[0];
-      const ev = sample.events as any;
-      if (!ev) return;
+      const zoneById = new Map(zones.map((zone) => [zone.id, zone.event_id]));
+      const lotById = new Map(lots.map((lot) => [lot.id, lot]));
+      const { data: sales, error: salesError } = await supabase
+        .from("ticket_sales")
+        .select("lot_id, quantity, unit_price, total_value")
+        .in("lot_id", lots.map((lot) => lot.id));
+      if (salesError) throw salesError;
 
-      // Resultado contabilístico do evento — exclui transitórias e exclude_from_result
-      const evTxs = transactions.filter((t) => t.event_id === evId && !t.is_transitory && !t.exclude_from_result);
-      const revenue = evTxs.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-      const expense = evTxs.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
-      const overhead = overheads
-        .filter((o: any) => o.event_id === evId)
-        .reduce((s: number, o: any) => s + Number(o.amount), 0);
-      const result = revenue - expense - overhead;
-
-      // ── Crédito transitório (cauções pagas e ainda não devolvidas) ──
-      // Mundo Propício (casa): cauções ÓRFÃS (sem vínculo a sócio) — despesas − devoluções, cap em 0
-      // Sócios externos: cauções VINCULADAS via partner_paid_expenses — despesas − devoluções, cap em 0
-      const evTransitory = transactions.filter((t) => t.event_id === evId && t.is_transitory);
-      const partnerLinkedTxIdsEv = new Set(
-        paidExpenses.filter((pe) => pe.event_id === evId).map((pe) => pe.transaction_id),
-      );
-      const houseTransExp = evTransitory
-        .filter((t) => t.type === "expense" && !partnerLinkedTxIdsEv.has(t.id))
-        .reduce((s, t) => s + Number(t.amount), 0);
-      const houseTransInc = evTransitory
-        .filter((t) => t.type === "income" && !partnerLinkedTxIdsEv.has(t.id))
-        .reduce((s, t) => s + Number(t.amount), 0);
-      const houseTransitoryCredit = Math.max(0, houseTransExp - houseTransInc);
-
-      // External partners
-      evPartners.forEach((p) => {
-        const supplierName = (p.suppliers as any)?.name ?? "Desconhecido";
-        const partnerShare = result * (p.percentage / 100);
-        const partnerExtras = extras.filter((e) => e.partner_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
-
-        // Despesas pagas pelo sócio EXCLUEM transitórias (essas vão para crédito transitório)
-        const partnerPaid = paidExpenses
-          .filter((pe) => pe.partner_id === p.id && !(pe.transactions as any)?.is_transitory)
-          .reduce((s, pe) => s + Number((pe.transactions as any)?.amount ?? 0), 0);
-
-        // Crédito transitório vinculado ao sócio: despesas − devoluções, cap em 0
-        const partnerTransitoryGross = paidExpenses
-          .filter((pe) => pe.partner_id === p.id && (pe.transactions as any)?.is_transitory)
-          .reduce((s, pe) => {
-            const tx = pe.transactions as any;
-            const sign = tx?.type === "expense" ? 1 : -1;
-            return s + sign * Number(tx?.amount ?? 0);
-          }, 0);
-        const partnerTransitoryCredit = Math.max(0, partnerTransitoryGross);
-
-        rows.push({
-          partnerId: p.id,
-          partnerName: supplierName,
-          eventName: ev.name,
-          eventStatus: ev.status,
-          percentage: p.percentage,
-          result,
-          overhead,
-          partnerShare,
-          extras: partnerExtras,
-          paidExpenses: partnerPaid,
-          transitoryCredit: partnerTransitoryCredit,
-          settlement: partnerShare - partnerExtras + partnerPaid + partnerTransitoryCredit,
-        });
+      const aggregates = new Map<string, { eventId: string; gross: number; net: number }>();
+      (sales || []).forEach((sale: any) => {
+        const lot = lotById.get(sale.lot_id);
+        const eventId = lot ? zoneById.get(lot.zone_id) : undefined;
+        if (!lot || !eventId) return;
+        const gross = sale.total_value != null ? Number(sale.total_value) : Number(sale.quantity || 0) * Number(sale.unit_price || 0);
+        const net = gross / (1 + Number(lot.iva_rate || 0) / 100);
+        const current = aggregates.get(eventId) ?? { eventId, gross: 0, net: 0 };
+        current.gross += gross;
+        current.net += net;
+        aggregates.set(eventId, current);
       });
 
-      // Mundo Propício (casa) — quota residual + crédito transitório das órfãs
-      const housePct = computeHousePercentage(evPartners.map((p) => ({ percentage: p.percentage })));
-      if (housePct != null) {
-        const houseShare = result * (housePct / 100);
-        rows.push({
-          partnerId: `${HOUSE_PARTNER_ID}-${evId}`,
-          partnerName: HOUSE_PARTNER_NAME,
-          eventName: ev.name,
-          eventStatus: ev.status,
-          percentage: housePct,
-          result,
-          overhead,
-          partnerShare: houseShare,
-          extras: 0,
-          paidExpenses: 0,
-          transitoryCredit: houseTransitoryCredit,
-          settlement: houseShare + houseTransitoryCredit,
-        });
-      }
-    });
+      return Array.from(aggregates.values());
+    },
+  });
 
-    return rows;
-  }, [partners, transactions, extras, paidExpenses, overheads]);
+  const settlementData = useMemo(
+    () => buildPartnerSettlementReportData({
+      events: events as any,
+      partners: partners as any,
+      transactions: transactions as any,
+      forecasts: forecasts as any,
+      paidExpenses: paidExpenses as any,
+      partnerAdvances: partnerAdvances as any,
+      ticketSales: ticketSales as any,
+    }),
+    [events, forecasts, paidExpenses, partnerAdvances, partners, ticketSales, transactions],
+  );
 
   const totals = settlementData.reduce(
     (acc, d: any) => ({
@@ -211,6 +142,8 @@ export default function ReportPartnerSettlement() {
     }),
     { partnerShare: 0, extras: 0, paidExpenses: 0, transitoryCredit: 0, settlement: 0 }
   );
+
+  const isLoading = isLoadingPartners || isLoadingTransactions || isLoadingPaidExpenses || isLoadingPartnerAdvances || isLoadingEvents || isLoadingForecasts || isLoadingTicketSales;
 
   if (isLoading) return <p className="py-8 text-center text-muted-foreground">A carregar…</p>;
 
@@ -231,7 +164,7 @@ export default function ReportPartnerSettlement() {
         </div>
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Cauções Pendentes</p>
-          <p className="text-lg font-bold font-mono text-cyan-600 dark:text-cyan-400">{formatCurrency(totals.transitoryCredit)}</p>
+          <p className="text-lg font-bold font-mono text-accent">{formatCurrency(totals.transitoryCredit)}</p>
         </div>
         <div className="glass rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Acerto Total</p>
@@ -259,7 +192,7 @@ export default function ReportPartnerSettlement() {
             {settlementData.length === 0 ? (
               <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Sem parcerias registadas</TableCell></TableRow>
             ) : settlementData.map((d: any) => (
-              <TableRow key={d.partnerId}>
+              <TableRow key={d.rowId}>
                 <TableCell className="font-medium">{d.partnerName}</TableCell>
                 <TableCell>
                   {d.eventName}
@@ -271,7 +204,7 @@ export default function ReportPartnerSettlement() {
                 <TableCell className="text-right font-mono">{formatCurrency(d.partnerShare)}</TableCell>
                 <TableCell className="text-right font-mono text-warning">{formatCurrency(d.extras)}</TableCell>
                 <TableCell className="text-right font-mono text-success">{formatCurrency(d.paidExpenses)}</TableCell>
-                <TableCell className="text-right font-mono text-cyan-600 dark:text-cyan-400">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
+                 <TableCell className="text-right font-mono text-accent">{d.transitoryCredit > 0 ? formatCurrency(d.transitoryCredit) : "—"}</TableCell>
                 <TableCell className={`text-right font-mono font-semibold ${d.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(d.settlement)}</TableCell>
               </TableRow>
             ))}
