@@ -52,6 +52,15 @@ interface CategoryLine {
   categoryCode: string;
   forecastAmount: number;
   actualAmount: number;
+  forecastDetails: {
+    id: string;
+    amount: number;
+    eventName: string;
+    description: string;
+    isOverhead: boolean;
+    isViaMaster?: boolean;
+    splitShare?: number;
+  }[];
   transactions: TransactionWithMeta[];
 }
 
@@ -191,6 +200,14 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     return map;
   }, [reimbursementItems]);
 
+  const eventNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    events.forEach((event: any) => {
+      map[event.id] = event.name;
+    });
+    return map;
+  }, [events]);
+
   // Get relevant event IDs (including child events for tours)
   const selectedEvent = events.find((e: any) => e.id === selectedEventId);
   const isSubEvent = !!selectedEvent?.parent_event_id;
@@ -329,10 +346,25 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
 
     // Group forecasts by L2 category
     const forecastByCategory: Record<string, number> = {};
+    const forecastDetailsByCategory: Record<string, CategoryLine["forecastDetails"]> = {};
     eventForecasts.forEach((f: any) => {
       const catId = f.category_id;
       if (!catId) return;
       forecastByCategory[catId] = (forecastByCategory[catId] ?? 0) + Number(f.amount);
+
+      if (f.is_overhead) {
+        if (!forecastDetailsByCategory[catId]) forecastDetailsByCategory[catId] = [];
+        const sourceEventId = (f._from_master ? f._master_event_id : f.event_id) ?? f.event_id;
+        forecastDetailsByCategory[catId].push({
+          id: String(f.id),
+          amount: Number(f.amount),
+          eventName: eventNameMap[sourceEventId] ?? "Evento",
+          description: f.description ?? f.specification ?? "Linha de overhead",
+          isOverhead: true,
+          isViaMaster: !!f._from_master,
+          splitShare: f._split_share ? Number(f._split_share) : undefined,
+        });
+      }
     });
 
     // Categorias que existem no BP approved (do evento) — usado para marcar
@@ -383,6 +415,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       if (existingCat) {
         existingCat.forecastAmount += forecast;
         existingCat.actualAmount += actual;
+        existingCat.forecastDetails.push(...(forecastDetailsByCategory[catId] ?? []));
         existingCat.transactions.push(...catTrans);
       } else {
         groupMap[groupName].categories.push({
@@ -391,6 +424,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
           categoryCode: catCode,
           forecastAmount: forecast,
           actualAmount: actual,
+          forecastDetails: forecastDetailsByCategory[catId] ?? [],
           transactions: catTrans,
         });
       }
@@ -417,6 +451,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
         categoryCode: "—",
         forecastAmount: 0,
         actualAmount: actual,
+        forecastDetails: [],
         transactions: noCatTrans,
       });
       groupMap["Sem categoria"].totalActual += actual;
@@ -434,7 +469,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, includeOverhead, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, includeOverhead, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount, eventNameMap]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
@@ -548,6 +583,47 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       </TableRow>
     );
   };
+
+  const renderForecastDetailRow = (
+    detail: CategoryLine["forecastDetails"][number],
+    categoryId: string,
+  ) => (
+    <TableRow key={`${categoryId}::forecast::${detail.id}`} className="bg-secondary/20 text-xs">
+      <TableCell className="pl-12">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span>BP — {detail.description}</span>
+          {detail.isOverhead && (
+            <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 text-warning border-warning">
+              Overhead
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0">
+            {detail.eventName}
+          </Badge>
+          {detail.isViaMaster && (
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 border-primary/40 text-primary">
+                  via Master
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                Fatia virtual do Master
+                {typeof detail.splitShare === "number" ? ` (${(detail.splitShare * 100).toFixed(1)}%)` : ""}.
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">—</TableCell>
+      <TableCell className="text-xs text-muted-foreground">BP</TableCell>
+      <TableCell className="text-right font-mono text-xs">{formatCurrency(detail.amount)}</TableCell>
+      <TableCell className="text-right font-mono text-xs text-muted-foreground">—</TableCell>
+      <TableCell className="text-center">
+        <Badge variant="secondary" className="text-[10px]">Informativo</Badge>
+      </TableCell>
+    </TableRow>
+  );
 
   const outOfBPActual = outOfBPTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const grandTotalForecast = totalForecast;
@@ -700,6 +776,11 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                                   </code>
                                   <span>{cat.categoryName}</span>
                                 </span>
+                                {cat.forecastDetails.length > 0 && (
+                                  <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 text-warning border-warning">
+                                    Overhead {cat.forecastDetails.length > 1 ? `(${cat.forecastDetails.length})` : ""}
+                                  </Badge>
+                                )}
                                 {cat.transactions.length > 0 && (
                                   <span className="text-xs text-muted-foreground">({cat.transactions.length})</span>
                                 )}
@@ -714,6 +795,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                                 </span>
                               </TableCell>
                             </TableRow>
+                            {isCatExpanded && cat.forecastDetails.map((detail) => renderForecastDetailRow(detail, cat.categoryId))}
                             {isCatExpanded && cat.transactions.map(renderTransactionRow)}
                           </React.Fragment>
                         );

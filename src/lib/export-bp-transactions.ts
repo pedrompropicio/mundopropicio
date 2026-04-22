@@ -25,6 +25,15 @@ interface CategoryLine {
   categoryCode: string;
   forecastAmount: number;
   actualAmount: number;
+  forecastDetails?: {
+    id: string;
+    amount: number;
+    eventName: string;
+    description: string;
+    isOverhead: boolean;
+    isViaMaster?: boolean;
+    splitShare?: number;
+  }[];
   transactions: TransactionLine[];
 }
 
@@ -213,6 +222,29 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
       doc.text((cv > 0 ? "+" : "") + fmtVal(cv), colX[5] + colW[5] - 2, cursor.y + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
       cursor.y += 7;
+
+      if (viewMode === "analytical" && cat.forecastDetails && cat.forecastDetails.length > 0) {
+        cat.forecastDetails.forEach((detail) => {
+          if (checkPage(6)) drawTableHeader();
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6.5);
+          const viaMaster = detail.isViaMaster
+            ? ` · via Master${typeof detail.splitShare === "number" ? ` (${(detail.splitShare * 100).toFixed(1)}%)` : ""}`
+            : "";
+          const label = `    BP Overhead: ${detail.description} · ${detail.eventName}${viaMaster}`.substring(0, 78);
+          doc.text(label, colX[0] + 6, cursor.y + 3.5);
+          doc.setTextColor(100, 100, 100);
+          doc.text("—", colX[1] + 2, cursor.y + 3.5);
+          doc.text("BP", colX[2] + 2, cursor.y + 3.5);
+          doc.setTextColor(0, 0, 0);
+          doc.text(fmtVal(Number(detail.amount)), colX[3] + colW[3] - 2, cursor.y + 3.5, { align: "right" });
+          doc.setTextColor(180, 120, 0);
+          doc.text("Overhead", colX[5] + colW[5] - 2, cursor.y + 3.5, { align: "right" });
+          doc.setTextColor(0, 0, 0);
+          cursor.y += 5.5;
+        });
+        cursor.y += 1;
+      }
 
       // Analytical: show individual transactions
       if (viewMode === "analytical" && cat.transactions.length > 0) {
