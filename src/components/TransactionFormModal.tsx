@@ -1404,8 +1404,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
     }
 
-    // Split validation
-    if (isSplit) {
+    // Split validation — bypassed para Caução/Transitória, que sempre vai
+    // como lançamento único no Master, ignorando o rateio.
+    if (isSplit && !isTransitory) {
       if (splitCategoryBlockReason) {
         toast({ title: "Categoria bloqueada para rateio", description: splitCategoryBlockReason, variant: "destructive" });
         return;
@@ -1427,7 +1428,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         toast({ title: "Justificação obrigatória para categorias fora do BP", variant: "destructive" });
         return;
       }
-    } else {
+    } else if (!isSplit) {
       if (rootFlags.event_required && !form.event_id && !splitMasterEventId) {
         toast({ title: "Selecione o evento (obrigatório para esta categoria)", variant: "destructive" });
         return;
