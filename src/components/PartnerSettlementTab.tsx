@@ -53,10 +53,17 @@ interface PartnerSettlement {
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
   transitoryItems: { description: string; amount: number; date: string; category: string; sign: 1 | -1 }[];
-  /** Acerto operacional — SEM cauções pendentes. É o valor que efectivamente pode/deve ser
-   *  transaccionado entre empresa e sócio com base no caixa real do evento. */
+  /** Parcela da quota do resultado que já tem liquidez imediata para repasse,
+   *  depois de abater a fatia do caixa do evento actualmente retida em cauções
+   *  pagas com a receita/caixa da Mundo Propício. */
+  resultRepasseNow: number;
+  /** Parcela da quota do resultado ainda sem liquidez imediata porque o caixa do
+   *  evento foi desencaixado para cobrir cauções/transitórias pagas pela MP. */
+  resultPendingByCash: number;
+  /** Acerto liquidável agora — quota com liquidez imediata + pagas pelo sócio − extras.
+   *  Exclui cauções pendentes e exclui a parcela do resultado sem liquidez imediata. */
   operationalSettlement: number;
-  /** Saldo total incluindo cauções pendentes. Só é honrado quando as cauções voltam.
+  /** Saldo total incluindo o resultado ainda sem liquidez imediata e as cauções pendentes.
    *  positive = empresa paga sócio, negative = sócio paga empresa */
   settlement: number;
 }
@@ -373,67 +380,52 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const resultBase = revenueBase - expenseBase;
 
   // ---- City breakdown (para turnês) ----
-  // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions
-  // Despesas = transactions de despesa do sub-evento (com e sem IVA)
-  // IMPORTANTE: incluir uma linha "Master / Geral" com as transações lançadas
-  // diretamente no Master (event_id === eventId) para que a soma bata com o
-  // Resumo Financeiro (totalRevenueNet / totalExpensesGross).
+  // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions.
+  // Despesas = transactions de despesa do sub-evento (com e sem IVA).
+  // Lançamentos feitos no Master NÃO aparecem como "cidade"; são rateados
+  // virtualmente e de forma igual pelas cidades/splits do evento.
   const cityBreakdown: CityBreakdown[] = isTour
     ? (() => {
-        const rows: CityBreakdown[] = subEvents
-          .filter((se: any) => se.id !== eventId)
-          .map((se: any) => {
-            const evtTx = validTx.filter((t: any) => t.event_id === se.id);
-            const inc = evtTx.filter((t: any) => t.type === "income");
-            const exp = evtTx.filter((t: any) => t.type === "expense");
-            const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
-            const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-            const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
-            const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
-            const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
-            const revenueNet = tbNet + txRevenueNet;
-            const revenueGross = tbGross + txRevenueGross;
-            const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
-            const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-            return {
-              eventId: se.id,
-              cityName: (se.cities as any)?.name || se.name,
-              revenueNet,
-              revenueGross,
-              expensesNet,
-              expensesGross,
-              resultNet: revenueNet - expensesNet,
-            };
-          });
-
-        // Linha Master / Geral — transações lançadas diretamente no evento Master
-        // (não rateadas para sub-eventos). Tipicamente despesas comuns/transversais.
+        const childRows = subEvents.filter((se: any) => se.id !== eventId);
+        const childCount = childRows.length || 1;
         const masterTx = validTx.filter((t: any) => t.event_id === eventId);
         const masterInc = masterTx.filter((t: any) => t.type === "income");
         const masterExp = masterTx.filter((t: any) => t.type === "expense");
         const masterTbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === eventId);
-        const masterRevenueNet =
+        const masterRevenueNetShare = (
           masterInc.reduce((s: number, t: any) => s + Number(t.amount), 0) +
-          masterTbRows.reduce((s, r) => s + r.totalNet, 0);
-        const masterRevenueGross =
+          masterTbRows.reduce((s, r) => s + r.totalNet, 0)
+        ) / childCount;
+        const masterRevenueGrossShare = (
           masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
-          masterTbRows.reduce((s, r) => s + r.totalGross, 0);
-        const masterExpensesNet = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0);
-        const masterExpensesGross = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          masterTbRows.reduce((s, r) => s + r.totalGross, 0)
+        ) / childCount;
+        const masterExpensesNetShare = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0) / childCount;
+        const masterExpensesGrossShare = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) / childCount;
 
-        if (masterRevenueGross > 0 || masterExpensesGross > 0) {
-          rows.push({
-            eventId,
-            cityName: "Master / Geral",
-            revenueNet: masterRevenueNet,
-            revenueGross: masterRevenueGross,
-            expensesNet: masterExpensesNet,
-            expensesGross: masterExpensesGross,
-            resultNet: masterRevenueNet - masterExpensesNet,
-          });
-        }
-
-        return rows;
+        return childRows.map((se: any) => {
+          const evtTx = validTx.filter((t: any) => t.event_id === se.id);
+          const inc = evtTx.filter((t: any) => t.type === "income");
+          const exp = evtTx.filter((t: any) => t.type === "expense");
+          const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
+          const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
+          const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
+          const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
+          const revenueNet = tbNet + txRevenueNet + masterRevenueNetShare;
+          const revenueGross = tbGross + txRevenueGross + masterRevenueGrossShare;
+          const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0) + masterExpensesNetShare;
+          const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) + masterExpensesGrossShare;
+          return {
+            eventId: se.id,
+            cityName: (se.cities as any)?.name || se.name,
+            revenueNet,
+            revenueGross,
+            expensesNet,
+            expensesGross,
+            resultNet: revenueNet - expensesNet,
+          };
+        });
       })()
     : [];
 
@@ -683,6 +675,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPartnerExtras,
       transitoryCredit: 0, // calculado abaixo
       transitoryItems,
+      resultRepasseNow: 0,
+      resultPendingByCash: 0,
       operationalSettlement: 0, // calculado abaixo
       settlement: 0,        // recalculado abaixo
     };
@@ -691,18 +685,28 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Crédito transitório:
   //  • Mundo Propício: total das órfãs (já calculado, cap em 0)
   //  • Sócios externos: gross vinculado direto (despesas − devoluções), cap em 0
+  const totalPositiveExternalShares = settlements
+    .filter((s) => !s.isHouse && s.partnerShare > 0)
+    .reduce((acc, s) => acc + s.partnerShare, 0);
+  const blockedShareRatio = totalPositiveExternalShares > 0
+    ? Math.min(1, houseTransitoryCredit / totalPositiveExternalShares)
+    : 0;
+
   settlements.forEach((s) => {
     if (s.isHouse) {
       s.transitoryCredit = houseTransitoryCredit;
+      s.resultPendingByCash = 0;
+      s.resultRepasseNow = s.partnerShare;
     } else {
       const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
       s.transitoryCredit = Math.max(0, gross);
+      s.resultPendingByCash = s.partnerShare > 0 ? s.partnerShare * blockedShareRatio : 0;
+      s.resultRepasseNow = s.partnerShare - s.resultPendingByCash;
     }
-    // Acerto operacional: caixa real do evento (sem cauções pendentes).
-    // É o valor que pode efectivamente ser pago/cobrado agora.
-    s.operationalSettlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras;
-    // Saldo final: inclui cauções pendentes — só liquidável quando voltarem.
-    s.settlement = s.operationalSettlement + s.transitoryCredit;
+    // Acerto operacional = parte já líquida do resultado + pagas pelo sócio - extras.
+    s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
+    // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
+    s.settlement = s.operationalSettlement + s.resultPendingByCash + s.transitoryCredit;
   });
 
   function exportPdf() {
@@ -737,8 +741,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
-    const totalTransitoryHouse = settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
-    const totalTransitoryExt = settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -764,38 +766,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     });
     y = (doc as any).lastAutoTable.finalY + 4;
 
-    // Bloco de cauções pendentes — explicita exposição de caixa fora do resultado
-    if (totalTransitoryAll > 0) {
-      ensureSpace(28);
-      autoTable(doc, {
-        startY: y,
-        head: [["🛡️ Cauções pendentes (fora do resultado — caixa retido)", "Valor"]],
-        body: [
-          ["Pagas pela Mundo Propício (caixa da empresa)", formatCurrency(totalTransitoryHouse)],
-          ["Pagas por sócios externos", formatCurrency(totalTransitoryExt)],
-          ["Total caixa retido (recuperável)", formatCurrency(totalTransitoryAll)],
-        ],
-        margin: { left: margin, right: margin },
-        tableWidth,
-        styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [20, 80, 100] },
-        headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
-        columnStyles: {
-          0: { cellWidth: labelColW, halign: "left" },
-          1: { cellWidth: valueColW, halign: "right", fontStyle: "bold" },
-        },
-      });
-      y = (doc as any).lastAutoTable.finalY + 2;
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(80);
-      const note = "Estes valores nao sao receita do evento — sao caucoes/transitorias temporariamente retidas por entidade terceira (ex: recinto/venue) e regressam ao caixa de quem desembolsou quando sao devolvidas. No acerto entre socios, entram como credito de quem pagou, mas so sao efectivamente liquidaveis apos esse retorno.";
-      const lines = doc.splitTextToSize(note, tableWidth);
-      doc.text(lines, margin, y);
-      y += lines.length * 3 + 3;
-      doc.setTextColor(0);
-    } else {
-      y += 2;
-    }
+    y += 2;
 
     // ===== 2. QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
@@ -843,24 +814,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     autoTable(doc, {
       startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
+      head: [["Sócio", "%", "Quota Bruta", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional"]],
       body: settlements.map((s) => [
         s.partnerName,
         `${s.effectivePercentage}%`,
         formatCurrency(s.partnerShare),
+        formatCurrency(s.resultRepasseNow),
         formatCurrency(s.totalPaidByPartner),
         `-${formatCurrency(s.totalPartnerExtras)}`,
         formatCurrency(s.operationalSettlement),
-        formatCurrency(s.transitoryCredit),
-        formatCurrency(s.settlement),
       ]),
       foot: [["TOTAL", "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.resultRepasseNow, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
         `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
         formatCurrency(settlements.reduce((s, x) => s + x.operationalSettlement, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
       ]],
       margin: { left: margin, right: margin },
       tableWidth,
@@ -870,16 +839,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       columnStyles: (() => {
         const colPct = 14;
         const colSocio = 34;
-        const colVal = (tableWidth - colSocio - colPct) / 6;
+        const colVal = (tableWidth - colSocio - colPct) / 5;
         return {
           0: { cellWidth: colSocio, halign: "left" },
           1: { cellWidth: colPct, halign: "center" },
           2: { cellWidth: colVal, halign: "right" },
           3: { cellWidth: colVal, halign: "right" },
           4: { cellWidth: colVal, halign: "right" },
-          5: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
-          6: { cellWidth: colVal, halign: "right", textColor: [0, 100, 120] },
-          7: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
+          5: { cellWidth: colVal, halign: "right" },
+          6: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
         };
       })(),
       didParseCell: (data) => {
@@ -895,7 +863,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "italic");
       doc.setTextColor(80);
-      const note2 = "Operacional = caixa real liquidavel agora (Quota + Pagas - Extras). Saldo c/ Caucoes = inclui caucoes pendentes, so liquidavel apos retorno.";
+      const note2 = "Operacional = quota do resultado com liquidez imediata + pagas - extras. O item 4 detalha o que ficou pendente por desencaixe de caixa em caucoes/transitorias e o que ainda depende de devolucao.";
       const lines2 = doc.splitTextToSize(note2, tableWidth);
       doc.text(lines2, margin, y);
       y += lines2.length * 3 + 3;
@@ -924,16 +892,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
           y += 3;
 
-          // Resumo numa única linha — 6 colunas (com Acerto Operacional separado)
+          // Resumo numa única linha — separa liquidez imediata da pendência de caixa
           autoTable(doc, {
             startY: y,
-            head: [["Quota", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
+            head: [["Quota", "Repasse já líquido", "Pagas (+)", "Extras (-)", "Operacional", "Saldo total"]],
             body: [[
               formatCurrency(s.partnerShare),
+              formatCurrency(s.resultRepasseNow),
               formatCurrency(s.totalPaidByPartner),
               `-${formatCurrency(s.totalPartnerExtras)}`,
               formatCurrency(s.operationalSettlement),
-              formatCurrency(s.transitoryCredit),
               formatCurrency(s.settlement),
             ]],
             margin: { left: margin, right: margin },
@@ -947,12 +915,34 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 1: { cellWidth: w },
                 2: { cellWidth: w },
                 3: { cellWidth: w, fontStyle: "bold" },
-                4: { cellWidth: w, textColor: [0, 100, 120] },
+                4: { cellWidth: w, fontStyle: "bold" },
                 5: { cellWidth: w, fontStyle: "bold" },
               };
             })(),
           });
           y = (doc as any).lastAutoTable.finalY + 1.5;
+
+          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0) {
+            autoTable(doc, {
+              startY: y,
+              head: [["4. Liquidez e pendências de caixa", "Valor"]],
+              body: [
+                ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
+                ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
+                ["Cauções / transitórias a devolver ao pagador", formatCurrency(s.transitoryCredit)],
+                ["Saldo total após devoluções", formatCurrency(s.settlement)],
+              ],
+              margin: { left: margin, right: margin },
+              tableWidth,
+              styles: { fontSize: 7.5, cellPadding: 1.6 },
+              headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
+              columnStyles: {
+                0: { halign: "left" },
+                1: { halign: "right", fontStyle: "bold" },
+              },
+            });
+            y = (doc as any).lastAutoTable.finalY + 1.5;
+          }
 
           if (s.paidExpenses.length > 0) {
             doc.setFontSize(7.5);
@@ -1041,20 +1031,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          // Direcção do acerto OPERACIONAL (caixa real liquidável agora — sem cauções)
+          // Direcção do acerto OPERACIONAL (liquidável agora)
           const opDirection = s.operationalSettlement > 0
-            ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.operationalSettlement)} ao sócio (acerto operacional, liquidável agora)`
+            ? `-> MUNDO PROPÍCIO já tem liquidez para repassar ${formatCurrency(s.operationalSettlement)} ao sócio agora`
             : s.operationalSettlement < 0
-              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO (acerto operacional, liquidável agora)`
+              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO agora`
               : "-> Sem saldo operacional pendente";
           doc.text(opDirection, margin, y);
           y += 4;
+          if (s.resultPendingByCash > 0) {
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(0, 100, 120);
+            const liqNote = `   + ${formatCurrency(s.resultPendingByCash)} da quota do resultado fica pendente porque esse caixa do evento foi desencaixado para cobrir caucoes/transitorias ainda nao devolvidas.`;
+            doc.text(liqNote, margin, y);
+            doc.setTextColor(0);
+            y += 4;
+          }
           // Cauções pendentes — só liquidáveis após retorno
           if (s.transitoryCredit > 0) {
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(0, 100, 120);
-            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes pagas pelo socio — a creditar quando devolvidas pela entidade que reteve a caucao (saldo total c/ caucoes: ${formatCurrency(s.settlement)})`;
+            const cauNote = `   + ${formatCurrency(s.transitoryCredit)} de caucoes/transitorias do proprio pagador continuam pendentes de devolucao pela entidade terceira que reteve o valor (saldo total apos devolucoes: ${formatCurrency(s.settlement)}).`;
             doc.text(cauNote, margin, y);
             doc.setTextColor(0);
             y += 4;
@@ -1509,39 +1508,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </p>
           </div>
         </div>
-        {/* Exposição de caixa — cauções pendentes (não compõem resultado, mas afectam a liquidez) */}
-        {settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0 && (
-          <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
-            <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mb-2">
-              🛡️ Cauções pendentes (fora do resultado)
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">Pagas pela Mundo Propício</p>
-                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatCurrency(settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Pagas por sócios externos</p>
-                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatCurrency(settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total caixa retido</p>
-                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0))}
-                </p>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-              Estes valores <strong>não são receita do evento</strong> — são cauções/transitórias temporariamente retidas por entidade terceira
-              (ex: recinto/venue) e regressam ao caixa de quem desembolsou quando são devolvidas.
-              No acerto entre sócios, são creditados a quem pagou, mas só podem ser efectivamente liquidados após esse retorno.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* City breakdown for tours */}
@@ -1591,14 +1557,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
             <div className="flex items-center gap-2">
-              {s.transitoryCredit > 0 ? (
+              {s.transitoryCredit > 0 || s.resultPendingByCash > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <Badge className={`text-xs ${s.operationalSettlement >= 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
                     {s.operationalSettlement >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                     Operacional {formatCurrency(Math.abs(s.operationalSettlement))}
                   </Badge>
                   <Badge variant="outline" className="text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
-                    + Caução {formatCurrency(s.transitoryCredit)}
+                    + Pendente {formatCurrency(s.resultPendingByCash + s.transitoryCredit)}
                   </Badge>
                 </div>
               ) : s.settlement > 0 ? (
@@ -1616,10 +1582,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-6 text-sm">
+            <div className="grid gap-3 sm:grid-cols-7 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Parcela da quota do resultado já suportada por liquidez disponível">Repasse já líquido</span>
+                <p className={`font-mono font-bold ${s.resultRepasseNow >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.resultRepasseNow)}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Pagas pelo sócio (+)</span>
@@ -1630,23 +1600,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalPartnerExtras)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Caixa real liquidável agora — sem cauções">Acerto operacional</span>
+                <span className="text-xs text-muted-foreground" title="Valor já liquidável agora">Acerto operacional</span>
                 <p className={`font-mono font-bold text-lg ${s.operationalSettlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.operationalSettlement)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas ainda não devolvidas">Cauções pendentes (+)</span>
-                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.transitoryCredit)}</p>
+                <span className="text-xs text-muted-foreground" title="Quota do resultado sem liquidez + cauções/transitórias pendentes">Pendente de caixa</span>
+                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.resultPendingByCash + s.transitoryCredit)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Saldo total contando cauções (só liquidável após retorno)">Saldo c/ cauções</span>
+                <span className="text-xs text-muted-foreground" title="Saldo total, incluindo pendências de caixa e devoluções futuras">Saldo total</span>
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
-            {s.transitoryCredit > 0 && (
+            {(s.resultPendingByCash > 0 || s.transitoryCredit > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
-                ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> Os {formatCurrency(s.transitoryCredit)} de cauções
-                {s.isHouse ? " da Mundo Propício" : " do sócio"} só entram no acerto após devolução pela entidade que reteve a caução
-                (ex: recinto/venue).
+                ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> No item 4, o fecho mostra separadamente
+                {" "}{formatCurrency(s.resultPendingByCash)} do resultado ainda sem liquidez por desencaixe de caixa e {formatCurrency(s.transitoryCredit)} de
+                cauções/transitórias ainda pendentes de devolução.
               </p>
             )}
 
