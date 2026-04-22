@@ -2594,7 +2594,6 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </p>
                 </div>
               )}
-              </div>
               {form.is_reimbursement && (
                 <div className="space-y-2">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota de Reembolso *</label>
