@@ -730,13 +730,68 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. BILHETEIRA - RESUMOS =====
+    // ===== 3. DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
+    ensureSpace(50);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Distribuição aos Sócios", margin, y);
+    y += 5;
+    autoTable(doc, {
+      startY: y,
+      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo Final"]],
+      body: settlements.map((s) => [
+        s.partnerName,
+        `${s.effectivePercentage}%`,
+        formatCurrency(s.partnerShare),
+        formatCurrency(s.totalPaidByPartner),
+        formatCurrency(s.transitoryCredit),
+        `-${formatCurrency(s.totalPartnerExtras)}`,
+        formatCurrency(s.settlement),
+      ]),
+      foot: [["TOTAL", "100%",
+        formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
+        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
+      ]],
+      margin: { left: margin, right: margin },
+      tableWidth,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [41, 41, 41] },
+      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+      columnStyles: (() => {
+        const colPct = 16;
+        const colSocio = 38;
+        const colVal = (tableWidth - colSocio - colPct) / 5;
+        return {
+          0: { cellWidth: colSocio, halign: "left" },
+          1: { cellWidth: colPct, halign: "center" },
+          2: { cellWidth: colVal, halign: "right" },
+          3: { cellWidth: colVal, halign: "right" },
+          4: { cellWidth: colVal, halign: "right" },
+          5: { cellWidth: colVal, halign: "right" },
+          6: { cellWidth: colVal, halign: "right" },
+        };
+      })(),
+      didParseCell: (data) => {
+        if (data.section === "head" || data.section === "foot") {
+          if (data.column.index === 0) data.cell.styles.halign = "left";
+          else if (data.column.index === 1) data.cell.styles.halign = "center";
+          else data.cell.styles.halign = "right";
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // ===== 4. BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
-      ensureSpace(30);
+      doc.addPage();
+      y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("3. Bilheteira - Totais Vendidos", margin, y);
+      doc.text("4. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
       // Larguras explícitas para a tabela de bilheteira
