@@ -52,8 +52,11 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@radix-ui/react-slot": path.resolve(__dirname, "./node_modules/@radix-ui/react-slot/dist/index.js"),
+      "@radix-ui/react-primitive": path.resolve(__dirname, "./node_modules/@radix-ui/react-primitive/dist/index.mjs"),
+      "@radix-ui/react-context": path.resolve(__dirname, "./node_modules/@radix-ui/react-context/dist/index.mjs"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime"],
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "@radix-ui/react-slot", "@radix-ui/react-primitive", "@radix-ui/react-context"],
   },
   optimizeDeps: {
     include: ["react", "react-dom", "@tanstack/react-query"],
