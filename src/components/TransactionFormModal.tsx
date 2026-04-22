@@ -1349,7 +1349,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       // If check fails, proceed anyway
     }
 
-    if (isParentMultiDay && !showProrationConfirm) {
+    // Caução / Transitória nunca é rateada — vai sempre direto ao Master sem confirmação
+    if (isParentMultiDay && !showProrationConfirm && !isTransitory) {
       setShowProrationConfirm(true);
       return;
     }
