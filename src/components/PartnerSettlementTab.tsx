@@ -967,12 +967,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 4. FECHO DE BILHETEIRA =====
+    // ===== 5. FECHO DE BILHETEIRA =====
     if (boxOfficeRows.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("4. Fecho de Bilheteiras / Recintos", margin, y);
+      doc.text("5. Fecho de Bilheteiras / Recintos", margin, y);
       y += 5;
       autoTable(doc, {
         startY: y,
@@ -992,20 +992,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 5. DESPESAS POR CATEGORIA (L1 + L2 com subtotais por L1) =====
+    // ===== 6. DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
     if (expenseByCategory.length > 0) {
-      ensureSpace(40);
+      doc.addPage();
+      y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("5. Despesas por Categoria", margin, y);
+      const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
+      doc.text(`6. Despesas por Categoria ${lvlLabel}`, margin, y);
       y += 5;
 
       // Larguras explícitas
-      const expCol1 = 118; // L1/L2 descrição
+      const expCol1 = 118; // descrição (L1/L2/L3)
       const expColC = 34;  // contagem (cabe "Lançamentos")
       const expColV = (tableWidth - expCol1 - expColC) / 2;
 
-      // Agrupar L2 por L1
+      // Agregação consoante o nível escolhido
+      // L2: agrupa em L1 → L2 (atual)
+      // L3: agrupa em L1 → L2 → L3 (folha do plano)
       const byL1: Record<string, { l1Code: string; l1Name: string; rows: CategoryExpenseRow[] }> = {};
       expenseByCategory.forEach((r) => {
         const k = r.l1Code || "_";
@@ -1013,13 +1017,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         byL1[k].rows.push(r);
       });
 
-      const body: { row: any[]; style: "l1" | "l2" }[] = [];
+      const body: { row: any[]; style: "l1" | "l2" | "l3" }[] = [];
       let grandCount = 0, grandNet = 0, grandGross = 0;
 
       Object.values(byL1)
         .sort((a, b) => a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true }))
         .forEach((g) => {
-          // Linha L1 (cabeçalho do grupo) com subtotais
+          // Subtotal por L1
           const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
           const l1Net = g.rows.reduce((s, r) => s + r.amountNet, 0);
           const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
@@ -1032,20 +1036,53 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ],
             style: "l1",
           });
-          // Linhas L2 (filhas indentadas)
+
+          // Agrupa filhas do L1 por L2
+          const byL2: Record<string, CategoryExpenseRow[]> = {};
           g.rows.forEach((r) => {
-            // Se L2 == L1 (categoria sem filho), não duplicar — já apresentada no L1
-            if (r.l2Code === r.l1Code && r.l2Name === r.l1Name) return;
-            body.push({
-              row: [
-                `    ${r.l2Code} ${r.l2Name}`.trim(),
-                r.count.toString(),
-                formatCurrency(r.amountNet),
-                formatCurrency(r.amountGross),
-              ],
-              style: "l2",
-            });
+            const k = r.l2Code || "_";
+            if (!byL2[k]) byL2[k] = [];
+            byL2[k].push(r);
           });
+
+          Object.entries(byL2)
+            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+            .forEach(([_, rowsL2]) => {
+              const first = rowsL2[0];
+              // Se L2 == L1 (categoria sem filho intermédio), saltar a linha L2 para não duplicar
+              const skipL2Row = first.l2Code === g.l1Code && first.l2Name === g.l1Name;
+              if (!skipL2Row) {
+                const l2Count = rowsL2.reduce((s, r) => s + r.count, 0);
+                const l2Net = rowsL2.reduce((s, r) => s + r.amountNet, 0);
+                const l2Gross = rowsL2.reduce((s, r) => s + r.amountGross, 0);
+                body.push({
+                  row: [
+                    `    ${first.l2Code} ${first.l2Name}`.trim(),
+                    l2Count.toString(),
+                    formatCurrency(l2Net),
+                    formatCurrency(l2Gross),
+                  ],
+                  style: "l2",
+                });
+              }
+
+              // Detalhe L3 — apenas se nível escolhido é L3 e L3 != L2
+              if (expenseCategoryLevel === "l3") {
+                rowsL2.forEach((r) => {
+                  if (r.l3Code === r.l2Code && r.l3Name === r.l2Name) return; // sem nível 3 real
+                  body.push({
+                    row: [
+                      `        ${r.l3Code} ${r.l3Name}`.trim(),
+                      r.count.toString(),
+                      formatCurrency(r.amountNet),
+                      formatCurrency(r.amountGross),
+                    ],
+                    style: "l3",
+                  });
+                });
+              }
+            });
+
           grandCount += l1Count;
           grandNet += l1Net;
           grandGross += l1Gross;
@@ -1078,6 +1115,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           if (meta.style === "l1") {
             data.cell.styles.fontStyle = "bold";
             data.cell.styles.fillColor = [230, 230, 230];
+          } else if (meta.style === "l2") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [245, 245, 245];
           }
         },
       });
