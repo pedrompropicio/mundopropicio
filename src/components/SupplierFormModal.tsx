@@ -152,12 +152,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogPortal>
-        <DialogOverlay className="z-[60]" />
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[61] fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]"
-        >
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[60]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>
@@ -261,8 +256,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
           </button>
         </form>
-        </DialogContent>
-      </DialogPortal>
+      </DialogContent>
     </Dialog>
   );
 }
