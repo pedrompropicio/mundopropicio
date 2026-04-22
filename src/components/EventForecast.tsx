@@ -1448,6 +1448,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (!(t.status === "approved" || t.status === "paid")) return false;
       if (t.is_transitory) return false;
       if (t.exclude_from_result) return false;
+      // Na vista "Só Master", não misturar pais globais de rateio (event_id null)
+      // no Real. Essas transações representam contentores de split/multi-evento e
+      // inflacionam o Master quando não estamos a ver o consolidado Master+Subs.
+      if (!includeSubsInBP && parentEventId === null && !t.event_id) return false;
       // Master sem toggle: só TX deste Master (event_id === eventId) ou multi-event masters (event_id null)
       if (!includeSubsInBP && parentEventId === null && t.event_id && t.event_id !== eventId) return false;
       // Simetria por categoria: só TX cuja categoria foi orçada no BP deste evento.
