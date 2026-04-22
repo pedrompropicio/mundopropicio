@@ -1015,20 +1015,18 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       });
 
       const body: { row: any[]; style: "l1" | "l2" | "l3" }[] = [];
-      let grandCount = 0, grandNet = 0, grandGross = 0;
+      let grandCount = 0, grandGross = 0;
 
       Object.values(byL1)
         .sort((a, b) => a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true }))
         .forEach((g) => {
           // Subtotal por L1
           const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
-          const l1Net = g.rows.reduce((s, r) => s + r.amountNet, 0);
           const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
           body.push({
             row: [
               `${g.l1Code} ${g.l1Name}`.trim(),
               l1Count.toString(),
-              formatCurrency(l1Net),
               formatCurrency(l1Gross),
             ],
             style: "l1",
@@ -1050,13 +1048,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               const skipL2Row = first.l2Code === g.l1Code && first.l2Name === g.l1Name;
               if (!skipL2Row) {
                 const l2Count = rowsL2.reduce((s, r) => s + r.count, 0);
-                const l2Net = rowsL2.reduce((s, r) => s + r.amountNet, 0);
                 const l2Gross = rowsL2.reduce((s, r) => s + r.amountGross, 0);
                 body.push({
                   row: [
                     `    ${first.l2Code} ${first.l2Name}`.trim(),
                     l2Count.toString(),
-                    formatCurrency(l2Net),
                     formatCurrency(l2Gross),
                   ],
                   style: "l2",
@@ -1071,7 +1067,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     row: [
                       `        ${r.l3Code} ${r.l3Name}`.trim(),
                       r.count.toString(),
-                      formatCurrency(r.amountNet),
                       formatCurrency(r.amountGross),
                     ],
                     style: "l3",
@@ -1081,17 +1076,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             });
 
           grandCount += l1Count;
-          grandNet += l1Net;
           grandGross += l1Gross;
         });
 
       autoTable(doc, {
         startY: y,
-        head: [["Categoria", "Lançamentos", "s/IVA", "c/IVA"]],
+        head: [["Categoria", "Lançamentos", "c/IVA"]],
         body: body.map((b) => b.row),
         foot: [["TOTAL",
           grandCount.toString(),
-          formatCurrency(grandNet),
           formatCurrency(grandGross),
         ]],
         margin: { left: margin, right: margin },
@@ -1103,7 +1096,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           0: { cellWidth: expCol1, halign: "left" },
           1: { cellWidth: expColC, halign: "right" },
           2: { cellWidth: expColV, halign: "right" },
-          3: { cellWidth: expColV, halign: "right" },
         },
         didParseCell: (data) => {
           if (data.section !== "body") return;
