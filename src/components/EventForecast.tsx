@@ -1296,16 +1296,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return partners.includes(partnerFilter);
   };
 
+  const hasTxForForecast = useCallback(
+    (forecast: any) => findMatchingTransactionsForForecast(forecast, transactions, [...forecasts, ...adoptedForecasts]).length > 0,
+    [transactions, forecasts, adoptedForecasts],
+  );
+
   const matchesTxLinkFilter = (f: any) => {
     if (txLinkFilter === "all") return true;
     // Linhas de rateio do Master vistas no Sub (overhead via Master / read-only) não
     // pertencem a este sub-evento. Quando o filtro está em "Com" ou "Sem transação",
     // estas linhas são totalmente ocultadas — só aparecem dentro do próprio Master.
     if (f._overhead_via_master || f._readonly) return false;
-    // Check both direct link (transaction_id) and matching transactions by category
-    const hasDirectLink = !!f.transaction_id;
-    const hasMatchingTx = transactions.some((t: any) => t.category_id === f.category_id && t.type === f.type);
-    const hasTx = hasDirectLink || hasMatchingTx;
+    const hasTx = hasTxForForecast(f);
     if (txLinkFilter === "with_tx") return hasTx;
     if (txLinkFilter === "without_tx") return !hasTx;
     return true;
@@ -1318,13 +1320,32 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const filteredCacheLines: CachePLLine[] = [];
   const filteredCacheAmount = 0;
   const filteredProratedParentExpenses = useMemo(() => {
-    if (partnerFilter === "all") return allProratedParentExpenses;
     return allProratedParentExpenses.filter((forecast: any) => {
+      if (txLinkFilter !== "all") {
+        const adoptedChildrenForThisSplit = adoptedForecasts.filter(
+          (adopted: any) => adopted.master_forecast_id === forecast.id && adopted.event_id === eventId,
+        );
+
+        const candidateForecasts = adoptedChildrenForThisSplit.length > 0
+          ? adoptedChildrenForThisSplit
+          : [{
+              ...forecast,
+              id: `${forecast.id}::prorated::${eventId}`,
+              event_id: eventId,
+              transaction_id: null,
+            }];
+
+        const hasTx = candidateForecasts.some((candidate: any) => hasTxForForecast(candidate));
+        if (txLinkFilter === "with_tx" && !hasTx) return false;
+        if (txLinkFilter === "without_tx" && hasTx) return false;
+      }
+
+      if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
