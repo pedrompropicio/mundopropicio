@@ -82,6 +82,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   // incluídas, para preservar a vista atual.
   const [includeMasterApportionment, setIncludeMasterApportionment] = useState(true);
   const [includeOverhead, setIncludeOverhead] = useState(false);
+  const [includeTransitory, setIncludeTransitory] = useState(false);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
@@ -298,6 +299,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const localTxRaw = transactions.filter((t: any) => {
       if (t.type !== "expense") return false;
       if (!relevantEventIds.includes(t.event_id)) return false;
+      if (!includeTransitory && t.is_transitory) return false;
       if (isSubEvent && t.parent_transaction_id && !includeMasterApportionment) {
         // Toggle OFF: descarta fatias de rateio Master
         return false;
@@ -312,6 +314,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
         (t: any) =>
           t.event_id === parentEventId &&
           t.type === "expense" &&
+          (includeTransitory || !t.is_transitory) &&
           !t.parent_transaction_id
       );
       masterTxs.forEach((t: any) => {
@@ -469,7 +472,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, includeOverhead, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount, eventNameMap]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, includeOverhead, includeTransitory, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount, eventNameMap]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
@@ -685,6 +688,18 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
               >
                 <option value="without">Sem overhead</option>
                 <option value="with">Com overhead</option>
+              </select>
+            </div>
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Transitórias</span>
+              <select
+                value={includeTransitory ? "with" : "without"}
+                onChange={(e) => setIncludeTransitory(e.target.value === "with")}
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                title="Incluir ou excluir cauções e transitórias na auditoria do relatório"
+              >
+                <option value="without">Sem transitórias</option>
+                <option value="with">Com transitórias</option>
               </select>
             </div>
             {isSubEvent && (
