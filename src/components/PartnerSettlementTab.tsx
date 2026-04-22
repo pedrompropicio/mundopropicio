@@ -1311,7 +1311,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             {s.transitoryItems.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
-                  🛡️ Cauções / transitórias pagas pelo sócio
+                  🛡️ {s.isHouse ? "Cauções / transitórias pagas pela Mundo Propício" : "Cauções / transitórias pagas pelo sócio"}
                   <span className="text-muted-foreground/70"> — entram no acerto até serem devolvidas (não impactam resultado)</span>
                 </p>
                 <Table>
