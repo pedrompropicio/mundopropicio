@@ -46,9 +46,9 @@ interface PartnerSettlement {
   expenses: number;
   result: number;
   partnerShare: number;
-  paidExpenses: { description: string; amount: number; date: string; category: string }[];
+  paidExpenses: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPaidByPartner: number;
-  partnerExtras: { description: string; amount: number; date: string; category: string }[];
+  partnerExtras: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPartnerExtras: number;
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
@@ -71,6 +71,8 @@ interface CategoryExpenseRow {
   l1Name: string;
   l2Code: string;
   l2Name: string;
+  l3Code: string;
+  l3Name: string;
   amountNet: number;
   amountGross: number;
   count: number;
