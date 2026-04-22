@@ -1119,10 +1119,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     if (externalSettlements.length > 0) {
       // Calcula altura aproximada de cada bloco para decidir se deve quebrar página antes.
       const estimateBlockHeight = (s: any) => {
-        const base = 30; // título + resumo
-        const paid = s.paidExpenses.length > 0 ? 12 + s.paidExpenses.length * 5 : 0;
-        const extras = s.partnerExtras.length > 0 ? 12 + s.partnerExtras.length * 5 : 0;
-        return base + paid + extras + 10;
+        const base = 18; // título + resumo de 1 linha + direction
+        const paid = s.paidExpenses.length > 0 ? 8 + s.paidExpenses.length * 4 : 0;
+        const extras = s.partnerExtras.length > 0 ? 8 + s.partnerExtras.length * 4 : 0;
+        return base + paid + extras + 4;
       };
 
       let firstSocio = true;
