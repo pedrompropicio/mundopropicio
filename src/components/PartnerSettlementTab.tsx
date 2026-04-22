@@ -53,10 +53,17 @@ interface PartnerSettlement {
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
   transitoryItems: { description: string; amount: number; date: string; category: string; sign: 1 | -1 }[];
-  /** Acerto operacional — SEM cauções pendentes. É o valor que efectivamente pode/deve ser
-   *  transaccionado entre empresa e sócio com base no caixa real do evento. */
+  /** Parcela da quota do resultado que já tem liquidez imediata para repasse,
+   *  depois de abater a fatia do caixa do evento actualmente retida em cauções
+   *  pagas com a receita/caixa da Mundo Propício. */
+  resultRepasseNow: number;
+  /** Parcela da quota do resultado ainda sem liquidez imediata porque o caixa do
+   *  evento foi desencaixado para cobrir cauções/transitórias pagas pela MP. */
+  resultPendingByCash: number;
+  /** Acerto liquidável agora — quota com liquidez imediata + pagas pelo sócio − extras.
+   *  Exclui cauções pendentes e exclui a parcela do resultado sem liquidez imediata. */
   operationalSettlement: number;
-  /** Saldo total incluindo cauções pendentes. Só é honrado quando as cauções voltam.
+  /** Saldo total incluindo o resultado ainda sem liquidez imediata e as cauções pendentes.
    *  positive = empresa paga sócio, negative = sócio paga empresa */
   settlement: number;
 }
@@ -373,67 +380,52 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const resultBase = revenueBase - expenseBase;
 
   // ---- City breakdown (para turnês) ----
-  // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions
-  // Despesas = transactions de despesa do sub-evento (com e sem IVA)
-  // IMPORTANTE: incluir uma linha "Master / Geral" com as transações lançadas
-  // diretamente no Master (event_id === eventId) para que a soma bata com o
-  // Resumo Financeiro (totalRevenueNet / totalExpensesGross).
+  // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions.
+  // Despesas = transactions de despesa do sub-evento (com e sem IVA).
+  // Lançamentos feitos no Master NÃO aparecem como "cidade"; são rateados
+  // virtualmente e de forma igual pelas cidades/splits do evento.
   const cityBreakdown: CityBreakdown[] = isTour
     ? (() => {
-        const rows: CityBreakdown[] = subEvents
-          .filter((se: any) => se.id !== eventId)
-          .map((se: any) => {
-            const evtTx = validTx.filter((t: any) => t.event_id === se.id);
-            const inc = evtTx.filter((t: any) => t.type === "income");
-            const exp = evtTx.filter((t: any) => t.type === "expense");
-            const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
-            const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-            const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
-            const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
-            const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
-            const revenueNet = tbNet + txRevenueNet;
-            const revenueGross = tbGross + txRevenueGross;
-            const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
-            const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-            return {
-              eventId: se.id,
-              cityName: (se.cities as any)?.name || se.name,
-              revenueNet,
-              revenueGross,
-              expensesNet,
-              expensesGross,
-              resultNet: revenueNet - expensesNet,
-            };
-          });
-
-        // Linha Master / Geral — transações lançadas diretamente no evento Master
-        // (não rateadas para sub-eventos). Tipicamente despesas comuns/transversais.
+        const childRows = subEvents.filter((se: any) => se.id !== eventId);
+        const childCount = childRows.length || 1;
         const masterTx = validTx.filter((t: any) => t.event_id === eventId);
         const masterInc = masterTx.filter((t: any) => t.type === "income");
         const masterExp = masterTx.filter((t: any) => t.type === "expense");
         const masterTbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === eventId);
-        const masterRevenueNet =
+        const masterRevenueNetShare = (
           masterInc.reduce((s: number, t: any) => s + Number(t.amount), 0) +
-          masterTbRows.reduce((s, r) => s + r.totalNet, 0);
-        const masterRevenueGross =
+          masterTbRows.reduce((s, r) => s + r.totalNet, 0)
+        ) / childCount;
+        const masterRevenueGrossShare = (
           masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
-          masterTbRows.reduce((s, r) => s + r.totalGross, 0);
-        const masterExpensesNet = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0);
-        const masterExpensesGross = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          masterTbRows.reduce((s, r) => s + r.totalGross, 0)
+        ) / childCount;
+        const masterExpensesNetShare = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0) / childCount;
+        const masterExpensesGrossShare = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) / childCount;
 
-        if (masterRevenueGross > 0 || masterExpensesGross > 0) {
-          rows.push({
-            eventId,
-            cityName: "Master / Geral",
-            revenueNet: masterRevenueNet,
-            revenueGross: masterRevenueGross,
-            expensesNet: masterExpensesNet,
-            expensesGross: masterExpensesGross,
-            resultNet: masterRevenueNet - masterExpensesNet,
-          });
-        }
-
-        return rows;
+        return childRows.map((se: any) => {
+          const evtTx = validTx.filter((t: any) => t.event_id === se.id);
+          const inc = evtTx.filter((t: any) => t.type === "income");
+          const exp = evtTx.filter((t: any) => t.type === "expense");
+          const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
+          const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+          const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
+          const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
+          const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
+          const revenueNet = tbNet + txRevenueNet + masterRevenueNetShare;
+          const revenueGross = tbGross + txRevenueGross + masterRevenueGrossShare;
+          const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0) + masterExpensesNetShare;
+          const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) + masterExpensesGrossShare;
+          return {
+            eventId: se.id,
+            cityName: (se.cities as any)?.name || se.name,
+            revenueNet,
+            revenueGross,
+            expensesNet,
+            expensesGross,
+            resultNet: revenueNet - expensesNet,
+          };
+        });
       })()
     : [];
 
@@ -683,6 +675,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPartnerExtras,
       transitoryCredit: 0, // calculado abaixo
       transitoryItems,
+      resultRepasseNow: 0,
+      resultPendingByCash: 0,
       operationalSettlement: 0, // calculado abaixo
       settlement: 0,        // recalculado abaixo
     };
