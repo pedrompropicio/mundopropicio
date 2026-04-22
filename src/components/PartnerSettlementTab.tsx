@@ -710,6 +710,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const labelColW = 130;
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
+    const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
+    const totalTransitoryHouse = settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
+    const totalTransitoryExt = settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -733,7 +736,40 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         1: { cellWidth: valueColW, halign: "right" },
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = (doc as any).lastAutoTable.finalY + 4;
+
+    // Bloco de cauções pendentes — explicita exposição de caixa fora do resultado
+    if (totalTransitoryAll > 0) {
+      ensureSpace(28);
+      autoTable(doc, {
+        startY: y,
+        head: [["🛡️ Cauções pendentes (fora do resultado — caixa retido)", "Valor"]],
+        body: [
+          ["Pagas pela Mundo Propício (caixa da empresa)", formatCurrency(totalTransitoryHouse)],
+          ["Pagas por sócios externos", formatCurrency(totalTransitoryExt)],
+          ["Total caixa retido (recuperável)", formatCurrency(totalTransitoryAll)],
+        ],
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [20, 80, 100] },
+        headStyles: { fillColor: [200, 235, 240], textColor: [0, 80, 100], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: labelColW, halign: "left" },
+          1: { cellWidth: valueColW, halign: "right", fontStyle: "bold" },
+        },
+      });
+      y = (doc as any).lastAutoTable.finalY + 2;
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(80);
+      const note = "Estes valores nao sao receita do evento — sao caucoes/transitorias retidas (ex: no venue) que voltam ao caixa quando devolvidas. No acerto entre socios sao creditados a quem desembolsou, mas so sao efectivamente liquidaveis apos o retorno.";
+      const lines = doc.splitTextToSize(note, tableWidth);
+      doc.text(lines, margin, y);
+      y += lines.length * 3 + 3;
+      doc.setTextColor(0);
+    } else {
+      y += 2;
+    }
 
     // ===== 2. QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
