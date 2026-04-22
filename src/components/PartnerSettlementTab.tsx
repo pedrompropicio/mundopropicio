@@ -50,6 +50,9 @@ interface PartnerSettlement {
   totalPaidByPartner: number;
   partnerExtras: { description: string; amount: number; date: string; category: string }[];
   totalPartnerExtras: number;
+  /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
+  transitoryCredit: number;
+  transitoryItems: { description: string; amount: number; date: string; category: string; sign: 1 | -1 }[];
   settlement: number; // positive = company pays partner, negative = partner pays company
 }
 
