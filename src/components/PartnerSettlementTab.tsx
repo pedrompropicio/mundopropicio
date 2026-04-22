@@ -953,6 +953,35 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             y = (doc as any).lastAutoTable.finalY + 1.5;
           }
 
+          // Cauções / transitórias pagas pelo sócio (entram no acerto até serem devolvidas)
+          if (s.transitoryItems.length > 0) {
+            ensureSpace(20);
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(0, 100, 120);
+            doc.text("Caucoes / transitorias pagas pelo socio (creditadas ate serem devolvidas):", margin, y);
+            doc.setTextColor(0);
+            y += 2.5;
+            autoTable(doc, {
+              startY: y,
+              head: [["Descrição", "Categoria", "Data", "Tipo", "Valor"]],
+              body: s.transitoryItems.map((e) => [
+                e.description,
+                e.category,
+                e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+                e.sign > 0 ? "Caução" : "Devolução",
+                `${e.sign > 0 ? "+" : "-"}${formatCurrency(e.amount)}`,
+              ]),
+              foot: [["Crédito líquido (após devoluções)", "", "", "", formatCurrency(s.transitoryCredit)]],
+              margin: { left: margin + 4, right: margin },
+              styles: { fontSize: 7.5, cellPadding: 1.4 },
+              headStyles: { fillColor: [60, 130, 150] },
+              footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
+              columnStyles: { 3: { halign: "center" }, 4: { halign: "right" } },
+            });
+            y = (doc as any).lastAutoTable.finalY + 1.5;
+          }
+
           if (s.partnerExtras.length > 0) {
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
