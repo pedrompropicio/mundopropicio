@@ -588,7 +588,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       description: t.description || "—",
       amount: Number(t.amount || 0),
       date: t.date || "",
-      category: t.account_categories?.name || "—",
+      // Caminho hierárquico completo (L1 > L2 > L3) para dar contexto contabilístico real
+      category: buildCategoryPath(t.category_id, t.account_categories?.name),
       sign: (t.type === "expense" ? 1 : -1) as 1 | -1,
     }));
 
