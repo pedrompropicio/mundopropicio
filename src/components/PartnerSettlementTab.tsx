@@ -794,13 +794,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.text("4. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
-      // Larguras explícitas para a tabela de bilheteira
-      const tbCol1 = 130; // descrição (cidade/dia/sessão)
-      const tbColQ = 22;
-      const tbColV = (tableWidth - tbCol1 - tbColQ) / 2;
+      // Larguras explícitas para a tabela de bilheteira (sem coluna s/IVA)
+      const tbCol1 = 170; // descrição (cidade/dia/sessão)
+      const tbColQ = 30;
+      const tbColV = tableWidth - tbCol1 - tbColQ;
 
-      const fmtRow = (label: string, qty: number, gross: number, net: number) => [
-        label, qty.toString(), formatCurrency(gross), formatCurrency(net),
+      const fmtRow = (label: string, qty: number, gross: number) => [
+        label, qty.toString(), formatCurrency(gross),
       ];
 
       // Helper para agregar e renderizar mini-tabela genérica (modos session/day/zone/lot)
@@ -818,13 +818,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         y += 3;
         autoTable(doc, {
           startY: y,
-          head: [[firstColLabel, "Qtd.", "Total c/IVA", "Total s/IVA"]],
-          body: groups.map((g) => fmtRow(g.key, g.quantity, g.totalGross, g.totalNet)),
+          head: [[firstColLabel, "Qtd.", "Total c/IVA"]],
+          body: groups.map((g) => fmtRow(g.key, g.quantity, g.totalGross)),
           foot: [fmtRow(
             "TOTAL",
             groups.reduce((s, g) => s + g.quantity, 0),
             groups.reduce((s, g) => s + g.totalGross, 0),
-            groups.reduce((s, g) => s + g.totalNet, 0),
           )],
           margin: { left: margin, right: margin },
           tableWidth,
@@ -835,7 +834,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             0: { cellWidth: tbCol1, halign: "left" },
             1: { cellWidth: tbColQ, halign: "right" },
             2: { cellWidth: tbColV, halign: "right" },
-            3: { cellWidth: tbColV, halign: "right" },
           },
         });
         y = (doc as any).lastAutoTable.finalY + 6;
