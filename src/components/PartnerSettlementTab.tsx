@@ -1085,7 +1085,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         doc.setTextColor(0);
         autoTable(doc, {
           startY: y,
-          head: [["Descrição", "Categoria", "Data", "Tipo", "Valor"]],
+          head: [["Descrição", "Categoria (Plano de Contas)", "Data", "Tipo", "Valor"]],
           body: houseSettlement.transitoryItems.map((e) => [
             e.description,
             e.category,
@@ -1096,10 +1096,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           foot: [["Total caixa retido (a recuperar)", "", "", "", formatCurrency(houseSettlement.transitoryCredit)]],
           margin: { left: margin, right: margin },
           tableWidth,
-          styles: { fontSize: 8.5, cellPadding: 1.8 },
+          styles: { fontSize: 8.5, cellPadding: 1.8, overflow: "linebreak", valign: "top" },
           headStyles: { fillColor: [60, 130, 150] },
           footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
-          columnStyles: { 3: { halign: "center" }, 4: { halign: "right" } },
+          columnStyles: {
+            0: { cellWidth: tableWidth * 0.32 },
+            1: { cellWidth: tableWidth * 0.36 },
+            2: { cellWidth: tableWidth * 0.10, halign: "center" },
+            3: { cellWidth: tableWidth * 0.10, halign: "center" },
+            4: { halign: "right" },
+          },
         });
         y = (doc as any).lastAutoTable.finalY + 6;
       }
