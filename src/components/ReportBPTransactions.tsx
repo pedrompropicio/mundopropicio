@@ -415,6 +415,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       if (existingCat) {
         existingCat.forecastAmount += forecast;
         existingCat.actualAmount += actual;
+        existingCat.forecastDetails.push(...(forecastDetailsByCategory[catId] ?? []));
         existingCat.transactions.push(...catTrans);
       } else {
         groupMap[groupName].categories.push({
@@ -450,6 +451,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
         categoryCode: "—",
         forecastAmount: 0,
         actualAmount: actual,
+        forecastDetails: [],
         transactions: noCatTrans,
       });
       groupMap["Sem categoria"].totalActual += actual;
