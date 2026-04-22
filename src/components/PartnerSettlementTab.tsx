@@ -63,6 +63,10 @@ interface PartnerSettlement {
   /** Parcela da quota do resultado ainda sem liquidez imediata porque o caixa do
    *  evento foi desencaixado para cobrir cauções/transitórias pagas pela MP. */
   resultPendingByCash: number;
+  /** Parcela do prejuízo absorvida por cauções/transitórias ainda retidas, rateada por equity. */
+  transitoryOffset: number;
+  /** Aporte efetivo necessário para fechar a conta após usar a liquidez/cauções disponíveis. */
+  equityContribution: number;
   /** Acerto liquidável agora — quota com liquidez imediata + pagas pelo sócio − extras.
    *  Exclui cauções pendentes e exclui a parcela do resultado sem liquidez imediata. */
   operationalSettlement: number;
@@ -709,6 +713,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       transitoryItems,
       resultRepasseNow: 0,
       resultPendingByCash: 0,
+      transitoryOffset: 0,
+      equityContribution: 0,
       operationalSettlement: 0, // calculado abaixo
       settlement: 0,        // recalculado abaixo
     };
@@ -717,24 +723,30 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Crédito transitório:
   //  • Mundo Propício: total das órfãs (já calculado, cap em 0)
   //  • Sócios externos: gross vinculado direto (despesas − devoluções), cap em 0
-  const totalPositiveExternalShares = settlements
-    .filter((s) => !s.isHouse && s.partnerShare > 0)
-    .reduce((acc, s) => acc + s.partnerShare, 0);
-  const blockedShareRatio = totalPositiveExternalShares > 0
-    ? Math.min(1, houseTransitoryCredit / totalPositiveExternalShares)
-    : 0;
 
   settlements.forEach((s) => {
     if (s.isHouse) {
       s.transitoryCredit = houseTransitoryCredit;
-      s.resultPendingByCash = 0;
-      s.resultRepasseNow = s.partnerShare;
     } else {
       const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
       s.transitoryCredit = Math.max(0, gross);
-      s.resultPendingByCash = s.partnerShare > 0 ? s.partnerShare * blockedShareRatio : 0;
-      s.resultRepasseNow = s.partnerShare - s.resultPendingByCash;
     }
+  });
+
+  const baseResult = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
+  const totalTransitoryCredit = settlements.reduce((acc, s) => acc + s.transitoryCredit, 0);
+  const resultPositivePool = Math.max(baseResult, 0);
+  const resultLossPool = Math.max(-baseResult, 0);
+  const pendingPool = Math.min(totalTransitoryCredit, resultPositivePool);
+  const offsetPool = Math.min(totalTransitoryCredit, resultLossPool);
+  const contributionPool = Math.max(0, resultLossPool - totalTransitoryCredit);
+
+  settlements.forEach((s) => {
+    const equityRatio = s.effectivePercentage / 100;
+    s.resultPendingByCash = baseResult > 0 ? pendingPool * equityRatio : 0;
+    s.transitoryOffset = baseResult < 0 ? offsetPool * equityRatio : 0;
+    s.equityContribution = baseResult < 0 ? contributionPool * equityRatio : 0;
+    s.resultRepasseNow = baseResult >= 0 ? s.partnerShare - s.resultPendingByCash : -s.equityContribution;
     // Acerto operacional = parte já líquida do resultado + pagas pelo sócio - extras.
     s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
@@ -963,13 +975,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           });
           y = (doc as any).lastAutoTable.finalY + 1.5;
 
-          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0) {
+          if (s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) {
             autoTable(doc, {
               startY: y,
               head: [["4. Liquidez e pendências de caixa", "Valor"]],
               body: [
                 ["Repasse do resultado já com liquidez imediata", formatCurrency(s.resultRepasseNow)],
                 ["Resultado ainda sem liquidez por caixa desencaixado em cauções", formatCurrency(s.resultPendingByCash)],
+                ["Prejuízo absorvido provisoriamente por cauções ainda retidas", formatCurrency(s.transitoryOffset)],
+                ["Aporte necessário para fechar a conta", formatCurrency(s.equityContribution)],
                 ["Cauções / transitórias a devolver ao pagador", formatCurrency(s.transitoryCredit)],
                 ["Saldo total após devoluções", formatCurrency(s.settlement)],
               ],
@@ -1086,6 +1100,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             doc.setTextColor(0, 100, 120);
             const liqNote = `   + ${formatCurrency(s.resultPendingByCash)} da quota do resultado fica pendente porque esse caixa do evento foi desencaixado para cobrir caucoes/transitorias ainda nao devolvidas.`;
             doc.text(liqNote, margin, y);
+            doc.setTextColor(0);
+            y += 4;
+          }
+          if (s.equityContribution > 0) {
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(140, 40, 40);
+            const aporteNote = `   + ${formatCurrency(s.equityContribution)} precisa entrar como aporte proporcional ao equity para fechar o prejuizo apos considerar as caucoes ainda retidas.`;
+            doc.text(aporteNote, margin, y);
             doc.setTextColor(0);
             y += 4;
           }
@@ -1738,15 +1761,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
             <div className="flex items-center gap-2">
-              {s.transitoryCredit > 0 || s.resultPendingByCash > 0 ? (
+              {s.transitoryCredit > 0 || s.resultPendingByCash > 0 || s.equityContribution > 0 || s.transitoryOffset > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <Badge className={`text-xs ${s.operationalSettlement >= 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
                     {s.operationalSettlement >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                     Operacional {formatCurrency(Math.abs(s.operationalSettlement))}
                   </Badge>
                   <Badge variant="outline" className="text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
-                    + Pendente {formatCurrency(s.resultPendingByCash + s.transitoryCredit)}
+                    + Pendente {formatCurrency(s.resultPendingByCash + s.transitoryCredit + s.transitoryOffset)}
                   </Badge>
+                  {s.equityContribution > 0 && (
+                    <Badge className="text-xs bg-destructive/15 text-destructive">
+                      Aporte {formatCurrency(s.equityContribution)}
+                    </Badge>
+                  )}
                 </div>
               ) : s.settlement > 0 ? (
                 <Badge className="bg-success/15 text-success text-xs">
@@ -1763,7 +1791,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid gap-3 sm:grid-cols-7 text-sm">
+            <div className="grid gap-3 sm:grid-cols-8 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground">Participação no resultado</span>
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
@@ -1786,18 +1814,22 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
               <div>
                 <span className="text-xs text-muted-foreground" title="Quota do resultado sem liquidez + cauções/transitórias pendentes">Pendente de caixa</span>
-                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.resultPendingByCash + s.transitoryCredit)}</p>
+                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.resultPendingByCash + s.transitoryCredit + s.transitoryOffset)}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground" title="Aporte proporcional ao equity necessário para fechar o prejuízo">Aporte necessário</span>
+                <p className="font-mono font-bold text-destructive">{formatCurrency(s.equityContribution)}</p>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground" title="Saldo total, incluindo pendências de caixa e devoluções futuras">Saldo total</span>
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
-            {(s.resultPendingByCash > 0 || s.transitoryCredit > 0) && (
+            {(s.resultPendingByCash > 0 || s.transitoryCredit > 0 || s.equityContribution > 0 || s.transitoryOffset > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
                 ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> No item 4, o fecho mostra separadamente
-                {" "}{formatCurrency(s.resultPendingByCash)} do resultado ainda sem liquidez por desencaixe de caixa e {formatCurrency(s.transitoryCredit)} de
-                cauções/transitórias ainda pendentes de devolução.
+                {" "}{formatCurrency(s.resultPendingByCash)} do resultado ainda sem liquidez por desencaixe de caixa, {formatCurrency(s.transitoryCredit)} de
+                cauções/transitórias ainda pendentes de devolução, {formatCurrency(s.transitoryOffset)} de prejuízo temporariamente coberto por essas cauções e {formatCurrency(s.equityContribution)} de aporte proporcional ao equity.
               </p>
             )}
 
