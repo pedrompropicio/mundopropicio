@@ -46,9 +46,9 @@ interface PartnerSettlement {
   expenses: number;
   result: number;
   partnerShare: number;
-  paidExpenses: { description: string; amount: number; date: string; category: string }[];
+  paidExpenses: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPaidByPartner: number;
-  partnerExtras: { description: string; amount: number; date: string; category: string }[];
+  partnerExtras: { description: string; amount: number; date: string; category: string; cityLabel: string }[];
   totalPartnerExtras: number;
   /** Cauções/transitórias pagas pelo sócio ainda não devolvidas. Cap em 0 (não vai negativo). */
   transitoryCredit: number;
@@ -71,6 +71,8 @@ interface CategoryExpenseRow {
   l1Name: string;
   l2Code: string;
   l2Name: string;
+  l3Code: string;
+  l3Name: string;
   amountNet: number;
   amountGross: number;
   count: number;
@@ -109,6 +111,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Modo de agrupamento da secção 3 (Bilheteira) — default: subevento + data + sessão
   type TicketGroupMode = "sub_date_session" | "session" | "day" | "zone" | "lot";
   const [ticketGroupMode, setTicketGroupMode] = useState<TicketGroupMode>("sub_date_session");
+  // Nível do plano de contas a apresentar nas despesas por categoria
+  const [expenseCategoryLevel, setExpenseCategoryLevel] = useState<"l2" | "l3">("l2");
 
   // Event info (master + cities)
   const { data: event } = useQuery({
@@ -183,7 +187,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, account_categories(name))")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, event_id, account_categories(name))")
         .in("event_id", allEventIds)
         .order("created_at");
       if (error) throw error;
@@ -197,7 +201,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_advance_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, account_categories(name))")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, event_id, account_categories(name))")
         .in("event_id", allEventIds)
         .order("created_at");
       if (error) throw error;
@@ -395,13 +399,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         })
     : [];
 
-  // ---- Despesas agrupadas pelos níveis 1 e 2 do Plano de Contas ----
-  // Resolve cadeia de pais até obter L1 (raiz) e L2 (nível imediatamente abaixo da raiz).
+  // ---- Despesas agrupadas pelos níveis 1, 2 e 3 do Plano de Contas ----
+  // Resolve cadeia de pais até obter L1 (raiz), L2 (subnível) e L3 (folha).
   const expenseByCategory: CategoryExpenseRow[] = (() => {
     const catById: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
     (allCategories as any[]).forEach((c) => { catById[c.id] = c; });
-    // Devolve [L1, L2] — onde L2 pode ser igual a L1 se a categoria estiver no nível raiz.
-    const findL1L2 = (catId: string | null | undefined): { l1: any; l2: any } | null => {
+    // Devolve [L1, L2, L3] — onde L2/L3 podem coincidir com níveis superiores se a categoria for raiz/sub.
+    const findLevels = (catId: string | null | undefined): { l1: any; l2: any; l3: any } | null => {
       if (!catId) return null;
       const chain: any[] = [];
       let cur = catById[catId];
@@ -418,20 +422,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       chain.reverse();
       const l1 = chain[0];
       const l2 = chain[1] || chain[0];
-      return l1 ? { l1, l2 } : null;
+      const l3 = chain[2] || chain[1] || chain[0];
+      return l1 ? { l1, l2, l3 } : null;
     };
     const map: Record<string, CategoryExpenseRow> = {};
     expenseTransactions.forEach((t: any) => {
-      const lv = findL1L2(t.category_id);
+      const lv = findLevels(t.category_id);
       const l1 = lv?.l1;
       const l2 = lv?.l2;
-      const key = l1 && l2 ? `${l1.code}|${l2.code}` : "sem-categoria";
+      const l3 = lv?.l3;
+      const key = l1 && l2 && l3 ? `${l1.code}|${l2.code}|${l3.code}` : "sem-categoria";
       if (!map[key]) {
         map[key] = {
           l1Code: l1?.code || "",
           l1Name: l1?.name || "Sem categoria",
           l2Code: l2?.code || "",
           l2Name: l2?.name || "Sem categoria",
+          l3Code: l3?.code || "",
+          l3Name: l3?.name || "Sem categoria",
           amountNet: 0,
           amountGross: 0,
           count: 0,
@@ -444,8 +452,25 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     return Object.values(map).sort((a, b) => {
       const c1 = a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true });
       if (c1 !== 0) return c1;
-      return a.l2Code.localeCompare(b.l2Code, undefined, { numeric: true });
+      const c2 = a.l2Code.localeCompare(b.l2Code, undefined, { numeric: true });
+      if (c2 !== 0) return c2;
+      return a.l3Code.localeCompare(b.l3Code, undefined, { numeric: true });
     });
+  })();
+
+  // ---- Mapa eventId → label de cidade (para anotar despesas pagas por sócio) ----
+  // Despesas no Master (rateio) ficam com label "Rateio".
+  const cityLabelByEvent: Record<string, string> = (() => {
+    const map: Record<string, string> = {};
+    (subEvents as any[]).forEach((se) => {
+      if (se.id === eventId) {
+        // Master da turnê → "Rateio"; evento simples → cidade do próprio evento
+        map[se.id] = isTour ? "Rateio" : ((se.cities as any)?.name || se.name || "—");
+      } else {
+        map[se.id] = (se.cities as any)?.name || se.name || "—";
+      }
+    });
+    return map;
   })();
 
   // ---- Box-office settlements rows ----
@@ -525,28 +550,36 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       ? []
       : paidExpenses
           .filter((pe: any) => pe.partner_id === p.id && !pe.transactions?.is_transitory)
-          .map((pe: any) => ({
-            description: pe.transactions?.description || "—",
-            amount: usesGrossExpenseAmounts(calcBasis)
-              ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
-              : Number(pe.transactions?.amount || 0),
-            date: pe.transactions?.date || "",
-            category: pe.transactions?.account_categories?.name || "—",
-          }));
+          .map((pe: any) => {
+            const txEvId = pe.transactions?.event_id || pe.event_id;
+            return {
+              description: pe.transactions?.description || "—",
+              amount: usesGrossExpenseAmounts(calcBasis)
+                ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+                : Number(pe.transactions?.amount || 0),
+              date: pe.transactions?.date || "",
+              category: pe.transactions?.account_categories?.name || "—",
+              cityLabel: cityLabelByEvent[txEvId] || "—",
+            };
+          });
     const totalPaidByPartner = partnerExpenses.reduce((s, e) => s + e.amount, 0);
 
     const extrasForPartner = isHouse
       ? []
       : partnerAdvances
           .filter((pe: any) => pe.partner_id === p.id)
-          .map((pe: any) => ({
-            description: pe.transactions?.description || "—",
-            amount: usesGrossExpenseAmounts(calcBasis)
-              ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
-              : Number(pe.transactions?.amount || 0),
-            date: pe.transactions?.date || "",
-            category: pe.transactions?.account_categories?.name || "—",
-          }));
+          .map((pe: any) => {
+            const txEvId = pe.transactions?.event_id || pe.event_id;
+            return {
+              description: pe.transactions?.description || "—",
+              amount: usesGrossExpenseAmounts(calcBasis)
+                ? calcTotalWithIva(Number(pe.transactions?.amount || 0), Number(pe.transactions?.iva_rate || 0))
+                : Number(pe.transactions?.amount || 0),
+              date: pe.transactions?.date || "",
+              category: pe.transactions?.account_categories?.name || "—",
+              cityLabel: cityLabelByEvent[txEvId] || "—",
+            };
+          });
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
     // Items transitórios:
@@ -697,13 +730,68 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 3. BILHETEIRA - RESUMOS =====
+    // ===== 3. DISTRIBUIÇÃO AOS SÓCIOS (visão consolidada na 1.ª página) =====
+    ensureSpace(50);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Distribuição aos Sócios", margin, y);
+    y += 5;
+    autoTable(doc, {
+      startY: y,
+      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo Final"]],
+      body: settlements.map((s) => [
+        s.partnerName,
+        `${s.effectivePercentage}%`,
+        formatCurrency(s.partnerShare),
+        formatCurrency(s.totalPaidByPartner),
+        formatCurrency(s.transitoryCredit),
+        `-${formatCurrency(s.totalPartnerExtras)}`,
+        formatCurrency(s.settlement),
+      ]),
+      foot: [["TOTAL", "100%",
+        formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
+        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
+      ]],
+      margin: { left: margin, right: margin },
+      tableWidth,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [41, 41, 41] },
+      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+      columnStyles: (() => {
+        const colPct = 16;
+        const colSocio = 38;
+        const colVal = (tableWidth - colSocio - colPct) / 5;
+        return {
+          0: { cellWidth: colSocio, halign: "left" },
+          1: { cellWidth: colPct, halign: "center" },
+          2: { cellWidth: colVal, halign: "right" },
+          3: { cellWidth: colVal, halign: "right" },
+          4: { cellWidth: colVal, halign: "right" },
+          5: { cellWidth: colVal, halign: "right" },
+          6: { cellWidth: colVal, halign: "right" },
+        };
+      })(),
+      didParseCell: (data) => {
+        if (data.section === "head" || data.section === "foot") {
+          if (data.column.index === 0) data.cell.styles.halign = "left";
+          else if (data.column.index === 1) data.cell.styles.halign = "center";
+          else data.cell.styles.halign = "right";
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // ===== 4. BILHETEIRA - RESUMOS (nova página) =====
     if (ticketBreakdown.length > 0) {
-      ensureSpace(30);
+      doc.addPage();
+      y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
-      doc.text("3. Bilheteira - Totais Vendidos", margin, y);
+      doc.text("4. Bilheteira - Totais Vendidos", margin, y);
       y += 6;
 
       // Larguras explícitas para a tabela de bilheteira
@@ -879,12 +967,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 4. FECHO DE BILHETEIRA =====
+    // ===== 5. FECHO DE BILHETEIRA =====
     if (boxOfficeRows.length > 0) {
       ensureSpace(40);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("4. Fecho de Bilheteiras / Recintos", margin, y);
+      doc.text("5. Fecho de Bilheteiras / Recintos", margin, y);
       y += 5;
       autoTable(doc, {
         startY: y,
@@ -904,20 +992,24 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 5. DESPESAS POR CATEGORIA (L1 + L2 com subtotais por L1) =====
+    // ===== 6. DESPESAS POR CATEGORIA (nova página; nível L2 ou L3 do plano) =====
     if (expenseByCategory.length > 0) {
-      ensureSpace(40);
+      doc.addPage();
+      y = 16;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("5. Despesas por Categoria", margin, y);
+      const lvlLabel = expenseCategoryLevel === "l3" ? "(nível 3)" : "(nível 2)";
+      doc.text(`6. Despesas por Categoria ${lvlLabel}`, margin, y);
       y += 5;
 
       // Larguras explícitas
-      const expCol1 = 118; // L1/L2 descrição
+      const expCol1 = 118; // descrição (L1/L2/L3)
       const expColC = 34;  // contagem (cabe "Lançamentos")
       const expColV = (tableWidth - expCol1 - expColC) / 2;
 
-      // Agrupar L2 por L1
+      // Agregação consoante o nível escolhido
+      // L2: agrupa em L1 → L2 (atual)
+      // L3: agrupa em L1 → L2 → L3 (folha do plano)
       const byL1: Record<string, { l1Code: string; l1Name: string; rows: CategoryExpenseRow[] }> = {};
       expenseByCategory.forEach((r) => {
         const k = r.l1Code || "_";
@@ -925,13 +1017,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         byL1[k].rows.push(r);
       });
 
-      const body: { row: any[]; style: "l1" | "l2" }[] = [];
+      const body: { row: any[]; style: "l1" | "l2" | "l3" }[] = [];
       let grandCount = 0, grandNet = 0, grandGross = 0;
 
       Object.values(byL1)
         .sort((a, b) => a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true }))
         .forEach((g) => {
-          // Linha L1 (cabeçalho do grupo) com subtotais
+          // Subtotal por L1
           const l1Count = g.rows.reduce((s, r) => s + r.count, 0);
           const l1Net = g.rows.reduce((s, r) => s + r.amountNet, 0);
           const l1Gross = g.rows.reduce((s, r) => s + r.amountGross, 0);
@@ -944,20 +1036,53 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             ],
             style: "l1",
           });
-          // Linhas L2 (filhas indentadas)
+
+          // Agrupa filhas do L1 por L2
+          const byL2: Record<string, CategoryExpenseRow[]> = {};
           g.rows.forEach((r) => {
-            // Se L2 == L1 (categoria sem filho), não duplicar — já apresentada no L1
-            if (r.l2Code === r.l1Code && r.l2Name === r.l1Name) return;
-            body.push({
-              row: [
-                `    ${r.l2Code} ${r.l2Name}`.trim(),
-                r.count.toString(),
-                formatCurrency(r.amountNet),
-                formatCurrency(r.amountGross),
-              ],
-              style: "l2",
-            });
+            const k = r.l2Code || "_";
+            if (!byL2[k]) byL2[k] = [];
+            byL2[k].push(r);
           });
+
+          Object.entries(byL2)
+            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+            .forEach(([_, rowsL2]) => {
+              const first = rowsL2[0];
+              // Se L2 == L1 (categoria sem filho intermédio), saltar a linha L2 para não duplicar
+              const skipL2Row = first.l2Code === g.l1Code && first.l2Name === g.l1Name;
+              if (!skipL2Row) {
+                const l2Count = rowsL2.reduce((s, r) => s + r.count, 0);
+                const l2Net = rowsL2.reduce((s, r) => s + r.amountNet, 0);
+                const l2Gross = rowsL2.reduce((s, r) => s + r.amountGross, 0);
+                body.push({
+                  row: [
+                    `    ${first.l2Code} ${first.l2Name}`.trim(),
+                    l2Count.toString(),
+                    formatCurrency(l2Net),
+                    formatCurrency(l2Gross),
+                  ],
+                  style: "l2",
+                });
+              }
+
+              // Detalhe L3 — apenas se nível escolhido é L3 e L3 != L2
+              if (expenseCategoryLevel === "l3") {
+                rowsL2.forEach((r) => {
+                  if (r.l3Code === r.l2Code && r.l3Name === r.l2Name) return; // sem nível 3 real
+                  body.push({
+                    row: [
+                      `        ${r.l3Code} ${r.l3Name}`.trim(),
+                      r.count.toString(),
+                      formatCurrency(r.amountNet),
+                      formatCurrency(r.amountGross),
+                    ],
+                    style: "l3",
+                  });
+                });
+              }
+            });
+
           grandCount += l1Count;
           grandNet += l1Net;
           grandGross += l1Gross;
@@ -990,148 +1115,127 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           if (meta.style === "l1") {
             data.cell.styles.fontStyle = "bold";
             data.cell.styles.fillColor = [230, 230, 230];
+          } else if (meta.style === "l2") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [245, 245, 245];
           }
         },
       });
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
-    // ===== 6. DISTRIBUIÇÃO AOS SÓCIOS =====
-    ensureSpace(50);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("6. Distribuição aos Sócios", margin, y);
-    y += 5;
-    autoTable(doc, {
-      startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Saldo Final"]],
-      body: settlements.map((s) => [
-        s.partnerName,
-        `${s.effectivePercentage}%`,
-        formatCurrency(s.partnerShare),
-        formatCurrency(s.totalPaidByPartner),
-        `-${formatCurrency(s.totalPartnerExtras)}`,
-        formatCurrency(s.settlement),
-      ]),
-      foot: [["TOTAL", "100%",
-        formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
-        formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
-      ]],
-      margin: { left: margin, right: margin },
-      tableWidth,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [41, 41, 41] },
-      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-      columnStyles: (() => {
-        const colPct = 18;
-        const colSocio = 40;
-        const colVal = (tableWidth - colSocio - colPct) / 4;
-        return {
-          0: { cellWidth: colSocio, halign: "left" },
-          1: { cellWidth: colPct, halign: "center" },
-          2: { cellWidth: colVal, halign: "right" },
-          3: { cellWidth: colVal, halign: "right" },
-          4: { cellWidth: colVal, halign: "right" },
-          5: { cellWidth: colVal, halign: "right" },
-        };
-      })(),
-      didParseCell: (data) => {
-        // Alinha o cabeçalho às mesmas posições das células do corpo
-        if (data.section === "head" || data.section === "foot") {
-          if (data.column.index === 0) data.cell.styles.halign = "left";
-          else if (data.column.index === 1) data.cell.styles.halign = "center";
-          else data.cell.styles.halign = "right";
-        }
-      },
-    });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
     // ===== 7. DETALHES POR SÓCIO =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
-    for (const s of settlements.filter((x: any) => !x.isHouse)) {
-      ensureSpace(30);
+    const externalSettlements = settlements.filter((x: any) => !x.isHouse);
+    if (externalSettlements.length > 0) {
+      // Calcula altura aproximada de cada bloco para decidir se deve quebrar página antes.
+      const estimateBlockHeight = (s: any) => {
+        const base = 30; // título + resumo
+        const paid = s.paidExpenses.length > 0 ? 12 + s.paidExpenses.length * 5 : 0;
+        const extras = s.partnerExtras.length > 0 ? 12 + s.partnerExtras.length * 5 : 0;
+        return base + paid + extras + 10;
+      };
 
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
-      doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
-      y += 5;
+      let firstSocio = true;
+      for (const s of externalSettlements) {
+        // O título "7. Detalhes por Sócio" só aparece uma vez, no topo do primeiro
+        if (firstSocio) {
+          ensureSpace(20);
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text("7. Detalhes por Sócio", margin, y);
+          y += 6;
+          firstSocio = false;
+        } else {
+          // Se o próximo sócio não cabe, força quebra
+          ensureSpace(estimateBlockHeight(s));
+        }
 
-      const summaryRows = [
-        ["Participação no resultado", formatCurrency(s.partnerShare)],
-        ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
-        ["Extras do sócio (-)", `-${formatCurrency(s.totalPartnerExtras)}`],
-        ["Saldo do encontro de contas", formatCurrency(s.settlement)],
-      ];
-      autoTable(doc, {
-        startY: y,
-        body: summaryRows,
-        margin: { left: margin, right: margin },
-        styles: { fontSize: 9 },
-        columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right" } },
-        theme: "plain",
-      });
-      y = (doc as any).lastAutoTable.finalY + 4;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        const pctLabel = s.lossPercentage != null ? `${s.percentage}% lucro / ${s.lossPercentage}% prejuízo` : `${s.percentage}%`;
+        doc.text(`${s.partnerName} (${pctLabel})`, margin, y);
+        y += 5;
 
-      if (s.paidExpenses.length > 0) {
-        ensureSpace(20);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.text("Despesas pagas pelo sócio:", margin, y);
-        y += 4;
+        const summaryRows = [
+          ["Participação no resultado", formatCurrency(s.partnerShare)],
+          ["Despesas pagas pelo sócio (+)", formatCurrency(s.totalPaidByPartner)],
+          ["Cauções/transitórias (+)", formatCurrency(s.transitoryCredit)],
+          ["Extras do sócio (-)", `-${formatCurrency(s.totalPartnerExtras)}`],
+          ["Saldo do encontro de contas", formatCurrency(s.settlement)],
+        ];
         autoTable(doc, {
           startY: y,
-          head: [["Descrição", "Categoria", "Data", "Valor"]],
-          body: s.paidExpenses.map(e => [
-            e.description, e.category,
-            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            formatCurrency(e.amount),
-          ]),
-          foot: [["Total", "", "", formatCurrency(s.totalPaidByPartner)]],
-          margin: { left: margin + 4, right: margin },
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [80, 80, 80] },
-          footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
-          columnStyles: { 3: { halign: "right" } },
+          body: summaryRows,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 9 },
+          columnStyles: { 0: { fontStyle: "bold" }, 1: { halign: "right" } },
+          theme: "plain",
         });
         y = (doc as any).lastAutoTable.finalY + 4;
-      }
 
-      if (s.partnerExtras.length > 0) {
-        ensureSpace(20);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
-        y += 4;
-        autoTable(doc, {
-          startY: y,
-          head: [["Descrição", "Categoria", "Data", "Valor"]],
-          body: s.partnerExtras.map(e => [
-            e.description, e.category,
-            e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
-            `-${formatCurrency(e.amount)}`,
-          ]),
-          foot: [["Total a abater", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
-          margin: { left: margin + 4, right: margin },
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [120, 60, 60] },
-          footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
-          columnStyles: { 3: { halign: "right" } },
-        });
-        y = (doc as any).lastAutoTable.finalY + 4;
-      }
+        if (s.paidExpenses.length > 0) {
+          ensureSpace(20);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "italic");
+          doc.text("Despesas pagas pelo sócio:", margin, y);
+          y += 4;
+          autoTable(doc, {
+            startY: y,
+            head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+            body: s.paidExpenses.map(e => [
+              e.description,
+              e.cityLabel,
+              e.category,
+              e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+              formatCurrency(e.amount),
+            ]),
+            foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
+            margin: { left: margin + 4, right: margin },
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [80, 80, 80] },
+            footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+            columnStyles: { 4: { halign: "right" } },
+          });
+          y = (doc as any).lastAutoTable.finalY + 4;
+        }
 
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      const direction = s.settlement > 0
-        ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
-        : s.settlement < 0
-          ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
-          : "-> Sem saldo pendente";
-      doc.text(direction, margin, y);
-      y += 8;
+        if (s.partnerExtras.length > 0) {
+          ensureSpace(20);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "italic");
+          doc.text("Extras do sócio (pagas pela empresa, abatidas):", margin, y);
+          y += 4;
+          autoTable(doc, {
+            startY: y,
+            head: [["Descrição", "Cidade", "Categoria", "Data", "Valor"]],
+            body: s.partnerExtras.map(e => [
+              e.description,
+              e.cityLabel,
+              e.category,
+              e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
+              `-${formatCurrency(e.amount)}`,
+            ]),
+            foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
+            margin: { left: margin + 4, right: margin },
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [120, 60, 60] },
+            footStyles: { fillColor: [250, 230, 230], textColor: [120, 0, 0], fontStyle: "bold" },
+            columnStyles: { 4: { halign: "right" } },
+          });
+          y = (doc as any).lastAutoTable.finalY + 4;
+        }
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        const direction = s.settlement > 0
+          ? `-> MUNDO PROPÍCIO deve pagar ${formatCurrency(s.settlement)} ao sócio`
+          : s.settlement < 0
+            ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.settlement))} à MUNDO PROPÍCIO`
+            : "-> Sem saldo pendente";
+        doc.text(direction, margin, y);
+        y += 8;
+      }
     }
 
     // Footer institucional
@@ -1154,7 +1258,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <ArrowRightLeft className="h-4 w-4 text-primary" />
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={ticketGroupMode} onValueChange={(v) => setTicketGroupMode(v as TicketGroupMode)}>
             <SelectTrigger className="h-8 w-[260px] text-xs">
               <SelectValue placeholder="Agrupamento de bilheteira" />
@@ -1165,6 +1269,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <SelectItem value="day">Bilheteira: Por Dia</SelectItem>
               <SelectItem value="zone">Bilheteira: Por Zona</SelectItem>
               <SelectItem value="lot">Bilheteira: Por Lote</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={expenseCategoryLevel} onValueChange={(v) => setExpenseCategoryLevel(v as "l2" | "l3")}>
+            <SelectTrigger className="h-8 w-[200px] text-xs">
+              <SelectValue placeholder="Nível das despesas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="l2">Despesas: Nível 2 (grupo)</SelectItem>
+              <SelectItem value="l3">Despesas: Nível 3 (detalhe)</SelectItem>
             </SelectContent>
           </Select>
           <Button size="sm" variant="outline" onClick={exportPdf}>
@@ -1285,6 +1398,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descrição</TableHead>
+                      <TableHead>Cidade</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
@@ -1294,13 +1408,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     {s.paidExpenses.map((e, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.cityLabel}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
                         <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(e.amount)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="border-t-2 border-border bg-muted/30">
-                      <TableCell colSpan={3} className="font-bold text-xs">Total</TableCell>
+                      <TableCell colSpan={4} className="font-bold text-xs">Total</TableCell>
                       <TableCell className="text-right font-mono font-bold">{formatCurrency(s.totalPaidByPartner)}</TableCell>
                     </TableRow>
                   </TableBody>
@@ -1350,6 +1465,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descrição</TableHead>
+                      <TableHead>Cidade</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
@@ -1359,13 +1475,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                     {s.partnerExtras.map((e, i) => (
                       <TableRow key={i}>
                         <TableCell className="text-sm">{e.description}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{e.cityLabel}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{e.category}</TableCell>
                         <TableCell className="text-xs font-mono">{e.date ? format(new Date(e.date), "dd/MM/yyyy") : ""}</TableCell>
                         <TableCell className="text-right font-mono text-destructive">−{formatCurrency(e.amount)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="border-t-2 border-border bg-muted/30">
-                      <TableCell colSpan={3} className="font-bold text-xs">Total a abater</TableCell>
+                      <TableCell colSpan={4} className="font-bold text-xs">Total a abater</TableCell>
                       <TableCell className="text-right font-mono font-bold text-destructive">−{formatCurrency(s.totalPartnerExtras)}</TableCell>
                     </TableRow>
                   </TableBody>
