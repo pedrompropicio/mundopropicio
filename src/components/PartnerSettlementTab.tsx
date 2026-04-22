@@ -63,6 +63,10 @@ interface PartnerSettlement {
   /** Parcela da quota do resultado ainda sem liquidez imediata porque o caixa do
    *  evento foi desencaixado para cobrir cauções/transitórias pagas pela MP. */
   resultPendingByCash: number;
+  /** Parcela do prejuízo absorvida por cauções/transitórias ainda retidas, rateada por equity. */
+  transitoryOffset: number;
+  /** Aporte efetivo necessário para fechar a conta após usar a liquidez/cauções disponíveis. */
+  equityContribution: number;
   /** Acerto liquidável agora — quota com liquidez imediata + pagas pelo sócio − extras.
    *  Exclui cauções pendentes e exclui a parcela do resultado sem liquidez imediata. */
   operationalSettlement: number;
@@ -709,6 +713,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       transitoryItems,
       resultRepasseNow: 0,
       resultPendingByCash: 0,
+      transitoryOffset: 0,
+      equityContribution: 0,
       operationalSettlement: 0, // calculado abaixo
       settlement: 0,        // recalculado abaixo
     };
@@ -717,24 +723,29 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // Crédito transitório:
   //  • Mundo Propício: total das órfãs (já calculado, cap em 0)
   //  • Sócios externos: gross vinculado direto (despesas − devoluções), cap em 0
-  const totalPositiveExternalShares = settlements
-    .filter((s) => !s.isHouse && s.partnerShare > 0)
-    .reduce((acc, s) => acc + s.partnerShare, 0);
-  const blockedShareRatio = totalPositiveExternalShares > 0
-    ? Math.min(1, houseTransitoryCredit / totalPositiveExternalShares)
-    : 0;
 
   settlements.forEach((s) => {
     if (s.isHouse) {
       s.transitoryCredit = houseTransitoryCredit;
-      s.resultPendingByCash = 0;
-      s.resultRepasseNow = s.partnerShare;
     } else {
       const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
       s.transitoryCredit = Math.max(0, gross);
-      s.resultPendingByCash = s.partnerShare > 0 ? s.partnerShare * blockedShareRatio : 0;
-      s.resultRepasseNow = s.partnerShare - s.resultPendingByCash;
     }
+  });
+
+  const totalTransitoryCredit = settlements.reduce((acc, s) => acc + s.transitoryCredit, 0);
+  const resultPositivePool = Math.max(result, 0);
+  const resultLossPool = Math.max(-result, 0);
+  const pendingPool = Math.min(totalTransitoryCredit, resultPositivePool);
+  const offsetPool = Math.min(totalTransitoryCredit, resultLossPool);
+  const contributionPool = Math.max(0, resultLossPool - totalTransitoryCredit);
+
+  settlements.forEach((s) => {
+    const equityRatio = s.effectivePercentage / 100;
+    s.resultPendingByCash = result > 0 ? pendingPool * equityRatio : 0;
+    s.transitoryOffset = result < 0 ? offsetPool * equityRatio : 0;
+    s.equityContribution = result < 0 ? contributionPool * equityRatio : 0;
+    s.resultRepasseNow = result >= 0 ? s.partnerShare - s.resultPendingByCash : -s.equityContribution;
     // Acerto operacional = parte já líquida do resultado + pagas pelo sócio - extras.
     s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
