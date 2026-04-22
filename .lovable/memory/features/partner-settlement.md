@@ -62,12 +62,20 @@ O toggle clássico "🔄 Marcar como Transitória" continua disponível em modo 
 ### Cálculo no acerto (`PartnerSettlementTab`)
 1. **Sócio externo**: `transitoryCredit = max(0, Σ transitória.expense vinculadas − Σ transitória.income vinculadas)` (via `partner_paid_expenses`)
 2. **Mundo Propício (casa)**: `transitoryCredit = max(0, Σ transitória.expense ÓRFÃS − Σ transitória.income ÓRFÃS)` — todas as transitórias do evento sem vínculo a `partner_paid_expenses`
-3. `settlement = partnerShare + totalPaidByPartner − totalPartnerExtras + transitoryCredit`
+3. `operationalSettlement = partnerShare + totalPaidByPartner − totalPartnerExtras` (caixa real, liquidável agora)
+4. `settlement = operationalSettlement + transitoryCredit` (saldo total, só liquidável após retorno das cauções)
+
+### Separação Operacional vs Cauções (exposição de caixa)
+Cauções pendentes **não são receita do evento** — são caixa retido (ex: no venue) que volta quando devolvido.
+Para evitar leitura enganosa do tipo "MP deve pagar X ao sócio" quando parte de X depende de cauções a recuperar:
+- Card do sócio: grid de **6 colunas** (Quota / Pagas / Extras / **Operacional** / Cauções / **Saldo c/ Cauções**) + nota cyan explicativa quando `transitoryCredit > 0`
+- Badge no header: quando há cauções pendentes mostra dois chips ("Operacional X" + "+ Caução Y")
+- Resumo Financeiro: bloco cyan "🛡️ Cauções pendentes (fora do resultado)" com split MP vs sócios externos + total caixa retido + nota explicativa
+- PDF tabela "3. Distribuição": colunas Operacional + Cauções + Saldo c/ Cauções; PDF "4. Detalhes": direcção operacional ("liquidável agora") + linha de nota se há cauções
 
 ### Queries / UI
 - `paidExpenses` query traz `is_transitory, type, status` da tx vinculada
 - `totalPaidByPartner` (afeta resultado) **exclui** transitórias; `transitoryItems` lista-as à parte
-- Card de cada sócio (incluindo MP): grid 5 colunas com "Cauções pendentes (+)" + tabela "🛡️ Cauções / transitórias pagas pelo sócio" (label adapta para MP)
 - Fecho do Evento (DRE) continua intocado — transitórias só aparecem aqui no acerto
 
 ### Exemplos
