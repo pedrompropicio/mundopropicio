@@ -43,6 +43,7 @@ export interface BPTransactionsPDFData {
   outOfBPTransactions: TransactionLine[];
   totalForecast: number;
   totalActual: number;
+  includeOverhead?: boolean;
 }
 
 type ViewMode = "synthetic" | "analytical";
@@ -110,7 +111,8 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
   const modeLabel = viewMode === "synthetic" ? "Sintético" : "Analítico";
-  doc.text(`Evento: ${data.eventName} — ${fmtDate(data.eventDate)} | Vista: ${modeLabel} | Gerado em ${new Date().toLocaleDateString("pt-PT")}`, ml, cursor.y);
+  const overheadLabel = data.includeOverhead ? "Com overhead" : "Sem overhead";
+  doc.text(`Evento: ${data.eventName} — ${fmtDate(data.eventDate)} | Vista: ${modeLabel} | Overhead: ${overheadLabel} | Gerado em ${new Date().toLocaleDateString("pt-PT")}`, ml, cursor.y);
   doc.setTextColor(0, 0, 0);
   cursor.y += 8;
 

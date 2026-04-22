@@ -49,6 +49,7 @@ Para resolver a ambiguidade entre "Vista Empresa" (overhead fora, coerente com D
 | **DRE Brasil** | `ReportDREBrasil.tsx` → `showPartnerView` | OFF (Vista Empresa) | Idem |
 | **Análise de Resultados** | `ResultsAnalysis.tsx` → `includeOverhead` | OFF (Vista Empresa) | Quando ON, `closingMap` é populado e soma ao `bpExpense` / `realExpense` de Planeado 100% / 80% / Real Atual |
 | **Acerto com Sócios** | `ReportPartnerSettlement.tsx` | sempre ON | Por natureza é sempre vista do sócio |
+| **BP x Transações (Despesas)** | `ReportBPTransactions.tsx` | OFF (Sem overhead) | Seletor local inclui/exclui linhas `event_forecasts.is_overhead=true`; quando ON, o Previsto passa a somar overhead do evento e também a fatia virtual via Master no split |
 | **DRE Empresarial** | `ReportDREEmpresarial.tsx` | sempre considera overhead em secção separada | Não é toggle, mas não duplica |
 
 **Justificação**: o overhead é por design "informativo" para a empresa (já foi pago noutros momentos) e "computado" para o sócio (reduz o resultado dele). O toggle deixa o utilizador escolher a perspetiva sem misturar.

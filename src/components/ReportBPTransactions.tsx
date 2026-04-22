@@ -72,6 +72,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   // transações com parent_transaction_id) entram no relatório. Por defeito
   // incluídas, para preservar a vista atual.
   const [includeMasterApportionment, setIncludeMasterApportionment] = useState(true);
+  const [includeOverhead, setIncludeOverhead] = useState(false);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
@@ -232,6 +233,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
         relevantEventIds.includes(f.event_id) &&
         f.type === "expense" &&
         statusOk(f.status) &&
+        (includeOverhead || !f.is_overhead) &&
         (!isSubEvent || !f.master_forecast_id)
     );
 
@@ -242,7 +244,8 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
         (f: any) =>
           f.event_id === parentEventId &&
           f.type === "expense" &&
-          statusOk(f.status)
+          statusOk(f.status) &&
+          (includeOverhead || !f.is_overhead)
       );
       masterForecasts.forEach((f: any) => {
         masterForecastSlices.push({
@@ -431,7 +434,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     const ta = sorted.reduce((s, g) => s + g.totalActual, 0);
 
     return { groupedData: sorted, outOfBPTransactions: outOfBP, totalForecast: tf, totalActual: ta };
-  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount]);
+  }, [selectedEventId, relevantEventIds, forecasts, transactions, categories, partnerPaidMap, reimbursementMap, includeDrafts, includeOverhead, isSubEvent, includeMasterApportionment, parentEventId, masterSplitsCount]);
 
   const toggleGroup = (name: string) => {
     setExpandedGroups((prev) => {
@@ -559,6 +562,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
       outOfBPTransactions: outOfBPTransactions as any,
       totalForecast,
       totalActual,
+      includeOverhead,
     };
     exportBPTransactionsToPDF(pdfData, mode);
   };
@@ -595,6 +599,18 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
               />
               Incluir rascunhos do BP
             </label>
+            <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Overhead</span>
+              <select
+                value={includeOverhead ? "with" : "without"}
+                onChange={(e) => setIncludeOverhead(e.target.value === "with")}
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                title="Incluir ou excluir linhas de overhead no BP x Transações"
+              >
+                <option value="without">Sem overhead</option>
+                <option value="with">Com overhead</option>
+              </select>
+            </div>
             {isSubEvent && (
               <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
                 <input
