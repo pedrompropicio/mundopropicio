@@ -238,6 +238,7 @@ export function exportBPTransactionsToPDF(data: BPTransactionsPDFData, viewMode:
           doc.text("BP", colX[2] + 2, cursor.y + 3.5);
           doc.setTextColor(0, 0, 0);
           doc.text(fmtVal(Number(detail.amount)), colX[3] + colW[3] - 2, cursor.y + 3.5, { align: "right" });
+          doc.text(fmtVal(Number(detail.amount)), colX[4] + colW[4] - 2, cursor.y + 3.5, { align: "right" });
           doc.setTextColor(180, 120, 0);
           doc.text("Overhead", colX[5] + colW[5] - 2, cursor.y + 3.5, { align: "right" });
           doc.setTextColor(0, 0, 0);
