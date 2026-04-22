@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, UserCheck, TrendingUp, TrendingDown, ArrowRightLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
@@ -126,6 +127,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const [ticketGroupMode, setTicketGroupMode] = useState<TicketGroupMode>("sub_date_session");
   // Nível do plano de contas a apresentar nas despesas por categoria
   const [expenseCategoryLevel, setExpenseCategoryLevel] = useState<"l2" | "l3">("l2");
+  const [includeLiquidityAppendix, setIncludeLiquidityAppendix] = useState(false);
 
   // Event info (master + cities)
   const { data: event } = useQuery({
@@ -755,6 +757,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
+    const externalSettlements = settlements.filter((s) => !s.isHouse);
+    const houseSettlement = settlements.find((s) => s.isHouse);
+    const totalPaidByPartners = externalSettlements.reduce((sum, s) => sum + s.totalPaidByPartner, 0);
+    const companyPaidOperationalCosts = Math.max(0, totalExpensesGross - totalPaidByPartners);
+    const retainedCash = houseSettlement?.transitoryCredit || 0;
+    const cashBeforeReserve = Math.max(0, totalRevenueGross - companyPaidOperationalCosts);
+    const cashAvailableForDistribution = Math.max(0, cashBeforeReserve - retainedCash);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -1081,7 +1090,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     // A MP não tem secção própria em "4. Detalhes por Sócio", mas as suas cauções
     // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
     {
-      const houseSettlement = settlements.find((s) => s.isHouse);
+        const houseSettlement = settlements.find((s) => s.isHouse);
       if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
         ensureSpace(40);
         doc.setFontSize(11);
@@ -1453,6 +1462,125 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       y = (doc as any).lastAutoTable.finalY + 8;
     }
 
+    if (includeLiquidityAppendix && externalSettlements.length > 0) {
+      doc.addPage();
+      y = 16;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0);
+      doc.text("8. Análise Final de Liquidez da Distribuição", margin, y);
+      y += 6;
+
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      const intro = doc.splitTextToSize(
+        "Esta folha opcional traduz a disponibilidade real de caixa no fecho: parte da receita ficou na Mundo Propício, parte das despesas foi suportada pelos sócios externos e a caução/transitória ainda retida reduz o montante disponível para reembolso e distribuição do resultado.",
+        tableWidth,
+      );
+      doc.text(intro, margin, y);
+      y += intro.length * 3.2 + 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Passo de liquidez", "Valor"]],
+        body: [
+          ["Receita bruta efetivamente recebida nas vendas", formatCurrency(totalRevenueGross)],
+          ["(-) Despesas operacionais pagas pela Mundo Propício / empresa", formatCurrency(companyPaidOperationalCosts)],
+          ["Caixa disponível antes das retenções transitórias", formatCurrency(cashBeforeReserve)],
+          ["(-) Cauções / transitórias ainda retidas e sem disponibilidade", formatCurrency(retainedCash)],
+          ["Caixa efetivamente disponível para distribuição agora", formatCurrency(cashAvailableForDistribution)],
+        ],
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 8.5, cellPadding: 2 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        columnStyles: {
+          0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
+          1: { cellWidth: valueColW, halign: "right" },
+        },
+      });
+      y = (doc as any).lastAutoTable.finalY + 5;
+
+      let remainingCash = cashAvailableForDistribution;
+      const liquidityRows = externalSettlements.map((s) => {
+        const reimbursableNow = Math.max(0, Math.min(s.totalPaidByPartner, remainingCash));
+        remainingCash = Math.max(0, remainingCash - reimbursableNow);
+        const reimbursablePending = Math.max(0, s.totalPaidByPartner - reimbursableNow);
+
+        const resultDue = Math.max(0, s.partnerShare);
+        const resultPayableNow = Math.max(0, Math.min(resultDue, remainingCash));
+        remainingCash = Math.max(0, remainingCash - resultPayableNow);
+        const resultPending = Math.max(0, resultDue - resultPayableNow);
+
+        const totalDue = Math.max(0, s.totalPaidByPartner - s.totalPartnerExtras + resultDue);
+        const totalNow = Math.max(0, reimbursableNow - s.totalPartnerExtras + resultPayableNow);
+        const totalPending = Math.max(0, totalDue - totalNow);
+
+        return {
+          partnerName: s.partnerName,
+          reimbursableNow,
+          reimbursablePending,
+          resultPayableNow,
+          resultPending,
+          totalDue,
+          totalNow,
+          totalPending,
+        };
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Sócio", "Reembolso agora", "Reembolso pendente", "Resultado agora", "Resultado pendente", "Total devido", "Pagável agora", "Pendente"]],
+        body: liquidityRows.map((row) => [
+          row.partnerName,
+          formatCurrency(row.reimbursableNow),
+          formatCurrency(row.reimbursablePending),
+          formatCurrency(row.resultPayableNow),
+          formatCurrency(row.resultPending),
+          formatCurrency(row.totalDue),
+          formatCurrency(row.totalNow),
+          formatCurrency(row.totalPending),
+        ]),
+        foot: [[
+          "TOTAL",
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow, 0)),
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.reimbursablePending, 0)),
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.resultPayableNow, 0)),
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.resultPending, 0)),
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.totalDue, 0)),
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.totalNow, 0)),
+          formatCurrency(liquidityRows.reduce((sum, row) => sum + row.totalPending, 0)),
+        ]],
+        margin: { left: margin, right: margin },
+        tableWidth,
+        styles: { fontSize: 8, cellPadding: 1.8 },
+        headStyles: { fillColor: [41, 41, 41], halign: "right" },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
+        columnStyles: {
+          0: { cellWidth: 42, halign: "left" },
+          1: { cellWidth: 22, halign: "right" },
+          2: { cellWidth: 24, halign: "right" },
+          3: { cellWidth: 21, halign: "right" },
+          4: { cellWidth: 24, halign: "right" },
+          5: { cellWidth: 21, halign: "right" },
+          6: { cellWidth: 21, halign: "right", fontStyle: "bold" },
+          7: { cellWidth: 21, halign: "right", fontStyle: "bold" },
+        },
+      });
+      y = (doc as any).lastAutoTable.finalY + 4;
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(80);
+      const outro = doc.splitTextToSize(
+        "Lógica desta folha: primeiro abate-se a indisponibilidade de caixa das cauções/transitórias ainda retidas; depois prioriza-se o reembolso das despesas pagas pelos sócios externos; só o saldo remanescente suporta distribuição do resultado. Quando a opção estiver desligada, o PDF mantém o formato atual sem esta folha final.",
+        tableWidth,
+      );
+      doc.text(outro, margin, y);
+      doc.setTextColor(0);
+    }
+
     // (Item 7 "Detalhes por Sócio" foi movido para a 1.ª página, logo após o item 3.)
 
 
@@ -1477,6 +1605,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           <h3 className="text-lg font-bold flex items-center gap-2">Encontro de Contas <HelpTooltip text={helpTexts.partnerSettlement} size={14} /></h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground">
+            <Switch checked={includeLiquidityAppendix} onCheckedChange={setIncludeLiquidityAppendix} />
+            <span>Incluir análise final</span>
+          </label>
           <Select value={ticketGroupMode} onValueChange={(v) => setTicketGroupMode(v as TicketGroupMode)}>
             <SelectTrigger className="h-8 w-[260px] text-xs">
               <SelectValue placeholder="Agrupamento de bilheteira" />
