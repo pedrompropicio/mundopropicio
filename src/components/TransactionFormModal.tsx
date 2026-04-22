@@ -2256,7 +2256,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 <button
                   type="button"
                   onClick={() => {
-                    if (isParentMultiDay) {
+                    if (isParentMultiDay && !isTransitory) {
                       setShowDuplicateConfirm(false);
                       setShowProrationConfirm(true);
                     } else {
