@@ -440,11 +440,12 @@ export default function EventDetail() {
 
   const incomeTransactions = eventTransactions.filter((t) => t.type === "income");
   const expenseTransactions = eventTransactions.filter((t) => t.type === "expense");
+  const operationalExpenseTransactions = expenseTransactions.filter((t) => !t.is_transitory);
   const transactionIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
   // If ticket sales exist, use them as revenue source; otherwise fall back to transactions
   const hasTicketSales = ticketSalesRevenue > 0;
   const totalIncome = hasTicketSales ? ticketSalesRevenue : transactionIncome;
-  const totalExpenses = expenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  const totalExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const profit = totalIncome - totalExpenses;
 
   const copyTicketingFromSubEvent = async (sourceId: string) => {
@@ -543,7 +544,7 @@ export default function EventDetail() {
   const subEventCount = subEvents.length || 1;
 
   // Pie data by category
-  const expenseByCategory = expenseTransactions.reduce<Record<string, { name: string; value: number }>>((acc, t) => {
+  const expenseByCategory = operationalExpenseTransactions.reduce<Record<string, { name: string; value: number }>>((acc, t) => {
     const catName = t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "Sem categoria";
     if (!acc[catName]) acc[catName] = { name: catName, value: 0 };
     acc[catName].value += Number(t.amount);
