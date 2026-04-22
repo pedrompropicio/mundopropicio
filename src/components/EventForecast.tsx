@@ -1427,8 +1427,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // exclude_from_result normalmente filtra overhead; saltamos esse filtro quando incluímos overhead
       if (f.exclude_from_result && !isOverheadLine) return false;
       if (f.is_transitory) return false;
-      // Quando vê-se só o Master (toggle OFF), exclui forecasts de filhos por segurança
-      if (!includeSubsInBP && parentEventId === null && f.event_id !== eventId) return false;
+      // Quando vê-se só o Master (toggle OFF), exclui forecasts de filhos por segurança.
+      // `parentEventId` chega undefined no evento Master, por isso usamos `== null`.
+      if (!includeSubsInBP && parentEventId == null && f.event_id !== eventId) return false;
       return true;
     });
   }, [forecasts, includeSubsInBP, parentEventId, eventId, includeOverheadInComparison]);
@@ -1451,9 +1452,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       // Na vista "Só Master", não misturar pais globais de rateio (event_id null)
       // no Real. Essas transações representam contentores de split/multi-evento e
       // inflacionam o Master quando não estamos a ver o consolidado Master+Subs.
-      if (!includeSubsInBP && parentEventId === null && !t.event_id) return false;
+      if (!includeSubsInBP && parentEventId == null && !t.event_id) return false;
       // Master sem toggle: só TX deste Master (event_id === eventId) ou multi-event masters (event_id null)
-      if (!includeSubsInBP && parentEventId === null && t.event_id && t.event_id !== eventId) return false;
+      if (!includeSubsInBP && parentEventId == null && t.event_id && t.event_id !== eventId) return false;
       // Simetria por categoria: só TX cuja categoria foi orçada no BP deste evento.
       // TX sem categoria ficam fora (não há linha BP para comparar).
       if (!t.category_id || !bpCategoryIds.has(t.category_id)) return false;
