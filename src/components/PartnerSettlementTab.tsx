@@ -544,6 +544,27 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     );
   }
 
+  // ---- Helper: caminho hierárquico completo da categoria (L1 > L2 > L3) ----
+  // Usado nos detalhes de cauções/transitórias para dar contexto contabilístico real
+  // (ex: "Despesas Operacionais > Cauções > Caução de Recinto") em vez de apenas a folha.
+  const catByIdAll: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
+  (allCategories as any[]).forEach((c) => { catByIdAll[c.id] = c; });
+  const buildCategoryPath = (catId: string | null | undefined, fallback?: string): string => {
+    if (!catId) return fallback || "—";
+    const chain: string[] = [];
+    let cur = catByIdAll[catId];
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      chain.unshift(cur.code ? `${cur.code} ${cur.name}` : cur.name);
+      if (!cur.parent_id) break;
+      const parent = catByIdAll[cur.parent_id];
+      if (!parent) break;
+      cur = parent;
+    }
+    return chain.length ? chain.join(" > ") : (fallback || "—");
+  };
+
   // ---- Crédito transitório (cauções pagas e ainda não devolvidas) ----
   // Regras:
   //  • Sócio externo: recebe crédito apenas pelas transitórias DIRETAMENTE vinculadas a ele
