@@ -1452,6 +1452,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           grandCount.toString(),
           formatCurrency(grandGross),
         ]],
+        showFoot: "lastPage",
         margin: { left: margin, right: margin },
         tableWidth,
         styles: { fontSize: 9, cellPadding: 2 },
