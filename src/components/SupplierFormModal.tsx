@@ -152,7 +152,7 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[60]">
+      <DialogContent overlayClassName="z-[60]" className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[61]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>
