@@ -1498,8 +1498,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-              Estes valores <strong>não são receita do evento</strong> — são cauções/transitórias ainda retidas (ex: no venue) que voltam ao caixa quando devolvidas.
-              No acerto entre sócios, são creditados a quem desembolsou, mas só podem ser efectivamente liquidados após o retorno.
+              Estes valores <strong>não são receita do evento</strong> — são cauções/transitórias temporariamente retidas por entidade terceira
+              (ex: recinto/venue) e regressam ao caixa de quem desembolsou quando são devolvidas.
+              No acerto entre sócios, são creditados a quem pagou, mas só podem ser efectivamente liquidados após esse retorno.
             </p>
           </div>
         )}
@@ -1606,7 +1607,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             {s.transitoryCredit > 0 && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
                 ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> Os {formatCurrency(s.transitoryCredit)} de cauções
-                {s.isHouse ? " da Mundo Propício" : " do sócio"} só entram no acerto após retorno (ex: devolução do venue).
+                {s.isHouse ? " da Mundo Propício" : " do sócio"} só entram no acerto após devolução pela entidade que reteve a caução
+                (ex: recinto/venue).
               </p>
             )}
 
@@ -1646,7 +1648,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
                   🛡️ {s.isHouse ? "Cauções / transitórias pagas pela Mundo Propício" : "Cauções / transitórias pagas pelo sócio"}
-                  <span className="text-muted-foreground/70"> — entram no acerto até serem devolvidas (não impactam resultado)</span>
+                  <span className="text-muted-foreground/70"> — entram no acerto até devolução pela entidade terceira que reteve o valor (não impactam resultado)</span>
                 </p>
                 <Table>
                   <TableHeader>
