@@ -733,19 +733,20 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     }
   });
 
+  const baseResult = ignoresOperationalExpenses(calcBasis) ? revenueBase : resultBase;
   const totalTransitoryCredit = settlements.reduce((acc, s) => acc + s.transitoryCredit, 0);
-  const resultPositivePool = Math.max(result, 0);
-  const resultLossPool = Math.max(-result, 0);
+  const resultPositivePool = Math.max(baseResult, 0);
+  const resultLossPool = Math.max(-baseResult, 0);
   const pendingPool = Math.min(totalTransitoryCredit, resultPositivePool);
   const offsetPool = Math.min(totalTransitoryCredit, resultLossPool);
   const contributionPool = Math.max(0, resultLossPool - totalTransitoryCredit);
 
   settlements.forEach((s) => {
     const equityRatio = s.effectivePercentage / 100;
-    s.resultPendingByCash = result > 0 ? pendingPool * equityRatio : 0;
-    s.transitoryOffset = result < 0 ? offsetPool * equityRatio : 0;
-    s.equityContribution = result < 0 ? contributionPool * equityRatio : 0;
-    s.resultRepasseNow = result >= 0 ? s.partnerShare - s.resultPendingByCash : -s.equityContribution;
+    s.resultPendingByCash = baseResult > 0 ? pendingPool * equityRatio : 0;
+    s.transitoryOffset = baseResult < 0 ? offsetPool * equityRatio : 0;
+    s.equityContribution = baseResult < 0 ? contributionPool * equityRatio : 0;
+    s.resultRepasseNow = baseResult >= 0 ? s.partnerShare - s.resultPendingByCash : -s.equityContribution;
     // Acerto operacional = parte já líquida do resultado + pagas pelo sócio - extras.
     s.operationalSettlement = s.resultRepasseNow + s.totalPaidByPartner - s.totalPartnerExtras;
     // Saldo final = operacional + quota do resultado ainda sem liquidez + cauções pendentes.
