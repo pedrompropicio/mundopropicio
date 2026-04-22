@@ -3115,9 +3115,12 @@ function findMatchingTransactionsForForecast(
     const direct = eventTransactions.filter((t: any) => t.id === forecast.transaction_id);
     if (direct.length > 0) return direct;
   }
-  const scoped = eventTransactions.filter(
-    (t: any) => t.event_id === forecast.event_id || t.event_id === null,
-  );
+  const allowedEventIds = new Set([
+    forecast.event_id,
+    null,
+    forecast._master_event_id,
+  ].filter((value) => value !== undefined));
+  const scoped = eventTransactions.filter((t: any) => allowedEventIds.has(t.event_id));
   if (!forecast.category_id) return [];
   const sameCat = scoped.filter(
     (t: any) => t.category_id === forecast.category_id && t.type === forecast.type,
