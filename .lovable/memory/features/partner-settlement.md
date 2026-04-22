@@ -1,6 +1,6 @@
 ---
 name: Partner Settlement & Paid Expenses
-description: Regras de Despesas Pagas por Sócios e Fecho com Parceiros — vínculo, escopo Master+subs, status automático
+description: Regras de Despesas Pagas por Sócios e Fecho com Parceiros — vínculo, escopo Master+subs, status automático, transitórias/cauções
 type: feature
 ---
 
@@ -36,24 +36,29 @@ Ao criar `partner_paid_expenses`:
 - Compara com participação % nos resultados (lucro/prejuízo conforme `partner_calc_basis`)
 - Diferença = a pagar/receber do sócio
 
-## Cauções / transitórias pagas por sócio
-Despesas com `is_transitory = true` (ex: caução de venue) **não compõem o resultado/DRE** mas, quando pagas por um sócio, **entram no acerto societário como crédito até serem devolvidas**.
+## Cauções / transitórias (is_transitory)
+Despesas com `is_transitory = true` (ex: caução de venue) **não compõem o resultado/DRE** mas entram no acerto societário como crédito até serem devolvidas.
 
-### Cálculo (`PartnerSettlementTab`)
-1. Para cada sócio: `gross = Σ transitória.expense paga pelo sócio − Σ transitória.income recebida pelo sócio` (via `partner_paid_expenses`)
-2. `companyReturns = Σ transitória.income do evento NÃO vinculada a `partner_paid_expenses`` (devolução para conta da empresa)
-3. `companyReturns` é prorateado entre sócios com `gross > 0`, na proporção do `gross`
-4. `transitoryCredit = max(0, gross − parcela_companyReturns)` — cap em 0
-5. `settlement = partnerShare + totalPaidByPartner − totalPartnerExtras + transitoryCredit`
+### Atalho "🛡️ Caução / Transitória" no lançamento (TransactionFormModal)
+Botão admin/manager que ativa `is_transitory=true` e abre selector **Pago por**:
+- **Mundo Propício (caixa da empresa)** — opção default. Transitória órfã (sem vínculo a sócio).
+- **Sócio X** — ativa `isPaidByPartner=true` + `paidByPartnerId` + pede `partnerPaidDate`. Cria `partner_paid_expenses` com a tx vinculada.
+
+O toggle clássico "🔄 Marcar como Transitória" continua disponível em modo avançado (oculto quando o atalho está ativo).
+
+### Cálculo no acerto (`PartnerSettlementTab`)
+1. **Sócio externo**: `transitoryCredit = max(0, Σ transitória.expense vinculadas − Σ transitória.income vinculadas)` (via `partner_paid_expenses`)
+2. **Mundo Propício (casa)**: `transitoryCredit = max(0, Σ transitória.expense ÓRFÃS − Σ transitória.income ÓRFÃS)` — todas as transitórias do evento sem vínculo a `partner_paid_expenses`
+3. `settlement = partnerShare + totalPaidByPartner − totalPartnerExtras + transitoryCredit`
 
 ### Queries / UI
 - `paidExpenses` query traz `is_transitory, type, status` da tx vinculada
 - `totalPaidByPartner` (afeta resultado) **exclui** transitórias; `transitoryItems` lista-as à parte
-- Card do sócio: grid 5 colunas com "Cauções pendentes (+)" + tabela "🛡️ Cauções / transitórias pagas pelo sócio"
+- Card de cada sócio (incluindo MP): grid 5 colunas com "Cauções pendentes (+)" + tabela "🛡️ Cauções / transitórias pagas pelo sócio" (label adapta para MP)
 - Fecho do Evento (DRE) continua intocado — transitórias só aparecem aqui no acerto
 
 ### Exemplos
 - Caução 5 000 € paga por Sócio A, sem devolução → +5 000 € no acerto de A
-- Devolução transitória de 5 000 € para Sócio A (vinculada como income) → crédito = 0
-- Devolução transitória de 5 000 € para conta da empresa → crédito de A = 0 (foi reembolsado pelo evento)
-
+- Caução 5 000 € paga pela empresa (MP), sem devolução → +5 000 € no acerto da Mundo Propício
+- Devolução transitória de 5 000 € para Sócio A (vinculada como income) → crédito de A = 0
+- Devolução transitória de 5 000 € para conta da empresa (sem vínculo) → abate o crédito da MP, não dos sócios externos
