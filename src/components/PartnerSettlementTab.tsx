@@ -817,40 +817,43 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 5;
     autoTable(doc, {
       startY: y,
-      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Cauções (+)", "Extras (-)", "Saldo Final"]],
+      head: [["Sócio", "%", "Quota Bruta", "Pagas (+)", "Extras (-)", "Operacional", "Cauções (+)", "Saldo c/ Cauções"]],
       body: settlements.map((s) => [
         s.partnerName,
         `${s.effectivePercentage}%`,
         formatCurrency(s.partnerShare),
         formatCurrency(s.totalPaidByPartner),
-        formatCurrency(s.transitoryCredit),
         `-${formatCurrency(s.totalPartnerExtras)}`,
+        formatCurrency(s.operationalSettlement),
+        formatCurrency(s.transitoryCredit),
         formatCurrency(s.settlement),
       ]),
       foot: [["TOTAL", "100%",
         formatCurrency(settlements.reduce((s, x) => s + x.partnerShare, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.totalPaidByPartner, 0)),
-        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
         `-${formatCurrency(settlements.reduce((s, x) => s + x.totalPartnerExtras, 0))}`,
+        formatCurrency(settlements.reduce((s, x) => s + x.operationalSettlement, 0)),
+        formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0)),
         formatCurrency(settlements.reduce((s, x) => s + x.settlement, 0)),
       ]],
       margin: { left: margin, right: margin },
       tableWidth,
-      styles: { fontSize: 9 },
+      styles: { fontSize: 8.5 },
       headStyles: { fillColor: [41, 41, 41] },
       footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: "bold" },
       columnStyles: (() => {
-        const colPct = 16;
-        const colSocio = 38;
-        const colVal = (tableWidth - colSocio - colPct) / 5;
+        const colPct = 14;
+        const colSocio = 34;
+        const colVal = (tableWidth - colSocio - colPct) / 6;
         return {
           0: { cellWidth: colSocio, halign: "left" },
           1: { cellWidth: colPct, halign: "center" },
           2: { cellWidth: colVal, halign: "right" },
           3: { cellWidth: colVal, halign: "right" },
           4: { cellWidth: colVal, halign: "right" },
-          5: { cellWidth: colVal, halign: "right" },
-          6: { cellWidth: colVal, halign: "right" },
+          5: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
+          6: { cellWidth: colVal, halign: "right", textColor: [0, 100, 120] },
+          7: { cellWidth: colVal, halign: "right", fontStyle: "bold" },
         };
       })(),
       didParseCell: (data) => {
@@ -861,7 +864,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = (doc as any).lastAutoTable.finalY + 3;
+    if (settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0) {
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(80);
+      const note2 = "Operacional = caixa real liquidavel agora (Quota + Pagas - Extras). Saldo c/ Caucoes = inclui caucoes pendentes, so liquidavel apos retorno.";
+      const lines2 = doc.splitTextToSize(note2, tableWidth);
+      doc.text(lines2, margin, y);
+      y += lines2.length * 3 + 3;
+      doc.setTextColor(0);
+    } else {
+      y += 3;
+    }
 
     // ===== 4. DETALHES POR SÓCIO (página 2) =====
     // A MUNDO PROPÍCIO não recebe repasse de si mesma — só sócios externos têm secção própria.
