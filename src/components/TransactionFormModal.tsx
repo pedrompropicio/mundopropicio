@@ -2448,8 +2448,43 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </button>
                 )}
 
-                {/* Transitory toggle — admin/manager only */}
-                {(authIsAdmin || authIsManager) && !isPartnerExtra && (
+                {/* Caução / Transitória shortcut — admin/manager only.
+                    Ativa is_transitory e abre selector "Pago por" (MP ou um sócio).
+                    Se um sócio for escolhido, vincula via partner_paid_expenses (igual a "Pago por Sócio"). */}
+                {(authIsAdmin || authIsManager) && !isPartnerExtra && !form.is_reimbursement && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !cautionShortcut;
+                    setCautionShortcut(next);
+                    if (next) {
+                      setIsTransitory(true);
+                      setIsExcludeFromResult(false);
+                      setCautionPayer("__mp__");
+                      // limpa estado de "Pago por Sócio" — será reativado se selecionar sócio
+                      setIsPaidByPartner(false);
+                      setPaidByPartnerId("");
+                    } else {
+                      setIsTransitory(false);
+                      setCautionPayer("");
+                      setIsPaidByPartner(false);
+                      setPaidByPartnerId("");
+                      setPartnerPaidDate("");
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    cautionShortcut
+                      ? "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 ring-1 ring-cyan-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  🛡️ Caução / Transitória
+                  <HelpTooltip text="Despesa transitória (caução, garantia) que não compõe o resultado do evento. Selecione quem desembolsou: Mundo Propício (caixa da empresa) ou um sócio. O valor entra no acerto societário como crédito até ser devolvido." size={12} />
+                </button>
+                )}
+
+                {/* Transitory toggle — admin/manager only (modo avançado, sem selector de pagador) */}
+                {(authIsAdmin || authIsManager) && !isPartnerExtra && !cautionShortcut && (
                 <button
                   type="button"
                   onClick={() => { setIsTransitory(!isTransitory); if (!isTransitory) setIsExcludeFromResult(false); }}
