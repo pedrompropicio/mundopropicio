@@ -370,33 +370,66 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   // ---- City breakdown (para turnês) ----
   // Receita = ticket sales daquele sub-evento (se existirem) + receitas de transactions
   // Despesas = transactions de despesa do sub-evento (com e sem IVA)
+  // IMPORTANTE: incluir uma linha "Master / Geral" com as transações lançadas
+  // diretamente no Master (event_id === eventId) para que a soma bata com o
+  // Resumo Financeiro (totalRevenueNet / totalExpensesGross).
   const cityBreakdown: CityBreakdown[] = isTour
-    ? subEvents
-        .filter((se: any) => se.id !== eventId)
-        .map((se: any) => {
-          const evtTx = validTx.filter((t: any) => t.event_id === se.id);
-          const inc = evtTx.filter((t: any) => t.type === "income");
-          const exp = evtTx.filter((t: any) => t.type === "expense");
-          const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
-          const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-          // Receita de bilheteira do sub-evento (somar ticketBreakdown filtrado)
-          const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
-          const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
-          const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
-          const revenueNet = tbNet + txRevenueNet;
-          const revenueGross = tbGross + txRevenueGross;
-          const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
-          const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
-          return {
-            eventId: se.id,
-            cityName: (se.cities as any)?.name || se.name,
-            revenueNet,
-            revenueGross,
-            expensesNet,
-            expensesGross,
-            resultNet: revenueNet - expensesNet,
-          };
-        })
+    ? (() => {
+        const rows: CityBreakdown[] = subEvents
+          .filter((se: any) => se.id !== eventId)
+          .map((se: any) => {
+            const evtTx = validTx.filter((t: any) => t.event_id === se.id);
+            const inc = evtTx.filter((t: any) => t.type === "income");
+            const exp = evtTx.filter((t: any) => t.type === "expense");
+            const txRevenueNet = inc.reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const txRevenueGross = inc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+            const tbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === se.id);
+            const tbNet = tbRows.reduce((s, r) => s + r.totalNet, 0);
+            const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
+            const revenueNet = tbNet + txRevenueNet;
+            const revenueGross = tbGross + txRevenueGross;
+            const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+            return {
+              eventId: se.id,
+              cityName: (se.cities as any)?.name || se.name,
+              revenueNet,
+              revenueGross,
+              expensesNet,
+              expensesGross,
+              resultNet: revenueNet - expensesNet,
+            };
+          });
+
+        // Linha Master / Geral — transações lançadas diretamente no evento Master
+        // (não rateadas para sub-eventos). Tipicamente despesas comuns/transversais.
+        const masterTx = validTx.filter((t: any) => t.event_id === eventId);
+        const masterInc = masterTx.filter((t: any) => t.type === "income");
+        const masterExp = masterTx.filter((t: any) => t.type === "expense");
+        const masterTbRows = (ticketBreakdown as TicketBreakdownRow[]).filter((tb) => tb.eventId === eventId);
+        const masterRevenueNet =
+          masterInc.reduce((s: number, t: any) => s + Number(t.amount), 0) +
+          masterTbRows.reduce((s, r) => s + r.totalNet, 0);
+        const masterRevenueGross =
+          masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
+          masterTbRows.reduce((s, r) => s + r.totalGross, 0);
+        const masterExpensesNet = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0);
+        const masterExpensesGross = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+
+        if (masterRevenueGross > 0 || masterExpensesGross > 0) {
+          rows.push({
+            eventId,
+            cityName: "Master / Geral",
+            revenueNet: masterRevenueNet,
+            revenueGross: masterRevenueGross,
+            expensesNet: masterExpensesNet,
+            expensesGross: masterExpensesGross,
+            resultNet: masterRevenueNet - masterExpensesNet,
+          });
+        }
+
+        return rows;
+      })()
     : [];
 
   // ---- Despesas agrupadas pelos níveis 1, 2 e 3 do Plano de Contas ----
