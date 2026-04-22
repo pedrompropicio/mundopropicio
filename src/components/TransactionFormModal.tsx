@@ -1479,7 +1479,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
     // Skip duplicate check if already confirmed
     if (showDuplicateConfirm) {
-      if (isParentMultiDay && !showProrationConfirm) {
+      if (isParentMultiDay && !showProrationConfirm && !isTransitory) {
         setShowProrationConfirm(true);
         return;
       }
