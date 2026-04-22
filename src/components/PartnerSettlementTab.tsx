@@ -192,7 +192,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, event_id, account_categories(name))")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, event_id, category_id, account_categories(id, name, code, parent_id))")
         .in("event_id", allEventIds)
         .order("created_at");
       if (error) throw error;
@@ -544,6 +544,27 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     );
   }
 
+  // ---- Helper: caminho hierárquico completo da categoria (L1 > L2 > L3) ----
+  // Usado nos detalhes de cauções/transitórias para dar contexto contabilístico real
+  // (ex: "Despesas Operacionais > Cauções > Caução de Recinto") em vez de apenas a folha.
+  const catByIdAll: Record<string, { id: string; name: string; code: string; parent_id: string | null }> = {};
+  (allCategories as any[]).forEach((c) => { catByIdAll[c.id] = c; });
+  const buildCategoryPath = (catId: string | null | undefined, fallback?: string): string => {
+    if (!catId) return fallback || "—";
+    const chain: string[] = [];
+    let cur = catByIdAll[catId];
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur.id)) {
+      guard.add(cur.id);
+      chain.unshift(cur.code ? `${cur.code} ${cur.name}` : cur.name);
+      if (!cur.parent_id) break;
+      const parent = catByIdAll[cur.parent_id];
+      if (!parent) break;
+      cur = parent;
+    }
+    return chain.length ? chain.join(" > ") : (fallback || "—");
+  };
+
   // ---- Crédito transitório (cauções pagas e ainda não devolvidas) ----
   // Regras:
   //  • Sócio externo: recebe crédito apenas pelas transitórias DIRETAMENTE vinculadas a ele
@@ -567,7 +588,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       description: t.description || "—",
       amount: Number(t.amount || 0),
       date: t.date || "",
-      category: t.account_categories?.name || "—",
+      // Caminho hierárquico completo (L1 > L2 > L3) para dar contexto contabilístico real
+      category: buildCategoryPath(t.category_id, t.account_categories?.name),
       sign: (t.type === "expense" ? 1 : -1) as 1 | -1,
     }));
 
@@ -633,7 +655,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               description: pe.transactions?.description || "—",
               amount: Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
-              category: pe.transactions?.account_categories?.name || "—",
+              // Caminho hierárquico completo (L1 > L2 > L3) — contexto contabilístico real
+              category: buildCategoryPath(
+                pe.transactions?.category_id,
+                pe.transactions?.account_categories?.name,
+              ),
               sign,
             };
           });
@@ -964,7 +990,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             y += 2.5;
             autoTable(doc, {
               startY: y,
-              head: [["Descrição", "Categoria", "Data", "Tipo", "Valor"]],
+              head: [["Descrição", "Categoria (Plano de Contas)", "Data", "Tipo", "Valor"]],
               body: s.transitoryItems.map((e) => [
                 e.description,
                 e.category,
@@ -974,10 +1000,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               ]),
               foot: [["Crédito líquido (após devoluções)", "", "", "", formatCurrency(s.transitoryCredit)]],
               margin: { left: margin + 4, right: margin },
-              styles: { fontSize: 7.5, cellPadding: 1.4 },
+              styles: { fontSize: 7.5, cellPadding: 1.4, overflow: "linebreak", valign: "top" },
               headStyles: { fillColor: [60, 130, 150] },
               footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
-              columnStyles: { 3: { halign: "center" }, 4: { halign: "right" } },
+              columnStyles: {
+                0: { cellWidth: 70 },               // Descrição (texto livre da transação)
+                1: { cellWidth: 75 },               // Categoria — caminho hierárquico completo
+                2: { cellWidth: 18, halign: "center" },
+                3: { cellWidth: 18, halign: "center" },
+                4: { halign: "right" },
+              },
             });
             y = (doc as any).lastAutoTable.finalY + 1.5;
           }
@@ -1053,7 +1085,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         doc.setTextColor(0);
         autoTable(doc, {
           startY: y,
-          head: [["Descrição", "Categoria", "Data", "Tipo", "Valor"]],
+          head: [["Descrição", "Categoria (Plano de Contas)", "Data", "Tipo", "Valor"]],
           body: houseSettlement.transitoryItems.map((e) => [
             e.description,
             e.category,
@@ -1064,10 +1096,16 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           foot: [["Total caixa retido (a recuperar)", "", "", "", formatCurrency(houseSettlement.transitoryCredit)]],
           margin: { left: margin, right: margin },
           tableWidth,
-          styles: { fontSize: 8.5, cellPadding: 1.8 },
+          styles: { fontSize: 8.5, cellPadding: 1.8, overflow: "linebreak", valign: "top" },
           headStyles: { fillColor: [60, 130, 150] },
           footStyles: { fillColor: [220, 240, 245], textColor: [0, 80, 100], fontStyle: "bold" },
-          columnStyles: { 3: { halign: "center" }, 4: { halign: "right" } },
+          columnStyles: {
+            0: { cellWidth: tableWidth * 0.32 },
+            1: { cellWidth: tableWidth * 0.36 },
+            2: { cellWidth: tableWidth * 0.10, halign: "center" },
+            3: { cellWidth: tableWidth * 0.10, halign: "center" },
+            4: { halign: "right" },
+          },
         });
         y = (doc as any).lastAutoTable.finalY + 6;
       }
