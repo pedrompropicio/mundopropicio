@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: false,
+      devOptions: {
+        enabled: false,
+      },
       includeAssets: ["favicon.ico"],
       manifest: {
         name: "MP Gestão Eventos - Gestão Financeira de Eventos",
