@@ -889,19 +889,19 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               sortedSess.forEach((sess) => {
                 const a = tree[city][day][sess];
                 body.push({
-                  row: fmtRow(`    ${sess}`, a.quantity, a.totalGross, a.totalNet),
+                  row: fmtRow(`    ${sess}`, a.quantity, a.totalGross),
                   style: "detail",
                 });
                 dayQty += a.quantity; dayGross += a.totalGross; dayNet += a.totalNet;
               });
               body.push({
-                row: fmtRow(`  Subtotal ${day}`, dayQty, dayGross, dayNet),
+                row: fmtRow(`  Subtotal ${day}`, dayQty, dayGross),
                 style: "subday",
               });
               cityQty += dayQty; cityGross += dayGross; cityNet += dayNet;
             });
             body.push({
-              row: fmtRow(`Subtotal ${city}`, cityQty, cityGross, cityNet),
+              row: fmtRow(`Subtotal ${city}`, cityQty, cityGross),
               style: "subcity",
             });
             grandQty += cityQty; grandGross += cityGross; grandNet += cityNet;
@@ -916,9 +916,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           autoTable(doc, {
             startY: y,
-            head: [["Cidade / Data / Sessao", "Qtd.", "Total c/IVA", "Total s/IVA"]],
+            head: [["Cidade / Data / Sessao", "Qtd.", "Total c/IVA"]],
             body: body.map((b) => b.row),
-            foot: [fmtRow("TOTAL GERAL", grandQty, grandGross, grandNet)],
+            foot: [fmtRow("TOTAL GERAL", grandQty, grandGross)],
             margin: { left: margin, right: margin },
             tableWidth,
             styles: { fontSize: 9, cellPadding: 2 },
@@ -928,7 +928,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               0: { cellWidth: tbCol1, halign: "left" },
               1: { cellWidth: tbColQ, halign: "right" },
               2: { cellWidth: tbColV, halign: "right" },
-              3: { cellWidth: tbColV, halign: "right" },
             },
             didParseCell: (data) => {
               if (data.section !== "body") return;
