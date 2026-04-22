@@ -230,6 +230,33 @@ export default function EventDetail() {
         }
       }
 
+      // Em visão de sub-evento, despesas vindas de um rateio/lançamento Master
+      // podem ficar com o child em "approved" enquanto o Master já está "paid".
+      // Para a UI do detalhe do evento, herdamos o estado efetivo do Master para
+      // a linha do split, preservando o valor/local do sub-evento.
+      if (selectedSubEvent) {
+        const parentIds = [...new Set(rows.map((r: any) => r.parent_transaction_id).filter(Boolean))];
+        if (parentIds.length > 0) {
+          const { data: parentRows, error: parentError } = await supabase
+            .from("transactions")
+            .select("id, status, payment_date, paid_amount")
+            .in("id", parentIds);
+          if (parentError) throw parentError;
+
+          const parentMap = new Map((parentRows ?? []).map((p: any) => [p.id, p]));
+          rows = rows.map((row: any) => {
+            const parent = row.parent_transaction_id ? parentMap.get(row.parent_transaction_id) : null;
+            if (!parent) return row;
+            return {
+              ...row,
+              _effective_status: parent.status ?? row.status,
+              _effective_payment_date: parent.payment_date ?? row.payment_date,
+              _effective_paid_amount: parent.paid_amount ?? row.paid_amount,
+            };
+          });
+        }
+      }
+
       const dateKey = (v?: string | null) => (v ? String(v).slice(0, 10) : "");
       return [...rows].sort((a: any, b: any) => {
         const aCat = a.account_categories?.code ?? "";
@@ -848,6 +875,7 @@ export default function EventDetail() {
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {eventTransactions.map((t) => {
+                          const effectiveStatus = (t as any)._effective_status ?? t.status;
                         const isSharedCost = isGlobalView && t.event_id === id;
                         const subName = isGlobalView
                           ? t.event_id === id
@@ -875,9 +903,9 @@ export default function EventDetail() {
                             )}
                             <td className="py-3 pr-4">
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                                t.status === "paid" ? "bg-success/15 text-success" : t.status === "pending" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
+                                effectiveStatus === "paid" ? "bg-success/15 text-success" : effectiveStatus === "pending" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
                               }`}>
-                                {statusLabels[t.status] || t.status}
+                                {statusLabels[effectiveStatus] || effectiveStatus}
                               </span>
                             </td>
                             <td className={`py-3 text-right font-mono font-semibold ${t.type === "income" ? "text-success" : "text-warning"}`}>
