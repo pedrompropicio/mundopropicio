@@ -1511,39 +1511,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             </p>
           </div>
         </div>
-        {/* Exposição de caixa — cauções pendentes (não compõem resultado, mas afectam a liquidez) */}
-        {settlements.reduce((s, x) => s + x.transitoryCredit, 0) > 0 && (
-          <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
-            <p className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mb-2">
-              🛡️ Cauções pendentes (fora do resultado)
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">Pagas pela Mundo Propício</p>
-                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatCurrency(settlements.filter((s) => s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Pagas por sócios externos</p>
-                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatCurrency(settlements.filter((s) => !s.isHouse).reduce((s, x) => s + x.transitoryCredit, 0))}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total caixa retido</p>
-                <p className="font-mono font-bold text-cyan-700 dark:text-cyan-400">
-                  {formatCurrency(settlements.reduce((s, x) => s + x.transitoryCredit, 0))}
-                </p>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-              Estes valores <strong>não são receita do evento</strong> — são cauções/transitórias temporariamente retidas por entidade terceira
-              (ex: recinto/venue) e regressam ao caixa de quem desembolsou quando são devolvidas.
-              No acerto entre sócios, são creditados a quem pagou, mas só podem ser efectivamente liquidados após esse retorno.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* City breakdown for tours */}
@@ -1593,14 +1560,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               )}
             </div>
             <div className="flex items-center gap-2">
-              {s.transitoryCredit > 0 ? (
+              {s.transitoryCredit > 0 || s.resultPendingByCash > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <Badge className={`text-xs ${s.operationalSettlement >= 0 ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}>
                     {s.operationalSettlement >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                     Operacional {formatCurrency(Math.abs(s.operationalSettlement))}
                   </Badge>
                   <Badge variant="outline" className="text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-400">
-                    + Caução {formatCurrency(s.transitoryCredit)}
+                    + Pendente {formatCurrency(s.resultPendingByCash + s.transitoryCredit)}
                   </Badge>
                 </div>
               ) : s.settlement > 0 ? (
@@ -1624,6 +1591,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <p className={`font-mono font-bold ${s.partnerShare >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.partnerShare)}</p>
               </div>
               <div>
+                <span className="text-xs text-muted-foreground" title="Parcela da quota do resultado já suportada por liquidez disponível">Repasse já líquido</span>
+                <p className={`font-mono font-bold ${s.resultRepasseNow >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.resultRepasseNow)}</p>
+              </div>
+              <div>
                 <span className="text-xs text-muted-foreground">Pagas pelo sócio (+)</span>
                 <p className="font-mono font-bold text-success">{formatCurrency(s.totalPaidByPartner)}</p>
               </div>
@@ -1632,23 +1603,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 <p className="font-mono font-bold text-destructive">{formatCurrency(s.totalPartnerExtras)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Caixa real liquidável agora — sem cauções">Acerto operacional</span>
+                <span className="text-xs text-muted-foreground" title="Valor já liquidável agora">Acerto operacional</span>
                 <p className={`font-mono font-bold text-lg ${s.operationalSettlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.operationalSettlement)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Cauções e transitórias pagas ainda não devolvidas">Cauções pendentes (+)</span>
-                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.transitoryCredit)}</p>
+                <span className="text-xs text-muted-foreground" title="Quota do resultado sem liquidez + cauções/transitórias pendentes">Pendente de caixa</span>
+                <p className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{formatCurrency(s.resultPendingByCash + s.transitoryCredit)}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground" title="Saldo total contando cauções (só liquidável após retorno)">Saldo c/ cauções</span>
+                <span className="text-xs text-muted-foreground" title="Saldo total, incluindo pendências de caixa e devoluções futuras">Saldo total</span>
                 <p className={`font-mono font-bold text-lg ${s.settlement >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(s.settlement)}</p>
               </div>
             </div>
-            {s.transitoryCredit > 0 && (
+            {(s.resultPendingByCash > 0 || s.transitoryCredit > 0) && (
               <p className="text-[11px] text-cyan-700 dark:text-cyan-400 bg-cyan-500/5 border border-cyan-500/20 rounded px-2 py-1.5">
-                ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> Os {formatCurrency(s.transitoryCredit)} de cauções
-                {s.isHouse ? " da Mundo Propício" : " do sócio"} só entram no acerto após devolução pela entidade que reteve a caução
-                (ex: recinto/venue).
+                ℹ️ <strong>Acerto liquidável agora: {formatCurrency(s.operationalSettlement)}.</strong> No item 4, o fecho mostra separadamente
+                {" "}{formatCurrency(s.resultPendingByCash)} do resultado ainda sem liquidez por desencaixe de caixa e {formatCurrency(s.transitoryCredit)} de
+                cauções/transitórias ainda pendentes de devolução.
               </p>
             )}
 
