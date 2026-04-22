@@ -662,10 +662,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     y += 8;
 
     // ===== 1. RESUMO FINANCEIRO =====
-    // Larguras explícitas para garantir alinhamento dos totais com os cabeçalhos.
+    // Premissa: Receita SEM IVA, Despesa COM IVA — coluna única.
     const tableWidth = pageW - margin * 2;
-    const labelColW = 90;
-    const valueColW = (tableWidth - labelColW) / 2;
+    const labelColW = 130;
+    const valueColW = tableWidth - labelColW;
+    const resultGross = totalRevenueNet - totalExpensesGross;
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
@@ -674,11 +675,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
     autoTable(doc, {
       startY: y,
-      head: [["", "Sem IVA", "Com IVA"]],
+      head: [["", "Valor"]],
       body: [
-        ["Receita", formatCurrency(totalRevenueNet), formatCurrency(totalRevenueGross)],
-        ["Despesas", formatCurrency(totalExpensesNet), formatCurrency(totalExpensesGross)],
-        ["Resultado", formatCurrency(totalRevenueNet - totalExpensesNet), formatCurrency(totalRevenueGross - totalExpensesGross)],
+        ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
+        ["Despesas (c/IVA)", formatCurrency(totalExpensesGross)],
+        ["Resultado", formatCurrency(resultGross)],
       ],
       margin: { left: margin, right: margin },
       tableWidth,
@@ -687,10 +688,9 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       columnStyles: {
         0: { cellWidth: labelColW, halign: "left", fontStyle: "bold" },
         1: { cellWidth: valueColW, halign: "right" },
-        2: { cellWidth: valueColW, halign: "right" },
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = (doc as any).lastAutoTable.finalY + 6;
 
     // ===== 2. QUEBRA POR CIDADE (turnê) =====
     if (cityBreakdown.length > 0) {
