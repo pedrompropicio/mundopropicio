@@ -655,7 +655,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               description: pe.transactions?.description || "—",
               amount: Number(pe.transactions?.amount || 0),
               date: pe.transactions?.date || "",
-              category: pe.transactions?.account_categories?.name || "—",
+              // Caminho hierárquico completo (L1 > L2 > L3) — contexto contabilístico real
+              category: buildCategoryPath(
+                pe.transactions?.category_id,
+                pe.transactions?.account_categories?.name,
+              ),
               sign,
             };
           });
