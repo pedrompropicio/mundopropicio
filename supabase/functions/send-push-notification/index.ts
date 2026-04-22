@@ -91,7 +91,10 @@ Deno.serve(async (req) => {
       title,
       body,
       url: url || "/",
-      badge_count: badge_count ?? 1,
+      // Default to 0 (= clear badge) when caller doesn't provide a count.
+      // Senders that want to bump the badge must compute the real pending
+      // count (e.g. payment lists awaiting approval) and pass it in.
+      badge_count: typeof badge_count === "number" ? badge_count : 0,
     });
 
     // Import web-push compatible library for Deno

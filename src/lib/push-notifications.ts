@@ -101,10 +101,10 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 export async function sendPushToAdminsAndManagers(
   title: string,
   body: string,
-  url?: string
+  url?: string,
+  badgeCount?: number,
 ): Promise<void> {
   try {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
@@ -118,7 +118,7 @@ export async function sendPushToAdminsAndManagers(
     if (userIds.length === 0) return;
 
     await supabase.functions.invoke("send-push-notification", {
-      body: { user_ids: userIds, title, body, url },
+      body: { user_ids: userIds, title, body, url, badge_count: badgeCount },
     });
   } catch (err) {
     console.error("Error sending push notification:", err);
