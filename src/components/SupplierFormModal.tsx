@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -152,7 +152,12 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[60]">
+      <DialogPortal>
+        <DialogOverlay className="z-[60]" />
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg z-[61] fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]"
+        >
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Fornecedor / Parceiro" : "Novo Fornecedor / Parceiro"}</DialogTitle>
         </DialogHeader>
@@ -256,7 +261,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Fornecedor"}
           </button>
         </form>
-      </DialogContent>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 }
