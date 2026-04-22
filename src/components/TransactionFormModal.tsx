@@ -139,6 +139,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [partnerExtraPartialAmount, setPartnerExtraPartialAmount] = useState("");
   const [isTransitory, setIsTransitory] = useState(false);
   const [isExcludeFromResult, setIsExcludeFromResult] = useState(false);
+  // Shortcut "Caução / Transitória": ativa is_transitory + abre selector "Pago por".
+  // - "__mp__" → transitória órfã (Mundo Propício recebe crédito automático no fecho)
+  // - partner_id → ativa isPaidByPartner com esse sócio
+  const [cautionShortcut, setCautionShortcut] = useState(false);
+  const [cautionPayer, setCautionPayer] = useState<string>(""); // "__mp__" | partner_id | ""
   const [showNewReimbursementNote, setShowNewReimbursementNote] = useState(false);
   const [newReimbursementEmployeeName, setNewReimbursementEmployeeName] = useState("");
   const [showSplitDisambiguation, setShowSplitDisambiguation] = useState(false);
@@ -2443,8 +2448,43 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </button>
                 )}
 
-                {/* Transitory toggle — admin/manager only */}
-                {(authIsAdmin || authIsManager) && !isPartnerExtra && (
+                {/* Caução / Transitória shortcut — admin/manager only.
+                    Ativa is_transitory e abre selector "Pago por" (MP ou um sócio).
+                    Se um sócio for escolhido, vincula via partner_paid_expenses (igual a "Pago por Sócio"). */}
+                {(authIsAdmin || authIsManager) && !isPartnerExtra && !form.is_reimbursement && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !cautionShortcut;
+                    setCautionShortcut(next);
+                    if (next) {
+                      setIsTransitory(true);
+                      setIsExcludeFromResult(false);
+                      setCautionPayer("__mp__");
+                      // limpa estado de "Pago por Sócio" — será reativado se selecionar sócio
+                      setIsPaidByPartner(false);
+                      setPaidByPartnerId("");
+                    } else {
+                      setIsTransitory(false);
+                      setCautionPayer("");
+                      setIsPaidByPartner(false);
+                      setPaidByPartnerId("");
+                      setPartnerPaidDate("");
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    cautionShortcut
+                      ? "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 ring-1 ring-cyan-500/30"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  🛡️ Caução / Transitória
+                  <HelpTooltip text="Despesa transitória (caução, garantia) que não compõe o resultado do evento. Selecione quem desembolsou: Mundo Propício (caixa da empresa) ou um sócio. O valor entra no acerto societário como crédito até ser devolvido." size={12} />
+                </button>
+                )}
+
+                {/* Transitory toggle — admin/manager only (modo avançado, sem selector de pagador) */}
+                {(authIsAdmin || authIsManager) && !isPartnerExtra && !cautionShortcut && (
                 <button
                   type="button"
                   onClick={() => { setIsTransitory(!isTransitory); if (!isTransitory) setIsExcludeFromResult(false); }}
@@ -2476,7 +2516,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 )}
 
                 {/* Limpar marcações: repõe todos os toggles do bloco ao estado inicial */}
-                {(form.is_reimbursement || isPaidByPartner || isPartnerExtra || isTransitory || isExcludeFromResult) && (
+                {(form.is_reimbursement || isPaidByPartner || isPartnerExtra || isTransitory || isExcludeFromResult || cautionShortcut) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -2494,16 +2534,66 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                       setPartnerExtraPartialAmount("");
                       setIsTransitory(false);
                       setIsExcludeFromResult(false);
+                      setCautionShortcut(false);
+                      setCautionPayer("");
                       setShowNewReimbursementNote(false);
                       setNewReimbursementEmployeeName("");
                     }}
                     className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                    title="Remove todas as marcações especiais (Reembolso, Pago por Sócio, Extra do Sócio, Transitória, Fora do Resultado)"
+                    title="Remove todas as marcações especiais (Reembolso, Pago por Sócio, Extra do Sócio, Caução, Transitória, Fora do Resultado)"
                   >
                     ✕ Limpar marcações
                   </button>
                 )}
               </div>
+
+              {/* Selector "Pago por" do shortcut Caução / Transitória */}
+              {cautionShortcut && (
+                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
+                  <label className="block text-xs font-medium text-muted-foreground">Pago por *</label>
+                  <SearchableSelect
+                    options={[
+                      { value: "__mp__", label: "Mundo Propício (caixa da empresa)" },
+                      ...((form.event_id || (isSplit && splitMasterEventId))
+                        ? eventPartners.map((p: any) => ({
+                            value: p.id,
+                            label: `${p.suppliers?.name} (${p.percentage}%)`,
+                          }))
+                        : []),
+                    ]}
+                    value={cautionPayer}
+                    onValueChange={(v) => {
+                      setCautionPayer(v);
+                      if (v === "__mp__" || !v) {
+                        setIsPaidByPartner(false);
+                        setPaidByPartnerId("");
+                        setPartnerPaidDate("");
+                      } else {
+                        setIsPaidByPartner(true);
+                        setPaidByPartnerId(v);
+                        setPartnerPaidDate(form.date || new Date().toISOString().split("T")[0]);
+                        setForm((prev) => ({ ...prev, account_id: "" }));
+                      }
+                    }}
+                    placeholder="Selecionar pagador…"
+                    searchPlaceholder="Pesquisar…"
+                  />
+                  {cautionPayer && cautionPayer !== "__mp__" && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Data em que o sócio pagou *</label>
+                      <DatePicker
+                        value={partnerPaidDate}
+                        onChange={(v) => setPartnerPaidDate(v)}
+                      />
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    {cautionPayer === "__mp__" || !cautionPayer
+                      ? "Caução paga pela empresa — credita automaticamente Mundo Propício no acerto societário."
+                      : "Caução paga pelo sócio — entra no acerto societário a seu favor até ser devolvida."}
+                  </p>
+                </div>
+              )}
               {form.is_reimbursement && (
                 <div className="space-y-2">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Nota de Reembolso *</label>

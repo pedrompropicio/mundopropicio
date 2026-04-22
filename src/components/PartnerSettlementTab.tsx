@@ -481,17 +481,32 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     );
   }
 
-  // ---- Crédito transitório por sócio (cauções pagas e ainda não devolvidas) ----
-  // Regra: para cada sócio, soma despesas transitórias pagas por ele e subtrai receitas
-  // transitórias recebidas por ele (ambas vindas de partner_paid_expenses). Devoluções
-  // transitórias que voltaram à conta da empresa (transitória income do evento NÃO vinculada
-  // a sócio) são prorateadas pelo crédito bruto positivo de cada sócio. Cap em 0.
+  // ---- Crédito transitório (cauções pagas e ainda não devolvidas) ----
+  // Regras:
+  //  • Sócio externo: recebe crédito apenas pelas transitórias DIRETAMENTE vinculadas a ele
+  //    via partner_paid_expenses (despesas pagas − devoluções recebidas). Cap em 0.
+  //  • Mundo Propício (casa): recebe crédito por TODAS as transitórias órfãs (sem vínculo a
+  //    sócio) — ou seja, despesas transitórias pagas pela empresa menos as devoluções que
+  //    voltaram para a empresa. Cap em 0.
   // Nota: independente do calcBasis — caução é sempre amount líquido (não tem IVA real).
   const transitoryTxsAll = transactions.filter((t: any) => t.is_transitory && (t.status === "approved" || t.status === "paid"));
   const partnerLinkedTxIds = new Set((paidExpenses as any[]).map((pe) => pe.transaction_id));
-  const companyReturnsTransitory = transitoryTxsAll
+  const houseTransitoryExpenses = transitoryTxsAll
+    .filter((t: any) => t.type === "expense" && !partnerLinkedTxIds.has(t.id))
+    .reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const houseTransitoryIncomes = transitoryTxsAll
     .filter((t: any) => t.type === "income" && !partnerLinkedTxIds.has(t.id))
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const houseTransitoryCredit = Math.max(0, houseTransitoryExpenses - houseTransitoryIncomes);
+  const houseTransitoryItems = transitoryTxsAll
+    .filter((t: any) => !partnerLinkedTxIds.has(t.id))
+    .map((t: any) => ({
+      description: t.description || "—",
+      amount: Number(t.amount || 0),
+      date: t.date || "",
+      category: t.account_categories?.name || "—",
+      sign: (t.type === "expense" ? 1 : -1) as 1 | -1,
+    }));
 
   // Build settlements
   const settlements: PartnerSettlement[] = allPartners.map((p: any) => {
@@ -534,9 +549,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           }));
     const totalPartnerExtras = extrasForPartner.reduce((s, e) => s + e.amount, 0);
 
-    // Items transitórios vinculados a este sócio (despesas e devoluções diretas)
+    // Items transitórios:
+    //  • Sócio externo → linhas vinculadas em partner_paid_expenses (despesas e devoluções diretas)
+    //  • Mundo Propício → todas as transitórias órfãs do evento
     const transitoryItems = isHouse
-      ? []
+      ? houseTransitoryItems
       : (paidExpenses as any[])
           .filter((pe) => pe.partner_id === p.id && pe.transactions?.is_transitory)
           .map((pe) => {
@@ -567,28 +584,23 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       totalPaidByPartner,
       partnerExtras: extrasForPartner,
       totalPartnerExtras,
-      transitoryCredit: 0, // calculado abaixo (precisa do total cross-partner)
+      transitoryCredit: 0, // calculado abaixo
       transitoryItems,
       settlement: 0,        // recalculado abaixo
     };
   });
 
-  // Crédito bruto por sócio (despesa transitória paga – devolução direta para o sócio)
-  const grossTransitoryBySettlement = settlements.map((s) =>
-    s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0)
-  );
-  const totalPositiveGross = grossTransitoryBySettlement.reduce((s, v) => s + Math.max(0, v), 0);
-
-  settlements.forEach((s, i) => {
-    const gross = grossTransitoryBySettlement[i];
-    let credit = 0;
-    if (gross > 0) {
-      // Abate proporcional das devoluções transitórias que foram para a conta da empresa.
-      const share = totalPositiveGross > 0 ? (gross / totalPositiveGross) * companyReturnsTransitory : 0;
-      credit = Math.max(0, gross - share);
+  // Crédito transitório:
+  //  • Mundo Propício: total das órfãs (já calculado, cap em 0)
+  //  • Sócios externos: gross vinculado direto (despesas − devoluções), cap em 0
+  settlements.forEach((s) => {
+    if (s.isHouse) {
+      s.transitoryCredit = houseTransitoryCredit;
+    } else {
+      const gross = s.transitoryItems.reduce((acc, it) => acc + it.sign * it.amount, 0);
+      s.transitoryCredit = Math.max(0, gross);
     }
-    s.transitoryCredit = credit;
-    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + credit;
+    s.settlement = s.partnerShare + s.totalPaidByPartner - s.totalPartnerExtras + s.transitoryCredit;
   });
 
   function exportPdf() {
@@ -1299,7 +1311,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             {s.transitoryItems.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
-                  🛡️ Cauções / transitórias pagas pelo sócio
+                  🛡️ {s.isHouse ? "Cauções / transitórias pagas pela Mundo Propício" : "Cauções / transitórias pagas pelo sócio"}
                   <span className="text-muted-foreground/70"> — entram no acerto até serem devolvidas (não impactam resultado)</span>
                 </p>
                 <Table>
