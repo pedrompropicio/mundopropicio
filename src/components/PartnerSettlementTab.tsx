@@ -13,6 +13,7 @@ import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { calcTotalWithIva } from "@/lib/iva";
+import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import {
   getPartnerExpenseBase,
   getPartnerRevenueBase,
@@ -235,6 +236,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     },
   });
 
+  const overheads = useMemo(
+    () => expandOverheadToSplits((forecasts as any[]).filter((f: any) => f.is_overhead) as any, subEvents as any),
+    [forecasts, subEvents],
+  );
+
   // Box-office settlements (fecho de bilheteira)
   const { data: boxOfficeSettlements = [] } = useQuery({
     queryKey: ["box-office-settlements", allEventIdsKey],
@@ -371,8 +377,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     ? ticketRevenueGross
     : incomeTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
 
-  const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
+  const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0)
+    + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
+  const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0)
+    + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
@@ -400,8 +408,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
           masterTbRows.reduce((s, r) => s + r.totalGross, 0)
         ) / childCount;
-        const masterExpensesNetShare = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0) / childCount;
-        const masterExpensesGrossShare = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) / childCount;
+         const masterOverheadShare = overheads
+           .filter((o: any) => o.event_id === eventId)
+           .reduce((s: number, o: any) => s + Number(o.amount), 0) / childCount;
+         const masterExpensesNetShare = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0) / childCount;
+         const masterExpensesGrossShare = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) / childCount;
 
         return childRows.map((se: any) => {
           const evtTx = validTx.filter((t: any) => t.event_id === se.id);
@@ -414,8 +425,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
           const revenueNet = tbNet + txRevenueNet + masterRevenueNetShare;
           const revenueGross = tbGross + txRevenueGross + masterRevenueGrossShare;
-          const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0) + masterExpensesNetShare;
-          const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) + masterExpensesGrossShare;
+           const localOverhead = overheads
+             .filter((o: any) => o.event_id === se.id)
+             .reduce((s: number, o: any) => s + Number(o.amount), 0);
+           const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0) + localOverhead + masterExpensesNetShare + masterOverheadShare;
+           const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) + localOverhead + masterExpensesGrossShare + masterOverheadShare;
           return {
             eventId: se.id,
             cityName: (se.cities as any)?.name || se.name,
