@@ -192,7 +192,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, event_id, account_categories(name))")
+        .select("*, event_partners(id, suppliers(name)), transactions(description, amount, iva_rate, date, type, is_transitory, status, event_id, category_id, account_categories(id, name, code, parent_id))")
         .in("event_id", allEventIds)
         .order("created_at");
       if (error) throw error;
