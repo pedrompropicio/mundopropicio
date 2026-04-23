@@ -75,6 +75,8 @@ interface FundMove {
   amount: number;
   move_date: string;
   notes: string | null;
+  financial_account_id: string | null;
+  created_at?: string;
 }
 
 interface FinAccount {
