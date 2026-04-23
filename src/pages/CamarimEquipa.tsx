@@ -59,6 +59,23 @@ export default function CamarimEquipa() {
   const [editId, setEditId] = useState<string | null>(null);
   const [autoCamera, setAutoCamera] = useState(false);
   const [busy, setBusy] = useState(true);
+  const [defaultLanding, setDefaultLanding] = useState(false);
+
+  // Load default-landing preference (admin/manager only)
+  useEffect(() => {
+    try {
+      setDefaultLanding(localStorage.getItem(DEFAULT_LANDING_KEY) === "1");
+    } catch {}
+  }, []);
+
+  const toggleDefaultLanding = () => {
+    const next = !defaultLanding;
+    setDefaultLanding(next);
+    try {
+      if (next) localStorage.setItem(DEFAULT_LANDING_KEY, "1");
+      else localStorage.removeItem(DEFAULT_LANDING_KEY);
+    } catch {}
+  };
 
   // ===== Drag-to-move (apenas desktop, sm+) =====
   const frameRef = useRef<HTMLDivElement>(null);
