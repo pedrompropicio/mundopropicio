@@ -193,6 +193,13 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       return;
     }
 
+    // Sem documento → força parqueamento (manager decide depois)
+    // Excepção: manager pode aprovar diretamente se já preenche justificativa válida
+    let effectiveStatus: CamarimItemStatus = asStatus;
+    if (!hasDocument && asStatus !== "rejected" && asStatus !== "draft") {
+      effectiveStatus = mode === "manager" && asStatus === "approved" ? "approved" : "pending_review";
+    }
+
     setSaving(true);
     try {
       const payload: any = {
@@ -211,7 +218,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         notes: notes || null,
         has_document: hasDocument,
         document_issue_reason: hasDocument ? null : docIssueReason,
-        status: asStatus,
+        pending_review_reason: effectiveStatus === "pending_review" ? docIssueReason : null,
+        status: effectiveStatus,
         category_id: categoryId || null,
         ocr_raw_payload: ocrPayload,
         ocr_confidence: ocrPayload?.confidence ?? null,
