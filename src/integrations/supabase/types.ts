@@ -150,6 +150,498 @@ export type Database = {
           },
         ]
       }
+      camarim_fund_moves: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          event_id: string | null
+          financial_account_id: string | null
+          id: string
+          move_date: string
+          move_type: string
+          notes: string | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          event_id?: string | null
+          financial_account_id?: string | null
+          id?: string
+          move_date?: string
+          move_type: string
+          notes?: string | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          event_id?: string | null
+          financial_account_id?: string | null
+          id?: string
+          move_date?: string
+          move_type?: string
+          notes?: string | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_fund_moves_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_fund_moves_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_fund_moves_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_fund_moves_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camarim_integrations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          integration_type: string
+          session_id: string
+          status: string
+          summary_payload: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integration_type: string
+          session_id: string
+          status?: string
+          summary_payload?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integration_type?: string
+          session_id?: string
+          status?: string
+          summary_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_integrations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_integrations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camarim_item_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_source: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          item_id: string
+          mime_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_source?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          item_id: string
+          mime_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_source?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          item_id?: string
+          mime_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_item_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_item_documents_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camarim_item_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          item_id: string
+          new_data: Json | null
+          old_data: Json | null
+          review_type: string
+          reviewed_by: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          new_data?: Json | null
+          old_data?: Json | null
+          review_type: string
+          reviewed_by?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          review_type?: string
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_item_reviews_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_item_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camarim_items: {
+        Row: {
+          base_amount: number
+          bp_forecast_id: string | null
+          bp_scope: string
+          buyer_profile_id: string | null
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          document_date: string | null
+          document_issue_reason: string | null
+          document_number: string | null
+          document_type: string
+          event_id: string
+          has_document: boolean
+          id: string
+          integration_mode: string
+          iva_amount: number
+          needs_accounting_review: boolean
+          notes: string | null
+          ocr_confidence: string | null
+          ocr_raw_payload: Json | null
+          payment_origin: string
+          service_description: string | null
+          session_id: string
+          status: string
+          supplier_id: string | null
+          supplier_name_raw: string | null
+          total_amount: number
+          transaction_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          base_amount?: number
+          bp_forecast_id?: string | null
+          bp_scope?: string
+          buyer_profile_id?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_date?: string | null
+          document_issue_reason?: string | null
+          document_number?: string | null
+          document_type?: string
+          event_id: string
+          has_document?: boolean
+          id?: string
+          integration_mode?: string
+          iva_amount?: number
+          needs_accounting_review?: boolean
+          notes?: string | null
+          ocr_confidence?: string | null
+          ocr_raw_payload?: Json | null
+          payment_origin: string
+          service_description?: string | null
+          session_id: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name_raw?: string | null
+          total_amount?: number
+          transaction_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          base_amount?: number
+          bp_forecast_id?: string | null
+          bp_scope?: string
+          buyer_profile_id?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_date?: string | null
+          document_issue_reason?: string | null
+          document_number?: string | null
+          document_type?: string
+          event_id?: string
+          has_document?: boolean
+          id?: string
+          integration_mode?: string
+          iva_amount?: number
+          needs_accounting_review?: boolean
+          notes?: string | null
+          ocr_confidence?: string | null
+          ocr_raw_payload?: Json | null
+          payment_origin?: string
+          service_description?: string | null
+          session_id?: string
+          status?: string
+          supplier_id?: string | null
+          supplier_name_raw?: string | null
+          total_amount?: number
+          transaction_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_items_bp_forecast_id_fkey"
+            columns: ["bp_forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camarim_session_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_primary: boolean
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_primary?: boolean
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_primary?: boolean
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_session_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_session_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camarim_sessions: {
+        Row: {
+          budget_amount: number
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          integrated_at: string | null
+          master_event_id: string | null
+          mode: string
+          notes: string | null
+          opened_at: string
+          responsible_profile_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          budget_amount?: number
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          integrated_at?: string | null
+          master_event_id?: string | null
+          mode?: string
+          notes?: string | null
+          opened_at?: string
+          responsible_profile_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          budget_amount?: number
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          integrated_at?: string | null
+          master_event_id?: string | null
+          mode?: string
+          notes?: string | null
+          opened_at?: string
+          responsible_profile_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camarim_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_sessions_master_event_id_fkey"
+            columns: ["master_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_sessions_responsible_profile_id_fkey"
+            columns: ["responsible_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cities: {
         Row: {
           country: string
