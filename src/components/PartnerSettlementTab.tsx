@@ -1086,14 +1086,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          // Direcção do acerto OPERACIONAL (liquidável agora)
-          const opDirection = s.operationalSettlement > 0
-            ? `-> MUNDO PROPÍCIO já tem liquidez para repassar ${formatCurrency(s.operationalSettlement)} ao sócio agora`
-            : s.operationalSettlement < 0
-              ? `-> Sócio deve pagar ${formatCurrency(Math.abs(s.operationalSettlement))} à MUNDO PROPÍCIO agora`
-              : "-> Sem saldo operacional pendente";
-          doc.text(opDirection, margin, y);
-          y += 4;
           if (s.resultPendingByCash > 0) {
             doc.setFontSize(7.5);
             doc.setFont("helvetica", "italic");
@@ -1576,13 +1568,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       autoTable(doc, {
         startY: y,
-        head: [["Sócio", "Reembolso\nagora (€)", "Reembolso\npendente (€)", "Resultado\nagora (€)", "Resultado\npendente (€)", "Total\ndevido (€)", "Pagável\nagora (€)", "Pendente\n(€)"]],
+        head: [["Sócio", "Caixa\nDisponível (€)", "Despesas Pagas\n(Pagas pelo Sócio) (€)", "Resultado Evento\n(Lucro ou Prejuízo) (€)", "Total\n(€)", "Caixa Disponível\n(Liquidez) (€)", "Saldo Pendente\n(€)"]],
         body: liquidityRows.map((row) => [
           row.partnerName,
           formatLiquidityAmount(row.reimbursableNow),
-          formatLiquidityAmount(row.reimbursablePending),
-          formatLiquidityAmount(row.resultPayableNow),
-          formatLiquidityAmount(row.resultPending),
+          formatLiquidityAmount(row.reimbursableNow + row.reimbursablePending),
+          formatLiquidityAmount(row.resultPayableNow + row.resultPending),
           formatLiquidityAmount(row.totalDue),
           formatLiquidityAmount(row.totalNow),
           formatLiquidityAmount(row.totalPending),
@@ -1590,9 +1581,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         foot: [[
           "TOTAL",
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursablePending, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.resultPayableNow, 0)),
-          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.resultPending, 0)),
+          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.reimbursableNow + row.reimbursablePending, 0)),
+          formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.resultPayableNow + row.resultPending, 0)),
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.totalDue, 0)),
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.totalNow, 0)),
           formatLiquidityAmount(liquidityRows.reduce((sum, row) => sum + row.totalPending, 0)),
