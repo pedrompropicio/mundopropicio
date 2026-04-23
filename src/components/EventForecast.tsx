@@ -3352,18 +3352,7 @@ function ComparisonTable({ data, onOpenTransactionDocuments }: { data: Compariso
                           ) : (
                             <span className="rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase">{tx.status === "approved" ? "A pagar" : tx.status}</span>
                           )}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenTransactionDocuments?.(tx);
-                            }}
-                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-                            title="Gerir anexos da transação"
-                          >
-                            <Paperclip className="h-2.5 w-2.5" />
-                            Anexos
-                          </button>
+                          <TransactionAttachmentButton transactionId={tx.id} onClick={() => onOpenTransactionDocuments?.(tx)} />
                         </span>
                       </td>
                       <td />
