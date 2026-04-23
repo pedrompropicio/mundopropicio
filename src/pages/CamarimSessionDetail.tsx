@@ -66,6 +66,7 @@ interface ItemRow {
   status: CamarimItemStatus;
   created_at: string;
   ocr_confidence: string | null;
+  category_id: string | null;
 }
 
 interface FundMove {
@@ -74,6 +75,11 @@ interface FundMove {
   amount: number;
   move_date: string;
   notes: string | null;
+}
+
+interface FinAccount {
+  id: string;
+  name: string;
 }
 
 export default function CamarimSessionDetail() {
