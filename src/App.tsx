@@ -165,8 +165,9 @@ function ProtectedLayout() {
   }
 
   // Camarim-only users (team members with no management access) go to the
-  // compact PWA-like camarim-equipa view instead of the executive dashboard.
-  if (isCamarimOnly && window.location.pathname === "/") {
+  // compact PWA-like camarim-equipa view. Bloqueia acesso a QUALQUER rota
+  // do dashboard administrativo — só podem ver /camarim-equipa.
+  if (isCamarimOnly) {
     return <Navigate to="/camarim-equipa" replace />;
   }
 
@@ -309,7 +310,7 @@ function AuthRoute() {
   if (user && !isRecoveryFlow) {
     if (isPartner) return <Navigate to="/parceiro" replace />;
     const isCamarimOnly =
-      !isAdmin && !isManager && hasPermission("camarim_team") && !hasPermission("view_events");
+      !isAdmin && !isManager && hasPermission("camarim_team");
     if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
     return <Navigate to="/" replace />;
   }
