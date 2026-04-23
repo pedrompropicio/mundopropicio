@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { HelpCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,11 +14,18 @@ interface HelpTooltipProps {
 
 export default function HelpTooltip({ text, className, side = "top", size = 15 }: HelpTooltipProps) {
   const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
 
   const iconButton = (
     <button
       type="button"
       aria-label="Ajuda"
+      aria-expanded={open}
+      onMouseEnter={() => !isMobile && setOpen(true)}
+      onMouseLeave={() => !isMobile && setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => !isMobile && setOpen(false)}
+      onClick={() => setOpen((prev) => !prev)}
       className={cn(
         "inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/60 hover:text-muted-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         className
@@ -30,7 +38,7 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
 
   if (isMobile) {
     return (
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           {iconButton}
         </PopoverTrigger>
@@ -46,7 +54,7 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
 
   return (
     <TooltipProvider delayDuration={200}>
-      <Tooltip>
+      <Tooltip open={open} onOpenChange={setOpen}>
         <TooltipTrigger asChild>
           {iconButton}
         </TooltipTrigger>
