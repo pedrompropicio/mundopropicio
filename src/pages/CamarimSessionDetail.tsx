@@ -239,6 +239,14 @@ export default function CamarimSessionDetail() {
 
   const runIntegrate = async () => {
     if (!id) return;
+    if (blockingIssues.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Pré-requisitos em falta",
+        description: blockingIssues[0],
+      });
+      return;
+    }
     if (missingCategoryCount > 0) {
       toast({
         variant: "destructive",
