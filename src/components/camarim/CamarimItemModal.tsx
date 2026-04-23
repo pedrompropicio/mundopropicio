@@ -44,7 +44,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
-  const [categories, setCategories] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [categoryLabel, setCategoryLabel] = useState<string>("2.2.05 — Camarim");
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
@@ -70,17 +70,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   }, [open, itemId, autoOpenCamera]);
 
   const loadCategories = async () => {
+    // Camarim usa SEMPRE a categoria 2.2.05 "Camarim" — fixa, não selecionável.
     const { data } = await supabase
       .from("account_categories")
-      .select("id,code,name,parent_id,is_active,type")
+      .select("id,code,name")
+      .eq("code", "2.2.05")
       .eq("is_active", true)
-      .eq("type", "expense")
-      .order("code");
-    // Only leaf categories (no children)
-    const all = (data ?? []) as any[];
-    const parentIds = new Set(all.map((c) => c.parent_id).filter(Boolean));
-    const leaves = all.filter((c) => !parentIds.has(c.id));
-    setCategories(leaves.map((c) => ({ id: c.id, code: c.code, name: c.name })));
+      .maybeSingle();
+    if (data) {
+      setCategoryId((data as any).id);
+      setCategoryLabel(`${(data as any).code} — ${(data as any).name}`);
+    }
   };
 
   const reset = () => {
@@ -95,7 +95,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes("");
     setHasDocument(true);
     setDocIssueReason("");
-    setCategoryId("");
+    // categoryId é fixo (Camarim) — não resetar
     setPhotoFile(null);
     setPhotoPath(null);
     setPreviewUrl(null);
@@ -415,24 +415,13 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Categoria contábil {mode === "manager" && <span className="text-destructive">*</span>}</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar categoria…" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.code} — {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {mode === "team" && (
-                <p className="text-[11px] text-muted-foreground">
-                  Opcional — o gestor confirma a categoria na revisão.
-                </p>
-              )}
+              <Label>Categoria contábil</Label>
+              <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                {categoryLabel}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Todas as despesas de camarim são consolidadas nesta categoria no DRE/relatórios.
+              </p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Descrição rápida</Label>
