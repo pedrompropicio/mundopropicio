@@ -1515,7 +1515,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const totalForecastIncomeIva = comparisonForecasts
     .filter((f) => f.type === "income")
     .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
-  const totalForecastIncome = totalForecastIncomeBase + totalForecastIncomeIva;
+  const totalForecastIncomeStrict = totalForecastIncomeBase + totalForecastIncomeIva;
   const totalForecastExpenseBase = comparisonForecasts
     .filter((f) => f.type === "expense")
     .reduce((s, f) => s + Number(f.amount), 0);
@@ -1523,11 +1523,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     .filter((f) => f.type === "expense")
     .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
   const totalForecastExpense = totalForecastExpenseBase;
+  const totalForecastIncome = totalForecastIncomeStrict > 0 ? totalForecastIncomeStrict : ticketRevenue;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
-  const totalActualIncome = comparisonTransactions
+  const totalActualIncomeStrict = comparisonTransactions
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
+  const totalActualIncome = totalActualIncomeStrict > 0 ? totalActualIncomeStrict : ticketActualRevenue;
   const totalActualExpense = comparisonTransactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + Number(t.amount), 0);
