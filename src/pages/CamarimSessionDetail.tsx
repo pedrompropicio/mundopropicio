@@ -98,7 +98,9 @@ export default function CamarimSessionDetail() {
   const [showIntegrate, setShowIntegrate] = useState(false);
   const [integrating, setIntegrating] = useState(false);
   const [cardAccountId, setCardAccountId] = useState<string>("");
+  const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
+  const [parkedDecisions, setParkedDecisions] = useState<Record<string, { decision: "reject" | "approve_without_doc" | "defer"; reason: string }>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -176,6 +178,7 @@ export default function CamarimSessionDetail() {
   };
 
   const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
+  const parkedItems = useMemo(() => items.filter((i) => i.status === "pending_review"), [items]);
   const needsCardAccount = useMemo(
     () => approvedItems.some((i) => i.payment_origin === "card"),
     [approvedItems],
@@ -184,6 +187,18 @@ export default function CamarimSessionDetail() {
     () => approvedItems.filter((i) => !i.category_id).length,
     [approvedItems],
   );
+
+  // Acerto previsto: gasto via adiantamento - adiantamento líquido entregue
+  const settlementPreview = useMemo(() => {
+    const advanceNet = totals.advances - totals.refunds;
+    const spentFromAdvance = items
+      .filter((i) => i.payment_origin === "advance" && (i.status === "approved" || i.status === "integrated"))
+      .reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
+    const balance = +(spentFromAdvance - advanceNet).toFixed(2);
+    let type: "balanced" | "reinforcement" | "refund" = "balanced";
+    if (advanceNet > 0 && Math.abs(balance) >= 0.01) type = balance > 0 ? "reinforcement" : "refund";
+    return { advanceNet, spentFromAdvance, balance, type };
+  }, [items, totals]);
 
   const runIntegrate = async () => {
     if (!id) return;
@@ -203,20 +218,56 @@ export default function CamarimSessionDetail() {
       });
       return;
     }
+    // Validar decisões: cada parqueado precisa de uma decisão
+    const undecided = parkedItems.filter((p) => !parkedDecisions[p.id]);
+    if (undecided.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Itens parqueados sem decisão",
+        description: `${undecided.length} item(ns) parqueado(s) — escolhe rejeitar, aprovar sem doc. ou adiar.`,
+      });
+      return;
+    }
+    // Validar justificativa quando approve_without_doc
+    for (const p of parkedItems) {
+      const d = parkedDecisions[p.id];
+      if (d?.decision === "approve_without_doc" && !d.reason.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Justificativa obrigatória",
+          description: `Item "${p.supplier_name_raw || "—"}" precisa de justificativa para ser aprovado sem documento.`,
+        });
+        return;
+      }
+    }
+
     setIntegrating(true);
     try {
       const { data, error } = await supabase.functions.invoke("close-camarim-session", {
-        body: { session_id: id, card_account_id: cardAccountId || null },
+        body: {
+          session_id: id,
+          card_account_id: cardAccountId || null,
+          settlement_account_id: settlementAccountId || null,
+          parked_decisions: Object.entries(parkedDecisions).map(([item_id, v]) => ({
+            item_id,
+            decision: v.decision,
+            reason: v.reason || undefined,
+          })),
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      const settlementMsg = data?.settlement?.type && data.settlement.type !== "balanced"
+        ? ` · Acerto: ${data.settlement.type === "reinforcement" ? "reforço a pagar" : "devolução a receber"} de ${formatCurrency(Math.abs(data.settlement.balance ?? 0), session?.currency ?? "EUR")}`
+        : "";
       toast({
         title: "Sessão integrada",
         description: `${data?.created ?? 0} transação(ões) gerada(s)${
           data?.errors?.length ? ` · ${data.errors.length} erro(s)` : ""
-        }.`,
+        }${settlementMsg}`,
       });
       setShowIntegrate(false);
+      setParkedDecisions({});
       void load();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro ao integrar", description: e.message });
@@ -494,30 +545,117 @@ export default function CamarimSessionDetail() {
       )}
 
       <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
             <AlertDialogDescription>
               Vou gerar {approvedItems.length} transação(ões) a partir dos itens aprovados.
-              Itens pagos por adiantamento serão liquidados na conta de caixa do camarim;
-              itens pagos do bolso ficarão como aprovados (a reembolsar).
+              Itens por adiantamento são liquidados na caixa do camarim; do bolso ficam a reembolsar.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {needsCardAccount && (
-            <div className="space-y-2">
-              <Label>Conta financeira do cartão da empresa</Label>
-              <Select value={cardAccountId} onValueChange={setCardAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar conta…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+
+          <div className="space-y-4">
+            {needsCardAccount && (
+              <div className="space-y-2">
+                <Label>Conta financeira do cartão da empresa</Label>
+                <Select value={cardAccountId} onValueChange={setCardAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar conta…" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Acerto de adiantamento */}
+            {settlementPreview.advanceNet > 0 && (
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                <p className="text-sm font-medium">Acerto de adiantamento</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>Adiantamento líquido: <strong className="tabular-nums">{formatCurrency(settlementPreview.advanceNet, session.currency)}</strong></div>
+                  <div>Gasto via adiant.: <strong className="tabular-nums">{formatCurrency(settlementPreview.spentFromAdvance, session.currency)}</strong></div>
+                </div>
+                {settlementPreview.type === "balanced" ? (
+                  <p className="text-xs text-emerald-600">✓ Equilibrado — sem acerto necessário.</p>
+                ) : settlementPreview.type === "reinforcement" ? (
+                  <p className="text-xs text-destructive">
+                    Falta pagar à equipa: <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — será criada transação de despesa <em>aprovada</em>.
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-600">
+                    Sobra a devolver: <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — será criada transação de receita <em>aprovada</em>.
+                  </p>
+                )}
+                {settlementPreview.type !== "balanced" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Conta para o acerto (opcional — usa a do adiantamento se vazio)</Label>
+                    <Select value={settlementAccountId} onValueChange={setSettlementAccountId}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Mesma do adiantamento" /></SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Itens parqueados */}
+            {parkedItems.length > 0 && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  {parkedItems.length} item(ns) parqueado(s) sem documento — decide o destino
+                </div>
+                {parkedItems.map((p) => {
+                  const d = parkedDecisions[p.id];
+                  return (
+                    <div key={p.id} className="space-y-1.5 rounded border border-border bg-card p-2">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate font-medium">{p.supplier_name_raw || "—"} · {p.service_description || "—"}</span>
+                        <span className="shrink-0 tabular-nums">{formatCurrency(p.total_amount, session.currency)}</span>
+                      </div>
+                      <Select
+                        value={d?.decision ?? ""}
+                        onValueChange={(v) =>
+                          setParkedDecisions((prev) => ({
+                            ...prev,
+                            [p.id]: { decision: v as any, reason: prev[p.id]?.reason ?? "" },
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-8"><SelectValue placeholder="Escolher destino…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="reject">Rejeitar (descarta)</SelectItem>
+                          <SelectItem value="approve_without_doc">Aprovar sem documento (com justificativa)</SelectItem>
+                          <SelectItem value="defer">Adiar (fica para próxima sessão)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {d?.decision === "approve_without_doc" && (
+                        <input
+                          type="text"
+                          placeholder="Justificativa contábil (obrigatória)"
+                          value={d.reason}
+                          onChange={(e) =>
+                            setParkedDecisions((prev) => ({
+                              ...prev,
+                              [p.id]: { ...prev[p.id], reason: e.target.value },
+                            }))
+                          }
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={runIntegrate} disabled={integrating}>

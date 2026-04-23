@@ -28,6 +28,7 @@ export function CamarimTeamSummary({ items, budget, spent, currency = "EUR" }: P
       approved: 0,
       rejected: 0,
       integrated: 0,
+      pending_review: 0,
     };
     let missingDocs = 0;
     for (const it of items) {

@@ -193,6 +193,13 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       return;
     }
 
+    // Sem documento → força parqueamento (manager decide depois)
+    // Excepção: manager pode aprovar diretamente se já preenche justificativa válida
+    let effectiveStatus: CamarimItemStatus = asStatus;
+    if (!hasDocument && asStatus !== "rejected" && asStatus !== "draft") {
+      effectiveStatus = mode === "manager" && asStatus === "approved" ? "approved" : "pending_review";
+    }
+
     setSaving(true);
     try {
       const payload: any = {
@@ -211,7 +218,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         notes: notes || null,
         has_document: hasDocument,
         document_issue_reason: hasDocument ? null : docIssueReason,
-        status: asStatus,
+        pending_review_reason: effectiveStatus === "pending_review" ? docIssueReason : null,
+        status: effectiveStatus,
         category_id: categoryId || null,
         ocr_raw_payload: ocrPayload,
         ocr_confidence: ocrPayload?.confidence ?? null,
@@ -445,12 +453,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               <span>Sem documento fiscal</span>
             </Label>
             {!hasDocument && (
-              <Textarea
-                placeholder="Motivo (ex: estabelecimento não emitiu talão)"
-                value={docIssueReason}
-                onChange={(e) => setDocIssueReason(e.target.value)}
-                rows={2}
-              />
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Motivo (ex: estabelecimento não emitiu talão)"
+                  value={docIssueReason}
+                  onChange={(e) => setDocIssueReason(e.target.value)}
+                  rows={2}
+                />
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  Sem documento fiscal — o item ficará <strong>parqueado</strong> até o manager justificar e aprovar manualmente. Não gera transação até lá.
+                </p>
+              </div>
             )}
           </div>
 

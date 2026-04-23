@@ -8,7 +8,13 @@ export type CamarimItemPaymentOrigin = "advance" | "card" | "out_of_pocket";
 
 export type CamarimItemBpScope = "master_common" | "local_city";
 
-export type CamarimItemStatus = "draft" | "submitted" | "approved" | "rejected" | "integrated";
+export type CamarimItemStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "integrated"
+  | "pending_review";
 
 export type CamarimFundMoveType = "advance" | "reinforcement" | "refund" | "adjustment";
 
@@ -62,6 +68,7 @@ export const ITEM_STATUS_LABELS: Record<CamarimItemStatus, string> = {
   approved: "Aprovado",
   rejected: "Rejeitado",
   integrated: "Integrado",
+  pending_review: "Parqueado (sem doc.)",
 };
 
 export const ITEM_STATUS_VARIANTS: Record<CamarimItemStatus, string> = {
@@ -70,6 +77,7 @@ export const ITEM_STATUS_VARIANTS: Record<CamarimItemStatus, string> = {
   approved: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
   rejected: "bg-destructive/15 text-destructive border-destructive/30",
   integrated: "bg-primary/15 text-primary border-primary/30",
+  pending_review: "bg-amber-500/15 text-amber-600 border-amber-500/30",
 };
 
 export function formatCurrency(amount: number, currency = "EUR") {
