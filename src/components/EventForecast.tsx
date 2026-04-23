@@ -3214,7 +3214,7 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     });
 }
 
-function ComparisonTable({ data }: { data: ComparisonRow[] }) {
+function ComparisonTable({ data, onOpenTransactionDocuments }: { data: ComparisonRow[]; onOpenTransactionDocuments?: (tx: any) => void }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
@@ -3322,7 +3322,7 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setComparisonDocumentsTransaction(tx);
+                              onOpenTransactionDocuments?.(tx);
                             }}
                             className="inline-flex items-center gap-1 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
                             title="Gerir anexos da transação"
