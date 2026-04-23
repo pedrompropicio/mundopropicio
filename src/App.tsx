@@ -93,8 +93,9 @@ const queryClient = new QueryClient({
 
 function ProtectedLayout() {
   const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
-  const isCamarimOnly =
-    !isAdmin && !isManager && hasPermission("camarim_team") && !hasPermission("view_events");
+  // Camarim-only = qualquer utilizador NÃO admin/manager com permissão camarim_team.
+  // Estes utilizadores são equipa de campo e devem ir sempre para o PWA compacto.
+  const isCamarimOnly = !isAdmin && !isManager && hasPermission("camarim_team");
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
