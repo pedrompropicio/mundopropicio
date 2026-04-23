@@ -100,7 +100,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showImportMode, setShowImportMode] = useState(false);
   const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
   const [pendingImportInstructions, setPendingImportInstructions] = useState<string>("");
-  const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
+  const [comparisonDocumentsTransaction, setComparisonDocumentsTransaction] = useState<any | null>(null);
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
@@ -1914,7 +1914,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} onOpenAttachments={canEditBP ? setAttachmentForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} />
                               )
                             ))}
                           </React.Fragment>
@@ -2140,7 +2140,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <React.Fragment key={f.id}>
-                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} onOpenAttachments={canEditBP ? setAttachmentForecast : undefined} />
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} />
                                   {/* Adopted sub-event children */}
                                   {(adoptedByMaster[f.id] ?? []).map((af: any) => (
                                     <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
@@ -2401,11 +2401,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           });
         }}
       />
-      {attachmentForecast && (
-        <BPAttachmentModal
-          open={!!attachmentForecast}
-          onOpenChange={(v) => { if (!v) setAttachmentForecast(null); }}
-          forecast={attachmentForecast}
+      {comparisonDocumentsTransaction && (
+        <TransactionDocumentsModal
+          transactionId={comparisonDocumentsTransaction.id}
+          transactionDescription={comparisonDocumentsTransaction.description}
+          onClose={() => setComparisonDocumentsTransaction(null)}
         />
       )}
     </div>
