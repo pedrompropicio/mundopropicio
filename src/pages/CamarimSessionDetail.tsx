@@ -209,6 +209,7 @@ export default function CamarimSessionDetail() {
     const advanceFundMoves = funds.filter(
       (f) => f.move_type === "advance" || f.move_type === "reinforcement",
     );
+    const refundMoves = funds.filter((f) => f.move_type === "refund");
     const lastAdvanceMove = [...advanceFundMoves].sort((a, b) => {
       const aDate = a.created_at ?? a.move_date;
       const bDate = b.created_at ?? b.move_date;
@@ -216,25 +217,55 @@ export default function CamarimSessionDetail() {
     })[0];
     const advanceAccountId = lastAdvanceMove?.financial_account_id ?? null;
     const advanceNet = totals.advances - totals.refunds;
+    const spentFromAdvance = advanceItems.reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
+    const ccy = session?.currency ?? "EUR";
+
+    // (1) Devoluções > entregas → saldo líquido negativo (impossível na prática)
+    if (refundMoves.length > 0 && totals.refunds > totals.advances + 0.005) {
+      issues.push(
+        `Devoluções registadas (${formatCurrency(totals.refunds, ccy)}) excedem o adiantamento entregue (${formatCurrency(totals.advances, ccy)}). Revê os movimentos na aba "Fundos" — o líquido não pode ser negativo.`,
+      );
+    }
 
     if (advanceItems.length > 0) {
+      // (2) Não há nenhum movimento de adiantamento registado
       if (advanceFundMoves.length === 0) {
         issues.push(
           `${advanceItems.length} item(ns) aprovado(s) marcado(s) como pagos pelo adiantamento, mas nenhum movimento de adiantamento foi registado na aba "Fundos".`,
         );
       } else if (advanceNet <= 0) {
+        // (3) Líquido zero ou negativo
         issues.push(
-          `Adiantamento líquido entregue à equipa é zero (entregas ${formatCurrency(totals.advances, session?.currency ?? "EUR")} − devoluções ${formatCurrency(totals.refunds, session?.currency ?? "EUR")}). Regista um movimento de adiantamento na aba "Fundos".`,
+          `Adiantamento líquido entregue à equipa é zero (entregas ${formatCurrency(totals.advances, ccy)} − devoluções ${formatCurrency(totals.refunds, ccy)}). Regista um movimento de adiantamento na aba "Fundos".`,
         );
       } else if (!advanceAccountId) {
+        // (4) Sem conta associada
         issues.push(
           'O último movimento de adiantamento não tem conta financeira associada. Edita-o na aba "Fundos" e escolhe a conta de origem.',
         );
+      } else {
+        // (5) Incoerência grave: gasto via adiantamento muito superior ao líquido entregue
+        // Permitimos pequena diferença (até €50 ou 10%) que vira reforço automático no fecho.
+        // Acima disso exigimos registo explícito de reforço para evitar erro humano.
+        const overspend = spentFromAdvance - advanceNet;
+        const tolerance = Math.max(50, advanceNet * 0.1);
+        if (overspend > tolerance) {
+          issues.push(
+            `Gasto via adiantamento (${formatCurrency(spentFromAdvance, ccy)}) excede o líquido entregue (${formatCurrency(advanceNet, ccy)}) em ${formatCurrency(overspend, ccy)} — diferença muito grande. Regista um movimento de reforço na aba "Fundos" antes de integrar (ou corrige a origem dos itens).`,
+          );
+        }
       }
+    } else if (advanceFundMoves.length > 0 && advanceNet > 0) {
+      // (6) Houve adiantamento entregue mas nenhum item aprovado o consumiu
+      // → vai gerar uma devolução total. Avisamos como bloqueio leve para confirmação.
+      issues.push(
+        `Foi entregue ${formatCurrency(advanceNet, ccy)} de adiantamento mas nenhum item aprovado foi pago por adiantamento — toda a verba será devolvida. Confirma na aba "Fundos" se isto está correto (ou regista um movimento de devolução manual).`,
+      );
     }
 
     return issues;
   }, [approvedItems, funds, totals, session?.currency]);
+
 
 
   const runIntegrate = async () => {
