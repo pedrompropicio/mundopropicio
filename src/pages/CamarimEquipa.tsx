@@ -284,7 +284,7 @@ export default function CamarimEquipa() {
             setEditId(null);
             setShowAdd(true);
           }}
-          className="fixed bottom-6 left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background active:scale-95"
+          className="absolute bottom-6 left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background active:scale-95"
           aria-label="Nova conta"
         >
           <Camera className="h-7 w-7" />
