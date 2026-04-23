@@ -24,6 +24,7 @@ import { CopyPLModal } from "@/components/CopyPLModal";
 import { attachLinksFromXlsx } from "@/lib/import-pl-xlsx";
 import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { TransactionAuditModal } from "@/components/TransactionAuditModal";
+import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
@@ -2439,6 +2440,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [showPayments, setShowPayments] = useState(false);
   const [showPartnerPopover, setShowPartnerPopover] = useState(false);
   const [viewingTransaction, setViewingTransaction] = useState<any>(null);
+  const [documentsTransaction, setDocumentsTransaction] = useState<any>(null);
   const [auditTransactionId, setAuditTransactionId] = useState<string | null>(null);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
