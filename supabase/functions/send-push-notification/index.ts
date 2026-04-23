@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     });
 
     // Import web-push compatible library for Deno
-    const webPush = await import("https://esm.sh/web-push@3.6.7");
+    const webPush = await import("npm:web-push@3.6.7");
 
     webPush.setVapidDetails(
       `mailto:noreply@${new URL(supabaseUrl).hostname}`,
