@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen, Receipt } from "lucide-react";
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
@@ -849,6 +849,13 @@ export default function Transactions() {
           >
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Listas de Pagamento</span>
+          </button>
+          <button
+            onClick={() => navigate("/reembolsos", { state: { returnTo: "/transacoes", returnScrollY: window.scrollY } })}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <Receipt className="h-4 w-4" />
+            <span className="hidden sm:inline">Listas de Reembolso</span>
           </button>
           <button
             onClick={() => setShowTransfer(true)}
