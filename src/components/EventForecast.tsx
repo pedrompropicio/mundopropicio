@@ -30,7 +30,6 @@ import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
 
-import BPAttachmentModal from "@/components/BPAttachmentModal";
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
@@ -100,7 +99,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [showImportMode, setShowImportMode] = useState(false);
   const [pendingImportMode, setPendingImportMode] = useState<BPImportMode | null>(null);
   const [pendingImportInstructions, setPendingImportInstructions] = useState<string>("");
-  const [attachmentForecast, setAttachmentForecast] = useState<any | null>(null);
+  const [comparisonDocumentsTransaction, setComparisonDocumentsTransaction] = useState<any | null>(null);
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
@@ -1914,7 +1913,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} onOpenAttachments={canEditBP ? setAttachmentForecast : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -2140,7 +2139,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <React.Fragment key={f.id}>
-                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} nativeDocCount={f.transaction_id ? (nativeDocCountByTx[f.transaction_id] ?? 0) : 0} onOpenAttachments={canEditBP ? setAttachmentForecast : undefined} />
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} />
                                   {/* Adopted sub-event children */}
                                   {(adoptedByMaster[f.id] ?? []).map((af: any) => (
                                     <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
@@ -2232,7 +2231,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
               <option value="with">Com overhead (Vista Sócio)</option>
             </select>
           </div>
-          <ComparisonTable data={comparisonData} />
+          <ComparisonTable data={comparisonData} onOpenTransactionDocuments={setComparisonDocumentsTransaction} />
         </TabsContent>
       </Tabs>
 
@@ -2401,11 +2400,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           });
         }}
       />
-      {attachmentForecast && (
-        <BPAttachmentModal
-          open={!!attachmentForecast}
-          onOpenChange={(v) => { if (!v) setAttachmentForecast(null); }}
-          forecast={attachmentForecast}
+      {comparisonDocumentsTransaction && (
+        <TransactionDocumentsModal
+          transactionId={comparisonDocumentsTransaction.id}
+          transactionDescription={comparisonDocumentsTransaction.description}
+          onClose={() => setComparisonDocumentsTransaction(null)}
         />
       )}
     </div>
@@ -2414,7 +2413,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], nativeDocCount = 0, onOpenAttachments }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [] }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -2429,10 +2428,6 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   onDistributeToSplits?: (item: any) => void;
   onAdoptFromSplits?: (item: any) => void;
   adoptedChildren?: any[];
-  /** Number of native (non-link) attachments on the linked transaction. */
-  nativeDocCount?: number;
-  /** Open the per-row attachments modal for managing links + native files. */
-  onOpenAttachments?: (forecast: any) => void;
 }) {
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
@@ -2726,44 +2721,18 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
               )}
-              {/* Attachment counters: external links + native files */}
-              {(linkCount > 0 || nativeDocCount > 0 || onOpenAttachments) && (
+              {canSyncAttachments && (
                 <div className="mt-0.5 flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onOpenAttachments?.(item); }}
-                    disabled={!onOpenAttachments}
-                    className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-default"
-                    title="Gerir anexos desta linha"
+                    onClick={(e) => { e.stopPropagation(); handleSyncAttachments(); }}
+                    disabled={syncingAttachments}
+                    className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning hover:bg-warning/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
+                    title={`Copiar ${linkCount} link(s) do BP para ${matchingTransactions.length} transação(ões) vinculada(s)`}
                   >
-                    {linkCount > 0 && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 font-medium">
-                        <Link2 className="h-2.5 w-2.5" />{linkCount}
-                      </span>
-                    )}
-                    {nativeDocCount > 0 && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-success/15 text-success px-1.5 py-0.5 font-medium">
-                        <Paperclip className="h-2.5 w-2.5" />{nativeDocCount}
-                      </span>
-                    )}
-                    {linkCount === 0 && nativeDocCount === 0 && onOpenAttachments && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 hover:bg-secondary/70">
-                        <Paperclip className="h-2.5 w-2.5" />Anexos
-                      </span>
-                    )}
+                    <ArrowDownRight className="h-2.5 w-2.5" />
+                    {syncingAttachments ? "A sincronizar…" : "Sincronizar anexos"}
                   </button>
-                  {canSyncAttachments && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleSyncAttachments(); }}
-                      disabled={syncingAttachments}
-                      className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning hover:bg-warning/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
-                      title={`Copiar ${linkCount} link(s) do BP para ${matchingTransactions.length} transação(ões) vinculada(s)`}
-                    >
-                      <ArrowDownRight className="h-2.5 w-2.5" />
-                      {syncingAttachments ? "A sincronizar…" : "Sincronizar"}
-                    </button>
-                  )}
                 </div>
               )}
               {/* Partner badges */}
@@ -3245,7 +3214,7 @@ function buildComparison(forecasts: any[], transactions: any[], categories: any[
     });
 }
 
-function ComparisonTable({ data }: { data: ComparisonRow[] }) {
+function ComparisonTable({ data, onOpenTransactionDocuments }: { data: ComparisonRow[]; onOpenTransactionDocuments?: (tx: any) => void }) {
   const incomeRows = data.filter((r) => r.type === "income");
   const expenseRows = data.filter((r) => r.type === "expense");
   const totalFI = incomeRows.reduce((s, r) => s + r.forecast, 0);
@@ -3349,6 +3318,18 @@ function ComparisonTable({ data }: { data: ComparisonRow[] }) {
                           ) : (
                             <span className="rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase">{tx.status === "approved" ? "A pagar" : tx.status}</span>
                           )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenTransactionDocuments?.(tx);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                            title="Gerir anexos da transação"
+                          >
+                            <Paperclip className="h-2.5 w-2.5" />
+                            Anexos
+                          </button>
                         </span>
                       </td>
                       <td />
