@@ -2231,7 +2231,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
               <option value="with">Com overhead (Vista Sócio)</option>
             </select>
           </div>
-          <ComparisonTable data={comparisonData} />
+          <ComparisonTable data={comparisonData} onOpenTransactionDocuments={setComparisonDocumentsTransaction} />
         </TabsContent>
       </Tabs>
 
@@ -2413,7 +2413,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], nativeDocCount = 0, onOpenAttachments }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [] }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -2428,10 +2428,6 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   onDistributeToSplits?: (item: any) => void;
   onAdoptFromSplits?: (item: any) => void;
   adoptedChildren?: any[];
-  /** Number of native (non-link) attachments on the linked transaction. */
-  nativeDocCount?: number;
-  /** Open the per-row attachments modal for managing links + native files. */
-  onOpenAttachments?: (forecast: any) => void;
 }) {
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
@@ -2725,44 +2721,18 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Link2 className="h-3 w-3" /> Transação criada
                 </p>
               )}
-              {/* Attachment counters: external links + native files */}
-              {(linkCount > 0 || nativeDocCount > 0 || onOpenAttachments) && (
+              {canSyncAttachments && (
                 <div className="mt-0.5 flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onOpenAttachments?.(item); }}
-                    disabled={!onOpenAttachments}
-                    className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-default"
-                    title="Gerir anexos desta linha"
+                    onClick={(e) => { e.stopPropagation(); handleSyncAttachments(); }}
+                    disabled={syncingAttachments}
+                    className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning hover:bg-warning/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
+                    title={`Copiar ${linkCount} link(s) do BP para ${matchingTransactions.length} transação(ões) vinculada(s)`}
                   >
-                    {linkCount > 0 && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 font-medium">
-                        <Link2 className="h-2.5 w-2.5" />{linkCount}
-                      </span>
-                    )}
-                    {nativeDocCount > 0 && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-success/15 text-success px-1.5 py-0.5 font-medium">
-                        <Paperclip className="h-2.5 w-2.5" />{nativeDocCount}
-                      </span>
-                    )}
-                    {linkCount === 0 && nativeDocCount === 0 && onOpenAttachments && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 hover:bg-secondary/70">
-                        <Paperclip className="h-2.5 w-2.5" />Anexos
-                      </span>
-                    )}
+                    <ArrowDownRight className="h-2.5 w-2.5" />
+                    {syncingAttachments ? "A sincronizar…" : "Sincronizar anexos"}
                   </button>
-                  {canSyncAttachments && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleSyncAttachments(); }}
-                      disabled={syncingAttachments}
-                      className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 text-warning hover:bg-warning/25 px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50"
-                      title={`Copiar ${linkCount} link(s) do BP para ${matchingTransactions.length} transação(ões) vinculada(s)`}
-                    >
-                      <ArrowDownRight className="h-2.5 w-2.5" />
-                      {syncingAttachments ? "A sincronizar…" : "Sincronizar"}
-                    </button>
-                  )}
                 </div>
               )}
               {/* Partner badges */}
