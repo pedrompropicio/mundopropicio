@@ -309,6 +309,7 @@ export default function CamarimEquipa() {
           onSaved={() => loadItems(selectedId)}
         />
       )}
+      </div>
     </div>
   );
 }
