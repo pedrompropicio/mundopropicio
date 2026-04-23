@@ -492,6 +492,40 @@ export default function CamarimSessionDetail() {
           onSaved={load}
         />
       )}
+
+      <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vou gerar {approvedItems.length} transação(ões) a partir dos itens aprovados.
+              Itens pagos por adiantamento serão liquidados na conta de caixa do camarim;
+              itens pagos do bolso ficarão como aprovados (a reembolsar).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {needsCardAccount && (
+            <div className="space-y-2">
+              <Label>Conta financeira do cartão da empresa</Label>
+              <Select value={cardAccountId} onValueChange={setCardAccountId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar conta…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={runIntegrate} disabled={integrating}>
+              {integrating ? "A integrar…" : "Integrar agora"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
