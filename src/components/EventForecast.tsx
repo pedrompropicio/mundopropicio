@@ -1661,10 +1661,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         </div>
       )}
       {/* Summary cards */}
-      <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
+      <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : parentEventId ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {!expenseOnly && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA. Este card trabalha sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
         <SummaryCard label="Despesas" helpText="Previsão = soma das despesas do BP no perímetro comparável, sempre sem IVA. Real = soma das transações de despesa aprovadas/pagas no mesmo perímetro, também sem IVA. Este card trabalha sem IVA." forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />
-        {!expenseOnly && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. Como Receitas e Despesas neste resumo são calculadas sem IVA, o Resultado também é exibido sem IVA. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
+        {!expenseOnly && !parentEventId && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. Como Receitas e Despesas neste resumo são calculadas sem IVA, o Resultado também é exibido sem IVA. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
