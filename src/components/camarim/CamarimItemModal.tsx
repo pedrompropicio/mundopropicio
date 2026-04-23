@@ -88,6 +88,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes("");
     setHasDocument(true);
     setDocIssueReason("");
+    setCategoryId("");
     setPhotoFile(null);
     setPhotoPath(null);
     setPreviewUrl(null);
