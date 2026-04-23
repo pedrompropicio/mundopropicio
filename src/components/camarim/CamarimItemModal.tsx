@@ -289,7 +289,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           <DialogTitle>{itemId ? "Editar conta" : "Nova conta de camarim"}</DialogTitle>
           <DialogDescription>
             {mode === "team"
-              ? "Tira foto do talão — a IA extrai os dados automaticamente."
+              ? "Tira foto do talão (a IA preenche automaticamente) ou preenche os campos à mão."
               : "Edita ou adiciona uma conta. Pode anexar foto do talão."}
           </DialogDescription>
         </DialogHeader>
