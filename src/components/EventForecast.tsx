@@ -29,6 +29,7 @@ import { useSyncCacheForecasts } from "@/hooks/useSyncCacheForecasts";
 import { AdoptForecastsModal } from "@/components/AdoptForecastsModal";
 import { OrphanTransactionsModal } from "@/components/OrphanTransactionsModal";
 import { exportEventBPToPDF } from "@/lib/export-event-bp-pdf";
+import HelpTooltip from "@/components/HelpTooltip";
 
 import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportModeDialog";
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
@@ -1661,13 +1662,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       )}
       {/* Summary cards */}
       <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
-        {!expenseOnly && <SummaryCard label="Receitas" forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
-        <SummaryCard label="Despesas" forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />
-        {!expenseOnly && <SummaryCard label="Resultado" forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
+        {!expenseOnly && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
+        <SummaryCard label="Despesas" helpText="Previsão = soma das despesas do BP no perímetro comparável, sempre sem IVA. Real = soma das transações de despesa aprovadas/pagas no mesmo perímetro, também sem IVA." forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />
+        {!expenseOnly && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
             Estado do BP
+            <HelpTooltip text="Pendentes = linhas do BP em rascunho. Aprovadas = linhas do BP aprovadas para este evento dentro da vista atual." size={14} />
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>

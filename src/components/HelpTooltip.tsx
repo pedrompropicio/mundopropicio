@@ -17,13 +17,14 @@ export default function HelpTooltip({ text, className, side = "top", size = 15 }
   const iconButton = (
     <button
       type="button"
+      aria-label="Ajuda"
       className={cn(
-        "inline-flex items-center justify-center rounded-full text-muted-foreground/60 hover:text-muted-foreground transition-colors focus:outline-none",
+        "inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/60 hover:text-muted-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         className
       )}
-      tabIndex={-1}
     >
-      <HelpCircle className="shrink-0" style={{ width: size, height: size }} />
+      <span className="text-[11px] font-semibold leading-none">?</span>
+      <HelpCircle className="sr-only shrink-0" style={{ width: size, height: size }} />
     </button>
   );
 
