@@ -18,7 +18,7 @@ import { type CamarimSessionMode, SESSION_MODE_LABELS, SESSION_MODE_DESCRIPTIONS
 interface EventOption {
   id: string;
   name: string;
-  start_date: string | null;
+  date: string | null;
   parent_event_id: string | null;
 }
 
@@ -59,8 +59,8 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
     const [{ data: ev }, { data: pf }] = await Promise.all([
       supabase
         .from("events")
-        .select("id,name,start_date,parent_event_id")
-        .order("start_date", { ascending: false })
+        .select("id,name,date,parent_event_id")
+        .order("date", { ascending: false })
         .limit(500),
       supabase.from("profiles").select("id,full_name,email").order("full_name").limit(200),
     ]);
@@ -258,13 +258,11 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
                   <SelectValue placeholder="Seleciona o evento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {events
-                    .filter((e) => !e.parent_event_id || true)
-                    .map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name} {e.start_date ? `· ${e.start_date}` : ""}
-                      </SelectItem>
-                    ))}
+                  {events.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name} {e.date ? `· ${e.date}` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -285,7 +283,7 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
                   <SelectContent>
                     {masters.map((e) => (
                       <SelectItem key={e.id} value={e.id}>
-                        {e.name} {e.start_date ? `· ${e.start_date}` : ""}
+                        {e.name} {e.date ? `· ${e.date}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -320,7 +318,7 @@ export function OpenSessionModal({ open, onOpenChange, onCreated }: Props) {
                                 }
                               />
                               <span className="text-sm">
-                                {s.name} {s.start_date ? `· ${s.start_date}` : ""}
+                                {s.name} {s.date ? `· ${s.date}` : ""}
                               </span>
                             </label>
                           );
