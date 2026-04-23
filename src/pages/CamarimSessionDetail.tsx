@@ -600,6 +600,31 @@ export default function CamarimSessionDetail() {
           </AlertDialogHeader>
 
           <div className="space-y-4">
+            {blockingIssues.length > 0 && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  Não é possível integrar — corrige antes de continuar
+                </div>
+                <ul className="list-disc space-y-1 pl-5 text-xs text-destructive">
+                  {blockingIssues.map((msg, idx) => (
+                    <li key={idx}>{msg}</li>
+                  ))}
+                </ul>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setShowIntegrate(false);
+                    setShowFund(true);
+                  }}
+                >
+                  <Wallet className="mr-1.5 h-3.5 w-3.5" /> Registar movimento de fundo
+                </Button>
+              </div>
+            )}
+
             {needsCardAccount && (
               <div className="space-y-2">
                 <Label>Conta financeira do cartão da empresa</Label>
