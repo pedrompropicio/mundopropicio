@@ -95,6 +95,10 @@ export default function CamarimSessionDetail() {
   const [showItem, setShowItem] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [showFund, setShowFund] = useState(false);
+  const [showIntegrate, setShowIntegrate] = useState(false);
+  const [integrating, setIntegrating] = useState(false);
+  const [cardAccountId, setCardAccountId] = useState<string>("");
+  const [accounts, setAccounts] = useState<FinAccount[]>([]);
 
   useEffect(() => {
     if (!id) return;
