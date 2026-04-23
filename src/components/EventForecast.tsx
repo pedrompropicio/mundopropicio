@@ -1529,7 +1529,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const totalActualIncomeStrict = comparisonTransactions
     .filter((t) => t.type === "income")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const totalActualIncome = totalActualIncomeStrict > 0 ? totalActualIncomeStrict : ticketActualRevenue;
+  // O card de receita real deve refletir a bilheteira vendida + outras receitas reais.
+  // Antes, quando existia qualquer receita em transações, a bilheteira real era ignorada
+  // e o valor podia ficar artificialmente igual ao previsto.
+  const totalActualIncome = totalActualIncomeStrict + ticketActualRevenue;
   const totalActualExpense = comparisonTransactions
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + Number(t.amount), 0);
