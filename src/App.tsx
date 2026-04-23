@@ -8,6 +8,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import logoMundoPropicio from "@/assets/logo-horizontal.png";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ApprovedPaymentListReminder } from "@/components/ApprovedPaymentListReminder";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -159,6 +160,7 @@ function ProtectedLayout() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <ApprovedPaymentListReminder />
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6">
         <img
           src={logoMundoPropicio}
