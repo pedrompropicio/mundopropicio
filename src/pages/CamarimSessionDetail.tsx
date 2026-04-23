@@ -103,7 +103,17 @@ export default function CamarimSessionDetail() {
   useEffect(() => {
     if (!id) return;
     void load();
+    void loadAccounts();
   }, [id]);
+
+  const loadAccounts = async () => {
+    const { data } = await supabase
+      .from("financial_accounts")
+      .select("id,name")
+      .eq("is_active", true)
+      .order("name");
+    setAccounts((data ?? []) as FinAccount[]);
+  };
 
   const load = async () => {
     if (!id) return;
