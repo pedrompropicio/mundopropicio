@@ -95,7 +95,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes("");
     setHasDocument(true);
     setDocIssueReason("");
-    setCategoryId("");
+    // categoryId é fixo (Camarim) — não resetar
     setPhotoFile(null);
     setPhotoPath(null);
     setPreviewUrl(null);
