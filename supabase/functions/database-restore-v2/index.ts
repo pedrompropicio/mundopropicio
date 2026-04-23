@@ -4,7 +4,7 @@
 // 3) Strip de colunas obsoletas / inexistentes por tabela
 // 4) Continua mesmo que uma tabela falhe — relata tudo
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
