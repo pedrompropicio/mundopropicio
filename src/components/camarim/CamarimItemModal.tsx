@@ -110,6 +110,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes(it.notes ?? "");
     setHasDocument(it.has_document);
     setDocIssueReason(it.document_issue_reason ?? "");
+    setCategoryId(it.category_id ?? "");
     setOcrPayload(it.ocr_raw_payload);
 
     // Load attached document path (first one)
