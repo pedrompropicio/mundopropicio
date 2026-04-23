@@ -854,7 +854,7 @@ export default function Transactions() {
             )}
           </div>
           <button
-            onClick={() => navigate("/relatorios/listas-pagamento")}
+            onClick={() => navigate("/relatorios/listas-pagamento", { state: { returnTo: "/transacoes", returnScrollY: window.scrollY } })}
             className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             <ClipboardList className="h-4 w-4" />
