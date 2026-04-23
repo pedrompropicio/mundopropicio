@@ -175,6 +175,56 @@ export default function CamarimSessionDetail() {
     void load();
   };
 
+  const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
+  const needsCardAccount = useMemo(
+    () => approvedItems.some((i) => i.payment_origin === "card"),
+    [approvedItems],
+  );
+  const missingCategoryCount = useMemo(
+    () => approvedItems.filter((i) => !i.category_id).length,
+    [approvedItems],
+  );
+
+  const runIntegrate = async () => {
+    if (!id) return;
+    if (missingCategoryCount > 0) {
+      toast({
+        variant: "destructive",
+        title: "Categorias em falta",
+        description: `${missingCategoryCount} item(ns) aprovado(s) sem categoria contábil.`,
+      });
+      return;
+    }
+    if (needsCardAccount && !cardAccountId) {
+      toast({
+        variant: "destructive",
+        title: "Conta de cartão obrigatória",
+        description: "Há itens pagos por cartão — escolhe a conta financeira.",
+      });
+      return;
+    }
+    setIntegrating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("close-camarim-session", {
+        body: { session_id: id, card_account_id: cardAccountId || null },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({
+        title: "Sessão integrada",
+        description: `${data?.created ?? 0} transação(ões) gerada(s)${
+          data?.errors?.length ? ` · ${data.errors.length} erro(s)` : ""
+        }.`,
+      });
+      setShowIntegrate(false);
+      void load();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao integrar", description: e.message });
+    } finally {
+      setIntegrating(false);
+    }
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground">A carregar…</p>;
   if (!session) return <p className="text-sm text-muted-foreground">Sessão não encontrada.</p>;
 
