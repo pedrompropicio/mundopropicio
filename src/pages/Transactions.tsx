@@ -7,7 +7,7 @@ import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList,
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -78,6 +78,7 @@ export default function Transactions() {
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const canApprove = isAdmin || isManager;
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const highlightRef = useRef<HTMLTableRowElement>(null);
@@ -94,6 +95,15 @@ export default function Transactions() {
     }, 5000);
     return () => clearTimeout(timer);
   }, [highlightId]);
+
+  useEffect(() => {
+    const restoreScrollY = location.state?.restoreScrollY as number | undefined;
+    if (typeof restoreScrollY !== "number") return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: restoreScrollY, behavior: "auto" });
+      navigate(location.pathname, { replace: true, state: {} });
+    });
+  }, [location.pathname, location.state, navigate]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
