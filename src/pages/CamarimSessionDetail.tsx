@@ -178,6 +178,7 @@ export default function CamarimSessionDetail() {
   };
 
   const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
+  const parkedItems = useMemo(() => items.filter((i) => i.status === "pending_review"), [items]);
   const needsCardAccount = useMemo(
     () => approvedItems.some((i) => i.payment_origin === "card"),
     [approvedItems],
@@ -186,6 +187,18 @@ export default function CamarimSessionDetail() {
     () => approvedItems.filter((i) => !i.category_id).length,
     [approvedItems],
   );
+
+  // Acerto previsto: gasto via adiantamento - adiantamento líquido entregue
+  const settlementPreview = useMemo(() => {
+    const advanceNet = totals.advances - totals.refunds;
+    const spentFromAdvance = items
+      .filter((i) => i.payment_origin === "advance" && (i.status === "approved" || i.status === "integrated"))
+      .reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
+    const balance = +(spentFromAdvance - advanceNet).toFixed(2);
+    let type: "balanced" | "reinforcement" | "refund" = "balanced";
+    if (advanceNet > 0 && Math.abs(balance) >= 0.01) type = balance > 0 ? "reinforcement" : "refund";
+    return { advanceNet, spentFromAdvance, balance, type };
+  }, [items, totals]);
 
   const runIntegrate = async () => {
     if (!id) return;
@@ -205,20 +218,56 @@ export default function CamarimSessionDetail() {
       });
       return;
     }
+    // Validar decisões: cada parqueado precisa de uma decisão
+    const undecided = parkedItems.filter((p) => !parkedDecisions[p.id]);
+    if (undecided.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Itens parqueados sem decisão",
+        description: `${undecided.length} item(ns) parqueado(s) — escolhe rejeitar, aprovar sem doc. ou adiar.`,
+      });
+      return;
+    }
+    // Validar justificativa quando approve_without_doc
+    for (const p of parkedItems) {
+      const d = parkedDecisions[p.id];
+      if (d?.decision === "approve_without_doc" && !d.reason.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Justificativa obrigatória",
+          description: `Item "${p.supplier_name_raw || "—"}" precisa de justificativa para ser aprovado sem documento.`,
+        });
+        return;
+      }
+    }
+
     setIntegrating(true);
     try {
       const { data, error } = await supabase.functions.invoke("close-camarim-session", {
-        body: { session_id: id, card_account_id: cardAccountId || null },
+        body: {
+          session_id: id,
+          card_account_id: cardAccountId || null,
+          settlement_account_id: settlementAccountId || null,
+          parked_decisions: Object.entries(parkedDecisions).map(([item_id, v]) => ({
+            item_id,
+            decision: v.decision,
+            reason: v.reason || undefined,
+          })),
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      const settlementMsg = data?.settlement?.type && data.settlement.type !== "balanced"
+        ? ` · Acerto: ${data.settlement.type === "reinforcement" ? "reforço a pagar" : "devolução a receber"} de ${formatCurrency(Math.abs(data.settlement.balance ?? 0), session?.currency ?? "EUR")}`
+        : "";
       toast({
         title: "Sessão integrada",
         description: `${data?.created ?? 0} transação(ões) gerada(s)${
           data?.errors?.length ? ` · ${data.errors.length} erro(s)` : ""
-        }.`,
+        }${settlementMsg}`,
       });
       setShowIntegrate(false);
+      setParkedDecisions({});
       void load();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro ao integrar", description: e.message });
