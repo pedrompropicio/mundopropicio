@@ -75,6 +75,8 @@ interface FundMove {
   amount: number;
   move_date: string;
   notes: string | null;
+  financial_account_id: string | null;
+  created_at?: string;
 }
 
 interface FinAccount {
@@ -200,8 +202,51 @@ export default function CamarimSessionDetail() {
     return { advanceNet, spentFromAdvance, balance, type };
   }, [items, totals]);
 
+  // Bloqueios pré-integração: lista de problemas que impedem o fluxo
+  const blockingIssues = useMemo(() => {
+    const issues: string[] = [];
+    const advanceItems = approvedItems.filter((i) => i.payment_origin === "advance");
+    const advanceFundMoves = funds.filter(
+      (f) => f.move_type === "advance" || f.move_type === "reinforcement",
+    );
+    const lastAdvanceMove = [...advanceFundMoves].sort((a, b) => {
+      const aDate = a.created_at ?? a.move_date;
+      const bDate = b.created_at ?? b.move_date;
+      return bDate.localeCompare(aDate);
+    })[0];
+    const advanceAccountId = lastAdvanceMove?.financial_account_id ?? null;
+    const advanceNet = totals.advances - totals.refunds;
+
+    if (advanceItems.length > 0) {
+      if (advanceFundMoves.length === 0) {
+        issues.push(
+          `${advanceItems.length} item(ns) aprovado(s) marcado(s) como pagos pelo adiantamento, mas nenhum movimento de adiantamento foi registado na aba "Fundos".`,
+        );
+      } else if (advanceNet <= 0) {
+        issues.push(
+          `Adiantamento líquido entregue à equipa é zero (entregas ${formatCurrency(totals.advances, session?.currency ?? "EUR")} − devoluções ${formatCurrency(totals.refunds, session?.currency ?? "EUR")}). Regista um movimento de adiantamento na aba "Fundos".`,
+        );
+      } else if (!advanceAccountId) {
+        issues.push(
+          'O último movimento de adiantamento não tem conta financeira associada. Edita-o na aba "Fundos" e escolhe a conta de origem.',
+        );
+      }
+    }
+
+    return issues;
+  }, [approvedItems, funds, totals, session?.currency]);
+
+
   const runIntegrate = async () => {
     if (!id) return;
+    if (blockingIssues.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "Pré-requisitos em falta",
+        description: blockingIssues[0],
+      });
+      return;
+    }
     if (missingCategoryCount > 0) {
       toast({
         variant: "destructive",
@@ -555,6 +600,31 @@ export default function CamarimSessionDetail() {
           </AlertDialogHeader>
 
           <div className="space-y-4">
+            {blockingIssues.length > 0 && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  Não é possível integrar — corrige antes de continuar
+                </div>
+                <ul className="list-disc space-y-1 pl-5 text-xs text-destructive">
+                  {blockingIssues.map((msg, idx) => (
+                    <li key={idx}>{msg}</li>
+                  ))}
+                </ul>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setShowIntegrate(false);
+                    setShowFund(true);
+                  }}
+                >
+                  <Wallet className="mr-1.5 h-3.5 w-3.5" /> Registar movimento de fundo
+                </Button>
+              </div>
+            )}
+
             {needsCardAccount && (
               <div className="space-y-2">
                 <Label>Conta financeira do cartão da empresa</Label>
@@ -658,7 +728,7 @@ export default function CamarimSessionDetail() {
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={runIntegrate} disabled={integrating}>
+            <AlertDialogAction onClick={runIntegrate} disabled={integrating || blockingIssues.length > 0}>
               {integrating ? "A integrar…" : "Integrar agora"}
             </AlertDialogAction>
           </AlertDialogFooter>
