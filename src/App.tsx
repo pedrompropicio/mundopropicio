@@ -161,6 +161,12 @@ function ProtectedLayout() {
     return <Navigate to="/parceiro" replace />;
   }
 
+  // Camarim-only users (team members with no management access) go to the
+  // compact PWA-like camarim-equipa view instead of the executive dashboard.
+  if (isCamarimOnly && window.location.pathname === "/") {
+    return <Navigate to="/camarim-equipa" replace />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
