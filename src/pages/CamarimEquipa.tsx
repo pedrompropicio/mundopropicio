@@ -240,11 +240,34 @@ export default function CamarimEquipa() {
     );
   }
 
+  // No desktop: se houver pos guardada, posiciona a janela em coords absolutas
+  // dentro do viewport. No mobile (<sm): pos é null e a janela ocupa o ecrã.
+  const frameStyle: React.CSSProperties =
+    pos && typeof window !== "undefined" && window.innerWidth >= 640
+      ? { position: "fixed", left: pos.x, top: pos.y, margin: 0 }
+      : {};
+
   return (
     <div className="min-h-[100dvh] w-full bg-muted/30 sm:py-6">
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden bg-background sm:min-h-[min(900px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl">
+      <div
+        ref={frameRef}
+        style={frameStyle}
+        className="relative mx-auto flex min-h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden bg-background sm:min-h-[min(900px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl"
+      >
+      {/* Drag handle — só visível em desktop */}
+      <div
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
+        className="hidden sm:flex sticky top-0 z-30 h-6 cursor-grab items-center justify-center bg-muted/40 select-none active:cursor-grabbing rounded-t-[2rem] touch-none"
+        title="Arrastar"
+        aria-label="Arrastar janela"
+      >
+        <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+      </div>
       {/* Sticky header — selector sempre visível */}
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:rounded-t-[2rem]">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-primary" />
