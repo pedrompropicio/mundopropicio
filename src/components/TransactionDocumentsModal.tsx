@@ -184,8 +184,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 p-4 sm:flex sm:items-center sm:justify-center" onClick={onClose}>
+      <div className="glass mx-auto mt-6 w-full max-w-lg rounded-xl p-4 sm:mt-0 sm:p-6 space-y-4 max-h-[calc(100dvh-3rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold flex items-center gap-1.5">Documentos <HelpTooltip text={helpTexts.uploadDocuments} side="bottom" size={14} /></h2>
