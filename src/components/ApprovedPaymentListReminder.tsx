@@ -24,9 +24,10 @@ export function ApprovedPaymentListReminder() {
   const [open, setOpen] = useState(false);
   const [dismissedSignature, setDismissedSignature] = useState<string | null>(null);
 
-  const { data: approvedLists = [] } = useQuery({
+  const { data: approvedLists = [], refetch } = useQuery({
     queryKey: ["approved-payment-list-reminder"],
     enabled: isAdmin && !loading,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     staleTime: 30_000,
     queryFn: async () => {
@@ -93,9 +94,36 @@ export function ApprovedPaymentListReminder() {
       return;
     }
 
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.sessionStorage.getItem(STORAGE_KEY);
     setDismissedSignature(stored);
   }, [isAdmin, loading]);
+
+  useEffect(() => {
+    if (!isAdmin || loading) return;
+
+    const channel = supabase
+      .channel("approved-payment-list-reminder")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_lists" },
+        () => void refetch(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_list_items" },
+        () => void refetch(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => void refetch(),
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin, loading, refetch]);
 
   useEffect(() => {
     if (!isAdmin || loading) return;
@@ -117,7 +145,7 @@ export function ApprovedPaymentListReminder() {
   if (!isAdmin || loading || reminderData.listsWithUnpaid.length === 0) return null;
 
   const handleDismiss = () => {
-    window.localStorage.setItem(STORAGE_KEY, reminderData.signature);
+    window.sessionStorage.setItem(STORAGE_KEY, reminderData.signature);
     setDismissedSignature(reminderData.signature);
     setOpen(false);
   };
