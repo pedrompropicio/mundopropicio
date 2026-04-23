@@ -257,12 +257,32 @@ export default function CamarimSessionDetail() {
             </Button>
           )}
           {session.status === "in_review" && canManage && (
-            <Button onClick={() => updateSessionStatus("closed")}>
+            <Button variant="outline" onClick={() => updateSessionStatus("closed")}>
               <CheckCircle2 className="mr-2 h-4 w-4" /> Fechar sessão
             </Button>
           )}
+          {(session.status === "in_review" || session.status === "closed") && canManage && (
+            <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
+              <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
+            </Button>
+          )}
+          {session.status === "integrated" && (
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+              <CheckCircle2 className="mr-1 h-3 w-3" /> Integrada
+            </Badge>
+          )}
         </div>
       </div>
+
+      {missingCategoryCount > 0 && (session.status === "in_review" || session.status === "closed") && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            {missingCategoryCount} item(ns) aprovado(s) sem categoria contábil. Edita-os antes de integrar
+            — caso contrário não serão convertidos em transações.
+          </p>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
