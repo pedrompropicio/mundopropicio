@@ -92,7 +92,9 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedLayout() {
-  const { user, loading, isPartner, isAdmin, isManager, signOut } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
+  const isCamarimOnly =
+    !isAdmin && !isManager && hasPermission("camarim_team") && !hasPermission("view_events");
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
@@ -159,6 +161,12 @@ function ProtectedLayout() {
   // Partner users are redirected to their dedicated layout
   if (isPartner) {
     return <Navigate to="/parceiro" replace />;
+  }
+
+  // Camarim-only users (team members with no management access) go to the
+  // compact PWA-like camarim-equipa view instead of the executive dashboard.
+  if (isCamarimOnly && window.location.pathname === "/") {
+    return <Navigate to="/camarim-equipa" replace />;
   }
 
   return (
@@ -293,11 +301,17 @@ function App() {
 }
 
 function AuthRoute() {
-  const { user, loading, isPartner } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, hasPermission } = useAuth();
   if (loading) return null;
   // Don't redirect if user is in the middle of password recovery flow
   const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
-  if (user && !isRecoveryFlow) return <Navigate to={isPartner ? "/parceiro" : "/"} replace />;
+  if (user && !isRecoveryFlow) {
+    if (isPartner) return <Navigate to="/parceiro" replace />;
+    const isCamarimOnly =
+      !isAdmin && !isManager && hasPermission("camarim_team") && !hasPermission("view_events");
+    if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
+    return <Navigate to="/" replace />;
+  }
   return <Auth />;
 }
 
