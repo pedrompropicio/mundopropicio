@@ -1045,14 +1045,35 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         (!!f._master_event_id && f._master_event_id !== eventId)
       );
 
+      const normalize = (value: string | null | undefined) =>
+        String(value ?? "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\p{L}\p{N}\s]/gu, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      const localSignature = [normalize(f.description), normalize(f.specification)].filter(Boolean).join(" | ");
+      const isMasterControlledLocalLine = !!parentEventId && parentForecasts.some((parentForecast: any) => {
+        if (parentForecast.type !== f.type) return false;
+        if ((parentForecast.category_id ?? null) !== (f.category_id ?? null)) return false;
+
+        const parentSignature = [normalize(parentForecast.description), normalize(parentForecast.specification)].filter(Boolean).join(" | ");
+
+        if (localSignature && parentSignature) return localSignature === parentSignature;
+        return normalize(parentForecast.description) === normalize(f.description);
+      });
+
       return (
         f.status === "approved" &&
         !isMasterDerivedOnSplit &&
+        !isMasterControlledLocalLine &&
         !f.transaction_id &&
         findMatchingTransactionsForForecast(f, transactions, forecasts).length === 0
       );
     },
-    [parentEventId, eventId, transactions, forecasts],
+    [parentEventId, eventId, parentForecasts, transactions, forecasts],
   );
 
   const handleBulkCreateTx = () => {
