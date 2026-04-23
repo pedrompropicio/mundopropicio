@@ -28,6 +28,7 @@ import { CamarimTeamSummary } from "@/components/camarim/CamarimTeamSummary";
 
 const LAST_SESSION_KEY = "camarim_team_last_session";
 const FRAME_POS_KEY = "camarim_team_frame_pos";
+const DEFAULT_LANDING_KEY = "camarim_team_default_landing";
 
 interface SessionRow {
   id: string;
