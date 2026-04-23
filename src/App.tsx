@@ -171,6 +171,18 @@ function ProtectedLayout() {
     return <Navigate to="/camarim-equipa" replace />;
   }
 
+  // Preferência opcional: admin/manager com permissão camarim_team pode
+  // optar por que a rota raiz "/" abra direto a vista compacta de equipa.
+  try {
+    const path = typeof window !== "undefined" ? window.location.pathname : "/";
+    const prefersCamarim =
+      typeof window !== "undefined" &&
+      localStorage.getItem("camarim_team_default_landing") === "1";
+    if (prefersCamarim && hasPermission("camarim_team") && (path === "/" || path === "")) {
+      return <Navigate to="/camarim-equipa" replace />;
+    }
+  } catch {}
+
   return (
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
