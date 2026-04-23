@@ -16,6 +16,7 @@ import {
   type CamarimItemBpScope,
   type CamarimItemStatus,
 } from "@/lib/camarim-helpers";
+import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 
 interface Props {
   open: boolean;
@@ -136,8 +137,32 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   };
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const original = e.target.files?.[0];
+    if (!original) return;
+
+    let file = original;
+
+    // Se for DNG/TIFF (RAW), extrair o JPEG de preview embutido antes de mostrar/enviar.
+    if (isDngFile(original)) {
+      toast({ title: "A processar ficheiro RAW…", description: "A extrair pré-visualização para OCR." });
+      try {
+        const jpeg = await extractJpegFromDng(original);
+        if (!jpeg) {
+          toast({
+            variant: "destructive",
+            title: "Não foi possível ler o ficheiro RAW",
+            description: "Tenta exportar como JPG ou desligar o ProRAW na câmara.",
+          });
+          return;
+        }
+        file = jpeg;
+      } catch (err: any) {
+        console.error("DNG extract failed", err);
+        toast({ variant: "destructive", title: "Erro a processar RAW", description: err?.message ?? "Erro desconhecido" });
+        return;
+      }
+    }
+
     setPhotoFile(file);
     setPreviewUrl(URL.createObjectURL(file));
 
@@ -352,7 +377,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.dng,.tif,.tiff,image/x-adobe-dng"
               capture="environment"
               className="hidden"
               onChange={handlePhotoSelect}
