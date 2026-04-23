@@ -367,10 +367,16 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
               {statusLabels[note.status]}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Funcionário: <span className="font-medium text-foreground">{note.employee_name}</span>
-            {note.approved_by && <> · Aprovada por {note.approved_by}</>}
-          </p>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              Funcionário: <span className="font-medium text-foreground">{note.employee_name}</span>
+              {note.approved_by && <> · Aprovada por {note.approved_by}</>}
+            </p>
+            <p>
+              Criada por <span className="font-medium text-foreground">{note.created_by || "sistema"}</span>
+              {" "}em <span className="font-medium text-foreground">{note.created_at ? format(new Date(note.created_at), "dd/MM/yyyy HH:mm") : "—"}</span>
+            </p>
+          </div>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold font-mono">{formatCurrency(Number(note.total_amount))}</p>
