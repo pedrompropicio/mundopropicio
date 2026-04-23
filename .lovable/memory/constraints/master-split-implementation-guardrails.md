@@ -3,6 +3,8 @@ name: Master/Split implementation guardrails
 description: Guardrails internos para evitar regressões ao mexer em BP Master/Split, rateio, promoção ao Master e auditorias de produção.
 type: constraint
 ---
+- **Regra operacional obrigatória**: toda implementação crítica que toque BP, transações, rateio Master/Split, auditoria, triggers, relatórios financeiros ou correções de base deve consultar este material e os documentos críticos relacionados antes de alterar código, queries ou dados.
+- **Regra de manutenção obrigatória**: sempre que uma mudança importante alterar comportamento, invariantes, auditoria, trigger, fluxo operacional ou interpretação de dados, a documentação interna correspondente deve ser atualizada na mesma entrega antes da tarefa ser considerada concluída.
 - **Não assumir filhos físicos de BP** ao analisar rateio Master/Split. Primeiro confirmar se a funcionalidade em causa usa modelo virtual (promoção ao Master) ou vínculo físico (`master_forecast_id`).
 - **Antes de concluir que há bug de dados**, validar no código a regra vigente do fluxo específico: promoção ao Master, adoção de forecast, reforço local, órfãs, relatórios ou reconciliação.
 - **Auditoria correta para produção/live** em rateio Master:

@@ -3,6 +3,7 @@ name: Master/Split live audit checklist
 description: Checklist interno para validar com segurança mudanças de BP Master/Split em Live sem confundir filhos virtuais com falhas reais.
 type: feature
 ---
+- **Gatilho obrigatório de consulta**: qualquer implementação crítica, auditoria, ajuste manual, script SQL ou investigação em produção que toque Master/Split deve abrir este checklist antes de executar a mudança.
 - **Checklist obrigatório antes de afirmar erro em Live**:
   1. confirmar se o evento usa turnê com Master/Split;
   2. confirmar no código se o fluxo em causa usa filhos físicos ou virtuais;
@@ -19,3 +20,4 @@ type: feature
   2. identificar todos os pontos que assumem rateio Master consolidado;
   3. evitar converter uma convenção local em regra global sem documentação.
 - **Regra de comunicação interna**: em dúvidas sobre Master/Split, documentar primeiro a fonte de verdade do fluxo antes de executar scripts ou concluir que a base está errada.
+- **Regra de atualização contínua**: se uma implementação alterar qualquer passo desta validação, o checklist deve ser revisto na mesma entrega para que futuras auditorias usem a versão correta do processo.
