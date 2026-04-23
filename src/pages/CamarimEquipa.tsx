@@ -150,9 +150,10 @@ export default function CamarimEquipa() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col">
+    <div className="min-h-[100dvh] w-full bg-muted/30 sm:py-6">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden bg-background sm:min-h-[min(900px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl">
       {/* Sticky header — selector sempre visível */}
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:rounded-t-[2rem]">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-primary" />
@@ -283,7 +284,7 @@ export default function CamarimEquipa() {
             setEditId(null);
             setShowAdd(true);
           }}
-          className="fixed bottom-6 left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background active:scale-95"
+          className="absolute bottom-6 left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background active:scale-95"
           aria-label="Nova conta"
         >
           <Camera className="h-7 w-7" />
@@ -308,6 +309,7 @@ export default function CamarimEquipa() {
           onSaved={() => loadItems(selectedId)}
         />
       )}
+      </div>
     </div>
   );
 }
