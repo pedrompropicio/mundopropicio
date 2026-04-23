@@ -74,6 +74,9 @@ import Reimbursements from "./pages/Reimbursements";
 import EventImplementations from "./pages/EventImplementations";
 import EventImplementationDetail from "./pages/EventImplementationDetail";
 import UserActivityLog from "./pages/UserActivityLog";
+import Camarim from "./pages/Camarim";
+import CamarimSessionDetail from "./pages/CamarimSessionDetail";
+import CamarimEquipa from "./pages/CamarimEquipa";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -193,6 +196,8 @@ function ProtectedLayout() {
               <Route path="/recorrentes" element={<RecurringTransactions />} />
               <Route path="/reembolsos" element={<Reimbursements />} />
               <Route path="/ajuda" element={<HelpCenter />} />
+              <Route path="/camarim" element={<Camarim />} />
+              <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
               <Route path="/relatorios" element={<Reports />}>
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
@@ -275,6 +280,7 @@ function App() {
                 <Route path="/login" element={<AuthRoute />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
+                <Route path="/camarim-equipa" element={<CamarimEquipa />} />
                 <Route path="/parceiro/*" element={<PartnerLayout />} />
                 <Route path="/*" element={<ProtectedLayout />} />
               </Routes>
