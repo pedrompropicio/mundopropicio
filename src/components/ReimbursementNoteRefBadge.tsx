@@ -4,6 +4,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Wallet, Link2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { LinkReimbursementNoteModal } from "@/components/LinkReimbursementNoteModal";
 
 interface Props {
@@ -81,6 +82,11 @@ export function ReimbursementNoteRefBadge({ transactionId, variant = "badge" }: 
               {note.employee_name ? `Colaborador: ${note.employee_name}. ` : ""}
               O pagamento é efetuado ao liquidar a nota — não é possível pagar esta transação isoladamente.
             </p>
+            <div className="mt-2">
+              <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
+                <RouterLink to="/reembolsos">Abrir listas de reembolso</RouterLink>
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -127,15 +133,20 @@ export function ReimbursementNoteRefBadge({ transactionId, variant = "badge" }: 
                 {tx.reimbursement_to ? `Colaborador indicado: ${tx.reimbursement_to}. ` : ""}
                 Vincule a uma Nota de Reembolso para centralizar o pagamento, ou desmarque como reembolso para tratar como despesa normal.
               </p>
-              {!isPaid && (
-                <button
-                  type="button"
-                  onClick={() => setShowLinkModal(true)}
-                  className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors"
-                >
-                  <Link2 className="h-3 w-3" /> Vincular ou Desmarcar
-                </button>
-              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {!isPaid && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLinkModal(true)}
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors"
+                  >
+                    <Link2 className="h-3 w-3" /> Vincular ou Desmarcar
+                  </button>
+                )}
+                <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
+                  <RouterLink to="/reembolsos">Abrir listas de reembolso</RouterLink>
+                </Button>
+              </div>
             </div>
           </div>
           {showLinkModal && (
