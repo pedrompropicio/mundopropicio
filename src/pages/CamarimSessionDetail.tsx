@@ -98,7 +98,9 @@ export default function CamarimSessionDetail() {
   const [showIntegrate, setShowIntegrate] = useState(false);
   const [integrating, setIntegrating] = useState(false);
   const [cardAccountId, setCardAccountId] = useState<string>("");
+  const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
+  const [parkedDecisions, setParkedDecisions] = useState<Record<string, { decision: "reject" | "approve_without_doc" | "defer"; reason: string }>>({});
 
   useEffect(() => {
     if (!id) return;
