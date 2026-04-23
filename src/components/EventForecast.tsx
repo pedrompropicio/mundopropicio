@@ -35,6 +35,51 @@ import PromoteToMasterModal, { type PromoteCandidate } from "@/components/Promot
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
 
+function TransactionAttachmentButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
+  const { data: docs = [] } = useQuery({
+    queryKey: ["transaction_documents_summary", transactionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_documents")
+        .select("id, file_url")
+        .eq("transaction_id", transactionId);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const isExternalLink = (url: string) => /^ref:\/\/https?:\/\//i.test(url);
+  const isPendingRef = (url: string) => url.startsWith("ref://") && !isExternalLink(url);
+  const pendingRefs = docs.filter((d: any) => isPendingRef(d.file_url));
+  const validDocs = docs.filter((d: any) => !isPendingRef(d.file_url));
+  const count = validDocs.length;
+  const hasPending = pendingRefs.length > 0 && count === 0;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/70 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+      title="Gerir anexos desta transação"
+    >
+      <Paperclip className="h-3 w-3" />
+      Anexos
+      {count > 0 && (
+        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-success/20 px-1 text-[10px] font-semibold text-success">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+      {hasPending && (
+        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-warning/20 text-[10px] font-bold text-warning">!</span>
+      )}
+    </button>
+  );
+}
+
 interface InlineForm {
   type: string;
   description: string;
@@ -2989,18 +3034,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                         </div>
                       </button>
                       <div className="mt-1 flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDocumentsTransaction(tx);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/70 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                          title="Gerir anexos desta transação"
-                        >
-                          <Paperclip className="h-3 w-3" />
-                          Anexos
-                        </button>
+                        <TransactionAttachmentButton transactionId={tx.id} onClick={() => setDocumentsTransaction(tx)} />
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setAuditTransactionId(tx.id); }}
