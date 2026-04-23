@@ -370,6 +370,8 @@ export type Database = {
       }
       camarim_items: {
         Row: {
+          approved_without_document: boolean
+          approved_without_document_reason: string | null
           base_amount: number
           bp_forecast_id: string | null
           bp_scope: string
@@ -392,6 +394,7 @@ export type Database = {
           ocr_confidence: string | null
           ocr_raw_payload: Json | null
           payment_origin: string
+          pending_review_reason: string | null
           service_description: string | null
           session_id: string
           status: string
@@ -403,6 +406,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approved_without_document?: boolean
+          approved_without_document_reason?: string | null
           base_amount?: number
           bp_forecast_id?: string | null
           bp_scope?: string
@@ -425,6 +430,7 @@ export type Database = {
           ocr_confidence?: string | null
           ocr_raw_payload?: Json | null
           payment_origin: string
+          pending_review_reason?: string | null
           service_description?: string | null
           session_id: string
           status?: string
@@ -436,6 +442,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approved_without_document?: boolean
+          approved_without_document_reason?: string | null
           base_amount?: number
           bp_forecast_id?: string | null
           bp_scope?: string
@@ -458,6 +466,7 @@ export type Database = {
           ocr_confidence?: string | null
           ocr_raw_payload?: Json | null
           payment_origin?: string
+          pending_review_reason?: string | null
           service_description?: string | null
           session_id?: string
           status?: string
@@ -568,6 +577,7 @@ export type Database = {
       }
       camarim_sessions: {
         Row: {
+          advance_total: number
           budget_amount: number
           closed_at: string | null
           created_at: string
@@ -580,11 +590,16 @@ export type Database = {
           notes: string | null
           opened_at: string
           responsible_profile_id: string | null
+          settlement_balance: number
+          settlement_transaction_id: string | null
+          settlement_type: string | null
+          spent_total: number
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          advance_total?: number
           budget_amount?: number
           closed_at?: string | null
           created_at?: string
@@ -597,11 +612,16 @@ export type Database = {
           notes?: string | null
           opened_at?: string
           responsible_profile_id?: string | null
+          settlement_balance?: number
+          settlement_transaction_id?: string | null
+          settlement_type?: string | null
+          spent_total?: number
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          advance_total?: number
           budget_amount?: number
           closed_at?: string | null
           created_at?: string
@@ -614,6 +634,10 @@ export type Database = {
           notes?: string | null
           opened_at?: string
           responsible_profile_id?: string | null
+          settlement_balance?: number
+          settlement_transaction_id?: string | null
+          settlement_type?: string | null
+          spent_total?: number
           status?: string
           title?: string
           updated_at?: string
