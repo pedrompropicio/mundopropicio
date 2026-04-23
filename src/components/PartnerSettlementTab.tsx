@@ -1595,12 +1595,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         columnStyles: {
           0: { cellWidth: 42, halign: "left" },
           1: { cellWidth: 19, halign: "right" },
-          2: { cellWidth: 21, halign: "right" },
-          3: { cellWidth: 18, halign: "right" },
+          2: { cellWidth: 24, halign: "right" },
+          3: { cellWidth: 24, halign: "right" },
           4: { cellWidth: 21, halign: "right" },
-          5: { cellWidth: 20, halign: "right" },
+          5: { cellWidth: 22, halign: "right", fontStyle: "bold" },
           6: { cellWidth: 20, halign: "right", fontStyle: "bold" },
-          7: { cellWidth: 17, halign: "right", fontStyle: "bold" },
         },
         didParseCell: (data) => {
           if (data.column.index === 0) {
