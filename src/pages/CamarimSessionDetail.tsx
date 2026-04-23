@@ -202,6 +202,41 @@ export default function CamarimSessionDetail() {
     return { advanceNet, spentFromAdvance, balance, type };
   }, [items, totals]);
 
+  // Bloqueios pré-integração: lista de problemas que impedem o fluxo
+  const blockingIssues = useMemo(() => {
+    const issues: string[] = [];
+    const advanceItems = approvedItems.filter((i) => i.payment_origin === "advance");
+    const advanceFundMoves = funds.filter(
+      (f) => f.move_type === "advance" || f.move_type === "reinforcement",
+    );
+    const lastAdvanceMove = [...advanceFundMoves].sort((a, b) => {
+      const aDate = a.created_at ?? a.move_date;
+      const bDate = b.created_at ?? b.move_date;
+      return bDate.localeCompare(aDate);
+    })[0];
+    const advanceAccountId = lastAdvanceMove?.financial_account_id ?? null;
+    const advanceNet = totals.advances - totals.refunds;
+
+    if (advanceItems.length > 0) {
+      if (advanceFundMoves.length === 0) {
+        issues.push(
+          `${advanceItems.length} item(ns) aprovado(s) marcado(s) como pagos pelo adiantamento, mas nenhum movimento de adiantamento foi registado na aba "Fundos".`,
+        );
+      } else if (advanceNet <= 0) {
+        issues.push(
+          `Adiantamento líquido entregue à equipa é zero (entregas ${formatCurrency(totals.advances, session?.currency ?? "EUR")} − devoluções ${formatCurrency(totals.refunds, session?.currency ?? "EUR")}). Regista um movimento de adiantamento na aba "Fundos".`,
+        );
+      } else if (!advanceAccountId) {
+        issues.push(
+          'O último movimento de adiantamento não tem conta financeira associada. Edita-o na aba "Fundos" e escolhe a conta de origem.',
+        );
+      }
+    }
+
+    return issues;
+  }, [approvedItems, funds, totals, session?.currency]);
+
+
   const runIntegrate = async () => {
     if (!id) return;
     if (missingCategoryCount > 0) {
