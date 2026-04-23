@@ -7,7 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SESSION_STATUS_LABELS,
@@ -54,6 +66,7 @@ interface ItemRow {
   status: CamarimItemStatus;
   created_at: string;
   ocr_confidence: string | null;
+  category_id: string | null;
 }
 
 interface FundMove {
@@ -62,6 +75,11 @@ interface FundMove {
   amount: number;
   move_date: string;
   notes: string | null;
+}
+
+interface FinAccount {
+  id: string;
+  name: string;
 }
 
 export default function CamarimSessionDetail() {
@@ -77,11 +95,25 @@ export default function CamarimSessionDetail() {
   const [showItem, setShowItem] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [showFund, setShowFund] = useState(false);
+  const [showIntegrate, setShowIntegrate] = useState(false);
+  const [integrating, setIntegrating] = useState(false);
+  const [cardAccountId, setCardAccountId] = useState<string>("");
+  const [accounts, setAccounts] = useState<FinAccount[]>([]);
 
   useEffect(() => {
     if (!id) return;
     void load();
+    void loadAccounts();
   }, [id]);
+
+  const loadAccounts = async () => {
+    const { data } = await supabase
+      .from("financial_accounts")
+      .select("id,name")
+      .eq("is_active", true)
+      .order("name");
+    setAccounts((data ?? []) as FinAccount[]);
+  };
 
   const load = async () => {
     if (!id) return;
@@ -143,6 +175,56 @@ export default function CamarimSessionDetail() {
     void load();
   };
 
+  const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
+  const needsCardAccount = useMemo(
+    () => approvedItems.some((i) => i.payment_origin === "card"),
+    [approvedItems],
+  );
+  const missingCategoryCount = useMemo(
+    () => approvedItems.filter((i) => !i.category_id).length,
+    [approvedItems],
+  );
+
+  const runIntegrate = async () => {
+    if (!id) return;
+    if (missingCategoryCount > 0) {
+      toast({
+        variant: "destructive",
+        title: "Categorias em falta",
+        description: `${missingCategoryCount} item(ns) aprovado(s) sem categoria contábil.`,
+      });
+      return;
+    }
+    if (needsCardAccount && !cardAccountId) {
+      toast({
+        variant: "destructive",
+        title: "Conta de cartão obrigatória",
+        description: "Há itens pagos por cartão — escolhe a conta financeira.",
+      });
+      return;
+    }
+    setIntegrating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("close-camarim-session", {
+        body: { session_id: id, card_account_id: cardAccountId || null },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({
+        title: "Sessão integrada",
+        description: `${data?.created ?? 0} transação(ões) gerada(s)${
+          data?.errors?.length ? ` · ${data.errors.length} erro(s)` : ""
+        }.`,
+      });
+      setShowIntegrate(false);
+      void load();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao integrar", description: e.message });
+    } finally {
+      setIntegrating(false);
+    }
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground">A carregar…</p>;
   if (!session) return <p className="text-sm text-muted-foreground">Sessão não encontrada.</p>;
 
@@ -175,12 +257,32 @@ export default function CamarimSessionDetail() {
             </Button>
           )}
           {session.status === "in_review" && canManage && (
-            <Button onClick={() => updateSessionStatus("closed")}>
+            <Button variant="outline" onClick={() => updateSessionStatus("closed")}>
               <CheckCircle2 className="mr-2 h-4 w-4" /> Fechar sessão
             </Button>
           )}
+          {(session.status === "in_review" || session.status === "closed") && canManage && (
+            <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
+              <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
+            </Button>
+          )}
+          {session.status === "integrated" && (
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+              <CheckCircle2 className="mr-1 h-3 w-3" /> Integrada
+            </Badge>
+          )}
         </div>
       </div>
+
+      {missingCategoryCount > 0 && (session.status === "in_review" || session.status === "closed") && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            {missingCategoryCount} item(ns) aprovado(s) sem categoria contábil. Edita-os antes de integrar
+            — caso contrário não serão convertidos em transações.
+          </p>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -390,6 +492,40 @@ export default function CamarimSessionDetail() {
           onSaved={load}
         />
       )}
+
+      <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vou gerar {approvedItems.length} transação(ões) a partir dos itens aprovados.
+              Itens pagos por adiantamento serão liquidados na conta de caixa do camarim;
+              itens pagos do bolso ficarão como aprovados (a reembolsar).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {needsCardAccount && (
+            <div className="space-y-2">
+              <Label>Conta financeira do cartão da empresa</Label>
+              <Select value={cardAccountId} onValueChange={setCardAccountId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar conta…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={runIntegrate} disabled={integrating}>
+              {integrating ? "A integrar…" : "Integrar agora"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

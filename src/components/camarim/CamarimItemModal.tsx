@@ -41,6 +41,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [notes, setNotes] = useState("");
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [categories, setCategories] = useState<Array<{ id: string; code: string; name: string }>>([]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
@@ -52,12 +54,27 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
   useEffect(() => {
     if (!open) return;
+    void loadCategories();
     if (itemId) {
       void loadItem(itemId);
     } else {
       reset();
     }
   }, [open, itemId]);
+
+  const loadCategories = async () => {
+    const { data } = await supabase
+      .from("account_categories")
+      .select("id,code,name,parent_id,is_active,type")
+      .eq("is_active", true)
+      .eq("type", "expense")
+      .order("code");
+    // Only leaf categories (no children)
+    const all = (data ?? []) as any[];
+    const parentIds = new Set(all.map((c) => c.parent_id).filter(Boolean));
+    const leaves = all.filter((c) => !parentIds.has(c.id));
+    setCategories(leaves.map((c) => ({ id: c.id, code: c.code, name: c.name })));
+  };
 
   const reset = () => {
     setSupplierName("");
@@ -71,6 +88,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes("");
     setHasDocument(true);
     setDocIssueReason("");
+    setCategoryId("");
     setPhotoFile(null);
     setPhotoPath(null);
     setPreviewUrl(null);
@@ -92,6 +110,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes(it.notes ?? "");
     setHasDocument(it.has_document);
     setDocIssueReason(it.document_issue_reason ?? "");
+    setCategoryId(it.category_id ?? "");
     setOcrPayload(it.ocr_raw_payload);
 
     // Load attached document path (first one)
@@ -186,6 +205,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         has_document: hasDocument,
         document_issue_reason: hasDocument ? null : docIssueReason,
         status: asStatus,
+        category_id: categoryId || null,
         ocr_raw_payload: ocrPayload,
         ocr_confidence: ocrPayload?.confidence ?? null,
         currency: "EUR",
@@ -387,7 +407,27 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Categoria contábil {mode === "manager" && <span className="text-destructive">*</span>}</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar categoria…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.code} — {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {mode === "team" && (
+                <p className="text-[11px] text-muted-foreground">
+                  Opcional — o gestor confirma a categoria na revisão.
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Descrição rápida</Label>
               <Input value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} />
             </div>
