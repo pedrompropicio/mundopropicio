@@ -1,6 +1,6 @@
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { moveToTrash } from "@/lib/trash";
@@ -11,9 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Eye, Trash2, CheckCircle, CreditCard, Search } from "lucide-react";
+import { Plus, Eye, Trash2, CheckCircle, CreditCard, Search, ArrowLeft } from "lucide-react";
 import { ReimbursementNoteDetail } from "@/components/ReimbursementNoteDetail";
 import { ReimbursementNoteFormModal } from "@/components/ReimbursementNoteFormModal";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
@@ -30,10 +31,26 @@ const statusColors: Record<string, string> = {
 export default function Reimbursements() {
   const { isAdmin, isManager, user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const returnTo = location.state?.returnTo as string | undefined;
+  const returnScrollY = location.state?.returnScrollY as number | undefined;
+
+  useEffect(() => {
+    if (typeof returnScrollY !== "number") return;
+    sessionStorage.setItem("reimbursements:returnScrollY", String(returnScrollY));
+  }, [returnScrollY]);
+
+  const handleReturn = () => {
+    const savedScroll = sessionStorage.getItem("reimbursements:returnScrollY");
+    const nextState = savedScroll ? { restoreScrollY: Number(savedScroll) } : undefined;
+    sessionStorage.removeItem("reimbursements:returnScrollY");
+    navigate(returnTo ?? "/transacoes", { state: nextState });
+  };
 
   const { data: notes = [], isLoading } = useQuery({
     queryKey: ["reimbursement-notes"],
@@ -90,6 +107,12 @@ export default function Reimbursements() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
+          {returnTo && (
+            <button onClick={handleReturn} className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para Transações
+            </button>
+          )}
           <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
             Notas de Reembolso <HelpTooltip text={helpTexts.reimbursements} />
           </h1>

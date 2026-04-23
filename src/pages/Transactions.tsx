@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen } from "lucide-react";
+import { Plus, ShieldCheck, Filter, ArrowRightLeft, CalendarDays, ClipboardList, Search, X, EyeOff, FileText, SlidersHorizontal, ArrowDownAZ, BookOpen, Receipt } from "lucide-react";
 import { TransactionFiltersPanel } from "@/components/TransactionFiltersPanel";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -78,6 +78,7 @@ export default function Transactions() {
   const { isAdmin, isManager, user, hasPermission } = useAuth();
   const canApprove = isAdmin || isManager;
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const highlightRef = useRef<HTMLTableRowElement>(null);
@@ -94,6 +95,15 @@ export default function Transactions() {
     }, 5000);
     return () => clearTimeout(timer);
   }, [highlightId]);
+
+  useEffect(() => {
+    const restoreScrollY = location.state?.restoreScrollY as number | undefined;
+    if (typeof restoreScrollY !== "number") return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: restoreScrollY, behavior: "auto" });
+      navigate(location.pathname, { replace: true, state: {} });
+    });
+  }, [location.pathname, location.state, navigate]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
@@ -849,6 +859,13 @@ export default function Transactions() {
           >
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Listas de Pagamento</span>
+          </button>
+          <button
+            onClick={() => navigate("/reembolsos", { state: { returnTo: "/transacoes", returnScrollY: window.scrollY } })}
+            className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <Receipt className="h-4 w-4" />
+            <span className="hidden sm:inline">Listas de Reembolso</span>
           </button>
           <button
             onClick={() => setShowTransfer(true)}
