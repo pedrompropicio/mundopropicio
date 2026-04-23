@@ -28,6 +28,7 @@ import { CamarimTeamSummary } from "@/components/camarim/CamarimTeamSummary";
 
 const LAST_SESSION_KEY = "camarim_team_last_session";
 const FRAME_POS_KEY = "camarim_team_frame_pos";
+const DEFAULT_LANDING_KEY = "camarim_team_default_landing";
 
 interface SessionRow {
   id: string;
@@ -58,6 +59,23 @@ export default function CamarimEquipa() {
   const [editId, setEditId] = useState<string | null>(null);
   const [autoCamera, setAutoCamera] = useState(false);
   const [busy, setBusy] = useState(true);
+  const [defaultLanding, setDefaultLanding] = useState(false);
+
+  // Load default-landing preference (admin/manager only)
+  useEffect(() => {
+    try {
+      setDefaultLanding(localStorage.getItem(DEFAULT_LANDING_KEY) === "1");
+    } catch {}
+  }, []);
+
+  const toggleDefaultLanding = () => {
+    const next = !defaultLanding;
+    setDefaultLanding(next);
+    try {
+      if (next) localStorage.setItem(DEFAULT_LANDING_KEY, "1");
+      else localStorage.removeItem(DEFAULT_LANDING_KEY);
+    } catch {}
+  };
 
   // ===== Drag-to-move (apenas desktop, sm+) =====
   const frameRef = useRef<HTMLDivElement>(null);
@@ -283,6 +301,19 @@ export default function CamarimEquipa() {
             </Badge>
           )}
         </div>
+
+        {/* Toggle: só relevante para admin/manager (utilizadores camarim-only já entram sempre aqui) */}
+        {(isAdmin || hasPermission("camarim_team")) && (
+          <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+            <span>Abrir sempre nesta vista ao entrar no sistema</span>
+            <input
+              type="checkbox"
+              checked={defaultLanding}
+              onChange={toggleDefaultLanding}
+              className="h-4 w-4 cursor-pointer accent-primary"
+            />
+          </label>
+        )}
 
         {sessions.length > 0 ? (
           <div className="mt-3 space-y-2">
