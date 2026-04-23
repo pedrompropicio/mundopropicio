@@ -1036,11 +1036,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // have one. Rule: 1 auto-generated TX per BP line — additional TXs for the
   // same category must be created from the Transactions modal.
   const isEligibleForBulkTx = useCallback(
-    (f: any) =>
-      f.status === "approved" &&
-      !f.transaction_id &&
-      findMatchingTransactionsForForecast(f, transactions, forecasts).length === 0,
-    [transactions, forecasts],
+    (f: any) => {
+      const isMasterDerivedOnSplit = !!parentEventId && (
+        !!f._prorated ||
+        !!f._overhead_via_master ||
+        !!f._readonly ||
+        !!f.master_forecast_id ||
+        (!!f._master_event_id && f._master_event_id !== eventId)
+      );
+
+      return (
+        f.status === "approved" &&
+        !isMasterDerivedOnSplit &&
+        !f.transaction_id &&
+        findMatchingTransactionsForForecast(f, transactions, forecasts).length === 0
+      );
+    },
+    [parentEventId, eventId, transactions, forecasts],
   );
 
   const handleBulkCreateTx = () => {
