@@ -312,6 +312,15 @@ function AuthRoute() {
     const isCamarimOnly =
       !isAdmin && !isManager && hasPermission("camarim_team");
     if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
+    // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
+    try {
+      const prefersCamarim =
+        typeof window !== "undefined" &&
+        localStorage.getItem("camarim_team_default_landing") === "1";
+      if (prefersCamarim && hasPermission("camarim_team")) {
+        return <Navigate to="/camarim-equipa" replace />;
+      }
+    } catch {}
     return <Navigate to="/" replace />;
   }
   return <Auth />;
