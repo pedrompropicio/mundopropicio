@@ -407,7 +407,27 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Categoria contábil {mode === "manager" && <span className="text-destructive">*</span>}</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar categoria…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.code} — {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {mode === "team" && (
+                <p className="text-[11px] text-muted-foreground">
+                  Opcional — o gestor confirma a categoria na revisão.
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Descrição rápida</Label>
               <Input value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} />
             </div>
