@@ -54,12 +54,27 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
   useEffect(() => {
     if (!open) return;
+    void loadCategories();
     if (itemId) {
       void loadItem(itemId);
     } else {
       reset();
     }
   }, [open, itemId]);
+
+  const loadCategories = async () => {
+    const { data } = await supabase
+      .from("account_categories")
+      .select("id,code,name,parent_id,is_active,type")
+      .eq("is_active", true)
+      .eq("type", "expense")
+      .order("code");
+    // Only leaf categories (no children)
+    const all = (data ?? []) as any[];
+    const parentIds = new Set(all.map((c) => c.parent_id).filter(Boolean));
+    const leaves = all.filter((c) => !parentIds.has(c.id));
+    setCategories(leaves.map((c) => ({ id: c.id, code: c.code, name: c.name })));
+  };
 
   const reset = () => {
     setSupplierName("");
