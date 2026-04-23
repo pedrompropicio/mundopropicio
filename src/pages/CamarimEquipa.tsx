@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShoppingBag, Camera, Receipt } from "lucide-react";
+import { ShoppingBag, Camera, Receipt, GripHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
@@ -27,6 +27,7 @@ import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimTeamSummary } from "@/components/camarim/CamarimTeamSummary";
 
 const LAST_SESSION_KEY = "camarim_team_last_session";
+const FRAME_POS_KEY = "camarim_team_frame_pos";
 
 interface SessionRow {
   id: string;
@@ -56,6 +57,96 @@ export default function CamarimEquipa() {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
+
+  // ===== Drag-to-move (apenas desktop, sm+) =====
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    active: boolean;
+  } | null>(null);
+
+  // Restore saved position on mount (desktop only)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth < 640) return;
+    try {
+      const raw = localStorage.getItem(FRAME_POS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.x === "number" && typeof parsed?.y === "number") {
+          setPos(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const clampPos = (x: number, y: number) => {
+    const el = frameRef.current;
+    const w = el?.offsetWidth ?? 420;
+    const h = el?.offsetHeight ?? 700;
+    const maxX = window.innerWidth - w;
+    const maxY = window.innerHeight - h;
+    return {
+      x: Math.max(0, Math.min(x, Math.max(0, maxX))),
+      y: Math.max(0, Math.min(y, Math.max(0, maxY))),
+    };
+  };
+
+  const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (window.innerWidth < 640) return; // só desktop
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const el = frameRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const current = pos ?? { x: rect.left, y: rect.top };
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: current.x,
+      origY: current.y,
+      active: true,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+
+  const onDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d?.active) return;
+    const next = clampPos(d.origX + (e.clientX - d.startX), d.origY + (e.clientY - d.startY));
+    setPos(next);
+  };
+
+  const onDragEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d?.active) return;
+    d.active = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    if (pos) {
+      try {
+        localStorage.setItem(FRAME_POS_KEY, JSON.stringify(pos));
+      } catch {}
+    }
+  };
+
+  // Re-clamp on window resize so a janela não fica fora do ecrã
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth < 640) {
+        setPos(null);
+        return;
+      }
+      setPos((p) => (p ? clampPos(p.x, p.y) : p));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (loading || !user) return;
@@ -149,11 +240,34 @@ export default function CamarimEquipa() {
     );
   }
 
+  // No desktop: se houver pos guardada, posiciona a janela em coords absolutas
+  // dentro do viewport. No mobile (<sm): pos é null e a janela ocupa o ecrã.
+  const frameStyle: React.CSSProperties =
+    pos && typeof window !== "undefined" && window.innerWidth >= 640
+      ? { position: "fixed", left: pos.x, top: pos.y, margin: 0 }
+      : {};
+
   return (
     <div className="min-h-[100dvh] w-full bg-muted/30 sm:py-6">
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden bg-background sm:min-h-[min(900px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl">
+      <div
+        ref={frameRef}
+        style={frameStyle}
+        className="relative mx-auto flex min-h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden bg-background sm:min-h-[min(900px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl"
+      >
+      {/* Drag handle — só visível em desktop */}
+      <div
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
+        className="hidden sm:flex sticky top-0 z-30 h-6 cursor-grab items-center justify-center bg-muted/40 select-none active:cursor-grabbing rounded-t-[2rem] touch-none"
+        title="Arrastar"
+        aria-label="Arrastar janela"
+      >
+        <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+      </div>
       {/* Sticky header — selector sempre visível */}
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:rounded-t-[2rem]">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-primary" />
