@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link as RouterLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { IvaRate } from "@/lib/mock-data";
 import { X, Building, FileText, Landmark, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -461,8 +463,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{isPaid ? (isAdmin ? "Editar (Ajuste Admin)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold">{isPaid ? (isAdmin ? "Editar (Ajuste Admin)" : "Editar (Liquidada)") : "Editar Transação"}</h2>
+            <Button asChild size="sm" variant="outline" className="h-8 w-fit text-xs">
+              <RouterLink to="/reembolsos">Abrir listas de reembolso</RouterLink>
+            </Button>
+          </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-secondary"><X className="h-5 w-5" /></button>
         </div>
 
