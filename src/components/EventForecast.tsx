@@ -1522,7 +1522,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const totalForecastExpenseIva = comparisonForecasts
     .filter((f) => f.type === "expense")
     .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
-  const totalForecastExpense = totalForecastExpenseBase + totalForecastExpenseIva;
+  const totalForecastExpense = totalForecastExpenseBase;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
   const totalActualIncome = comparisonTransactions
