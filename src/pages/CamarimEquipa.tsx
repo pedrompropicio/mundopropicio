@@ -359,6 +359,7 @@ export default function CamarimEquipa() {
                 className="cursor-pointer transition active:scale-[0.99]"
                 onClick={() => {
                   setEditId(it.id);
+                  setAutoCamera(false);
                   setShowAdd(true);
                 }}
               >
@@ -392,18 +393,33 @@ export default function CamarimEquipa() {
         )}
       </main>
 
-      {/* FAB — câmara, sempre disponível */}
+      {/* FAB — câmara (principal) + manual (secundário) */}
       {selectedId && (
-        <button
-          onClick={() => {
-            setEditId(null);
-            setShowAdd(true);
-          }}
-          className="absolute bottom-6 left-1/2 z-30 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background active:scale-95"
-          aria-label="Nova conta"
-        >
-          <Camera className="h-7 w-7" />
-        </button>
+        <div className="absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3">
+          <button
+            onClick={() => {
+              setEditId(null);
+              setAutoCamera(false);
+              setShowAdd(true);
+            }}
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg active:scale-95"
+            aria-label="Adicionar manualmente"
+            title="Adicionar manualmente"
+          >
+            <Pencil className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => {
+              setEditId(null);
+              setAutoCamera(true);
+              setShowAdd(true);
+            }}
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background active:scale-95"
+            aria-label="Nova conta com foto"
+          >
+            <Camera className="h-7 w-7" />
+          </button>
+        </div>
       )}
 
       {showAdd && selectedId && (
