@@ -1,0 +1,1 @@
+DELETE FROM public.account_categories WHERE code = '2.2.05' AND name = 'Camarim';
