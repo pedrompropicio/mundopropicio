@@ -429,6 +429,7 @@ export default function CamarimEquipa() {
             setShowAdd(o);
             if (!o) {
               setEditId(null);
+              setAutoCamera(false);
               void loadItems(selectedId);
               void load();
             }
@@ -436,7 +437,7 @@ export default function CamarimEquipa() {
           sessionId={selectedId}
           itemId={editId}
           mode="team"
-          autoOpenCamera={!editId}
+          autoOpenCamera={autoCamera && !editId}
           onSaved={() => loadItems(selectedId)}
         />
       )}
