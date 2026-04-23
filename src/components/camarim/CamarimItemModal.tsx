@@ -23,10 +23,12 @@ interface Props {
   sessionId: string;
   itemId?: string | null;
   mode: "team" | "manager";
+  /** When true and creating a new item, opens the camera/file picker right after the modal mounts. */
+  autoOpenCamera?: boolean;
   onSaved?: () => void;
 }
 
-export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, onSaved }: Props) {
+export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, autoOpenCamera, onSaved }: Props) {
   const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +61,13 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       void loadItem(itemId);
     } else {
       reset();
+      // Auto-trigger file picker for the team flow
+      if (autoOpenCamera) {
+        const t = setTimeout(() => fileRef.current?.click(), 250);
+        return () => clearTimeout(t);
+      }
     }
-  }, [open, itemId]);
+  }, [open, itemId, autoOpenCamera]);
 
   const loadCategories = async () => {
     const { data } = await supabase
