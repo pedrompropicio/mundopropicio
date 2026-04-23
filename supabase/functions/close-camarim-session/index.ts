@@ -341,25 +341,36 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update session status + settlement metadata
-    await adminClient
-      .from("camarim_sessions")
-      .update({
-        status: "integrated",
-        integrated_at: new Date().toISOString(),
-        advance_total: advanceNet,
-        spent_total: spentFromAdvance,
-        settlement_balance: balance,
-        settlement_type: settlementType,
-        settlement_transaction_id: settlementTxId,
-      })
-      .eq("id", body.session_id);
+    // Guard: se nenhum item virou transação E houve erros, não marcar sessão como integrada
+    const allFailed = created.length === 0 && errors.length > 0;
+
+    // Update session status + settlement metadata (apenas se gerou pelo menos 1 transação)
+    if (!allFailed) {
+      await adminClient
+        .from("camarim_sessions")
+        .update({
+          status: "integrated",
+          integrated_at: new Date().toISOString(),
+          advance_total: advanceNet,
+          spent_total: spentFromAdvance,
+          settlement_balance: balance,
+          settlement_type: settlementType,
+          settlement_transaction_id: settlementTxId,
+        })
+        .eq("id", body.session_id);
+    }
 
     // Audit / integration record
+    const integrationStatus = allFailed
+      ? "failed"
+      : errors.length === 0
+        ? "success"
+        : "partial";
+
     await adminClient.from("camarim_integrations").insert({
       session_id: body.session_id,
       integration_type: "transactions",
-      status: errors.length === 0 ? "success" : "partial",
+      status: integrationStatus,
       created_by: caller.id,
       summary_payload: {
         created_count: created.length,
@@ -373,6 +384,17 @@ Deno.serve(async (req) => {
         parked_remaining: (stillParked ?? []).length,
       },
     });
+
+    // Se nenhum item integrou, devolve 422 com lista de erros
+    if (allFailed) {
+      return json({
+        success: false,
+        error: "Nenhuma transação foi gerada — verifica os pré-requisitos (ex.: regista um movimento de adiantamento antes de integrar itens pagos pelo adiantamento).",
+        created: 0,
+        total_items: items.length,
+        errors,
+      }, 422);
+    }
 
     return json({
       success: true,
