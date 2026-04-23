@@ -545,30 +545,117 @@ export default function CamarimSessionDetail() {
       )}
 
       <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
             <AlertDialogDescription>
               Vou gerar {approvedItems.length} transação(ões) a partir dos itens aprovados.
-              Itens pagos por adiantamento serão liquidados na conta de caixa do camarim;
-              itens pagos do bolso ficarão como aprovados (a reembolsar).
+              Itens por adiantamento são liquidados na caixa do camarim; do bolso ficam a reembolsar.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {needsCardAccount && (
-            <div className="space-y-2">
-              <Label>Conta financeira do cartão da empresa</Label>
-              <Select value={cardAccountId} onValueChange={setCardAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar conta…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+
+          <div className="space-y-4">
+            {needsCardAccount && (
+              <div className="space-y-2">
+                <Label>Conta financeira do cartão da empresa</Label>
+                <Select value={cardAccountId} onValueChange={setCardAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar conta…" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Acerto de adiantamento */}
+            {settlementPreview.advanceNet > 0 && (
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                <p className="text-sm font-medium">Acerto de adiantamento</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>Adiantamento líquido: <strong className="tabular-nums">{formatCurrency(settlementPreview.advanceNet, session.currency)}</strong></div>
+                  <div>Gasto via adiant.: <strong className="tabular-nums">{formatCurrency(settlementPreview.spentFromAdvance, session.currency)}</strong></div>
+                </div>
+                {settlementPreview.type === "balanced" ? (
+                  <p className="text-xs text-emerald-600">✓ Equilibrado — sem acerto necessário.</p>
+                ) : settlementPreview.type === "reinforcement" ? (
+                  <p className="text-xs text-destructive">
+                    Falta pagar à equipa: <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — será criada transação de despesa <em>aprovada</em>.
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-600">
+                    Sobra a devolver: <strong>{formatCurrency(Math.abs(settlementPreview.balance), session.currency)}</strong> — será criada transação de receita <em>aprovada</em>.
+                  </p>
+                )}
+                {settlementPreview.type !== "balanced" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Conta para o acerto (opcional — usa a do adiantamento se vazio)</Label>
+                    <Select value={settlementAccountId} onValueChange={setSettlementAccountId}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Mesma do adiantamento" /></SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Itens parqueados */}
+            {parkedItems.length > 0 && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  {parkedItems.length} item(ns) parqueado(s) sem documento — decide o destino
+                </div>
+                {parkedItems.map((p) => {
+                  const d = parkedDecisions[p.id];
+                  return (
+                    <div key={p.id} className="space-y-1.5 rounded border border-border bg-card p-2">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate font-medium">{p.supplier_name_raw || "—"} · {p.service_description || "—"}</span>
+                        <span className="shrink-0 tabular-nums">{formatCurrency(p.total_amount, session.currency)}</span>
+                      </div>
+                      <Select
+                        value={d?.decision ?? ""}
+                        onValueChange={(v) =>
+                          setParkedDecisions((prev) => ({
+                            ...prev,
+                            [p.id]: { decision: v as any, reason: prev[p.id]?.reason ?? "" },
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="h-8"><SelectValue placeholder="Escolher destino…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="reject">Rejeitar (descarta)</SelectItem>
+                          <SelectItem value="approve_without_doc">Aprovar sem documento (com justificativa)</SelectItem>
+                          <SelectItem value="defer">Adiar (fica para próxima sessão)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {d?.decision === "approve_without_doc" && (
+                        <input
+                          type="text"
+                          placeholder="Justificativa contábil (obrigatória)"
+                          value={d.reason}
+                          onChange={(e) =>
+                            setParkedDecisions((prev) => ({
+                              ...prev,
+                              [p.id]: { ...prev[p.id], reason: e.target.value },
+                            }))
+                          }
+                          className="w-full rounded border border-border bg-background px-2 py-1 text-xs"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={runIntegrate} disabled={integrating}>
