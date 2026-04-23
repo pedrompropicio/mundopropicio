@@ -6,9 +6,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ParkedDecision {
+  item_id: string;
+  decision: "reject" | "approve_without_doc" | "defer";
+  reason?: string;
+}
+
 interface RequestBody {
   session_id: string;
   card_account_id?: string | null; // financial account id used for "card" payments
+  /** Decisão item-a-item para itens parqueados (status='pending_review'). */
+  parked_decisions?: ParkedDecision[];
+  /** Conta financeira para gerar a transação de acerto (reforço/devolução do adiantamento). */
+  settlement_account_id?: string | null;
+  /** ID do fornecedor (sócio/funcionário) para a transação de reforço quando há saldo a pagar à equipa. */
+  settlement_supplier_id?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -68,7 +80,46 @@ Deno.serve(async (req) => {
       return json({ error: "Sessão sem evento associado — impossível gerar transações" }, 422);
     }
 
-    // Approved items only
+    // === Aplicar decisões sobre itens parqueados ANTES de carregar os aprovados ===
+    const decisions = body.parked_decisions ?? [];
+    if (decisions.length > 0) {
+      for (const d of decisions) {
+        if (!d.item_id) continue;
+        if (d.decision === "reject") {
+          await adminClient
+            .from("camarim_items")
+            .update({ status: "rejected" })
+            .eq("id", d.item_id)
+            .eq("status", "pending_review");
+        } else if (d.decision === "approve_without_doc") {
+          if (!d.reason || !d.reason.trim()) {
+            return json({
+              error: `Item ${d.item_id}: justificativa obrigatória para aprovar sem documento.`,
+            }, 422);
+          }
+          await adminClient
+            .from("camarim_items")
+            .update({
+              status: "approved",
+              approved_without_document: true,
+              approved_without_document_reason: d.reason,
+              needs_accounting_review: true,
+            })
+            .eq("id", d.item_id)
+            .eq("status", "pending_review");
+        }
+        // 'defer' → não faz nada, fica parqueado para próxima vez
+      }
+    }
+
+    // Verificar se ainda há parqueados (não decididos)
+    const { data: stillParked } = await adminClient
+      .from("camarim_items")
+      .select("id")
+      .eq("session_id", body.session_id)
+      .eq("status", "pending_review");
+
+    // Approved items only (após aplicar decisões)
     const { data: items, error: iErr } = await adminClient
       .from("camarim_items")
       .select("*")
@@ -202,10 +253,106 @@ Deno.serve(async (req) => {
       created.push(newTx.id);
     }
 
-    // Update session status
+    // ===== ABATE AUTOMÁTICO DO ADIANTAMENTO =====
+    // Soma adiantamentos entregues (advance + reinforcement) menos devoluções já feitas
+    const { data: fundMoves } = await adminClient
+      .from("camarim_fund_moves")
+      .select("move_type,amount")
+      .eq("session_id", body.session_id);
+
+    const advanceTotal = (fundMoves ?? [])
+      .filter((m: any) => m.move_type === "advance" || m.move_type === "reinforcement")
+      .reduce((acc: number, m: any) => acc + Number(m.amount ?? 0), 0);
+    const refundTotal = (fundMoves ?? [])
+      .filter((m: any) => m.move_type === "refund")
+      .reduce((acc: number, m: any) => acc + Number(m.amount ?? 0), 0);
+    const advanceNet = advanceTotal - refundTotal;
+
+    // Total efetivamente gasto contra o adiantamento (apenas itens advance integrados)
+    const spentFromAdvance = (items as any[])
+      .filter((it) => it.payment_origin === "advance")
+      .reduce((acc, it) => acc + Number(it.total_amount ?? 0), 0);
+
+    // saldo positivo = falta dinheiro à equipa (REFORÇO a pagar)
+    // saldo negativo = sobrou dinheiro com a equipa (DEVOLUÇÃO a receber)
+    const balance = +(spentFromAdvance - advanceNet).toFixed(2);
+    let settlementType: "refund" | "reinforcement" | "balanced" = "balanced";
+    let settlementTxId: string | null = null;
+
+    const settlementAccountId = body.settlement_account_id ?? advanceAccountId;
+    const SETTLEMENT_TOLERANCE = 0.01;
+
+    if (advanceNet > 0 && Math.abs(balance) >= SETTLEMENT_TOLERANCE && settlementAccountId) {
+      const settlementEventId = session.master_event_id ?? primaryEventId;
+      if (balance > 0) {
+        // Falta pagar à equipa → cria expense 'approved' a favor do responsável
+        settlementType = "reinforcement";
+        const { data: stx, error: stxErr } = await adminClient
+          .from("transactions")
+          .insert({
+            description: `Camarim — Reforço (acerto adiantamento) · ${session.title}`,
+            type: "expense",
+            amount: balance,
+            iva_rate: 0,
+            event_id: settlementEventId,
+            category_id: null,
+            supplier_id: body.settlement_supplier_id ?? null,
+            specification: `Acerto automático do adiantamento da sessão ${session.title}`,
+            date: new Date().toISOString().slice(0, 10),
+            status: "approved",
+            currency: session.currency ?? "EUR",
+            paid_amount: 0,
+            account_id: settlementAccountId,
+          })
+          .select("id")
+          .single();
+        if (stxErr) {
+          errors.push(`Acerto/reforço: ${stxErr.message}`);
+        } else {
+          settlementTxId = stx.id;
+        }
+      } else {
+        // Sobrou caixa → cria income 'approved' a receber da equipa
+        settlementType = "refund";
+        const { data: stx, error: stxErr } = await adminClient
+          .from("transactions")
+          .insert({
+            description: `Camarim — Devolução (acerto adiantamento) · ${session.title}`,
+            type: "income",
+            amount: Math.abs(balance),
+            iva_rate: 0,
+            event_id: settlementEventId,
+            category_id: null,
+            supplier_id: body.settlement_supplier_id ?? null,
+            specification: `Acerto automático do adiantamento da sessão ${session.title}`,
+            date: new Date().toISOString().slice(0, 10),
+            status: "approved",
+            currency: session.currency ?? "EUR",
+            paid_amount: 0,
+            account_id: settlementAccountId,
+          })
+          .select("id")
+          .single();
+        if (stxErr) {
+          errors.push(`Acerto/devolução: ${stxErr.message}`);
+        } else {
+          settlementTxId = stx.id;
+        }
+      }
+    }
+
+    // Update session status + settlement metadata
     await adminClient
       .from("camarim_sessions")
-      .update({ status: "integrated", integrated_at: new Date().toISOString() })
+      .update({
+        status: "integrated",
+        integrated_at: new Date().toISOString(),
+        advance_total: advanceNet,
+        spent_total: spentFromAdvance,
+        settlement_balance: balance,
+        settlement_type: settlementType,
+        settlement_transaction_id: settlementTxId,
+      })
       .eq("id", body.session_id);
 
     // Audit / integration record
@@ -218,6 +365,12 @@ Deno.serve(async (req) => {
         created_count: created.length,
         error_count: errors.length,
         errors,
+        advance_net: advanceNet,
+        spent_from_advance: spentFromAdvance,
+        settlement_balance: balance,
+        settlement_type: settlementType,
+        settlement_transaction_id: settlementTxId,
+        parked_remaining: (stillParked ?? []).length,
       },
     });
 
@@ -226,6 +379,14 @@ Deno.serve(async (req) => {
       created: created.length,
       total_items: items.length,
       errors,
+      settlement: {
+        advance_net: advanceNet,
+        spent_from_advance: spentFromAdvance,
+        balance,
+        type: settlementType,
+        transaction_id: settlementTxId,
+      },
+      parked_remaining: (stillParked ?? []).length,
     });
   } catch (err: any) {
     return json({ error: err?.message ?? String(err) }, 500);
