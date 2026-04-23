@@ -728,7 +728,7 @@ export default function CamarimSessionDetail() {
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={runIntegrate} disabled={integrating}>
+            <AlertDialogAction onClick={runIntegrate} disabled={integrating || blockingIssues.length > 0}>
               {integrating ? "A integrar…" : "Integrar agora"}
             </AlertDialogAction>
           </AlertDialogFooter>
