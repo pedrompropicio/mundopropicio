@@ -453,12 +453,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               <span>Sem documento fiscal</span>
             </Label>
             {!hasDocument && (
-              <Textarea
-                placeholder="Motivo (ex: estabelecimento não emitiu talão)"
-                value={docIssueReason}
-                onChange={(e) => setDocIssueReason(e.target.value)}
-                rows={2}
-              />
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Motivo (ex: estabelecimento não emitiu talão)"
+                  value={docIssueReason}
+                  onChange={(e) => setDocIssueReason(e.target.value)}
+                  rows={2}
+                />
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  Sem documento fiscal — o item ficará <strong>parqueado</strong> até o manager justificar e aprovar manualmente. Não gera transação até lá.
+                </p>
+              </div>
             )}
           </div>
 
