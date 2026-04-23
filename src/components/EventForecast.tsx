@@ -3121,8 +3121,8 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   );
 }
 
-function SummaryCard({ label, forecast, actual, icon, isProfit }: {
-  label: string; forecast: number; actual: number; icon: React.ReactNode; isProfit?: boolean;
+function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
+  label: string; helpText?: string; forecast: number; actual: number; icon: React.ReactNode; isProfit?: boolean;
 }) {
   const variance = actual - forecast;
   const variancePct = forecast !== 0 ? (variance / Math.abs(forecast)) * 100 : 0;
@@ -3130,7 +3130,7 @@ function SummaryCard({ label, forecast, actual, icon, isProfit }: {
 
   return (
     <div className="glass rounded-xl p-4 space-y-2">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">{icon}{label}</div>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">{icon}{label}{helpText ? <HelpTooltip text={helpText} size={14} /> : null}</div>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <span className="text-muted-foreground">Previsão</span>
