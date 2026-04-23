@@ -44,7 +44,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
-  const [categories, setCategories] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [categoryLabel, setCategoryLabel] = useState<string>("2.2.05 — Camarim");
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
