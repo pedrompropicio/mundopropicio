@@ -193,10 +193,11 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       return;
     }
 
-    // Sem documento → força parqueamento (manager decide depois)
-    // Excepção: manager pode aprovar diretamente se já preenche justificativa válida
+    // Sem documento → força parqueamento (manager decide depois).
+    // Único bypass: manager pode aprovar diretamente preenchendo justificativa válida.
+    // Rejeitar mantém-se sempre como "rejected".
     let effectiveStatus: CamarimItemStatus = asStatus;
-    if (!hasDocument && asStatus !== "rejected" && asStatus !== "draft") {
+    if (!hasDocument && asStatus !== "rejected") {
       effectiveStatus = mode === "manager" && asStatus === "approved" ? "approved" : "pending_review";
     }
 
