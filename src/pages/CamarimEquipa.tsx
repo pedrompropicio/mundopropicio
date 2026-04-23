@@ -56,6 +56,7 @@ export default function CamarimEquipa() {
   const [items, setItems] = useState<ItemRow[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [autoCamera, setAutoCamera] = useState(false);
   const [busy, setBusy] = useState(true);
 
   // ===== Drag-to-move (apenas desktop, sm+) =====
