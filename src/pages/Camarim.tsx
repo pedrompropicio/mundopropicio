@@ -17,6 +17,7 @@ import {
   type CamarimSessionStatus,
 } from "@/lib/camarim-helpers";
 import { OpenSessionModal } from "@/components/camarim/OpenSessionModal";
+import { CamarimManagerDashboard } from "@/components/camarim/CamarimManagerDashboard";
 
 interface SessionRow {
   id: string;
@@ -108,6 +109,9 @@ export default function Camarim() {
           )}
         </div>
       </div>
+
+      {/* Dashboard agregado das sessões abertas */}
+      <CamarimManagerDashboard />
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-md">

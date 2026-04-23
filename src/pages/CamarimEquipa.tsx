@@ -24,6 +24,7 @@ import {
   type CamarimItemStatus,
 } from "@/lib/camarim-helpers";
 import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
+import { CamarimTeamSummary } from "@/components/camarim/CamarimTeamSummary";
 
 const LAST_SESSION_KEY = "camarim_team_last_session";
 
@@ -43,6 +44,7 @@ interface ItemRow {
   service_description: string | null;
   status: CamarimItemStatus;
   document_date: string | null;
+  has_document: boolean;
 }
 
 export default function CamarimEquipa() {
@@ -110,7 +112,7 @@ export default function CamarimEquipa() {
   const loadItems = async (sid: string) => {
     const { data } = await supabase
       .from("camarim_items" as any)
-      .select("id,total_amount,supplier_name_raw,service_description,status,document_date")
+      .select("id,total_amount,supplier_name_raw,service_description,status,document_date,has_document")
       .eq("session_id", sid)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -211,7 +213,15 @@ export default function CamarimEquipa() {
       </header>
 
       {/* Lista de contas */}
-      <main className="flex-1 px-4 pb-32 pt-4">
+      <main className="flex-1 px-4 pb-32 pt-4 space-y-4">
+        {activeSession && !busy && (
+          <CamarimTeamSummary
+            items={items}
+            budget={activeSession.budget_amount}
+            spent={activeSession.spent ?? 0}
+            currency={activeSession.currency}
+          />
+        )}
         {busy ? (
           <p className="text-sm text-muted-foreground">A carregar…</p>
         ) : !selectedId ? (
