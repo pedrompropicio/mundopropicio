@@ -6,7 +6,7 @@ export type CamarimSessionStatus = "open" | "in_review" | "closed" | "integrated
 
 export type CamarimItemPaymentOrigin = "advance" | "card" | "out_of_pocket";
 
-export type CamarimItemBpScope = "master_common" | "local_city";
+export type CamarimItemBpScope = "master_common" | "local_city" | "mixed";
 
 export type CamarimItemStatus =
   | "draft"
@@ -14,7 +14,8 @@ export type CamarimItemStatus =
   | "approved"
   | "rejected"
   | "integrated"
-  | "pending_review";
+  | "pending_review"
+  | "split";
 
 export type CamarimFundMoveType = "advance" | "reinforcement" | "refund" | "adjustment";
 
@@ -53,6 +54,7 @@ export const PAYMENT_ORIGIN_LABELS: Record<CamarimItemPaymentOrigin, string> = {
 export const BP_SCOPE_LABELS: Record<CamarimItemBpScope, string> = {
   master_common: "BP Master (rateio comum)",
   local_city: "BP Local (cidade)",
+  mixed: "Misto (a dividir)",
 };
 
 export const FUND_MOVE_LABELS: Record<CamarimFundMoveType, string> = {
@@ -69,6 +71,7 @@ export const ITEM_STATUS_LABELS: Record<CamarimItemStatus, string> = {
   rejected: "Rejeitado",
   integrated: "Integrado",
   pending_review: "Parqueado (sem doc.)",
+  split: "Dividido",
 };
 
 export const ITEM_STATUS_VARIANTS: Record<CamarimItemStatus, string> = {
@@ -78,6 +81,7 @@ export const ITEM_STATUS_VARIANTS: Record<CamarimItemStatus, string> = {
   rejected: "bg-destructive/15 text-destructive border-destructive/30",
   integrated: "bg-primary/15 text-primary border-primary/30",
   pending_review: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  split: "bg-purple-500/15 text-purple-600 border-purple-500/30",
 };
 
 export function formatCurrency(amount: number, currency = "EUR") {
