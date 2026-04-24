@@ -125,11 +125,45 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
   const handleDelete = async () => {
     if (!itemId) return;
-    const ok = window.confirm("Eliminar este lançamento? Esta ação não pode ser desfeita.");
+    if (isSplitChild) {
+      toast({
+        variant: "destructive",
+        title: "Não é possível eliminar uma linha-filha isoladamente",
+        description:
+          'Use "Redividir" no talão-mãe para ajustar a divisão, ou elimine o talão-mãe (apaga todas as linhas).',
+      });
+      return;
+    }
+
+    // Conta filhos (se for pai dividido) para avisar o utilizador
+    let childrenCount = 0;
+    if (isSplitParent) {
+      const { count } = await supabase
+        .from("camarim_items" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("parent_item_id", itemId);
+      childrenCount = count ?? 0;
+    }
+
+    const confirmMsg =
+      childrenCount > 0
+        ? `Este talão foi dividido em ${childrenCount} linha(s). Eliminar vai apagar TODAS as linhas associadas. Tens a certeza?`
+        : "Eliminar este lançamento? Esta ação não pode ser desfeita.";
+    const ok = window.confirm(confirmMsg);
     if (!ok) return;
+
+    // 2ª confirmação reforçada quando há filhos
+    if (childrenCount > 0) {
+      const ok2 = window.confirm(
+        `Confirma definitivamente: vais apagar o talão-mãe + ${childrenCount} linha(s) filha(s).`,
+      );
+      if (!ok2) return;
+    }
+
     setDeleting(true);
     try {
-      // Apaga primeiro os documentos do storage e da tabela
+      // Apaga primeiro os documentos do storage e da tabela (apenas do pai;
+      // os filhos não têm anexos próprios — partilham via lookup ao pai).
       const { data: docs } = await supabase
         .from("camarim_item_documents" as any)
         .select("file_path")
@@ -139,9 +173,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         await supabase.storage.from("camarim-documents").remove(paths);
         await supabase.from("camarim_item_documents" as any).delete().eq("item_id", itemId);
       }
+      // CASCADE da FK parent_item_id apaga os filhos automaticamente.
       const { error } = await supabase.from("camarim_items" as any).delete().eq("id", itemId);
       if (error) throw error;
-      toast({ title: "Lançamento eliminado" });
+      toast({
+        title: childrenCount > 0 ? "Talão e linhas filhas eliminados" : "Lançamento eliminado",
+      });
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
