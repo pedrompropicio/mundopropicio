@@ -422,10 +422,11 @@ export function ResultsAnalysis() {
 
         // ── REAL ATUAL ──
         // Modo "projection": despesas = merge BP+real (mantém teto BP) — útil antes/durante
-        // Modo "realized":   despesas = só transações reais (paid + pending) — eventos passados
-        // Receita = bilheteira VENDIDA + outras receitas BP (assume que outras receitas concretizam)
+        // Modo "realized":   despesas = só transações reais (paid + approved) — eventos passados
+        // Receita: APENAS realizada (bilheteira vendida + transações income paid+approved).
+        // BP de outras receitas NÃO entra no Real (alinha com os Cards do sub-evento).
         const ticketRevenueSold = ownTicketSales;
-        const realIncome = ticketRevenueSold + bpOtherIncome;
+        const realIncome = ticketRevenueSold + ownTxnIncome;
         const ownMergedExpense = mergeExpenseForEvent(e.id, eventMode);
         const realExpense =
           ownMergedExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
