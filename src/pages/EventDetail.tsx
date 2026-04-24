@@ -819,12 +819,22 @@ export default function EventDetail() {
           icon={TrendingUp}
           variant="accent"
           subtitle={hasTicketSales ? "Via bilheteira" : (transactionIncome > 0 ? "Via transações" : undefined)}
+          tooltip={
+            hasTicketSales
+              ? "Receita bruta de vendas registadas na Bilheteira (quando existem vendas, esta substitui as transações de receita para evitar dupla contagem)."
+              : "Soma das transações de receita aprovadas ou pagas (exclui pendentes). Quando existem vendas de bilheteira, passa a usar essa fonte."
+          }
         />
         <StatCard
           title={isGlobalView ? "Despesas (Global)" : "Despesas"}
           value={formatCurrency(totalExpenses)}
           icon={TrendingDown}
           variant="warning"
+          tooltip={
+            isGlobalView
+              ? "Soma das despesas operacionais aprovadas ou pagas (exclui pendentes e transitórias) de todas as datas da turnê + transações Master rateadas."
+              : "Despesas operacionais do evento (aprovadas/pagas, sem transitórias) + quota-parte das transações Master partilhadas com outras datas."
+          }
         />
         <StatCard
           title="Lucro"
@@ -832,12 +842,14 @@ export default function EventDetail() {
           icon={Wallet}
           variant="primary"
           subtitle={totalIncome > 0 ? `Margem: ${((profit / totalIncome) * 100).toFixed(1)}%` : undefined}
+          tooltip="Receitas − Despesas (com a mesma base dos cards acima). Margem = Lucro ÷ Receitas."
         />
         <StatCard
           title="Bilhetes"
           value={`${event.tickets_sold.toLocaleString()}`}
           icon={Ticket}
           subtitle={event.tickets_total > 0 ? `de ${event.tickets_total.toLocaleString()} (${((event.tickets_sold / event.tickets_total) * 100).toFixed(0)}%)` : undefined}
+          tooltip="Bilhetes vendidos registados no evento sobre a capacidade total configurada (não inclui convites/cortesias)."
         />
       </div>
 

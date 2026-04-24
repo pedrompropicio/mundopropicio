@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { type LucideIcon } from "lucide-react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface StatCardProps {
   title: string;
@@ -10,6 +11,7 @@ interface StatCardProps {
   variant?: "default" | "primary" | "accent" | "warning";
   forecast?: string;
   executionPercent?: number;
+  tooltip?: string;
 }
 
 const variantStyles = {
@@ -26,12 +28,15 @@ const iconVariantStyles = {
   warning: "bg-warning/15 text-warning",
 };
 
-export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = "default", forecast, executionPercent }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = "default", forecast, executionPercent, tooltip }: StatCardProps) {
   return (
     <div className={cn("glass rounded-xl p-5 animate-fade-in", variantStyles[variant])}>
       <div className="flex items-start justify-between">
         <div className="space-y-1 min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
+            {tooltip && <HelpTooltip text={tooltip} size={12} />}
+          </div>
           <p className="text-2xl font-bold tracking-tight">{value}</p>
           {forecast && (
             <div className="space-y-1">
