@@ -304,14 +304,31 @@ export default function CamarimEquipa() {
             <ShoppingBag className="h-5 w-5 text-primary" />
             <span className="text-sm font-semibold">Camarim — Equipa</span>
           </div>
-          {activeSession && (
-            <Badge
-              className={cn("border", SESSION_STATUS_VARIANTS[activeSession.status])}
-              variant="outline"
+          <div className="flex items-center gap-2">
+            {activeSession && (
+              <Badge
+                className={cn("border", SESSION_STATUS_VARIANTS[activeSession.status])}
+                variant="outline"
+              >
+                {SESSION_STATUS_LABELS[activeSession.status]}
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={async () => {
+                if (window.confirm("Terminar sessão?")) {
+                  await signOut();
+                  navigate("/auth");
+                }
+              }}
+              title="Terminar sessão"
+              aria-label="Terminar sessão"
             >
-              {SESSION_STATUS_LABELS[activeSession.status]}
-            </Badge>
-          )}
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Toggle: só relevante para admin/manager (utilizadores camarim-only já entram sempre aqui) */}
