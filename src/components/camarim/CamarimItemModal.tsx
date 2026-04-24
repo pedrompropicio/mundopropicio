@@ -315,6 +315,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       };
 
       let savedId = itemId ?? null;
+      let createdNow = false;
       if (itemId) {
         const { error } = await supabase.from("camarim_items" as any).update(payload).eq("id", itemId);
         if (error) throw error;
@@ -327,25 +328,55 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           .single();
         if (error) throw error;
         savedId = (data as any).id;
+        createdNow = true;
       }
 
-      // Upload photo if any
+      // Upload photo if any — falha aqui é crítica e tem que ser visível ao utilizador.
+      // Se acabámos de criar o item e o upload falhou, fazemos rollback do item para evitar
+      // ficar um lançamento "fantasma" sem anexo nem rasto.
       if (photoFile && savedId) {
-        const ext = photoFile.name.split(".").pop() || "jpg";
-        const path = `${sessionId}/${savedId}/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("camarim-documents")
-          .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
-        if (upErr) throw upErr;
-        await supabase.from("camarim_item_documents" as any).insert({
-          item_id: savedId,
-          file_path: path,
-          file_name: photoFile.name,
-          mime_type: photoFile.type,
-          file_size: photoFile.size,
-          document_source: mode === "team" ? "team_upload" : "manager_upload",
-          created_by: user?.id ?? null,
-        } as any);
+        try {
+          const ext = (photoFile.name.split(".").pop() || "jpg").toLowerCase();
+          const path = `${sessionId}/${savedId}/${Date.now()}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("camarim-documents")
+            .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+          if (upErr) throw upErr;
+          const { error: docInsErr } = await supabase
+            .from("camarim_item_documents" as any)
+            .insert({
+              item_id: savedId,
+              file_path: path,
+              file_name: photoFile.name,
+              mime_type: photoFile.type,
+              file_size: photoFile.size,
+              document_source: mode === "team" ? "team_upload" : "manager_upload",
+              created_by: user?.id ?? null,
+            } as any);
+          if (docInsErr) {
+            // Storage gravou mas a tabela não — limpa o ficheiro órfão
+            await supabase.storage.from("camarim-documents").remove([path]);
+            throw docInsErr;
+          }
+        } catch (upErr: any) {
+          console.error("Camarim attachment upload failed", upErr);
+          if (createdNow && savedId) {
+            // Rollback do item recém-criado para o utilizador poder voltar a tentar
+            await supabase.from("camarim_items" as any).delete().eq("id", savedId);
+          }
+          const msg =
+            upErr?.message?.includes("row-level security") || upErr?.statusCode === 403
+              ? "Sem permissão para gravar a foto. Pede ao admin para te dar acesso ao bucket camarim-documents."
+              : (upErr?.message ?? "Falha ao gravar o anexo");
+          toast({
+            variant: "destructive",
+            title: "Anexo não foi gravado",
+            description: createdNow
+              ? `${msg} — o lançamento NÃO foi criado, tenta de novo.`
+              : msg,
+          });
+          return;
+        }
       }
 
       toast({ title: itemId ? "Item atualizado" : "Item registado" });
