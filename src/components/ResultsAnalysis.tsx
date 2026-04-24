@@ -50,6 +50,8 @@ interface ActiveProjection {
   realMarginPct: number;
   // Modo aplicado a esta linha (Real Atual)
   resultMode: ResultMode;
+  // True quando a última data efetiva do evento já passou (mostrar só Real Atual)
+  isPast: boolean;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
