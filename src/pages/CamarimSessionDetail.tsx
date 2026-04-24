@@ -424,6 +424,11 @@ export default function CamarimSessionDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canManage && session.status !== "integrated" && (
+            <Button variant="outline" size="sm" onClick={() => setShowEditSession(true)}>
+              <Pencil className="mr-2 h-4 w-4" /> Editar sessão
+            </Button>
+          )}
           {session.status === "open" && canManage && (
             <Button variant="outline" onClick={() => updateSessionStatus("in_review")}>
               <Lock className="mr-2 h-4 w-4" /> Enviar para revisão
@@ -437,6 +442,18 @@ export default function CamarimSessionDetail() {
           {(session.status === "in_review" || session.status === "closed") && canManage && (
             <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
               <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
+            </Button>
+          )}
+          {/* Eliminar sessão: admin enquanto não integrada; manager apenas em revisão */}
+          {((isAdmin && session.status !== "integrated") ||
+            (isManager && !isAdmin && session.status === "in_review")) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteSession(true)}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar sessão
             </Button>
           )}
           {session.status === "integrated" && (
