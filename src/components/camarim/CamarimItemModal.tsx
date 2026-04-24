@@ -317,7 +317,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
-      toast({ variant: "destructive", title: "Erro ao gravar", description: e.message });
+      // 23505 = unique_violation (índice camarim_items_dedup_idx)
+      const code = e?.code ?? e?.cause?.code;
+      if (code === "23505" || /duplicate key|camarim_items_dedup_idx/i.test(e?.message ?? "")) {
+        toast({
+          variant: "destructive",
+          title: "Despesa duplicada",
+          description: "Já existe um lançamento idêntico nesta sessão (mesmo fornecedor, nº de documento e valor).",
+        });
+      } else {
+        toast({ variant: "destructive", title: "Erro ao gravar", description: e.message });
+      }
     } finally {
       setSaving(false);
     }
