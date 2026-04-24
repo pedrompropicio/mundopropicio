@@ -485,6 +485,61 @@ export default function CamarimSessionDetail() {
         </div>
       )}
 
+      {/* Fila: talões mistos por dividir */}
+      {mixedPendingSplit.length > 0 && (
+        <Card className="border-purple-500/40 bg-purple-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-400">
+              <Split className="h-4 w-4" />
+              Talões mistos por dividir ({mixedPendingSplit.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Estes talões estão marcados como mistos (parte Master, parte cidade) e ainda
+              não foram divididos. Divide-os antes do fecho para que cada cidade receba a
+              parte correta do gasto.
+            </p>
+            <div className="space-y-1.5">
+              {mixedPendingSplit.map((it) => (
+                <div
+                  key={it.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-purple-500/20 bg-background p-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {it.supplier_name_raw || "—"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {it.document_date || "—"} ·{" "}
+                      {it.service_description || "sem descrição"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-semibold tabular-nums">
+                      {formatCurrency(it.total_amount, session.currency)}
+                    </span>
+                    {it.has_attachment && (
+                      <CamarimItemAttachmentButton itemId={it.id} iconOnly />
+                    )}
+                    {canManage && session.status !== "integrated" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 border-purple-500/40 text-purple-700 hover:bg-purple-500/10 dark:text-purple-400"
+                        onClick={() => setSplitItemId(it.id)}
+                      >
+                        <Split className="mr-1.5 h-3 w-3" /> Dividir
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
