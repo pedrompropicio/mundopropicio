@@ -183,7 +183,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       ...prev,
       {
         scope: "local_city",
-        event_id: primaryEventId,
+        event_id: "",
         amount: "",
         description: "",
       },
