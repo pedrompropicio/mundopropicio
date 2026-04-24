@@ -50,6 +50,8 @@ interface ActiveProjection {
   realMarginPct: number;
   // Modo aplicado a esta linha (Real Atual)
   resultMode: ResultMode;
+  // True quando a última data efetiva do evento já passou (mostrar só Real Atual)
+  isPast: boolean;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
@@ -453,6 +455,7 @@ export function ResultsAnalysis() {
           realMargin,
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
           resultMode: eventMode,
+          isPast: (lastDateByEvent[e.id] ?? e.date).localeCompare(todayStr) < 0,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyMargin80: margin80 * (companyPct / 100),
@@ -569,11 +572,11 @@ export function ResultsAnalysis() {
         body: active.map((e) => [
           e.name,
           formatDate(e.date),
-          formatCurrency(e.bpIncome100),
-          formatCurrency(e.margin100),
-          `${e.breakEvenPct.toFixed(1)}%`,
-          formatCurrency(e.bpIncome80),
-          formatCurrency(e.margin80),
+          e.isPast ? "—" : formatCurrency(e.bpIncome100),
+          e.isPast ? "—" : formatCurrency(e.margin100),
+          e.isPast ? "—" : `${e.breakEvenPct.toFixed(1)}%`,
+          e.isPast ? "—" : formatCurrency(e.bpIncome80),
+          e.isPast ? "—" : formatCurrency(e.margin80),
           formatCurrency(e.realIncome),
           formatCurrency(e.realExpense),
           formatCurrency(e.realMargin),
@@ -780,52 +783,71 @@ export function ResultsAnalysis() {
                       </td>
 
                       {/* Planeado 100% */}
-                      <td className="p-3 text-right font-mono text-muted-foreground">{formatCurrency(e.bpIncome100)}</td>
-                      <td className="p-3 text-right">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className={`font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                            {formatCurrency(e.margin100)}
-                          </span>
-                          {e.totalPartnerPct > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                                Empresa {companyPct.toFixed(0)}%
-                              </Badge>
-                              <span className={`font-mono text-xs ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
-                                {formatCurrency(e.companyMargin100)}
+                      {e.isPast ? (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>
+                          <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>
+                          <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground">{formatCurrency(e.bpIncome100)}</td>
+                          <td className="p-3 text-right">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`font-mono ${e.margin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.margin100)}
                               </span>
+                              {e.totalPartnerPct > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                    Empresa {companyPct.toFixed(0)}%
+                                  </Badge>
+                                  <span className={`font-mono text-xs ${e.companyMargin100 >= 0 ? "text-success" : "text-destructive"}`}>
+                                    {formatCurrency(e.companyMargin100)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 text-right">
-                        <Badge
-                          variant={e.breakEvenPct <= 70 ? "default" : e.breakEvenPct <= 90 ? "secondary" : "destructive"}
-                          className="font-mono text-xs"
-                        >
-                          {e.breakEvenPct.toFixed(1)}%
-                        </Badge>
-                      </td>
+                          </td>
+                          <td className="p-3 text-right">
+                            <Badge
+                              variant={e.breakEvenPct <= 70 ? "default" : e.breakEvenPct <= 90 ? "secondary" : "destructive"}
+                              className="font-mono text-xs"
+                            >
+                              {e.breakEvenPct.toFixed(1)}%
+                            </Badge>
+                          </td>
+                        </>
+                      )}
 
                       {/* Planeado 80% */}
-                      <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.bpIncome80)}</td>
-                      <td className="p-3 text-right">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className={`font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
-                            {formatCurrency(e.margin80)}
-                          </span>
-                          {e.totalPartnerPct > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                                Empresa {companyPct.toFixed(0)}%
-                              </Badge>
-                              <span className={`font-mono text-xs ${e.companyMargin80 >= 0 ? "text-success" : "text-destructive"}`}>
-                                {formatCurrency(e.companyMargin80)}
+                      {e.isPast ? (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground/40 border-l-2 border-l-border">—</td>
+                          <td className="p-3 text-right font-mono text-muted-foreground/40">—</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 text-right font-mono text-muted-foreground border-l-2 border-l-border">{formatCurrency(e.bpIncome80)}</td>
+                          <td className="p-3 text-right">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`font-mono ${e.margin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                                {formatCurrency(e.margin80)}
                               </span>
+                              {e.totalPartnerPct > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                    Empresa {companyPct.toFixed(0)}%
+                                  </Badge>
+                                  <span className={`font-mono text-xs ${e.companyMargin80 >= 0 ? "text-success" : "text-destructive"}`}>
+                                    {formatCurrency(e.companyMargin80)}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </td>
+                          </td>
+                        </>
+                      )}
 
                       {/* Real Atual */}
                       <td className="p-3 text-right font-mono text-success border-l-2 border-l-border">{formatCurrency(e.realIncome)}</td>
