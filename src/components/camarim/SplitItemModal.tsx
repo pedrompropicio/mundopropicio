@@ -169,6 +169,28 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
   const totalParent = Number(parent?.total_amount ?? 0);
   const diff = +(totalParent - sumLines).toFixed(2);
   const isBalanced = Math.abs(diff) < 0.005;
+  const hasAtLeastOneLocal = lines.some((l) => l.scope === "local_city");
+  const allLocalLinesHaveCity = lines
+    .filter((l) => l.scope === "local_city")
+    .every((l) => !!l.event_id);
+  const allLinesHaveAmount = lines.every((l) => Number(l.amount) > 0);
+
+  const blockReason = !parent
+    ? null
+    : isChildItem
+      ? "Este item é uma linha-filha. Reabre a redivisão a partir do talão-mãe."
+      : lines.length < 2
+        ? "Adiciona pelo menos 2 linhas."
+        : !hasAtLeastOneLocal
+          ? "Pelo menos 1 linha tem de ser 'Cidade específica' (senão não há divisão real — basta deixar o talão como Master)."
+          : !allLocalLinesHaveCity
+            ? "Escolhe a cidade em todas as linhas locais."
+            : !allLinesHaveAmount
+              ? "Cada linha tem de ter valor > 0."
+              : !isBalanced
+                ? `Soma não bate: faltam ${formatCurrency(diff, parent.currency)}.`
+                : null;
+  const canSubmit = !blockReason;
 
   const updateLine = (idx: number, patch: Partial<SplitLine>) => {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
@@ -220,27 +242,9 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       });
       return;
     }
-    if (lines.length < 2) {
-      toast({ variant: "destructive", title: "Pelo menos 2 linhas para dividir" });
+    if (blockReason) {
+      toast({ variant: "destructive", title: "Não dá para confirmar", description: blockReason });
       return;
-    }
-    if (!isBalanced) {
-      toast({
-        variant: "destructive",
-        title: "Soma não bate",
-        description: `Diferença de ${formatCurrency(diff, parent.currency)} face ao total do talão.`,
-      });
-      return;
-    }
-    for (const l of lines) {
-      if (!l.amount || Number(l.amount) <= 0) {
-        toast({ variant: "destructive", title: "Cada linha tem de ter valor > 0" });
-        return;
-      }
-      if (l.scope === "local_city" && !l.event_id) {
-        toast({ variant: "destructive", title: "Escolhe a cidade em todas as linhas locais" });
-        return;
-      }
     }
 
     setSaving(true);
