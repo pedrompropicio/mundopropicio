@@ -98,13 +98,14 @@ export function ResultsAnalysis() {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["ra_transactions_v4_paid_approved"],
+    queryKey: ["ra_transactions_v5_no_transitory"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, category_id, iva_rate")
+        .select("id, event_id, type, amount, status, category_id, iva_rate, is_transitory")
         .eq("is_hidden", false)
-        .in("status", ["paid", "approved", "pending"]);
+        .eq("is_transitory", false)
+        .in("status", ["paid", "approved"]);
       if (error) throw error;
       return data;
     },
