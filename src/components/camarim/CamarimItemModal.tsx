@@ -536,21 +536,44 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 )}
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="flex w-full flex-col items-center gap-2 py-6 text-muted-foreground hover:text-primary"
-              >
-                <Camera className="h-8 w-8" />
-                <span className="text-sm font-medium">Tirar / carregar foto do talão</span>
-                <span className="text-xs">A IA preenche os campos automaticamente</span>
-              </button>
+              <div className="flex flex-col items-center gap-3 py-6">
+                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                  <Camera className="h-8 w-8" />
+                  <span className="text-sm font-medium">Adicionar foto / ficheiro do talão</span>
+                  <span className="text-xs">A IA preenche os campos automaticamente</span>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="flex-1"
+                    onClick={() => cameraRef.current?.click()}
+                  >
+                    <Camera className="mr-2 h-4 w-4" /> Tirar foto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-4 w-4" /> Escolher ficheiro
+                  </Button>
+                </div>
+              </div>
             )}
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
             <input
               ref={fileRef}
               type="file"
-              accept="image/*,.dng,.tif,.tiff,image/x-adobe-dng"
-              capture="environment"
+              accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
               className="hidden"
               onChange={handlePhotoSelect}
             />
