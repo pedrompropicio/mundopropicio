@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Loader2, Sparkles, Trash2, FileText, Upload } from "lucide-react";
+import { Camera, Loader2, Sparkles, Trash2, FileText, Upload, Split } from "lucide-react";
 import {
   PAYMENT_ORIGIN_LABELS,
   BP_SCOPE_LABELS,
@@ -17,6 +17,7 @@ import {
   type CamarimItemStatus,
 } from "@/lib/camarim-helpers";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
+import { SplitItemModal } from "./SplitItemModal";
 
 interface Props {
   open: boolean;
