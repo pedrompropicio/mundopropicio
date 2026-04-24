@@ -28,6 +28,8 @@ interface CompletedResult {
   expenseSource: "transactions";
 }
 
+type ResultMode = "projection" | "realized";
+
 interface ActiveProjection {
   id: string;
   name: string;
@@ -46,6 +48,8 @@ interface ActiveProjection {
   realExpense: number;
   realMargin: number;
   realMarginPct: number;
+  // Modo aplicado a esta linha (Real Atual)
+  resultMode: ResultMode;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
@@ -75,6 +79,11 @@ function SourceBadge({ source }: { source: string }) {
 export function ResultsAnalysis() {
   const currentYear = new Date().getFullYear();
   const [includeOverhead, setIncludeOverhead] = useState<boolean>(false);
+  // Override manual do modo de cálculo de "Real Atual":
+  //   "auto"       → switch automático por ciclo de vida (data passou → realized; senão projection)
+  //   "projection" → força lógica antiga (BP-as-ceiling, max(pendente, BP-pago))
+  //   "realized"   → força só transações reais (paid + pending), igual ao Fecho
+  const [resultModeOverride, setResultModeOverride] = useState<"auto" | ResultMode>("auto");
 
   const { data: events = [] } = useQuery({
     queryKey: ["ra_events"],
@@ -155,6 +164,20 @@ export function ResultsAnalysis() {
       return data;
     },
   });
+
+  // Última data efetiva de cada evento (max de event_dates) para detetar
+  // se o evento já passou e mudar a lógica de "Real Atual" automaticamente.
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["ra_event_dates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("event_id, date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
   const closingCosts = useMemo(
     () => expandOverheadToSplits(closingCostsRaw as any, events as any),
@@ -253,17 +276,24 @@ export function ResultsAnalysis() {
     });
 
     /**
-     * Merge BP and real expenses for one event by transaction status:
-     *   • PAID transactions: substitute BP for that category (consolidated)
-     *   • PENDING transactions: count the larger of (pending real, BP − paid)
-     *     This preserves the BP ceiling when only partial payments exist
-     *   • Categories with only real (no BP): count as extra
-     *   • Categories with only BP (no real yet): count BP entirely
+     * Merge BP and real expenses for one event by transaction status.
+     *
+     *   • Modo "projection" (eventos ainda no início do ciclo):
+     *     PAID consolida; PENDING ou (BP − pago), o maior. Mantém o teto BP.
+     *   • Modo "realized" (eventos passados / em fecho):
+     *     Apenas transações reais (paid + pending). Ignora BP por completo.
+     *     Evita inflar o resultado com sobras de orçamento que já não vão materializar-se.
      */
-    const mergeExpenseForEvent = (eventId: string): number => {
+    const mergeExpenseForEvent = (eventId: string, mode: ResultMode): number => {
       const bp = bpExpenseByEventCat[eventId];
       const paid = txnExpensePaidByCat[eventId];
       const pending = txnExpensePendingByCat[eventId];
+      if (mode === "realized") {
+        let total = 0;
+        paid?.forEach((v) => { total += v; });
+        pending?.forEach((v) => { total += v; });
+        return total;
+      }
       if (!bp && !paid && !pending) return 0;
       const allKeys = new Set<string>();
       bp?.forEach((_, k) => allKeys.add(k));
@@ -274,8 +304,6 @@ export function ResultsAnalysis() {
         const bpAmt = bp?.get(key) ?? 0;
         const paidAmt = paid?.get(key) ?? 0;
         const pendingAmt = pending?.get(key) ?? 0;
-        // Paid is consolidated. For the remaining BP budget after paid,
-        // we count whichever is bigger: still-pending real, or the gap to BP.
         const remainingBp = Math.max(0, bpAmt - paidAmt);
         total += paidAmt + Math.max(pendingAmt, remainingBp);
       });
@@ -291,8 +319,33 @@ export function ResultsAnalysis() {
       return s;
     };
 
+    // ── Última data efetiva de cada evento (max(event_dates) ou events.date) ──
+    const lastDateByEvent: Record<string, string> = {};
+    events.forEach((e: any) => {
+      lastDateByEvent[e.id] = e.date;
+    });
+    eventDates.forEach((ed: any) => {
+      const cur = lastDateByEvent[ed.event_id];
+      if (!cur || String(ed.date).localeCompare(cur) > 0) {
+        lastDateByEvent[ed.event_id] = ed.date;
+      }
+    });
+
+    // Modo automático: se a última data já passou → "realized"; senão → "projection".
+    // Para Master prorrateado de um sub-evento, considera-se a data do próprio sub-evento.
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const autoModeFor = (eventId: string): ResultMode => {
+      const lastDate = lastDateByEvent[eventId];
+      if (!lastDate) return "projection";
+      return lastDate.localeCompare(todayStr) < 0 ? "realized" : "projection";
+    };
+    const resolveMode = (eventId: string): ResultMode => {
+      if (resultModeOverride !== "auto") return resultModeOverride;
+      return autoModeFor(eventId);
+    };
+
     // ── Helper: prorated Master shares (BP and merged) for a sub-event ──
-    const getMasterShare = (subEventId: string) => {
+    const getMasterShare = (subEventId: string, mode: ResultMode) => {
       const sub = events.find((e: any) => e.id === subEventId);
       const masterId = sub?.parent_event_id;
       if (!masterId) return { bpExpense: 0, mergedExpense: 0, closing: 0 };
@@ -300,7 +353,7 @@ export function ResultsAnalysis() {
       const n = siblings.length || 1;
       return {
         bpExpense: bpExpenseTotalForEvent(masterId) / n,
-        mergedExpense: mergeExpenseForEvent(masterId) / n,
+        mergedExpense: mergeExpenseForEvent(masterId, mode) / n,
         closing: (closingMap[masterId] ?? 0) / n,
       };
     };
@@ -314,7 +367,9 @@ export function ResultsAnalysis() {
     const active: ActiveProjection[] = [];
 
     yearEvents.forEach((e: any) => {
-      const masterShare = getMasterShare(e.id);
+      // Modo aplicado a este evento (override manual ou auto por ciclo de vida)
+      const eventMode = resolveMode(e.id);
+      const masterShare = getMasterShare(e.id, eventMode);
       const ownTicketSales = salesByEvent[e.id] ?? 0;
       const ownTxnIncome = txnIncomeMap[e.id] ?? 0;
       const ownClosing = closingMap[e.id] ?? 0;
@@ -323,9 +378,10 @@ export function ResultsAnalysis() {
       const hasSales = ownTicketSales > 0;
 
       if (e.status === "completed") {
-        // Completed: real expenses (transactions only, merged still applies for consistency)
-        const ownExpense = mergeExpenseForEvent(e.id);
-        const expense = ownExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
+        // Concluídos: sempre lógica "realized" — só transações reais
+        const ownExpense = mergeExpenseForEvent(e.id, "realized");
+        const masterShareCompleted = getMasterShare(e.id, "realized");
+        const expense = ownExpense + masterShareCompleted.mergedExpense + ownClosing + masterShareCompleted.closing;
         const income = ownTicketSales + ownTxnIncome;
         const margin = income - expense;
         completed.push({
@@ -354,11 +410,12 @@ export function ResultsAnalysis() {
         const breakEvenPct = bpIncome100 > 0 ? (bpExpense / bpIncome100) * 100 : 0;
 
         // ── REAL ATUAL ──
+        // Modo "projection": despesas = merge BP+real (mantém teto BP) — útil antes/durante
+        // Modo "realized":   despesas = só transações reais (paid + pending) — eventos passados
         // Receita = bilheteira VENDIDA + outras receitas BP (assume que outras receitas concretizam)
-        // Despesas = merge linha-a-linha (real onde existe, BP onde não) + Master prorrateado + fecho real
         const ticketRevenueSold = ownTicketSales;
         const realIncome = ticketRevenueSold + bpOtherIncome;
-        const ownMergedExpense = mergeExpenseForEvent(e.id);
+        const ownMergedExpense = mergeExpenseForEvent(e.id, eventMode);
         const realExpense =
           ownMergedExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
         const realMargin = realIncome - realExpense;
@@ -383,6 +440,7 @@ export function ResultsAnalysis() {
           realExpense,
           realMargin,
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
+          resultMode: eventMode,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyMargin80: margin80 * (companyPct / 100),
@@ -427,7 +485,7 @@ export function ResultsAnalysis() {
     };
 
     return { completed, active, yearTotals };
-  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, currentYear, includeOverhead]);
+  }, [events, transactions, forecasts, ticketSales, partners, ticketLots, closingCosts, eventDates, currentYear, includeOverhead, resultModeOverride]);
 
   const generatePdf = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -526,8 +584,19 @@ export function ResultsAnalysis() {
             Análise de Resultados {currentYear}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Overhead</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Modo Real</span>
+          <select
+            value={resultModeOverride}
+            onChange={(e) => setResultModeOverride(e.target.value as "auto" | ResultMode)}
+            className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            title="Como calcular a coluna 'Real Atual': automático por data, projeção (com teto BP) ou só realizado"
+          >
+            <option value="auto">Auto (por data)</option>
+            <option value="projection">Projeção (BP+Real)</option>
+            <option value="realized">Realizado (só TX)</option>
+          </select>
+          <span className="text-xs text-muted-foreground ml-2">Overhead</span>
           <select
             value={includeOverhead ? "with" : "without"}
             onChange={(e) => setIncludeOverhead(e.target.value === "with")}
@@ -646,7 +715,7 @@ export function ResultsAnalysis() {
             Eventos Ativos — Projeções
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
-            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP, despesas reais onde existem (senão BP) · <em>Todos os valores SEM IVA</em>
+            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP. Despesas seguem o <em>Modo Real</em>: 🔮 <strong>Projeção</strong> usa BP como teto onde ainda não há real (eventos por vir) · 📊 <strong>Realizado</strong> só conta transações reais, igual ao Fecho (eventos passados). <em>Todos os valores SEM IVA</em>
           </p>
           <div className="overflow-x-auto glass rounded-xl">
             <table className="w-full text-sm">
@@ -680,10 +749,21 @@ export function ResultsAnalysis() {
                         <a href={`/eventos/${e.id}`} className="font-medium hover:text-primary transition-colors">
                           {e.name}
                         </a>
-                        <div className="flex items-center gap-1 mt-0.5">
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                           <span className="text-[10px] text-muted-foreground">{formatDate(e.date)}</span>
                           <SourceBadge source={e.incomeSource} />
                           <SourceBadge source={e.expenseSource} />
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-1 py-0 gap-0.5 font-normal"
+                            title={
+                              e.resultMode === "realized"
+                                ? "Modo Realizado: despesas usam apenas transações reais (paid + pending), igual ao Fecho. Aplicado automaticamente quando a data do evento já passou."
+                                : "Modo Projeção: despesas usam BP como teto onde ainda não há real lançado. Aplicado automaticamente quando o evento ainda está por vir."
+                            }
+                          >
+                            {e.resultMode === "realized" ? "📊 Realizado" : "🔮 Projeção"}
+                          </Badge>
                         </div>
                       </td>
 
