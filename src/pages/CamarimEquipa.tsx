@@ -428,6 +428,11 @@ export default function CamarimEquipa() {
                     >
                       {ITEM_STATUS_LABELS[it.status]}
                     </Badge>
+                    {it.has_attachment && (
+                      <div className="mt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <CamarimItemAttachmentButton itemId={it.id} iconOnly />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
