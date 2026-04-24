@@ -70,18 +70,23 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     }
   }, [open, itemId, autoOpenCamera]);
 
+  // Allow-list de categorias permitidas para lançamentos de camarim.
+  // 2.6.04 Camarins  → produtos/serviços do camarim em si
+  // 4.4.04 Catering  → comida/bebida da equipa/banda
   const loadCategories = async () => {
     const { data } = await supabase
       .from("account_categories")
-      .select("id,code,name,parent_id,type")
-      .eq("type", "expense")
+      .select("id,code,name")
+      .in("code", ["2.6.04", "4.4.04"])
       .eq("is_active", true)
       .order("code");
-    // Apenas folhas (L3): categorias que não são parent de nenhuma outra
-    const all = (data ?? []) as any[];
-    const parentIds = new Set(all.map((c) => c.parent_id).filter(Boolean));
-    const leaves = all.filter((c) => !parentIds.has(c.id));
-    setCategories(leaves.map((c) => ({ id: c.id, code: c.code, name: c.name })));
+    const list = ((data ?? []) as any[]).map((c) => ({ id: c.id, code: c.code, name: c.name }));
+    setCategories(list);
+    // Pré-selecionar Camarins (2.6.04) por defeito quando a criar novo item
+    if (!itemId && !categoryId) {
+      const camarins = list.find((c) => c.code === "2.6.04");
+      if (camarins) setCategoryId(camarins.id);
+    }
   };
 
   const reset = () => {
