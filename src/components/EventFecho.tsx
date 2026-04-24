@@ -11,8 +11,11 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-// `partner_calc_basis` foi descontinuado da lógica do Fecho — política unificada NET (sem IVA).
-// Mantemos só `normalizePartnerCalcBasis` se for necessário noutros sítios; aqui não usamos.
+import {
+  getPartnerCalcBasisLabel,
+  normalizePartnerCalcBasis,
+  usesGrossExpenseAmounts,
+} from "@/lib/partner-calc-basis";
 
 interface Props {
   eventId: string;
