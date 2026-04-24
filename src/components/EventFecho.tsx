@@ -11,13 +11,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import HelpTooltip from "@/components/HelpTooltip";
 import { expandOverheadToSplits } from "@/lib/overhead-proration";
-import {
-  getPartnerCalcBasisLabel,
-  getPartnerExpenseBase,
-  getPartnerRevenueBase,
-  normalizePartnerCalcBasis,
-  usesGrossExpenseAmounts,
-} from "@/lib/partner-calc-basis";
+// `partner_calc_basis` foi descontinuado da lógica do Fecho — política unificada NET (sem IVA).
+// Mantemos só `normalizePartnerCalcBasis` se for necessário noutros sítios; aqui não usamos.
 
 interface Props {
   eventId: string;
@@ -190,25 +185,23 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ============= Cálculos =============
-  const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
+  // Política unificada: Fecho usa SEMPRE despesas e receitas NET (sem IVA),
+  // alinhado com a coluna "Real Atual" da Análise de Resultados (Dashboard).
+  void eventInfo; // partner_calc_basis fica disponível mas não influencia mais os totais.
 
   // Receita: ticket sales se houver, senão income transactions
   const incomeTx = transactions.filter((t: any) => t.type === "income");
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
   const hasTickets = ticketSales.length > 0;
-  const revenueGross = hasTickets
-    ? ticketSales.reduce((s, t: any) => s + t.gross, 0)
-    : incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
   const revenueNet = hasTickets
     ? ticketSales.reduce((s, t: any) => s + t.net, 0)
     : incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
 
-  const expenseGross = expenseTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
 
-  const revenue = getPartnerRevenueBase(revenueNet);
-  const expensesOp = getPartnerExpenseBase(calcBasis, expenseNet, expenseGross);
+  const revenue = revenueNet;
+  const expensesOp = expenseNet;
   const resultWithoutOverhead = revenue - expensesOp;
 
   // Overheads (próprios + via master)
@@ -220,8 +213,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadExpenseGross = overheadExpense.reduce((s, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
   const overheadExpenseNet = overheadExpense.reduce((s, o: any) => s + Number(o.amount), 0);
 
+  // Overhead também NET (sem IVA), igual ao Dashboard.
   const overheadIncomeFinal = overheadIncomeNet;
-  const overheadExpenseFinal = usesGrossExpenseAmounts(calcBasis) ? overheadExpenseGross : overheadExpenseNet;
+  const overheadExpenseFinal = overheadExpenseNet;
   const overheadNet = overheadIncomeFinal - overheadExpenseFinal;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
@@ -231,16 +225,13 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     const effectivePct = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = roundCents(result * (effectivePct / 100));
 
-    // Pago por sócio
+    // Pago por sócio — sempre NET (alinhado com a política unificada do Fecho).
     const paid = paidByPartners
       .filter((pe: any) => pe.partner_id === p.id)
       .reduce((s: number, pe: any) => {
         const t = pe.transactions;
         if (!t) return s;
-        const amt = usesGrossExpenseAmounts(calcBasis)
-          ? calcTotalWithIva(Number(t.amount), Number(t.iva_rate))
-          : Number(t.amount);
-        return s + amt;
+        return s + Number(t.amount);
       }, 0);
 
     // Extras analíticos
@@ -278,7 +269,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: NET (sem IVA)`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -409,7 +400,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
           <FileBarChart2 className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-bold">Fecho do Evento</h3>
           <Badge variant="outline" className="text-[10px]">
-            Base: {getPartnerCalcBasisLabel(calcBasis)}
+            Base: NET (sem IVA)
           </Badge>
         </div>
         <Button size="sm" variant="outline" onClick={exportPdf}>
