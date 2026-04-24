@@ -25,6 +25,7 @@ import {
 } from "@/lib/camarim-helpers";
 import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimTeamSummary } from "@/components/camarim/CamarimTeamSummary";
+import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
 
 const LAST_SESSION_KEY = "camarim_team_last_session";
 const FRAME_POS_KEY = "camarim_team_frame_pos";
