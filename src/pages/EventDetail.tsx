@@ -438,8 +438,12 @@ export default function EventDetail() {
 
   const isCompleted = event.status === "completed";
 
-  const incomeTransactions = eventTransactions.filter((t) => t.type === "income");
-  const expenseTransactions = eventTransactions.filter((t) => t.type === "expense");
+  // Alinhado com Análise de Resultados: só paid + approved entram nos Cards (pending excluído).
+  const realizedTransactions = eventTransactions.filter(
+    (t) => t.status === "paid" || t.status === "approved"
+  );
+  const incomeTransactions = realizedTransactions.filter((t) => t.type === "income");
+  const expenseTransactions = realizedTransactions.filter((t) => t.type === "expense");
   const operationalExpenseTransactions = expenseTransactions.filter((t) => !t.is_transitory);
   const transactionIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
   // If ticket sales exist, use them as revenue source; otherwise fall back to transactions

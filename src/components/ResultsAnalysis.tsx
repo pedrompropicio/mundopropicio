@@ -98,13 +98,14 @@ export function ResultsAnalysis() {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["ra_transactions_v4_paid_approved"],
+    queryKey: ["ra_transactions_v5_no_transitory"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, amount, status, category_id, iva_rate")
+        .select("id, event_id, type, amount, status, category_id, iva_rate, is_transitory")
         .eq("is_hidden", false)
-        .in("status", ["paid", "approved", "pending"]);
+        .eq("is_transitory", false)
+        .in("status", ["paid", "approved"]);
       if (error) throw error;
       return data;
     },
@@ -244,15 +245,15 @@ export function ResultsAnalysis() {
     //   • PAID     → substitui o BP integralmente (gasto consolidado)
     //   • APPROVED → soma com o gap do BP (mantém a previsão original como teto)
     //   • PENDING  → IGNORADO (ainda não validado pela gestão)
-    // transactions.amount inclui IVA; extrair base usando iva_rate da transação
+    // transactions.amount é já a base SEM IVA (Single Source of Truth — ver mem://features/iva-portugal).
+    // NÃO dividir por (1 + iva_rate/100) — isso provocaria dupla redução.
     const txnExpensePaidByCat: Record<string, Map<string, number>> = {};
     const txnExpenseApprovedByCat: Record<string, Map<string, number>> = {};
     const txnIncomeMap: Record<string, number> = {};
     transactions.forEach((t: any) => {
       const eid = t.event_id;
       if (!eid) return;
-      const rate = Number(t.iva_rate ?? 0);
-      const net = Number(t.amount) / (1 + rate / 100);
+      const net = Number(t.amount);
       if (t.type === "income") {
         // Receitas: só paid e approved são consideradas reais (alinha com Cards do BP)
         if (t.status !== "paid" && t.status !== "approved") return;
