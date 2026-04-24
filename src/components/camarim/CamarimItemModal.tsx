@@ -128,6 +128,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setDocIssueReason(it.document_issue_reason ?? "");
     setCategoryId(it.category_id ?? "");
     setOcrPayload(it.ocr_raw_payload);
+    setItemCreatedBy(it.created_by ?? null);
+    setItemStatus(it.status ?? null);
 
     // Load attached document path (first one)
     const { data: docs } = await supabase
