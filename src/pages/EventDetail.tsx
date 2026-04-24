@@ -284,12 +284,15 @@ export default function EventDetail() {
   });
 
   // ── Quota-parte das despesas do Master para vista de sub-evento ──
-  // Quando se está a ver um sub-evento isolado (event.parent_event_id definido),
-  // o card "Despesas Realizadas" passa a incluir a sua quota das despesas
-  // lançadas no Master (rateios da turnê: voos, hotel, equipa, etc.) dividida
-  // pelo número de subs. Alinha o card com a Análise de Resultados (Dashboard),
-  // que já apresenta valores prorrateados por cidade.
-  const masterIdForShare = !selectedSubEvent && event?.parent_event_id ? event.parent_event_id : null;
+  // Aplicável em DOIS cenários:
+  //   1) Navegar direto a um sub: event.parent_event_id presente, sem selectedSubEvent
+  //   2) Estar na turnê (Master) e ter um sub selecionado nas pills: usar id do Master (= event.id)
+  // Em qualquer caso, o card "Despesas Realizadas" passa a incluir a sua quota das despesas
+  // lançadas no Master (rateios da turnê: voos, hotel, equipa, etc.) dividida pelo número de subs.
+  // Alinha o card com a Análise de Resultados (Dashboard).
+  const masterIdForShare = selectedSubEvent
+    ? (event?.event_type === "multi_day" ? id! : null)
+    : (event?.parent_event_id ?? null);
   const { data: masterExpenseShare = 0 } = useQuery({
     queryKey: ["event_master_expense_share", masterIdForShare],
     queryFn: async () => {
