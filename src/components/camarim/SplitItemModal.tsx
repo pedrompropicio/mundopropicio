@@ -29,6 +29,8 @@ interface ParentItem {
   total_amount: number;
   iva_amount: number;
   currency: string;
+  status: string;
+  parent_item_id: string | null;
   supplier_name_raw: string | null;
   service_description: string | null;
   document_number: string | null;
@@ -75,6 +77,10 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
   const [lines, setLines] = useState<SplitLine[]>([]);
   const [existingChildrenCount, setExistingChildrenCount] = useState(0);
 
+  const isChildItem = !!parent?.parent_item_id;
+  const isAlreadySplitParent = parent?.status === "split";
+  const canResplit = !!allowResplit && isAlreadySplitParent && existingChildrenCount > 0 && !isChildItem;
+
   useEffect(() => {
     if (!open || !itemId) return;
     void loadAll();
@@ -87,7 +93,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       const { data: it, error: itErr } = await supabase
         .from("camarim_items" as any)
         .select(
-          "id,total_amount,iva_amount,currency,supplier_name_raw,service_description,document_number,document_date,category_id,payment_origin,notes,session_id,has_document,ocr_raw_payload,ocr_confidence",
+          "id,total_amount,iva_amount,currency,status,parent_item_id,supplier_name_raw,service_description,document_number,document_date,category_id,payment_origin,notes,session_id,has_document,ocr_raw_payload,ocr_confidence",
         )
         .eq("id", itemId)
         .single();
@@ -118,7 +124,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       const kidsList = (kids ?? []) as any[];
       setExistingChildrenCount(kidsList.length);
 
-      if (kidsList.length > 0 && allowResplit) {
+      if (kidsList.length > 0 && allowResplit && p.status === "split" && !p.parent_item_id) {
         setLines(
           kidsList.map((k) => ({
             scope: k.bp_scope === "local_city" ? "local_city" : "master_common",
@@ -196,6 +202,22 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
 
   const handleSubmit = async () => {
     if (!parent) return;
+    if (isChildItem) {
+      toast({
+        variant: "destructive",
+        title: "Redivisão indisponível neste item",
+        description: "Abre o talão-mãe dividido para alterar a repartição.",
+      });
+      return;
+    }
+    if (existingChildrenCount > 0 && !canResplit) {
+      toast({
+        variant: "destructive",
+        title: "Redivisão bloqueada",
+        description: "Só o talão-mãe já marcado como dividido pode ser redividido.",
+      });
+      return;
+    }
     if (lines.length < 2) {
       toast({ variant: "destructive", title: "Pelo menos 2 linhas para dividir" });
       return;
@@ -223,7 +245,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
     try {
       // Se é resplit, apaga os filhos antigos primeiro (CASCADE no storage não é necessário —
       // os filhos não têm anexos próprios, partilham via lookup ao pai).
-      if (existingChildrenCount > 0) {
+      if (canResplit) {
         await supabase
           .from("camarim_items" as any)
           .delete()
@@ -298,7 +320,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Split className="h-5 w-5 text-primary" />
-            {existingChildrenCount > 0 ? "Redividir talão misto" : "Dividir talão misto"}
+            {canResplit ? "Redividir talão misto" : "Dividir talão misto"}
           </DialogTitle>
           <DialogDescription>
             Distribui o total do talão entre Master (rateio comum a toda a turnê) e cidades
@@ -309,6 +331,11 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
         {loading || !parent ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : isChildItem ? (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-400">
+            Este item já é uma linha filha de um talão dividido. Para alterar valores ou vínculos,
+            reabre a redivisão a partir do talão-mãe.
           </div>
         ) : (
           <div className="space-y-4">
@@ -463,10 +490,10 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={saving || loading || !isBalanced || lines.length < 2}
+            disabled={saving || loading || !isBalanced || lines.length < 2 || isChildItem}
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {existingChildrenCount > 0 ? "Aplicar redivisão" : "Confirmar divisão"}
+            {canResplit ? "Aplicar redivisão" : "Confirmar divisão"}
           </Button>
         </DialogFooter>
       </DialogContent>
