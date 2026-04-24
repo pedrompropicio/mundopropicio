@@ -76,15 +76,18 @@ export function useRealCacheCalculation(
   });
 
   // Fetch real expense transactions
+  // Só paid + approved entram nas deduções reais — alinha com a regra geral
+  // de "Real" em todos os módulos de resultado (Cards, DRE, P&L, Fecho, Acerto).
   const { data: realExpenses = [] } = useQuery({
-    queryKey: ["real-expense-transactions", allEventIds.join(",")],
+    queryKey: ["real-expense-transactions-v2", allEventIds.join(",")],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, category_id, amount, iva_rate, is_transitory, exclude_from_result, parent_transaction_id")
+        .select("id, event_id, type, category_id, amount, iva_rate, status, is_transitory, exclude_from_result, parent_transaction_id")
         .in("event_id", allEventIds)
         .eq("type", "expense")
-        .eq("is_hidden", false);
+        .eq("is_hidden", false)
+        .in("status", ["approved", "paid"]);
       if (error) throw error;
       return (data ?? []).filter(
         (t: any) => !t.parent_transaction_id && !t.is_transitory && !t.exclude_from_result

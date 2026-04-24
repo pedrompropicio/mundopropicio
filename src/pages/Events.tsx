@@ -157,13 +157,17 @@ export default function Events() {
         });
       }
 
+      // Resultado real por evento: só paid + approved (pending excluído) e exclui transitórias
+      // / exclude_from_result. Alinhado com Cards do EventDetail, Dashboard e Análise de Resultados.
       const { data: txns } = await supabase
         .from("transactions")
-        .select("event_id, type, amount");
+        .select("event_id, type, amount, status, is_transitory, exclude_from_result")
+        .in("status", ["approved", "paid"]);
 
       const totals: Record<string, { income: number; expense: number }> = {};
-      (txns ?? []).forEach((t) => {
+      (txns ?? []).forEach((t: any) => {
         if (!t.event_id) return;
+        if (t.is_transitory || t.exclude_from_result) return;
         if (!totals[t.event_id]) totals[t.event_id] = { income: 0, expense: 0 };
         if (t.type === "income") totals[t.event_id].income += Number(t.amount);
         else totals[t.event_id].expense += Number(t.amount);
