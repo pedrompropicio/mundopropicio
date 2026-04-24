@@ -242,27 +242,9 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       });
       return;
     }
-    if (lines.length < 2) {
-      toast({ variant: "destructive", title: "Pelo menos 2 linhas para dividir" });
+    if (blockReason) {
+      toast({ variant: "destructive", title: "Não dá para confirmar", description: blockReason });
       return;
-    }
-    if (!isBalanced) {
-      toast({
-        variant: "destructive",
-        title: "Soma não bate",
-        description: `Diferença de ${formatCurrency(diff, parent.currency)} face ao total do talão.`,
-      });
-      return;
-    }
-    for (const l of lines) {
-      if (!l.amount || Number(l.amount) <= 0) {
-        toast({ variant: "destructive", title: "Cada linha tem de ter valor > 0" });
-        return;
-      }
-      if (l.scope === "local_city" && !l.event_id) {
-        toast({ variant: "destructive", title: "Escolhe a cidade em todas as linhas locais" });
-        return;
-      }
     }
 
     setSaving(true);
