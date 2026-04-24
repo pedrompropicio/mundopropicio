@@ -234,9 +234,13 @@ export default function Dashboard() {
       salesMap[eventId].revenue += ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
     });
 
+    // Resultado real: apenas paid + approved (pending excluído) e exclui transitórias / exclude_from_result.
+    // Alinhado com Cards do EventDetail e Análise de Resultados.
     const txnMap: Record<string, { income: number; expense: number }> = {};
-    transactions.forEach((t) => {
+    transactions.forEach((t: any) => {
       if (!t.event_id) return;
+      if (t.status !== "paid" && t.status !== "approved") return;
+      if (t.is_transitory || t.exclude_from_result) return;
       if (!txnMap[t.event_id]) txnMap[t.event_id] = { income: 0, expense: 0 };
       if (t.type === "income") txnMap[t.event_id].income += Number(t.amount);
       else txnMap[t.event_id].expense += Number(t.amount);
