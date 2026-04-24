@@ -688,6 +688,43 @@ export default function CamarimSessionDetail() {
         />
       )}
 
+      {showEditSession && (
+        <EditSessionModal
+          open={showEditSession}
+          onOpenChange={setShowEditSession}
+          sessionId={session.id}
+          initial={{
+            title: session.title,
+            budget_amount: session.budget_amount,
+            notes: session.notes,
+          }}
+          onSaved={load}
+        />
+      )}
+
+      <AlertDialog open={showDeleteSession} onOpenChange={setShowDeleteSession}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar sessão de camarim?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vai apagar definitivamente a sessão <strong>{session.title}</strong>, todos os
+              {" "}{items.length} item(ns), {funds.length} movimento(s) de fundos e ficheiros anexos.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingSession}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSession}
+              disabled={deletingSession}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingSession ? "A eliminar…" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
         <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
