@@ -28,6 +28,8 @@ interface CompletedResult {
   expenseSource: "transactions";
 }
 
+type ResultMode = "projection" | "realized";
+
 interface ActiveProjection {
   id: string;
   name: string;
@@ -46,6 +48,8 @@ interface ActiveProjection {
   realExpense: number;
   realMargin: number;
   realMarginPct: number;
+  // Modo aplicado a esta linha (Real Atual)
+  resultMode: ResultMode;
   // Partners
   totalPartnerPct: number;
   companyMargin100: number;
