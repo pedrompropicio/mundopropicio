@@ -455,6 +455,7 @@ export function ResultsAnalysis() {
           realMargin,
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
           resultMode: eventMode,
+          isPast: (lastDateByEvent[e.id] ?? e.date).localeCompare(todayStr) < 0,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyMargin80: margin80 * (companyPct / 100),
