@@ -54,6 +54,9 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [itemCreatedBy, setItemCreatedBy] = useState<string | null>(null);
+  const [itemStatus, setItemStatus] = useState<CamarimItemStatus | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -106,6 +109,37 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setPhotoPath(null);
     setPreviewUrl(null);
     setOcrPayload(null);
+    setItemCreatedBy(null);
+    setItemStatus(null);
+  };
+
+  const handleDelete = async () => {
+    if (!itemId) return;
+    const ok = window.confirm("Eliminar este lançamento? Esta ação não pode ser desfeita.");
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      // Apaga primeiro os documentos do storage e da tabela
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("file_path")
+        .eq("item_id", itemId);
+      const paths = ((docs ?? []) as any[]).map((d) => d.file_path).filter(Boolean);
+      if (paths.length > 0) {
+        await supabase.storage.from("camarim-documents").remove(paths);
+        await supabase.from("camarim_item_documents" as any).delete().eq("item_id", itemId);
+      }
+      const { error } = await supabase.from("camarim_items" as any).delete().eq("id", itemId);
+      if (error) throw error;
+      toast({ title: "Lançamento eliminado" });
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erro ao eliminar", description: e.message });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const loadItem = async (id: string) => {
@@ -125,6 +159,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setDocIssueReason(it.document_issue_reason ?? "");
     setCategoryId(it.category_id ?? "");
     setOcrPayload(it.ocr_raw_payload);
+    setItemCreatedBy(it.created_by ?? null);
+    setItemStatus(it.status ?? null);
 
     // Load attached document path (first one)
     const { data: docs } = await supabase
@@ -543,26 +579,47 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           )}
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          {mode === "team" ? (
-            <Button onClick={() => handleSave("submitted")} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submeter
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div className="flex gap-2">
+            {itemId &&
+              itemStatus &&
+              ["draft", "submitted", "pending_review"].includes(itemStatus) &&
+              (mode === "manager" || itemCreatedBy === user?.id) && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={saving || deleting}
+                >
+                  {deleting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Eliminar
+                </Button>
+              )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
+              Cancelar
             </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
-                Guardar rascunho
-              </Button>
-              <Button onClick={() => handleSave("approved")} disabled={saving}>
+            {mode === "team" ? (
+              <Button onClick={() => handleSave("submitted")} disabled={saving || deleting}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Aprovar
+                {itemId ? "Atualizar" : "Submeter"}
               </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving || deleting}>
+                  Guardar rascunho
+                </Button>
+                <Button onClick={() => handleSave("approved")} disabled={saving || deleting}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Aprovar
+                </Button>
+              </>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
