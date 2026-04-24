@@ -188,9 +188,13 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ============= Cálculos =============
-  // Política unificada: Fecho usa SEMPRE despesas e receitas NET (sem IVA),
-  // alinhado com a coluna "Real Atual" da Análise de Resultados (Dashboard).
-  void eventInfo; // partner_calc_basis fica disponível mas não influencia mais os totais.
+  // Política do Fecho com Sócios: respeita `partner_calc_basis` do evento.
+  //   • net_result_gross_expenses (default) → Receita NET, Despesas GROSS (c/ IVA)
+  //   • gross_revenue                       → Receita GROSS, Despesas idem
+  //   • net (raro)                          → ambos NET
+  // Esta lógica é INDEPENDENTE da Análise de Resultados do Dashboard, que é sempre NET.
+  const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
+  const useGrossExpenses = usesGrossExpenseAmounts(calcBasis);
 
   // Receita: ticket sales se houver, senão income transactions
   const incomeTx = transactions.filter((t: any) => t.type === "income");
@@ -200,11 +204,18 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const revenueNet = hasTickets
     ? ticketSales.reduce((s, t: any) => s + t.net, 0)
     : incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
+  const revenueGross = hasTickets
+    ? ticketSales.reduce((s, t: any) => s + t.gross, 0)
+    : incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
 
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
+  const expenseGross = expenseTx.reduce(
+    (s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)),
+    0,
+  );
 
-  const revenue = revenueNet;
-  const expensesOp = expenseNet;
+  const revenue = calcBasis === "gross_revenue" ? revenueGross : revenueNet;
+  const expensesOp = useGrossExpenses ? expenseGross : expenseNet;
   const resultWithoutOverhead = revenue - expensesOp;
 
   // Overheads (próprios + via master)
@@ -216,9 +227,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadExpenseGross = overheadExpense.reduce((s, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
   const overheadExpenseNet = overheadExpense.reduce((s, o: any) => s + Number(o.amount), 0);
 
-  // Overhead também NET (sem IVA), igual ao Dashboard.
-  const overheadIncomeFinal = overheadIncomeNet;
-  const overheadExpenseFinal = overheadExpenseNet;
+  // Overhead segue a mesma base do resto do Fecho.
+  const overheadIncomeFinal = calcBasis === "gross_revenue" ? overheadIncomeGross : overheadIncomeNet;
+  const overheadExpenseFinal = useGrossExpenses ? overheadExpenseGross : overheadExpenseNet;
   const overheadNet = overheadIncomeFinal - overheadExpenseFinal;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
@@ -228,13 +239,16 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     const effectivePct = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = roundCents(result * (effectivePct / 100));
 
-    // Pago por sócio — sempre NET (alinhado com a política unificada do Fecho).
+    // Pago por sócio — segue a mesma base de despesas (gross se aplicável).
     const paid = paidByPartners
       .filter((pe: any) => pe.partner_id === p.id)
       .reduce((s: number, pe: any) => {
         const t = pe.transactions;
         if (!t) return s;
-        return s + Number(t.amount);
+        const amt = useGrossExpenses
+          ? calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0))
+          : Number(t.amount);
+        return s + amt;
       }, 0);
 
     // Extras analíticos
