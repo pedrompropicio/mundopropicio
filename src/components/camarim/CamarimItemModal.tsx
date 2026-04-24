@@ -317,7 +317,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     }
   };
 
-  const handleSave = async (asStatus: CamarimItemStatus) => {
+  const handleSave = async (asStatus: CamarimItemStatus, opts?: { thenSplit?: boolean }) => {
     if (!totalAmount || isNaN(Number(totalAmount))) {
       toast({ variant: "destructive", title: "Valor obrigatório" });
       return;
