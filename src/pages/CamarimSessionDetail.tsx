@@ -106,6 +106,9 @@ export default function CamarimSessionDetail() {
   const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [parkedDecisions, setParkedDecisions] = useState<Record<string, { decision: "reject" | "approve_without_doc" | "defer"; reason: string }>>({});
+  const [showEditSession, setShowEditSession] = useState(false);
+  const [showDeleteSession, setShowDeleteSession] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
 
   useEffect(() => {
     if (!id) return;
