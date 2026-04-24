@@ -1014,7 +1014,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
                 formatCurrency(e.amount),
               ]),
-              foot: [["Total", "", "", "", formatCurrency(s.totalPaidByPartner)]],
+              foot: [[
+                { content: "Total", colSpan: 4, styles: { halign: "right" } },
+                { content: formatCurrency(s.totalPaidByPartner), styles: { halign: "right" } },
+              ]],
               margin: { left: margin + 4, right: margin },
               styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [80, 80, 80] },
@@ -1043,7 +1046,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 e.sign > 0 ? "Caução" : "Devolução",
                 `${e.sign > 0 ? "+" : "-"}${formatCurrency(e.amount)}`,
               ]),
-              foot: [["Crédito líquido (após devoluções)", "", "", "", formatCurrency(s.transitoryCredit)]],
+              foot: [[
+                { content: "Crédito líquido (após devoluções)", colSpan: 4, styles: { halign: "right" } },
+                { content: formatCurrency(s.transitoryCredit), styles: { halign: "right" } },
+              ]],
               margin: { left: margin + 4, right: margin },
               styles: { fontSize: 7.5, cellPadding: 1.4, overflow: "linebreak", valign: "top" },
               headStyles: { fillColor: [60, 130, 150] },
@@ -1074,7 +1080,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
                 e.date ? format(new Date(e.date), "dd/MM/yyyy") : "",
                 `-${formatCurrency(e.amount)}`,
               ]),
-              foot: [["Total a abater", "", "", "", `-${formatCurrency(s.totalPartnerExtras)}`]],
+              foot: [[
+                { content: "Total a abater", colSpan: 4, styles: { halign: "right" } },
+                { content: `-${formatCurrency(s.totalPartnerExtras)}`, styles: { halign: "right" } },
+              ]],
               margin: { left: margin + 4, right: margin },
               styles: { fontSize: 7.5, cellPadding: 1.4 },
               headStyles: { fillColor: [120, 60, 60] },
@@ -1089,13 +1098,15 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
     }
 
-    // ===== 4b. CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
+    // ===== 4a. CAUÇÕES PAGAS PELA MUNDO PROPÍCIO =====
     // A MP não tem secção própria em "4. Detalhes por Sócio", mas as suas cauções
     // (transitórias órfãs) precisam ser detalhadas para auditoria do caixa retido.
     {
         const houseSettlement = settlements.find((s) => s.isHouse);
       if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
-        ensureSpace(40);
+        // Quebra de página para separar visualmente da secção "4. Detalhes por Sócio"
+        doc.addPage();
+        y = margin;
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text("4a. Cauções pagas pela Mundo Propício", margin, y);
