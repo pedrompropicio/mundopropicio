@@ -591,28 +591,33 @@ export default function CamarimSessionDetail() {
                             IVA {formatCurrency(it.iva_amount, session.currency)}
                           </p>
                         )}
-                        {canManage && (it.status === "submitted" || it.status === "draft") && (
-                          <div className="mt-1 flex gap-1" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-emerald-600"
-                              onClick={() => updateItemStatus(it.id, "approved")}
-                              title="Aprovar"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-destructive"
-                              onClick={() => updateItemStatus(it.id, "rejected")}
-                              title="Rejeitar"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="mt-1 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {it.has_attachment && (
+                            <CamarimItemAttachmentButton itemId={it.id} iconOnly />
+                          )}
+                          {canManage && (it.status === "submitted" || it.status === "draft") && (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-emerald-600"
+                                onClick={() => updateItemStatus(it.id, "approved")}
+                                title="Aprovar"
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => updateItemStatus(it.id, "rejected")}
+                                title="Rejeitar"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
