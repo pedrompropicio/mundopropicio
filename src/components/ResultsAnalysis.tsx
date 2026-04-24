@@ -584,8 +584,19 @@ export function ResultsAnalysis() {
             Análise de Resultados {currentYear}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Overhead</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Modo Real</span>
+          <select
+            value={resultModeOverride}
+            onChange={(e) => setResultModeOverride(e.target.value as "auto" | ResultMode)}
+            className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+            title="Como calcular a coluna 'Real Atual': automático por data, projeção (com teto BP) ou só realizado"
+          >
+            <option value="auto">Auto (por data)</option>
+            <option value="projection">Projeção (BP+Real)</option>
+            <option value="realized">Realizado (só TX)</option>
+          </select>
+          <span className="text-xs text-muted-foreground ml-2">Overhead</span>
           <select
             value={includeOverhead ? "with" : "without"}
             onChange={(e) => setIncludeOverhead(e.target.value === "with")}
