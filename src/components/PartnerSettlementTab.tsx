@@ -785,8 +785,6 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
     const revenueIva = Math.max(0, totalRevenueGross - totalRevenueNet);
-    const totalOverheadAmount = overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
-    const totalExpensesGrossNoOverhead = totalExpensesGross - totalOverheadAmount;
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
     const externalSettlements = settlements.filter((s) => !s.isHouse);
     const houseSettlement = settlements.find((s) => s.isHouse);
