@@ -169,6 +169,28 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
   const totalParent = Number(parent?.total_amount ?? 0);
   const diff = +(totalParent - sumLines).toFixed(2);
   const isBalanced = Math.abs(diff) < 0.005;
+  const hasAtLeastOneLocal = lines.some((l) => l.scope === "local_city");
+  const allLocalLinesHaveCity = lines
+    .filter((l) => l.scope === "local_city")
+    .every((l) => !!l.event_id);
+  const allLinesHaveAmount = lines.every((l) => Number(l.amount) > 0);
+
+  const blockReason = !parent
+    ? null
+    : isChildItem
+      ? "Este item é uma linha-filha. Reabre a redivisão a partir do talão-mãe."
+      : lines.length < 2
+        ? "Adiciona pelo menos 2 linhas."
+        : !hasAtLeastOneLocal
+          ? "Pelo menos 1 linha tem de ser 'Cidade específica' (senão não há divisão real — basta deixar o talão como Master)."
+          : !allLocalLinesHaveCity
+            ? "Escolhe a cidade em todas as linhas locais."
+            : !allLinesHaveAmount
+              ? "Cada linha tem de ter valor > 0."
+              : !isBalanced
+                ? `Soma não bate: faltam ${formatCurrency(diff, parent.currency)}.`
+                : null;
+  const canSubmit = !blockReason;
 
   const updateLine = (idx: number, patch: Partial<SplitLine>) => {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
