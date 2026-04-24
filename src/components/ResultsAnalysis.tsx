@@ -79,6 +79,11 @@ function SourceBadge({ source }: { source: string }) {
 export function ResultsAnalysis() {
   const currentYear = new Date().getFullYear();
   const [includeOverhead, setIncludeOverhead] = useState<boolean>(false);
+  // Override manual do modo de cálculo de "Real Atual":
+  //   "auto"       → switch automático por ciclo de vida (data passou → realized; senão projection)
+  //   "projection" → força lógica antiga (BP-as-ceiling, max(pendente, BP-pago))
+  //   "realized"   → força só transações reais (paid + pending), igual ao Fecho
+  const [resultModeOverride, setResultModeOverride] = useState<"auto" | ResultMode>("auto");
 
   const { data: events = [] } = useQuery({
     queryKey: ["ra_events"],
