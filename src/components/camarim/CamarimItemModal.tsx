@@ -54,6 +54,9 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrPayload, setOcrPayload] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [itemCreatedBy, setItemCreatedBy] = useState<string | null>(null);
+  const [itemStatus, setItemStatus] = useState<CamarimItemStatus | null>(null);
 
   useEffect(() => {
     if (!open) return;
