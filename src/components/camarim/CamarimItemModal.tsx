@@ -737,10 +737,26 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 </Button>
               )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
               Cancelar
             </Button>
+            {bpScope === "mixed" && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  itemId
+                    ? (setSplitItemId(itemId), setSplitOpen(true))
+                    : handleSave(mode === "team" ? "submitted" : "draft", { thenSplit: true })
+                }
+                disabled={saving || deleting}
+                title="Dividir o talão entre Master e cidades"
+              >
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Split className="mr-2 h-4 w-4" />
+                Dividir agora
+              </Button>
+            )}
             {mode === "team" ? (
               <Button onClick={() => handleSave("submitted")} disabled={saving || deleting}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -760,6 +776,25 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {splitItemId && (
+        <SplitItemModal
+          open={splitOpen}
+          onOpenChange={(o) => {
+            setSplitOpen(o);
+            if (!o) {
+              // Após fechar o split modal, fecha também o item modal e refresca a lista
+              setSplitItemId(null);
+              onSaved?.();
+              onOpenChange(false);
+            }
+          }}
+          itemId={splitItemId}
+          onSaved={() => {
+            onSaved?.();
+          }}
+        />
+      )}
     </Dialog>
   );
 }
