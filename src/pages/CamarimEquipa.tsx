@@ -48,6 +48,7 @@ interface ItemRow {
   status: CamarimItemStatus;
   document_date: string | null;
   has_document: boolean;
+  has_attachment?: boolean;
 }
 
 export default function CamarimEquipa() {
