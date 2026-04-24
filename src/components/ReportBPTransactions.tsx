@@ -807,9 +807,13 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
                               <TableCell className="text-right font-mono text-sm">{formatCurrency(cat.forecastAmount)}</TableCell>
                               <TableCell className="text-right font-mono text-sm">{formatCurrency(cat.actualAmount)}</TableCell>
                               <TableCell className="text-center">
-                                <span className={`text-xs ${catVariance > 0 ? "text-destructive" : catVariance < 0 ? "text-green-600" : "text-muted-foreground"}`}>
-                                  {catVariance > 0 ? "+" : ""}{formatCurrency(catVariance)}
-                                </span>
+                                {cat.forecastDetails.length > 0 && cat.transactions.length === 0 ? (
+                                  <Badge variant="secondary" className="text-[10px]">Overhead</Badge>
+                                ) : (
+                                  <span className={`text-xs ${catVariance > 0 ? "text-destructive" : catVariance < 0 ? "text-green-600" : "text-muted-foreground"}`}>
+                                    {catVariance > 0 ? "+" : ""}{formatCurrency(catVariance)}
+                                  </span>
+                                )}
                               </TableCell>
                             </TableRow>
                             {isCatExpanded && cat.forecastDetails.map((detail) => renderForecastDetailRow(detail, cat.categoryId))}
