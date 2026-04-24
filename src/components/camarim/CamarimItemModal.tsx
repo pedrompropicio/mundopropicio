@@ -406,6 +406,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             .from("camarim-documents")
             .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
           if (upErr) throw upErr;
+          const documentSource = photoFile.name ? "upload" : "camera";
           const { error: docInsErr } = await supabase
             .from("camarim_item_documents" as any)
             .insert({
@@ -414,7 +415,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               file_name: photoFile.name,
               mime_type: photoFile.type,
               file_size: photoFile.size,
-              document_source: mode === "team" ? "team_upload" : "manager_upload",
+              document_source: documentSource,
               created_by: user?.id ?? null,
             } as any);
           if (docInsErr) {
