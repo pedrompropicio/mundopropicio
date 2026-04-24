@@ -224,6 +224,35 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
     });
   };
 
+  const handleRevertToMaster = async () => {
+    if (!parent || !canResplit) return;
+    const ok = window.confirm(
+      `Voltar este talão a Master único (rateio para toda a turnê)?\n\nIsto vai eliminar as ${existingChildrenCount} linhas-filhas e o talão volta a contar inteiro como despesa Master.`,
+    );
+    if (!ok) return;
+    setSaving(true);
+    try {
+      const { error: delErr } = await supabase
+        .from("camarim_items" as any)
+        .delete()
+        .eq("parent_item_id", itemId);
+      if (delErr) throw delErr;
+      const { error: updErr } = await supabase
+        .from("camarim_items" as any)
+        .update({ status: "submitted", bp_scope: "master_common" } as any)
+        .eq("id", itemId);
+      if (updErr) throw updErr;
+      toast({ title: "Talão revertido a Master único" });
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erro a reverter", description: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!parent) return;
     if (isChildItem) {
