@@ -936,6 +936,18 @@ export default function CamarimSessionDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {splitItemId && (
+        <SplitItemModal
+          open={!!splitItemId}
+          onOpenChange={(o) => {
+            if (!o) setSplitItemId(null);
+          }}
+          itemId={splitItemId}
+          allowResplit
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
