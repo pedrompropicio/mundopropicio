@@ -183,32 +183,47 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
     let file = original;
 
-    // Se for DNG/TIFF (RAW), extrair o JPEG de preview embutido antes de mostrar/enviar.
+    // Se for DNG/RAW, tenta extrair o JPEG embutido. Se falhar, usa o ficheiro
+    // original na mesma — o upload e OCR podem não funcionar, mas pelo menos
+    // o utilizador consegue avançar e preencher à mão.
     if (isDngFile(original)) {
       toast({ title: "A processar ficheiro RAW…", description: "A extrair pré-visualização para OCR." });
       try {
         const jpeg = await extractJpegFromDng(original);
-        if (!jpeg) {
+        if (jpeg) {
+          file = jpeg;
+        } else {
           toast({
             variant: "destructive",
-            title: "Não foi possível ler o ficheiro RAW",
-            description: "Tenta exportar como JPG ou desligar o ProRAW na câmara.",
+            title: "RAW sem preview JPEG",
+            description: "Vou usar o ficheiro original. Para melhor OCR, exporta como JPG ou desliga o ProRAW na câmara.",
           });
-          return;
+          // segue com o original — não bloqueia
         }
-        file = jpeg;
       } catch (err: any) {
         console.error("DNG extract failed", err);
-        toast({ variant: "destructive", title: "Erro a processar RAW", description: err?.message ?? "Erro desconhecido" });
-        return;
+        toast({
+          variant: "destructive",
+          title: "Erro a processar RAW",
+          description: "Vou usar o ficheiro original. Para melhor resultado, exporta como JPG.",
+        });
+        // segue com o original
       }
     }
 
     setPhotoFile(file);
     setPreviewUrl(URL.createObjectURL(file));
 
-    // Trigger OCR immediately
-    await runOcr(file);
+    // Só corre OCR se o ficheiro for um formato suportado pelo modelo (imagem comum).
+    const ocrSupported = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type);
+    if (ocrSupported) {
+      await runOcr(file);
+    } else {
+      toast({
+        title: "OCR não suportado para este formato",
+        description: "Preenche os campos à mão. O ficheiro vai ser anexado na mesma.",
+      });
+    }
   };
 
   const runOcr = async (file: File) => {

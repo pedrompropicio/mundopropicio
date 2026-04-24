@@ -45,10 +45,10 @@ export async function extractJpegFromDng(file: File): Promise<File | null> {
 
 export function isDngFile(file: File): boolean {
   const name = file.name.toLowerCase();
+  // Apenas DNG (Apple ProRAW e equivalentes). TIFF genérico fica fora — deixa
+  // o upload normal tratar e o OCR salta o formato se não for suportado.
   return (
     name.endsWith(".dng") ||
-    name.endsWith(".tif") ||
-    name.endsWith(".tiff") ||
     file.type === "image/x-adobe-dng" ||
     file.type === "image/dng"
   );
