@@ -164,6 +164,20 @@ export function ResultsAnalysis() {
       return data;
     },
   });
+
+  // Última data efetiva de cada evento (max de event_dates) para detetar
+  // se o evento já passou e mudar a lógica de "Real Atual" automaticamente.
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["ra_event_dates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("event_id, date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
   const closingCosts = useMemo(
     () => expandOverheadToSplits(closingCostsRaw as any, events as any),
