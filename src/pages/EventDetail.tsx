@@ -283,6 +283,41 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
+  // ── Quota-parte das despesas do Master para vista de sub-evento ──
+  // Quando se está a ver um sub-evento isolado (event.parent_event_id definido),
+  // o card "Despesas Realizadas" passa a incluir a sua quota das despesas
+  // lançadas no Master (rateios da turnê: voos, hotel, equipa, etc.) dividida
+  // pelo número de subs. Alinha o card com a Análise de Resultados (Dashboard),
+  // que já apresenta valores prorrateados por cidade.
+  const masterIdForShare = !selectedSubEvent && event?.parent_event_id ? event.parent_event_id : null;
+  const { data: masterExpenseShare = 0 } = useQuery({
+    queryKey: ["event_master_expense_share", masterIdForShare],
+    queryFn: async () => {
+      if (!masterIdForShare) return 0;
+      // Conta subs (irmãos) — divisor da quota
+      const { data: siblings, error: sibErr } = await supabase
+        .from("events")
+        .select("id")
+        .eq("parent_event_id", masterIdForShare);
+      if (sibErr) throw sibErr;
+      const n = (siblings?.length ?? 0) || 1;
+
+      // Despesas do Master: paid + approved, exclui transitórias
+      const { data: masterTxs, error: txErr } = await supabase
+        .from("transactions")
+        .select("amount, status, type, is_transitory")
+        .eq("event_id", masterIdForShare)
+        .eq("type", "expense")
+        .in("status", ["paid", "approved"]);
+      if (txErr) throw txErr;
+      const total = (masterTxs ?? [])
+        .filter((t: any) => !t.is_transitory)
+        .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+      return total / n;
+    },
+    enabled: !!masterIdForShare,
+  });
+
   // Fetch ticket sales revenue for the event(s) in net terms (s/IVA)
   const { data: ticketSalesRevenue = 0 } = useQuery({
     queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
