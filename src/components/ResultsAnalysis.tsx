@@ -422,10 +422,11 @@ export function ResultsAnalysis() {
 
         // ── REAL ATUAL ──
         // Modo "projection": despesas = merge BP+real (mantém teto BP) — útil antes/durante
-        // Modo "realized":   despesas = só transações reais (paid + pending) — eventos passados
-        // Receita = bilheteira VENDIDA + outras receitas BP (assume que outras receitas concretizam)
+        // Modo "realized":   despesas = só transações reais (paid + approved) — eventos passados
+        // Receita: APENAS realizada (bilheteira vendida + transações income paid+approved).
+        // BP de outras receitas NÃO entra no Real (alinha com os Cards do sub-evento).
         const ticketRevenueSold = ownTicketSales;
-        const realIncome = ticketRevenueSold + bpOtherIncome;
+        const realIncome = ticketRevenueSold + ownTxnIncome;
         const ownMergedExpense = mergeExpenseForEvent(e.id, eventMode);
         const realExpense =
           ownMergedExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
@@ -726,7 +727,7 @@ export function ResultsAnalysis() {
             Eventos Ativos — Projeções
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
-            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP. Despesas seguem o <em>Modo Real</em>: 🔮 <strong>Projeção</strong> usa BP como teto onde ainda não há real validado (eventos por vir) · 📊 <strong>Realizado</strong> só conta transações validadas, alinhado com os Cards do BP (eventos passados). <em>Apenas transações <strong>paid + approved</strong> entram no Real (pending excluído). Todos os valores SEM IVA.</em>
+            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + receitas reais (transações paid/approved). Despesas seguem o <em>Modo Real</em>: 🔮 <strong>Projeção</strong> usa BP como teto onde ainda não há real validado (eventos por vir) · 📊 <strong>Realizado</strong> só conta transações validadas, alinhado com os Cards do BP (eventos passados). <em>Apenas transações <strong>paid + approved</strong> entram no Real (pending excluído). Todos os valores SEM IVA.</em>
           </p>
           <div className="overflow-x-auto glass rounded-xl">
             <table className="w-full text-sm">
