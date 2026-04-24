@@ -1105,7 +1105,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         const houseSettlement = settlements.find((s) => s.isHouse);
       if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
         // Mantém na mesma página de "4. Detalhes por Sócio"; só quebra se não couber o cabeçalho
-        if (y > pageHeight - 40) {
+        if (y > pageH - 40) {
           doc.addPage();
           y = margin;
         } else {
