@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Loader2, Sparkles, Trash2, FileText, Upload } from "lucide-react";
+import { Camera, Loader2, Sparkles, Trash2, FileText, Upload, Split } from "lucide-react";
 import {
   PAYMENT_ORIGIN_LABELS,
   BP_SCOPE_LABELS,
@@ -17,6 +17,7 @@ import {
   type CamarimItemStatus,
 } from "@/lib/camarim-helpers";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
+import { SplitItemModal } from "./SplitItemModal";
 
 interface Props {
   open: boolean;
@@ -58,6 +59,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [deleting, setDeleting] = useState(false);
   const [itemCreatedBy, setItemCreatedBy] = useState<string | null>(null);
   const [itemStatus, setItemStatus] = useState<CamarimItemStatus | null>(null);
+  const [splitItemId, setSplitItemId] = useState<string | null>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -314,7 +317,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     }
   };
 
-  const handleSave = async (asStatus: CamarimItemStatus) => {
+  const handleSave = async (asStatus: CamarimItemStatus, opts?: { thenSplit?: boolean }) => {
     if (!totalAmount || isNaN(Number(totalAmount))) {
       toast({ variant: "destructive", title: "Valor obrigatório" });
       return;
@@ -451,7 +454,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
       toast({ title: itemId ? "Item atualizado" : "Item registado" });
       onSaved?.();
-      onOpenChange(false);
+      if (opts?.thenSplit && savedId) {
+        setSplitItemId(savedId);
+        setSplitOpen(true);
+      } else {
+        onOpenChange(false);
+      }
     } catch (e: any) {
       console.error(e);
       // 23505 = unique_violation (índice camarim_items_dedup_idx)
@@ -643,6 +651,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                   ))}
                 </SelectContent>
               </Select>
+              {bpScope === "mixed" && (
+                <p className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1.5 text-[11px] text-purple-700 dark:text-purple-400">
+                  Talão misto — parte para Master, parte para cidades específicas. Podes dividir
+                  já agora ou submeter e deixar o gestor dividir antes do fecho.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Categoria contábil</Label>
@@ -723,10 +737,26 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 </Button>
               )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
               Cancelar
             </Button>
+            {bpScope === "mixed" && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  itemId
+                    ? (setSplitItemId(itemId), setSplitOpen(true))
+                    : handleSave(mode === "team" ? "submitted" : "draft", { thenSplit: true })
+                }
+                disabled={saving || deleting}
+                title="Dividir o talão entre Master e cidades"
+              >
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Split className="mr-2 h-4 w-4" />
+                Dividir agora
+              </Button>
+            )}
             {mode === "team" ? (
               <Button onClick={() => handleSave("submitted")} disabled={saving || deleting}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -746,6 +776,25 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {splitItemId && (
+        <SplitItemModal
+          open={splitOpen}
+          onOpenChange={(o) => {
+            setSplitOpen(o);
+            if (!o) {
+              // Após fechar o split modal, fecha também o item modal e refresca a lista
+              setSplitItemId(null);
+              onSaved?.();
+              onOpenChange(false);
+            }
+          }}
+          itemId={splitItemId}
+          onSaved={() => {
+            onSaved?.();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

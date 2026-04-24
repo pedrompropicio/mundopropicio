@@ -393,6 +393,7 @@ export type Database = {
           notes: string | null
           ocr_confidence: string | null
           ocr_raw_payload: Json | null
+          parent_item_id: string | null
           payment_origin: string
           pending_review_reason: string | null
           service_description: string | null
@@ -429,6 +430,7 @@ export type Database = {
           notes?: string | null
           ocr_confidence?: string | null
           ocr_raw_payload?: Json | null
+          parent_item_id?: string | null
           payment_origin: string
           pending_review_reason?: string | null
           service_description?: string | null
@@ -465,6 +467,7 @@ export type Database = {
           notes?: string | null
           ocr_confidence?: string | null
           ocr_raw_payload?: Json | null
+          parent_item_id?: string | null
           payment_origin?: string
           pending_review_reason?: string | null
           service_description?: string | null
@@ -511,6 +514,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "camarim_items"
             referencedColumns: ["id"]
           },
           {

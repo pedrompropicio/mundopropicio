@@ -65,6 +65,7 @@ export function CamarimManagerDashboard({ className }: Props) {
     rejected: 0,
     integrated: 0,
     pending_review: 0,
+    split: 0,
   });
 
   useEffect(() => {
@@ -146,6 +147,7 @@ export function CamarimManagerDashboard({ className }: Props) {
       rejected: 0,
       integrated: 0,
       pending_review: 0,
+      split: 0,
     };
 
     const supplierTotals = new Map<string, number>();

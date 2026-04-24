@@ -42,6 +42,8 @@ import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimFundMoveModal } from "@/components/camarim/CamarimFundMoveModal";
 import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
 import { EditSessionModal } from "@/components/camarim/EditSessionModal";
+import { SplitItemModal } from "@/components/camarim/SplitItemModal";
+import { Split } from "lucide-react";
 
 interface SessionData {
   id: string;
@@ -109,6 +111,7 @@ export default function CamarimSessionDetail() {
   const [showEditSession, setShowEditSession] = useState(false);
   const [showDeleteSession, setShowDeleteSession] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
+  const [splitItemId, setSplitItemId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -180,23 +183,31 @@ export default function CamarimSessionDetail() {
   };
 
   const totals = useMemo(() => {
-    const spent = items.reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
+    // Itens com status=split são pais divididos: ficam fora dos cálculos (os filhos contam).
+    const counted = items.filter((i) => i.status !== "split");
+    const spent = counted.reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
     const advances = funds
       .filter((f) => f.move_type === "advance" || f.move_type === "reinforcement")
       .reduce((a, b) => a + Number(b.amount ?? 0), 0);
     const refunds = funds
       .filter((f) => f.move_type === "refund")
       .reduce((a, b) => a + Number(b.amount ?? 0), 0);
-    const cashOnHand = advances - refunds - items
+    const cashOnHand = advances - refunds - counted
       .filter((i) => i.payment_origin === "advance")
       .reduce((a, b) => a + Number(b.total_amount ?? 0), 0);
     const byScope = {
-      master_common: items.filter((i) => i.bp_scope === "master_common").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
-      local_city: items.filter((i) => i.bp_scope === "local_city").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
+      master_common: counted.filter((i) => i.bp_scope === "master_common").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
+      local_city: counted.filter((i) => i.bp_scope === "local_city").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
     };
-    const pending = items.filter((i) => i.status === "submitted" || i.status === "draft").length;
+    const pending = counted.filter((i) => i.status === "submitted" || i.status === "draft").length;
     return { spent, advances, refunds, cashOnHand, byScope, pending };
   }, [items, funds]);
+
+  // Itens mistos por dividir: bp_scope=mixed e ainda não divididos (status != split).
+  const mixedPendingSplit = useMemo(
+    () => items.filter((i) => i.bp_scope === "mixed" && i.status !== "split" && i.status !== "rejected"),
+    [items],
+  );
 
   const updateItemStatus = async (itemId: string, status: CamarimItemStatus) => {
     const { error } = await supabase
@@ -472,6 +483,61 @@ export default function CamarimSessionDetail() {
             — caso contrário não serão convertidos em transações.
           </p>
         </div>
+      )}
+
+      {/* Fila: talões mistos por dividir */}
+      {mixedPendingSplit.length > 0 && (
+        <Card className="border-purple-500/40 bg-purple-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-400">
+              <Split className="h-4 w-4" />
+              Talões mistos por dividir ({mixedPendingSplit.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Estes talões estão marcados como mistos (parte Master, parte cidade) e ainda
+              não foram divididos. Divide-os antes do fecho para que cada cidade receba a
+              parte correta do gasto.
+            </p>
+            <div className="space-y-1.5">
+              {mixedPendingSplit.map((it) => (
+                <div
+                  key={it.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-purple-500/20 bg-background p-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {it.supplier_name_raw || "—"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {it.document_date || "—"} ·{" "}
+                      {it.service_description || "sem descrição"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-semibold tabular-nums">
+                      {formatCurrency(it.total_amount, session.currency)}
+                    </span>
+                    {it.has_attachment && (
+                      <CamarimItemAttachmentButton itemId={it.id} iconOnly />
+                    )}
+                    {canManage && session.status !== "integrated" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 border-purple-500/40 text-purple-700 hover:bg-purple-500/10 dark:text-purple-400"
+                        onClick={() => setSplitItemId(it.id)}
+                      >
+                        <Split className="mr-1.5 h-3 w-3" /> Dividir
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* KPIs */}
@@ -870,6 +936,18 @@ export default function CamarimSessionDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {splitItemId && (
+        <SplitItemModal
+          open={!!splitItemId}
+          onOpenChange={(o) => {
+            if (!o) setSplitItemId(null);
+          }}
+          itemId={splitItemId}
+          allowResplit
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
