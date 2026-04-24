@@ -846,7 +846,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             }
           }}
           itemId={splitItemId}
-          allowResplit={mode === "manager" && itemStatus === "split" && !parentItemId}
+          allowResplit={mode === "manager" && !parentItemId}
           onSaved={() => {
             onSaved?.();
           }}
