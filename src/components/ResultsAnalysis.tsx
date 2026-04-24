@@ -276,17 +276,24 @@ export function ResultsAnalysis() {
     });
 
     /**
-     * Merge BP and real expenses for one event by transaction status:
-     *   • PAID transactions: substitute BP for that category (consolidated)
-     *   • PENDING transactions: count the larger of (pending real, BP − paid)
-     *     This preserves the BP ceiling when only partial payments exist
-     *   • Categories with only real (no BP): count as extra
-     *   • Categories with only BP (no real yet): count BP entirely
+     * Merge BP and real expenses for one event by transaction status.
+     *
+     *   • Modo "projection" (eventos ainda no início do ciclo):
+     *     PAID consolida; PENDING ou (BP − pago), o maior. Mantém o teto BP.
+     *   • Modo "realized" (eventos passados / em fecho):
+     *     Apenas transações reais (paid + pending). Ignora BP por completo.
+     *     Evita inflar o resultado com sobras de orçamento que já não vão materializar-se.
      */
-    const mergeExpenseForEvent = (eventId: string): number => {
+    const mergeExpenseForEvent = (eventId: string, mode: ResultMode): number => {
       const bp = bpExpenseByEventCat[eventId];
       const paid = txnExpensePaidByCat[eventId];
       const pending = txnExpensePendingByCat[eventId];
+      if (mode === "realized") {
+        let total = 0;
+        paid?.forEach((v) => { total += v; });
+        pending?.forEach((v) => { total += v; });
+        return total;
+      }
       if (!bp && !paid && !pending) return 0;
       const allKeys = new Set<string>();
       bp?.forEach((_, k) => allKeys.add(k));
@@ -297,8 +304,6 @@ export function ResultsAnalysis() {
         const bpAmt = bp?.get(key) ?? 0;
         const paidAmt = paid?.get(key) ?? 0;
         const pendingAmt = pending?.get(key) ?? 0;
-        // Paid is consolidated. For the remaining BP budget after paid,
-        // we count whichever is bigger: still-pending real, or the gap to BP.
         const remainingBp = Math.max(0, bpAmt - paidAmt);
         total += paidAmt + Math.max(pendingAmt, remainingBp);
       });
@@ -314,8 +319,33 @@ export function ResultsAnalysis() {
       return s;
     };
 
+    // ── Última data efetiva de cada evento (max(event_dates) ou events.date) ──
+    const lastDateByEvent: Record<string, string> = {};
+    events.forEach((e: any) => {
+      lastDateByEvent[e.id] = e.date;
+    });
+    eventDates.forEach((ed: any) => {
+      const cur = lastDateByEvent[ed.event_id];
+      if (!cur || String(ed.date).localeCompare(cur) > 0) {
+        lastDateByEvent[ed.event_id] = ed.date;
+      }
+    });
+
+    // Modo automático: se a última data já passou → "realized"; senão → "projection".
+    // Para Master prorrateado de um sub-evento, considera-se a data do próprio sub-evento.
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const autoModeFor = (eventId: string): ResultMode => {
+      const lastDate = lastDateByEvent[eventId];
+      if (!lastDate) return "projection";
+      return lastDate.localeCompare(todayStr) < 0 ? "realized" : "projection";
+    };
+    const resolveMode = (eventId: string): ResultMode => {
+      if (resultModeOverride !== "auto") return resultModeOverride;
+      return autoModeFor(eventId);
+    };
+
     // ── Helper: prorated Master shares (BP and merged) for a sub-event ──
-    const getMasterShare = (subEventId: string) => {
+    const getMasterShare = (subEventId: string, mode: ResultMode) => {
       const sub = events.find((e: any) => e.id === subEventId);
       const masterId = sub?.parent_event_id;
       if (!masterId) return { bpExpense: 0, mergedExpense: 0, closing: 0 };
@@ -323,7 +353,7 @@ export function ResultsAnalysis() {
       const n = siblings.length || 1;
       return {
         bpExpense: bpExpenseTotalForEvent(masterId) / n,
-        mergedExpense: mergeExpenseForEvent(masterId) / n,
+        mergedExpense: mergeExpenseForEvent(masterId, mode) / n,
         closing: (closingMap[masterId] ?? 0) / n,
       };
     };
