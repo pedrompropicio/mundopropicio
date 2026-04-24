@@ -805,11 +805,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       head: [["", "Valor"]],
       body: [
         ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        ["Despesas (c/IVA)", formatCurrency(totalExpensesGrossNoOverhead)],
-        ...(totalOverheadAmount > 0
-          ? [["Overhead (rateio estrutura)", formatCurrency(totalOverheadAmount)] as [string, string]]
-          : []),
-        ["Total Despesas", formatCurrency(totalExpensesGross)],
+        ["Despesas (c/IVA)", formatCurrency(totalExpensesGross)],
         ["Resultado", formatCurrency(resultGross)],
       ],
       margin: { left: margin, right: margin },
