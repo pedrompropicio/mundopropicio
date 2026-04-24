@@ -217,7 +217,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     // Só corre OCR se o ficheiro for um formato suportado pelo modelo (imagem comum).
     const ocrSupported = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type);
     if (ocrSupported) {
-      await runOcr(file);
+      const ocrFile = await prepareImageForOcr(file);
+      await runOcr(ocrFile);
     } else {
       toast({
         title: "OCR não suportado para este formato",
@@ -263,6 +264,49 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+
+  const prepareImageForOcr = async (file: File): Promise<File> => {
+    const shouldShrink = file.size > 1.5 * 1024 * 1024 || /^image\/(png|webp|heic|heif)$/i.test(file.type);
+    if (!shouldShrink) return file;
+
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Não foi possível preparar a imagem para OCR"));
+        image.src = objectUrl;
+      });
+
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+      const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+      const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas indisponível para OCR");
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((result) => resolve(result), "image/jpeg", 0.72);
+      });
+
+      URL.revokeObjectURL(objectUrl);
+
+      if (!blob) return file;
+
+      const baseName = file.name.replace(/\.[^.]+$/, "") || "receipt";
+      return new File([blob], `${baseName}-ocr.jpg`, { type: "image/jpeg" });
+    } catch (err) {
+      console.warn("OCR image preparation failed, using original file", err);
+      return file;
+    }
+  };
 
   const handleSave = async (asStatus: CamarimItemStatus) => {
     if (!totalAmount || isNaN(Number(totalAmount))) {
