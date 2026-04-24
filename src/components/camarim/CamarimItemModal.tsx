@@ -582,10 +582,9 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         <DialogFooter className="gap-2 sm:justify-between">
           <div className="flex gap-2">
             {itemId &&
-              (mode === "manager" ||
-                (itemStatus &&
-                  ["draft", "submitted", "pending_review"].includes(itemStatus) &&
-                  (itemCreatedBy === user?.id || mode === "manager"))) && (
+              itemStatus &&
+              ["draft", "submitted", "pending_review"].includes(itemStatus) &&
+              (mode === "manager" || itemCreatedBy === user?.id) && (
                 <Button
                   variant="destructive"
                   onClick={handleDelete}
