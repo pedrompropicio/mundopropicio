@@ -1098,7 +1098,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         ensureSpace(40);
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text("4b. Cauções pagas pela Mundo Propício", margin, y);
+        doc.text("4a. Cauções pagas pela Mundo Propício", margin, y);
         y += 5;
         doc.setFontSize(8);
         doc.setFont("helvetica", "italic");
@@ -1118,7 +1118,10 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             e.sign > 0 ? "Caução" : "Devolução",
             `${e.sign > 0 ? "+" : "-"}${formatCurrency(e.amount)}`,
           ]),
-          foot: [["Total caixa retido (a recuperar)", "", "", "", formatCurrency(houseSettlement.transitoryCredit)]],
+          foot: [[
+            { content: "Total caixa retido (a recuperar)", colSpan: 4, styles: { halign: "right" } },
+            { content: formatCurrency(houseSettlement.transitoryCredit), styles: { halign: "right" } },
+          ]],
           margin: { left: margin, right: margin },
           tableWidth,
           styles: { fontSize: 8.5, cellPadding: 1.8, overflow: "linebreak", valign: "top" },
@@ -1127,7 +1130,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           columnStyles: {
             0: { cellWidth: tableWidth * 0.32 },
             1: { cellWidth: tableWidth * 0.36 },
-            2: { cellWidth: tableWidth * 0.10, halign: "center" },
+            2: { cellWidth: tableWidth * 0.12, halign: "center" },
             3: { cellWidth: tableWidth * 0.10, halign: "center" },
             4: { halign: "right" },
           },
@@ -1591,7 +1594,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       doc.setFont("helvetica", "italic");
       doc.setTextColor(80);
       const outro = doc.splitTextToSize(
-        "Lógica desta folha: primeiro abate-se a indisponibilidade de caixa das cauções/transitórias ainda retidas; depois prioriza-se o reembolso das despesas pagas pelos sócios externos; só o saldo remanescente suporta distribuição do resultado. Quando a opção estiver desligada, o PDF mantém o formato atual sem esta folha final.",
+        "Lógica desta folha: primeiro abate-se a indisponibilidade de caixa das cauções/transitórias ainda retidas; depois prioriza-se o reembolso das despesas pagas pelos sócios externos; só o saldo remanescente suporta distribuição do resultado.",
         tableWidth,
       );
       doc.text(outro, margin, y);
