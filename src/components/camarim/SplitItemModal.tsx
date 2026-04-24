@@ -136,7 +136,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
           })),
         );
       } else {
-        // 2 linhas iniciais: 1 Master + 1 Local (cidade primária)
+        // 2 linhas iniciais: 1 Master + 1 Local (cidade por escolher — evita default errado)
         setLines([
           {
             scope: "master_common",
@@ -146,7 +146,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
           },
           {
             scope: "local_city",
-            event_id: primary?.event_id ?? "",
+            event_id: "",
             amount: "",
             description: "",
           },
