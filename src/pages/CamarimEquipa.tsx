@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShoppingBag, Camera, Receipt, GripHorizontal, Pencil } from "lucide-react";
+import { ShoppingBag, Camera, Receipt, GripHorizontal, Pencil, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
