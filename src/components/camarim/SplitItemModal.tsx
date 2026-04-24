@@ -361,7 +361,26 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
                   key={idx}
                   className="rounded-md border p-3 space-y-2"
                 >
-                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_120px_auto]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Linha {idx + 1} ·{" "}
+                      <span className={l.scope === "master_common" ? "text-primary" : "text-foreground"}>
+                        {l.scope === "master_common" ? "Master (rateio)" : "Cidade específica"}
+                      </span>
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => removeLine(idx)}
+                      disabled={lines.length <= 2}
+                      title={lines.length <= 2 ? "Mínimo 2 linhas" : "Remover linha"}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_120px]">
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                         Tipo
@@ -414,19 +433,6 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
                         onChange={(e) => updateLine(idx, { amount: e.target.value })}
                         placeholder="0.00"
                       />
-                    </div>
-                    <div className="flex items-end">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-9 w-9 text-destructive"
-                        onClick={() => removeLine(idx)}
-                        disabled={lines.length <= 2}
-                        title={lines.length <= 2 ? "Mínimo 2 linhas" : "Remover linha"}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                   <Input
