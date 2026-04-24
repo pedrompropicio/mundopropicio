@@ -579,26 +579,48 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
           )}
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          {mode === "team" ? (
-            <Button onClick={() => handleSave("submitted")} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submeter
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div className="flex gap-2">
+            {itemId &&
+              (mode === "manager" ||
+                (itemStatus &&
+                  ["draft", "submitted", "pending_review"].includes(itemStatus) &&
+                  (itemCreatedBy === user?.id || mode === "manager"))) && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={saving || deleting}
+                >
+                  {deleting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Eliminar
+                </Button>
+              )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || deleting}>
+              Cancelar
             </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving}>
-                Guardar rascunho
-              </Button>
-              <Button onClick={() => handleSave("approved")} disabled={saving}>
+            {mode === "team" ? (
+              <Button onClick={() => handleSave("submitted")} disabled={saving || deleting}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Aprovar
+                {itemId ? "Atualizar" : "Submeter"}
               </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => handleSave("draft")} disabled={saving || deleting}>
+                  Guardar rascunho
+                </Button>
+                <Button onClick={() => handleSave("approved")} disabled={saving || deleting}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Aprovar
+                </Button>
+              </>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
