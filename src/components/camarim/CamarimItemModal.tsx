@@ -59,8 +59,13 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [deleting, setDeleting] = useState(false);
   const [itemCreatedBy, setItemCreatedBy] = useState<string | null>(null);
   const [itemStatus, setItemStatus] = useState<CamarimItemStatus | null>(null);
+  const [parentItemId, setParentItemId] = useState<string | null>(null);
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
   const [splitOpen, setSplitOpen] = useState(false);
+
+  const isSplitChild = !!parentItemId;
+  const isSplitParent = itemStatus === "split";
+  const hasLockedSplitStructure = isSplitChild || isSplitParent;
 
   useEffect(() => {
     if (!open) return;
@@ -115,6 +120,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setOcrPayload(null);
     setItemCreatedBy(null);
     setItemStatus(null);
+    setParentItemId(null);
   };
 
   const handleDelete = async () => {
@@ -165,6 +171,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setOcrPayload(it.ocr_raw_payload);
     setItemCreatedBy(it.created_by ?? null);
     setItemStatus(it.status ?? null);
+    setParentItemId(it.parent_item_id ?? null);
 
     // Load attached document path (first one)
     const { data: docs } = await supabase
@@ -610,6 +617,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 step="0.01"
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(e.target.value)}
+                disabled={hasLockedSplitStructure}
               />
             </div>
             <div className="space-y-1.5">
@@ -620,11 +628,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 step="0.01"
                 value={ivaAmount}
                 onChange={(e) => setIvaAmount(e.target.value)}
+                disabled={hasLockedSplitStructure}
               />
             </div>
             <div className="space-y-1.5">
               <Label>Origem do pagamento</Label>
-              <Select value={paymentOrigin} onValueChange={(v) => setPaymentOrigin(v as CamarimItemPaymentOrigin)}>
+              <Select value={paymentOrigin} onValueChange={(v) => setPaymentOrigin(v as CamarimItemPaymentOrigin)} disabled={hasLockedSplitStructure}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -639,7 +648,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             </div>
             <div className="space-y-1.5">
               <Label>Verba (BP)</Label>
-              <Select value={bpScope} onValueChange={(v) => setBpScope(v as CamarimItemBpScope)}>
+              <Select value={bpScope} onValueChange={(v) => setBpScope(v as CamarimItemBpScope)} disabled={hasLockedSplitStructure}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -653,14 +662,15 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               </Select>
               {bpScope === "mixed" && (
                 <p className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1.5 text-[11px] text-purple-700 dark:text-purple-400">
-                  Talão misto — parte para Master, parte para cidades específicas. Podes dividir
-                  já agora ou submeter e deixar o gestor dividir antes do fecho.
+                  {isSplitParent
+                    ? "Talão já dividido — para alterar valores ou destinos, usa a redivisão em vez de editar os campos estruturais."
+                    : "Talão misto — parte para Master, parte para cidades específicas. Podes dividir já agora ou submeter e deixar o gestor dividir antes do fecho."}
                 </p>
               )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Categoria contábil</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select value={categoryId} onValueChange={setCategoryId} disabled={hasLockedSplitStructure}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar categoria…" />
                 </SelectTrigger>
@@ -678,6 +688,14 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               <Input value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} />
             </div>
           </div>
+
+          {hasLockedSplitStructure && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
+              {isSplitChild
+                ? "Este registo é uma linha filha de um talão dividido. Valor, verba, categoria e origem de pagamento ficam bloqueados para manter a soma e o vínculo com a despesa-mãe."
+                : "Este talão é a despesa-mãe de uma divisão. Valor, verba, categoria e origem de pagamento ficam bloqueados; se precisares de mudar a repartição, usa a redivisão."}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="flex items-center gap-2">
@@ -722,6 +740,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             {itemId &&
               itemStatus &&
               ["draft", "submitted", "pending_review"].includes(itemStatus) &&
+              !hasLockedSplitStructure &&
               (mode === "manager" || itemCreatedBy === user?.id) && (
                 <Button
                   variant="destructive"
@@ -750,11 +769,11 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                     : handleSave(mode === "team" ? "submitted" : "draft", { thenSplit: true })
                 }
                 disabled={saving || deleting}
-                title="Dividir o talão entre Master e cidades"
+                title={isSplitParent ? "Redividir o talão entre Master e cidades" : "Dividir o talão entre Master e cidades"}
               >
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Split className="mr-2 h-4 w-4" />
-                Dividir agora
+                {isSplitParent ? "Redividir" : "Dividir agora"}
               </Button>
             )}
             {mode === "team" ? (
@@ -790,6 +809,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
             }
           }}
           itemId={splitItemId}
+          allowResplit={mode === "manager" && itemStatus === "split" && !parentItemId}
           onSaved={() => {
             onSaved?.();
           }}
