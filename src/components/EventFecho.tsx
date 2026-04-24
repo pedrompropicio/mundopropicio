@@ -207,8 +207,11 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const expenseGross = expenseTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
 
-  const revenue = getPartnerRevenueBase(revenueNet);
-  const expensesOp = getPartnerExpenseBase(calcBasis, expenseNet, expenseGross);
+  // Política unificada: Fecho usa SEMPRE despesas e receitas NET (sem IVA),
+  // alinhado com a coluna "Real Atual" da Análise de Resultados (Dashboard).
+  // O `partner_calc_basis` permanece como rótulo informativo apenas.
+  const revenue = revenueNet;
+  const expensesOp = expenseNet;
   const resultWithoutOverhead = revenue - expensesOp;
 
   // Overheads (próprios + via master)
@@ -220,8 +223,9 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   const overheadExpenseGross = overheadExpense.reduce((s, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
   const overheadExpenseNet = overheadExpense.reduce((s, o: any) => s + Number(o.amount), 0);
 
+  // Overhead também NET (sem IVA), igual ao Dashboard.
   const overheadIncomeFinal = overheadIncomeNet;
-  const overheadExpenseFinal = usesGrossExpenseAmounts(calcBasis) ? overheadExpenseGross : overheadExpenseNet;
+  const overheadExpenseFinal = overheadExpenseNet;
   const overheadNet = overheadIncomeFinal - overheadExpenseFinal;
   const resultWithOverhead = resultWithoutOverhead + overheadNet;
 
@@ -231,16 +235,13 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     const effectivePct = result < 0 && p.loss_percentage != null ? Number(p.loss_percentage) : Number(p.percentage);
     const partnerShare = roundCents(result * (effectivePct / 100));
 
-    // Pago por sócio
+    // Pago por sócio — sempre NET (alinhado com a política unificada do Fecho).
     const paid = paidByPartners
       .filter((pe: any) => pe.partner_id === p.id)
       .reduce((s: number, pe: any) => {
         const t = pe.transactions;
         if (!t) return s;
-        const amt = usesGrossExpenseAmounts(calcBasis)
-          ? calcTotalWithIva(Number(t.amount), Number(t.iva_rate))
-          : Number(t.amount);
-        return s + amt;
+        return s + Number(t.amount);
       }, 0);
 
     // Extras analíticos
