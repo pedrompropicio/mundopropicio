@@ -133,10 +133,50 @@ export default function CamarimSessionDetail() {
       supabase.from("camarim_items" as any).select("*").eq("session_id", id).order("created_at", { ascending: false }),
       supabase.from("camarim_fund_moves" as any).select("*").eq("session_id", id).order("move_date", { ascending: false }),
     ]);
+    const itemsList = ((it ?? []) as any[]) as ItemRow[];
+    // Anexa flag has_attachment numa única query agregada
+    if (itemsList.length > 0) {
+      const ids = itemsList.map((i) => i.id);
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("item_id")
+        .in("item_id", ids);
+      const set = new Set(((docs ?? []) as any[]).map((d) => d.item_id));
+      itemsList.forEach((i) => {
+        i.has_attachment = set.has(i.id);
+      });
+    }
     setSession(s as any as SessionData);
-    setItems((it ?? []) as any as ItemRow[]);
+    setItems(itemsList);
     setFunds((fm ?? []) as any as FundMove[]);
     setLoading(false);
+  };
+
+  const handleDeleteSession = async () => {
+    if (!id || !session) return;
+    setDeletingSession(true);
+    try {
+      // Apaga ficheiros do storage primeiro
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("file_path,item_id,camarim_items!inner(session_id)")
+        .eq("camarim_items.session_id", id);
+      const paths = ((docs ?? []) as any[]).map((d) => d.file_path).filter(Boolean);
+      if (paths.length > 0) {
+        await supabase.storage.from("camarim-documents").remove(paths);
+      }
+      // O CASCADE da BD trata de items, fund_moves, session_events, integrations, item_documents.
+      const { error } = await supabase.from("camarim_sessions" as any).delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Sessão eliminada" });
+      navigate("/camarim");
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erro a eliminar sessão", description: e.message });
+    } finally {
+      setDeletingSession(false);
+      setShowDeleteSession(false);
+    }
   };
 
   const totals = useMemo(() => {
