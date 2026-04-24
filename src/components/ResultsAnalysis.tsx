@@ -367,7 +367,9 @@ export function ResultsAnalysis() {
     const active: ActiveProjection[] = [];
 
     yearEvents.forEach((e: any) => {
-      const masterShare = getMasterShare(e.id);
+      // Modo aplicado a este evento (override manual ou auto por ciclo de vida)
+      const eventMode = resolveMode(e.id);
+      const masterShare = getMasterShare(e.id, eventMode);
       const ownTicketSales = salesByEvent[e.id] ?? 0;
       const ownTxnIncome = txnIncomeMap[e.id] ?? 0;
       const ownClosing = closingMap[e.id] ?? 0;
@@ -376,9 +378,10 @@ export function ResultsAnalysis() {
       const hasSales = ownTicketSales > 0;
 
       if (e.status === "completed") {
-        // Completed: real expenses (transactions only, merged still applies for consistency)
-        const ownExpense = mergeExpenseForEvent(e.id);
-        const expense = ownExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
+        // Concluídos: sempre lógica "realized" — só transações reais
+        const ownExpense = mergeExpenseForEvent(e.id, "realized");
+        const masterShareCompleted = getMasterShare(e.id, "realized");
+        const expense = ownExpense + masterShareCompleted.mergedExpense + ownClosing + masterShareCompleted.closing;
         const income = ownTicketSales + ownTxnIncome;
         const margin = income - expense;
         completed.push({
@@ -407,11 +410,12 @@ export function ResultsAnalysis() {
         const breakEvenPct = bpIncome100 > 0 ? (bpExpense / bpIncome100) * 100 : 0;
 
         // ── REAL ATUAL ──
+        // Modo "projection": despesas = merge BP+real (mantém teto BP) — útil antes/durante
+        // Modo "realized":   despesas = só transações reais (paid + pending) — eventos passados
         // Receita = bilheteira VENDIDA + outras receitas BP (assume que outras receitas concretizam)
-        // Despesas = merge linha-a-linha (real onde existe, BP onde não) + Master prorrateado + fecho real
         const ticketRevenueSold = ownTicketSales;
         const realIncome = ticketRevenueSold + bpOtherIncome;
-        const ownMergedExpense = mergeExpenseForEvent(e.id);
+        const ownMergedExpense = mergeExpenseForEvent(e.id, eventMode);
         const realExpense =
           ownMergedExpense + masterShare.mergedExpense + ownClosing + masterShare.closing;
         const realMargin = realIncome - realExpense;
@@ -436,6 +440,7 @@ export function ResultsAnalysis() {
           realExpense,
           realMargin,
           realMarginPct: realIncome > 0 ? (realMargin / realIncome) * 100 : 0,
+          resultMode: eventMode,
           totalPartnerPct,
           companyMargin100: margin100 * (companyPct / 100),
           companyMargin80: margin80 * (companyPct / 100),
