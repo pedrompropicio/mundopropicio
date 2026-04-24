@@ -25,6 +25,7 @@ import {
 } from "@/lib/camarim-helpers";
 import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimTeamSummary } from "@/components/camarim/CamarimTeamSummary";
+import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
 
 const LAST_SESSION_KEY = "camarim_team_last_session";
 const FRAME_POS_KEY = "camarim_team_frame_pos";
@@ -47,6 +48,7 @@ interface ItemRow {
   status: CamarimItemStatus;
   document_date: string | null;
   has_document: boolean;
+  has_attachment?: boolean;
 }
 
 export default function CamarimEquipa() {
@@ -226,7 +228,17 @@ export default function CamarimEquipa() {
       .eq("session_id", sid)
       .order("created_at", { ascending: false })
       .limit(50);
-    setItems(((data ?? []) as any[]) as ItemRow[]);
+    const list = ((data ?? []) as any[]) as ItemRow[];
+    if (list.length > 0) {
+      const ids = list.map((i) => i.id);
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("item_id")
+        .in("item_id", ids);
+      const set = new Set(((docs ?? []) as any[]).map((d) => d.item_id));
+      list.forEach((i) => (i.has_attachment = set.has(i.id)));
+    }
+    setItems(list);
   };
 
   const activeSession = useMemo(
@@ -416,6 +428,11 @@ export default function CamarimEquipa() {
                     >
                       {ITEM_STATUS_LABELS[it.status]}
                     </Badge>
+                    {it.has_attachment && (
+                      <div className="mt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <CamarimItemAttachmentButton itemId={it.id} iconOnly />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SESSION_STATUS_LABELS,
@@ -40,6 +40,8 @@ import {
 } from "@/lib/camarim-helpers";
 import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimFundMoveModal } from "@/components/camarim/CamarimFundMoveModal";
+import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
+import { EditSessionModal } from "@/components/camarim/EditSessionModal";
 
 interface SessionData {
   id: string;
@@ -67,6 +69,7 @@ interface ItemRow {
   created_at: string;
   ocr_confidence: string | null;
   category_id: string | null;
+  has_attachment?: boolean;
 }
 
 interface FundMove {
@@ -103,6 +106,9 @@ export default function CamarimSessionDetail() {
   const [settlementAccountId, setSettlementAccountId] = useState<string>("");
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [parkedDecisions, setParkedDecisions] = useState<Record<string, { decision: "reject" | "approve_without_doc" | "defer"; reason: string }>>({});
+  const [showEditSession, setShowEditSession] = useState(false);
+  const [showDeleteSession, setShowDeleteSession] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -127,10 +133,50 @@ export default function CamarimSessionDetail() {
       supabase.from("camarim_items" as any).select("*").eq("session_id", id).order("created_at", { ascending: false }),
       supabase.from("camarim_fund_moves" as any).select("*").eq("session_id", id).order("move_date", { ascending: false }),
     ]);
+    const itemsList = ((it ?? []) as any[]) as ItemRow[];
+    // Anexa flag has_attachment numa única query agregada
+    if (itemsList.length > 0) {
+      const ids = itemsList.map((i) => i.id);
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("item_id")
+        .in("item_id", ids);
+      const set = new Set(((docs ?? []) as any[]).map((d) => d.item_id));
+      itemsList.forEach((i) => {
+        i.has_attachment = set.has(i.id);
+      });
+    }
     setSession(s as any as SessionData);
-    setItems((it ?? []) as any as ItemRow[]);
+    setItems(itemsList);
     setFunds((fm ?? []) as any as FundMove[]);
     setLoading(false);
+  };
+
+  const handleDeleteSession = async () => {
+    if (!id || !session) return;
+    setDeletingSession(true);
+    try {
+      // Apaga ficheiros do storage primeiro
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("file_path,item_id,camarim_items!inner(session_id)")
+        .eq("camarim_items.session_id", id);
+      const paths = ((docs ?? []) as any[]).map((d) => d.file_path).filter(Boolean);
+      if (paths.length > 0) {
+        await supabase.storage.from("camarim-documents").remove(paths);
+      }
+      // O CASCADE da BD trata de items, fund_moves, session_events, integrations, item_documents.
+      const { error } = await supabase.from("camarim_sessions" as any).delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Sessão eliminada" });
+      navigate("/camarim");
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Erro a eliminar sessão", description: e.message });
+    } finally {
+      setDeletingSession(false);
+      setShowDeleteSession(false);
+    }
   };
 
   const totals = useMemo(() => {
@@ -378,6 +424,11 @@ export default function CamarimSessionDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canManage && session.status !== "integrated" && (
+            <Button variant="outline" size="sm" onClick={() => setShowEditSession(true)}>
+              <Pencil className="mr-2 h-4 w-4" /> Editar sessão
+            </Button>
+          )}
           {session.status === "open" && canManage && (
             <Button variant="outline" onClick={() => updateSessionStatus("in_review")}>
               <Lock className="mr-2 h-4 w-4" /> Enviar para revisão
@@ -391,6 +442,18 @@ export default function CamarimSessionDetail() {
           {(session.status === "in_review" || session.status === "closed") && canManage && (
             <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
               <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
+            </Button>
+          )}
+          {/* Eliminar sessão: admin enquanto não integrada; manager apenas em revisão */}
+          {((isAdmin && session.status !== "integrated") ||
+            (isManager && !isAdmin && session.status === "in_review")) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteSession(true)}
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar sessão
             </Button>
           )}
           {session.status === "integrated" && (
@@ -528,28 +591,33 @@ export default function CamarimSessionDetail() {
                             IVA {formatCurrency(it.iva_amount, session.currency)}
                           </p>
                         )}
-                        {canManage && (it.status === "submitted" || it.status === "draft") && (
-                          <div className="mt-1 flex gap-1" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-emerald-600"
-                              onClick={() => updateItemStatus(it.id, "approved")}
-                              title="Aprovar"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-destructive"
-                              onClick={() => updateItemStatus(it.id, "rejected")}
-                              title="Rejeitar"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="mt-1 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {it.has_attachment && (
+                            <CamarimItemAttachmentButton itemId={it.id} iconOnly />
+                          )}
+                          {canManage && (it.status === "submitted" || it.status === "draft") && (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-emerald-600"
+                                onClick={() => updateItemStatus(it.id, "approved")}
+                                title="Aprovar"
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => updateItemStatus(it.id, "rejected")}
+                                title="Rejeitar"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -619,6 +687,43 @@ export default function CamarimSessionDetail() {
           onSaved={load}
         />
       )}
+
+      {showEditSession && (
+        <EditSessionModal
+          open={showEditSession}
+          onOpenChange={setShowEditSession}
+          sessionId={session.id}
+          initial={{
+            title: session.title,
+            budget_amount: session.budget_amount,
+            notes: session.notes,
+          }}
+          onSaved={load}
+        />
+      )}
+
+      <AlertDialog open={showDeleteSession} onOpenChange={setShowDeleteSession}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar sessão de camarim?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vai apagar definitivamente a sessão <strong>{session.title}</strong>, todos os
+              {" "}{items.length} item(ns), {funds.length} movimento(s) de fundos e ficheiros anexos.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingSession}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSession}
+              disabled={deletingSession}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingSession ? "A eliminar…" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
         <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
