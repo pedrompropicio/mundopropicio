@@ -52,7 +52,7 @@ interface ItemRow {
 }
 
 export default function CamarimEquipa() {
-  const { user, hasPermission, isAdmin, loading } = useAuth();
+  const { user, hasPermission, isAdmin, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
