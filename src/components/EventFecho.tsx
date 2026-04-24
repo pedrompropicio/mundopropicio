@@ -185,26 +185,21 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
   });
 
   // ============= Cálculos =============
-  const calcBasis = normalizePartnerCalcBasis(eventInfo?.partner_calc_basis);
+  // Política unificada: Fecho usa SEMPRE despesas e receitas NET (sem IVA),
+  // alinhado com a coluna "Real Atual" da Análise de Resultados (Dashboard).
+  void eventInfo; // partner_calc_basis fica disponível mas não influencia mais os totais.
 
   // Receita: ticket sales se houver, senão income transactions
   const incomeTx = transactions.filter((t: any) => t.type === "income");
   const expenseTx = transactions.filter((t: any) => t.type === "expense");
 
   const hasTickets = ticketSales.length > 0;
-  const revenueGross = hasTickets
-    ? ticketSales.reduce((s, t: any) => s + t.gross, 0)
-    : incomeTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
   const revenueNet = hasTickets
     ? ticketSales.reduce((s, t: any) => s + t.net, 0)
     : incomeTx.reduce((s, t: any) => s + Number(t.amount), 0);
 
-  const expenseGross = expenseTx.reduce((s, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0);
   const expenseNet = expenseTx.reduce((s, t: any) => s + Number(t.amount), 0);
 
-  // Política unificada: Fecho usa SEMPRE despesas e receitas NET (sem IVA),
-  // alinhado com a coluna "Real Atual" da Análise de Resultados (Dashboard).
-  // O `partner_calc_basis` permanece como rótulo informativo apenas.
   const revenue = revenueNet;
   const expensesOp = expenseNet;
   const resultWithoutOverhead = revenue - expensesOp;
