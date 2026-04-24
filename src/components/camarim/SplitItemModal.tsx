@@ -126,7 +126,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       const kidsList = (kids ?? []) as any[];
       setExistingChildrenCount(kidsList.length);
 
-      if (kidsList.length > 0 && allowResplit && p.status === "split" && !p.parent_item_id) {
+      if (kidsList.length > 0 && allowResplit && !p.parent_item_id) {
         setLines(
           kidsList.map((k) => ({
             scope: k.bp_scope === "local_city" ? "local_city" : "master_common",
