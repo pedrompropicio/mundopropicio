@@ -515,6 +515,32 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       map[key].amountGross += calcTotalWithIva(Number(t.amount), Number(t.iva_rate));
       map[key].count += 1;
     });
+    // Overheads (rateios de estrutura) — somam-se às mesmas categorias para
+    // que o item 7 reflita o mesmo total de despesas do Resumo Financeiro.
+    overheads.forEach((o: any) => {
+      const lv = findLevels(o.category_id);
+      const l1 = lv?.l1;
+      const l2 = lv?.l2;
+      const l3 = lv?.l3;
+      const key = l1 && l2 && l3 ? `${l1.code}|${l2.code}|${l3.code}` : "sem-categoria";
+      if (!map[key]) {
+        map[key] = {
+          l1Code: l1?.code || "",
+          l1Name: l1?.name || "Sem categoria",
+          l2Code: l2?.code || "",
+          l2Name: l2?.name || "Sem categoria",
+          l3Code: l3?.code || "",
+          l3Name: l3?.name || "Sem categoria",
+          amountNet: 0,
+          amountGross: 0,
+          count: 0,
+        };
+      }
+      const amt = Number(o.amount || 0);
+      map[key].amountNet += amt;
+      map[key].amountGross += amt;
+      map[key].count += 1;
+    });
     return Object.values(map).sort((a, b) => {
       const c1 = a.l1Code.localeCompare(b.l1Code, undefined, { numeric: true });
       if (c1 !== 0) return c1;
