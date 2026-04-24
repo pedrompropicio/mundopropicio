@@ -78,8 +78,10 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
   const [existingChildrenCount, setExistingChildrenCount] = useState(0);
 
   const isChildItem = !!parent?.parent_item_id;
-  const isAlreadySplitParent = parent?.status === "split";
-  const canResplit = !!allowResplit && isAlreadySplitParent && existingChildrenCount > 0 && !isChildItem;
+  // Pai é "redivisível" sempre que tem filhos e o utilizador entrou em modo redivisão,
+  // mesmo que o status não seja exatamente 'split' (pode ter ficado inconsistente
+  // se o UPDATE final falhou numa tentativa anterior — vamos auto-corrigir no submit).
+  const canResplit = !!allowResplit && existingChildrenCount > 0 && !isChildItem;
 
   useEffect(() => {
     if (!open || !itemId) return;
@@ -124,7 +126,7 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
       const kidsList = (kids ?? []) as any[];
       setExistingChildrenCount(kidsList.length);
 
-      if (kidsList.length > 0 && allowResplit && p.status === "split" && !p.parent_item_id) {
+      if (kidsList.length > 0 && allowResplit && !p.parent_item_id) {
         setLines(
           kidsList.map((k) => ({
             scope: k.bp_scope === "local_city" ? "local_city" : "master_common",
