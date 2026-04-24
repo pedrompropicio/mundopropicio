@@ -42,6 +42,8 @@ import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimFundMoveModal } from "@/components/camarim/CamarimFundMoveModal";
 import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
 import { EditSessionModal } from "@/components/camarim/EditSessionModal";
+import { SplitItemModal } from "@/components/camarim/SplitItemModal";
+import { Split } from "lucide-react";
 
 interface SessionData {
   id: string;
@@ -109,6 +111,7 @@ export default function CamarimSessionDetail() {
   const [showEditSession, setShowEditSession] = useState(false);
   const [showDeleteSession, setShowDeleteSession] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
+  const [splitItemId, setSplitItemId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
