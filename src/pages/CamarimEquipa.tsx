@@ -228,7 +228,17 @@ export default function CamarimEquipa() {
       .eq("session_id", sid)
       .order("created_at", { ascending: false })
       .limit(50);
-    setItems(((data ?? []) as any[]) as ItemRow[]);
+    const list = ((data ?? []) as any[]) as ItemRow[];
+    if (list.length > 0) {
+      const ids = list.map((i) => i.id);
+      const { data: docs } = await supabase
+        .from("camarim_item_documents" as any)
+        .select("item_id")
+        .in("item_id", ids);
+      const set = new Set(((docs ?? []) as any[]).map((d) => d.item_id));
+      list.forEach((i) => (i.has_attachment = set.has(i.id)));
+    }
+    setItems(list);
   };
 
   const activeSession = useMemo(
