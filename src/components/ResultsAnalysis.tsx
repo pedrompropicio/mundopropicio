@@ -749,10 +749,21 @@ export function ResultsAnalysis() {
                         <a href={`/eventos/${e.id}`} className="font-medium hover:text-primary transition-colors">
                           {e.name}
                         </a>
-                        <div className="flex items-center gap-1 mt-0.5">
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                           <span className="text-[10px] text-muted-foreground">{formatDate(e.date)}</span>
                           <SourceBadge source={e.incomeSource} />
                           <SourceBadge source={e.expenseSource} />
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] px-1 py-0 gap-0.5 font-normal"
+                            title={
+                              e.resultMode === "realized"
+                                ? "Modo Realizado: despesas usam apenas transações reais (paid + pending), igual ao Fecho. Aplicado automaticamente quando a data do evento já passou."
+                                : "Modo Projeção: despesas usam BP como teto onde ainda não há real lançado. Aplicado automaticamente quando o evento ainda está por vir."
+                            }
+                          >
+                            {e.resultMode === "realized" ? "📊 Realizado" : "🔮 Projeção"}
+                          </Badge>
                         </div>
                       </td>
 
