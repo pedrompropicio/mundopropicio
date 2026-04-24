@@ -294,7 +294,7 @@ export default function EventDetail() {
     ? (event?.event_type === "multi_day" ? id! : null)
     : (event?.parent_event_id ?? null);
   const { data: masterExpenseShare = 0 } = useQuery({
-    queryKey: ["event_master_expense_share", masterIdForShare],
+    queryKey: ["event_master_expense_share", masterIdForShare, selectedSubEvent],
     queryFn: async () => {
       if (!masterIdForShare) return 0;
       // Conta subs (irmãos) — divisor da quota
