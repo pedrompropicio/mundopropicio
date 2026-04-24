@@ -98,12 +98,13 @@ export function ResultsAnalysis() {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["ra_transactions_v3"],
+    queryKey: ["ra_transactions_v4_paid_approved"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("id, event_id, type, amount, status, category_id, iva_rate")
-        .eq("is_hidden", false);
+        .eq("is_hidden", false)
+        .in("status", ["paid", "approved", "pending"]);
       if (error) throw error;
       return data;
     },
