@@ -223,6 +223,27 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       return;
     }
 
+    // Pré-check de duplicados (mesma sessão + fornecedor + nº doc + total).
+    if (!itemId && supplierName.trim() && docNumber.trim()) {
+      const { data: dupes } = await supabase
+        .from("camarim_items" as any)
+        .select("id,status,created_at,supplier_name_raw,document_number,total_amount")
+        .eq("session_id", sessionId)
+        .ilike("supplier_name_raw", supplierName.trim())
+        .eq("document_number", docNumber.trim())
+        .eq("total_amount", Number(totalAmount))
+        .neq("status", "rejected")
+        .limit(1);
+      if (dupes && dupes.length > 0) {
+        const ok = window.confirm(
+          `⚠️ Já existe um lançamento idêntico nesta sessão:\n\n` +
+          `${supplierName} · doc ${docNumber} · ${Number(totalAmount).toFixed(2)} €\n\n` +
+          `Tens a certeza que queres registar outra vez?`
+        );
+        if (!ok) return;
+      }
+    }
+
     // Sem documento → força parqueamento (manager decide depois).
     // Único bypass: manager pode aprovar diretamente preenchendo justificativa válida.
     // Rejeitar mantém-se sempre como "rejected".
@@ -296,7 +317,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
-      toast({ variant: "destructive", title: "Erro ao gravar", description: e.message });
+      // 23505 = unique_violation (índice camarim_items_dedup_idx)
+      const code = e?.code ?? e?.cause?.code;
+      if (code === "23505" || /duplicate key|camarim_items_dedup_idx/i.test(e?.message ?? "")) {
+        toast({
+          variant: "destructive",
+          title: "Despesa duplicada",
+          description: "Já existe um lançamento idêntico nesta sessão (mesmo fornecedor, nº de documento e valor).",
+        });
+      } else {
+        toast({ variant: "destructive", title: "Erro ao gravar", description: e.message });
+      }
     } finally {
       setSaving(false);
     }
