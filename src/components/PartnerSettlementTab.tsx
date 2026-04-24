@@ -785,6 +785,8 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     const valueColW = tableWidth - labelColW;
     const resultGross = totalRevenueNet - totalExpensesGross;
     const revenueIva = Math.max(0, totalRevenueGross - totalRevenueNet);
+    const totalOverheadAmount = overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
+    const totalExpensesGrossNoOverhead = totalExpensesGross - totalOverheadAmount;
     const totalTransitoryAll = settlements.reduce((s, x) => s + x.transitoryCredit, 0);
     const externalSettlements = settlements.filter((s) => !s.isHouse);
     const houseSettlement = settlements.find((s) => s.isHouse);
@@ -805,7 +807,11 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       head: [["", "Valor"]],
       body: [
         ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        ["Despesas (c/IVA)", formatCurrency(totalExpensesGross)],
+        ["Despesas (c/IVA)", formatCurrency(totalExpensesGrossNoOverhead)],
+        ...(totalOverheadAmount > 0
+          ? [["Overhead (rateio estrutura)", formatCurrency(totalOverheadAmount)] as [string, string]]
+          : []),
+        ["Total Despesas", formatCurrency(totalExpensesGross)],
         ["Resultado", formatCurrency(resultGross)],
       ],
       margin: { left: margin, right: margin },
