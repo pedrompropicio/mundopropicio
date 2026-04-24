@@ -40,6 +40,8 @@ import {
 } from "@/lib/camarim-helpers";
 import { CamarimItemModal } from "@/components/camarim/CamarimItemModal";
 import { CamarimFundMoveModal } from "@/components/camarim/CamarimFundMoveModal";
+import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
+import { EditSessionModal } from "@/components/camarim/EditSessionModal";
 
 interface SessionData {
   id: string;
