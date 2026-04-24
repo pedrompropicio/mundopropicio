@@ -217,8 +217,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     // Só corre OCR se o ficheiro for um formato suportado pelo modelo (imagem comum).
     const ocrSupported = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type);
     if (ocrSupported) {
-      const ocrFile = await prepareImageForOcr(file);
-      await runOcr(ocrFile);
+      await runOcr(file);
     } else {
       toast({
         title: "OCR não suportado para este formato",
@@ -227,9 +226,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     }
   };
 
-  const runOcr = async (file: File) => {
+  const runOcr = async (sourceFile: File) => {
     setOcrLoading(true);
     try {
+      // SEMPRE preparar/comprimir antes do OCR — fotos do iPhone original
+      // estouram a memória da edge function (Memory limit exceeded).
+      const file = await prepareImageForOcr(sourceFile);
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke("extract-camarim-receipt", {
         body: { image_base64: base64, mime_type: file.type },
@@ -265,46 +267,49 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       reader.readAsDataURL(file);
     });
 
+  // Comprime SEMPRE para limitar payload de OCR (~150-300 KB) e evitar
+  // "Memory limit exceeded" na edge function. Imagens pequenas (< 200 KB) passam diretas.
   const prepareImageForOcr = async (file: File): Promise<File> => {
-    const shouldShrink = file.size > 1.5 * 1024 * 1024 || /^image\/(png|webp|heic|heif)$/i.test(file.type);
-    if (!shouldShrink) return file;
+    if (file.size < 200 * 1024 && /^image\/jpe?g$/i.test(file.type)) return file;
 
+    let objectUrl: string | null = null;
     try {
-      const objectUrl = URL.createObjectURL(file);
+      objectUrl = URL.createObjectURL(file);
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
         image.onerror = () => reject(new Error("Não foi possível preparar a imagem para OCR"));
-        image.src = objectUrl;
+        image.src = objectUrl!;
       });
 
-      const maxSide = 1600;
-      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
-      const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
-      const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+      const maxSide = 1280;
+      const srcW = img.naturalWidth || img.width;
+      const srcH = img.naturalHeight || img.height;
+      const scale = Math.min(1, maxSide / Math.max(srcW, srcH));
+      const width = Math.max(1, Math.round(srcW * scale));
+      const height = Math.max(1, Math.round(srcH * scale));
 
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
-
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas indisponível para OCR");
-
       ctx.drawImage(img, 0, 0, width, height);
 
       const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((result) => resolve(result), "image/jpeg", 0.72);
+        canvas.toBlob((result) => resolve(result), "image/jpeg", 0.7);
       });
-
-      URL.revokeObjectURL(objectUrl);
 
       if (!blob) return file;
 
       const baseName = file.name.replace(/\.[^.]+$/, "") || "receipt";
+      console.log(`[camarim-ocr] compressed ${(file.size / 1024).toFixed(0)}KB → ${(blob.size / 1024).toFixed(0)}KB`);
       return new File([blob], `${baseName}-ocr.jpg`, { type: "image/jpeg" });
     } catch (err) {
       console.warn("OCR image preparation failed, using original file", err);
       return file;
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     }
   };
 
