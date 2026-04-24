@@ -1104,9 +1104,13 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
     {
         const houseSettlement = settlements.find((s) => s.isHouse);
       if (houseSettlement && houseSettlement.transitoryItems.length > 0) {
-        // Quebra de página para separar visualmente da secção "4. Detalhes por Sócio"
-        doc.addPage();
-        y = margin;
+        // Mantém na mesma página de "4. Detalhes por Sócio"; só quebra se não couber o cabeçalho
+        if (y > pageH - 40) {
+          doc.addPage();
+          y = margin;
+        } else {
+          y += 4;
+        }
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text("4a. Cauções pagas pela Mundo Propício", margin, y);
