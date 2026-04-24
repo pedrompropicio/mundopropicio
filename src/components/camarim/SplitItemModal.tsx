@@ -521,21 +521,31 @@ export function SplitItemModal({ open, onOpenChange, itemId, allowResplit, onSav
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={saving || loading || !isBalanced || lines.length < 2 || isChildItem}
-          >
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {canResplit ? "Aplicar redivisão" : "Confirmar divisão"}
-          </Button>
+        <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch sm:space-x-0">
+          {blockReason && !isChildItem && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 text-center sm:text-right">
+              {blockReason}
+            </p>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            {canResplit && (
+              <Button
+                variant="outline"
+                onClick={handleRevertToMaster}
+                disabled={saving || loading}
+                className="text-primary border-primary/40 hover:bg-primary/10"
+              >
+                Voltar a Master único
+              </Button>
+            )}
+            <Button onClick={handleSubmit} disabled={saving || loading || !canSubmit}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {canResplit ? "Aplicar redivisão" : "Confirmar divisão"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
