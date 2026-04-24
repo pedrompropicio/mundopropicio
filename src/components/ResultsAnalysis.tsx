@@ -98,12 +98,13 @@ export function ResultsAnalysis() {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["ra_transactions_v3"],
+    queryKey: ["ra_transactions_v4_paid_approved"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("id, event_id, type, amount, status, category_id, iva_rate")
-        .eq("is_hidden", false);
+        .eq("is_hidden", false)
+        .in("status", ["paid", "approved", "pending"]);
       if (error) throw error;
       return data;
     },
@@ -238,12 +239,14 @@ export function ResultsAnalysis() {
     });
 
     // ── Per-event real (transactions) expense maps by category_id — NET (sem IVA) ──
-    // Separamos PAID vs PENDING para a regra de fusão correta:
-    //   • PAID    → substitui o BP integralmente (gasto consolidado)
-    //   • PENDING → soma com o gap do BP (mantém a previsão original como teto)
+    // Alinhado com os Cards do BP: contamos apenas PAID + APPROVED (PENDING é excluído).
+    // Separamos PAID vs APPROVED para a regra de fusão correta:
+    //   • PAID     → substitui o BP integralmente (gasto consolidado)
+    //   • APPROVED → soma com o gap do BP (mantém a previsão original como teto)
+    //   • PENDING  → IGNORADO (ainda não validado pela gestão)
     // transactions.amount inclui IVA; extrair base usando iva_rate da transação
     const txnExpensePaidByCat: Record<string, Map<string, number>> = {};
-    const txnExpensePendingByCat: Record<string, Map<string, number>> = {};
+    const txnExpenseApprovedByCat: Record<string, Map<string, number>> = {};
     const txnIncomeMap: Record<string, number> = {};
     transactions.forEach((t: any) => {
       const eid = t.event_id;
@@ -251,10 +254,16 @@ export function ResultsAnalysis() {
       const rate = Number(t.iva_rate ?? 0);
       const net = Number(t.amount) / (1 + rate / 100);
       if (t.type === "income") {
+        // Receitas: só paid e approved são consideradas reais (alinha com Cards do BP)
+        if (t.status !== "paid" && t.status !== "approved") return;
         txnIncomeMap[eid] = (txnIncomeMap[eid] ?? 0) + net;
         return;
       }
-      const target = t.status === "paid" ? txnExpensePaidByCat : txnExpensePendingByCat;
+      // Despesas: só paid e approved entram (pending ignorado)
+      let target: Record<string, Map<string, number>> | null = null;
+      if (t.status === "paid") target = txnExpensePaidByCat;
+      else if (t.status === "approved") target = txnExpenseApprovedByCat;
+      if (!target) return;
       if (!target[eid]) target[eid] = new Map();
       const key = t.category_id ?? "__none__";
       target[eid].set(key, (target[eid].get(key) ?? 0) + net);
@@ -277,35 +286,36 @@ export function ResultsAnalysis() {
 
     /**
      * Merge BP and real expenses for one event by transaction status.
+     * Alinhado com os Cards do BP: pending NÃO é contabilizado em nenhum modo.
      *
      *   • Modo "projection" (eventos ainda no início do ciclo):
-     *     PAID consolida; PENDING ou (BP − pago), o maior. Mantém o teto BP.
+     *     PAID consolida; APPROVED ou (BP − pago), o maior. Mantém o teto BP.
      *   • Modo "realized" (eventos passados / em fecho):
-     *     Apenas transações reais (paid + pending). Ignora BP por completo.
+     *     Apenas transações validadas (paid + approved). Ignora BP por completo.
      *     Evita inflar o resultado com sobras de orçamento que já não vão materializar-se.
      */
     const mergeExpenseForEvent = (eventId: string, mode: ResultMode): number => {
       const bp = bpExpenseByEventCat[eventId];
       const paid = txnExpensePaidByCat[eventId];
-      const pending = txnExpensePendingByCat[eventId];
+      const approved = txnExpenseApprovedByCat[eventId];
       if (mode === "realized") {
         let total = 0;
         paid?.forEach((v) => { total += v; });
-        pending?.forEach((v) => { total += v; });
+        approved?.forEach((v) => { total += v; });
         return total;
       }
-      if (!bp && !paid && !pending) return 0;
+      if (!bp && !paid && !approved) return 0;
       const allKeys = new Set<string>();
       bp?.forEach((_, k) => allKeys.add(k));
       paid?.forEach((_, k) => allKeys.add(k));
-      pending?.forEach((_, k) => allKeys.add(k));
+      approved?.forEach((_, k) => allKeys.add(k));
       let total = 0;
       allKeys.forEach((key) => {
         const bpAmt = bp?.get(key) ?? 0;
         const paidAmt = paid?.get(key) ?? 0;
-        const pendingAmt = pending?.get(key) ?? 0;
+        const approvedAmt = approved?.get(key) ?? 0;
         const remainingBp = Math.max(0, bpAmt - paidAmt);
-        total += paidAmt + Math.max(pendingAmt, remainingBp);
+        total += paidAmt + Math.max(approvedAmt, remainingBp);
       });
       return total;
     };
@@ -715,7 +725,7 @@ export function ResultsAnalysis() {
             Eventos Ativos — Projeções
           </h3>
           <p className="text-[11px] text-muted-foreground mb-2">
-            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP. Despesas seguem o <em>Modo Real</em>: 🔮 <strong>Projeção</strong> usa BP como teto onde ainda não há real (eventos por vir) · 📊 <strong>Realizado</strong> só conta transações reais, igual ao Fecho (eventos passados). <em>Todos os valores SEM IVA</em>
+            <strong>Planeado 100%</strong>: receita e despesas BP completas · <strong>Planeado 80%</strong>: receita BP × 0,80 com despesas BP completas (cenário pessimista) · <strong>Real Atual</strong>: bilheteira vendida + outras receitas BP. Despesas seguem o <em>Modo Real</em>: 🔮 <strong>Projeção</strong> usa BP como teto onde ainda não há real validado (eventos por vir) · 📊 <strong>Realizado</strong> só conta transações validadas, alinhado com os Cards do BP (eventos passados). <em>Apenas transações <strong>paid + approved</strong> entram no Real (pending excluído). Todos os valores SEM IVA.</em>
           </p>
           <div className="overflow-x-auto glass rounded-xl">
             <table className="w-full text-sm">
@@ -758,8 +768,8 @@ export function ResultsAnalysis() {
                             className="text-[9px] px-1 py-0 gap-0.5 font-normal"
                             title={
                               e.resultMode === "realized"
-                                ? "Modo Realizado: despesas usam apenas transações reais (paid + pending), igual ao Fecho. Aplicado automaticamente quando a data do evento já passou."
-                                : "Modo Projeção: despesas usam BP como teto onde ainda não há real lançado. Aplicado automaticamente quando o evento ainda está por vir."
+                                ? "Modo Realizado: despesas usam apenas transações validadas (paid + approved), alinhado com os Cards do BP. Aplicado automaticamente quando a data do evento já passou."
+                                : "Modo Projeção: despesas usam BP como teto onde ainda não há real validado (paid + approved). Pending é ignorado. Aplicado automaticamente quando o evento ainda está por vir."
                             }
                           >
                             {e.resultMode === "realized" ? "📊 Realizado" : "🔮 Projeção"}
