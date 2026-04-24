@@ -269,7 +269,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: ${getPartnerCalcBasisLabel(calcBasis)}`, margin, y);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}  •  Base: NET (sem IVA)`, margin, y);
     doc.setTextColor(0);
     y += 8;
 
@@ -400,7 +400,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
           <FileBarChart2 className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-bold">Fecho do Evento</h3>
           <Badge variant="outline" className="text-[10px]">
-            Base: {getPartnerCalcBasisLabel(calcBasis)}
+            Base: NET (sem IVA)
           </Badge>
         </div>
         <Button size="sm" variant="outline" onClick={exportPdf}>
