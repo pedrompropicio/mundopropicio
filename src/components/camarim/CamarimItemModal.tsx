@@ -59,6 +59,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [deleting, setDeleting] = useState(false);
   const [itemCreatedBy, setItemCreatedBy] = useState<string | null>(null);
   const [itemStatus, setItemStatus] = useState<CamarimItemStatus | null>(null);
+  const [splitItemId, setSplitItemId] = useState<string | null>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
