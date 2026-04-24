@@ -454,7 +454,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
       toast({ title: itemId ? "Item atualizado" : "Item registado" });
       onSaved?.();
-      onOpenChange(false);
+      if (opts?.thenSplit && savedId) {
+        setSplitItemId(savedId);
+        setSplitOpen(true);
+      } else {
+        onOpenChange(false);
+      }
     } catch (e: any) {
       console.error(e);
       // 23505 = unique_violation (índice camarim_items_dedup_idx)
@@ -646,6 +651,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                   ))}
                 </SelectContent>
               </Select>
+              {bpScope === "mixed" && (
+                <p className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1.5 text-[11px] text-purple-700 dark:text-purple-400">
+                  Talão misto — parte para Master, parte para cidades específicas. Podes dividir
+                  já agora ou submeter e deixar o gestor dividir antes do fecho.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Categoria contábil</Label>
