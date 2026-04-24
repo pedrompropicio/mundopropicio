@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { type LucideIcon } from "lucide-react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface StatCardProps {
   title: string;
@@ -10,6 +11,7 @@ interface StatCardProps {
   variant?: "default" | "primary" | "accent" | "warning";
   forecast?: string;
   executionPercent?: number;
+  tooltip?: string;
 }
 
 const variantStyles = {
