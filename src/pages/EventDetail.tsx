@@ -484,7 +484,9 @@ export default function EventDetail() {
   // If ticket sales exist, use them as revenue source; otherwise fall back to transactions
   const hasTicketSales = ticketSalesRevenue > 0;
   const totalIncome = hasTicketSales ? ticketSalesRevenue : transactionIncome;
-  const totalExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
+  const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  const totalExpenses = ownExpenses + Number(masterExpenseShare || 0);
   const profit = totalIncome - totalExpenses;
 
   const copyTicketingFromSubEvent = async (sourceId: string) => {
