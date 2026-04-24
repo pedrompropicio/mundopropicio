@@ -183,23 +183,31 @@ export default function CamarimSessionDetail() {
   };
 
   const totals = useMemo(() => {
-    const spent = items.reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
+    // Itens com status=split são pais divididos: ficam fora dos cálculos (os filhos contam).
+    const counted = items.filter((i) => i.status !== "split");
+    const spent = counted.reduce((acc, i) => acc + Number(i.total_amount ?? 0), 0);
     const advances = funds
       .filter((f) => f.move_type === "advance" || f.move_type === "reinforcement")
       .reduce((a, b) => a + Number(b.amount ?? 0), 0);
     const refunds = funds
       .filter((f) => f.move_type === "refund")
       .reduce((a, b) => a + Number(b.amount ?? 0), 0);
-    const cashOnHand = advances - refunds - items
+    const cashOnHand = advances - refunds - counted
       .filter((i) => i.payment_origin === "advance")
       .reduce((a, b) => a + Number(b.total_amount ?? 0), 0);
     const byScope = {
-      master_common: items.filter((i) => i.bp_scope === "master_common").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
-      local_city: items.filter((i) => i.bp_scope === "local_city").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
+      master_common: counted.filter((i) => i.bp_scope === "master_common").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
+      local_city: counted.filter((i) => i.bp_scope === "local_city").reduce((a, b) => a + Number(b.total_amount ?? 0), 0),
     };
-    const pending = items.filter((i) => i.status === "submitted" || i.status === "draft").length;
+    const pending = counted.filter((i) => i.status === "submitted" || i.status === "draft").length;
     return { spent, advances, refunds, cashOnHand, byScope, pending };
   }, [items, funds]);
+
+  // Itens mistos por dividir: bp_scope=mixed e ainda não divididos (status != split).
+  const mixedPendingSplit = useMemo(
+    () => items.filter((i) => i.bp_scope === "mixed" && i.status !== "split" && i.status !== "rejected"),
+    [items],
+  );
 
   const updateItemStatus = async (itemId: string, status: CamarimItemStatus) => {
     const { error } = await supabase
