@@ -1,0 +1,50 @@
+-- ============================================================================
+-- RECLASSIFICAÇÃO BP — 8 linhas em L2 não-folha → contas-folha corretas
+-- Executar no Cloud View > SQL > LIVE
+-- ============================================================================
+
+BEGIN;
+
+-- 1) Despesa open bar + Copos (Anitta) → 2.9.01 Bebidas
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.9.01')
+WHERE description IN ('Despesa open bar', 'Copos')
+  AND category_id = (SELECT id FROM public.account_categories WHERE code = '2');
+
+-- 2) Acreditações + Senhas/passes/pulseiras → 2.6.10 Credenciais
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.10')
+WHERE description IN ('Acreditações', 'Senhas / passes / pulseiras')
+  AND category_id = (SELECT id FROM public.account_categories WHERE code = '2.6');
+
+-- 3) T-shirts staff + Estruturas balcões merch → 2.6.09 Merchandising
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.09')
+WHERE description IN ('T-shirts do evento - staff', 'Estruturas balcões merch')
+  AND category_id = (SELECT id FROM public.account_categories WHERE code = '2.6');
+
+-- 4) Equipe de Produção (Henry&Klaus Porto) → 4.1.03 Equipa de Produção
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.1.03')
+WHERE description = 'Equipe de Produção'
+  AND category_id = (SELECT id FROM public.account_categories WHERE code = '4.1');
+
+-- 5) Caixotes de lixo - CM → 4.4.09 Gestão de Resíduos
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.4.09')
+WHERE description = 'Caixotes de lixo - CM'
+  AND category_id = (SELECT id FROM public.account_categories WHERE code = '4.4');
+
+-- Validação
+SELECT 'Linhas reclassificadas:' AS info, ef.description, ac.code, ac.name
+FROM public.event_forecasts ef JOIN public.account_categories ac ON ac.id = ef.category_id
+WHERE ac.code IN ('2.9.01','2.6.09','2.6.10','4.1.03','4.4.09')
+  AND ef.description IN ('Despesa open bar','Copos','Acreditações','Senhas / passes / pulseiras',
+                         'T-shirts do evento - staff','Estruturas balcões merch','Equipe de Produção','Caixotes de lixo - CM')
+ORDER BY ac.code;
+
+SELECT 'Restam em L2 (esperado: 3 PR/PMR):' AS info, ac.code, ef.description, ef.amount
+FROM public.event_forecasts ef JOIN public.account_categories ac ON ac.id = ef.category_id
+WHERE ac.code IN ('3.1','4.4');
+
+COMMIT;
