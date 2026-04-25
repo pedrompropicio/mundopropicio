@@ -199,8 +199,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   });
 
   const cacheCategoryId = useMemo(() => {
-    const category = categories.find((item: any) => item.code === "2.1.01" && item.type === "expense");
-    return category?.id ?? null;
+    // Procura a conta "Cachês" (despesa) por nome — robusto a renumerações do plano de contas.
+    // Fallback: código histórico "2.1.01" para retro-compatibilidade.
+    const expenses = (categories as any[]).filter((c) => c.type === "expense");
+    const byName = expenses.find((c) => {
+      const n = String(c.name ?? "").trim().toLowerCase();
+      return n === "cachês" || n === "caches" || n === "cachê" || n === "cache";
+    });
+    const fallback = expenses.find((c) => c.code === "2.1.01");
+    return byName?.id ?? fallback?.id ?? null;
   }, [categories]);
 
   const forecastEventIds = useMemo(() => {
