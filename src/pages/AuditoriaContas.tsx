@@ -894,14 +894,14 @@ function RenumberTab() {
           <span className={`text-sm ${level === 0 ? "font-bold" : level === 1 ? "font-semibold" : ""} flex-1 truncate`}>{cat.name}</span>
           <Badge variant="outline" className="text-[10px]">{cat.type === "income" ? "R" : "D"}</Badge>
           {isLeaf && c && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              {c.bp > 0 && <span title="Linhas no BP" className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">BP {c.bp}</span>}
-              {c.tx > 0 && <span title="Transações" className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">TX {c.tx}</span>}
-              {c.camarim > 0 && <span title="Itens de camarim" className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-medium">CM {c.camarim}</span>}
-              {c.cache_pay > 0 && <span title="Pagamentos de cachê" className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">CC {c.cache_pay}</span>}
-              {c.cache_ded > 0 && <span title="Deduções de cachê" className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium">DD {c.cache_ded}</span>}
-              {c.closing > 0 && <span title="Custos de fecho" className="px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-600 dark:text-slate-400 font-medium">FC {c.closing}</span>}
-              {c.recurring > 0 && <span title="Transações recorrentes" className="px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-400 font-medium">RC {c.recurring}</span>}
+            <div className="flex items-center gap-1 text-[10px]">
+              {c.bp > 0 && <span title="Linhas no BP" className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">BP {c.bp}</span>}
+              {c.tx > 0 && <span title="Transações" className="px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">TX {c.tx}</span>}
+              {c.camarim > 0 && <span title="Itens de camarim" className="px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">CM {c.camarim}</span>}
+              {c.cache_pay > 0 && <span title="Pagamentos de cachê" className="px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">CC {c.cache_pay}</span>}
+              {c.cache_ded > 0 && <span title="Deduções de cachê" className="px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">DD {c.cache_ded}</span>}
+              {c.closing > 0 && <span title="Custos de fecho" className="px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">FC {c.closing}</span>}
+              {c.recurring > 0 && <span title="Transações recorrentes" className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">RC {c.recurring}</span>}
               {totalDeps === 0 && <span className="text-muted-foreground/60 italic">sem uso</span>}
             </div>
           )}
