@@ -85,9 +85,12 @@ const CATEGORY_CODE_SYNONYMS: Record<string, string[]> = {
   "4.1.04": ["assistente producao", "assistente produção", "staff camarim"],
 
   // 4.2 - Staff Operacional
-  "4.2.01": ["stagehand", "stagehands", "stage hand"],
-  "4.2.02": ["runner", "runners"],
-  "4.2.03": ["credenciamento", "recepcao", "recepção", "checkin", "check in"],
+  "4.2.01": ["credenciamento", "recepcao", "recepção", "checkin", "check in"],
+  "4.2.02": ["empilhadeira", "empilhador", "operador empilhadeira"],
+  "4.2.03": ["rigger", "riggers"],
+  "4.2.04": ["assistente sala", "assistentes sala", "porta", "portas", "acesso carros"],
+  "4.2.05": ["stagehand", "stagehands", "stage hand", "site crew", "ssh"],
+  "4.2.06": ["runner", "runners", "apoio estacionamento"],
 
   // 4.3 - Segurança
   "4.3.01": ["seguranca", "segurança", "seguranca privada", "segurança privada"],
