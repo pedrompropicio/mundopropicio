@@ -201,8 +201,6 @@ function AnaliseIATab() {
       }
 
       // Send to AI in batches of 40
-      const leafSet = buildLeafSet(categories);
-      const leafCats = categories.filter((c) => leafSet.has(c.id) && c.type === "expense");
       const codeMap = new Map(leafCats.map((c) => [c.code, c]));
 
       const BATCH = 40;
