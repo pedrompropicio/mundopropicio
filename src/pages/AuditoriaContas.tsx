@@ -547,6 +547,35 @@ function AnaliseIATab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CategoryFormModal
+        open={!!editingCategoryId}
+        onOpenChange={(o) => { if (!o) setEditingCategoryId(null); }}
+        editingCategory={editingCategoryId ? (categories.find((c) => c.id === editingCategoryId) as any) ?? null : null}
+        onSuccess={async () => {
+          // refresh categories cache and update visible rows with new code/name
+          const { data } = await supabase.from("account_categories").select("*").eq("is_active", true);
+          if (data) {
+            qc.setQueryData(["audit-categories-list"], data);
+            const catMap = new Map((data as Category[]).map((c) => [c.id, c]));
+            setRows((prev) => prev.map((r) => {
+              const cur = r.current_category_id ? catMap.get(r.current_category_id) : null;
+              const sug = r.suggested_id ? catMap.get(r.suggested_id) : null;
+              const cho = r.chosen_id ? catMap.get(r.chosen_id) : null;
+              return {
+                ...r,
+                current_category_code: cur?.code ?? r.current_category_code,
+                current_category_name: cur?.name ?? r.current_category_name,
+                suggested_code: sug?.code ?? r.suggested_code,
+                suggested_name: sug?.name ?? r.suggested_name,
+                chosen_code: cho?.code ?? r.chosen_code,
+                chosen_name: cho?.name ?? r.chosen_name,
+              };
+            }));
+          }
+          setEditingCategoryId(null);
+        }}
+      />
     </div>
   );
 }
