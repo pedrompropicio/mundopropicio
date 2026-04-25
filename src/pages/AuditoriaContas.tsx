@@ -119,6 +119,15 @@ function AnaliseIATab() {
     },
   });
 
+  const leafCats = useMemo(() => {
+    const leafSet = buildLeafSet(categories);
+    return categories
+      .filter((c) => leafSet.has(c.id) && c.type === "expense")
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+  }, [categories]);
+
+  const leafCatsById = useMemo(() => new Map(leafCats.map((c) => [c.id, c])), [leafCats]);
+
   const eventOptions = useMemo(() => {
     // Group: masters first with their subs nested visually
     const masters = events.filter((e) => !e.parent_event_id);
