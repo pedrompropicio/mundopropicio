@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical } from "lucide-react";
+import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical, Plus, Trash2 } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -12,6 +12,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import HelpTooltip from "@/components/HelpTooltip";
 
@@ -538,6 +540,7 @@ function AnaliseIATab() {
    ============================================================ */
 
 interface CatNode extends Category { children: CatNode[]; }
+interface LeafCounts { bp: number; tx: number; camarim: number; cache_pay: number; cache_ded: number; closing: number; recurring: number; }
 
 function buildTree(cats: Category[]): CatNode[] {
   const map = new Map<string, CatNode>();
@@ -585,6 +588,10 @@ function RenumberTab() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [swapDialog, setSwapDialog] = useState<Category | null>(null);
   const [previewDialog, setPreviewDialog] = useState<{ updates: { id: string; oldCode: string; newCode: string }[]; impact: { catId: string; bp: number; tx: number }[] } | null>(null);
+  const [addDialog, setAddDialog] = useState<Category | null>(null); // parent L2 cat
+  const [newLeafName, setNewLeafName] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ cat: Category; deps: LeafCounts; reassignTo: string } | null>(null);
+  const [working, setWorking] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["renumber-categories"],
@@ -592,6 +599,36 @@ function RenumberTab() {
       const { data, error } = await supabase.from("account_categories").select("*");
       if (error) throw error;
       return data as Category[];
+    },
+  });
+
+  // Per-leaf usage counts across 7 tables (single batched load)
+  const { data: counts = {} } = useQuery<Record<string, LeafCounts>>({
+    queryKey: ["renumber-counts"],
+    queryFn: async () => {
+      const tables = [
+        "event_forecasts",
+        "transactions",
+        "camarim_items",
+        "event_cache_payments",
+        "event_cache_deductions",
+        "event_closing_costs",
+        "recurring_transactions",
+      ] as const;
+      const results = await Promise.all(
+        tables.map((t) => supabase.from(t as any).select("category_id"))
+      );
+      const acc: Record<string, LeafCounts> = {};
+      const keys: (keyof LeafCounts)[] = ["bp", "tx", "camarim", "cache_pay", "cache_ded", "closing", "recurring"];
+      results.forEach((r, idx) => {
+        const key = keys[idx];
+        (r.data || []).forEach((row: any) => {
+          if (!row.category_id) return;
+          if (!acc[row.category_id]) acc[row.category_id] = { bp: 0, tx: 0, camarim: 0, cache_pay: 0, cache_ded: 0, closing: 0, recurring: 0 };
+          acc[row.category_id][key] += 1;
+        });
+      });
+      return acc;
     },
   });
 
@@ -677,13 +714,92 @@ function RenumberTab() {
       toast.success(`${previewDialog.updates.length} código(s) atualizado(s)`);
       setPreviewDialog(null);
       qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+      qc.invalidateQueries({ queryKey: ["renumber-counts"] });
       qc.invalidateQueries({ queryKey: ["account-categories"] });
     } catch (e: any) {
       toast.error("Erro a aplicar", { description: e.message });
     }
   }
 
-  // Compute new sequential codes for a sibling array (in given order)
+  /** Adiciona uma nova folha L3 sob o pai L2 escolhido. Código = próximo sequencial. */
+  async function handleAddLeaf() {
+    if (!addDialog) return;
+    const name = newLeafName.trim();
+    if (!name) { toast.error("Indica o nome da conta"); return; }
+    const siblings = categories
+      .filter((c) => c.parent_id === addDialog.id)
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    const nextNum = siblings.length > 0 ? Math.max(...siblings.map((s) => getLeafCode(s.code))) + 1 : 1;
+    const newCode = `${addDialog.code}.${pad(nextNum, 2)}`;
+    setWorking(true);
+    try {
+      const { error } = await supabase.from("account_categories").insert({
+        code: newCode,
+        name,
+        type: addDialog.type,
+        parent_id: addDialog.id,
+        is_active: true,
+        event_required: false,
+      });
+      if (error) throw error;
+      toast.success(`Conta ${newCode} criada`);
+      setAddDialog(null);
+      setNewLeafName("");
+      qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+      qc.invalidateQueries({ queryKey: ["renumber-counts"] });
+      qc.invalidateQueries({ queryKey: ["account-categories"] });
+    } catch (e: any) {
+      toast.error("Erro a criar conta", { description: e.message });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  /** Abre diálogo de exclusão. Pré-carrega dependências. */
+  function openDeleteDialog(cat: Category) {
+    const deps = counts[cat.id] || { bp: 0, tx: 0, camarim: 0, cache_pay: 0, cache_ded: 0, closing: 0, recurring: 0 };
+    setDeleteDialog({ cat, deps, reassignTo: "" });
+  }
+
+  /** Executa exclusão com reassign opcional. */
+  async function executeDelete() {
+    if (!deleteDialog) return;
+    const { cat, deps, reassignTo } = deleteDialog;
+    const totalDeps = deps.bp + deps.tx + deps.camarim + deps.cache_pay + deps.cache_ded + deps.closing + deps.recurring;
+    if (totalDeps > 0 && !reassignTo) {
+      toast.error("Escolhe a conta de destino para reatribuir as dependências");
+      return;
+    }
+    setWorking(true);
+    try {
+      if (totalDeps > 0) {
+        // Reassign in all 7 tables (skip event_cache_deductions: PK is composite, prefer delete dups)
+        const tablesToReassign = [
+          "event_forecasts", "transactions", "camarim_items",
+          "event_cache_payments", "event_closing_costs", "recurring_transactions",
+        ] as const;
+        for (const t of tablesToReassign) {
+          const { error } = await supabase.from(t as any).update({ category_id: reassignTo }).eq("category_id", cat.id);
+          if (error) throw error;
+        }
+        // event_cache_deductions: just delete rows pointing to old cat (avoid unique conflict)
+        if (deps.cache_ded > 0) {
+          await supabase.from("event_cache_deductions").delete().eq("category_id", cat.id);
+        }
+      }
+      const { error: delErr } = await supabase.from("account_categories").delete().eq("id", cat.id);
+      if (delErr) throw delErr;
+      toast.success(`Conta ${cat.code} excluída${totalDeps > 0 ? ` · ${totalDeps} registo(s) reatribuído(s)` : ""}`);
+      setDeleteDialog(null);
+      qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+      qc.invalidateQueries({ queryKey: ["renumber-counts"] });
+      qc.invalidateQueries({ queryKey: ["account-categories"] });
+    } catch (e: any) {
+      toast.error("Erro a excluir", { description: e.message });
+    } finally {
+      setWorking(false);
+    }
+  }
   function computeRenumberUpdates(orderedSiblings: Category[]): { id: string; oldCode: string; newCode: string }[] {
     if (orderedSiblings.length === 0) return [];
     const padLen = detectPadding(orderedSiblings);
@@ -758,6 +874,9 @@ function RenumberTab() {
     };
     // Detect L2 parent of leaves (children exist and are all leaves themselves)
     const isL2WithLeaves = hasChildren && cat.children.every((ch) => ch.children.length === 0);
+    const isLeaf = !hasChildren && !!cat.parent_id;
+    const c = counts[cat.id];
+    const totalDeps = c ? c.bp + c.tx + c.camarim + c.cache_pay + c.cache_ded + c.closing + c.recurring : 0;
     return (
       <div ref={setNodeRef} style={style}>
         <div className="flex items-center gap-2 py-1.5 px-2 hover:bg-secondary/20 border-b border-border/20 bg-background" style={{ paddingLeft: `${indent + 8}px` }}>
@@ -774,6 +893,18 @@ function RenumberTab() {
           <span className={`font-mono text-xs ${level === 0 ? "font-bold" : "font-medium"} min-w-[60px]`}>{cat.code}</span>
           <span className={`text-sm ${level === 0 ? "font-bold" : level === 1 ? "font-semibold" : ""} flex-1 truncate`}>{cat.name}</span>
           <Badge variant="outline" className="text-[10px]">{cat.type === "income" ? "R" : "D"}</Badge>
+          {isLeaf && c && (
+            <div className="flex items-center gap-1 text-[10px]">
+              {c.bp > 0 && <span title="Linhas no BP" className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">BP {c.bp}</span>}
+              {c.tx > 0 && <span title="Transações" className="px-1.5 py-0.5 rounded bg-success/15 text-success font-medium">TX {c.tx}</span>}
+              {c.camarim > 0 && <span title="Itens de camarim" className="px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-medium">CM {c.camarim}</span>}
+              {c.cache_pay > 0 && <span title="Pagamentos de cachê" className="px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">CC {c.cache_pay}</span>}
+              {c.cache_ded > 0 && <span title="Deduções de cachê" className="px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">DD {c.cache_ded}</span>}
+              {c.closing > 0 && <span title="Custos de fecho" className="px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">FC {c.closing}</span>}
+              {c.recurring > 0 && <span title="Transações recorrentes" className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">RC {c.recurring}</span>}
+              {totalDeps === 0 && <span className="text-muted-foreground/60 italic">sem uso</span>}
+            </div>
+          )}
           {isL2WithLeaves && (
             <button
               onClick={() => handleResequenceLeaves(cat.id)}
@@ -783,11 +914,25 @@ function RenumberTab() {
               Reordenar L3
             </button>
           )}
+          {cat.parent_id && level === 1 && (
+            <button
+              onClick={() => { setAddDialog(cat); setNewLeafName(""); }}
+              className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-primary"
+              title="Adicionar conta-folha (L3)"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
           {cat.parent_id && (
             <div className="flex items-center gap-0.5">
               <button onClick={() => handleMove(cat, "up")} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleMove(cat, "down")} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Descer"><ArrowDown className="h-3.5 w-3.5" /></button>
               <button onClick={() => setSwapDialog(cat)} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Trocar código com…"><ArrowLeftRight className="h-3.5 w-3.5" /></button>
+              {isLeaf && (
+                <button onClick={() => openDeleteDialog(cat)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Excluir conta">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -877,6 +1022,131 @@ function RenumberTab() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPreviewDialog(null)}>Cancelar</Button>
             <Button onClick={applyUpdates}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add new leaf dialog */}
+      <Dialog open={!!addDialog} onOpenChange={(o) => !o && setAddDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova conta sob "{addDialog?.code} {addDialog?.name}"</DialogTitle>
+            <DialogDescription>
+              Será criada como conta-folha (L3) {addDialog?.type === "income" ? "de Receita" : "de Despesa"}.
+              Código atribuído automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome da conta</Label>
+              <Input
+                value={newLeafName}
+                onChange={(e) => setNewLeafName(e.target.value)}
+                placeholder="Ex: Bilheteira VIP"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter" && !working) handleAddLeaf(); }}
+              />
+            </div>
+            {addDialog && (() => {
+              const sibs = categories.filter((c) => c.parent_id === addDialog.id);
+              const next = sibs.length > 0 ? Math.max(...sibs.map((s) => getLeafCode(s.code))) + 1 : 1;
+              return (
+                <p className="text-xs text-muted-foreground">
+                  Código previsto: <span className="font-mono font-semibold text-primary">{addDialog.code}.{pad(next, 2)}</span>
+                </p>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialog(null)} disabled={working}>Cancelar</Button>
+            <Button onClick={handleAddLeaf} disabled={working || !newLeafName.trim()}>
+              {working ? "A criar…" : "Criar conta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete leaf dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={(o) => !o && setDeleteDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Excluir "{deleteDialog?.cat.code} {deleteDialog?.cat.name}"?</DialogTitle>
+            <DialogDescription>
+              {deleteDialog && (() => {
+                const total = deleteDialog.deps.bp + deleteDialog.deps.tx + deleteDialog.deps.camarim +
+                  deleteDialog.deps.cache_pay + deleteDialog.deps.cache_ded + deleteDialog.deps.closing + deleteDialog.deps.recurring;
+                return total === 0
+                  ? "Esta conta não tem registos vinculados — pode ser excluída em segurança."
+                  : `Esta conta tem ${total} registo(s) vinculado(s). Escolhe a conta de destino para reatribuir antes de excluir.`;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteDialog && (() => {
+            const d = deleteDialog.deps;
+            const total = d.bp + d.tx + d.camarim + d.cache_pay + d.cache_ded + d.closing + d.recurring;
+            const reassignTargets = categories
+              .filter((c) => c.parent_id === deleteDialog.cat.parent_id && c.id !== deleteDialog.cat.id)
+              .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+            return (
+              <div className="space-y-3">
+                {total > 0 && (
+                  <div className="text-xs space-y-1 p-3 rounded bg-secondary/50">
+                    <p className="font-medium text-foreground">Dependências encontradas:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {d.bp > 0 && <span>BP: <strong>{d.bp}</strong></span>}
+                      {d.tx > 0 && <span>Transações: <strong>{d.tx}</strong></span>}
+                      {d.camarim > 0 && <span>Camarim: <strong>{d.camarim}</strong></span>}
+                      {d.cache_pay > 0 && <span>Cachê (pag.): <strong>{d.cache_pay}</strong></span>}
+                      {d.cache_ded > 0 && <span>Cachê (ded.): <strong>{d.cache_ded}</strong></span>}
+                      {d.closing > 0 && <span>Fechos: <strong>{d.closing}</strong></span>}
+                      {d.recurring > 0 && <span>Recorrentes: <strong>{d.recurring}</strong></span>}
+                    </div>
+                  </div>
+                )}
+                {total > 0 && (
+                  <div>
+                    <Label className="text-xs">Reatribuir registos para:</Label>
+                    {reassignTargets.length === 0 ? (
+                      <p className="text-sm text-destructive mt-1">
+                        Não há contas-irmãs disponíveis no mesmo grupo. Cria primeiro uma conta de destino.
+                      </p>
+                    ) : (
+                      <Select value={deleteDialog.reassignTo} onValueChange={(v) => setDeleteDialog({ ...deleteDialog, reassignTo: v })}>
+                        <SelectTrigger><SelectValue placeholder="Escolhe a conta de destino…" /></SelectTrigger>
+                        <SelectContent>
+                          {reassignTargets.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <span className="font-mono text-xs mr-2">{t.code}</span>{t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {d.cache_ded > 0 && (
+                      <p className="text-[11px] text-warning mt-2 flex items-start gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                        Deduções de cachê com esta categoria serão eliminadas (não reatribuídas) para evitar conflitos de unicidade.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)} disabled={working}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={executeDelete}
+              disabled={working || (() => {
+                if (!deleteDialog) return true;
+                const t = deleteDialog.deps.bp + deleteDialog.deps.tx + deleteDialog.deps.camarim +
+                  deleteDialog.deps.cache_pay + deleteDialog.deps.cache_ded + deleteDialog.deps.closing + deleteDialog.deps.recurring;
+                return t > 0 && !deleteDialog.reassignTo;
+              })()}
+            >
+              {working ? "A excluir…" : "Excluir conta"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
