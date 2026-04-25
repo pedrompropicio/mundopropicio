@@ -714,6 +714,7 @@ function RenumberTab() {
       toast.success(`${previewDialog.updates.length} código(s) atualizado(s)`);
       setPreviewDialog(null);
       qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+      qc.invalidateQueries({ queryKey: ["renumber-counts"] });
       qc.invalidateQueries({ queryKey: ["account-categories"] });
     } catch (e: any) {
       toast.error("Erro a aplicar", { description: e.message });
