@@ -712,6 +712,40 @@ function RenumberTab() {
     setPreviewDialog({ updates, impact });
   }
 
+  /**
+   * Reordena as folhas (L3) sob um pai L2 sequencialmente: 01, 02, 03…
+   * Mantém a ordem visual atual (por código) e elimina apenas os saltos.
+   * Começa SEMPRE em 01 (com padding 2 dígitos) — padronização.
+   */
+  async function handleResequenceLeaves(parentId: string) {
+    const siblings = categories
+      .filter((c) => c.parent_id === parentId)
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    if (!siblings.length) {
+      toast.info("Sem contas-folha para reordenar");
+      return;
+    }
+    // Confirma que são folhas (não têm filhos)
+    const hasGrandchildren = siblings.some((s) => categories.some((c) => c.parent_id === s.id));
+    if (hasGrandchildren) {
+      toast.error("Este grupo tem subgrupos — apenas folhas (L3) podem ser reordenadas sequencialmente");
+      return;
+    }
+    const prefix = getParentPrefix(siblings[0].code);
+    const updates: { id: string; oldCode: string; newCode: string }[] = [];
+    siblings.forEach((s, i) => {
+      const newLast = pad(i + 1, 2);
+      const newCode = prefix ? `${prefix}.${newLast}` : newLast;
+      if (newCode !== s.code) updates.push({ id: s.id, oldCode: s.code, newCode });
+    });
+    if (!updates.length) {
+      toast.success("Já está sequencial — nada a alterar");
+      return;
+    }
+    const impact = await fetchImpact(updates.map((u) => u.id));
+    setPreviewDialog({ updates, impact });
+  }
+
   function SortableRow({ cat, level }: { cat: CatNode; level: number }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
     const hasChildren = cat.children.length > 0;
