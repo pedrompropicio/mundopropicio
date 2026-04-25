@@ -540,6 +540,7 @@ function AnaliseIATab() {
    ============================================================ */
 
 interface CatNode extends Category { children: CatNode[]; }
+interface LeafCounts { bp: number; tx: number; camarim: number; cache_pay: number; cache_ded: number; closing: number; recurring: number; }
 
 function buildTree(cats: Category[]): CatNode[] {
   const map = new Map<string, CatNode>();
