@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical, Plus, Trash2 } from "lucide-react";
+import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical, Plus, Trash2, Pencil } from "lucide-react";
+import CategoryFormModal from "@/components/CategoryFormModal";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -99,6 +100,7 @@ function AnaliseIATab() {
   const [filter, setFilter] = useState<"all" | "diff" | "missing">("diff");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
@@ -422,7 +424,21 @@ function AnaliseIATab() {
                         ) : (
                           <span className="text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />sem cat.</span>
                         )}
-                        {r.current_category_name && <div className="text-muted-foreground">{r.current_category_name}</div>}
+                        {r.current_category_name && (
+                          <div className="text-muted-foreground flex items-center gap-1 group">
+                            <span>{r.current_category_name}</span>
+                            {r.current_category_id && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingCategoryId(r.current_category_id!)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-secondary text-muted-foreground hover:text-foreground"
+                                title="Editar nome/código da categoria"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs min-w-[220px]">
                         {r.suggested_code && (
@@ -531,6 +547,35 @@ function AnaliseIATab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CategoryFormModal
+        open={!!editingCategoryId}
+        onOpenChange={(o) => { if (!o) setEditingCategoryId(null); }}
+        editingCategory={editingCategoryId ? (categories.find((c) => c.id === editingCategoryId) as any) ?? null : null}
+        onSuccess={async () => {
+          // refresh categories cache and update visible rows with new code/name
+          const { data } = await supabase.from("account_categories").select("*").eq("is_active", true);
+          if (data) {
+            qc.setQueryData(["audit-categories-list"], data);
+            const catMap = new Map((data as Category[]).map((c) => [c.id, c]));
+            setRows((prev) => prev.map((r) => {
+              const cur = r.current_category_id ? catMap.get(r.current_category_id) : null;
+              const sug = r.suggested_id ? catMap.get(r.suggested_id) : null;
+              const cho = r.chosen_id ? catMap.get(r.chosen_id) : null;
+              return {
+                ...r,
+                current_category_code: cur?.code ?? r.current_category_code,
+                current_category_name: cur?.name ?? r.current_category_name,
+                suggested_code: sug?.code ?? r.suggested_code,
+                suggested_name: sug?.name ?? r.suggested_name,
+                chosen_code: cho?.code ?? r.chosen_code,
+                chosen_name: cho?.name ?? r.chosen_name,
+              };
+            }));
+          }
+          setEditingCategoryId(null);
+        }}
+      />
     </div>
   );
 }
