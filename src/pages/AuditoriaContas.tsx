@@ -720,7 +720,85 @@ function RenumberTab() {
     }
   }
 
-  // Compute new sequential codes for a sibling array (in given order)
+  /** Adiciona uma nova folha L3 sob o pai L2 escolhido. Código = próximo sequencial. */
+  async function handleAddLeaf() {
+    if (!addDialog) return;
+    const name = newLeafName.trim();
+    if (!name) { toast.error("Indica o nome da conta"); return; }
+    const siblings = categories
+      .filter((c) => c.parent_id === addDialog.id)
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    const nextNum = siblings.length > 0 ? Math.max(...siblings.map((s) => getLeafCode(s.code))) + 1 : 1;
+    const newCode = `${addDialog.code}.${pad(nextNum, 2)}`;
+    setWorking(true);
+    try {
+      const { error } = await supabase.from("account_categories").insert({
+        code: newCode,
+        name,
+        type: addDialog.type,
+        parent_id: addDialog.id,
+        is_active: true,
+        event_required: false,
+      });
+      if (error) throw error;
+      toast.success(`Conta ${newCode} criada`);
+      setAddDialog(null);
+      setNewLeafName("");
+      qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+      qc.invalidateQueries({ queryKey: ["renumber-counts"] });
+      qc.invalidateQueries({ queryKey: ["account-categories"] });
+    } catch (e: any) {
+      toast.error("Erro a criar conta", { description: e.message });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  /** Abre diálogo de exclusão. Pré-carrega dependências. */
+  function openDeleteDialog(cat: Category) {
+    const deps = counts[cat.id] || { bp: 0, tx: 0, camarim: 0, cache_pay: 0, cache_ded: 0, closing: 0, recurring: 0 };
+    setDeleteDialog({ cat, deps, reassignTo: "" });
+  }
+
+  /** Executa exclusão com reassign opcional. */
+  async function executeDelete() {
+    if (!deleteDialog) return;
+    const { cat, deps, reassignTo } = deleteDialog;
+    const totalDeps = deps.bp + deps.tx + deps.camarim + deps.cache_pay + deps.cache_ded + deps.closing + deps.recurring;
+    if (totalDeps > 0 && !reassignTo) {
+      toast.error("Escolhe a conta de destino para reatribuir as dependências");
+      return;
+    }
+    setWorking(true);
+    try {
+      if (totalDeps > 0) {
+        // Reassign in all 7 tables (skip event_cache_deductions: PK is composite, prefer delete dups)
+        const tablesToReassign = [
+          "event_forecasts", "transactions", "camarim_items",
+          "event_cache_payments", "event_closing_costs", "recurring_transactions",
+        ] as const;
+        for (const t of tablesToReassign) {
+          const { error } = await supabase.from(t as any).update({ category_id: reassignTo }).eq("category_id", cat.id);
+          if (error) throw error;
+        }
+        // event_cache_deductions: just delete rows pointing to old cat (avoid unique conflict)
+        if (deps.cache_ded > 0) {
+          await supabase.from("event_cache_deductions").delete().eq("category_id", cat.id);
+        }
+      }
+      const { error: delErr } = await supabase.from("account_categories").delete().eq("id", cat.id);
+      if (delErr) throw delErr;
+      toast.success(`Conta ${cat.code} excluída${totalDeps > 0 ? ` · ${totalDeps} registo(s) reatribuído(s)` : ""}`);
+      setDeleteDialog(null);
+      qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+      qc.invalidateQueries({ queryKey: ["renumber-counts"] });
+      qc.invalidateQueries({ queryKey: ["account-categories"] });
+    } catch (e: any) {
+      toast.error("Erro a excluir", { description: e.message });
+    } finally {
+      setWorking(false);
+    }
+  }
   function computeRenumberUpdates(orderedSiblings: Category[]): { id: string; oldCode: string; newCode: string }[] {
     if (orderedSiblings.length === 0) return [];
     const padLen = detectPadding(orderedSiblings);
