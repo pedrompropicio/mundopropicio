@@ -67,6 +67,7 @@ import DatabaseBackups from "./pages/DatabaseBackups";
 import RecurringTransactions from "./pages/RecurringTransactions";
 import SecurityDashboard from "./pages/SecurityDashboard";
 import AdminPanel from "./pages/AdminPanel";
+import AuditoriaContas from "./pages/AuditoriaContas";
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
@@ -263,6 +264,7 @@ function ProtectedLayout() {
               <Route path="/admin/implantacao" element={<EventImplementations />} />
               <Route path="/admin/implantacao/:id" element={<EventImplementationDetail />} />
               <Route path="/admin/atividade" element={<UserActivityLog />} />
+              <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             

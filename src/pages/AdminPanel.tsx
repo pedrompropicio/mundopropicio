@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, Trash2, History, Activity } from "lucide-react";
+import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -40,6 +40,12 @@ const adminCards = [
     icon: Activity,
     title: "Atividade",
     description: "Tempo de utilização e secções mais usadas por utilizador",
+  },
+  {
+    to: "/admin/auditoria-contas",
+    icon: ClipboardCheck,
+    title: "Auditoria Contas",
+    description: "Análise IA de classificações no BP/Transações e gestão da numeração do Plano de Contas",
   },
 ];
 
