@@ -587,6 +587,10 @@ function RenumberTab() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [swapDialog, setSwapDialog] = useState<Category | null>(null);
   const [previewDialog, setPreviewDialog] = useState<{ updates: { id: string; oldCode: string; newCode: string }[]; impact: { catId: string; bp: number; tx: number }[] } | null>(null);
+  const [addDialog, setAddDialog] = useState<Category | null>(null); // parent L2 cat
+  const [newLeafName, setNewLeafName] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ cat: Category; deps: LeafCounts; reassignTo: string } | null>(null);
+  const [working, setWorking] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["renumber-categories"],
@@ -594,6 +598,36 @@ function RenumberTab() {
       const { data, error } = await supabase.from("account_categories").select("*");
       if (error) throw error;
       return data as Category[];
+    },
+  });
+
+  // Per-leaf usage counts across 7 tables (single batched load)
+  const { data: counts = {} } = useQuery<Record<string, LeafCounts>>({
+    queryKey: ["renumber-counts"],
+    queryFn: async () => {
+      const tables = [
+        "event_forecasts",
+        "transactions",
+        "camarim_items",
+        "event_cache_payments",
+        "event_cache_deductions",
+        "event_closing_costs",
+        "recurring_transactions",
+      ] as const;
+      const results = await Promise.all(
+        tables.map((t) => supabase.from(t as any).select("category_id"))
+      );
+      const acc: Record<string, LeafCounts> = {};
+      const keys: (keyof LeafCounts)[] = ["bp", "tx", "camarim", "cache_pay", "cache_ded", "closing", "recurring"];
+      results.forEach((r, idx) => {
+        const key = keys[idx];
+        (r.data || []).forEach((row: any) => {
+          if (!row.category_id) return;
+          if (!acc[row.category_id]) acc[row.category_id] = { bp: 0, tx: 0, camarim: 0, cache_pay: 0, cache_ded: 0, closing: 0, recurring: 0 };
+          acc[row.category_id][key] += 1;
+        });
+      });
+      return acc;
     },
   });
 
