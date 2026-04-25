@@ -1197,6 +1197,18 @@ function RenumberTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CategoryFormModal
+        open={!!editingCategoryId}
+        onOpenChange={(o) => { if (!o) setEditingCategoryId(null); }}
+        editingCategory={editingCategoryId ? (categories.find((c) => c.id === editingCategoryId) as any) ?? null : null}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+          qc.invalidateQueries({ queryKey: ["account-categories"] });
+          qc.invalidateQueries({ queryKey: ["audit-categories-list"] });
+          setEditingCategoryId(null);
+        }}
+      />
     </div>
   );
 }
