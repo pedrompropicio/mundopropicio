@@ -120,9 +120,12 @@ ATENÇÃO sobre LED/Ecrã:
 - Assistente produção, staff camarim → 4.1.04
 
 # 4.2 - Staff Operacional
-- Stagehand, stagehands → 4.2.01
-- Runner, runners → 4.2.02
-- Credenciamento, recepção, checkin → 4.2.03
+- Credenciamento, recepção, checkin → 4.2.01
+- Empilhadeira, operador empilhadeira → 4.2.02
+- Rigger, riggers → 4.2.03
+- Assistente de sala, portas, acessos → 4.2.04
+- Stagehand, stagehands, site crew, SSH → 4.2.05
+- Runner, runners, apoio estacionamento → 4.2.06
 
 # 4.3 - Segurança
 - Segurança, segurança privada → 4.3.01
