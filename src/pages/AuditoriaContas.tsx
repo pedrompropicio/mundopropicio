@@ -32,6 +32,10 @@ interface AuditRow {
   suggested_name?: string | null;
   confidence?: number;
   reason?: string;
+  // user decision (when accepted, holds the chosen target — defaults to suggested)
+  chosen_id?: string | null;
+  chosen_code?: string | null;
+  chosen_name?: string | null;
   status?: "pending" | "accepted" | "rejected" | "applied";
 }
 
