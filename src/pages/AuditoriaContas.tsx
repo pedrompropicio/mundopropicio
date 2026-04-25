@@ -326,8 +326,15 @@ function AnaliseIATab() {
     const total = rows.length;
     const diffs = rows.filter((r) => r.suggested_code && r.suggested_code !== r.current_category_code).length;
     const missing = rows.filter((r) => !r.current_category_id).length;
-    return { total, diffs, missing };
+    const accepted = rows.filter((r) => r.status === "accepted" && r.chosen_id && r.chosen_id !== r.current_category_id).length;
+    const rejectedCount = rows.filter((r) => r.status === "rejected").length;
+    return { total, diffs, missing, accepted, rejectedCount };
   }, [rows]);
+
+  const acceptedRows = useMemo(
+    () => rows.filter((r) => r.status === "accepted" && r.chosen_id && r.chosen_id !== r.current_category_id),
+    [rows]
+  );
 
   return (
     <div className="space-y-4">
