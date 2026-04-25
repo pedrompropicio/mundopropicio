@@ -649,7 +649,7 @@ function RenumberTab() {
       </div>
 
       <div className="glass rounded-xl">
-        {tree.map((c) => renderRow(c, 0))}
+        <SortableGroup nodes={tree} level={0} parentId={null} />
       </div>
 
       {/* Swap dialog */}
