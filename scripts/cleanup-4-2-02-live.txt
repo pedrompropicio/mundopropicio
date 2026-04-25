@@ -1,0 +1,45 @@
+-- ============================================================================
+-- LIMPEZA 4.2.02 — criar 4.2.08 Runners/Apoio, mover BPs e eliminar 4.2.02
+-- Executar no Cloud View > SQL > LIVE
+-- ============================================================================
+
+BEGIN;
+
+-- 1) Criar 4.2.08 Runners / Apoio (filha de 4.2 Staff Operacional)
+INSERT INTO public.account_categories (code, name, type, parent_id, event_required, is_active)
+SELECT '4.2.08', 'Runners / Apoio', 'expense',
+       (SELECT id FROM public.account_categories WHERE code = '4.2'),
+       true, true
+WHERE NOT EXISTS (SELECT 1 FROM public.account_categories WHERE code = '4.2.08');
+
+-- 2) Mover BPs de 4.2.02 → 4.2.08
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.08')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.02');
+
+-- 3) Mover transações (defensivo — query mostrou 0, mas garantir)
+UPDATE public.transactions
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.08')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.02');
+
+-- 4) Verificar se sobrou alguma coisa antes de eliminar
+DO $$
+DECLARE remaining_bp int; remaining_tx int;
+BEGIN
+  SELECT COUNT(*) INTO remaining_bp FROM public.event_forecasts
+  WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.02');
+  SELECT COUNT(*) INTO remaining_tx FROM public.transactions
+  WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.02');
+  IF remaining_bp > 0 OR remaining_tx > 0 THEN
+    RAISE EXCEPTION 'Ainda existem % BP e % TX em 4.2.02 — abortar', remaining_bp, remaining_tx;
+  END IF;
+END $$;
+
+-- 5) Eliminar 4.2.02
+DELETE FROM public.account_categories WHERE code = '4.2.02';
+
+-- 6) Validação
+SELECT 'Filhas de 4.2:' AS info, code, name FROM public.account_categories
+WHERE parent_id = (SELECT id FROM public.account_categories WHERE code='4.2') ORDER BY code;
+
+COMMIT;
