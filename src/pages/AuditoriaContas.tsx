@@ -636,6 +636,7 @@ function RenumberTab() {
   const [addDialog, setAddDialog] = useState<Category | null>(null); // parent L2 cat
   const [newLeafName, setNewLeafName] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<{ cat: Category; deps: LeafCounts; reassignTo: string } | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
