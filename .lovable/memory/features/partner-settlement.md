@@ -61,7 +61,7 @@ O antigo botão "🔄 Marcar como Transitória" foi **removido** — era duplica
 
 ### Cálculo no acerto (`PartnerSettlementTab`)
 1. **Sócio externo**: `transitoryCredit = max(0, Σ transitória.expense vinculadas − Σ transitória.income vinculadas)` (via `partner_paid_expenses`)
-2. **Mundo Propício (casa)**: `transitoryCredit = max(0, Σ transitória.expense ÓRFÃS − Σ transitória.income ÓRFÃS)` — todas as transitórias do evento sem vínculo a `partner_paid_expenses`
+2. **Mundo Propício (sócia principal)**: `transitoryCredit = max(0, Σ transitória.expense ÓRFÃS − Σ transitória.income ÓRFÃS)` — todas as transitórias do evento sem vínculo a `partner_paid_expenses`
 3. `operationalSettlement = partnerShare + totalPaidByPartner − totalPartnerExtras` (caixa real, liquidável agora)
 4. `settlement = operationalSettlement + transitoryCredit` (saldo total, só liquidável após retorno das cauções)
 
