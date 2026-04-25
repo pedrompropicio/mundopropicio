@@ -1,0 +1,81 @@
+-- ============================================================================
+-- LIMPEZA 4.2.01 — mover tudo para destinos corretos e eliminar a conta
+-- Executar no Cloud View > SQL > LIVE
+-- ============================================================================
+
+BEGIN;
+
+-- 1) STAGEHANDS (variações: "Stage hands", "Stage Hand de Produção", "SSH", "Site crew")
+--    → 4.2.07 Stagehands
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.07')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND (description ILIKE '%stage hand%'
+       OR description ILIKE '%stagehand%'
+       OR description ILIKE '%site crew%'
+       OR description ILIKE '%mão de obra ssh%'
+       OR description ILIKE '%mao de obra ssh%');
+
+UPDATE public.transactions
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.07')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND (description ILIKE '%stage hand%'
+       OR description ILIKE '%stagehand%'
+       OR description ILIKE '%site crew%'
+       OR description ILIKE '%mão de obra ssh%'
+       OR description ILIKE '%mao de obra ssh%');
+
+-- 2) RIGGERS → 4.2.05 Riggers
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.05')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND description ILIKE '%rigger%';
+
+UPDATE public.transactions
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.05')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND description ILIKE '%rigger%';
+
+-- 3) PORTAS/ACESSOS RICARDOS → 4.2.06 Assistentes de Sala
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.06')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND (description ILIKE '%porta%' OR description ILIKE '%acesso carros%');
+
+UPDATE public.transactions
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.06')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND (description ILIKE '%porta%' OR description ILIKE '%acesso carros%');
+
+-- 4) STAFFS CAMARINS → 2.6.04 Camarins
+UPDATE public.event_forecasts
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.04')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND description ILIKE '%camarins%';
+
+UPDATE public.transactions
+SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.04')
+WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01')
+  AND description ILIKE '%camarins%';
+
+-- 5) Verificar se sobrou alguma coisa antes de eliminar
+DO $$
+DECLARE remaining_bp int; remaining_tx int;
+BEGIN
+  SELECT COUNT(*) INTO remaining_bp FROM public.event_forecasts
+  WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01');
+  SELECT COUNT(*) INTO remaining_tx FROM public.transactions
+  WHERE category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.01');
+  IF remaining_bp > 0 OR remaining_tx > 0 THEN
+    RAISE EXCEPTION 'Ainda existem % BP e % TX em 4.2.01 — abortar', remaining_bp, remaining_tx;
+  END IF;
+END $$;
+
+-- 6) Eliminar 4.2.01
+DELETE FROM public.account_categories WHERE code = '4.2.01';
+
+-- 7) Validação
+SELECT 'Filhas restantes em 4.2:' AS info, code, name FROM public.account_categories
+WHERE parent_id = (SELECT id FROM public.account_categories WHERE code='4.2') ORDER BY code;
+
+COMMIT;
