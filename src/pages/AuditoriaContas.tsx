@@ -636,6 +636,7 @@ function RenumberTab() {
   const [addDialog, setAddDialog] = useState<Category | null>(null); // parent L2 cat
   const [newLeafName, setNewLeafName] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<{ cat: Category; deps: LeafCounts; reassignTo: string } | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
   const { data: categories = [], isLoading } = useQuery({
@@ -973,6 +974,7 @@ function RenumberTab() {
               <button onClick={() => handleMove(cat, "up")} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleMove(cat, "down")} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Descer"><ArrowDown className="h-3.5 w-3.5" /></button>
               <button onClick={() => setSwapDialog(cat)} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Trocar código com…"><ArrowLeftRight className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setEditingCategoryId(cat.id)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-primary" title="Editar nome / detalhes"><Pencil className="h-3.5 w-3.5" /></button>
               {isLeaf && (
                 <button onClick={() => openDeleteDialog(cat)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Excluir conta">
                   <Trash2 className="h-3.5 w-3.5" />
@@ -1195,6 +1197,18 @@ function RenumberTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CategoryFormModal
+        open={!!editingCategoryId}
+        onOpenChange={(o) => { if (!o) setEditingCategoryId(null); }}
+        editingCategory={editingCategoryId ? (categories.find((c) => c.id === editingCategoryId) as any) ?? null : null}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["renumber-categories"] });
+          qc.invalidateQueries({ queryKey: ["account-categories"] });
+          qc.invalidateQueries({ queryKey: ["audit-categories-list"] });
+          setEditingCategoryId(null);
+        }}
+      />
     </div>
   );
 }
