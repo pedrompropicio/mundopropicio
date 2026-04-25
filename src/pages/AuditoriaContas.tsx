@@ -32,6 +32,10 @@ interface AuditRow {
   suggested_name?: string | null;
   confidence?: number;
   reason?: string;
+  // user decision (when accepted, holds the chosen target — defaults to suggested)
+  chosen_id?: string | null;
+  chosen_code?: string | null;
+  chosen_name?: string | null;
   status?: "pending" | "accepted" | "rejected" | "applied";
 }
 
@@ -91,6 +95,8 @@ function AnaliseIATab() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<"all" | "diff" | "missing">("diff");
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
@@ -112,6 +118,15 @@ function AnaliseIATab() {
       return data as Category[];
     },
   });
+
+  const leafCats = useMemo(() => {
+    const leafSet = buildLeafSet(categories);
+    return categories
+      .filter((c) => leafSet.has(c.id) && c.type === "expense")
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+  }, [categories]);
+
+  const leafCatsById = useMemo(() => new Map(leafCats.map((c) => [c.id, c])), [leafCats]);
 
   const eventOptions = useMemo(() => {
     // Group: masters first with their subs nested visually
@@ -186,8 +201,6 @@ function AnaliseIATab() {
       }
 
       // Send to AI in batches of 40
-      const leafSet = buildLeafSet(categories);
-      const leafCats = categories.filter((c) => leafSet.has(c.id) && c.type === "expense");
       const codeMap = new Map(leafCats.map((c) => [c.code, c]));
 
       const BATCH = 40;
@@ -243,47 +256,85 @@ function AnaliseIATab() {
     });
   }, [rows, filter]);
 
-  async function applyOne(row: AuditRow) {
-    if (!row.suggested_id) return;
-    try {
-      const table = row.source === "bp" ? "event_forecasts" : "transactions";
-      const { error } = await supabase.from(table).update({ category_id: row.suggested_id }).eq("id", row.id);
-      if (error) throw error;
-      setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "applied", current_category_id: row.suggested_id!, current_category_code: row.suggested_code!, current_category_name: row.suggested_name! } : r)));
-      toast.success("Aplicado");
-    } catch (e: any) {
-      toast.error("Erro ao aplicar", { description: e.message });
-    }
+  // ---- Local decisions (no DB write yet) ----
+  function acceptRow(row: AuditRow, targetId?: string) {
+    setRows((prev) => prev.map((r) => {
+      if (!(r.id === row.id && r.source === row.source)) return r;
+      const id = targetId ?? r.suggested_id ?? null;
+      if (!id) return r;
+      const cat = leafCatsById.get(id);
+      return {
+        ...r,
+        status: "accepted",
+        chosen_id: id,
+        chosen_code: cat?.code ?? r.suggested_code ?? null,
+        chosen_name: cat?.name ?? r.suggested_name ?? null,
+      };
+    }));
   }
 
-  function rejectOne(row: AuditRow) {
-    setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "rejected" } : r)));
+  function rejectRow(row: AuditRow) {
+    setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "rejected", chosen_id: null, chosen_code: null, chosen_name: null } : r)));
   }
 
-  async function applyAllVisible() {
-    const toApply = filteredRows.filter((r) => r.suggested_id && r.status !== "rejected" && r.suggested_code !== r.current_category_code);
-    if (!toApply.length) { toast.info("Nada para aplicar"); return; }
-    if (!confirm(`Aplicar ${toApply.length} sugestões?`)) return;
+  function resetRow(row: AuditRow) {
+    setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "pending", chosen_id: null, chosen_code: null, chosen_name: null } : r)));
+  }
+
+  function acceptAllVisible() {
+    setRows((prev) => prev.map((r) => {
+      const visible = filteredRows.some((f) => f.id === r.id && f.source === r.source);
+      if (!visible || r.status === "applied" || r.status === "rejected") return r;
+      if (!r.suggested_id || r.suggested_code === r.current_category_code) return r;
+      const cat = leafCatsById.get(r.suggested_id);
+      return { ...r, status: "accepted", chosen_id: r.suggested_id, chosen_code: cat?.code ?? r.suggested_code ?? null, chosen_name: cat?.name ?? r.suggested_name ?? null };
+    }));
+  }
+
+  // ---- Commit accepted rows to DB ----
+  async function commitAccepted() {
+    const toApply = rows.filter((r) => r.status === "accepted" && r.chosen_id && r.chosen_id !== r.current_category_id);
+    if (!toApply.length) { toast.info("Nada para aplicar"); setSummaryOpen(false); return; }
+    setApplying(true);
     let ok = 0, fail = 0;
     for (const r of toApply) {
       try {
         const table = r.source === "bp" ? "event_forecasts" : "transactions";
-        const { error } = await supabase.from(table).update({ category_id: r.suggested_id }).eq("id", r.id);
+        const { error } = await supabase.from(table).update({ category_id: r.chosen_id }).eq("id", r.id);
         if (error) throw error;
         ok++;
       } catch { fail++; }
     }
+    setRows((prev) => prev.map((r) => {
+      if (!toApply.some((x) => x.id === r.id && x.source === r.source)) return r;
+      return {
+        ...r,
+        status: "applied",
+        current_category_id: r.chosen_id!,
+        current_category_code: r.chosen_code!,
+        current_category_name: r.chosen_name!,
+      };
+    }));
+    setApplying(false);
+    setSummaryOpen(false);
+    qc.invalidateQueries({ queryKey: ["transactions"] });
+    qc.invalidateQueries({ queryKey: ["event_forecasts"] });
     toast.success(`${ok} aplicadas${fail ? `, ${fail} com erro` : ""}`);
-    // mark applied
-    setRows((prev) => prev.map((r) => toApply.some((x) => x.id === r.id && x.source === r.source) ? { ...r, status: "applied" } : r));
   }
 
   const stats = useMemo(() => {
     const total = rows.length;
     const diffs = rows.filter((r) => r.suggested_code && r.suggested_code !== r.current_category_code).length;
     const missing = rows.filter((r) => !r.current_category_id).length;
-    return { total, diffs, missing };
+    const accepted = rows.filter((r) => r.status === "accepted" && r.chosen_id && r.chosen_id !== r.current_category_id).length;
+    const rejectedCount = rows.filter((r) => r.status === "rejected").length;
+    return { total, diffs, missing, accepted, rejectedCount };
   }, [rows]);
+
+  const acceptedRows = useMemo(
+    () => rows.filter((r) => r.status === "accepted" && r.chosen_id && r.chosen_id !== r.current_category_id),
+    [rows]
+  );
 
   return (
     <div className="space-y-4">
@@ -306,21 +357,32 @@ function AnaliseIATab() {
       {rows.length > 0 && (
         <>
           <div className="flex flex-wrap gap-3 items-center justify-between">
-            <div className="flex gap-2 text-xs">
+            <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline">Total: {stats.total}</Badge>
               <Badge variant="outline" className="border-warning/40 text-warning">Disparidades: {stats.diffs}</Badge>
               <Badge variant="outline" className="border-destructive/40 text-destructive">Sem categoria: {stats.missing}</Badge>
+              <Badge variant="outline" className="border-success/40 text-success">Aceites: {stats.accepted}</Badge>
+              <Badge variant="outline">Rejeitadas: {stats.rejectedCount}</Badge>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(["diff", "missing", "all"] as const).map((f) => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium ${filter === f ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
                   {f === "diff" ? "Disparidades" : f === "missing" ? "Sem categoria" : "Todas"}
                 </button>
               ))}
-              <Button size="sm" onClick={applyAllVisible} className="gap-1.5"><Check className="h-3.5 w-3.5" /> Aplicar visíveis</Button>
+              <Button size="sm" variant="outline" onClick={acceptAllVisible} className="gap-1.5">
+                <Check className="h-3.5 w-3.5" /> Aceitar visíveis
+              </Button>
+              <Button size="sm" onClick={() => setSummaryOpen(true)} disabled={stats.accepted === 0} className="gap-1.5">
+                Rever e aplicar ({stats.accepted})
+              </Button>
             </div>
           </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Clica em <Check className="inline h-3 w-3 text-success" /> para aceitar a sugestão, em <X className="inline h-3 w-3 text-destructive" /> para rejeitar, ou usa o seletor para escolher outra conta. Podes retroceder com <RefreshCw className="inline h-3 w-3" />. Nada é guardado até clicares em <strong>Rever e aplicar</strong>.
+          </p>
 
           <div className="glass rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
@@ -330,7 +392,7 @@ function AnaliseIATab() {
                   <th className="px-3 py-2.5 text-left font-medium">Descrição</th>
                   <th className="px-3 py-2.5 text-left font-medium">Evento</th>
                   <th className="px-3 py-2.5 text-left font-medium">Categoria atual</th>
-                  <th className="px-3 py-2.5 text-left font-medium">Sugestão</th>
+                  <th className="px-3 py-2.5 text-left font-medium">Escolha</th>
                   <th className="px-3 py-2.5 text-center font-medium">Conf.</th>
                   <th className="px-3 py-2.5 text-center font-medium">Ações</th>
                 </tr>
@@ -338,8 +400,11 @@ function AnaliseIATab() {
               <tbody className="divide-y divide-border/30">
                 {filteredRows.map((r) => {
                   const isDiff = r.suggested_code && r.suggested_code !== r.current_category_code;
+                  const isAccepted = r.status === "accepted";
+                  const isRejected = r.status === "rejected";
+                  const selectValue = r.chosen_id ?? r.suggested_id ?? "";
                   return (
-                    <tr key={`${r.source}-${r.id}`} className={`hover:bg-secondary/20 ${r.status === "rejected" ? "opacity-40" : ""}`}>
+                    <tr key={`${r.source}-${r.id}`} className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
                       <td className="px-3 py-2">
                         <Badge variant={r.source === "bp" ? "secondary" : "outline"} className="text-[10px]">{r.source === "bp" ? "BP" : "TX"}</Badge>
                       </td>
@@ -357,13 +422,29 @@ function AnaliseIATab() {
                         )}
                         {r.current_category_name && <div className="text-muted-foreground">{r.current_category_name}</div>}
                       </td>
-                      <td className="px-3 py-2 text-xs">
-                        {r.suggested_code ? (
-                          <>
+                      <td className="px-3 py-2 text-xs min-w-[220px]">
+                        {r.suggested_code && (
+                          <div className="mb-1">
+                            <span className="text-[10px] uppercase text-muted-foreground mr-1">IA:</span>
                             <span className={`font-mono ${isDiff ? "text-primary font-semibold" : "text-muted-foreground"}`}>{r.suggested_code}</span>
-                            {r.suggested_name && <div className="text-muted-foreground">{r.suggested_name}</div>}
-                          </>
-                        ) : <span className="text-muted-foreground">—</span>}
+                            {r.suggested_name && <span className="text-muted-foreground"> · {r.suggested_name}</span>}
+                          </div>
+                        )}
+                        <Select value={selectValue} onValueChange={(v) => acceptRow(r, v)}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Escolher conta…" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {leafCats.map((c) => (
+                              <SelectItem key={c.id} value={c.id} className="text-xs">
+                                <span className="font-mono">{c.code}</span> · {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isAccepted && r.chosen_code && r.chosen_id !== r.suggested_id && (
+                          <div className="text-[10px] text-warning mt-1">Alterado para: <span className="font-mono">{r.chosen_code}</span></div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center">
                         {r.confidence !== undefined && (
@@ -374,12 +455,17 @@ function AnaliseIATab() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-center gap-1">
-                          {isDiff && r.status !== "rejected" && (
-                            <button onClick={() => applyOne(r)} className="rounded p-1.5 hover:bg-success/10 text-success" title="Aplicar"><Check className="h-3.5 w-3.5" /></button>
+                          {(r.status === "pending" || !r.status) && isDiff && (
+                            <button onClick={() => acceptRow(r)} className="rounded p-1.5 hover:bg-success/10 text-success" title="Aceitar sugestão"><Check className="h-3.5 w-3.5" /></button>
                           )}
-                          {r.status !== "rejected" && (
-                            <button onClick={() => rejectOne(r)} className="rounded p-1.5 hover:bg-destructive/10 text-destructive" title="Rejeitar"><X className="h-3.5 w-3.5" /></button>
+                          {(r.status === "pending" || !r.status) && (
+                            <button onClick={() => rejectRow(r)} className="rounded p-1.5 hover:bg-destructive/10 text-destructive" title="Rejeitar"><X className="h-3.5 w-3.5" /></button>
                           )}
+                          {(isAccepted || isRejected) && (
+                            <button onClick={() => resetRow(r)} className="rounded p-1.5 hover:bg-secondary text-muted-foreground" title="Retroceder"><RefreshCw className="h-3.5 w-3.5" /></button>
+                          )}
+                          {isAccepted && <Badge variant="outline" className="text-[9px] border-success/40 text-success">aceite</Badge>}
+                          {isRejected && <Badge variant="outline" className="text-[9px] border-muted-foreground/40 text-muted-foreground">rejeit.</Badge>}
                         </div>
                       </td>
                     </tr>
@@ -393,6 +479,56 @@ function AnaliseIATab() {
           </div>
         </>
       )}
+
+      <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Check className="h-5 w-5 text-success" /> Resumo das alterações</DialogTitle>
+            <DialogDescription>
+              Vais aplicar <strong>{acceptedRows.length}</strong> {acceptedRows.length === 1 ? "alteração" : "alterações"} de categoria. Revê antes de confirmar — esta ação grava na base de dados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-border/50">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-secondary/40 backdrop-blur">
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="px-2 py-2 text-left font-medium">Origem</th>
+                  <th className="px-2 py-2 text-left font-medium">Descrição</th>
+                  <th className="px-2 py-2 text-left font-medium">Evento</th>
+                  <th className="px-2 py-2 text-left font-medium">De</th>
+                  <th className="px-2 py-2 text-left font-medium">Para</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {acceptedRows.map((r) => (
+                  <tr key={`sum-${r.source}-${r.id}`}>
+                    <td className="px-2 py-1.5"><Badge variant={r.source === "bp" ? "secondary" : "outline"} className="text-[9px]">{r.source === "bp" ? "BP" : "TX"}</Badge></td>
+                    <td className="px-2 py-1.5 max-w-[220px] truncate" title={r.description}>{r.description}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[140px]">{r.event_label}</td>
+                    <td className="px-2 py-1.5 font-mono text-muted-foreground">{r.current_category_code ?? "—"}</td>
+                    <td className="px-2 py-1.5">
+                      <span className="font-mono text-primary font-semibold">{r.chosen_code}</span>
+                      {r.chosen_name && <div className="text-[10px] text-muted-foreground">{r.chosen_name}</div>}
+                    </td>
+                  </tr>
+                ))}
+                {acceptedRows.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-6 text-muted-foreground">Sem alterações aceites.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSummaryOpen(false)} disabled={applying}>Voltar a editar</Button>
+            <Button onClick={commitAccepted} disabled={applying || acceptedRows.length === 0} className="gap-2">
+              {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {applying ? "A aplicar…" : "Confirmar e aplicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
