@@ -2,7 +2,10 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical } from "lucide-react";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -544,13 +547,53 @@ function RenumberTab() {
     }
   }
 
-  function renderRow(cat: CatNode, level: number) {
+  // Compute new sequential codes for a sibling array (in given order)
+  function computeRenumberUpdates(orderedSiblings: Category[]): { id: string; oldCode: string; newCode: string }[] {
+    if (orderedSiblings.length === 0) return [];
+    const padLen = detectPadding(orderedSiblings);
+    const minNum = Math.min(...orderedSiblings.map((s) => getLeafCode(s.code)));
+    const prefix = getParentPrefix(orderedSiblings[0].code);
+    const updates: { id: string; oldCode: string; newCode: string }[] = [];
+    orderedSiblings.forEach((s, i) => {
+      const newLast = pad(minNum + i, padLen);
+      const newCode = prefix ? `${prefix}.${newLast}` : newLast;
+      if (newCode !== s.code) updates.push({ id: s.id, oldCode: s.code, newCode });
+    });
+    return updates;
+  }
+
+  async function handleDragEnd(e: DragEndEvent, parentId: string | null) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const siblings = categories.filter((c) => c.parent_id === parentId).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    const oldIdx = siblings.findIndex((s) => s.id === active.id);
+    const newIdx = siblings.findIndex((s) => s.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(siblings, oldIdx, newIdx);
+    const updates = computeRenumberUpdates(reordered);
+    if (!updates.length) return;
+    const impact = await fetchImpact(updates.map((u) => u.id));
+    setPreviewDialog({ updates, impact });
+  }
+
+  function SortableRow({ cat, level }: { cat: CatNode; level: number }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
     const hasChildren = cat.children.length > 0;
     const isExpanded = expanded.has(cat.id);
     const indent = level * 20;
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
     return (
-      <div key={cat.id}>
-        <div className="flex items-center gap-2 py-1.5 px-2 hover:bg-secondary/20 border-b border-border/20" style={{ paddingLeft: `${indent + 8}px` }}>
+      <div ref={setNodeRef} style={style}>
+        <div className="flex items-center gap-2 py-1.5 px-2 hover:bg-secondary/20 border-b border-border/20 bg-background" style={{ paddingLeft: `${indent + 8}px` }}>
+          {cat.parent_id ? (
+            <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-0.5" title="Arrastar para reordenar">
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+          ) : <span className="w-4" />}
           {hasChildren ? (
             <button onClick={() => toggle(cat.id)} className="text-muted-foreground hover:text-foreground p-0.5">
               {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -567,10 +610,25 @@ function RenumberTab() {
             </div>
           )}
         </div>
-        {hasChildren && isExpanded && cat.children.map((c) => renderRow(c, level + 1))}
+        {hasChildren && isExpanded && <SortableGroup nodes={cat.children} level={level + 1} parentId={cat.id} />}
       </div>
     );
   }
+
+  function SortableGroup({ nodes, level, parentId }: { nodes: CatNode[]; level: number; parentId: string | null }) {
+    const sensors = useSensors(
+      useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+      useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+    return (
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, parentId)}>
+        <SortableContext items={nodes.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+          {nodes.map((c) => <SortableRow key={c.id} cat={c} level={level} />)}
+        </SortableContext>
+      </DndContext>
+    );
+  }
+
 
   // siblings list for swap dialog
   const swapTargets = useMemo(() => {
@@ -591,7 +649,7 @@ function RenumberTab() {
       </div>
 
       <div className="glass rounded-xl">
-        {tree.map((c) => renderRow(c, 0))}
+        <SortableGroup nodes={tree} level={0} parentId={null} />
       </div>
 
       {/* Swap dialog */}
