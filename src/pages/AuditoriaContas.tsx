@@ -424,7 +424,21 @@ function AnaliseIATab() {
                         ) : (
                           <span className="text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />sem cat.</span>
                         )}
-                        {r.current_category_name && <div className="text-muted-foreground">{r.current_category_name}</div>}
+                        {r.current_category_name && (
+                          <div className="text-muted-foreground flex items-center gap-1 group">
+                            <span>{r.current_category_name}</span>
+                            {r.current_category_id && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingCategoryId(r.current_category_id!)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-secondary text-muted-foreground hover:text-foreground"
+                                title="Editar nome/código da categoria"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs min-w-[220px]">
                         {r.suggested_code && (
