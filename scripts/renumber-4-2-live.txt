@@ -1,0 +1,22 @@
+-- ============================================================================
+-- RENUMERAÇÃO 4.2 — compactar para 4.2.01..4.2.06 mantendo ordem
+-- Executar no Cloud View > SQL > LIVE
+-- ============================================================================
+
+BEGIN;
+
+-- Renumera (rename code only) — IDs e referências (BP/TX) permanecem intactos
+UPDATE public.account_categories SET code = '4.2.01' WHERE code = '4.2.03'; -- Recepção / Credenciamento
+UPDATE public.account_categories SET code = '4.2.02' WHERE code = '4.2.04'; -- Operadores de Empilhadeira
+-- 4.2.05 Riggers, 4.2.06 Assistentes Sala já estão no lugar mas precisam mover p/ libertar slots
+UPDATE public.account_categories SET code = '4.2.03' WHERE code = '4.2.05'; -- Riggers
+UPDATE public.account_categories SET code = '4.2.04' WHERE code = '4.2.06'; -- Assistentes de Sala
+UPDATE public.account_categories SET code = '4.2.05' WHERE code = '4.2.07'; -- Stagehands
+UPDATE public.account_categories SET code = '4.2.06' WHERE code = '4.2.08'; -- Runners / Apoio
+
+-- Validação
+SELECT code, name FROM public.account_categories
+WHERE parent_id = (SELECT id FROM public.account_categories WHERE code = '4.2')
+ORDER BY code;
+
+COMMIT;
