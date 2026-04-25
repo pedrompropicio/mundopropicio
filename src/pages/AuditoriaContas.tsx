@@ -479,6 +479,56 @@ function AnaliseIATab() {
           </div>
         </>
       )}
+
+      <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Check className="h-5 w-5 text-success" /> Resumo das alterações</DialogTitle>
+            <DialogDescription>
+              Vais aplicar <strong>{acceptedRows.length}</strong> {acceptedRows.length === 1 ? "alteração" : "alterações"} de categoria. Revê antes de confirmar — esta ação grava na base de dados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-border/50">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-secondary/40 backdrop-blur">
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="px-2 py-2 text-left font-medium">Origem</th>
+                  <th className="px-2 py-2 text-left font-medium">Descrição</th>
+                  <th className="px-2 py-2 text-left font-medium">Evento</th>
+                  <th className="px-2 py-2 text-left font-medium">De</th>
+                  <th className="px-2 py-2 text-left font-medium">Para</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {acceptedRows.map((r) => (
+                  <tr key={`sum-${r.source}-${r.id}`}>
+                    <td className="px-2 py-1.5"><Badge variant={r.source === "bp" ? "secondary" : "outline"} className="text-[9px]">{r.source === "bp" ? "BP" : "TX"}</Badge></td>
+                    <td className="px-2 py-1.5 max-w-[220px] truncate" title={r.description}>{r.description}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[140px]">{r.event_label}</td>
+                    <td className="px-2 py-1.5 font-mono text-muted-foreground">{r.current_category_code ?? "—"}</td>
+                    <td className="px-2 py-1.5">
+                      <span className="font-mono text-primary font-semibold">{r.chosen_code}</span>
+                      {r.chosen_name && <div className="text-[10px] text-muted-foreground">{r.chosen_name}</div>}
+                    </td>
+                  </tr>
+                ))}
+                {acceptedRows.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-6 text-muted-foreground">Sem alterações aceites.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSummaryOpen(false)} disabled={applying}>Voltar a editar</Button>
+            <Button onClick={commitAccepted} disabled={applying || acceptedRows.length === 0} className="gap-2">
+              {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {applying ? "A aplicar…" : "Confirmar e aplicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
