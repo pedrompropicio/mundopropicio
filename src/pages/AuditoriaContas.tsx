@@ -756,6 +756,8 @@ function RenumberTab() {
       transition,
       opacity: isDragging ? 0.5 : 1,
     };
+    // Detect L2 parent of leaves (children exist and are all leaves themselves)
+    const isL2WithLeaves = hasChildren && cat.children.every((ch) => ch.children.length === 0);
     return (
       <div ref={setNodeRef} style={style}>
         <div className="flex items-center gap-2 py-1.5 px-2 hover:bg-secondary/20 border-b border-border/20 bg-background" style={{ paddingLeft: `${indent + 8}px` }}>
@@ -772,6 +774,15 @@ function RenumberTab() {
           <span className={`font-mono text-xs ${level === 0 ? "font-bold" : "font-medium"} min-w-[60px]`}>{cat.code}</span>
           <span className={`text-sm ${level === 0 ? "font-bold" : level === 1 ? "font-semibold" : ""} flex-1 truncate`}>{cat.name}</span>
           <Badge variant="outline" className="text-[10px]">{cat.type === "income" ? "R" : "D"}</Badge>
+          {isL2WithLeaves && (
+            <button
+              onClick={() => handleResequenceLeaves(cat.id)}
+              className="px-2 py-1 rounded text-[10px] font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30"
+              title="Reordenar contas-folha sequencialmente (01, 02, 03…)"
+            >
+              Reordenar L3
+            </button>
+          )}
           {cat.parent_id && (
             <div className="flex items-center gap-0.5">
               <button onClick={() => handleMove(cat, "up")} className="p-1 rounded hover:bg-secondary text-muted-foreground" title="Subir"><ArrowUp className="h-3.5 w-3.5" /></button>
