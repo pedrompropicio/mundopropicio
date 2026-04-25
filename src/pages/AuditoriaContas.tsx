@@ -95,6 +95,8 @@ function AnaliseIATab() {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<"all" | "diff" | "missing">("diff");
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
