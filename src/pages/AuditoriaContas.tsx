@@ -1025,6 +1025,131 @@ function RenumberTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add new leaf dialog */}
+      <Dialog open={!!addDialog} onOpenChange={(o) => !o && setAddDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova conta sob "{addDialog?.code} {addDialog?.name}"</DialogTitle>
+            <DialogDescription>
+              Será criada como conta-folha (L3) {addDialog?.type === "income" ? "de Receita" : "de Despesa"}.
+              Código atribuído automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome da conta</Label>
+              <Input
+                value={newLeafName}
+                onChange={(e) => setNewLeafName(e.target.value)}
+                placeholder="Ex: Bilheteira VIP"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter" && !working) handleAddLeaf(); }}
+              />
+            </div>
+            {addDialog && (() => {
+              const sibs = categories.filter((c) => c.parent_id === addDialog.id);
+              const next = sibs.length > 0 ? Math.max(...sibs.map((s) => getLeafCode(s.code))) + 1 : 1;
+              return (
+                <p className="text-xs text-muted-foreground">
+                  Código previsto: <span className="font-mono font-semibold text-primary">{addDialog.code}.{pad(next, 2)}</span>
+                </p>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialog(null)} disabled={working}>Cancelar</Button>
+            <Button onClick={handleAddLeaf} disabled={working || !newLeafName.trim()}>
+              {working ? "A criar…" : "Criar conta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete leaf dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={(o) => !o && setDeleteDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Excluir "{deleteDialog?.cat.code} {deleteDialog?.cat.name}"?</DialogTitle>
+            <DialogDescription>
+              {deleteDialog && (() => {
+                const total = deleteDialog.deps.bp + deleteDialog.deps.tx + deleteDialog.deps.camarim +
+                  deleteDialog.deps.cache_pay + deleteDialog.deps.cache_ded + deleteDialog.deps.closing + deleteDialog.deps.recurring;
+                return total === 0
+                  ? "Esta conta não tem registos vinculados — pode ser excluída em segurança."
+                  : `Esta conta tem ${total} registo(s) vinculado(s). Escolhe a conta de destino para reatribuir antes de excluir.`;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteDialog && (() => {
+            const d = deleteDialog.deps;
+            const total = d.bp + d.tx + d.camarim + d.cache_pay + d.cache_ded + d.closing + d.recurring;
+            const reassignTargets = categories
+              .filter((c) => c.parent_id === deleteDialog.cat.parent_id && c.id !== deleteDialog.cat.id)
+              .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+            return (
+              <div className="space-y-3">
+                {total > 0 && (
+                  <div className="text-xs space-y-1 p-3 rounded bg-secondary/50">
+                    <p className="font-medium text-foreground">Dependências encontradas:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {d.bp > 0 && <span>BP: <strong>{d.bp}</strong></span>}
+                      {d.tx > 0 && <span>Transações: <strong>{d.tx}</strong></span>}
+                      {d.camarim > 0 && <span>Camarim: <strong>{d.camarim}</strong></span>}
+                      {d.cache_pay > 0 && <span>Cachê (pag.): <strong>{d.cache_pay}</strong></span>}
+                      {d.cache_ded > 0 && <span>Cachê (ded.): <strong>{d.cache_ded}</strong></span>}
+                      {d.closing > 0 && <span>Fechos: <strong>{d.closing}</strong></span>}
+                      {d.recurring > 0 && <span>Recorrentes: <strong>{d.recurring}</strong></span>}
+                    </div>
+                  </div>
+                )}
+                {total > 0 && (
+                  <div>
+                    <Label className="text-xs">Reatribuir registos para:</Label>
+                    {reassignTargets.length === 0 ? (
+                      <p className="text-sm text-destructive mt-1">
+                        Não há contas-irmãs disponíveis no mesmo grupo. Cria primeiro uma conta de destino.
+                      </p>
+                    ) : (
+                      <Select value={deleteDialog.reassignTo} onValueChange={(v) => setDeleteDialog({ ...deleteDialog, reassignTo: v })}>
+                        <SelectTrigger><SelectValue placeholder="Escolhe a conta de destino…" /></SelectTrigger>
+                        <SelectContent>
+                          {reassignTargets.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <span className="font-mono text-xs mr-2">{t.code}</span>{t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {d.cache_ded > 0 && (
+                      <p className="text-[11px] text-warning mt-2 flex items-start gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                        Deduções de cachê com esta categoria serão eliminadas (não reatribuídas) para evitar conflitos de unicidade.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)} disabled={working}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              onClick={executeDelete}
+              disabled={working || (() => {
+                if (!deleteDialog) return true;
+                const t = deleteDialog.deps.bp + deleteDialog.deps.tx + deleteDialog.deps.camarim +
+                  deleteDialog.deps.cache_pay + deleteDialog.deps.cache_ded + deleteDialog.deps.closing + deleteDialog.deps.recurring;
+                return t > 0 && !deleteDialog.reassignTo;
+              })()}
+            >
+              {working ? "A excluir…" : "Excluir conta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
