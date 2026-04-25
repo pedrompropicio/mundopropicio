@@ -249,39 +249,70 @@ function AnaliseIATab() {
     });
   }, [rows, filter]);
 
-  async function applyOne(row: AuditRow) {
-    if (!row.suggested_id) return;
-    try {
-      const table = row.source === "bp" ? "event_forecasts" : "transactions";
-      const { error } = await supabase.from(table).update({ category_id: row.suggested_id }).eq("id", row.id);
-      if (error) throw error;
-      setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "applied", current_category_id: row.suggested_id!, current_category_code: row.suggested_code!, current_category_name: row.suggested_name! } : r)));
-      toast.success("Aplicado");
-    } catch (e: any) {
-      toast.error("Erro ao aplicar", { description: e.message });
-    }
+  // ---- Local decisions (no DB write yet) ----
+  function acceptRow(row: AuditRow, targetId?: string) {
+    setRows((prev) => prev.map((r) => {
+      if (!(r.id === row.id && r.source === row.source)) return r;
+      const id = targetId ?? r.suggested_id ?? null;
+      if (!id) return r;
+      const cat = leafCatsById.get(id);
+      return {
+        ...r,
+        status: "accepted",
+        chosen_id: id,
+        chosen_code: cat?.code ?? r.suggested_code ?? null,
+        chosen_name: cat?.name ?? r.suggested_name ?? null,
+      };
+    }));
   }
 
-  function rejectOne(row: AuditRow) {
-    setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "rejected" } : r)));
+  function rejectRow(row: AuditRow) {
+    setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "rejected", chosen_id: null, chosen_code: null, chosen_name: null } : r)));
   }
 
-  async function applyAllVisible() {
-    const toApply = filteredRows.filter((r) => r.suggested_id && r.status !== "rejected" && r.suggested_code !== r.current_category_code);
-    if (!toApply.length) { toast.info("Nada para aplicar"); return; }
-    if (!confirm(`Aplicar ${toApply.length} sugestões?`)) return;
+  function resetRow(row: AuditRow) {
+    setRows((prev) => prev.map((r) => (r.id === row.id && r.source === row.source ? { ...r, status: "pending", chosen_id: null, chosen_code: null, chosen_name: null } : r)));
+  }
+
+  function acceptAllVisible() {
+    setRows((prev) => prev.map((r) => {
+      const visible = filteredRows.some((f) => f.id === r.id && f.source === r.source);
+      if (!visible || r.status === "applied" || r.status === "rejected") return r;
+      if (!r.suggested_id || r.suggested_code === r.current_category_code) return r;
+      const cat = leafCatsById.get(r.suggested_id);
+      return { ...r, status: "accepted", chosen_id: r.suggested_id, chosen_code: cat?.code ?? r.suggested_code ?? null, chosen_name: cat?.name ?? r.suggested_name ?? null };
+    }));
+  }
+
+  // ---- Commit accepted rows to DB ----
+  async function commitAccepted() {
+    const toApply = rows.filter((r) => r.status === "accepted" && r.chosen_id && r.chosen_id !== r.current_category_id);
+    if (!toApply.length) { toast.info("Nada para aplicar"); setSummaryOpen(false); return; }
+    setApplying(true);
     let ok = 0, fail = 0;
     for (const r of toApply) {
       try {
         const table = r.source === "bp" ? "event_forecasts" : "transactions";
-        const { error } = await supabase.from(table).update({ category_id: r.suggested_id }).eq("id", r.id);
+        const { error } = await supabase.from(table).update({ category_id: r.chosen_id }).eq("id", r.id);
         if (error) throw error;
         ok++;
       } catch { fail++; }
     }
+    setRows((prev) => prev.map((r) => {
+      if (!toApply.some((x) => x.id === r.id && x.source === r.source)) return r;
+      return {
+        ...r,
+        status: "applied",
+        current_category_id: r.chosen_id!,
+        current_category_code: r.chosen_code!,
+        current_category_name: r.chosen_name!,
+      };
+    }));
+    setApplying(false);
+    setSummaryOpen(false);
+    qc.invalidateQueries({ queryKey: ["transactions"] });
+    qc.invalidateQueries({ queryKey: ["event_forecasts"] });
     toast.success(`${ok} aplicadas${fail ? `, ${fail} com erro` : ""}`);
-    // mark applied
-    setRows((prev) => prev.map((r) => toApply.some((x) => x.id === r.id && x.source === r.source) ? { ...r, status: "applied" } : r));
   }
 
   const stats = useMemo(() => {
