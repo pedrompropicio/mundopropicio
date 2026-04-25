@@ -350,21 +350,32 @@ function AnaliseIATab() {
       {rows.length > 0 && (
         <>
           <div className="flex flex-wrap gap-3 items-center justify-between">
-            <div className="flex gap-2 text-xs">
+            <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline">Total: {stats.total}</Badge>
               <Badge variant="outline" className="border-warning/40 text-warning">Disparidades: {stats.diffs}</Badge>
               <Badge variant="outline" className="border-destructive/40 text-destructive">Sem categoria: {stats.missing}</Badge>
+              <Badge variant="outline" className="border-success/40 text-success">Aceites: {stats.accepted}</Badge>
+              <Badge variant="outline">Rejeitadas: {stats.rejectedCount}</Badge>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(["diff", "missing", "all"] as const).map((f) => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium ${filter === f ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
                   {f === "diff" ? "Disparidades" : f === "missing" ? "Sem categoria" : "Todas"}
                 </button>
               ))}
-              <Button size="sm" onClick={applyAllVisible} className="gap-1.5"><Check className="h-3.5 w-3.5" /> Aplicar visíveis</Button>
+              <Button size="sm" variant="outline" onClick={acceptAllVisible} className="gap-1.5">
+                <Check className="h-3.5 w-3.5" /> Aceitar visíveis
+              </Button>
+              <Button size="sm" onClick={() => setSummaryOpen(true)} disabled={stats.accepted === 0} className="gap-1.5">
+                Rever e aplicar ({stats.accepted})
+              </Button>
             </div>
           </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Clica em <Check className="inline h-3 w-3 text-success" /> para aceitar a sugestão, em <X className="inline h-3 w-3 text-destructive" /> para rejeitar, ou usa o seletor para escolher outra conta. Podes retroceder com <RefreshCw className="inline h-3 w-3" />. Nada é guardado até clicares em <strong>Rever e aplicar</strong>.
+          </p>
 
           <div className="glass rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
@@ -374,7 +385,7 @@ function AnaliseIATab() {
                   <th className="px-3 py-2.5 text-left font-medium">Descrição</th>
                   <th className="px-3 py-2.5 text-left font-medium">Evento</th>
                   <th className="px-3 py-2.5 text-left font-medium">Categoria atual</th>
-                  <th className="px-3 py-2.5 text-left font-medium">Sugestão</th>
+                  <th className="px-3 py-2.5 text-left font-medium">Escolha</th>
                   <th className="px-3 py-2.5 text-center font-medium">Conf.</th>
                   <th className="px-3 py-2.5 text-center font-medium">Ações</th>
                 </tr>
@@ -382,8 +393,11 @@ function AnaliseIATab() {
               <tbody className="divide-y divide-border/30">
                 {filteredRows.map((r) => {
                   const isDiff = r.suggested_code && r.suggested_code !== r.current_category_code;
+                  const isAccepted = r.status === "accepted";
+                  const isRejected = r.status === "rejected";
+                  const selectValue = r.chosen_id ?? r.suggested_id ?? "";
                   return (
-                    <tr key={`${r.source}-${r.id}`} className={`hover:bg-secondary/20 ${r.status === "rejected" ? "opacity-40" : ""}`}>
+                    <tr key={`${r.source}-${r.id}`} className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
                       <td className="px-3 py-2">
                         <Badge variant={r.source === "bp" ? "secondary" : "outline"} className="text-[10px]">{r.source === "bp" ? "BP" : "TX"}</Badge>
                       </td>
@@ -401,13 +415,29 @@ function AnaliseIATab() {
                         )}
                         {r.current_category_name && <div className="text-muted-foreground">{r.current_category_name}</div>}
                       </td>
-                      <td className="px-3 py-2 text-xs">
-                        {r.suggested_code ? (
-                          <>
+                      <td className="px-3 py-2 text-xs min-w-[220px]">
+                        {r.suggested_code && (
+                          <div className="mb-1">
+                            <span className="text-[10px] uppercase text-muted-foreground mr-1">IA:</span>
                             <span className={`font-mono ${isDiff ? "text-primary font-semibold" : "text-muted-foreground"}`}>{r.suggested_code}</span>
-                            {r.suggested_name && <div className="text-muted-foreground">{r.suggested_name}</div>}
-                          </>
-                        ) : <span className="text-muted-foreground">—</span>}
+                            {r.suggested_name && <span className="text-muted-foreground"> · {r.suggested_name}</span>}
+                          </div>
+                        )}
+                        <Select value={selectValue} onValueChange={(v) => acceptRow(r, v)}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Escolher conta…" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {leafCats.map((c) => (
+                              <SelectItem key={c.id} value={c.id} className="text-xs">
+                                <span className="font-mono">{c.code}</span> · {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isAccepted && r.chosen_code && r.chosen_id !== r.suggested_id && (
+                          <div className="text-[10px] text-warning mt-1">Alterado para: <span className="font-mono">{r.chosen_code}</span></div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center">
                         {r.confidence !== undefined && (
@@ -418,12 +448,17 @@ function AnaliseIATab() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-center gap-1">
-                          {isDiff && r.status !== "rejected" && (
-                            <button onClick={() => applyOne(r)} className="rounded p-1.5 hover:bg-success/10 text-success" title="Aplicar"><Check className="h-3.5 w-3.5" /></button>
+                          {(r.status === "pending" || !r.status) && isDiff && (
+                            <button onClick={() => acceptRow(r)} className="rounded p-1.5 hover:bg-success/10 text-success" title="Aceitar sugestão"><Check className="h-3.5 w-3.5" /></button>
                           )}
-                          {r.status !== "rejected" && (
-                            <button onClick={() => rejectOne(r)} className="rounded p-1.5 hover:bg-destructive/10 text-destructive" title="Rejeitar"><X className="h-3.5 w-3.5" /></button>
+                          {(r.status === "pending" || !r.status) && (
+                            <button onClick={() => rejectRow(r)} className="rounded p-1.5 hover:bg-destructive/10 text-destructive" title="Rejeitar"><X className="h-3.5 w-3.5" /></button>
                           )}
+                          {(isAccepted || isRejected) && (
+                            <button onClick={() => resetRow(r)} className="rounded p-1.5 hover:bg-secondary text-muted-foreground" title="Retroceder"><RefreshCw className="h-3.5 w-3.5" /></button>
+                          )}
+                          {isAccepted && <Badge variant="outline" className="text-[9px] border-success/40 text-success">aceite</Badge>}
+                          {isRejected && <Badge variant="outline" className="text-[9px] border-muted-foreground/40 text-muted-foreground">rejeit.</Badge>}
                         </div>
                       </td>
                     </tr>
