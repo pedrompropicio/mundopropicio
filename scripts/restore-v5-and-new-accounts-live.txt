@@ -1,0 +1,71 @@
+-- ============================================================================
+-- RESTAURAÇÃO V5 + NOVAS CONTAS (Stagehands, Técnicos) + RECLASSIFICAÇÃO BP
+-- Executar no Cloud View > SQL > LIVE
+-- ============================================================================
+
+BEGIN;
+
+-- ---------- 1. CRIAR CONTA-PAI 2.9 F&B / Bares (não existia em L1.parents listados) ----------
+-- Pai L1 esperado: a0000002 (Custos do Evento). Verificar se já existe alguma 2.x acima.
+INSERT INTO public.account_categories (id, code, name, type, parent_id, event_required)
+SELECT gen_random_uuid(), '2.9', 'F&B / Bares', 'expense', (SELECT parent_id FROM public.account_categories WHERE code = '2.6' LIMIT 1), true
+WHERE NOT EXISTS (SELECT 1 FROM public.account_categories WHERE code = '2.9');
+
+-- ---------- 2. RESTAURAÇÃO V5 + NOVAS CONTAS ----------
+WITH parents AS (
+  SELECT code, id FROM public.account_categories
+  WHERE code IN ('1.1','1.2','2.2','2.6','2.9','4.2','4.4')
+)
+INSERT INTO public.account_categories (id, code, name, type, parent_id, event_required)
+SELECT gen_random_uuid(), v.code, v.name, v.type, p.id, true
+FROM (VALUES
+  -- Receitas v5
+  ('1.1.04', 'Camarotes / Hospitalidade', 'income',  '1.1'),
+  ('1.2.06', 'Naming Rights',             'income',  '1.2'),
+  -- Custos v5
+  ('2.2.05', 'Per Diems / Ajudas de Custo','expense','2.2'),
+  ('2.6.09', 'Merchandising Operacional', 'expense', '2.6'),
+  ('2.6.10', 'Credenciais / Acessórios',  'expense', '2.6'),
+  ('2.9.01', 'Bebidas',                   'expense', '2.9'),
+  ('2.9.02', 'Alimentação / Catering',    'expense', '2.9'),
+  -- Novas: Staff + Técnicos
+  ('4.2.07', 'Stagehands',                'expense', '4.2'),
+  ('4.4.06', 'Técnico de Som',            'expense', '4.4'),
+  ('4.4.07', 'Técnico de Luz',            'expense', '4.4'),
+  ('4.4.08', 'Técnico de Vídeo',          'expense', '4.4'),
+  ('4.4.09', 'Gestão de Resíduos',        'expense', '4.4')
+) AS v(code, name, type, parent_code)
+JOIN parents p ON p.code = v.parent_code
+WHERE NOT EXISTS (SELECT 1 FROM public.account_categories WHERE code = v.code);
+
+-- ---------- 3. RECLASSIFICAÇÃO DE LINHAS DE BP EXISTENTES ----------
+-- Stagehands (2 linhas Ivete Clareou)
+UPDATE public.event_forecasts SET category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.07')
+WHERE description ILIKE '%StageHands%' OR (specification ILIKE '%Stage Hand%' AND category_id = (SELECT id FROM public.account_categories WHERE code = '4.2.03'));
+
+-- Per Diems Anitta (corrige L2 → L3)
+UPDATE public.event_forecasts SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.2.05')
+WHERE description ILIKE '%per diem%' AND category_id = (SELECT id FROM public.account_categories WHERE code = '2.2');
+
+-- Merchandising Anitta (corrige L2 → L3)
+UPDATE public.event_forecasts SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.09')
+WHERE description ILIKE '%Merchandising%' AND category_id = (SELECT id FROM public.account_categories WHERE code = '2.6');
+
+-- Credenciais (Ivete: "Credenciais" + "Cordão Credencial") + Materiais iprint (FestVybbe)
+UPDATE public.event_forecasts SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.10')
+WHERE (description ILIKE 'Credenciais' OR description ILIKE '%Cordão Credencial%')
+   AND category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.08');
+
+UPDATE public.event_forecasts SET category_id = (SELECT id FROM public.account_categories WHERE code = '2.6.10')
+WHERE description ILIKE '%Materiais (iprint)%' AND specification ILIKE '%credenciais%';
+
+-- ---------- 4. VALIDAÇÃO ----------
+SELECT 'Contas criadas:' AS info, code, name FROM public.account_categories
+WHERE code IN ('1.1.04','1.2.06','2.2.05','2.6.09','2.6.10','2.9','2.9.01','2.9.02','4.2.07','4.4.06','4.4.07','4.4.08','4.4.09')
+ORDER BY code;
+
+SELECT 'BP reclassificado:' AS info, ef.description, ac.code, ac.name
+FROM public.event_forecasts ef JOIN public.account_categories ac ON ac.id = ef.category_id
+WHERE ac.code IN ('4.2.07','2.2.05','2.6.09','2.6.10');
+
+COMMIT;
