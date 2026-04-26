@@ -318,7 +318,7 @@ function VersionRow({
               size="sm"
               onClick={() => onRevert(version)}
               title="Reverter para esta versão"
-              className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+              className="text-warning hover:text-warning/80"
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
@@ -382,7 +382,7 @@ function RevertConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <RotateCcw className="h-5 w-5 text-warning" />
             Reverter para v{version?.version_number}?
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -424,7 +424,7 @@ function RevertConfirmDialog({
           <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             disabled={blocked || isPending}
-            className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+            className="bg-warning text-warning-foreground hover:bg-warning/90"
             onClick={(e) => {
               e.preventDefault();
               onConfirm(force);
