@@ -1,0 +1,34 @@
+---
+name: Auditoria de Formalidade em massa
+description: Página admin /admin/formalidade que analisa todos os BPs ativos e sugere estados de formalidade com base nas transações reais — alta confiança (auto) vs revisão manual.
+type: feature
+---
+
+## Objetivo
+Após implantação inicial da feature de Versões/Formalidade em produção, foi criada uma ferramenta para fazer "catch-up" de toda a base existente — analisar TODAS as linhas dos BPs ativos e sugerir o estado de formalidade correto baseado nas transações reais já registadas.
+
+## Localização
+- Rota: `/admin/formalidade`
+- Card no Painel Admin (`AdminPanel`) com ícone `Sparkles`
+- Acesso restrito a admin/manager (validado nas RPCs)
+
+## Backend
+Três funções em `supabase/migrations/...`:
+
+1. **`analyze_formalidade_bulk(_event_ids uuid[] DEFAULT NULL)`** — devolve table com sugestões para todas as linhas da Versão Ativa (`version_id IS NULL`) de despesa. Aplica as mesmas regras de inferência da `suggest_formalidade` (TX paga = pago_total/pago_parcial; TX aprovada = fechado; sem TX = mantém). Atribui confiança `high` (TX paga ou aprovada com match claro) ou `low` (sem TX vinculada). Filtra apenas linhas onde sugestão difere do estado atual.
+
+2. **`apply_formalidade_suggestions(_forecast_ids uuid[], _new_state)`** — aplica um único estado a múltiplos IDs (não usado pela UI, mas útil para scripts).
+
+3. **`apply_formalidade_suggestions_map(_payload jsonb)`** — recebe array `[{forecast_id, new_state}]` e aplica cada linha com o seu próprio estado. Usado pela UI para aplicar tanto "todas alta confiança" como "selecionadas baixa confiança".
+
+Todas atualizam `formalidade_changed_at` e `formalidade_changed_by`, disparando o trigger `trg_log_formalidade_change` que regista no log.
+
+## UI (`src/pages/FormalidadeAudit.tsx`)
+- 3 cards de resumo: alta confiança / revisão manual / eventos afetados
+- Tabs: **Alta confiança** (botão "Aplicar todas") + **Revisão manual** (checkboxes + "Aplicar selecionadas")
+- Linhas agrupadas por evento, com chip "atual → sugerido" e razão legível
+- Após aplicar, invalida `event_forecasts` e `formalidade-audit-bulk`
+
+## Fora do scope
+- Heurísticas adicionais por categoria/fornecedor (rejeitadas — manter regras atuais)
+- Análise IA via Lovable AI (rejeitada — manter regras determinísticas)
