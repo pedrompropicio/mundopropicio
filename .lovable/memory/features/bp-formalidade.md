@@ -24,6 +24,9 @@ Quando uma transação é gerada a partir do BP (botão "Gerar Transações" em 
 - Componente reutilizável: `src/components/bp-versions/MarkAsFechadoDialog.tsx`.
 - Ligado a 3 mutations no `EventForecast`: `bulkCreateTxMutation`, `approveMutation`, `bulkApproveMutation`.
 
+## Mudança em massa manual
+Quando há linhas selecionadas no BP (income ou expense), aparece o botão **Mudar Formalidade (N)** ao lado de Aprovar — abre popover com as 5 opções e aplica a TODAS as selecionadas via `UPDATE … IN (...)` numa só query. O trigger regista cada linha individualmente no log. Componente: `src/components/bp-versions/BulkFormalidadePopover.tsx`. Disponível para utilizadores com `canEditBP`.
+
 ## Schema
 - `event_forecasts.formalidade` (NOT NULL, default `estimado`)
 - `event_forecasts.formalidade_changed_at` (timestamptz)
