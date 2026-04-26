@@ -1716,6 +1716,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         isSplit={isSplitEvent}
         canManage={canManageVersions}
       />
+      <BPScenarioSelector
+        eventId={eventId}
+        selectedVersionId={selectedVersionId}
+        onSelectVersion={setSelectedVersionId}
+      />
+      {isScenarioMode && (
+        <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 flex items-start gap-3">
+          <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold">A editar um cenário sandbox</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              As alterações ficam isoladas neste cenário e <strong>não afetam o BP em produção</strong>.
+              Para aplicar, promove o cenário a Ativa no card de versões em cima.
+              Geração de transações, aprovações e adoção Master↔Split estão desativadas em modo cenário.
+            </p>
+          </div>
+        </div>
+      )}
       {expenseOnly && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
           <TrendingDown className="h-5 w-5 text-primary shrink-0" />
