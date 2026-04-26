@@ -61,6 +61,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
         sort_order: id
           ? sessions.find((s: any) => s.id === id)?.sort_order ?? 1
           : sessions.length + 1,
+        version_id: selectedVersionId, // null=Active, uuid=cenário sandbox
       };
       if (id) {
         const { error } = await supabase.from("event_sessions" as any).update(payload).eq("id", id);
@@ -71,7 +72,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       }
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
       toast({ title: vars.id ? "Sessão atualizada!" : "Sessão criada!" });
       cancel();
     },
@@ -84,7 +85,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Sessão eliminada" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
