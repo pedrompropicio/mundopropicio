@@ -227,10 +227,7 @@ export function BPVersionsHistoryModal({
       <PromoteScenarioDialog
         open={!!confirmPromote}
         onOpenChange={(o) => {
-          if (!o) {
-            setConfirmPromote(null);
-            setForcePromote(false);
-          }
+          if (!o) setConfirmPromote(null);
         }}
         eventId={eventId}
         scenario={confirmPromote}
