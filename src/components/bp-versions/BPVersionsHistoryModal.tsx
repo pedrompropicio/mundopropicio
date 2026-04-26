@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Archive, ArchiveRestore, Trash2, GitBranch, Layers, Sparkles,
   CheckCircle2, FileText, History as HistoryIcon, Clock, RotateCcw, AlertTriangle,
+  Pin, PinOff, Rocket,
 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -23,6 +24,8 @@ import {
   useDiscardBPVersionDraft,
   useRevertBPVersion,
   useBPLinkedTxCount,
+  usePromoteScenario,
+  useToggleScenarioPin,
   type BPVersionRow,
 } from "@/hooks/useBPVersions";
 
@@ -51,12 +54,20 @@ export function BPVersionsHistoryModal({
   const [showArchived, setShowArchived] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState<BPVersionRow | null>(null);
   const [confirmRevert, setConfirmRevert] = useState<BPVersionRow | null>(null);
+  const [confirmPromote, setConfirmPromote] = useState<BPVersionRow | null>(null);
   const archive = useArchiveBPVersion(eventId);
   const unarchive = useUnarchiveBPVersion(eventId);
   const discard = useDiscardBPVersionDraft(eventId);
   const revert = useRevertBPVersion(eventId);
+  const promote = usePromoteScenario(eventId);
+  const togglePin = useToggleScenarioPin(eventId);
   const { data: linkedTxCount = 0 } = useBPLinkedTxCount(
     confirmRevert ? eventId : null
+  );
+
+  const pinnedCount = useMemo(
+    () => versions.filter((v) => v.is_pinned_scenario).length,
+    [versions]
   );
 
   const { official, scenarios } = useMemo(() => {
@@ -116,10 +127,13 @@ export function BPVersionsHistoryModal({
                   versions={official}
                   isSplit={isSplit}
                   canManage={canManage}
+                  pinnedCount={pinnedCount}
                   onArchive={(id) => archive.mutate(id)}
                   onUnarchive={(id) => unarchive.mutate(id)}
                   onDiscard={(v) => setConfirmDiscard(v)}
                   onRevert={(v) => setConfirmRevert(v)}
+                  onPromote={(v) => setConfirmPromote(v)}
+                  onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
                 />
                 {scenarios.length > 0 && (
                   <Section
@@ -128,10 +142,13 @@ export function BPVersionsHistoryModal({
                     versions={scenarios}
                     isSplit={isSplit}
                     canManage={canManage}
+                    pinnedCount={pinnedCount}
                     onArchive={(id) => archive.mutate(id)}
                     onUnarchive={(id) => unarchive.mutate(id)}
                     onDiscard={(v) => setConfirmDiscard(v)}
                     onRevert={(v) => setConfirmRevert(v)}
+                    onPromote={(v) => setConfirmPromote(v)}
+                    onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
                   />
                 )}
               </div>
@@ -178,33 +195,80 @@ export function BPVersionsHistoryModal({
             {
               onSuccess: () => setConfirmRevert(null),
               onError: (err: any) => {
-                // Keep dialog open so user can re-check the "force" toggle
-                // and inspect the explanation.
                 console.error("revert failed:", err);
               },
             }
           );
         }}
       />
+
+      <AlertDialog open={!!confirmPromote} onOpenChange={(o) => !o && setConfirmPromote(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-primary" />
+              Promover cenário "{confirmPromote?.scenario_label}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  O cenário será adotado como <strong>versão ativa oficial</strong> do BP. A versão
+                  ativa atual passa a "Substituída" e o BP do evento é reescrito com as linhas do cenário.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Em eventos Master, a promoção propaga-se aos Splits que tenham um cenário equivalente.
+                  Bypasses ("Fora do BP") são reconciliados automaticamente face ao novo orçamento.
+                </p>
+                <p className="text-xs text-warning">
+                  Vinculações a transações da versão atual serão removidas (transações ficam órfãs).
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={promote.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={promote.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!confirmPromote) return;
+                promote.mutate(
+                  { versionId: confirmPromote.id, description: null },
+                  { onSuccess: () => setConfirmPromote(null) }
+                );
+              }}
+            >
+              <Rocket className="h-4 w-4 mr-1.5" />
+              {promote.isPending ? "A promover…" : "Promover a ativa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Section({
-  title, icon, versions, isSplit, canManage, onArchive, onUnarchive, onDiscard, onRevert,
-}: {
+interface SectionProps {
   title: string;
   icon: React.ReactNode;
   versions: BPVersionRow[];
   isSplit: boolean;
   canManage: boolean;
+  pinnedCount: number;
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDiscard: (v: BPVersionRow) => void;
   onRevert: (v: BPVersionRow) => void;
-}) {
+  onPromote: (v: BPVersionRow) => void;
+  onTogglePin: (v: BPVersionRow) => void;
+}
+
+function Section({
+  title, icon, versions, isSplit, canManage, pinnedCount,
+  onArchive, onUnarchive, onDiscard, onRevert, onPromote, onTogglePin,
+}: SectionProps) {
   if (versions.length === 0) return null;
   return (
     <div>
@@ -219,10 +283,13 @@ function Section({
             version={v}
             isSplit={isSplit}
             canManage={canManage}
+            pinnedCount={pinnedCount}
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDiscard={onDiscard}
             onRevert={onRevert}
+            onPromote={onPromote}
+            onTogglePin={onTogglePin}
           />
         ))}
       </div>
@@ -230,17 +297,23 @@ function Section({
   );
 }
 
-function VersionRow({
-  version, isSplit, canManage, onArchive, onUnarchive, onDiscard, onRevert,
-}: {
+interface VersionRowProps {
   version: BPVersionRow;
   isSplit: boolean;
   canManage: boolean;
+  pinnedCount: number;
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDiscard: (v: BPVersionRow) => void;
   onRevert: (v: BPVersionRow) => void;
-}) {
+  onPromote: (v: BPVersionRow) => void;
+  onTogglePin: (v: BPVersionRow) => void;
+}
+
+function VersionRow({
+  version, isSplit, canManage, pinnedCount,
+  onArchive, onUnarchive, onDiscard, onRevert, onPromote, onTogglePin,
+}: VersionRowProps) {
   const meta = STATE_META[version.state] ?? STATE_META.draft;
   const dt = version.approved_at ?? version.created_at;
   const dateLabel = format(new Date(dt), "d MMM yyyy 'às' HH:mm", { locale: pt });
@@ -249,8 +322,9 @@ function VersionRow({
   const isDraft = version.state === "draft";
   const isCascaded = !!version.cascaded_from_version_id;
   const isScenario = !!version.scenario_label;
-  // Revert is allowed on superseded official versions only.
   const canRevert = !isActive && !isDraft && !isArchived && !isScenario;
+  const canPromote = isScenario && !isArchived;
+  const canPin = isScenario && !isArchived && (version.is_pinned_scenario || pinnedCount < 4);
 
   return (
     <div
@@ -286,7 +360,10 @@ function VersionRow({
               </Badge>
             )}
             {version.is_pinned_scenario && (
-              <Badge variant="outline" className="text-[10px]">Fixado</Badge>
+              <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary">
+                <Pin className="h-2.5 w-2.5" />
+                Fixado
+              </Badge>
             )}
             {isCascaded && (
               <Badge variant="outline" className="text-[10px] gap-1">
@@ -312,6 +389,27 @@ function VersionRow({
 
       {canManage && !isSplit && (
         <div className="flex items-center gap-1 shrink-0">
+          {canPin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onTogglePin(version)}
+              title={version.is_pinned_scenario ? "Desafixar cenário" : `Fixar para multi-comparação (${pinnedCount}/4)`}
+            >
+              {version.is_pinned_scenario ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+            </Button>
+          )}
+          {canPromote && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onPromote(version)}
+              title="Promover cenário a versão ativa"
+              className="text-primary hover:text-primary/80"
+            >
+              <Rocket className="h-4 w-4" />
+            </Button>
+          )}
           {canRevert && (
             <Button
               variant="ghost"
