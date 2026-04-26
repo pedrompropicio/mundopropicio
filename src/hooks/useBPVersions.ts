@@ -181,6 +181,14 @@ export function useBPLinkedTxCount(eventId: string | undefined | null) {
   });
 }
 
+/** Action to apply to each surviving scenario after a sibling is promoted. */
+export type OtherScenarioAction = "keep" | "archive" | "discard";
+
+export interface OtherScenarioDecision {
+  version_id: string;
+  action: OtherScenarioAction;
+}
+
 /** Promote a scenario draft to a new active version (cascades to splits). */
 export function usePromoteScenario(eventId: string) {
   const qc = useQueryClient();
@@ -190,10 +198,12 @@ export function usePromoteScenario(eventId: string) {
       versionId,
       description,
       force,
+      otherScenariosActions,
     }: {
       versionId: string;
       description?: string | null;
       force?: boolean;
+      otherScenariosActions?: OtherScenarioDecision[];
     }) => {
       const { data, error } = await supabase.rpc("promote_scenario_to_active" as any, {
         _scenario_version_id: versionId,
@@ -201,6 +211,7 @@ export function usePromoteScenario(eventId: string) {
         _performed_by: user?.id ?? null,
         _performed_by_label: getAuditUser(user),
         _force: force ?? false,
+        _other_scenarios_actions: (otherScenariosActions ?? []) as any,
       });
       if (error) throw error;
       return data as string;
