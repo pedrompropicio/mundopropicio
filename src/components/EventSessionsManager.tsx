@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Check, X, Clock, Calendar, Copy } from "lucide-react";
+import { Plus, Trash2, Check, X, Clock, Calendar, Copy, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
 
 interface Props {
   eventId: string;
@@ -25,21 +26,26 @@ const emptyForm: SessionForm = { date: "", label: "", start_time: "" };
 export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const { isAdmin, isManager } = useAuth();
-  const canManage = (isAdmin || isManager) && eventStatus !== "completed";
+  const { selectedVersionId, isScenarioMode } = useEventScenario();
+  // Em modo cenário, mesmo eventos "completed" desbloqueiam edição (sandbox isolado)
+  const canManage = (isAdmin || isManager) && (eventStatus !== "completed" || isScenarioMode);
 
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SessionForm>(emptyForm);
 
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ["event_sessions", eventId],
+    queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_sessions" as any)
         .select("*")
         .eq("event_id", eventId)
         .order("date", { ascending: true })
         .order("sort_order", { ascending: true });
+      if (selectedVersionId) q = q.eq("version_id", selectedVersionId);
+      else q = q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data as any[];
     },
@@ -47,7 +53,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
 
   const saveMutation = useMutation({
     mutationFn: async ({ form: f, id }: { form: SessionForm; id: string | null }) => {
-      const payload = {
+      const payload: any = {
         event_id: eventId,
         date: f.date || eventDate,
         label: f.label || "Sessão",
@@ -55,6 +61,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
         sort_order: id
           ? sessions.find((s: any) => s.id === id)?.sort_order ?? 1
           : sessions.length + 1,
+        version_id: selectedVersionId, // null=Active, uuid=cenário sandbox
       };
       if (id) {
         const { error } = await supabase.from("event_sessions" as any).update(payload).eq("id", id);
@@ -65,7 +72,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       }
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
       toast({ title: vars.id ? "Sessão atualizada!" : "Sessão criada!" });
       cancel();
     },
@@ -78,7 +85,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Sessão eliminada" });
     },
     onError: (err: any) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
@@ -104,6 +111,10 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
 
   const copySessionMutation = useMutation({
     mutationFn: async (sourceSession: any) => {
+      // Helper para filtrar pelo cenário ativo (null = Versão Ativa)
+      const applyVersionFilter = (q: any) =>
+        selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
+
       const { data: newSession, error: sessionError } = await supabase
         .from("event_sessions" as any)
         .insert({
@@ -112,28 +123,31 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
           label: `${sourceSession.label} (cópia)`,
           start_time: sourceSession.start_time || null,
           sort_order: sessions.length + 1,
+          version_id: selectedVersionId,
         })
         .select("id")
         .single();
       if (sessionError) throw sessionError;
 
-      const { data: sessionZones, error: sessionZonesError } = await supabase
-        .from("event_ticket_zones" as any)
-        .select("id, name, total_capacity")
-        .eq("event_id", eventId)
-        .eq("session_id", sourceSession.id)
-        .order("created_at");
+      const { data: sessionZones, error: sessionZonesError } = await applyVersionFilter(
+        supabase
+          .from("event_ticket_zones" as any)
+          .select("id, name, total_capacity")
+          .eq("event_id", eventId)
+          .eq("session_id", sourceSession.id)
+      ).order("created_at");
       if (sessionZonesError) throw sessionZonesError;
 
       let zonesToCopy = sessionZones ?? [];
 
       if (zonesToCopy.length === 0) {
-        const { data: fallbackZones, error: fallbackZonesError } = await supabase
-          .from("event_ticket_zones" as any)
-          .select("id, name, total_capacity")
-          .eq("event_id", eventId)
-          .is("session_id", null)
-          .order("created_at");
+        const { data: fallbackZones, error: fallbackZonesError } = await applyVersionFilter(
+          supabase
+            .from("event_ticket_zones" as any)
+            .select("id, name, total_capacity")
+            .eq("event_id", eventId)
+            .is("session_id", null)
+        ).order("created_at");
         if (fallbackZonesError) throw fallbackZonesError;
         zonesToCopy = fallbackZones ?? [];
       }
@@ -143,11 +157,12 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       }
 
       const zoneIds = zonesToCopy.map((zone: any) => zone.id);
-      const { data: sourceLots, error: sourceLotsError } = await supabase
-        .from("event_ticket_lots" as any)
-        .select("zone_id, name, lot_number, price, quantity, iva_rate")
-        .in("zone_id", zoneIds)
-        .order("lot_number");
+      const { data: sourceLots, error: sourceLotsError } = await applyVersionFilter(
+        supabase
+          .from("event_ticket_lots" as any)
+          .select("zone_id, name, lot_number, price, quantity, iva_rate")
+          .in("zone_id", zoneIds)
+      ).order("lot_number");
       if (sourceLotsError) throw sourceLotsError;
 
       const lotsByZoneId = new Map<string, any[]>();
@@ -167,6 +182,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
             session_id: (newSession as any).id,
             name: zone.name,
             total_capacity: zone.total_capacity,
+            version_id: selectedVersionId,
           })
           .select("id")
           .single();
@@ -182,6 +198,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
               price: lot.price,
               quantity: lot.quantity,
               iva_rate: lot.iva_rate,
+              version_id: selectedVersionId,
             })),
           );
           if (insertLotsError) throw insertLotsError;
@@ -192,9 +209,9 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       return { copiedZones: zonesToCopy.length, copiedLots };
     },
     onSuccess: ({ copiedZones, copiedLots }) => {
-      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({
         title: copiedZones > 0 ? "Sessão copiada com bilheteira!" : "Sessão copiada!",
         description:
@@ -285,6 +302,11 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
           <Clock className="h-4 w-4" /> Sessões
           <HelpTooltip text="Sessões representam espetáculos individuais dentro de um evento. Cada sessão pode ter a sua própria bilheteira (zonas e lotes). Um evento pode ter múltiplas sessões no mesmo dia ou em dias diferentes." size={13} />
+          {isScenarioMode && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-2 py-0.5 normal-case tracking-normal">
+              <Sparkles className="h-2.5 w-2.5" /> Cenário sandbox
+            </span>
+          )}
         </h3>
         {canManage && (
           <button

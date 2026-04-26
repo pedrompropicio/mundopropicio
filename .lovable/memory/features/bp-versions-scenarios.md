@@ -30,3 +30,16 @@ O índice único parcial `idx_bp_versions_one_active_per_event` exige no máximo
 
 ## Cascade Master→Splits em promoção
 Ao promover um cenário do Master, cada Split tem o seu próprio cenário cascado (criado no momento do `create_bp_snapshot` original). A promoção identifica esse split-cenário via `cascaded_from_version_id = _scenario_version_id` e promove-o sincronamente. Splits sem cenário equivalente são ignorados (não-fatal).
+
+## Extensão à Bilheteira (clone-on-fork)
+Cenários também isolam a estrutura de bilheteira. Tabelas com `version_id` (FK → `bp_versions`):
+- `event_sessions`, `event_ticket_zones`, `event_ticket_lots` — `null` = Versão Ativa, `uuid` = cenário sandbox.
+
+`create_bp_snapshot` faz deep clone (remapeando IDs de sessões/zonas) e `promote_scenario_to_active` substitui a estrutura ativa pela do cenário promovido.
+
+UI partilhada via `EventScenarioContext` (provider em `EventDetail`, consumido por `EventForecast`, `EventTicketing` e `EventSessionsManager`):
+- Seletor `BPScenarioSelector` aparece no topo das abas BP e Bilheteira.
+- Banner sandbox em `EventTicketing` quando `isScenarioMode`.
+- `SalesLogPanel` está bloqueado em modo cenário (vendas reais só vivem na Versão Ativa) — aparece um aviso a pedir para voltar à Ativa.
+- Em modo cenário, eventos `completed` desbloqueiam edição (sandbox isolado da produção).
+

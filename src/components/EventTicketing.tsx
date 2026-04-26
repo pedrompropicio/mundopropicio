@@ -550,6 +550,29 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
 
   return (
     <div className="space-y-6">
+      {/* Scenario selector — só aparece se existir pelo menos 1 cenário no evento */}
+      <BPScenarioSelector
+        eventId={eventId}
+        selectedVersionId={selectedVersionId}
+        onSelectVersion={setSelectedVersionId}
+      />
+
+      {/* Banner de sandbox — apenas em modo cenário */}
+      {isScenarioMode && (
+        <div className="rounded-xl border border-primary/40 bg-primary/5 p-3 flex items-start gap-3">
+          <div className="rounded-full bg-primary/15 p-2 shrink-0">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <div className="text-sm">
+            <p className="font-semibold text-primary">A editar bilheteira de um cenário sandbox</p>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              As alterações em zonas e lotes ficam isoladas neste cenário e não afetam a Versão Ativa em produção.
+              As vendas reais (Log de Vendas) continuam vinculadas à Versão Ativa.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="glass rounded-xl p-4 space-y-1">
@@ -933,13 +956,20 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         )}
       </div>
 
-      {/* Sales Log */}
-      <SalesLogPanel
-        eventId={eventId}
-        lastSalesDate={(eventData as any)?.last_sales_date ?? null}
-        isEditable={canEditTickets}
-        sessionId={sessionId}
-      />
+      {/* Sales Log — sempre vinculado à Versão Ativa, nunca aos cenários sandbox */}
+      {!isScenarioMode && (
+        <SalesLogPanel
+          eventId={eventId}
+          lastSalesDate={(eventData as any)?.last_sales_date ?? null}
+          isEditable={canEditTickets}
+          sessionId={sessionId}
+        />
+      )}
+      {isScenarioMode && (
+        <div className="glass rounded-xl p-4 text-xs text-muted-foreground border border-dashed">
+          Log de vendas reais não está disponível em modo cenário — volta à Versão Ativa para registar/visualizar vendas.
+        </div>
+      )}
 
       <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>
         <AlertDialogContent>
