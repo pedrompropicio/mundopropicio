@@ -91,7 +91,14 @@ export default function FormalidadeAudit() {
     [selectedEventIds],
   );
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    error: analysisError,
+    isError,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["formalidade-audit-bulk", eventIdsParam?.join(",") ?? "ALL"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("analyze_formalidade_bulk", {
