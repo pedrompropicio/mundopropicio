@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Snowflake, GitBranch, History, Layers, Sparkles, GitCompare } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import HelpTooltip from "@/components/HelpTooltip";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
 import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
