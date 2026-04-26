@@ -39,6 +39,7 @@ import PromoteToMasterModal, { type PromoteCandidate } from "@/components/Promot
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
+import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
