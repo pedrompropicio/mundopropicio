@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { OrphanTransactionsReviewModal } from "./OrphanTransactionsReviewModal";
 import { PromoteScenarioDialog } from "./PromoteScenarioDialog";
+import { FormalidadeAuditTab } from "./FormalidadeAuditTab";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import {
@@ -100,79 +102,92 @@ export function BPVersionsHistoryModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-2">
-              {canManage && !isSplit && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setOrphansOpen(true)}
-                  className="h-7 text-xs"
-                >
-                  <Link2 className="h-3.5 w-3.5 mr-1.5" />
-                  Auditar transações órfãs
-                </Button>
-              )}
-              {archivedCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {archivedCount} arquivada(s)
-                </span>
-              )}
-            </div>
-            {archivedCount > 0 && (
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <span>Mostrar arquivadas</span>
-                <Switch checked={showArchived} onCheckedChange={setShowArchived} />
-              </label>
-            )}
-          </div>
+          <Tabs defaultValue="versions" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="self-start">
+              <TabsTrigger value="versions">Versões</TabsTrigger>
+              <TabsTrigger value="formalidade">Formalidade</TabsTrigger>
+            </TabsList>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            {isLoading ? (
-              <div className="space-y-2 py-4">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-20 bg-muted/40 animate-pulse rounded-lg" />
-                ))}
-              </div>
-            ) : official.length === 0 && scenarios.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                Ainda não há versões registadas.
-              </div>
-            ) : (
-              <div className="space-y-6 pb-2">
-                <Section
-                  title="Versões oficiais"
-                  icon={<GitBranch className="h-4 w-4" />}
-                  versions={official}
-                  isSplit={isSplit}
-                  canManage={canManage}
-                  pinnedCount={pinnedCount}
-                  onArchive={(id) => archive.mutate(id)}
-                  onUnarchive={(id) => unarchive.mutate(id)}
-                  onDiscard={(v) => setConfirmDiscard(v)}
-                  onRevert={(v) => setConfirmRevert(v)}
-                  onPromote={(v) => setConfirmPromote(v)}
-                  onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
-                />
-                {scenarios.length > 0 && (
-                  <Section
-                    title="Cenários de trabalho"
-                    icon={<Sparkles className="h-4 w-4" />}
-                    versions={scenarios}
-                    isSplit={isSplit}
-                    canManage={canManage}
-                    pinnedCount={pinnedCount}
-                    onArchive={(id) => archive.mutate(id)}
-                    onUnarchive={(id) => unarchive.mutate(id)}
-                    onDiscard={(v) => setConfirmDiscard(v)}
-                    onRevert={(v) => setConfirmRevert(v)}
-                    onPromote={(v) => setConfirmPromote(v)}
-                    onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
-                  />
+            <TabsContent value="versions" className="flex-1 flex flex-col min-h-0 mt-3">
+              <div className="flex items-center justify-between gap-2 px-1 pb-2">
+                <div className="flex items-center gap-2">
+                  {canManage && !isSplit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setOrphansOpen(true)}
+                      className="h-7 text-xs"
+                    >
+                      <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                      Auditar transações órfãs
+                    </Button>
+                  )}
+                  {archivedCount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {archivedCount} arquivada(s)
+                    </span>
+                  )}
+                </div>
+                {archivedCount > 0 && (
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <span>Mostrar arquivadas</span>
+                    <Switch checked={showArchived} onCheckedChange={setShowArchived} />
+                  </label>
                 )}
               </div>
-            )}
-          </ScrollArea>
+
+              <ScrollArea className="flex-1 -mx-6 px-6">
+                {isLoading ? (
+                  <div className="space-y-2 py-4">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-20 bg-muted/40 animate-pulse rounded-lg" />
+                    ))}
+                  </div>
+                ) : official.length === 0 && scenarios.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    Ainda não há versões registadas.
+                  </div>
+                ) : (
+                  <div className="space-y-6 pb-2">
+                    <Section
+                      title="Versões oficiais"
+                      icon={<GitBranch className="h-4 w-4" />}
+                      versions={official}
+                      isSplit={isSplit}
+                      canManage={canManage}
+                      pinnedCount={pinnedCount}
+                      onArchive={(id) => archive.mutate(id)}
+                      onUnarchive={(id) => unarchive.mutate(id)}
+                      onDiscard={(v) => setConfirmDiscard(v)}
+                      onRevert={(v) => setConfirmRevert(v)}
+                      onPromote={(v) => setConfirmPromote(v)}
+                      onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
+                    />
+                    {scenarios.length > 0 && (
+                      <Section
+                        title="Cenários de trabalho"
+                        icon={<Sparkles className="h-4 w-4" />}
+                        versions={scenarios}
+                        isSplit={isSplit}
+                        canManage={canManage}
+                        pinnedCount={pinnedCount}
+                        onArchive={(id) => archive.mutate(id)}
+                        onUnarchive={(id) => unarchive.mutate(id)}
+                        onDiscard={(v) => setConfirmDiscard(v)}
+                        onRevert={(v) => setConfirmRevert(v)}
+                        onPromote={(v) => setConfirmPromote(v)}
+                        onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
+                      />
+                    )}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="formalidade" className="flex-1 flex flex-col min-h-0 mt-3">
+              <FormalidadeAuditTab eventId={eventId} />
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

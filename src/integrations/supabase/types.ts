@@ -4055,6 +4055,13 @@ export type Database = {
           tx_status: string
         }[]
       }
+      mark_forecasts_fechado_auto: {
+        Args: { _ids: string[] }
+        Returns: {
+          id: string
+          previous_formalidade: Database["public"]["Enums"]["bp_formalidade"]
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -4126,6 +4133,10 @@ export type Database = {
           _version_id: string
         }
         Returns: string
+      }
+      set_formalidade_auto_suggested: {
+        Args: { _value: boolean }
+        Returns: undefined
       }
       suggest_formalidade: {
         Args: { _forecast_id: string }

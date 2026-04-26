@@ -39,6 +39,7 @@ import PromoteToMasterModal, { type PromoteCandidate } from "@/components/Promot
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
+import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -3085,6 +3086,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <Pencil className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
+              {!readOnly && <FormalidadeHistoryPopover forecastId={item.id} />}
               {isApproved && !readOnly && (
                 <button
                   onClick={() => setShowAuditLog(!showAuditLog)}
