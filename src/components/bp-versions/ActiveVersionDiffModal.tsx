@@ -32,7 +32,12 @@ import {
   type DiffEntry,
   type SnapshotRow,
 } from "@/hooks/useActiveVersionDiff";
-import { formatInCurrency } from "@/lib/currency";
+import { formatInCurrency, isSupportedCurrency, type CurrencyCode } from "@/lib/currency";
+
+function fmt(amount: number, ccy: string | null | undefined) {
+  const code: CurrencyCode = isSupportedCurrency(ccy) ? ccy : "EUR";
+  return formatInCurrency(amount, code);
+}
 import { cn } from "@/lib/utils";
 
 interface Props {
