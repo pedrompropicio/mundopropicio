@@ -622,6 +622,24 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
               </TooltipContent>
             </Tooltip>
           )}
+          {detail.isRetroactiveOverride && (
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 border-destructive text-destructive">
+                  Fora do BP retroativo
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                A verba desta categoria foi reduzida numa nova versão do BP e há
+                transação(ões) que deixaram de caber.
+                {detail.historicOverrides && detail.historicOverrides.length > 0 && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">
+                    {detail.historicOverrides.length} ocorrência(s) registada(s).
+                  </div>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">—</TableCell>
