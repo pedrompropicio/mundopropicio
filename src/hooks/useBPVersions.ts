@@ -180,6 +180,57 @@ export function useBPLinkedTxCount(eventId: string | undefined | null) {
   });
 }
 
+/** Promote a scenario draft to a new active version (cascades to splits). */
+export function usePromoteScenario(eventId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ versionId, description }: { versionId: string; description?: string | null }) => {
+      const { data, error } = await supabase.rpc("promote_scenario_to_active" as any, {
+        _scenario_version_id: versionId,
+        _description: description ?? null,
+        _performed_by: user?.id ?? null,
+        _performed_by_label: getAuditUser(user),
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      qc.invalidateQueries({ queryKey: ["event-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["forecasts"] });
+      toast.success("Cenário promovido — agora é a versão ativa");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao promover cenário"),
+  });
+}
+
+/** Toggle the `is_pinned_scenario` flag on a scenario (server enforces max 4 per event). */
+export function useToggleScenarioPin(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ versionId, pinned }: { versionId: string; pinned: boolean }) => {
+      const { error } = await supabase
+        .from("bp_versions" as any)
+        .update({ is_pinned_scenario: pinned } as any)
+        .eq("id", versionId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      toast.success(vars.pinned ? "Cenário fixado" : "Cenário desafixado");
+    },
+    onError: (err: any) => {
+      const msg = err?.message ?? "";
+      if (msg.includes("Máximo de 4")) {
+        toast.error("Máximo de 4 cenários fixados por evento atingido");
+      } else {
+        toast.error(msg || "Falha ao alterar fixação");
+      }
+    },
+  });
+}
+
 /** Permanently discard a draft version (cascades to split drafts). */
 export function useDiscardBPVersionDraft(eventId: string) {
   const qc = useQueryClient();
