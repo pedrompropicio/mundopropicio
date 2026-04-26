@@ -451,6 +451,7 @@ export function usePromoteScenarioDraft(eventId: string) {
       qc.invalidateQueries({ queryKey: versionsKey(eventId) });
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast.success("Cenário promovido — agora é a versão Ativa");
     },
     onError: (err: any) => toast.error(err?.message ?? "Falha ao promover cenário"),
