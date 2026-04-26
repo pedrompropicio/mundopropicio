@@ -33,30 +33,30 @@ export function ScenarioModeBanner({ eventId }: Props) {
   return (
     <div className="sticky top-0 z-30 -mx-4 mb-2 px-4 sm:mx-0 sm:px-0">
       <div
-        className="rounded-xl border-2 border-amber-500/60 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-amber-500/5 px-4 py-3 shadow-lg shadow-amber-500/10 backdrop-blur-sm"
+        className="rounded-xl border-2 border-warning/60 bg-gradient-to-r from-warning/15 via-warning/10 to-warning/5 px-4 py-3 shadow-lg shadow-warning/10 backdrop-blur-sm"
         role="status"
         aria-live="polite"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="rounded-full bg-amber-500/20 p-2 shrink-0 ring-2 ring-amber-500/30">
-              <FlaskConical className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <div className="rounded-full bg-warning/20 p-2 shrink-0 ring-2 ring-warning/30">
+              <FlaskConical className="h-4 w-4 text-warning" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-warning">
                   Modo Sandbox
                 </span>
                 <span className="text-[10px] text-muted-foreground">·</span>
-                <span className="inline-flex items-center gap-1 text-sm font-bold text-amber-900 dark:text-amber-100">
-                  <Sparkles className="h-3 w-3" />
+                <span className="inline-flex items-center gap-1 text-sm font-bold text-foreground">
+                  <Sparkles className="h-3 w-3 text-warning" />
                   {label}
                 </span>
               </div>
-              <p className="text-xs text-amber-800/80 dark:text-amber-200/80 mt-0.5">
-                Estás a editar um <strong>cenário</strong> — as alterações <strong>não afetam a Versão Ativa</strong> em produção.
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Estás a editar um <strong className="text-foreground">cenário</strong> — as alterações <strong className="text-foreground">não afetam a Versão Ativa</strong> em produção.
                 {assumptions && (assumptions.publico_estimado || assumptions.ticket_medio || assumptions.ocupacao_pct) ? (
-                  <span className="ml-1 text-muted-foreground">
+                  <span className="ml-1">
                     {assumptions.publico_estimado ? ` Público: ${assumptions.publico_estimado.toLocaleString("pt-PT")}` : ""}
                     {assumptions.ticket_medio ? ` · Ticket: €${assumptions.ticket_medio.toFixed(2)}` : ""}
                     {assumptions.ocupacao_pct ? ` · Ocupação: ${assumptions.ocupacao_pct}%` : ""}
@@ -70,7 +70,7 @@ export function ScenarioModeBanner({ eventId }: Props) {
             size="sm"
             variant="outline"
             onClick={() => setSelectedVersionId(null)}
-            className="shrink-0 border-amber-500/50 bg-background/60 hover:bg-amber-500/10 hover:border-amber-500"
+            className="shrink-0 border-warning/50 hover:bg-warning/10 hover:border-warning"
           >
             <X className="h-3.5 w-3.5 mr-1" />
             Voltar à Versão Ativa
