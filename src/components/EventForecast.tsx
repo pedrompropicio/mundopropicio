@@ -1699,6 +1699,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       {!expenseOnly && (
         <BPVersionCard
           eventId={eventId}
+          eventName={eventName}
           isMaster={isMasterEvent}
           isSplit={isSplitEvent}
           canManage={canManageVersions}
