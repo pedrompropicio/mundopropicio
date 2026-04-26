@@ -264,3 +264,99 @@ export function useDiscardBPVersionDraft(eventId: string) {
     onError: (err: any) => toast.error(err?.message ?? "Falha ao descartar"),
   });
 }
+
+// ─── Orphan transactions audit ──────────────────────────────────────────────
+
+export type OrphanMatchReason =
+  | "strong_match"
+  | "category_match"
+  | "weak_match"
+  | "no_match"
+  | "no_candidate";
+
+export interface OrphanTransactionRow {
+  transaction_id: string;
+  tx_description: string | null;
+  tx_amount: number;
+  tx_date: string;
+  tx_category_id: string | null;
+  tx_category_name: string | null;
+  tx_status: string | null;
+  best_forecast_id: string | null;
+  best_forecast_description: string | null;
+  best_forecast_amount: number | null;
+  match_score: number;
+  match_reason: OrphanMatchReason;
+}
+
+const orphansKey = (eventId: string) => ["bp-orphan-transactions", eventId];
+
+/** Lists transactions in the event with no link to any active forecast. */
+export function useOrphanTransactions(eventId: string | undefined | null) {
+  return useQuery({
+    queryKey: orphansKey(eventId ?? ""),
+    enabled: Boolean(eventId),
+    queryFn: async (): Promise<OrphanTransactionRow[]> => {
+      const { data, error } = await supabase.rpc(
+        "list_orphan_transactions_for_event" as any,
+        { _event_id: eventId }
+      );
+      if (error) throw error;
+      return (data ?? []) as OrphanTransactionRow[];
+    },
+  });
+}
+
+export interface RelinkPair {
+  transaction_id: string;
+  forecast_id: string;
+}
+
+export interface RelinkResult {
+  relinked_count: number;
+  skipped_count: number;
+  details: Array<{ transaction_id?: string; forecast_id?: string; reason: string }>;
+}
+
+/** Apply auto-relink for selected pairs. */
+export function useRelinkOrphanTransactions(eventId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (pairs: RelinkPair[]): Promise<RelinkResult> => {
+      const { data, error } = await supabase.rpc(
+        "relink_orphan_transactions" as any,
+        {
+          _event_id: eventId,
+          _pairs: pairs as any,
+          _performed_by: user?.id ?? null,
+          _performed_by_label: getAuditUser(user),
+        }
+      );
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        relinked_count: row?.relinked_count ?? 0,
+        skipped_count: row?.skipped_count ?? 0,
+        details: row?.details ?? [],
+      } as RelinkResult;
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: orphansKey(eventId) });
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      qc.invalidateQueries({ queryKey: ["event-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["forecasts"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      if (res.relinked_count > 0) {
+        toast.success(
+          `${res.relinked_count} transação(ões) revinculada(s)${
+            res.skipped_count > 0 ? ` · ${res.skipped_count} ignorada(s)` : ""
+          }`
+        );
+      } else {
+        toast.message("Nenhuma transação foi revinculada");
+      }
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao revincular"),
+  });
+}

@@ -13,8 +13,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Archive, ArchiveRestore, Trash2, GitBranch, Layers, Sparkles,
   CheckCircle2, FileText, History as HistoryIcon, Clock, RotateCcw, AlertTriangle,
-  Pin, PinOff, Rocket,
+  Pin, PinOff, Rocket, Link2,
 } from "lucide-react";
+import { OrphanTransactionsReviewModal } from "./OrphanTransactionsReviewModal";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import {
@@ -56,6 +57,7 @@ export function BPVersionsHistoryModal({
   const [confirmRevert, setConfirmRevert] = useState<BPVersionRow | null>(null);
   const [confirmPromote, setConfirmPromote] = useState<BPVersionRow | null>(null);
   const [forcePromote, setForcePromote] = useState(false);
+  const [orphansOpen, setOrphansOpen] = useState(false);
   const archive = useArchiveBPVersion(eventId);
   const unarchive = useUnarchiveBPVersion(eventId);
   const discard = useDiscardBPVersionDraft(eventId);
@@ -97,17 +99,32 @@ export function BPVersionsHistoryModal({
             </DialogDescription>
           </DialogHeader>
 
-          {archivedCount > 0 && (
-            <div className="flex items-center justify-between gap-2 px-1">
-              <span className="text-xs text-muted-foreground">
-                {archivedCount} versão(ões) arquivada(s)
-              </span>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-2">
+              {canManage && !isSplit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOrphansOpen(true)}
+                  className="h-7 text-xs"
+                >
+                  <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                  Auditar transações órfãs
+                </Button>
+              )}
+              {archivedCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {archivedCount} arquivada(s)
+                </span>
+              )}
+            </div>
+            {archivedCount > 0 && (
               <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <span>Mostrar arquivadas</span>
                 <Switch checked={showArchived} onCheckedChange={setShowArchived} />
               </label>
-            </div>
-          )}
+            )}
+          </div>
 
           <ScrollArea className="flex-1 -mx-6 px-6">
             {isLoading ? (
@@ -194,7 +211,10 @@ export function BPVersionsHistoryModal({
           revert.mutate(
             { versionId: confirmRevert.id, force },
             {
-              onSuccess: () => setConfirmRevert(null),
+              onSuccess: () => {
+                setConfirmRevert(null);
+                setOrphansOpen(true);
+              },
               onError: (err: any) => {
                 console.error("revert failed:", err);
               },
@@ -272,6 +292,7 @@ export function BPVersionsHistoryModal({
                     onSuccess: () => {
                       setConfirmPromote(null);
                       setForcePromote(false);
+                      setOrphansOpen(true);
                     },
                     onError: (err: any) => {
                       // Surface inline; toast handled by hook caller fallback
@@ -287,6 +308,11 @@ export function BPVersionsHistoryModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <OrphanTransactionsReviewModal
+        open={orphansOpen}
+        onOpenChange={setOrphansOpen}
+        eventId={eventId}
+      />
     </>
   );
 }
