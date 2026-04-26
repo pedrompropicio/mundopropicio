@@ -1501,12 +1501,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         if (txLinkFilter === "without_tx" && hasTx) return false;
       }
 
+      // Formalidade — coerente com matchesFormalidadeFilter aplicado às linhas normais.
+      if (formalidadeFilter !== "all") {
+        const formal = forecast?.formalidade ?? "estimado";
+        if (formal !== formalidadeFilter) return false;
+      }
+
       if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, adoptedForecasts, eventId, hasTxForForecast]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
