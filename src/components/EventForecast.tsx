@@ -1466,8 +1466,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return true;
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
+  // Filtra por estado de formalidade. Se a linha não tiver valor (legado/snapshot),
+  // assume "estimado" — coerente com o default do schema.
+  const matchesFormalidadeFilter = (f: any) => {
+    if (formalidadeFilter === "all") return true;
+    const formal = f?.formalidade ?? "estimado";
+    return formal === formalidadeFilter;
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
