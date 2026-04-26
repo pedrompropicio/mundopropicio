@@ -35,14 +35,17 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
   const [form, setForm] = useState<SessionForm>(emptyForm);
 
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ["event_sessions", eventId],
+    queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_sessions" as any)
         .select("*")
         .eq("event_id", eventId)
         .order("date", { ascending: true })
         .order("sort_order", { ascending: true });
+      if (selectedVersionId) q = q.eq("version_id", selectedVersionId);
+      else q = q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data as any[];
     },
@@ -50,7 +53,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
 
   const saveMutation = useMutation({
     mutationFn: async ({ form: f, id }: { form: SessionForm; id: string | null }) => {
-      const payload = {
+      const payload: any = {
         event_id: eventId,
         date: f.date || eventDate,
         label: f.label || "Sessão",
