@@ -32,7 +32,7 @@ import {
   type DiffEntry,
   type SnapshotRow,
 } from "@/hooks/useActiveVersionDiff";
-import { formatCurrency } from "@/lib/currency";
+import { formatInCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -293,7 +293,7 @@ function DiffRow({ entry, canManage, onRevert, isReverting }: DiffRowProps) {
               <p className="text-[11px] text-muted-foreground">
                 Campos alterados: <span className="font-medium">{entry.changedFields.join(", ")}</span>
               </p>
-              <ChangeRow label="Valor base" before={formatCurrency(entry.before.amount, entry.before.currency)} after={formatCurrency(entry.after.amount, entry.after.currency)} highlight={entry.before.amount !== entry.after.amount} />
+              <ChangeRow label="Valor base" before={formatInCurrency(entry.before.amount, entry.before.currency)} after={formatInCurrency(entry.after.amount, entry.after.currency)} highlight={entry.before.amount !== entry.after.amount} />
               {entry.before.iva_rate !== entry.after.iva_rate && (
                 <ChangeRow label="IVA" before={`${entry.before.iva_rate}%`} after={`${entry.after.iva_rate}%`} highlight />
               )}
@@ -311,13 +311,13 @@ function DiffRow({ entry, canManage, onRevert, isReverting }: DiffRowProps) {
 
           {entry.status === "added" && entry.after && (
             <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Nova linha · {formatCurrency(entry.after.amount, entry.after.currency)} · IVA {entry.after.iva_rate}%
+              Nova linha · {formatInCurrency(entry.after.amount, entry.after.currency)} · IVA {entry.after.iva_rate}%
             </p>
           )}
 
           {entry.status === "removed" && entry.before && (
             <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Eliminada · era {formatCurrency(entry.before.amount, entry.before.currency)} · IVA {entry.before.iva_rate}%
+              Eliminada · era {formatInCurrency(entry.before.amount, entry.before.currency)} · IVA {entry.before.iva_rate}%
             </p>
           )}
         </div>
