@@ -196,7 +196,10 @@ export function BPVersionsHistoryModal({
           revert.mutate(
             { versionId: confirmRevert.id, force },
             {
-              onSuccess: () => setConfirmRevert(null),
+              onSuccess: () => {
+                setConfirmRevert(null);
+                setOrphansOpen(true);
+              },
               onError: (err: any) => {
                 console.error("revert failed:", err);
               },
