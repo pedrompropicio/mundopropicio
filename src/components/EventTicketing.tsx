@@ -618,8 +618,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               onClick={async () => {
                 setExportingPDF(true);
                 try {
-                  await exportEventTicketingToPDF({ eventId, includeChildren: true });
-                  sonnerToast.success("PDF da Bilheteria gerado");
+                  await exportEventTicketingToPDF({
+                    eventId,
+                    includeChildren: true,
+                    versionId: selectedVersionId,
+                    scenarioLabel: scenarioLabelForExport,
+                  });
+                  sonnerToast.success(
+                    selectedVersionId ? "PDF do cenário gerado" : "PDF da Bilheteria gerado",
+                  );
                 } catch (err: any) {
                   sonnerToast.error("Erro ao gerar PDF", { description: err?.message ?? String(err) });
                 } finally {
