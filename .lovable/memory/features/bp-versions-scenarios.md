@@ -12,8 +12,10 @@ Cenários são versões em estado `draft` com `bp_versions.scenario_label` preen
 
 ## RPCs
 - `create_bp_snapshot(..., _scenario_label, _scenario_assumptions, _is_pinned_scenario)` — cria cenário em draft com cascade para Splits (em Master).
-- `promote_scenario_to_active(_scenario_version_id, _description, _force)` — promove cenário a versão ativa, faz cascade para Splits (procura split com `cascaded_from_version_id = _scenario_version_id`), reescreve `event_forecasts` e reconcilia bypasses. Bloqueia se houver TX vinculadas (override com `_force`).
+- `promote_scenario_to_active(_scenario_version_id, _description, _performed_by, _performed_by_label, _force, _other_scenarios_actions)` — promove cenário a versão ativa, faz cascade para Splits (procura split com `cascaded_from_version_id = _scenario_version_id`), reescreve `event_forecasts` e reconcilia bypasses. Bloqueia se houver TX vinculadas (override com `_force`). `_other_scenarios_actions` é um jsonb array `[{ version_id, action: 'keep' | 'archive' | 'discard' }]` que decide o destino dos outros cenários vivos do mesmo evento.
 - `list_bp_versions(_event_id)` — devolve agora também `scenario_assumptions` (jsonb) para renderização de chips.
+
+⚠️ Cuidado com sobrecargas: garante que só existe a assinatura de 6 args. Se aparecer ambiguidade PGRST203, faz `DROP FUNCTION promote_scenario_to_active(uuid, text, uuid, text);` (assinatura antiga).
 
 ## UI
 - `FreezeBPVersionModal` — radio com 3 modos: **Rascunho**, **Aprovar imediatamente**, **Cenário** (com inputs estruturados + toggle de fixação).
