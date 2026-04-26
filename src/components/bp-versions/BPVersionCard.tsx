@@ -28,6 +28,9 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
   const [historyOpen, setHistoryOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [newScenarioOpen, setNewScenarioOpen] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
+  const { data: diff } = useActiveVersionDiff(eventId);
+  const pendingChanges = diff?.totalChanges ?? 0;
 
   const scenarios = useMemo(
     () => (versions ?? []).filter((v) => v.scenario_label && v.state === "draft"),
