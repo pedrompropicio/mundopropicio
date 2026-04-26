@@ -6,6 +6,7 @@ import { Snowflake, GitBranch, History, Layers, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
+import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 
 interface Props {
   eventId: string;
