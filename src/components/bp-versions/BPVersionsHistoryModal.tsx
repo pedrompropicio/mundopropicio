@@ -165,6 +165,27 @@ export function BPVersionsHistoryModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RevertConfirmDialog
+        version={confirmRevert}
+        linkedTxCount={linkedTxCount}
+        isPending={revert.isPending}
+        onClose={() => setConfirmRevert(null)}
+        onConfirm={(force) => {
+          if (!confirmRevert) return;
+          revert.mutate(
+            { versionId: confirmRevert.id, force },
+            {
+              onSuccess: () => setConfirmRevert(null),
+              onError: (err: any) => {
+                // Keep dialog open so user can re-check the "force" toggle
+                // and inspect the explanation.
+                console.error("revert failed:", err);
+              },
+            }
+          );
+        }}
+      />
     </>
   );
 }
