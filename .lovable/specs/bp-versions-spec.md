@@ -1,7 +1,7 @@
 # Spec: Sistema de Versões do Business Plan (BP)
 
 > Documento consolidado das decisões tomadas. A implementação seguirá esta spec.
-> Última atualização: 2026-04-26 (revisão 2 — fechadas 11 zonas de fronteira)
+> Última atualização: 2026-04-26 (revisão 3 — adicionado modelo de cenários múltiplos §26-28)
 
 ---
 
