@@ -854,10 +854,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .eq("id", eventId)
         .in("status", ["planning", "confirmed"]);
     },
-    onSuccess: () => {
+    onSuccess: (_, forecast) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
       toast({ title: "Previsão aprovada!" });
+      // Aprovar BP cascateia para TX → sugerir Fechado se aplicável.
+      const promotable = pickFormalidadePromotableIds([forecast]);
+      if (promotable.length > 0) {
+        setPendingFechado({ ids: promotable, trigger: "após aprovar a linha do BP" });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
@@ -890,6 +895,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
       setSelectedIds(new Set());
       toast({ title: `${items.length} previsão(ões) aprovada(s) e transações criadas!` });
+      const promotable = pickFormalidadePromotableIds(items);
+      if (promotable.length > 0) {
+        setPendingFechado({ ids: promotable, trigger: "após aprovar em lote" });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
