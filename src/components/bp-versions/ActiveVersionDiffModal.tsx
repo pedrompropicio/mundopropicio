@@ -90,7 +90,7 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
       }
     },
     onSuccess: (_, entry) => {
-      queryClient.invalidateQueries({ queryKey: ["active-version-diff", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId, "active-version-diff"] });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       toast({
         title: "Linha revertida",
@@ -127,7 +127,7 @@ export function ActiveVersionDiffModal({ open, onOpenChange, eventId, canManage 
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["active-version-diff", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId, "active-version-diff"] });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       toast({
         title: "Alterações revertidas",
