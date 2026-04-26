@@ -193,7 +193,7 @@ export function BPVersionsHistoryModal({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Section({
-  title, icon, versions, isSplit, canManage, onArchive, onUnarchive, onDiscard,
+  title, icon, versions, isSplit, canManage, onArchive, onUnarchive, onDiscard, onRevert,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -203,6 +203,7 @@ function Section({
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDiscard: (v: BPVersionRow) => void;
+  onRevert: (v: BPVersionRow) => void;
 }) {
   if (versions.length === 0) return null;
   return (
@@ -221,6 +222,7 @@ function Section({
             onArchive={onArchive}
             onUnarchive={onUnarchive}
             onDiscard={onDiscard}
+            onRevert={onRevert}
           />
         ))}
       </div>
@@ -229,7 +231,7 @@ function Section({
 }
 
 function VersionRow({
-  version, isSplit, canManage, onArchive, onUnarchive, onDiscard,
+  version, isSplit, canManage, onArchive, onUnarchive, onDiscard, onRevert,
 }: {
   version: BPVersionRow;
   isSplit: boolean;
@@ -237,6 +239,7 @@ function VersionRow({
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDiscard: (v: BPVersionRow) => void;
+  onRevert: (v: BPVersionRow) => void;
 }) {
   const meta = STATE_META[version.state] ?? STATE_META.draft;
   const dt = version.approved_at ?? version.created_at;
@@ -245,6 +248,9 @@ function VersionRow({
   const isActive = version.state === "active";
   const isDraft = version.state === "draft";
   const isCascaded = !!version.cascaded_from_version_id;
+  const isScenario = !!version.scenario_label;
+  // Revert is allowed on superseded official versions only.
+  const canRevert = !isActive && !isDraft && !isArchived && !isScenario;
 
   return (
     <div
@@ -306,6 +312,17 @@ function VersionRow({
 
       {canManage && !isSplit && (
         <div className="flex items-center gap-1 shrink-0">
+          {canRevert && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRevert(version)}
+              title="Reverter para esta versão"
+              className="text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          )}
           {isArchived ? (
             <Button
               variant="ghost"
@@ -343,5 +360,81 @@ function VersionRow({
         </div>
       )}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RevertConfirmDialog({
+  version, linkedTxCount, isPending, onClose, onConfirm,
+}: {
+  version: BPVersionRow | null;
+  linkedTxCount: number;
+  isPending: boolean;
+  onClose: () => void;
+  onConfirm: (force: boolean) => void;
+}) {
+  const [force, setForce] = useState(false);
+  const blocked = linkedTxCount > 0 && !force;
+
+  return (
+    <AlertDialog open={!!version} onOpenChange={(o) => { if (!o) { onClose(); setForce(false); } }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            Reverter para v{version?.version_number}?
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>
+                Esta ação <strong>substitui o BP atual</strong> pelas linhas guardadas na versão
+                v{version?.version_number}. A versão atual passa a "Substituída" e uma nova versão
+                ativa retroativa será criada. Em Masters, a reversão propaga-se aos Splits.
+              </p>
+              {linkedTxCount > 0 && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div className="space-y-1.5">
+                      <p className="font-semibold">
+                        Existem {linkedTxCount} linha(s) do BP atual com transações vinculadas.
+                      </p>
+                      <p className="text-xs opacity-90">
+                        Reverter quebra essas vinculações: as transações ficam órfãs (sem linha de BP).
+                        Recomenda-se desvincular ou eliminar essas transações antes de reverter.
+                      </p>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer pt-1">
+                        <input
+                          type="checkbox"
+                          checked={force}
+                          onChange={(e) => setForce(e.target.checked)}
+                          className="accent-destructive"
+                        />
+                        <span>Compreendo e quero reverter mesmo assim</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={blocked || isPending}
+            className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm(force);
+            }}
+          >
+            <RotateCcw className="h-4 w-4 mr-1.5" />
+            {isPending ? "A reverter…" : "Reverter"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
