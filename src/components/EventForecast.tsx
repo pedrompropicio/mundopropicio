@@ -1696,15 +1696,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
   return (
     <div className="space-y-6">
-      {!expenseOnly && (
-        <BPVersionCard
-          eventId={eventId}
-          eventName={eventName}
-          isMaster={isMasterEvent}
-          isSplit={isSplitEvent}
-          canManage={canManageVersions}
-        />
-      )}
+      <BPVersionCard
+        eventId={eventId}
+        eventName={eventName}
+        isMaster={isMasterEvent}
+        isSplit={isSplitEvent}
+        canManage={canManageVersions}
+      />
       {expenseOnly && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
           <TrendingDown className="h-5 w-5 text-primary shrink-0" />
