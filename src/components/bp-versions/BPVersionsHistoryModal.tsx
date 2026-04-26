@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { OrphanTransactionsReviewModal } from "./OrphanTransactionsReviewModal";
 import { PromoteScenarioDialog } from "./PromoteScenarioDialog";
+import { FormalidadeAuditTab } from "./FormalidadeAuditTab";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import {
