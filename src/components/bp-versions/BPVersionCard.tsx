@@ -106,6 +106,31 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
 
   return (
     <div className="space-y-2">
+    {pendingChanges > 0 && (
+      <div className="glass rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-warning/40 bg-warning/5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">
+              {pendingChanges} alteração{pendingChanges > 1 ? "ões" : ""} pendente{pendingChanges > 1 ? "s" : ""} desde v{diff?.versionNumber}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Edições feitas após o último congelamento. Considera congelar uma nova versão.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setDiffOpen(true)}>
+            <GitCompare className="h-4 w-4 mr-1.5" />
+            Ver alterações
+          </Button>
+          <HelpTooltip
+            size={13}
+            text="Mostra linha-a-linha o que mudou desde o último congelamento. Permite reverter alterações individuais ao estado da versão ativa."
+          />
+        </div>
+      </div>
+    )}
     <div className="glass rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-primary/20">
       <div className="flex items-center gap-3 min-w-0">
         <div className="rounded-full bg-primary/10 p-2 shrink-0">
