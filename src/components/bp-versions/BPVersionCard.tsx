@@ -49,12 +49,20 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
             </p>
           </div>
         </div>
-        {canManage && !isSplit && (
-          <Button size="sm" onClick={() => setFreezeOpen(true)}>
-            <Snowflake className="h-4 w-4 mr-1.5" />
-            Congelar v1
-          </Button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {versions.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+              <History className="h-4 w-4 mr-1.5" />
+              Histórico ({versions.length})
+            </Button>
+          )}
+          {canManage && !isSplit && (
+            <Button size="sm" onClick={() => setFreezeOpen(true)}>
+              <Snowflake className="h-4 w-4 mr-1.5" />
+              Congelar v1
+            </Button>
+          )}
+        </div>
         {!isSplit && (
           <FreezeBPVersionModal
             open={freezeOpen}
@@ -63,6 +71,13 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
             isMaster={isMaster}
           />
         )}
+        <BPVersionsHistoryModal
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          eventId={eventId}
+          isSplit={isSplit}
+          canManage={canManage}
+        />
       </div>
     );
   }
