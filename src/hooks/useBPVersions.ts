@@ -85,6 +85,8 @@ export function useFreezeBPVersion() {
     },
     onSuccess: (_id, vars) => {
       qc.invalidateQueries({ queryKey: versionsKey(vars.eventId) });
+      // Invalidate diff so banner "alterações pendentes" reflects new snapshot
+      qc.invalidateQueries({ queryKey: ["event_forecasts", vars.eventId, "active-version-diff"] });
       toast.success(
         vars.scenarioLabel
           ? `Cenário "${vars.scenarioLabel}" criado`
@@ -160,6 +162,7 @@ export function useRevertBPVersion(eventId: string) {
       qc.invalidateQueries({ queryKey: versionsKey(eventId) });
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast.success("BP revertido para a versão selecionada");
     },
     // No onError toast — handled inline so callers can detect "blocked" errors
@@ -220,6 +223,7 @@ export function usePromoteScenario(eventId: string) {
       qc.invalidateQueries({ queryKey: versionsKey(eventId) });
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast.success("Cenário promovido — agora é a versão ativa");
     },
     onError: (err: any) => {
@@ -447,6 +451,7 @@ export function usePromoteScenarioDraft(eventId: string) {
       qc.invalidateQueries({ queryKey: versionsKey(eventId) });
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast.success("Cenário promovido — agora é a versão Ativa");
     },
     onError: (err: any) => toast.error(err?.message ?? "Falha ao promover cenário"),
