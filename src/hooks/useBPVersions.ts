@@ -210,7 +210,11 @@ export function usePromoteScenario(eventId: string) {
       qc.invalidateQueries({ queryKey: ["forecasts"] });
       toast.success("Cenário promovido — agora é a versão ativa");
     },
-    // No onError toast — handled inline so callers can detect "blocked" errors
+    onError: (err: any) => {
+      const msg = err?.message ?? "Falha ao promover cenário";
+      // Blocks are explicit (P0001) — caller may also display inline; still toast it
+      toast.error(msg);
+    },
   });
 }
 
