@@ -24,6 +24,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
   const [freezeOpen, setFreezeOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [newScenarioOpen, setNewScenarioOpen] = useState(false);
 
   const scenarios = useMemo(
     () => (versions ?? []).filter((v) => v.scenario_label && v.state === "draft"),
