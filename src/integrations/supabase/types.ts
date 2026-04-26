@@ -3926,15 +3926,26 @@ export type Database = {
         }
         Returns: number
       }
-      promote_scenario_to_active: {
-        Args: {
-          _description?: string
-          _performed_by?: string
-          _performed_by_label?: string
-          _scenario_version_id: string
-        }
-        Returns: string
-      }
+      promote_scenario_to_active:
+        | {
+            Args: {
+              _description?: string
+              _performed_by?: string
+              _performed_by_label?: string
+              _scenario_version_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _description?: string
+              _force?: boolean
+              _performed_by?: string
+              _performed_by_label?: string
+              _scenario_version_id: string
+            }
+            Returns: string
+          }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
