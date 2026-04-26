@@ -91,7 +91,14 @@ export default function FormalidadeAudit() {
     [selectedEventIds],
   );
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    error: analysisError,
+    isError,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["formalidade-audit-bulk", eventIdsParam?.join(",") ?? "ALL"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("analyze_formalidade_bulk", {
@@ -305,11 +312,19 @@ export default function FormalidadeAudit() {
             catch-up inicial pós-deploy, deixe o filtro em "Todos os eventos".
           </AlertDescription>
         </Alert>
-      ) : isLoading ? (
+      ) : isLoading || isRefetching ? (
         <div className="space-y-3">
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
+      ) : isError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Não foi possível executar a análise</AlertTitle>
+          <AlertDescription>
+            {(analysisError as Error)?.message ?? "Erro desconhecido ao consultar a auditoria."}
+          </AlertDescription>
+        </Alert>
       ) : (
         <>
           {lastApplied !== null && (
@@ -361,10 +376,9 @@ export default function FormalidadeAudit() {
           {high.length === 0 && low.length === 0 ? (
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
-              <AlertTitle>Tudo em ordem</AlertTitle>
+              <AlertTitle>Análise concluída sem sugestões pendentes</AlertTitle>
               <AlertDescription>
-                Nenhuma sugestão pendente nos eventos analisados — todas as formalidades estão
-                alinhadas com o estado real das transações.
+                Nada foi alterado automaticamente. A auditoria apenas procura diferenças entre a formalidade atual e o estado inferido pelas transações vinculadas ou por match evento+categoria. Para o filtro atual, não há linhas para aplicar.
               </AlertDescription>
             </Alert>
           ) : (
