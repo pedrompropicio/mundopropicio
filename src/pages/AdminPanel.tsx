@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck } from "lucide-react";
+import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck, Sparkles } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -46,6 +46,12 @@ const adminCards = [
     icon: ClipboardCheck,
     title: "Auditoria Contas",
     description: "Análise IA de classificações no BP/Transações e gestão da numeração do Plano de Contas",
+  },
+  {
+    to: "/admin/formalidade",
+    icon: Sparkles,
+    title: "Auditoria Formalidade",
+    description: "Analisa todos os BPs ativos e sugere o estado de formalidade com base nas transações reais",
   },
 ];
 
