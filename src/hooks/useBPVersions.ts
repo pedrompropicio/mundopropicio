@@ -140,6 +140,46 @@ export function useUnarchiveBPVersion(eventId: string) {
   });
 }
 
+/** Revert event BP to a previous version (cascades Master→Splits). */
+export function useRevertBPVersion(eventId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ versionId, force }: { versionId: string; force?: boolean }) => {
+      const { data, error } = await supabase.rpc("revert_to_bp_version" as any, {
+        _version_id: versionId,
+        _force: force ?? false,
+        _performed_by: user?.id ?? null,
+        _performed_by_label: getAuditUser(user),
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      qc.invalidateQueries({ queryKey: ["event-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["forecasts"] });
+      toast.success("BP revertido para a versão selecionada");
+    },
+    // No onError toast — handled inline so callers can detect "blocked" errors
+  });
+}
+
+/** Count active forecasts in an event with linked transactions (for revert safety). */
+export function useBPLinkedTxCount(eventId: string | undefined | null) {
+  return useQuery({
+    queryKey: ["bp-linked-tx-count", eventId ?? ""],
+    enabled: Boolean(eventId),
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase.rpc("bp_version_linked_tx_count" as any, {
+        _event_id: eventId,
+      });
+      if (error) throw error;
+      return (data as number) ?? 0;
+    },
+  });
+}
+
 /** Permanently discard a draft version (cascades to split drafts). */
 export function useDiscardBPVersionDraft(eventId: string) {
   const qc = useQueryClient();
