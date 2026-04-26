@@ -17,6 +17,7 @@ import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventFecho } from "@/components/EventFecho";
 import { EventSessionsManager } from "@/components/EventSessionsManager";
 import { EventScenarioProvider } from "@/contexts/EventScenarioContext";
+import { ScenarioModeBanner } from "@/components/bp-versions/ScenarioModeBanner";
 import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
@@ -874,6 +875,7 @@ export default function EventDetail() {
 
       {/* Main tabs — wrapped in scenario provider so BP/Bilheteira/Cachê share the same selected version */}
       <EventScenarioProvider eventId={activeEventId}>
+      <ScenarioModeBanner eventId={activeEventId} />
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
