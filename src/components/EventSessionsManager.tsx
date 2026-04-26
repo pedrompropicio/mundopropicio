@@ -302,6 +302,11 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
           <Clock className="h-4 w-4" /> Sessões
           <HelpTooltip text="Sessões representam espetáculos individuais dentro de um evento. Cada sessão pode ter a sua própria bilheteira (zonas e lotes). Um evento pode ter múltiplas sessões no mesmo dia ou em dias diferentes." size={13} />
+          {isScenarioMode && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-2 py-0.5 normal-case tracking-normal">
+              <Sparkles className="h-2.5 w-2.5" /> Cenário sandbox
+            </span>
+          )}
         </h3>
         {canManage && (
           <button
