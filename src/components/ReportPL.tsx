@@ -658,8 +658,22 @@ export default function ReportPL() {
 
   const toggle = (id: string) => setExpandedEvent((prev) => (prev === id ? null : id));
 
+  // Evento âncora p/ cenário: só quando exactamente 1 evento está selecionado
+  const scenarioAnchorEventId = useMemo(() => {
+    if (selectedEventIds.length !== 1) return null;
+    const id = selectedEventIds[0];
+    const evt = (events as any[]).find((e) => e.id === id);
+    return evt?.parent_event_id ?? id;
+  }, [selectedEventIds, events]);
+
   return (
     <div className="space-y-6">
+      <ReportScenarioSelector
+        eventId={scenarioAnchorEventId}
+        isMultiEvent={selectedEventIds.length > 1}
+        value={scenarioVersionId}
+        onChange={setScenarioVersionId}
+      />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
         <div className="flex items-center gap-4">
