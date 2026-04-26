@@ -370,6 +370,8 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
           isOverhead: true,
           isViaMaster: !!f._from_master,
           splitShare: f._split_share ? Number(f._split_share) : undefined,
+          isRetroactiveOverride: !!f.is_retroactive_override,
+          historicOverrides: Array.isArray(f.historic_overrides) ? f.historic_overrides : [],
         });
       }
     });
